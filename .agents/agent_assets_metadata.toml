@@ -1,0 +1,50 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "aQWaGAvLzz0O-GA-SQqgl"
+uri = "file://artifacts/presentail/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "wP-gcT43_-EtyIYRH1Iig"
+uri = "file://artifacts/presentail/assets/images/hero-flowers.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ldJIhkzNEOyLd9xyJCwAt"
+uri = "file://artifacts/presentail/assets/images/hero-gifts.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "-lQPgoyeGGlROm1bmilRe"
+uri = "file://artifacts/presentail/assets/images/collection-vases.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "WomciUH5SjBThYsGaBpWj"
+uri = "file://artifacts/presentail/assets/images/best-roses.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "VFVuKg4qVlR-dSZyD4r5b"
+uri = "file://artifacts/presentail/assets/images/best-birthday.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "WcdvuIzO4V6zF5m6j2SUs"
+uri = "file://artifacts/presentail/assets/images/best-orchid.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "F6Nd6SwVvA6WYH1cQFxcN"
+uri = "file://artifacts/presentail/assets/images/best-mixed.png"
+type = "image"
+title = "generated_image"

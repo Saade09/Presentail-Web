@@ -1,0 +1,94 @@
+import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import type { Product } from "@/data/catalog";
+import { useColors } from "@/hooks/useColors";
+
+type Props = {
+  product: Product;
+  width: number;
+  onPress?: () => void;
+};
+
+export function ProductCard({ product, width, onPress }: Props) {
+  const colors = useColors();
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}>
+      <View
+        style={[
+          styles.imageWrap,
+          {
+            backgroundColor: colors.muted,
+            borderRadius: colors.radius,
+            height: width * 1.15,
+          },
+        ]}
+      >
+        <Image source={product.image} style={styles.image} contentFit="cover" transition={200} />
+        {product.tag ? (
+          <View style={[styles.tag, { backgroundColor: colors.primary }]}>
+            <Text style={styles.tagText}>{product.tag}</Text>
+          </View>
+        ) : null}
+        <Pressable style={styles.heart} hitSlop={8}>
+          <Feather name="heart" size={16} color={colors.primary} />
+        </Pressable>
+      </View>
+      <View style={{ paddingTop: 12, gap: 4 }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}
+        >
+          {product.name}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}>
+            {product.price}
+          </Text>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
+            FREE DELIVERY
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  imageWrap: {
+    overflow: "hidden",
+    position: "relative",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  tag: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  tagText: {
+    color: "#fff",
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  heart: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
