@@ -449,7 +449,7 @@ function OccasionsGrid() {
         {occasions.map((o) => (
           <Pressable
             key={o.id}
-            onPress={() => router.push(`/(tabs)/catalog?occasion=${o.id}` as any)}
+            onPress={() => router.push(`/occasion/${o.id}` as any)}
             style={({ pressed }) => ({
               flexBasis: "48%",
               flexGrow: 1,

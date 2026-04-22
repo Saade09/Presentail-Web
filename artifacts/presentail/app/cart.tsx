@@ -165,6 +165,7 @@ export default function CartScreen() {
               </Text>
             </View>
             <Pressable
+              onPress={() => router.push("/checkout" as any)}
               style={({ pressed }) => [
                 {
                   backgroundColor: colors.primary,
