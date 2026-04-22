@@ -2,10 +2,11 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   Dimensions,
   FlatList,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -658,8 +659,77 @@ function BrandsRow() {
   );
 }
 
+type FooterLink = { label: string; href?: string; action?: "contact" };
+
 function Footer() {
   const colors = useColors();
+  const router = useRouter();
+  const [open, setOpen] = useState<string | null>("popular");
+  const [currency, setCurrency] = useState<"USD" | "LBP">("USD");
+  const [language, setLanguage] = useState<"EN" | "AR">("EN");
+
+  const sections: { id: string; title: string; links: FooterLink[] }[] = [
+    {
+      id: "social",
+      title: "Social Media",
+      links: [
+        { label: "Facebook", href: "https://facebook.com/presentail" },
+        { label: "Instagram", href: "https://instagram.com/presentail" },
+        { label: "TikTok", href: "https://tiktok.com/@presentail" },
+        { label: "LinkedIn", href: "https://linkedin.com/company/presentail" },
+      ],
+    },
+    {
+      id: "contact",
+      title: "Get in Touch",
+      links: [
+        { label: "Contact Us", action: "contact" },
+        { label: "FAQs", href: "https://presentail.com/lebanon/faqs" },
+      ],
+    },
+    {
+      id: "popular",
+      title: "Popular Categories",
+      links: [
+        { label: "Flowers", href: "/category/hand-bouquets" },
+        { label: "Plants", href: "/category/plants" },
+        { label: "Gift Bundles", href: "/category/bundles" },
+        { label: "Cakes & Sweets", href: "/category/cakes" },
+        { label: "Baskets", href: "/category/arabic-sweets" },
+        { label: "Bears & Balloons", href: "/category/stuffed-animals" },
+        { label: "Brands", href: "/(tabs)/catalog" },
+        { label: "Occasions", href: "/(tabs)/index" },
+      ],
+    },
+    {
+      id: "know",
+      title: "Get to Know Us",
+      links: [
+        { label: "About Us", href: "https://presentail.com/lebanon/about-us" },
+        { label: "Partner With Us", href: "https://presentail.com/lebanon/partner" },
+        { label: "Delivery Rates", href: "https://presentail.com/lebanon/delivery-rates" },
+        { label: "Investor Relations", href: "https://presentail.com/lebanon/investors" },
+        { label: "Weddings & Events", href: "https://presentail.com/lebanon/weddings-events" },
+        { label: "Corporate Gifts", href: "https://presentail.com/lebanon/corporate-gifts" },
+        { label: "Careers", href: "https://presentail.com/lebanon/careers" },
+        { label: "Blogs", href: "https://presentail.com/lebanon/blog" },
+      ],
+    },
+  ];
+
+  const onLink = (l: FooterLink) => {
+    if (l.action === "contact") {
+      Linking.openURL("mailto:hello@presentail.com");
+      return;
+    }
+    if (!l.href) return;
+    if (l.href.startsWith("http")) {
+      Linking.openURL(l.href);
+    } else {
+      router.push(l.href as any);
+    }
+  };
+
   return (
     <View
       style={{
@@ -667,8 +737,8 @@ function Footer() {
         backgroundColor: colors.primary,
         paddingHorizontal: 28,
         paddingTop: 36,
-        paddingBottom: 36,
-        gap: 22,
+        paddingBottom: 28,
+        gap: 18,
       }}
     >
       <Wordmark size={28} color="#ffffff" />
@@ -684,31 +754,187 @@ function Footer() {
         Presentail is the online gift ordering and delivery platform of Lebanon.
         Send love one gift at a time, anywhere across the country.
       </Text>
-      <View style={{ flexDirection: "row", gap: 18 }}>
-        <Feather name="instagram" size={18} color="#fff" />
-        <Feather name="facebook" size={18} color="#fff" />
-        <MaterialCommunityIcons name="whatsapp" size={18} color="#fff" />
-        <Feather name="mail" size={18} color="#fff" />
-      </View>
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "rgba(255,255,255,0.15)",
-        }}
-      />
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-          © 2026 Presentail SAL
-        </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "rgba(255,255,255,0.7)" }}>
-            🇱🇧
+
+      <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", marginTop: 6 }} />
+
+      {sections.map((s) => {
+        const expanded = open === s.id;
+        return (
+          <View key={s.id} style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.10)", paddingBottom: expanded ? 14 : 0 }}>
+            <Pressable
+              onPress={() => setOpen(expanded ? null : s.id)}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14 }}
+            >
+              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: "#fff", fontSize: 16 }}>
+                {s.title}
+              </Text>
+              <Feather name={expanded ? "minus" : "plus"} size={18} color={colors.goldSoft} />
+            </Pressable>
+            {expanded ? (
+              s.id === "social" ? (
+                <View style={{ flexDirection: "row", gap: 14, paddingTop: 4 }}>
+                  {[
+                    { icon: "facebook" as const, link: s.links[0] },
+                    { icon: "instagram" as const, link: s.links[1] },
+                    { icon: "music" as const, link: s.links[2] },
+                    { icon: "linkedin" as const, link: s.links[3] },
+                  ].map(({ icon, link }) => (
+                    <Pressable
+                      key={link.label}
+                      onPress={() => onLink(link)}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: "rgba(255,255,255,0.25)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Feather name={icon} size={16} color="#fff" />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <View style={{ gap: 10, paddingTop: 4 }}>
+                  {s.links.map((l) => (
+                    <Pressable key={l.label} onPress={() => onLink(l)}>
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.78)" }}>
+                        {l.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )
+            ) : null}
+          </View>
+        );
+      })}
+
+      {/* Currency / Language / Country */}
+      <View style={{ gap: 14, marginTop: 8 }}>
+        <View>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
+            Currency
           </Text>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "rgba(255,255,255,0.7)" }}>
-            Lebanon · USD
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(["USD", "LBP"] as const).map((c) => {
+              const active = c === currency;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => setCurrency(c)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: active ? colors.gold : "rgba(255,255,255,0.25)",
+                    backgroundColor: active ? colors.gold : "transparent",
+                  }}
+                >
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
+                    {c === "USD" ? "🇺🇸  USD" : "🇱🇧  LBP"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
+            Language
           </Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(["EN", "AR"] as const).map((l) => {
+              const active = l === language;
+              return (
+                <Pressable
+                  key={l}
+                  onPress={() => setLanguage(l)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: active ? colors.gold : "rgba(255,255,255,0.25)",
+                    backgroundColor: active ? colors.gold : "transparent",
+                  }}
+                >
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
+                    {l === "EN" ? "English" : "العربية"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
+            Country
+          </Text>
+          <View
+            style={{
+              alignSelf: "flex-start",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.25)",
+            }}
+          >
+            <Text style={{ fontSize: 14 }}>🇱🇧</Text>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
+              Lebanon
+            </Text>
+          </View>
         </View>
       </View>
+
+      <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", marginTop: 8 }} />
+
+      {/* Payment methods */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {["AMEX", "G Pay", "Apple", "VISA", "MC", "Whish"].map((p) => (
+          <View
+            key={p}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 6,
+              backgroundColor: "rgba(255,255,255,0.92)",
+            }}
+          >
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.6, color: colors.primary }}>
+              {p}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 4 }}>
+        <Pressable onPress={() => Linking.openURL("https://presentail.com/lebanon/terms-of-use")}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.62)" }}>
+            Terms of Use
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => Linking.openURL("https://presentail.com/lebanon/privacy-policy")}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.62)" }}>
+            Privacy Policy
+          </Text>
+        </Pressable>
+      </View>
+
+      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 18 }}>
+        All rights reserved © 2026 Presentail SAL{"\n"}
+        3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon
+      </Text>
     </View>
   );
 }
