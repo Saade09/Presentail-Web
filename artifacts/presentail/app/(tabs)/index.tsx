@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   Dimensions,
@@ -16,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
+import { useCart } from "@/contexts/CartContext";
 import {
   bestSellers,
   brands,
@@ -32,6 +34,8 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { count } = useCart();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
@@ -61,11 +65,31 @@ export default function HomeScreen() {
         </View>
         <Wordmark size={26} />
         <View style={{ flexDirection: "row", gap: 14 }}>
-          <Pressable hitSlop={10}>
+          <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
             <Feather name="search" size={20} color={colors.primary} />
           </Pressable>
-          <Pressable hitSlop={10}>
+          <Pressable hitSlop={10} onPress={() => router.push("/cart" as any)}>
             <Feather name="shopping-bag" size={20} color={colors.primary} />
+            {count > 0 ? (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -8,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 999,
+                  backgroundColor: colors.gold,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 4,
+                }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 9 }}>
+                  {count}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </View>
       </View>
@@ -86,83 +110,89 @@ export default function HomeScreen() {
 
 function Hero() {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
-      <View
-        style={{
-          borderRadius: 28,
-          overflow: "hidden",
-          backgroundColor: colors.primary,
-          height: 460,
-        }}
+      <Pressable
+        onPress={() => router.push("/category/lux-arrangements" as any)}
+        style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
       >
-        <Image
-          source={require("@/assets/images/hero-flowers.png")}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-        />
-        <LinearGradient
-          colors={["rgba(0,65,78,0.05)", "rgba(0,65,78,0.85)"]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.heroContent}>
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 11,
-              color: colors.goldSoft,
-              letterSpacing: 3.5,
-              textTransform: "uppercase",
-            }}
-          >
-            The Modern Flower Atelier
-          </Text>
-          <Text
-            style={{
-              fontFamily: "PlayfairDisplay_400Regular",
-              fontSize: 40,
-              lineHeight: 46,
-              color: "#ffffff",
-              marginTop: 14,
-              letterSpacing: 0.2,
-            }}
-          >
-            Send a feeling,{"\n"}wrapped in petals.
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-              fontSize: 14,
-              lineHeight: 22,
-              color: "rgba(255,255,255,0.85)",
-              marginTop: 14,
-              maxWidth: 320,
-            }}
-          >
-            Hand-arranged in Beirut. Delivered the same day across Lebanon, with
-            quiet care for every occasion.
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.heroCta,
-              { backgroundColor: colors.gold, opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
+        <View
+          style={{
+            borderRadius: 28,
+            overflow: "hidden",
+            backgroundColor: colors.primary,
+            height: 460,
+          }}
+        >
+          <Image
+            source={require("@/assets/images/hero-flowers.png")}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+          <LinearGradient
+            colors={["rgba(0,65,78,0.05)", "rgba(0,65,78,0.85)"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.heroContent}>
             <Text
               style={{
-                fontFamily: "Inter_600SemiBold",
-                fontSize: 13,
-                color: colors.primary,
-                letterSpacing: 1.5,
+                fontFamily: "Inter_500Medium",
+                fontSize: 11,
+                color: colors.goldSoft,
+                letterSpacing: 3.5,
                 textTransform: "uppercase",
               }}
             >
-              Shop the Collection
+              The Modern Flower Atelier
             </Text>
-            <Feather name="arrow-up-right" size={16} color={colors.primary} />
-          </Pressable>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_400Regular",
+                fontSize: 40,
+                lineHeight: 46,
+                color: "#ffffff",
+                marginTop: 14,
+                letterSpacing: 0.2,
+              }}
+            >
+              Send a feeling,{"\n"}wrapped in petals.
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                lineHeight: 22,
+                color: "rgba(255,255,255,0.85)",
+                marginTop: 14,
+                maxWidth: 320,
+              }}
+            >
+              Hand-arranged in Beirut. Delivered the same day across Lebanon, with
+              quiet care for every occasion.
+            </Text>
+            <View
+              style={[
+                styles.heroCta,
+                { backgroundColor: colors.gold },
+              ]}
+            >
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                  color: colors.primary,
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                }}
+              >
+                Shop the Collection
+              </Text>
+              <Feather name="arrow-up-right" size={16} color={colors.primary} />
+            </View>
+          </View>
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -179,7 +209,7 @@ function BrandStrip() {
       style={{
         marginTop: 18,
         marginHorizontal: 24,
-        backgroundColor: colors.cardForeground === colors.primary ? colors.card : "#fff",
+        backgroundColor: "#fff",
         borderRadius: 20,
         paddingVertical: 18,
         paddingHorizontal: 16,
@@ -205,14 +235,31 @@ function BrandStrip() {
 }
 
 function BestSellers() {
+  const router = useRouter();
+  const colors = useColors();
   return (
     <View style={{ marginTop: 36 }}>
-      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
-        <SectionTitle
-          eyebrow="Best Sellers"
-          title="The pieces Lebanon loves"
-          description="A rotating shortlist chosen by our atelier — the bouquets and gifts that arrive most often at the front door."
-        />
+      <View
+        style={{
+          paddingHorizontal: 24,
+          marginBottom: 18,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <SectionTitle
+            eyebrow="Best Sellers"
+            title="The pieces Lebanon loves"
+            description="A rotating shortlist chosen by our atelier — the bouquets and gifts that arrive most often at the front door."
+          />
+        </View>
+        <Pressable onPress={() => router.push("/(tabs)/catalog" as any)}>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+            VIEW ALL
+          </Text>
+        </Pressable>
       </View>
       <View
         style={{
@@ -233,6 +280,7 @@ function BestSellers() {
 
 function CategoryRail() {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -241,42 +289,40 @@ function CategoryRail() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
         {categories.map((c) => (
-          <View
+          <Pressable
             key={c.id}
-            style={{
-              alignItems: "center",
-              gap: 10,
-              width: 88,
-            }}
+            onPress={() => router.push(`/category/${c.id}` as any)}
+            style={{ alignItems: "center", gap: 10, width: 88 }}
           >
             <View
               style={{
-                width: 76,
-                height: 76,
+                width: 80,
+                height: 80,
                 borderRadius: 999,
-                backgroundColor: colors.secondary,
-                alignItems: "center",
-                justifyContent: "center",
+                overflow: "hidden",
+                backgroundColor: colors.muted,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
             >
-              <MaterialCommunityIcons name={c.icon as any} size={28} color={colors.primary} />
+              <Image source={c.image} style={{ width: "100%", height: "100%" }} contentFit="cover" />
             </View>
             <Text
+              numberOfLines={2}
               style={{
                 fontFamily: "Inter_500Medium",
-                fontSize: 12,
+                fontSize: 11,
                 color: colors.primary,
                 textAlign: "center",
+                lineHeight: 14,
               }}
             >
               {c.name}
             </Text>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
     </View>
@@ -285,6 +331,7 @@ function CategoryRail() {
 
 function CollectionsSection() {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -302,60 +349,85 @@ function CollectionsSection() {
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
         {collections.map((c) => (
-          <View
+          <Pressable
             key={c.id}
-            style={{
-              width: SCREEN_W * 0.78,
-              borderRadius: 22,
-              overflow: "hidden",
-              backgroundColor: colors.muted,
-              height: 380,
-            }}
+            onPress={() => c.category && router.push(`/category/${c.category}` as any)}
+            style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
           >
-            <Image
-              source={c.image}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-            />
-            <LinearGradient
-              colors={["transparent", "rgba(0,65,78,0.75)"]}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={{ flex: 1, justifyContent: "flex-end", padding: 22 }}>
-              <Text
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 10,
-                  color: colors.goldSoft,
-                  letterSpacing: 2.5,
-                  textTransform: "uppercase",
-                }}
-              >
-                {c.count}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: 24,
-                  color: "#fff",
-                  marginTop: 6,
-                }}
-              >
-                {c.title}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: "Inter_400Regular",
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.85)",
-                  marginTop: 6,
-                  lineHeight: 20,
-                }}
-              >
-                {c.subtitle}
-              </Text>
+            <View
+              style={{
+                width: SCREEN_W * 0.78,
+                borderRadius: 22,
+                overflow: "hidden",
+                backgroundColor: colors.muted,
+                height: 380,
+              }}
+            >
+              <Image
+                source={c.image}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+              />
+              <LinearGradient
+                colors={["transparent", "rgba(0,65,78,0.75)"]}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={{ flex: 1, justifyContent: "flex-end", padding: 22 }}>
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 10,
+                    color: colors.goldSoft,
+                    letterSpacing: 2.5,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {c.count}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "PlayfairDisplay_500Medium",
+                    fontSize: 24,
+                    color: "#fff",
+                    marginTop: 6,
+                  }}
+                >
+                  {c.title}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.85)",
+                    marginTop: 6,
+                    lineHeight: 20,
+                  }}
+                >
+                  {c.subtitle}
+                </Text>
+                <View
+                  style={{
+                    marginTop: 14,
+                    alignSelf: "flex-start",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: "rgba(255,255,255,0.18)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase" }}>
+                    Shop
+                  </Text>
+                  <Feather name="arrow-up-right" size={14} color="#fff" />
+                </View>
+              </View>
             </View>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
     </View>
@@ -364,6 +436,7 @@ function CollectionsSection() {
 
 function OccasionsGrid() {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View style={{ marginTop: 44, paddingHorizontal: 24 }}>
       <View style={{ marginBottom: 18 }}>
@@ -374,33 +447,28 @@ function OccasionsGrid() {
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
         {occasions.map((o) => (
-          <View
+          <Pressable
             key={o.id}
-            style={{
+            onPress={() => router.push(`/(tabs)/catalog?occasion=${o.id}` as any)}
+            style={({ pressed }) => ({
               flexBasis: "48%",
               flexGrow: 1,
               backgroundColor: "#fff",
               borderRadius: 18,
-              padding: 16,
+              padding: 14,
               flexDirection: "row",
               alignItems: "center",
               gap: 12,
               borderWidth: 1,
               borderColor: colors.border,
-            }}
+              opacity: pressed ? 0.85 : 1,
+            })}
           >
-            <View
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 999,
-                backgroundColor: colors.secondary,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons name={o.icon as any} size={20} color={colors.primary} />
-            </View>
+            <Image
+              source={o.image}
+              style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: colors.muted }}
+              contentFit="cover"
+            />
             <Text
               style={{
                 flex: 1,
@@ -412,7 +480,7 @@ function OccasionsGrid() {
               {o.name}
             </Text>
             <Feather name="arrow-up-right" size={16} color={colors.gold} />
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>

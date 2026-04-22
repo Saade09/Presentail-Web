@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 
@@ -14,8 +16,19 @@ type Props = {
 
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
+  const router = useRouter();
+  const { add } = useCart();
+
+  const handlePress = () => {
+    if (onPress) return onPress();
+    router.push(`/product/${product.id}` as any);
+  };
+
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}>
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
+    >
       <View
         style={[
           styles.imageWrap,
@@ -32,8 +45,15 @@ export function ProductCard({ product, width, onPress }: Props) {
             <Text style={styles.tagText}>{product.tag}</Text>
           </View>
         ) : null}
-        <Pressable style={styles.heart} hitSlop={8}>
-          <Feather name="heart" size={16} color={colors.primary} />
+        <Pressable
+          style={[styles.heart, { backgroundColor: colors.gold }]}
+          hitSlop={8}
+          onPress={(e) => {
+            e.stopPropagation();
+            add(product.id, 1);
+          }}
+        >
+          <Feather name="plus" size={16} color="#fff" />
         </Pressable>
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
@@ -82,11 +102,10 @@ const styles = StyleSheet.create({
   },
   heart: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    width: 32,
-    height: 32,
+    bottom: 10,
+    right: 10,
+    width: 36,
+    height: 36,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
