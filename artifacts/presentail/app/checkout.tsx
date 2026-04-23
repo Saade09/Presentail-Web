@@ -1,8 +1,10 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,95 +18,158 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { createStripeCheckoutSession } from "@/lib/stripe";
 
-type Step = 0 | 1 | 2 | 3;
-const STEPS = ["Recipient", "Delivery", "Message", "Payment"] as const;
+type Step = 0 | 1 | 2;
+const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 
-const LEBANON_CITIES = [
-  "Beirut",
-  "Jounieh",
-  "Jbeil",
-  "Tripoli",
-  "Sidon",
-  "Tyre",
-  "Zahle",
-  "Baalbek",
-  "Batroun",
-  "Aley",
-];
+const DISTRICTS = ["Beirut", "Mount Lebanon", "North", "South", "Bekaa", "Nabatieh", "Akkar", "Baalbek-Hermel"];
+const TIME_SLOTS = ["10am – 1pm", "1pm – 4pm", "4pm – 7pm", "7pm – 9pm"];
 
 function dayLabels() {
-  const out: { iso: string; label: string; day: string; date: string }[] = [];
+  const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
   const now = new Date();
   for (let i = 0; i < 10; i++) {
     const d = new Date(now);
     d.setDate(now.getDate() + i);
     out.push({
       iso: d.toISOString().slice(0, 10),
-      label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short" }),
+      label: i === 0 ? "Today" : i === 1 ? "Tom" : d.toLocaleDateString(undefined, { weekday: "short" }),
       day: d.toLocaleDateString(undefined, { weekday: "short" }),
       date: String(d.getDate()),
+      full: d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
     });
   }
   return out;
 }
 
-const TIME_SLOTS = ["10am – 1pm", "1pm – 4pm", "4pm – 7pm", "7pm – 9pm"];
-
 export default function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { detailed, total, clear } = useCart();
+  const { detailed, total, clear, setQty, remove } = useCart();
 
   const [step, setStep] = useState<Step>(0);
 
-  // Form state
-  const [senderName, setSenderName] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
-  const [recipientName, setRecipientName] = useState("");
+  // Step 1 — Customize / Card Message
+  const [recipientFirst, setRecipientFirst] = useState("");
+  const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [cardTo, setCardTo] = useState("");
+  const [cardMessage, setCardMessage] = useState("");
+  const [cardFrom, setCardFrom] = useState("");
+  const [qrLink, setQrLink] = useState("");
+  const [coupon, setCoupon] = useState("");
+  const [couponOpen, setCouponOpen] = useState(false);
 
+  // Step 2 — Delivery Details
+  const [district, setDistrict] = useState(DISTRICTS[0]);
+  const [noAddress, setNoAddress] = useState(false);
+  const [deliveryDetails, setDeliveryDetails] = useState("");
+  const [senderFirst, setSenderFirst] = useState("");
+  const [senderLast, setSenderLast] = useState("");
+  const [senderWhatsapp, setSenderWhatsapp] = useState("");
+  const [senderEmail, setSenderEmail] = useState("");
+  const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(dayLabels, []);
-  const [city, setCity] = useState(LEBANON_CITIES[0]);
-  const [address, setAddress] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("express");
   const [date, setDate] = useState(days[0].iso);
   const [slot, setSlot] = useState(TIME_SLOTS[1]);
 
-  const [message, setMessage] = useState("");
-  const [signedBy, setSignedBy] = useState("");
-
-  const [payMethod, setPayMethod] = useState<"card" | "cash" | "whish">("card");
+  // Step 3 — Payment
+  const [orderNotes, setOrderNotes] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [payMethod, setPayMethod] = useState<"card" | "whish" | "western">("card");
+  const [paying, setPaying] = useState(false);
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const delivery = 0;
-    const wrap = subtotal > 0 ? 5 : 0;
-    return { subtotal, delivery, wrap, grand: subtotal + delivery + wrap };
-  }, [total]);
+    const deliveryFee = deliveryMode === "express" ? 15 : 8;
+    const grand = subtotal + deliveryFee;
+    return { subtotal, deliveryFee, grand };
+  }, [total, deliveryMode]);
 
   const stepValid = (s: Step) => {
-    if (s === 0) return senderName.trim() && senderPhone.trim() && recipientName.trim() && recipientPhone.trim();
-    if (s === 1) return city && address.trim() && date && slot;
-    if (s === 2) return true;
-    if (s === 3) return !!payMethod;
+    if (s === 0) return cardMessage.trim().length > 0 && cardFrom.trim().length > 0;
+    if (s === 1)
+      return (
+        recipientFirst.trim() &&
+        recipientLast.trim() &&
+        recipientPhone.trim() &&
+        (noAddress || deliveryDetails.trim()) &&
+        senderFirst.trim() &&
+        senderLast.trim() &&
+        senderWhatsapp.trim() &&
+        senderEmail.trim()
+      );
+    if (s === 2) return !!payMethod && agreed;
     return false;
   };
 
   const next = () => {
     if (!stepValid(step)) return;
-    if (step < 3) setStep(((step + 1) as Step));
+    if (step < 2) setStep(((step + 1) as Step));
     else placeOrder();
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
+    if (paying) return;
+    setPaying(true);
     const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
-    const total = fees.grand;
+
+    const successPath = `/order-confirmed?orderId=${orderId}&total=${fees.grand}&date=${date}&slot=${encodeURIComponent(
+      slot
+    )}&recipient=${encodeURIComponent(`${recipientFirst} ${recipientLast}`)}`;
+
+    if (payMethod === "card") {
+      // Try real Stripe Checkout if configured
+      const successUrl =
+        (typeof window !== "undefined" ? window.location.origin : "https://presentail.app") + successPath;
+      const cancelUrl =
+        (typeof window !== "undefined" ? window.location.origin : "https://presentail.app") + "/cart";
+      const session = await createStripeCheckoutSession({
+        items: detailed.map(({ product, qty }) => ({
+          name: product.name,
+          description: product.description ?? undefined,
+          amount: Math.round(product.priceValue * 100),
+          quantity: qty,
+        })),
+        email: senderEmail,
+        metadata: {
+          orderId,
+          recipient: `${recipientFirst} ${recipientLast}`,
+          date,
+          slot,
+        },
+        successUrl,
+        cancelUrl,
+      });
+      if (session.ok) {
+        clear();
+        await WebBrowser.openBrowserAsync(session.url);
+        router.replace(successPath as any);
+        setPaying(false);
+        return;
+      }
+      // Fallback if Stripe not configured
+      if (session.code === "stripe_not_configured") {
+        Alert.alert(
+          "Card payments coming soon",
+          "We're finalising the Stripe setup for your account. Your order is reserved — we'll confirm by SMS shortly.",
+          [{ text: "Continue" }]
+        );
+      } else {
+        Alert.alert("Payment error", session.message);
+      }
+    }
+
+    // Non-card or fallback: simulate confirmed order
     clear();
-    router.replace(`/order-confirmed?orderId=${orderId}&total=${total}&date=${date}&slot=${encodeURIComponent(slot)}&recipient=${encodeURIComponent(recipientName)}` as any);
+    router.replace(successPath as any);
+    setPaying(false);
   };
 
-  if (detailed.length === 0 && step < 3) {
+  if (detailed.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
@@ -124,108 +189,181 @@ export default function CheckoutScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Header */}
+      {/* Brand bar */}
       <View
         style={{
-          paddingTop: insets.top + 12,
-          paddingHorizontal: 20,
-          paddingBottom: 8,
-          flexDirection: "row",
+          paddingTop: insets.top + 14,
+          paddingBottom: 14,
+          backgroundColor: colors.primary,
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "row",
+          justifyContent: "center",
+          position: "relative",
         }}
       >
-        <Pressable onPress={() => (step === 0 ? router.back() : setStep(((step - 1) as Step)))} hitSlop={10}>
-          <Feather name="arrow-left" size={22} color={colors.primary} />
+        <Pressable
+          onPress={() => (step === 0 ? router.back() : setStep(((step - 1) as Step)))}
+          hitSlop={12}
+          style={{ position: "absolute", left: 18, top: insets.top + 14, padding: 6 }}
+        >
+          <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
-          Checkout
-        </Text>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground }}>
-          {step + 1}/4
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
+          Presentail
         </Text>
       </View>
 
       {/* Stepper */}
-      <View style={{ flexDirection: "row", paddingHorizontal: 24, gap: 6, marginTop: 6, marginBottom: 6 }}>
-        {STEPS.map((label, i) => (
-          <View key={label} style={{ flex: 1 }}>
-            <View
-              style={{
-                height: 3,
-                borderRadius: 2,
-                backgroundColor: i <= step ? colors.gold : colors.border,
-              }}
-            />
-            <Text
-              style={{
-                marginTop: 6,
-                fontFamily: "Inter_500Medium",
-                fontSize: 10,
-                color: i === step ? colors.primary : colors.mutedForeground,
-                letterSpacing: 1,
-                textTransform: "uppercase",
-                textAlign: "center",
-              }}
-            >
-              {label}
-            </Text>
-          </View>
-        ))}
+      <View style={{ paddingHorizontal: 20, paddingVertical: 18, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: colors.border }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          {STEPS.map((label, i) => (
+            <View key={label} style={{ alignItems: "center", flex: 1 }}>
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderColor: i <= step ? colors.primary : colors.border,
+                  backgroundColor: i < step ? colors.primary : "#fff",
+                }}
+              >
+                {i < step ? (
+                  <Feather name="check" size={14} color="#fff" />
+                ) : (
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: i === step ? colors.primary : colors.mutedForeground }}>
+                    {i + 1}
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
+                  fontSize: 11,
+                  color: i === step ? colors.primary : colors.mutedForeground,
+                }}
+              >
+                {label}
+              </Text>
+              <View
+                style={{
+                  marginTop: 6,
+                  height: 2,
+                  width: "70%",
+                  borderRadius: 1,
+                  backgroundColor: i === step ? colors.primary : "transparent",
+                }}
+              />
+            </View>
+          ))}
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 18, paddingBottom: 220, gap: 18 }}
+        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 220, gap: 18 }}
         keyboardShouldPersistTaps="handled"
       >
         {step === 0 && (
-          <RecipientStep
-            colors={colors}
-            sender={{ name: senderName, phone: senderPhone, set: { name: setSenderName, phone: setSenderPhone } }}
-            recipient={{ name: recipientName, phone: recipientPhone, set: { name: setRecipientName, phone: setRecipientPhone } }}
-          />
+          <>
+            <CustomizeStep
+              colors={colors}
+              cardTo={cardTo}
+              setCardTo={setCardTo}
+              cardMessage={cardMessage}
+              setCardMessage={setCardMessage}
+              cardFrom={cardFrom}
+              setCardFrom={setCardFrom}
+              qrLink={qrLink}
+              setQrLink={setQrLink}
+            />
+            <OrderSummary
+              colors={colors}
+              detailed={detailed}
+              fees={fees}
+              setQty={setQty}
+              remove={remove}
+              coupon={coupon}
+              setCoupon={setCoupon}
+              couponOpen={couponOpen}
+              setCouponOpen={setCouponOpen}
+              showDeliveryFee={false}
+            />
+          </>
         )}
         {step === 1 && (
-          <DeliveryStep
-            colors={colors}
-            cities={LEBANON_CITIES}
-            city={city}
-            setCity={setCity}
-            address={address}
-            setAddress={setAddress}
-            days={days}
-            date={date}
-            setDate={setDate}
-            slots={TIME_SLOTS}
-            slot={slot}
-            setSlot={setSlot}
-          />
+          <>
+            <DeliveryDetailsStep
+              colors={colors}
+              recipientFirst={recipientFirst}
+              setRecipientFirst={setRecipientFirst}
+              recipientLast={recipientLast}
+              setRecipientLast={setRecipientLast}
+              recipientPhone={recipientPhone}
+              setRecipientPhone={setRecipientPhone}
+              districts={DISTRICTS}
+              district={district}
+              setDistrict={setDistrict}
+              noAddress={noAddress}
+              setNoAddress={setNoAddress}
+              deliveryDetails={deliveryDetails}
+              setDeliveryDetails={setDeliveryDetails}
+              senderFirst={senderFirst}
+              setSenderFirst={setSenderFirst}
+              senderLast={senderLast}
+              setSenderLast={setSenderLast}
+              senderWhatsapp={senderWhatsapp}
+              setSenderWhatsapp={setSenderWhatsapp}
+              senderEmail={senderEmail}
+              setSenderEmail={setSenderEmail}
+              identitySecret={identitySecret}
+              setIdentitySecret={setIdentitySecret}
+              days={days}
+              date={date}
+              setDate={setDate}
+              slots={TIME_SLOTS}
+              slot={slot}
+              setSlot={setSlot}
+              deliveryMode={deliveryMode}
+              setDeliveryMode={setDeliveryMode}
+            />
+            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot} mode={deliveryMode} />
+          </>
         )}
         {step === 2 && (
-          <MessageStep
-            colors={colors}
-            message={message}
-            setMessage={setMessage}
-            signedBy={signedBy}
-            setSignedBy={setSignedBy}
-          />
-        )}
-        {step === 3 && (
-          <PaymentStep
-            colors={colors}
-            method={payMethod}
-            setMethod={setPayMethod}
-            fees={fees}
-            recipient={recipientName}
-            address={`${address}, ${city}`}
-            date={date}
-            slot={slot}
-            items={detailed}
-          />
+          <>
+            <PaymentStep
+              colors={colors}
+              orderNotes={orderNotes}
+              setOrderNotes={setOrderNotes}
+              agreed={agreed}
+              setAgreed={setAgreed}
+              payMethod={payMethod}
+              setPayMethod={setPayMethod}
+              email={senderEmail}
+              setEmail={setSenderEmail}
+            />
+            <OrderSummary
+              colors={colors}
+              detailed={detailed}
+              fees={fees}
+              setQty={setQty}
+              remove={remove}
+              coupon={coupon}
+              setCoupon={setCoupon}
+              couponOpen={couponOpen}
+              setCouponOpen={setCouponOpen}
+              showDeliveryFee
+              deliveryMode={deliveryMode}
+            />
+            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot} mode={deliveryMode} />
+          </>
         )}
       </ScrollView>
 
-      {/* Footer */}
+      {/* Sticky CTA */}
       <View
         style={{
           position: "absolute",
@@ -235,33 +373,19 @@ export default function CheckoutScreen() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderColor: colors.border,
-          paddingHorizontal: 24,
-          paddingTop: 14,
-          paddingBottom: insets.bottom + 14,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
+          paddingHorizontal: 18,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
         }}
       >
-        <View>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
-            Total
-          </Text>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-            ${fees.grand.toLocaleString()}
-          </Text>
-        </View>
         <Pressable
-          disabled={!stepValid(step)}
+          disabled={!stepValid(step) || paying}
           onPress={next}
           style={({ pressed }) => [
             {
-              flex: 1,
-              maxWidth: 240,
-              backgroundColor: stepValid(step) ? colors.primary : colors.border,
+              backgroundColor: stepValid(step) && !paying ? colors.primary : colors.border,
               paddingVertical: 16,
-              borderRadius: 999,
+              borderRadius: 14,
               flexDirection: "row",
               justifyContent: "center",
               alignItems: "center",
@@ -274,359 +398,694 @@ export default function CheckoutScreen() {
             style={{
               fontFamily: "Inter_600SemiBold",
               color: "#fff",
-              letterSpacing: 1.4,
-              textTransform: "uppercase",
-              fontSize: 12,
+              fontSize: 14,
+              letterSpacing: 0.6,
             }}
           >
-            {step === 3 ? "Place Order" : "Continue"}
+            {step === 0
+              ? "Continue to Delivery"
+              : step === 1
+                ? "Continue to Payment"
+                : paying
+                  ? "Processing…"
+                  : `Pay $${fees.grand.toLocaleString()}`}
           </Text>
-          <Feather name={step === 3 ? "lock" : "arrow-right"} size={14} color="#fff" />
+          <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function Field({ colors, label, value, onChangeText, placeholder, keyboardType, multiline }: any) {
+// =============== Reusable bits ===============
+
+function Label({ children, colors, required }: any) {
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase" }}>
-        {label}
-      </Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.mutedForeground}
-        keyboardType={keyboardType}
-        multiline={multiline}
+    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, marginBottom: 6 }}>
+      {children}
+      {required ? <Text style={{ color: "#c0392b" }}> *</Text> : null}
+    </Text>
+  );
+}
+
+function Field({ colors, label, value, onChangeText, placeholder, keyboardType, multiline, required, prefix, helper, maxLength, characterCount }: any) {
+  return (
+    <View style={{ gap: 4 }}>
+      {label ? <Label colors={colors} required={required}>{label}</Label> : null}
+      <View
         style={{
+          flexDirection: "row",
+          alignItems: multiline ? "flex-start" : "center",
           backgroundColor: "#fff",
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 14,
-          paddingHorizontal: 16,
-          paddingVertical: multiline ? 14 : 14,
-          minHeight: multiline ? 110 : undefined,
-          fontFamily: "Inter_400Regular",
-          fontSize: 14,
-          color: colors.primary,
-          textAlignVertical: multiline ? "top" : "auto",
-          ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+          borderRadius: 10,
+          paddingHorizontal: 12,
         }}
-      />
+      >
+        {prefix ? <Text style={{ fontFamily: "Inter_500Medium", color: colors.primary, marginRight: 6 }}>{prefix}</Text> : null}
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.mutedForeground}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          maxLength={maxLength}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            minHeight: multiline ? 110 : undefined,
+            fontFamily: "Inter_400Regular",
+            fontSize: 14,
+            color: colors.primary,
+            textAlignVertical: multiline ? "top" : "auto",
+            ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+          }}
+        />
+      </View>
+      {helper ? (
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>{helper}</Text>
+      ) : null}
+      {characterCount && maxLength ? (
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4, textAlign: "right" }}>
+          {maxLength - (value?.length ?? 0)} characters left
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-function RecipientStep({ colors, sender, recipient }: any) {
+function Card({ children, colors, title }: any) {
   return (
-    <View style={{ gap: 22 }}>
-      <View>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-          Who is sending this gift?
-        </Text>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, marginTop: 4 }}>
-          We'll keep you posted at every step of the delivery.
-        </Text>
-      </View>
-      <Field colors={colors} label="Your name" value={sender.name} onChangeText={sender.set.name} placeholder="Lara Khoury" />
-      <Field colors={colors} label="Your phone" value={sender.phone} onChangeText={sender.set.phone} placeholder="+961 70 000 000" keyboardType="phone-pad" />
-
-      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-
-      <View>
+    <View
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 18,
+        gap: 14,
+      }}
+    >
+      {title ? (
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
-          Who is receiving it?
+          {title}
         </Text>
-      </View>
-      <Field colors={colors} label="Recipient name" value={recipient.name} onChangeText={recipient.set.name} placeholder="Maya R." />
-      <Field colors={colors} label="Recipient phone" value={recipient.phone} onChangeText={recipient.set.phone} placeholder="+961 71 000 000" keyboardType="phone-pad" />
+      ) : null}
+      {children}
     </View>
   );
 }
 
-function DeliveryStep({ colors, cities, city, setCity, address, setAddress, days, date, setDate, slots, slot, setSlot }: any) {
-  return (
-    <View style={{ gap: 22 }}>
-      <View>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-          Where & when?
-        </Text>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, marginTop: 4 }}>
-          Same-day delivery across Lebanon — choose your window.
-        </Text>
-      </View>
+// =============== Step 1: Customize ===============
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase" }}>
-          City
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {cities.map((c: string) => {
-            const active = c === city;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => setCity(c)}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary : "#fff",
-                }}
-              >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
-                  {c}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      <Field colors={colors} label="Street address" value={address} onChangeText={setAddress} placeholder="Building, floor, street, area" multiline />
-
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase" }}>
-          Delivery date
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {days.map((d: any) => {
-            const active = d.iso === date;
-            return (
-              <Pressable
-                key={d.iso}
-                onPress={() => setDate(d.iso)}
-                style={{
-                  width: 64,
-                  paddingVertical: 10,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary : "#fff",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: active ? colors.goldSoft : colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
-                  {d.label}
-                </Text>
-                <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: active ? "#fff" : colors.primary }}>
-                  {d.date}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase" }}>
-          Time window
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {slots.map((s: string) => {
-            const active = s === slot;
-            return (
-              <Pressable
-                key={s}
-                onPress={() => setSlot(s)}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary : "#fff",
-                }}
-              >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
-                  {s}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function MessageStep({ colors, message, setMessage, signedBy, setSignedBy }: any) {
+function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
   const presets = [
+    "Try Suggested Messages",
+    "Wishing you a magical birthday.",
     "Thinking of you today.",
     "With all my love.",
-    "Congratulations on the new chapter!",
-    "Wishing you a magical birthday.",
   ];
   return (
-    <View style={{ gap: 22 }}>
-      <View>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-          Add a personal note
-        </Text>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, marginTop: 4 }}>
-          Hand-written by our atelier on a Presentail card.
-        </Text>
-      </View>
-      <Field colors={colors} label="Message" value={message} onChangeText={setMessage} placeholder="Write a few words…" multiline />
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {presets.map((p) => (
+    <Card colors={colors} title="Card Message">
+      <Field colors={colors} label="To" value={cardTo} onChangeText={setCardTo} placeholder="" />
+      <Field
+        colors={colors}
+        label="Card message"
+        value={cardMessage}
+        onChangeText={setCardMessage}
+        placeholder=""
+        multiline
+        maxLength={400}
+        characterCount
+        required
+      />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        {presets.map((p, i) => (
           <Pressable
             key={p}
-            onPress={() => setMessage(p)}
+            onPress={() => (i === 0 ? null : setCardMessage(p))}
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: "#fff",
+              borderColor: i === 0 ? "transparent" : colors.border,
+              backgroundColor: i === 0 ? "transparent" : "#fff",
             }}
           >
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.primary }}>
-              {p}
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: i === 0 ? colors.gold : colors.primary, textDecorationLine: i === 0 ? "underline" : "none" }}>
+              {i === 0 ? "Not sure what to say? Try Suggested Messages" : p}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      <Field colors={colors} label="Signed by" value={signedBy} onChangeText={setSignedBy} placeholder="Lara" />
+      <Field colors={colors} label="From" value={cardFrom} onChangeText={setCardFrom} placeholder="" required />
 
-      <View
-        style={{
-          borderRadius: 18,
-          padding: 20,
-          backgroundColor: colors.secondary,
-          borderWidth: 1,
-          borderColor: colors.border,
-          gap: 8,
-        }}
-      >
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 2, color: colors.gold, textTransform: "uppercase" }}>
-          Card preview
+      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
+        Paste a link to a video or photo from the internet. A QR code will be automatically added to your card message. No extra cost!
+      </Text>
+      <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="Share A link as a QR code" />
+
+      <Pressable>
+        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, textDecorationLine: "underline" }}>
+          Preview gift card
         </Text>
-        <Text style={{ fontFamily: "PlayfairDisplay_400Regular", fontSize: 18, color: colors.primary, lineHeight: 26 }}>
-          {message?.trim() || "Your message will appear here…"}
-        </Text>
-        {signedBy ? (
-          <Text style={{ fontFamily: "PlayfairDisplay_400Regular", fontSize: 14, color: colors.primary, marginTop: 6 }}>
-            — {signedBy}
+      </Pressable>
+    </Card>
+  );
+}
+
+// =============== Step 2: Delivery Details ===============
+
+function DeliveryDetailsStep(props: any) {
+  const {
+    colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
+    recipientPhone, setRecipientPhone, districts, district, setDistrict,
+    noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
+    senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
+    senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
+    days, date, setDate, slots, slot, setSlot, deliveryMode, setDeliveryMode,
+  } = props;
+  return (
+    <View style={{ gap: 18 }}>
+      <Card colors={colors} title="Recipient Details">
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Field colors={colors} label="First name" value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field colors={colors} label="Last name" value={recipientLast} onChangeText={setRecipientLast} placeholder="" required />
+          </View>
+        </View>
+        <Field
+          colors={colors}
+          label="Phone Number"
+          value={recipientPhone}
+          onChangeText={setRecipientPhone}
+          placeholder="3000000"
+          required
+          keyboardType="phone-pad"
+          prefix="🇱🇧 +961"
+        />
+        <Pressable
+          onPress={() => setNoAddress(!noAddress)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+        >
+          <View
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 4,
+              borderWidth: 1.5,
+              borderColor: noAddress ? colors.primary : colors.border,
+              backgroundColor: noAddress ? colors.primary : "#fff",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {noAddress ? <Feather name="check" size={12} color="#fff" /> : null}
+          </View>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
+            I don't know the address, please contact the recipient.
           </Text>
-        ) : null}
-      </View>
+        </Pressable>
+
+        <View>
+          <Label colors={colors} required>District</Label>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {districts.map((d: string) => {
+              const a = d === district;
+              return (
+                <Pressable
+                  key={d}
+                  onPress={() => setDistrict(d)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: a ? colors.primary : colors.border,
+                    backgroundColor: a ? colors.primary : "#fff",
+                  }}
+                >
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: a ? "#fff" : colors.primary }}>
+                    {d}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <Field
+          colors={colors}
+          label="Delivery details"
+          value={deliveryDetails}
+          onChangeText={setDeliveryDetails}
+          placeholder={noAddress ? "I don't know the address" : "Building, floor, street, area"}
+          required={!noAddress}
+          multiline
+        />
+      </Card>
+
+      <Card colors={colors} title="Sender Details">
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Field colors={colors} label="First name" value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Field colors={colors} label="Last name" value={senderLast} onChangeText={setSenderLast} placeholder="" required />
+          </View>
+        </View>
+        <Field
+          colors={colors}
+          label="WhatsApp number"
+          value={senderWhatsapp}
+          onChangeText={setSenderWhatsapp}
+          placeholder="3000000"
+          required
+          keyboardType="phone-pad"
+          prefix="🇱🇧 +961"
+        />
+        <Field colors={colors} label="Email" value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
+
+        <Pressable
+          onPress={() => setIdentitySecret(!identitySecret)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            backgroundColor: colors.secondary,
+            padding: 12,
+            borderRadius: 10,
+          }}
+        >
+          <View
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 4,
+              borderWidth: 1.5,
+              borderColor: identitySecret ? colors.primary : colors.border,
+              backgroundColor: identitySecret ? colors.primary : "#fff",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {identitySecret ? <Feather name="check" size={12} color="#fff" /> : null}
+          </View>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+            Keep my identity secret.
+          </Text>
+        </Pressable>
+
+        <View style={{ marginTop: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <MaterialCommunityIcons name="truck-fast" size={16} color={colors.primary} />
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
+              Delivery Time
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <DeliveryTile
+              colors={colors}
+              icon="flash"
+              title="Express Delivery"
+              subtitle="Today"
+              footer="Express Delivery"
+              active={deliveryMode === "express"}
+              onPress={() => setDeliveryMode("express")}
+            />
+            <DeliveryTile
+              colors={colors}
+              icon=""
+              title="Today"
+              subtitle="2:00 PM – 6:00 PM"
+              active={deliveryMode === "today_slot"}
+              onPress={() => {
+                setDeliveryMode("today_slot");
+                setDate(days[0].iso);
+                setSlot("1pm – 4pm");
+              }}
+            />
+            <DeliveryTile
+              colors={colors}
+              icon="calendar"
+              title="Choose Another Date"
+              subtitle="And Time Slot"
+              active={deliveryMode === "schedule"}
+              onPress={() => setDeliveryMode("schedule")}
+            />
+          </View>
+          {deliveryMode === "schedule" ? (
+            <View style={{ marginTop: 12, gap: 10 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {days.map((d: any) => {
+                  const a = d.iso === date;
+                  return (
+                    <Pressable
+                      key={d.iso}
+                      onPress={() => setDate(d.iso)}
+                      style={{
+                        width: 56,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        alignItems: "center",
+                        backgroundColor: a ? colors.primary : "#fff",
+                        borderWidth: 1,
+                        borderColor: a ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
+                        {d.label}
+                      </Text>
+                      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
+                        {d.date}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {slots.map((s: string) => {
+                  const a = s === slot;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setSlot(s)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: a ? colors.primary : colors.border,
+                        backgroundColor: a ? colors.primary : "#fff",
+                      }}
+                    >
+                      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: a ? "#fff" : colors.primary }}>
+                        {s}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </Card>
     </View>
   );
 }
 
-function PaymentStep({ colors, method, setMethod, fees, recipient, address, date, slot, items }: any) {
-  const methods: { id: "card" | "cash" | "whish"; label: string; sub: string; icon: any }[] = [
-    { id: "card", label: "Credit / Debit Card", sub: "Visa, Mastercard, Amex", icon: "credit-card-outline" },
-    { id: "whish", label: "Whish Money", sub: "Pay with your Whish account", icon: "cellphone" },
-    { id: "cash", label: "Cash on Delivery", sub: "Pay the courier in USD or LBP", icon: "cash" },
-  ];
+function DeliveryTile({ colors, icon, title, subtitle, footer, active, onPress }: any) {
   return (
-    <View style={{ gap: 22 }}>
-      <View>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-          Payment & review
+    <Pressable
+      onPress={onPress}
+      style={{
+        flex: 1,
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1.5,
+        borderColor: active ? colors.primary : colors.border,
+        backgroundColor: active ? colors.secondary : "#fff",
+        gap: 4,
+      }}
+    >
+      {icon ? (
+        <Feather name={icon} size={14} color={active ? colors.primary : colors.mutedForeground} />
+      ) : null}
+      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary }}>
+        {title}
+      </Text>
+      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
+        {subtitle}
+      </Text>
+      {footer ? (
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.gold }}>
+          {footer}
         </Text>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, marginTop: 4 }}>
-          Choose how you'd like to pay.
-        </Text>
-      </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
-      <View style={{ gap: 10 }}>
-        {methods.map((m) => {
-          const active = m.id === method;
-          return (
-            <Pressable
-              key={m.id}
-              onPress={() => setMethod(m.id)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 14,
-                padding: 16,
-                borderRadius: 16,
-                borderWidth: 1.5,
-                borderColor: active ? colors.primary : colors.border,
-                backgroundColor: active ? colors.secondary : "#fff",
-              }}
-            >
-              <MaterialCommunityIcons name={m.icon} size={22} color={active ? colors.primary : colors.mutedForeground} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary }}>{m.label}</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>{m.sub}</Text>
-              </View>
-              <Feather name={active ? "check-circle" : "circle"} size={20} color={active ? colors.gold : colors.border} />
-            </Pressable>
-          );
-        })}
-      </View>
+function DeliverySummaryCard({ colors, days, date, slot, mode }: any) {
+  const day = days.find((d: any) => d.iso === date);
+  return (
+    <Card colors={colors} title="Delivery Summary">
+      <SummaryRow label="Date" value={day?.full ?? date} colors={colors} />
+      <SummaryRow
+        label="Time"
+        value={
+          mode === "express"
+            ? "Express Delivery"
+            : mode === "today_slot"
+              ? "Today · 2:00 PM – 6:00 PM"
+              : slot
+        }
+        colors={colors}
+      />
+    </Card>
+  );
+}
 
-      <View style={{ borderRadius: 18, backgroundColor: "#fff", padding: 18, borderWidth: 1, borderColor: colors.border, gap: 12 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, letterSpacing: 2, color: colors.gold, textTransform: "uppercase" }}>
-          Order summary
+function SummaryRow({ label, value, colors, accent, bold }: any) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</Text>
+      <Text
+        style={{
+          fontFamily: bold ? "Inter_700Bold" : "Inter_500Medium",
+          fontSize: bold ? 16 : 13,
+          color: accent ? colors.gold : colors.primary,
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+// =============== Step 3: Payment ===============
+
+function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail }: any) {
+  return (
+    <View style={{ gap: 18 }}>
+      <Card colors={colors} title="Note For Presentail Team">
+        <Field colors={colors} label="Order notes" value={orderNotes} onChangeText={setOrderNotes} placeholder="" multiline />
+        <Pressable
+          onPress={() => setAgreed(!agreed)}
+          style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 4 }}
+        >
+          <View
+            style={{
+              marginTop: 2,
+              width: 18,
+              height: 18,
+              borderRadius: 4,
+              borderWidth: 1.5,
+              borderColor: agreed ? colors.primary : colors.border,
+              backgroundColor: agreed ? colors.primary : "#fff",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {agreed ? <Feather name="check" size={12} color="#fff" /> : null}
+          </View>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.primary, flex: 1 }}>
+            By checking this box, I confirm that I have read and agree to the{" "}
+            <Text style={{ color: colors.gold, textDecorationLine: "underline" }}>Terms and Conditions</Text> and{" "}
+            <Text style={{ color: colors.gold, textDecorationLine: "underline" }}>Privacy Policy</Text>.
+            <Text style={{ color: "#c0392b" }}> *</Text>
+          </Text>
+        </Pressable>
+      </Card>
+
+      <Card colors={colors} title="Your Payment Information">
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
+          All transactions are secure and encrypted. Credit card information is never stored on our servers.
         </Text>
-        <View style={{ gap: 10 }}>
-          {items.map(({ product, qty, lineTotal }: any) => (
-            <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <Image source={product.image} style={{ width: 48, height: 56, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
-                  {product.name}
-                </Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-                  Qty {qty}
+
+        <PayOption
+          colors={colors}
+          active={payMethod === "whish"}
+          onPress={() => setPayMethod("whish")}
+          title="Whish Money"
+          badge="WHISH"
+          badgeColor="#E5302E"
+        />
+        <PayOption
+          colors={colors}
+          active={payMethod === "western"}
+          onPress={() => setPayMethod("western")}
+          title="Western Union"
+          badge="WU"
+          badgeColor="#F8B400"
+        />
+        <PayOption
+          colors={colors}
+          active={payMethod === "card"}
+          onPress={() => setPayMethod("card")}
+          title="Pay By Card"
+          chips={["MC", "VISA", "AMEX"]}
+        >
+          {payMethod === "card" ? (
+            <View style={{ marginTop: 12, gap: 12 }}>
+              <Field
+                colors={colors}
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+              />
+              <View
+                style={{
+                  borderRadius: 12,
+                  backgroundColor: colors.secondary,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 10,
+                }}
+              >
+                <Feather name="lock" size={16} color={colors.gold} style={{ marginTop: 2 }} />
+                <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.primary, lineHeight: 18 }}>
+                  Your card will be entered on Stripe's secure payment page when you tap "Pay".
+                  We never see or store your card details.
                 </Text>
               </View>
+            </View>
+          ) : null}
+        </PayOption>
+      </Card>
+    </View>
+  );
+}
+
+function PayOption({ colors, active, onPress, title, badge, badgeColor, chips, children }: any) {
+  return (
+    <View
+      style={{
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: active ? colors.primary : colors.border,
+        backgroundColor: active ? colors.secondary : "#fff",
+        overflow: "hidden",
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        style={{
+          padding: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <View
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: active ? colors.primary : colors.border,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {active ? <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.primary }} /> : null}
+        </View>
+        <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+          {title}
+        </Text>
+        {badge ? (
+          <View style={{ backgroundColor: badgeColor, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.5 }}>
+              {badge}
+            </Text>
+          </View>
+        ) : null}
+        {chips
+          ? chips.map((c: string) => (
+              <View key={c} style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: colors.primary }}>
+                  {c}
+                </Text>
+              </View>
+            ))
+          : null}
+      </Pressable>
+      {children ? <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View> : null}
+    </View>
+  );
+}
+
+// =============== Order Summary ===============
+
+function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee, deliveryMode }: any) {
+  return (
+    <Card colors={colors} title="Order Summary">
+      <View style={{ gap: 12 }}>
+        {detailed.map(({ product, qty, lineTotal }: any) => (
+          <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Image source={product.image} style={{ width: 48, height: 56, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
+            <View style={{ flex: 1 }}>
+              <Text numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+                {product.name}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 999, alignSelf: "flex-start" }}>
+                <Pressable onPress={() => setQty(product.id, Math.max(1, qty - 1))} style={styles.qtyMini}>
+                  <Feather name="minus" size={11} color={colors.primary} />
+                </Pressable>
+                <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 8, fontSize: 12 }}>{qty}</Text>
+                <Pressable onPress={() => setQty(product.id, qty + 1)} style={styles.qtyMini}>
+                  <Feather name="plus" size={11} color={colors.primary} />
+                </Pressable>
+              </View>
+            </View>
+            <View style={{ alignItems: "flex-end", gap: 6 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
                 ${lineTotal.toLocaleString()}
               </Text>
+              <Pressable onPress={() => remove(product.id)} hitSlop={6}>
+                <Feather name="x-circle" size={14} color={colors.mutedForeground} />
+              </Pressable>
             </View>
-          ))}
-        </View>
-        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-        <Row label="Subtotal" value={`$${fees.subtotal.toLocaleString()}`} colors={colors} />
-        <Row label="Boutique wrapping" value={`$${fees.wrap}`} colors={colors} />
-        <Row label="Delivery" value="Free" colors={colors} accent />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}>Total</Text>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
-            ${fees.grand.toLocaleString()}
-          </Text>
-        </View>
-        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-        <View style={{ gap: 4 }}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: colors.mutedForeground }}>
-            Delivering to
-          </Text>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
-            {recipient || "Recipient"}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-            {address}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-            {date} · {slot}
-          </Text>
-        </View>
+          </View>
+        ))}
       </View>
-    </View>
+
+      <Pressable onPress={() => setCouponOpen(!couponOpen)}>
+        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
+          Have a coupon? <Text style={{ textDecorationLine: "underline" }}>Click here to enter your code</Text>
+        </Text>
+      </Pressable>
+      {couponOpen ? (
+        <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder="Coupon code" />
+      ) : null}
+
+      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+      <SummaryRow label="Subtotal" value={`$${fees.subtotal.toLocaleString()}`} colors={colors} />
+      {showDeliveryFee ? (
+        <>
+          {deliveryMode === "express" ? (
+            <SummaryRow label="Express Delivery Fee" value={`$15`} colors={colors} />
+          ) : null}
+          <SummaryRow label="Delivery Fee" value={`$${deliveryMode === "express" ? 0 : fees.deliveryFee}`} colors={colors} />
+        </>
+      ) : null}
+      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+      <SummaryRow label="Total" value={`$${fees.grand.toLocaleString()}`} colors={colors} bold />
+    </Card>
   );
 }
 
-function Row({ label, value, colors, accent }: any) {
-  return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</Text>
-      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: accent ? colors.gold : colors.primary }}>{value}</Text>
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  qtyMini: { width: 26, height: 26, alignItems: "center", justifyContent: "center" },
+});
