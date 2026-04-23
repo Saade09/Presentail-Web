@@ -665,7 +665,21 @@ function Footer() {
   const colors = useColors();
   const router = useRouter();
   const [open, setOpen] = useState<string | null>("popular");
-  const [currency, setCurrency] = useState<"USD" | "LBP">("USD");
+  const [currency, setCurrency] = useState<string>("USD");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const CURRENCIES = [
+    { code: "USD", flag: "🇺🇸" },
+    { code: "AED", flag: "🇦🇪" },
+    { code: "EUR", flag: "🇪🇺" },
+    { code: "GBP", flag: "🇬🇧" },
+    { code: "CAD", flag: "🇨🇦" },
+    { code: "AUD", flag: "🇦🇺" },
+    { code: "QAR", flag: "🇶🇦" },
+    { code: "SAR", flag: "🇸🇦" },
+    { code: "KWD", flag: "🇰🇼" },
+    { code: "OMR", flag: "🇴🇲" },
+    { code: "LBP", flag: "🇱🇧" },
+  ];
   const [language, setLanguage] = useState<"EN" | "AR">("EN");
 
   const sections: { id: string; title: string; links: FooterLink[] }[] = [
@@ -818,28 +832,92 @@ function Footer() {
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
             Currency
           </Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {(["USD", "LBP"] as const).map((c) => {
-              const active = c === currency;
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => setCurrency(c)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 9,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: active ? colors.gold : "rgba(255,255,255,0.25)",
-                    backgroundColor: active ? colors.gold : "transparent",
-                  }}
-                >
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
-                    {c === "USD" ? "🇺🇸  USD" : "🇱🇧  LBP"}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={{ alignSelf: "flex-start" }}>
+            <Pressable
+              onPress={() => setCurrencyOpen((v) => !v)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.25)",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                minWidth: 150,
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>
+                {CURRENCIES.find((c) => c.code === currency)?.flag}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 12,
+                  color: "#fff",
+                  letterSpacing: 1,
+                  flex: 1,
+                }}
+              >
+                {currency}
+              </Text>
+              <Feather
+                name={currencyOpen ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={colors.goldSoft}
+              />
+            </Pressable>
+
+            {currencyOpen ? (
+              <View
+                style={{
+                  marginTop: 8,
+                  borderRadius: 12,
+                  backgroundColor: "rgba(0,0,0,0.55)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.12)",
+                  paddingVertical: 6,
+                  width: 180,
+                  maxHeight: 320,
+                }}
+              >
+                <ScrollView>
+                  {CURRENCIES.map((c) => {
+                    const active = c.code === currency;
+                    return (
+                      <Pressable
+                        key={c.code}
+                        onPress={() => {
+                          setCurrency(c.code);
+                          setCurrencyOpen(false);
+                        }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          backgroundColor: active ? "rgba(247,128,128,0.85)" : "transparent",
+                        }}
+                      >
+                        <Text style={{ fontSize: 16 }}>{c.flag}</Text>
+                        <Text
+                          style={{
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 12,
+                            color: "#fff",
+                            letterSpacing: 1,
+                          }}
+                        >
+                          {c.code}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -901,21 +979,29 @@ function Footer() {
 
       {/* Payment methods */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {["AMEX", "G Pay", "Apple", "VISA", "MC", "Whish"].map((p) => (
-          <View
-            key={p}
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 6,
-              backgroundColor: "rgba(255,255,255,0.92)",
-            }}
-          >
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.6, color: colors.primary }}>
-              {p}
-            </Text>
+        <PayBadge bg="#006FCF">
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.6 }}>AMEX</Text>
+        </PayBadge>
+        <PayBadge bg="#fff">
+          <MaterialCommunityIcons name="google" size={12} color="#4285F4" />
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#3c4043", marginLeft: 4 }}>Pay</Text>
+        </PayBadge>
+        <PayBadge bg="#000">
+          <MaterialCommunityIcons name="apple" size={13} color="#fff" />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", marginLeft: 3 }}>Pay</Text>
+        </PayBadge>
+        <PayBadge bg="#fff">
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 12, color: "#1A1F71", letterSpacing: 0.5 }}>VISA</Text>
+        </PayBadge>
+        <PayBadge bg="#fff">
+          <View style={{ flexDirection: "row" }}>
+            <View style={{ width: 13, height: 13, borderRadius: 999, backgroundColor: "#EB001B" }} />
+            <View style={{ width: 13, height: 13, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -5, opacity: 0.92 }} />
           </View>
-        ))}
+        </PayBadge>
+        <PayBadge bg="#E5302E">
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, color: "#fff", letterSpacing: 0.5 }}>whish</Text>
+        </PayBadge>
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 4 }}>
@@ -935,6 +1021,27 @@ function Footer() {
         All rights reserved © 2026 Presentail SAL{"\n"}
         3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon
       </Text>
+    </View>
+  );
+}
+
+function PayBadge({ bg, children }: { bg: string; children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        height: 26,
+        minWidth: 44,
+        paddingHorizontal: 10,
+        borderRadius: 6,
+        backgroundColor: bg,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        borderWidth: bg === "#fff" ? 1 : 0,
+        borderColor: "rgba(0,0,0,0.08)",
+      }}
+    >
+      {children}
     </View>
   );
 }

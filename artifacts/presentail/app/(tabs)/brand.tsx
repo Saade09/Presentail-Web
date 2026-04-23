@@ -89,12 +89,88 @@ export default function BrandScreen() {
         </View>
       </View>
 
+      <Story />
+      <Mission />
       <Identity />
       <PalettePreview />
       <Pillars />
       <Numbers />
       <Contact />
     </ScrollView>
+  );
+}
+
+function Story() {
+  const colors = useColors();
+  return (
+    <View style={{ paddingHorizontal: 24, marginTop: 44, gap: 18 }}>
+      <SectionTitle
+        eyebrow="Our Story"
+        title="Made by Lebanese expats, for Lebanese expats"
+        description="Since our launch in 2018, Presentail has helped put a smile on thousands of faces across Lebanon — and on the faces of expats around the world. We're by your side for every occasion, with a curated gifting experience that turns each delivery into a special moment."
+      />
+      <View
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 18,
+          padding: 18,
+          borderWidth: 1,
+          borderColor: colors.border,
+          gap: 10,
+        }}
+      >
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
+          Heartfelt gestures, exquisite craftsmanship
+        </Text>
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, lineHeight: 21 }}>
+          Welcome to Presentail — where heartfelt gestures meet exquisite craftsmanship to create unforgettable moments. As a leading platform catering to Lebanese expatriates, we are your destination for sending thoughtful gifts and stunning flowers to your loved ones back home.
+        </Text>
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, lineHeight: 21 }}>
+          From elegant flower bouquets to decadent chocolate boxes, plush stuffed animals to vibrant balloons, our curated collection is meticulously sourced from reputable vendors and artisans, then hand-finished in our Beirut atelier.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function Mission() {
+  const colors = useColors();
+  return (
+    <View style={{ paddingHorizontal: 24, marginTop: 28, gap: 12 }}>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        {[
+          {
+            eyebrow: "Mission",
+            text: "To reach Lebanese living abroad and help them feel connected to Lebanon by making meaningful gifting simple, reliable, and heartfelt.",
+            icon: "compass" as const,
+          },
+          {
+            eyebrow: "Vision",
+            text: "To connect you with your loved ones in Lebanon through an easy gifting experience that turns every occasion into a special moment — even from afar.",
+            icon: "heart-multiple" as const,
+          },
+        ].map((c) => (
+          <View
+            key={c.eyebrow}
+            style={{
+              flex: 1,
+              backgroundColor: colors.primary,
+              borderRadius: 18,
+              padding: 18,
+              gap: 12,
+            }}
+          >
+            <MaterialCommunityIcons name={c.icon} size={22} color={colors.goldSoft} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 2, color: colors.goldSoft, textTransform: "uppercase" }}>
+              {c.eyebrow}
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "rgba(255,255,255,0.92)", lineHeight: 18 }}>
+              {c.text}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -230,7 +306,7 @@ function Pillars() {
       text: "Climate-controlled vans, real-time tracking and a no-compromise freshness promise.",
     },
     {
-      icon: "shield-heart" as const,
+      icon: "shield-star" as const,
       title: "Resilient & local",
       text: "Through every chapter Lebanon has lived through, we have kept delivering.",
     },
@@ -282,10 +358,10 @@ function Pillars() {
 function Numbers() {
   const colors = useColors();
   const stats = [
-    { v: "12+", l: "Years in Beirut" },
-    { v: "120k", l: "Gifts delivered" },
-    { v: "4.6★", l: "On 837 reviews" },
-    { v: "24h", l: "Same-day service" },
+    { v: "Since 2018", l: "Putting smiles on faces" },
+    { v: "Lebanon-wide", l: "Same-day delivery" },
+    { v: "8am–10pm", l: "Daily customer care" },
+    { v: "90 min", l: "Express delivery window" },
   ];
   return (
     <View
