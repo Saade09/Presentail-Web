@@ -141,11 +141,13 @@ export default function CheckoutScreen() {
   const [cardCvc, setCardCvc] = useState("");
   const [paying, setPaying] = useState(false);
 
+  const EXPRESS_SURCHARGE = 7;
   const fees = useMemo(() => {
     const subtotal = total;
-    const deliveryFee = deliveryMode === "express" ? district.fee + 7 : district.fee;
-    const grand = subtotal + deliveryFee;
-    return { subtotal, deliveryFee, grand };
+    const districtFee = subtotal >= 130 ? 0 : district.fee;
+    const expressFee = deliveryMode === "express" ? EXPRESS_SURCHARGE : 0;
+    const grand = subtotal + districtFee + expressFee;
+    return { subtotal, districtFee, expressFee, grand };
   }, [total, deliveryMode, district]);
 
   const stepValid = (s: Step) => {
@@ -422,7 +424,6 @@ export default function CheckoutScreen() {
               couponOpen={couponOpen}
               setCouponOpen={setCouponOpen}
               showDeliveryFee
-              deliveryMode={deliveryMode}
             />
             <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
@@ -987,15 +988,15 @@ function DeliverySummaryCard({ colors, days, date, slot, mode }: any) {
   );
 }
 
-function SummaryRow({ label, value, colors, accent, bold }: any) {
+function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</Text>
       <Text
         style={{
-          fontFamily: bold ? "Inter_700Bold" : "Inter_500Medium",
+          fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold",
           fontSize: bold ? 16 : 13,
-          color: accent ? colors.gold : colors.primary,
+          color: highlight ? "#2e7d32" : accent ? colors.gold : colors.primary,
         }}
       >
         {value}
@@ -1266,7 +1267,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, chips, c
 
 // =============== Order Summary ===============
 
-function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee, deliveryMode }: any) {
+function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
   return (
     <Card colors={colors} title="Order Summary">
       <View style={{ gap: 12 }}>
@@ -1312,10 +1313,15 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
       <SummaryRow label="Subtotal" value={`$${fees.subtotal.toLocaleString()}`} colors={colors} />
       {showDeliveryFee ? (
         <>
-          {deliveryMode === "express" ? (
-            <SummaryRow label="Express Delivery Fee" value={`$15`} colors={colors} />
+          <SummaryRow
+            label="Delivery Fee"
+            value={fees.districtFee === 0 ? "FREE" : `$${fees.districtFee}`}
+            colors={colors}
+            highlight={fees.districtFee === 0}
+          />
+          {fees.expressFee > 0 ? (
+            <SummaryRow label="Express Delivery" value={`$${fees.expressFee}`} colors={colors} />
           ) : null}
-          <SummaryRow label="Delivery Fee" value={`$${deliveryMode === "express" ? 0 : fees.deliveryFee}`} colors={colors} />
         </>
       ) : null}
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
