@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Presentail Lebanon",
+    "name": "Presentail",
     "slug": "presentail",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,11 +14,14 @@
       "backgroundColor": "#00414E"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.presentail.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.presentail.app"
+    },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
