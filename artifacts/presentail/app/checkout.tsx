@@ -80,6 +80,9 @@ export default function CheckoutScreen() {
   const [orderNotes, setOrderNotes] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [payMethod, setPayMethod] = useState<"card" | "whish" | "western">("card");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
   const [paying, setPaying] = useState(false);
 
   const fees = useMemo(() => {
@@ -344,6 +347,12 @@ export default function CheckoutScreen() {
               setPayMethod={setPayMethod}
               email={senderEmail}
               setEmail={setSenderEmail}
+              cardNumber={cardNumber}
+              setCardNumber={setCardNumber}
+              cardExpiry={cardExpiry}
+              setCardExpiry={setCardExpiry}
+              cardCvc={cardCvc}
+              setCardCvc={setCardCvc}
             />
             <OrderSummary
               colors={colors}
@@ -871,11 +880,21 @@ function SummaryRow({ label, value, colors, accent, bold }: any) {
 
 // =============== Step 3: Payment ===============
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail, cardNumber, setCardNumber, cardExpiry, setCardExpiry, cardCvc, setCardCvc }: any) {
+  const formatCard = (v: string) => {
+    const digits = v.replace(/\D/g, "").slice(0, 16);
+    return digits.replace(/(.{4})/g, "$1 ").trim();
+  };
+  const formatExpiry = (v: string) => {
+    const digits = v.replace(/\D/g, "").slice(0, 4);
+    if (digits.length > 2) return digits.slice(0, 2) + " / " + digits.slice(2);
+    return digits;
+  };
+
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title="Note For Presentail Team">
-        <Field colors={colors} label="Order notes" value={orderNotes} onChangeText={setOrderNotes} placeholder="" multiline />
+        <Field colors={colors} label="Order notes" value={orderNotes} onChangeText={setOrderNotes} placeholder="Any special requests?" multiline />
         <Pressable
           onPress={() => setAgreed(!agreed)}
           style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 4 }}
@@ -904,9 +923,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
         </Pressable>
       </Card>
 
-      <Card colors={colors} title="Your Payment Information">
+      <Card colors={colors} title="Ways to Pay">
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
-          All transactions are secure and encrypted. Credit card information is never stored on our servers.
+          All transactions are secure and encrypted.
         </Text>
 
         <PayOption
@@ -914,7 +933,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
           active={payMethod === "whish"}
           onPress={() => setPayMethod("whish")}
           title="Whish Money"
-          badge="WHISH"
+          badge="whish"
           badgeColor="#E5302E"
         />
         <PayOption
@@ -929,11 +948,11 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
           colors={colors}
           active={payMethod === "card"}
           onPress={() => setPayMethod("card")}
-          title="Pay By Card"
+          title="Credit / Debit Card"
           chips={["MC", "VISA", "AMEX"]}
         >
           {payMethod === "card" ? (
-            <View style={{ marginTop: 12, gap: 12 }}>
+            <View style={{ gap: 12 }}>
               <Field
                 colors={colors}
                 label="Email"
@@ -942,22 +961,115 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
                 placeholder="you@example.com"
                 keyboardType="email-address"
               />
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+                  Card number
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 10,
+                    backgroundColor: "#fff",
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    gap: 8,
+                  }}
+                >
+                  <TextInput
+                    style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 14, color: colors.primary }}
+                    value={cardNumber}
+                    onChangeText={(v) => setCardNumber(formatCard(v))}
+                    placeholder="1234 5678 9012 3456"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    maxLength={19}
+                  />
+                  <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+                    <View style={{ flexDirection: "row" }}>
+                      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
+                      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
+                    </View>
+                    <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 12, color: "#1A1F71", marginLeft: 4 }}>VISA</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+                    Expiration date
+                  </Text>
+                  <TextInput
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      backgroundColor: "#fff",
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 14,
+                      color: colors.primary,
+                    }}
+                    value={cardExpiry}
+                    onChangeText={(v) => setCardExpiry(formatExpiry(v))}
+                    placeholder="MM / YY"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    maxLength={7}
+                  />
+                </View>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+                    Security code
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      backgroundColor: "#fff",
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      gap: 6,
+                    }}
+                  >
+                    <TextInput
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 14, color: colors.primary }}
+                      value={cardCvc}
+                      onChangeText={(v) => setCardCvc(v.replace(/\D/g, "").slice(0, 4))}
+                      placeholder="CVC"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      maxLength={4}
+                    />
+                    <MaterialCommunityIcons name="credit-card-outline" size={18} color={colors.mutedForeground} />
+                  </View>
+                </View>
+              </View>
+
               <View
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 10,
                   backgroundColor: colors.secondary,
-                  padding: 14,
+                  padding: 12,
                   borderWidth: 1,
                   borderColor: colors.border,
                   flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 10,
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                <Feather name="lock" size={16} color={colors.gold} style={{ marginTop: 2 }} />
-                <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.primary, lineHeight: 18 }}>
-                  Your card will be entered on Stripe's secure payment page when you tap "Pay".
-                  We never see or store your card details.
+                <Feather name="lock" size={14} color={colors.gold} />
+                <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
+                  Payments are processed securely via Stripe. We never store your card details.
                 </Text>
               </View>
             </View>

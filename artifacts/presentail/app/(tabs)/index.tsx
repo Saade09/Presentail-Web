@@ -768,20 +768,18 @@ function Footer() {
         { label: "Plants", href: "/category/plants" },
         { label: "Gift Bundles", href: "/category/bundles" },
         { label: "Cakes & Sweets", href: "/category/cakes" },
-        { label: "Baskets", href: "/category/arabic-sweets" },
+        { label: "Baskets", href: "/category/baskets" },
         { label: "Bears & Balloons", href: "/category/stuffed-animals" },
-        { label: "Brands", href: "/(tabs)/catalog" },
-        { label: "Occasions", href: "/(tabs)/index" },
+        { label: "Occasions", href: "/(tabs)/catalog" },
       ],
     },
     {
       id: "know",
       title: "Get to Know Us",
       links: [
-        { label: "About Us", href: "https://presentail.com/lebanon/about-us" },
+        { label: "About Us", href: "/(tabs)/brand" },
         { label: "Partner With Us", href: "https://presentail.com/lebanon/partner" },
         { label: "Delivery Rates", href: "https://presentail.com/lebanon/delivery-rates" },
-        { label: "Investor Relations", href: "https://presentail.com/lebanon/investors" },
         { label: "Weddings & Events", href: "https://presentail.com/lebanon/weddings-events" },
         { label: "Corporate Gifts", href: "https://presentail.com/lebanon/corporate-gifts" },
         { label: "Careers", href: "https://presentail.com/lebanon/careers" },
@@ -1037,30 +1035,31 @@ function Footer() {
       <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", marginTop: 8 }} />
 
       {/* Payment methods */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        <PayBadge bg="#006FCF">
-          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.6 }}>AMEX</Text>
-        </PayBadge>
-        <PayBadge bg="#fff">
-          <MaterialCommunityIcons name="google" size={12} color="#4285F4" />
-          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#3c4043", marginLeft: 4 }}>Pay</Text>
-        </PayBadge>
-        <PayBadge bg="#000">
-          <MaterialCommunityIcons name="apple" size={13} color="#fff" />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", marginLeft: 3 }}>Pay</Text>
-        </PayBadge>
-        <PayBadge bg="#fff">
-          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 12, color: "#1A1F71", letterSpacing: 0.5 }}>VISA</Text>
-        </PayBadge>
-        <PayBadge bg="#fff">
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        <PayIcon>
           <View style={{ flexDirection: "row" }}>
-            <View style={{ width: 13, height: 13, borderRadius: 999, backgroundColor: "#EB001B" }} />
-            <View style={{ width: 13, height: 13, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -5, opacity: 0.92 }} />
+            <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
+            <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
           </View>
-        </PayBadge>
-        <PayBadge bg="#E5302E">
-          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, color: "#fff", letterSpacing: 0.5 }}>whish</Text>
-        </PayBadge>
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#444", letterSpacing: 0.3, marginLeft: 4 }}>MC</Text>
+        </PayIcon>
+        <PayIcon>
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 13, color: "#1A1F71" }}>VISA</Text>
+        </PayIcon>
+        <PayIcon>
+          <MaterialCommunityIcons name="google" size={11} color="#4285F4" />
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#3c4043", marginLeft: 2 }}>Pay</Text>
+        </PayIcon>
+        <PayIcon>
+          <MaterialCommunityIcons name="apple" size={13} color="#000" />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#000", marginLeft: 2 }}>Pay</Text>
+        </PayIcon>
+        <PayIcon>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#006FCF", letterSpacing: 0.5 }}>AMEX</Text>
+        </PayIcon>
+        <PayIcon>
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#E5302E" }}>whish</Text>
+        </PayIcon>
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 4 }}>
@@ -1084,22 +1083,9 @@ function Footer() {
   );
 }
 
-function PayBadge({ bg, children }: { bg: string; children: React.ReactNode }) {
+function PayIcon({ children }: { children: React.ReactNode }) {
   return (
-    <View
-      style={{
-        height: 26,
-        minWidth: 44,
-        paddingHorizontal: 10,
-        borderRadius: 6,
-        backgroundColor: bg,
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "row",
-        borderWidth: bg === "#fff" ? 1 : 0,
-        borderColor: "rgba(0,0,0,0.08)",
-      }}
-    >
+    <View style={{ flexDirection: "row", alignItems: "center", opacity: 0.85 }}>
       {children}
     </View>
   );
