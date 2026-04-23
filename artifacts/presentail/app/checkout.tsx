@@ -125,9 +125,12 @@ export default function CheckoutScreen() {
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(dayLabels, []);
-  const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("express");
+  const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("today_slot");
   const [date, setDate] = useState(days[0].iso);
-  const [slot, setSlot] = useState<TimeSlot | null>(null);
+  const [slot, setSlot] = useState<TimeSlot | null>(() => {
+    const bh = getBeirutHour();
+    return TIME_SLOTS.find(s => s.cutoffHour > bh) ?? null;
+  });
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
@@ -146,7 +149,7 @@ export default function CheckoutScreen() {
   }, [total, deliveryMode, district]);
 
   const stepValid = (s: Step) => {
-    if (s === 0) return cardMessage.trim().length > 0 && cardFrom.trim().length > 0;
+    if (s === 0) return true;
     if (s === 1)
       return (
         recipientFirst.trim() &&
@@ -582,7 +585,6 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         multiline
         maxLength={400}
         characterCount
-        required
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {presets.map((p, i) => (
@@ -605,7 +607,7 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         ))}
       </View>
 
-      <Field colors={colors} label="From" value={cardFrom} onChangeText={setCardFrom} placeholder="" required />
+      <Field colors={colors} label="From" value={cardFrom} onChangeText={setCardFrom} placeholder="" />
 
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
         Paste a link to a video or photo from the internet. A QR code will be automatically added to your card message. No extra cost!
@@ -832,7 +834,7 @@ function DeliveryDetailsStep(props: any) {
           <View style={{ flexDirection: "row", gap: 8 }}>
             <DeliveryTile
               colors={colors}
-              icon="flash"
+              icon="zap"
               title="Express Delivery"
               subtitle="Today"
               footer="Express Delivery"

@@ -212,9 +212,21 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
     }
     return out;
   }, []);
-  const slots = ["10am – 1pm", "1pm – 4pm", "4pm – 7pm", "7pm – 9pm"];
+  const PROD_SLOTS = [
+    { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
+    { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
+    { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
+    { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
+  ];
+  function getBeirutHourLocal() {
+    try {
+      const h = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Beirut", hour: "numeric", hour12: false }).format(new Date());
+      return parseInt(h, 10);
+    } catch { return (new Date().getUTCHours() + 2) % 24; }
+  }
+  const beirutH = getBeirutHourLocal();
   const [date, setDate] = useState(days[0].iso);
-  const [slot, setSlot] = useState(slots[1]);
+  const [slot, setSlot] = useState(() => PROD_SLOTS.find(s => s.cutoffHour > beirutH)?.label ?? PROD_SLOTS[2].label);
 
   const careTips: string[] = [
     "Trim 2cm off stems at a 45° angle every 2–3 days.",
@@ -340,12 +352,18 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
               })}
             </ScrollView>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-              {slots.map((s) => {
-                const a = s === slot;
+              {PROD_SLOTS.map((s) => {
+                const isToday = date === days[0].iso;
+                const past = isToday && beirutH >= s.cutoffHour;
+                const a = s.label === slot;
                 return (
-                  <Pressable key={s} onPress={() => setSlot(s)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: a ? colors.primary : colors.border, backgroundColor: a ? colors.primary : "#fff" }}>
-                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: a ? "#fff" : colors.primary }}>
-                      {s}
+                  <Pressable
+                    key={s.label}
+                    onPress={() => { if (!past) setSlot(s.label); }}
+                    style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: a ? colors.primary : colors.border, backgroundColor: a ? colors.primary : past ? "#f5f5f5" : "#fff", opacity: past ? 0.5 : 1 }}
+                  >
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: a ? "#fff" : past ? colors.mutedForeground : colors.primary, textDecorationLine: past ? "line-through" : "none" }}>
+                      {s.label}
                     </Text>
                   </Pressable>
                 );
