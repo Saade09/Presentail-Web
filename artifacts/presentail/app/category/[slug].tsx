@@ -15,10 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
   categories,
   getCategory,
-  getProductsByCategory,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 
@@ -35,9 +35,10 @@ export default function CategoryScreen() {
   const { count } = useCart();
   const [sort, setSort] = useState<(typeof SORTS)[number]>("Featured");
 
+  const { products: allProducts } = useWooProducts();
   const category = getCategory(String(slug));
   const products = useMemo(() => {
-    const list = getProductsByCategory(String(slug));
+    const list = allProducts.filter((p) => p.category === String(slug));
     if (sort === "Price ↑") return [...list].sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "Price ↓") return [...list].sort((a, b) => b.priceValue - a.priceValue);
     if (sort === "Name") return [...list].sort((a, b) => a.name.localeCompare(b.name));

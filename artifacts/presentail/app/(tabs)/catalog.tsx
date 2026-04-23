@@ -18,7 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SectionTitle } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
-import { categories, products } from "@/data/catalog";
+import { useWooProducts } from "@/contexts/WooProductsContext";
+import { categories } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -35,6 +36,7 @@ export default function CatalogScreen() {
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
 
+  const { products } = useWooProducts();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
   const [query, setQuery] = useState<string>(params.q ?? "");
 

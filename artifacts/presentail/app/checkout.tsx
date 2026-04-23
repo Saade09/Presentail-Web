@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { createStripeCheckoutSession } from "@/lib/stripe";
+import { createWooOrder } from "@/lib/woo";
 
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
@@ -173,6 +174,39 @@ export default function CheckoutScreen() {
     else placeOrder();
   };
 
+  const buildWooPayload = (orderId: string) => ({
+    orderId,
+    items: detailed.map(({ product, qty }) => ({
+      name: product.name,
+      quantity: qty,
+      price: product.priceValue,
+      wcId: (product as any).wcId as number | undefined,
+    })),
+    billing: {
+      firstName: senderFirst,
+      lastName: senderLast,
+      email: senderEmail,
+      phone: senderWhatsapp,
+    },
+    recipient: {
+      firstName: recipientFirst,
+      lastName: recipientLast,
+      phone: recipientPhone,
+    },
+    district: district.name,
+    districtFee: fees.districtFee,
+    expressFee: fees.expressFee,
+    deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
+    deliveryDate: date,
+    deliverySlot: slot?.label ?? "",
+    cardMessage,
+    cardFrom,
+    cardTo,
+    orderNotes,
+    paymentMethod: payMethod,
+    identitySecret,
+  });
+
   const placeOrder = async () => {
     if (paying) return;
     setPaying(true);
@@ -182,6 +216,9 @@ export default function CheckoutScreen() {
     const successPath = `/order-confirmed?orderId=${orderId}&total=${fees.grand}&date=${date}&slot=${encodeURIComponent(
       slotLabel
     )}&recipient=${encodeURIComponent(`${recipientFirst} ${recipientLast}`)}`;
+
+    // Always create WooCommerce order (fire-and-forget; don't block UX on failure)
+    createWooOrder(buildWooPayload(orderId)).catch(() => {/* silent */});
 
     if (payMethod === "card") {
       // Try real Stripe Checkout if configured

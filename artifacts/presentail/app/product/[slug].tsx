@@ -15,11 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
-import {
-  getCategory,
-  getProduct,
-  getProductsByCategory,
-} from "@/data/catalog";
+import { useWooProducts } from "@/contexts/WooProductsContext";
+import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -32,7 +29,8 @@ export default function ProductDetail() {
   const { add, count } = useCart();
   const [qty, setQty] = useState(1);
 
-  const product = getProduct(String(slug));
+  const { products: allProducts } = useWooProducts();
+  const product = allProducts.find((p) => p.id === String(slug)) ?? null;
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
@@ -47,8 +45,8 @@ export default function ProductDetail() {
   }
 
   const cat = getCategory(product.category);
-  const related = getProductsByCategory(product.category)
-    .filter((p) => p.id !== product.id)
+  const related = allProducts
+    .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 
   return (

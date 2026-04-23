@@ -1,0 +1,65 @@
+import { API_BASE } from "./stripe";
+
+export type WooProduct = {
+  id: string;
+  wcId: number;
+  name: string;
+  price: string;
+  priceValue: number;
+  image: { uri: string } | null;
+  category: string;
+  inStock: boolean;
+  description?: string;
+  tag?: string;
+  occasions: string[];
+};
+
+export async function fetchWooProducts(): Promise<WooProduct[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/woo/products`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.products)) {
+      return json.products;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export type WooOrderPayload = {
+  orderId: string;
+  items: { name: string; quantity: number; price: number; wcId?: number }[];
+  billing: { firstName: string; lastName: string; email: string; phone: string };
+  recipient: { firstName: string; lastName: string; phone: string };
+  district: string;
+  districtFee: number;
+  expressFee: number;
+  deliveryDetails: string;
+  deliveryDate: string;
+  deliverySlot: string;
+  cardMessage?: string;
+  cardFrom?: string;
+  cardTo?: string;
+  orderNotes?: string;
+  paymentMethod: "card" | "whish" | "western";
+  identitySecret?: boolean;
+};
+
+export async function createWooOrder(
+  payload: WooOrderPayload
+): Promise<{ ok: true; wcOrderId: number } | { ok: false; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/woo/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    return json;
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Network error" };
+  }
+}
