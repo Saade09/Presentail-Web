@@ -2,7 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
@@ -91,9 +91,6 @@ export default function BrandScreen() {
 
       <Story />
       <Mission />
-      <Identity />
-      <PalettePreview />
-      <Pillars />
       <Numbers />
       <Contact />
     </ScrollView>
@@ -417,17 +414,18 @@ function Numbers() {
 function Contact() {
   const colors = useColors();
   const items = [
-    { icon: "phone" as const, label: "+961 1 200 200", sub: "Daily 9am — 9pm" },
-    { icon: "mail" as const, label: "hello@presentail.com", sub: "We reply within 2 hours" },
-    { icon: "map-pin" as const, label: "Hamra · Beirut", sub: "Atelier & boutique" },
+    { icon: "message-circle" as const, label: "WhatsApp: +961 3 136 532", sub: "Tap to chat", url: "https://wa.me/9613136532" },
+    { icon: "map-pin" as const, label: "Achrafieh, Beirut", sub: "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St", url: "https://maps.google.com/?q=Achrafieh+Beirut" },
+    { icon: "map-pin" as const, label: "Jdeideh, Beirut", sub: "Our second boutique", url: "https://presentail.com/lebanon/contact-us/" },
   ];
   return (
     <View style={{ paddingHorizontal: 24, marginTop: 44, gap: 18 }}>
-      <SectionTitle eyebrow="Visit" title="Stop by, write, or call" />
+      <SectionTitle eyebrow="Contact us" title="We're here to help" />
       <View style={{ gap: 10 }}>
         {items.map((c) => (
           <Pressable
             key={c.label}
+            onPress={() => Linking.openURL(c.url)}
             style={({ pressed }) => [
               {
                 flexDirection: "row",

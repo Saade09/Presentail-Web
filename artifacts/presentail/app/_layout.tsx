@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/contexts/CartContext";
 
@@ -66,6 +67,7 @@ export default function RootLayout() {
             <KeyboardProvider>
               <CartProvider>
                 <RootLayoutNav />
+                <CartDrawer />
               </CartProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

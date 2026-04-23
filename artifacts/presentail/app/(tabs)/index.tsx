@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -32,11 +33,115 @@ import { useColors } from "@/hooks/useColors";
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
+function HomeHeader({ topPad }: { topPad: number }) {
+  const colors = useColors();
+  const router = useRouter();
+  const { count, openCart } = useCart();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <View
+      style={{
+        backgroundColor: "#fff",
+        paddingTop: topPad,
+        paddingHorizontal: 18,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(0,0,0,0.07)",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
+        <Pressable hitSlop={10} onPress={() => setMenuOpen(true)}>
+          <Feather name="menu" size={22} color={colors.primary} />
+        </Pressable>
+        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
+          <Feather name="search" size={20} color={colors.primary} />
+        </Pressable>
+      </View>
+
+      <Wordmark size={26} />
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
+        <Pressable hitSlop={10}>
+          <Feather name="user" size={20} color={colors.primary} />
+        </Pressable>
+        <Pressable hitSlop={10} onPress={openCart}>
+          <Feather name="shopping-bag" size={20} color={colors.primary} />
+          {count > 0 ? (
+            <View
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -8,
+                minWidth: 17,
+                height: 17,
+                borderRadius: 999,
+                backgroundColor: "#E5302E",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 3,
+              }}
+            >
+              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>
+                {count}
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
+
+      <Modal visible={menuOpen} transparent animationType="slide" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} onPress={() => setMenuOpen(false)} />
+        <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "78%", backgroundColor: "#fff", paddingTop: topPad + 16, paddingHorizontal: 24, paddingBottom: 40, gap: 0 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+            <Wordmark size={26} />
+            <Pressable onPress={() => setMenuOpen(false)} hitSlop={12}>
+              <Feather name="x" size={22} color={colors.primary} />
+            </Pressable>
+          </View>
+          {[
+            { label: "Flowers & Plants", path: "/(tabs)/catalog" },
+            { label: "Gifts", path: "/(tabs)/catalog" },
+            { label: "Occasions", path: "/(tabs)/catalog" },
+            { label: "Brands", path: "/(tabs)/catalog" },
+            { label: "About Us", path: "/(tabs)/brand" },
+          ].map((m) => (
+            <Pressable
+              key={m.label}
+              onPress={() => { setMenuOpen(false); router.push(m.path as any); }}
+              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.07)" }}
+            >
+              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
+                {m.label}
+              </Text>
+            </Pressable>
+          ))}
+          <View style={{ marginTop: 32, gap: 14 }}>
+            <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name="phone" size={16} color={colors.gold} />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
+                +961 3 136 532
+              </Text>
+            </Pressable>
+            <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name="map-pin" size={16} color={colors.gold} />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
+                Achrafieh, Beirut
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { count } = useCart();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
@@ -47,53 +152,7 @@ export default function HomeScreen() {
       contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
       showsVerticalScrollIndicator={false}
     >
-      <View
-        style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background }]}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Feather name="map-pin" size={14} color={colors.gold} />
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 11,
-              color: colors.mutedForeground,
-              letterSpacing: 1.5,
-              textTransform: "uppercase",
-            }}
-          >
-            Lebanon · Same-day delivery
-          </Text>
-        </View>
-        <Wordmark size={26} />
-        <View style={{ flexDirection: "row", gap: 14 }}>
-          <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
-            <Feather name="search" size={20} color={colors.primary} />
-          </Pressable>
-          <Pressable hitSlop={10} onPress={() => router.push("/cart" as any)}>
-            <Feather name="shopping-bag" size={20} color={colors.primary} />
-            {count > 0 ? (
-              <View
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -8,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 999,
-                  backgroundColor: colors.gold,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 4,
-                }}
-              >
-                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 9 }}>
-                  {count}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
-      </View>
+      <HomeHeader topPad={topPad} />
 
       <Hero />
       <BrandStrip />

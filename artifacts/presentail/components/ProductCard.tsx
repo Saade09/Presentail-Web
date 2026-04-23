@@ -67,9 +67,11 @@ export function ProductCard({ product, width, onPress }: Props) {
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}>
             {product.price}
           </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
-            FREE DELIVERY
-          </Text>
+          {product.priceValue >= 130 ? (
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
+              FREE DELIVERY
+            </Text>
+          ) : null}
         </View>
       </View>
     </Pressable>

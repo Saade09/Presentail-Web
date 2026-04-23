@@ -299,13 +299,16 @@ export const occasions: Occasion[] = [
 ];
 
 export const brands = [
-  "Sablé Gourmet",
-  "Halab 1881",
-  "Samsung",
   "Apple",
-  "Patchi",
-  "Godiva",
-  "Ferrero",
+  "Super Heated Neurons",
+  "Salma",
+  "Hallab 1881",
+  "Rifai",
+  "Fujifilm",
+  "Samsung",
+  "Nintendo",
+  "PlayStation",
+  "Sablés Gourmets",
 ];
 
 export const reviews = [
