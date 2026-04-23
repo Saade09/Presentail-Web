@@ -5,13 +5,16 @@ import * as WebBrowser from "expo-web-browser";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,8 +26,57 @@ import { createStripeCheckoutSession } from "@/lib/stripe";
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 
-const DISTRICTS = ["Beirut", "Mount Lebanon", "North", "South", "Bekaa", "Nabatieh", "Akkar", "Baalbek-Hermel"];
-const TIME_SLOTS = ["10am – 1pm", "1pm – 4pm", "4pm – 7pm", "7pm – 9pm"];
+type District = { name: string; fee: number };
+const DISTRICTS: District[] = [
+  { name: "Akkar", fee: 39 },
+  { name: "Aley", fee: 19 },
+  { name: "Baabda", fee: 11 },
+  { name: "Baalbeck", fee: 39 },
+  { name: "Batroun", fee: 19 },
+  { name: "Bcharee", fee: 39 },
+  { name: "Beirut", fee: 8 },
+  { name: "Bent Jbeil", fee: 39 },
+  { name: "Chouf", fee: 29 },
+  { name: "Hasbaya", fee: 39 },
+  { name: "Hermel", fee: 39 },
+  { name: "Jbail", fee: 19 },
+  { name: "Jezzine", fee: 29 },
+  { name: "Kasserwan", fee: 11 },
+  { name: "Koura", fee: 29 },
+  { name: "Marjayoun", fee: 39 },
+  { name: "Metn", fee: 11 },
+  { name: "Minnieh-Dennaya", fee: 39 },
+  { name: "Nabatieh", fee: 39 },
+  { name: "Rechaya", fee: 39 },
+  { name: "Saida", fee: 29 },
+  { name: "Tripoli", fee: 29 },
+  { name: "Tyre", fee: 39 },
+  { name: "West Bekaa", fee: 39 },
+  { name: "Zahle", fee: 29 },
+  { name: "Zghorta", fee: 39 },
+];
+
+type TimeSlot = { label: string; cutoffHour: number };
+const TIME_SLOTS: TimeSlot[] = [
+  { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
+  { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
+  { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
+  { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
+];
+
+function getBeirutHour(): number {
+  try {
+    const now = new Date();
+    const h = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Beirut",
+      hour: "numeric",
+      hour12: false,
+    }).format(now);
+    return parseInt(h, 10);
+  } catch {
+    return (new Date().getUTCHours() + 2) % 24;
+  }
+}
 
 function dayLabels() {
   const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
@@ -63,7 +115,8 @@ export default function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
-  const [district, setDistrict] = useState(DISTRICTS[0]);
+  const [district, setDistrict] = useState<District>(DISTRICTS.find(d => d.name === "Beirut")!);
+  const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
   const [senderFirst, setSenderFirst] = useState("");
@@ -74,7 +127,7 @@ export default function CheckoutScreen() {
   const days = useMemo(dayLabels, []);
   const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("express");
   const [date, setDate] = useState(days[0].iso);
-  const [slot, setSlot] = useState(TIME_SLOTS[1]);
+  const [slot, setSlot] = useState<TimeSlot | null>(null);
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
@@ -87,10 +140,10 @@ export default function CheckoutScreen() {
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const deliveryFee = deliveryMode === "express" ? 15 : 8;
+    const deliveryFee = deliveryMode === "express" ? district.fee + 7 : district.fee;
     const grand = subtotal + deliveryFee;
     return { subtotal, deliveryFee, grand };
-  }, [total, deliveryMode]);
+  }, [total, deliveryMode, district]);
 
   const stepValid = (s: Step) => {
     if (s === 0) return cardMessage.trim().length > 0 && cardFrom.trim().length > 0;
@@ -120,8 +173,9 @@ export default function CheckoutScreen() {
     setPaying(true);
     const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
 
+    const slotLabel = slot?.label ?? "";
     const successPath = `/order-confirmed?orderId=${orderId}&total=${fees.grand}&date=${date}&slot=${encodeURIComponent(
-      slot
+      slotLabel
     )}&recipient=${encodeURIComponent(`${recipientFirst} ${recipientLast}`)}`;
 
     if (payMethod === "card") {
@@ -142,7 +196,7 @@ export default function CheckoutScreen() {
           orderId,
           recipient: `${recipientFirst} ${recipientLast}`,
           date,
-          slot,
+          slot: slotLabel,
         },
         successUrl,
         cancelUrl,
@@ -306,9 +360,10 @@ export default function CheckoutScreen() {
               setRecipientLast={setRecipientLast}
               recipientPhone={recipientPhone}
               setRecipientPhone={setRecipientPhone}
-              districts={DISTRICTS}
               district={district}
               setDistrict={setDistrict}
+              districtOpen={districtOpen}
+              setDistrictOpen={setDistrictOpen}
               noAddress={noAddress}
               setNoAddress={setNoAddress}
               deliveryDetails={deliveryDetails}
@@ -326,13 +381,12 @@ export default function CheckoutScreen() {
               days={days}
               date={date}
               setDate={setDate}
-              slots={TIME_SLOTS}
               slot={slot}
               setSlot={setSlot}
               deliveryMode={deliveryMode}
               setDeliveryMode={setDeliveryMode}
             />
-            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot} mode={deliveryMode} />
+            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
         )}
         {step === 2 && (
@@ -367,7 +421,7 @@ export default function CheckoutScreen() {
               showDeliveryFee
               deliveryMode={deliveryMode}
             />
-            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot} mode={deliveryMode} />
+            <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
         )}
       </ScrollView>
@@ -572,12 +626,14 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
 function DeliveryDetailsStep(props: any) {
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
-    recipientPhone, setRecipientPhone, districts, district, setDistrict,
+    recipientPhone, setRecipientPhone, district, setDistrict, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
-    days, date, setDate, slots, slot, setSlot, deliveryMode, setDeliveryMode,
+    days, date, setDate, slot, setSlot, deliveryMode, setDeliveryMode,
   } = props;
+  const beirutHour = getBeirutHour();
+  const todayIso = days[0]?.iso;
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title="Recipient Details">
@@ -624,29 +680,84 @@ function DeliveryDetailsStep(props: any) {
 
         <View>
           <Label colors={colors} required>District</Label>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {districts.map((d: string) => {
-              const a = d === district;
-              return (
-                <Pressable
-                  key={d}
-                  onPress={() => setDistrict(d)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: a ? colors.primary : colors.border,
-                    backgroundColor: a ? colors.primary : "#fff",
-                  }}
-                >
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: a ? "#fff" : colors.primary }}>
-                    {d}
-                  </Text>
+          <Pressable
+            onPress={() => setDistrictOpen(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              backgroundColor: "#fff",
+              paddingHorizontal: 14,
+              paddingVertical: 13,
+            }}
+          >
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+              {district.name}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                ${district.fee} delivery
+              </Text>
+              <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+            </View>
+          </Pressable>
+
+          <Modal visible={districtOpen} transparent animationType="slide" onRequestClose={() => setDistrictOpen(false)}>
+            <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} onPress={() => setDistrictOpen(false)} />
+            <View
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: "#fff",
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                maxHeight: "72%",
+                paddingBottom: 32,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
+                <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>Select District</Text>
+                <Pressable onPress={() => setDistrictOpen(false)}>
+                  <Feather name="x" size={20} color={colors.primary} />
                 </Pressable>
-              );
-            })}
-          </ScrollView>
+              </View>
+              <FlatList
+                data={DISTRICTS}
+                keyExtractor={(item) => item.name}
+                renderItem={({ item }) => {
+                  const selected = item.name === district.name;
+                  return (
+                    <TouchableOpacity
+                      onPress={() => { setDistrict(item); setDistrictOpen(false); }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingHorizontal: 20,
+                        paddingVertical: 14,
+                        borderBottomWidth: 1,
+                        borderBottomColor: "#f7f4ef",
+                        backgroundColor: selected ? "#f9f6f1" : "#fff",
+                      }}
+                    >
+                      <Text style={{ fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
+                        {item.name}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>${item.fee}</Text>
+                        {selected && <Feather name="check" size={16} color={colors.gold} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
+          </Modal>
         </View>
 
         <Field
@@ -732,12 +843,13 @@ function DeliveryDetailsStep(props: any) {
               colors={colors}
               icon=""
               title="Today"
-              subtitle="2:00 PM – 6:00 PM"
+              subtitle="Scheduled Slot"
               active={deliveryMode === "today_slot"}
               onPress={() => {
                 setDeliveryMode("today_slot");
                 setDate(days[0].iso);
-                setSlot("1pm – 4pm");
+                const firstAvail = TIME_SLOTS.find(s => s.cutoffHour > beirutHour) ?? null;
+                setSlot(firstAvail);
               }}
             />
             <DeliveryTile
@@ -749,53 +861,65 @@ function DeliveryDetailsStep(props: any) {
               onPress={() => setDeliveryMode("schedule")}
             />
           </View>
-          {deliveryMode === "schedule" ? (
+          {(deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
             <View style={{ marginTop: 12, gap: 10 }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                {days.map((d: any) => {
-                  const a = d.iso === date;
+              {deliveryMode === "schedule" && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {days.map((d: any) => {
+                    const a = d.iso === date;
+                    return (
+                      <Pressable
+                        key={d.iso}
+                        onPress={() => { setDate(d.iso); setSlot(null); }}
+                        style={{
+                          width: 56,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          alignItems: "center",
+                          backgroundColor: a ? colors.primary : "#fff",
+                          borderWidth: 1,
+                          borderColor: a ? colors.primary : colors.border,
+                        }}
+                      >
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
+                          {d.label}
+                        </Text>
+                        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
+                          {d.date}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {TIME_SLOTS.map((s) => {
+                  const isToday = date === todayIso;
+                  const past = isToday && beirutHour >= s.cutoffHour;
+                  const active = slot?.label === s.label;
                   return (
                     <Pressable
-                      key={d.iso}
-                      onPress={() => setDate(d.iso)}
+                      key={s.label}
+                      onPress={() => { if (!past) setSlot(s); }}
                       style={{
-                        width: 56,
-                        paddingVertical: 8,
+                        paddingHorizontal: 14,
+                        paddingVertical: 9,
                         borderRadius: 10,
-                        alignItems: "center",
-                        backgroundColor: a ? colors.primary : "#fff",
                         borderWidth: 1,
-                        borderColor: a ? colors.primary : colors.border,
+                        borderColor: active ? colors.primary : past ? colors.border : colors.border,
+                        backgroundColor: active ? colors.primary : past ? "#f5f5f5" : "#fff",
+                        opacity: past ? 0.55 : 1,
                       }}
                     >
-                      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
-                        {d.label}
-                      </Text>
-                      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
-                        {d.date}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                {slots.map((s: string) => {
-                  const a = s === slot;
-                  return (
-                    <Pressable
-                      key={s}
-                      onPress={() => setSlot(s)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: a ? colors.primary : colors.border,
-                        backgroundColor: a ? colors.primary : "#fff",
-                      }}
-                    >
-                      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: a ? "#fff" : colors.primary }}>
-                        {s}
+                      <Text
+                        style={{
+                          fontFamily: "Inter_500Medium",
+                          fontSize: 12,
+                          color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
+                          textDecorationLine: past ? "line-through" : "none",
+                        }}
+                      >
+                        {s.label}
                       </Text>
                     </Pressable>
                   );
