@@ -150,11 +150,22 @@ router.post("/woo/order", async (req, res) => {
     { key: "source", value: "presentail-app" },
   ];
 
-  const lineItems = body.items.map((item) => ({
-    ...(item.wcId ? { product_id: item.wcId } : { name: item.name }),
-    quantity: item.quantity,
-    ...(!item.wcId ? { total: (item.price * item.quantity).toFixed(2) } : {}),
-  }));
+  // Items with a WooCommerce product ID → proper line_items
+  // Items without (static catalog only) → fee_lines so WC still captures them
+  const lineItems = body.items
+    .filter((item) => !!item.wcId)
+    .map((item) => ({
+      product_id: item.wcId,
+      quantity: item.quantity,
+    }));
+
+  const feeLines: any[] = body.items
+    .filter((item) => !item.wcId)
+    .map((item) => ({
+      name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+      total: (item.price * item.quantity).toFixed(2),
+      tax_status: "none",
+    }));
 
   const shippingLines: any[] = [];
   if (body.districtFee > 0) {
@@ -190,6 +201,7 @@ router.post("/woo/order", async (req, res) => {
       country: "LB",
     },
     line_items: lineItems,
+    fee_lines: feeLines,
     shipping_lines: shippingLines,
     customer_note: [body.orderNotes, body.cardMessage ? `Card: "${body.cardMessage}" – from ${body.cardFrom}` : ""]
       .filter(Boolean)
