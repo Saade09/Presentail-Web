@@ -141,7 +141,7 @@ export default function CheckoutScreen() {
   const [cardCvc, setCardCvc] = useState("");
   const [paying, setPaying] = useState(false);
 
-  const EXPRESS_SURCHARGE = 7;
+  const EXPRESS_SURCHARGE = 15;
   const fees = useMemo(() => {
     const subtotal = total;
     const districtFee = subtotal >= 130 ? 0 : district.fee;
