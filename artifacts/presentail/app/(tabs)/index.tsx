@@ -695,20 +695,24 @@ function BrandsRow() {
           <View
             key={b}
             style={{
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: "#fff",
+              width: "18.5%",
+              aspectRatio: 1,
+              minWidth: 62,
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 8,
             }}
           >
             <Text
               style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 12,
-                color: colors.primary,
-                letterSpacing: 0.6,
+                fontFamily: "Inter_700Bold",
+                fontSize: b.length > 8 ? 7 : 9,
+                color: "#fff",
+                textAlign: "center",
+                letterSpacing: 0.2,
+                lineHeight: 13,
               }}
             >
               {b}
@@ -716,6 +720,21 @@ function BrandsRow() {
           </View>
         ))}
       </View>
+      <Pressable
+        onPress={() => {}}
+        style={{ marginTop: 16, alignSelf: "flex-start" }}
+      >
+        <Text
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 13,
+            color: colors.primary,
+            textDecorationLine: "underline",
+          }}
+        >
+          View All Brands
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -735,18 +754,18 @@ function Footer() {
       id: "social",
       title: "Social Media",
       links: [
-        { label: "Facebook", href: "https://facebook.com/presentail" },
-        { label: "Instagram", href: "https://instagram.com/presentail" },
-        { label: "TikTok", href: "https://tiktok.com/@presentail" },
-        { label: "LinkedIn", href: "https://linkedin.com/company/presentail" },
+        { label: "Facebook", href: "https://www.facebook.com/presentail" },
+        { label: "Instagram", href: "https://www.instagram.com/presentail.gifts/" },
+        { label: "TikTok", href: "https://www.tiktok.com/@presentail.gifts" },
+        { label: "LinkedIn", href: "https://www.linkedin.com/company/presentail" },
       ],
     },
     {
       id: "contact",
       title: "Get in Touch",
       links: [
-        { label: "Contact Us", action: "contact" },
-        { label: "FAQs", href: "https://presentail.com/lebanon/faqs" },
+        { label: "Contact Us", href: "/contact" },
+        { label: "FAQs", href: "/faq" },
       ],
     },
     {

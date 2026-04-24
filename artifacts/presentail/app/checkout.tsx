@@ -1203,7 +1203,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
               active={payMethod === "card"}
               onPress={() => setPayMethod("card")}
               title="Card · Apple Pay · Google Pay"
-              chips={["MC", "VISA", "AMEX"]}
+              payIcons="card"
             >
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
@@ -1258,7 +1258,24 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
   );
 }
 
-function PayOption({ colors, active, onPress, title, badge, badgeColor, chips, children }: any) {
+function CardIcons() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
+        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#006FCF", letterSpacing: 0.4 }}>AMEX</Text>
+      </View>
+      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row" }}>
+        <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#EB001B" }} />
+        <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -5 }} />
+      </View>
+      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
+        <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#1A1F71" }}>VISA</Text>
+      </View>
+    </View>
+  );
+}
+
+function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children }: any) {
   return (
     <View
       style={{
@@ -1301,15 +1318,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, chips, c
             </Text>
           </View>
         ) : null}
-        {chips
-          ? chips.map((c: string) => (
-              <View key={c} style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: colors.primary }}>
-                  {c}
-                </Text>
-              </View>
-            ))
-          : null}
+        {payIcons === "card" ? <CardIcons /> : null}
       </Pressable>
       {children ? <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View> : null}
     </View>

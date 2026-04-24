@@ -73,6 +73,7 @@ const img = {
 };
 
 const cat = {
+  "baskets": { uri: "https://presentail.com/lebanon/wp-content/uploads/2024/08/Birthday-Basket-copy.webp" },
   "lux-arrangements": require("@/assets/categories/lux-arrangements.avif"),
   "hand-bouquets": require("@/assets/categories/hand-bouquets.webp"),
   "flower-boxes": require("@/assets/categories/flower-boxes.avif"),
@@ -227,6 +228,16 @@ export const products: Product[] = [
   { id: "eternal-crush", name: "Eternal Crush", price: "$41", priceValue: 41, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2026/01/Eternal-Crush.avif" }, category: "preserved-flowers", occasions: ["love-romance","thank-you"] },
   { id: "the-eternity-bundle", name: "The Eternity Bundle", price: "$118", priceValue: 118, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2026/01/The-Eternity-Bundle.avif" }, category: "preserved-flowers", occasions: ["love-romance","thank-you"] },
   { id: "pure-eternity", name: "Pure Eternity", price: "$41", priceValue: 41, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2026/01/Pure-Eternity.avif" }, category: "preserved-flowers", occasions: ["love-romance","thank-you"] },
+  { id: "birthday-basket", name: "Birthday Basket", price: "$90", priceValue: 90, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2024/08/Birthday-Basket-copy.webp" }, category: "baskets", occasions: ["birthday","thank-you"] },
+  { id: "the-single-roses-basket", name: "The Single Roses Basket", price: "$138", priceValue: 138, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2024/08/The-single-roses-basket-copy.webp" }, category: "baskets", occasions: ["love-romance","thank-you"] },
+  { id: "cheese-and-wine-basket-2", name: "Cheese & Wine Basket", price: "$254", priceValue: 254, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/12/Cheese-Wine-Basket-1.avif" }, category: "baskets", occasions: ["housewarming","thank-you"] },
+  { id: "cheese-and-juice-basket", name: "Cheese & Juice Basket", price: "$191", priceValue: 191, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/12/Cheese-Juice-Basket.avif" }, category: "baskets", occasions: ["housewarming","thank-you"] },
+  { id: "the-ritual", name: "The Ritual", price: "$122", priceValue: 122, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/The-ritual-copy.avif" }, category: "baskets", occasions: ["housewarming","thank-you","condolences"] },
+  { id: "best-of-best", name: "Best of Best", price: "$106", priceValue: 106, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Best-of-best-copy.avif" }, category: "baskets", occasions: ["birthday","thank-you"] },
+  { id: "care-basket-her", name: "The Care Basket — For Her", price: "$148", priceValue: 148, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Basket-for-her_care-basket-copy.avif" }, category: "baskets", occasions: ["housewarming","thank-you","condolences"] },
+  { id: "care-basket-him", name: "The Care Basket — For Him", price: "$143", priceValue: 143, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Basket-for-him-copy.avif" }, category: "baskets", occasions: ["housewarming","thank-you","condolences"] },
+  { id: "rise-shine-basket", name: "Rise & Shine Breakfast Basket", price: "$85", priceValue: 85, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Rise-Shine-Breakfast-Basket-copy-scaled-1.avif" }, category: "baskets", occasions: ["housewarming","thank-you"] },
+  { id: "bonjour-basket", name: "Bonjour Breakfast Basket", price: "$85", priceValue: 85, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Bonjour-Breakfast-basket-copy-scaled-1.avif" }, category: "baskets", occasions: ["housewarming","thank-you"] },
 ];
 
 export const bestSellerIds = [
@@ -243,6 +254,7 @@ export const bestSellers: Product[] = bestSellerIds
 
 export const categories: Category[] = [
   { id: "lux-arrangements", name: "Lux Arrangements", icon: "flower-tulip", image: cat["lux-arrangements"] },
+  { id: "baskets", name: "Gift Baskets", icon: "basket", image: cat["baskets"] },
   { id: "hand-bouquets", name: "Flower Bouquets", icon: "flower", image: cat["hand-bouquets"] },
   { id: "flower-boxes", name: "Flower Boxes", icon: "package-variant", image: cat["flower-boxes"] },
   { id: "flower-vases", name: "Flower Vases", icon: "vase", image: cat["flower-vases"] },
