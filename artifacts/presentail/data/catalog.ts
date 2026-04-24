@@ -103,6 +103,17 @@ const occ = {
   "condolences": require("@/assets/occasions/condolences.webp"),
 };
 
+const occFallback = {
+  anniversary: require("@/assets/occasions/love-romance.webp"),
+  wedding: require("@/assets/occasions/love-romance.webp"),
+  graduation: require("@/assets/occasions/promotion.avif"),
+  "get-well-soon": require("@/assets/occasions/thank-you.webp"),
+  newborn: require("@/assets/categories/flower-boxes.avif"),
+  eid: require("@/assets/categories/arabic-sweets.webp"),
+  congratulations: require("@/assets/occasions/promotion.avif"),
+  "thinking-of-you": require("@/assets/occasions/condolences.webp"),
+};
+
 export const products: Product[] = [
   { id: "sweet-scarlet-affair", name: "Sweet Scarlet Affair", price: "$160", priceValue: 160, image: img.sweetScarlet, tag: "Bestseller", category: "lux-arrangements", occasions: ["love-romance", "birthday"], description: "An opulent tribute of velvety scarlet roses, hand-tied with seasonal foliage." },
   { id: "rose-whisper", name: "Rosé Whisper", price: "$70", priceValue: 70, image: img.roseWhisper, tag: "Signature", category: "hand-bouquets", occasions: ["love-romance", "thank-you"], description: "Soft pink roses arranged with airy greens — a quiet love note." },
@@ -300,12 +311,20 @@ export const collections: Collection[] = [
 ];
 
 export const occasions: Occasion[] = [
-  { id: "housewarming", name: "Housewarming", icon: "home", image: occ["housewarming"], description: "Welcome them to a new chapter with blooms and home pieces." },
   { id: "birthday", name: "Birthday", icon: "cake", image: occ["birthday"], description: "Make their birthday unforgettable with cakes, bears and bouquets." },
+  { id: "love-romance", name: "Love & Romance", icon: "heart", image: occ["love-romance"], description: "Romantic roses, eternal blooms and decadent bundles." },
+  { id: "housewarming", name: "Housewarming", icon: "home", image: occ["housewarming"], description: "Welcome them to a new chapter with blooms and home pieces." },
+  { id: "anniversary", name: "Anniversary", icon: "heart-circle", image: occFallback.anniversary, description: "Celebrate years of love with romantic flowers and special gifts." },
   { id: "new-job", name: "New Job", icon: "briefcase", image: occ["new-job"], description: "Celebrate a new beginning with elegant, bright arrangements." },
   { id: "promotion", name: "Job Promotion", icon: "trophy", image: occ["promotion"], description: "Recognise their success with luxury statement pieces." },
+  { id: "graduation", name: "Graduation", icon: "school", image: occFallback.graduation, description: "Celebrate academic achievement with vibrant blooms and gifts." },
+  { id: "congratulations", name: "Congratulations", icon: "party-popper", image: occFallback.congratulations, description: "Mark their milestone with celebratory blooms and luxurious gifts." },
   { id: "thank-you", name: "Thank You", icon: "hand-heart", image: occ["thank-you"], description: "A graceful way to say thank you, hand-tied in Beirut." },
-  { id: "love-romance", name: "Love & Romance", icon: "heart", image: occ["love-romance"], description: "Romantic roses, eternal blooms and decadent bundles." },
+  { id: "get-well-soon", name: "Get Well Soon", icon: "emoticon-happy", image: occFallback["get-well-soon"], description: "Brighten their recovery with cheery blooms and heartfelt gifts." },
+  { id: "newborn", name: "New Baby", icon: "baby-carriage", image: occFallback.newborn, description: "Welcome a precious new arrival with pastel blooms and sweet gifts." },
+  { id: "eid", name: "Eid Mubarak", icon: "star-crescent", image: occFallback.eid, description: "Celebrate the spirit of Eid with premium treats and elegant arrangements." },
+  { id: "wedding", name: "Wedding", icon: "ring", image: occFallback.wedding, description: "Mark the most special day with breathtaking floral arrangements." },
+  { id: "thinking-of-you", name: "Thinking of You", icon: "cards-heart", image: occFallback["thinking-of-you"], description: "Let someone know they are in your thoughts with a heartfelt gift." },
   { id: "farewell", name: "Farewell", icon: "airplane", image: occ["farewell"], description: "Send a tender goodbye with our most heartfelt arrangements." },
   { id: "condolences", name: "Condolences", icon: "flower", image: occ["condolences"], description: "White and pastel arrangements to express quiet sympathy." },
 ];

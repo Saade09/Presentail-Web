@@ -98,6 +98,14 @@ const EN = {
   occ_love_romance: "Love & Romance",
   occ_farewell: "Farewell",
   occ_condolences: "Condolences",
+  occ_anniversary: "Anniversary",
+  occ_wedding: "Wedding",
+  occ_graduation: "Graduation",
+  occ_get_well_soon: "Get Well Soon",
+  occ_newborn: "New Baby",
+  occ_eid: "Eid Mubarak",
+  occ_congratulations: "Congratulations",
+  occ_thinking_of_you: "Thinking of You",
 
   // Occasion descriptions
   occ_housewarming_desc: "Welcome them to a new chapter with blooms and home pieces.",
@@ -108,6 +116,14 @@ const EN = {
   occ_love_romance_desc: "Romantic roses, eternal blooms and decadent bundles.",
   occ_farewell_desc: "Send a tender goodbye with our most heartfelt arrangements.",
   occ_condolences_desc: "White and pastel arrangements to express quiet sympathy.",
+  occ_anniversary_desc: "Celebrate years of love with romantic flowers and special gifts.",
+  occ_wedding_desc: "Mark the most special day with breathtaking floral arrangements.",
+  occ_graduation_desc: "Celebrate academic achievement with vibrant blooms and gifts.",
+  occ_get_well_soon_desc: "Brighten their recovery with cheery blooms and heartfelt gifts.",
+  occ_newborn_desc: "Welcome a precious new arrival with pastel blooms and sweet gifts.",
+  occ_eid_desc: "Celebrate the spirit of Eid with premium treats and elegant arrangements.",
+  occ_congratulations_desc: "Mark their milestone with celebratory blooms and luxurious gifts.",
+  occ_thinking_of_you_desc: "Let someone know they are in your thoughts with a heartfelt gift.",
 
   // Category names
   cat_hand_bouquets: "Hand Bouquets",
@@ -253,6 +269,14 @@ const AR: typeof EN = {
   occ_love_romance: "الحب والرومانسية",
   occ_farewell: "وداع",
   occ_condolences: "تعازي",
+  occ_anniversary: "ذكرى سنوية",
+  occ_wedding: "زفاف",
+  occ_graduation: "تخرج",
+  occ_get_well_soon: "شفاء عاجل",
+  occ_newborn: "مولود جديد",
+  occ_eid: "عيد مبارك",
+  occ_congratulations: "تهانٍ",
+  occ_thinking_of_you: "أفكر بك",
 
   // Occasion descriptions
   occ_housewarming_desc: "رحّب بهم في فصل جديد بالزهور وقطع المنزل.",
@@ -263,6 +287,14 @@ const AR: typeof EN = {
   occ_love_romance_desc: "ورود رومانسية وأزهار أبدية وحزم شهية.",
   occ_farewell_desc: "أرسل وداعاً حنوناً بأكثر ترتيباتنا صدقاً.",
   occ_condolences_desc: "ترتيبات بيضاء وباستيل للتعبير عن تعاطف هادئ.",
+  occ_anniversary_desc: "احتفل بسنوات من الحب بأزهار رومانسية وهدايا مميزة.",
+  occ_wedding_desc: "أبرز أجمل يوم بترتيبات زهرية خلابة.",
+  occ_graduation_desc: "احتفل بالإنجاز الأكاديمي بأزهار نابضة بالحياة وهدايا.",
+  occ_get_well_soon_desc: "أضئ تعافيهم بأزهار بهيجة وهدايا صادقة.",
+  occ_newborn_desc: "استقبل المولود الجديد بأزهار باستيل وهدايا رقيقة.",
+  occ_eid_desc: "احتفل بروح العيد بحلوى فاخرة وترتيبات أنيقة.",
+  occ_congratulations_desc: "أبرز إنجازهم بأزهار احتفالية وهدايا فاخرة.",
+  occ_thinking_of_you_desc: "دع شخصاً ما يعلم أنك تفكر به بهدية صادقة.",
 
   // Category names
   cat_hand_bouquets: "باقات يدوية",

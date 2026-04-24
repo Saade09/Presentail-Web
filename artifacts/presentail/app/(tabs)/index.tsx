@@ -35,6 +35,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -145,9 +146,9 @@ function HomeHeader({ topPad }: { topPad: number }) {
             </Text>
           </Pressable>
           {[
-            { label: "Flowers & Plants", path: "/(tabs)/catalog" },
-            { label: "Gifts", path: "/(tabs)/catalog" },
-            { label: "Occasions", path: "/(tabs)/catalog" },
+            { label: "Flowers & Plants", path: "/category/hand-bouquets" },
+            { label: "Gifts", path: "/category/baskets" },
+            { label: "Occasions", path: "/occasions" },
             { label: "Brands", path: "/(tabs)/catalog" },
             { label: "About Us", path: "/(tabs)/brand" },
           ].map((m) => (
@@ -200,8 +201,10 @@ export default function HomeScreen() {
       <Hero />
       <BrandStrip />
       <BestSellers />
+      <FlowersSection />
       <CategoryRail />
       <OccasionsGrid />
+      <BundlesSection />
       <CollectionsSection />
       <BrandStorySection />
       <ReviewsSection />
@@ -328,16 +331,21 @@ function BrandStrip() {
         borderColor: colors.border,
       }}
     >
-      {items.map((it) => (
-        <View key={it.label} style={{ flex: 1, alignItems: "center", gap: 6 }}>
-          <MaterialCommunityIcons name={it.icon} size={20} color={colors.primary} />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary, textAlign: "center" }}>
-            {it.label}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, textAlign: "center" }}>
-            {it.sub}
-          </Text>
-        </View>
+      {items.map((it, idx) => (
+        <React.Fragment key={it.label}>
+          {idx > 0 && (
+            <View style={{ width: 1, backgroundColor: "rgba(0,0,0,0.08)", alignSelf: "stretch", marginVertical: 4 }} />
+          )}
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 4 }}>
+            <MaterialCommunityIcons name={it.icon} size={22} color={colors.primary} />
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary, textAlign: "center", lineHeight: 15 }}>
+              {it.label}
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, textAlign: "center", lineHeight: 14 }}>
+              {it.sub}
+            </Text>
+          </View>
+        </React.Fragment>
       ))}
     </View>
   );
@@ -381,6 +389,92 @@ function BestSellers() {
       >
         {bestSellers.map((p) => (
           <ProductCard key={p.id} product={p} width={CARD_W} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "lux-arrangements", "flower-vases", "dried-flowers", "preserved-flowers"]);
+
+function FlowersSection() {
+  const colors = useColors();
+  const router = useRouter();
+  const { products: wooProducts } = useWooProducts();
+  const flowerProducts = wooProducts.filter((p) => FLOWER_CATS.has(p.category)).slice(0, 10);
+
+  if (!flowerProducts.length) return null;
+  return (
+    <View style={{ marginTop: 44 }}>
+      <View
+        style={{
+          paddingHorizontal: 24,
+          marginBottom: 18,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <SectionTitle
+            eyebrow="Flowers"
+            title="Fresh from our atelier"
+            description="Hand-tied bouquets, artisan boxes, and statement arrangements crafted daily in Beirut."
+          />
+        </View>
+        <Pressable onPress={() => router.push("/category/hand-bouquets" as any)}>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+            VIEW ALL
+          </Text>
+        </Pressable>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+      >
+        {flowerProducts.map((p) => (
+          <ProductCard key={p.id} product={p as any} width={CARD_W} />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function BundlesSection() {
+  const colors = useColors();
+  const router = useRouter();
+  const { products: wooProducts } = useWooProducts();
+  const bundleProducts = wooProducts.filter((p) => p.category === "bundles").slice(0, 6);
+
+  if (!bundleProducts.length) return null;
+  return (
+    <View style={{ marginTop: 44 }}>
+      <View
+        style={{
+          paddingHorizontal: 24,
+          marginBottom: 18,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <SectionTitle
+            eyebrow="Gift Bundles"
+            title="More than flowers"
+            description="Curated sets pairing our finest blooms with sweets, wines and keepsakes."
+          />
+        </View>
+        <Pressable onPress={() => router.push("/category/bundles" as any)}>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+            VIEW ALL
+          </Text>
+        </Pressable>
+      </View>
+      <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 24 }}>
+        {bundleProducts.map((p) => (
+          <ProductCard key={p.id} product={p as any} width={CARD_W} />
         ))}
       </View>
     </View>
@@ -558,6 +652,9 @@ const OCC_NAME_KEYS: Record<string, string> = {
   housewarming: "occ_housewarming", birthday: "occ_birthday", "new-job": "occ_new_job",
   promotion: "occ_promotion", "thank-you": "occ_thank_you", "love-romance": "occ_love_romance",
   farewell: "occ_farewell", condolences: "occ_condolences",
+  anniversary: "occ_anniversary", wedding: "occ_wedding", graduation: "occ_graduation",
+  "get-well-soon": "occ_get_well_soon", newborn: "occ_newborn", eid: "occ_eid",
+  congratulations: "occ_congratulations", "thinking-of-you": "occ_thinking_of_you",
 };
 
 function OccasionsGrid() {
@@ -581,9 +678,10 @@ function OccasionsGrid() {
               style={({ pressed }) => ({
                 flexBasis: "48%",
                 flexGrow: 1,
+                height: 76,
                 backgroundColor: "#fff",
                 borderRadius: 18,
-                padding: 14,
+                paddingHorizontal: 14,
                 flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 gap: 12,
@@ -594,21 +692,23 @@ function OccasionsGrid() {
             >
               <Image
                 source={o.image}
-                style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: colors.muted }}
+                style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: colors.muted, flexShrink: 0 }}
                 contentFit="cover"
               />
               <Text
+                numberOfLines={2}
                 style={{
                   flex: 1,
                   fontFamily: "Inter_500Medium",
                   fontSize: 13,
+                  lineHeight: 18,
                   color: colors.primary,
                   textAlign: isRTL ? "right" : "left",
                 }}
               >
                 {displayName}
               </Text>
-              <Feather name="arrow-up-right" size={16} color={colors.gold} />
+              <Feather name="arrow-up-right" size={16} color={colors.gold} style={{ flexShrink: 0 }} />
             </Pressable>
           );
         })}
