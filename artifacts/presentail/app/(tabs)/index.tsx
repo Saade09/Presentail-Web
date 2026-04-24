@@ -198,8 +198,8 @@ export default function HomeScreen() {
       <BrandStrip />
       <BestSellers />
       <CategoryRail />
-      <CollectionsSection />
       <OccasionsGrid />
+      <CollectionsSection />
       <BrandStorySection />
       <ReviewsSection />
       <BrandsRow />
