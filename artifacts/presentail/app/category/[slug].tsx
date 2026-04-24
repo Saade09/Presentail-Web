@@ -2,8 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Pressable,
   ScrollView,
@@ -21,6 +22,7 @@ import {
   getCategory,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { fetchCategoryProducts } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -34,16 +36,42 @@ export default function CategoryScreen() {
   const insets = useSafeAreaInsets();
   const { count } = useCart();
   const [sort, setSort] = useState<(typeof SORTS)[number]>("Featured");
+  const [wcProducts, setWcProducts] = useState<any[]>([]);
+  const [wcCategoryName, setWcCategoryName] = useState<string>("");
+  const [wcLoading, setWcLoading] = useState(false);
 
-  const { products: allProducts } = useWooProducts();
+  const { products: allProducts, loading: catalogLoading } = useWooProducts();
   const category = getCategory(String(slug));
+  const mergedProducts = useMemo(
+    () => allProducts.filter((p) => p.category === String(slug)),
+    [slug, allProducts]
+  );
+
+  // When catalog is done loading and has no products for this slug,
+  // fall back to fetching directly from WooCommerce by category slug.
+  useEffect(() => {
+    if (catalogLoading) return;
+    if (mergedProducts.length > 0) { setWcProducts([]); return; }
+    let cancelled = false;
+    setWcLoading(true);
+    fetchCategoryProducts(String(slug)).then(({ products, categoryName }) => {
+      if (cancelled) return;
+      setWcProducts(products.filter((p) => p.image));
+      setWcCategoryName(categoryName);
+      setWcLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [slug, catalogLoading, mergedProducts.length]);
+
+  const sourceProducts = mergedProducts.length > 0 ? mergedProducts : wcProducts;
   const products = useMemo(() => {
-    const list = allProducts.filter((p) => p.category === String(slug));
-    if (sort === "Price ↑") return [...list].sort((a, b) => a.priceValue - b.priceValue);
-    if (sort === "Price ↓") return [...list].sort((a, b) => b.priceValue - a.priceValue);
-    if (sort === "Name") return [...list].sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [slug, sort]);
+    if (sort === "Price ↑") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
+    if (sort === "Price ↓") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
+    if (sort === "Name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
+    return sourceProducts;
+  }, [sourceProducts, sort]);
+
+  const displayName = category?.name ?? wcCategoryName ?? String(slug);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -107,7 +135,7 @@ export default function CategoryScreen() {
                 marginTop: 6,
               }}
             >
-              {category?.name ?? "Category"}
+              {displayName || "Category"}
             </Text>
             <Text
               style={{
@@ -117,7 +145,7 @@ export default function CategoryScreen() {
                 marginTop: 4,
               }}
             >
-              {products.length} pieces · Same-day delivery
+              {wcLoading ? "Loading…" : `${products.length} pieces · Same-day delivery`}
             </Text>
           </View>
         </View>
@@ -190,7 +218,14 @@ export default function CategoryScreen() {
           </ScrollView>
         </View>
 
-        {products.length === 0 ? (
+        {wcLoading ? (
+          <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+              Loading products…
+            </Text>
+          </View>
+        ) : products.length === 0 ? (
           <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
             <Feather name="inbox" size={28} color={colors.mutedForeground} />
             <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>

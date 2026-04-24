@@ -135,6 +135,10 @@ export default function CheckoutScreen() {
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(dayLabels, []);
+  const expressAvailable = useMemo(() => {
+    const h = getBeirutHour();
+    return h >= 8 && h < 22;
+  }, []);
   const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("today_slot");
   const [date, setDate] = useState(days[0].iso);
   const [slot, setSlot] = useState<TimeSlot | null>(() => {
@@ -949,9 +953,10 @@ function DeliveryDetailsStep(props: any) {
               colors={colors}
               icon="zap"
               title="Express Delivery"
-              subtitle="Today"
-              footer="Express Delivery"
+              subtitle="1–3 hrs"
+              footer={expressAvailable ? `+$${EXPRESS_SURCHARGE}` : "Opens 8 AM"}
               active={deliveryMode === "express"}
+              disabled={!expressAvailable}
               onPress={() => setDeliveryMode("express")}
             />
             <DeliveryTile
@@ -1048,31 +1053,32 @@ function DeliveryDetailsStep(props: any) {
   );
 }
 
-function DeliveryTile({ colors, icon, title, subtitle, footer, active, onPress }: any) {
+function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled, onPress }: any) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={{
         flex: 1,
         padding: 12,
         borderRadius: 10,
         borderWidth: 1.5,
-        borderColor: active ? colors.primary : colors.border,
-        backgroundColor: active ? colors.secondary : "#fff",
+        borderColor: disabled ? colors.border : active ? colors.primary : colors.border,
+        backgroundColor: disabled ? "#f5f5f5" : active ? colors.secondary : "#fff",
         gap: 4,
+        opacity: disabled ? 0.55 : 1,
       }}
     >
       {icon ? (
-        <Feather name={icon} size={14} color={active ? colors.primary : colors.mutedForeground} />
+        <Feather name={icon} size={14} color={disabled ? colors.mutedForeground : active ? colors.primary : colors.mutedForeground} />
       ) : null}
-      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary }}>
+      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: disabled ? colors.mutedForeground : colors.primary }}>
         {title}
       </Text>
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
         {subtitle}
       </Text>
       {footer ? (
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.gold }}>
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: disabled ? colors.mutedForeground : colors.gold }}>
           {footer}
         </Text>
       ) : null}

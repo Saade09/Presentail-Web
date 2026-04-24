@@ -128,6 +128,136 @@ router.get("/woo/brand-products", async (req, res) => {
   }
 });
 
+const OCCASION_WC_CATEGORY: Record<string, number> = {
+  birthday: 135,
+  housewarming: 582,
+  "new-job": 580,
+  promotion: 581,
+  "thank-you": 176,
+  "love-romance": 137,
+  farewell: 583,
+  condolences: 405,
+  anniversary: 416,
+  wedding: 139,
+  graduation: 196,
+  newborn: 197,
+  "get-well-soon": 177,
+  congratulations: 138,
+  colleague: 246,
+  friend: 245,
+  "thinking-of-you": 153,
+  "im-sorry": 486,
+  eid: 141,
+  children: 247,
+};
+
+const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
+  { slug: "flowers", label: "Flowers & Bouquets" },
+  { slug: "hand-bouquets", label: "Hand Bouquets" },
+  { slug: "flower-boxes", label: "Flower Boxes" },
+  { slug: "flower-vases", label: "Flower Vases" },
+  { slug: "lux-arrangements", label: "Lux Arrangements" },
+  { slug: "dried-flowers", label: "Dried Flowers" },
+  { slug: "preserved-flowers", label: "Preserved Flowers" },
+  { slug: "chocolate", label: "Chocolates" },
+  { slug: "cakes", label: "Cakes & Sweets" },
+  { slug: "arabic-sweets", label: "Arabic Sweets" },
+  { slug: "balloons", label: "Balloons" },
+  { slug: "electronics", label: "Electronics & Tech" },
+  { slug: "stuffed-animals", label: "Stuffed Animals" },
+  { slug: "board-games", label: "Board Games" },
+  { slug: "plants", label: "Plants" },
+  { slug: "baskets", label: "Baskets" },
+  { slug: "beauty", label: "Beauty" },
+  { slug: "bundles", label: "Gift Bundles" },
+];
+
+router.get("/woo/category-products", async (req, res) => {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slug = String(req.query.slug ?? "");
+  if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  try {
+    // Resolve category slug to ID
+    const catRes = await wooFetch(`/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`);
+    if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
+    const catList: any[] = await catRes.json();
+    if (!catList.length) return res.json({ ok: true, products: [], count: 0 });
+    const catId = catList[0].id;
+    const catName: string = catList[0].name ?? slug;
+
+    const allProducts: any[] = [];
+    let page = 1;
+    while (allProducts.length < 200) {
+      const r = await wooFetch(`/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
+      if (!r.ok) break;
+      const batch: any[] = await r.json();
+      if (!batch.length) break;
+      allProducts.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+    return res.json({ ok: true, products: allProducts.map(transformProduct), count: allProducts.length, categoryName: catName });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" });
+  }
+});
+
+router.get("/woo/occasion-products", async (req, res) => {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slug = String(req.query.slug ?? "");
+  const categoryId = OCCASION_WC_CATEGORY[slug];
+  if (!categoryId) {
+    return res.json({ ok: true, groups: [] });
+  }
+
+  try {
+    const allProducts: any[] = [];
+    let page = 1;
+    while (allProducts.length < 200) {
+      const r = await wooFetch(`/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
+      if (!r.ok) break;
+      const batch: any[] = await r.json();
+      if (!batch.length) break;
+      allProducts.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+
+    // Group products by type category (priority-ordered)
+    const groups = new Map<string, { label: string; products: any[] }>();
+    const assigned = new Set<number>();
+
+    for (const typecat of OCCASION_TYPE_CATEGORIES) {
+      for (const p of allProducts) {
+        if (assigned.has(p.id)) continue;
+        const slugs = (p.categories ?? []).map((c: any) => c.slug as string);
+        if (slugs.includes(typecat.slug)) {
+          if (!groups.has(typecat.slug)) {
+            groups.set(typecat.slug, { label: typecat.label, products: [] });
+          }
+          groups.get(typecat.slug)!.products.push(transformProduct(p));
+          assigned.add(p.id);
+        }
+      }
+    }
+
+    const result = Array.from(groups.entries()).map(([slug, g]) => ({
+      slug,
+      label: g.label,
+      count: g.products.length,
+      products: g.products.slice(0, 10),
+    }));
+
+    return res.json({ ok: true, groups: result, total: allProducts.length });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch occasion products" });
+  }
+});
+
 router.get("/woo/products", async (_req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });

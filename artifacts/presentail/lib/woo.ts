@@ -14,6 +14,43 @@ export type WooProduct = {
   occasions: string[];
 };
 
+export type OccasionGroup = {
+  slug: string;
+  label: string;
+  count: number;
+  products: WooProduct[];
+};
+
+export async function fetchCategoryProducts(slug: string): Promise<{ products: WooProduct[]; categoryName: string }> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/woo/category-products?slug=${encodeURIComponent(slug)}`,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.products)) {
+      return { products: json.products, categoryName: json.categoryName ?? slug };
+    }
+    return { products: [], categoryName: slug };
+  } catch {
+    return { products: [], categoryName: slug };
+  }
+}
+
+export async function fetchOccasionProducts(slug: string): Promise<OccasionGroup[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/woo/occasion-products?slug=${encodeURIComponent(slug)}`,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.groups)) return json.groups;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchBrandProducts(slug: string): Promise<WooProduct[]> {
   try {
     const res = await fetch(
