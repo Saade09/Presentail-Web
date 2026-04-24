@@ -330,7 +330,23 @@ router.post("/woo/order", async (req, res) => {
 
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
   const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
-  const deliveryCombined = `${body.deliveryDate} • ${body.deliverySlot}`.trim();
+
+  // Format delivery date as "Friday, April 24, 2026" (human-readable for WC admin)
+  const deliveryDateFormatted = body.deliveryDate
+    ? new Date(`${body.deliveryDate}T12:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Beirut",
+      })
+    : body.deliveryDate ?? "";
+
+  const deliverySummary = deliveryDateFormatted && body.deliverySlot
+    ? `${deliveryDateFormatted} · ${body.deliverySlot}`
+    : deliveryDateFormatted || body.deliverySlot || "";
+
+  const deliveryCombined = deliverySummary;
 
   // Meta keys matching WooFunnels (WFACP) custom field IDs from the checkout page
   // so values display in the right field on the WooCommerce order admin.
@@ -350,12 +366,20 @@ router.post("/woo/order", async (req, res) => {
     { key: "qr-label", value: body.qrLabel ?? "" },
 
     // Extra structured meta (visible) for ops staff
-    { key: "Delivery Date", value: body.deliveryDate },
-    { key: "Delivery Slot", value: body.deliverySlot },
+    { key: "Delivery Summary", value: deliverySummary },
+    { key: "Delivery Date", value: deliveryDateFormatted },
+    { key: "Delivery Time", value: body.deliverySlot ?? "" },
     { key: "Delivery District", value: body.district },
     { key: "Delivery Address", value: body.deliveryDetails },
     { key: "Recipient Name", value: recipientFullName },
     { key: "Recipient Phone", value: body.recipient.phone },
+  ];
+
+  // Delivery meta attached to each line item so it shows under the product in WC order admin
+  const lineItemDeliveryMeta = [
+    { key: "Delivery Summary", value: deliverySummary },
+    { key: "Delivery Date", value: deliveryDateFormatted },
+    { key: "Delivery Time", value: body.deliverySlot ?? "" },
   ];
 
   // Items with a WooCommerce product ID → proper line_items
@@ -365,6 +389,7 @@ router.post("/woo/order", async (req, res) => {
     .map((item) => ({
       product_id: item.wcId,
       quantity: item.quantity,
+      meta_data: lineItemDeliveryMeta,
     }));
 
   const feeLines: any[] = body.items

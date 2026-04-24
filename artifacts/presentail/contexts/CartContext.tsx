@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { getProduct, type Product } from "@/data/catalog";
+import { useWooProducts } from "./WooProductsContext";
 
 export type CartItem = { productId: string; qty: number };
 
@@ -27,6 +28,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const hydrated = useRef(false);
+  const { products: wooProducts } = useWooProducts();
 
   useEffect(() => {
     let cancelled = false;
@@ -102,12 +104,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     () =>
       items
         .map((i) => {
-          const product = getProduct(i.productId);
+          // Prefer the live WooCommerce product (has current price); fall back to static catalog
+          const wooProduct = wooProducts.find((p) => p.id === i.productId) as Product | undefined;
+          const product: Product | null = wooProduct ?? getProduct(i.productId);
           if (!product) return null;
           return { product, qty: i.qty, lineTotal: product.priceValue * i.qty };
         })
         .filter(Boolean) as { product: Product; qty: number; lineTotal: number }[],
-    [items],
+    [items, wooProducts],
   );
 
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);

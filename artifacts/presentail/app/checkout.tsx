@@ -30,6 +30,7 @@ import { createWooOrder } from "@/lib/woo";
 
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
+const EXPRESS_SURCHARGE = 15;
 
 type District = { name: string; fee: number };
 const DISTRICTS: District[] = [
@@ -161,7 +162,6 @@ export default function CheckoutScreen() {
 
   const [paying, setPaying] = useState(false);
 
-  const EXPRESS_SURCHARGE = 15;
   const fees = useMemo(() => {
     const subtotal = total;
     const districtFee = subtotal >= 130 ? 0 : district.fee;
@@ -187,8 +187,34 @@ export default function CheckoutScreen() {
     return false;
   };
 
+  const getMissingFields = (): string[] => {
+    if (step !== 1) return [];
+    const missing: string[] = [];
+    if (!recipientFirst.trim()) missing.push("Recipient first name");
+    if (!recipientLast.trim()) missing.push("Recipient last name");
+    if (!recipientPhone.trim()) missing.push("Recipient phone number");
+    if (!noAddress && !deliveryDetails.trim()) missing.push("Delivery address");
+    if (!senderFirst.trim()) missing.push("Your first name");
+    if (!senderLast.trim()) missing.push("Your last name");
+    if (!senderWhatsapp.trim()) missing.push("Your WhatsApp number");
+    if (!senderEmail.trim()) missing.push("Your email address");
+    return missing;
+  };
+
   const next = () => {
-    if (!stepValid(step)) return;
+    if (!stepValid(step)) {
+      const missing = getMissingFields();
+      if (missing.length > 0) {
+        Alert.alert(
+          "Please complete the form",
+          `Missing required fields:\n• ${missing.join("\n• ")}`,
+          [{ text: "OK" }]
+        );
+      } else if (step === 2 && !agreed) {
+        Alert.alert("Terms required", "Please agree to the terms and conditions to continue.", [{ text: "OK" }]);
+      }
+      return;
+    }
     if (step < 2) setStep(((step + 1) as Step));
     else placeOrder();
   };
@@ -501,6 +527,7 @@ export default function CheckoutScreen() {
               setSlot={setSlot}
               deliveryMode={deliveryMode}
               setDeliveryMode={setDeliveryMode}
+              expressAvailable={expressAvailable}
             />
             <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
@@ -551,7 +578,7 @@ export default function CheckoutScreen() {
         }}
       >
         <Pressable
-          disabled={!stepValid(step) || paying}
+          disabled={paying}
           onPress={next}
           style={({ pressed }) => [
             {
@@ -751,6 +778,7 @@ function DeliveryDetailsStep(props: any) {
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     days, date, setDate, slot, setSlot, deliveryMode, setDeliveryMode,
+    expressAvailable,
   } = props;
   const { formatPrice } = useCurrency();
   const beirutHour = getBeirutHour();
