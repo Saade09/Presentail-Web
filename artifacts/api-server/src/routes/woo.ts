@@ -114,6 +114,8 @@ type WooOrderPayload = {
   cardMessage?: string;
   cardFrom?: string;
   cardTo?: string;
+  qrLink?: string;
+  qrLabel?: string;
   orderNotes?: string;
   paymentMethod: "card" | "whish" | "western";
   identitySecret?: boolean;
@@ -134,20 +136,34 @@ router.post("/woo/order", async (req, res) => {
     western: "Western Union",
   };
 
+  const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
+  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
+  const deliveryCombined = `${body.deliveryDate} • ${body.deliverySlot}`.trim();
+
+  // Meta keys matching WooFunnels (WFACP) custom field IDs from the checkout page
+  // so values display in the right field on the WooCommerce order admin.
   const metaData = [
+    // Internal app meta (underscore-prefixed = hidden in admin UI by default)
     { key: "_app_order_id", value: body.orderId },
-    { key: "delivery_date", value: body.deliveryDate },
-    { key: "delivery_slot", value: body.deliverySlot },
-    { key: "delivery_district", value: body.district },
-    { key: "delivery_address", value: body.deliveryDetails },
-    { key: "recipient_name", value: `${body.recipient.firstName} ${body.recipient.lastName}` },
-    { key: "recipient_phone", value: body.recipient.phone },
+    { key: "_source", value: "presentail-app" },
+
+    // WFACP custom fields (must match checkout field IDs)
     { key: "card_message", value: body.cardMessage ?? "" },
-    { key: "card_from", value: body.cardFrom ?? "" },
-    { key: "card_to", value: body.cardTo ?? "" },
-    { key: "identity_secret", value: body.identitySecret ? "Yes" : "No" },
-    { key: "order_notes", value: body.orderNotes ?? "" },
-    { key: "source", value: "presentail-app" },
+    { key: "wfacp_card_message", value: body.cardMessage ?? "" },
+    { key: "to_text", value: cardToValue },
+    { key: "from", value: body.cardFrom ?? "" },
+    { key: "delivery", value: deliveryCombined },
+    { key: "secret_id", value: body.identitySecret ? "Yes" : "No" },
+    { key: "qr-code", value: body.qrLink ?? "" },
+    { key: "qr-label", value: body.qrLabel ?? "" },
+
+    // Extra structured meta (visible) for ops staff
+    { key: "Delivery Date", value: body.deliveryDate },
+    { key: "Delivery Slot", value: body.deliverySlot },
+    { key: "Delivery District", value: body.district },
+    { key: "Delivery Address", value: body.deliveryDetails },
+    { key: "Recipient Name", value: recipientFullName },
+    { key: "Recipient Phone", value: body.recipient.phone },
   ];
 
   // Items with a WooCommerce product ID → proper line_items
@@ -170,12 +186,20 @@ router.post("/woo/order", async (req, res) => {
   const shippingLines: any[] = [];
   if (body.districtFee > 0) {
     shippingLines.push({
+      method_id: "flat_rate",
       method_title: `Delivery – ${body.district}`,
       total: body.districtFee.toFixed(2),
+    });
+  } else {
+    shippingLines.push({
+      method_id: "free_shipping",
+      method_title: `Free Delivery – ${body.district}`,
+      total: "0.00",
     });
   }
   if (body.expressFee > 0) {
     shippingLines.push({
+      method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
       total: body.expressFee.toFixed(2),
     });

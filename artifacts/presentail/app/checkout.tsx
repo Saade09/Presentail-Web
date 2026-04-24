@@ -202,6 +202,7 @@ export default function CheckoutScreen() {
     cardMessage,
     cardFrom,
     cardTo,
+    qrLink,
     orderNotes,
     paymentMethod: payMethod,
     identitySecret,

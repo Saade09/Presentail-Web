@@ -43,6 +43,8 @@ export type WooOrderPayload = {
   cardMessage?: string;
   cardFrom?: string;
   cardTo?: string;
+  qrLink?: string;
+  qrLabel?: string;
   orderNotes?: string;
   paymentMethod: "card" | "whish" | "western";
   identitySecret?: boolean;
