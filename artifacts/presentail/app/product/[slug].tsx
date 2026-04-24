@@ -197,6 +197,7 @@ export default function ProductDetail() {
 function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
+  const { formatPrice } = useCurrency();
   const points = Math.max(1, Math.round(product.priceValue * 0.4));
 
   const days = useMemo(() => {
