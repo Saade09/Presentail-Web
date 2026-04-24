@@ -376,20 +376,28 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
         ) : null}
       </View>
 
-      {/* Trust badges */}
-      <View style={{ marginTop: 10, gap: 10 }}>
+      {/* Trust badges — informational, intentionally non-button */}
+      <View style={{ marginTop: 14 }}>
         {[
           { icon: "truck-fast", title: "Free Standard Delivery", sub: `On orders above ${formatPrice(130)}.` },
           { icon: "map-marker-question", title: "No Address Hassle", sub: "We'll collect the address for you." },
           { icon: "map-marker-path", title: "Live Order Tracking", sub: "You'll receive real-time updates." },
-        ].map((b) => (
-          <View key={b.title} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ width: 36, height: 36, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: colors.secondary }}>
-              <MaterialCommunityIcons name={b.icon as any} size={18} color={colors.primary} />
-            </View>
+        ].map((b, i, arr) => (
+          <View
+            key={b.title}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 14,
+              paddingVertical: 14,
+              borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
+              borderTopColor: colors.border,
+            }}
+          >
+            <MaterialCommunityIcons name={b.icon as any} size={20} color={colors.gold} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>{b.title}</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>{b.sub}</Text>
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>{b.title}</Text>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>{b.sub}</Text>
             </View>
           </View>
         ))}
