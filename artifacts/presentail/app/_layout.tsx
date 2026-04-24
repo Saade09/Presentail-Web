@@ -21,6 +21,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/contexts/CartContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 
 SplashScreen.preventAutoHideAsync();
@@ -66,12 +67,14 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <WooProductsProvider>
-                <CartProvider>
-                  <RootLayoutNav />
-                  <CartDrawer />
-                </CartProvider>
-              </WooProductsProvider>
+              <CurrencyProvider>
+                <WooProductsProvider>
+                  <CartProvider>
+                    <RootLayoutNav />
+                    <CartDrawer />
+                  </CartProvider>
+                </WooProductsProvider>
+              </CurrencyProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

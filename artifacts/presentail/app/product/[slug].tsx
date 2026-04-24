@@ -13,8 +13,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Price } from "@/components/Price";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
@@ -27,6 +29,7 @@ export default function ProductDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { add, count } = useCart();
+  const { formatPrice } = useCurrency();
   const [qty, setQty] = useState(1);
 
   const { products: allProducts } = useWooProducts();
@@ -183,7 +186,7 @@ export default function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            Add — ${(product.priceValue * qty).toLocaleString()}
+            Add — {formatPrice(product.priceValue * qty)}
           </Text>
         </Pressable>
       </View>
@@ -255,9 +258,10 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       </Text>
 
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}>
-          {product.price}
-        </Text>
+        <Price
+          value={product.priceValue}
+          style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
+        />
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
           Tax inclusive
         </Text>
@@ -374,7 +378,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Trust badges */}
       <View style={{ marginTop: 10, gap: 10 }}>
         {[
-          { icon: "truck-fast", title: "Free Standard Delivery", sub: "On orders above $130." },
+          { icon: "truck-fast", title: "Free Standard Delivery", sub: `On orders above ${formatPrice(130)}.` },
           { icon: "map-marker-question", title: "No Address Hassle", sub: "We'll collect the address for you." },
           { icon: "map-marker-path", title: "Live Order Tracking", sub: "You'll receive real-time updates." },
         ].map((b) => (

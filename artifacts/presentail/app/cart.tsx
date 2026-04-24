@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -101,9 +102,10 @@ export default function CartScreen() {
                   <Text numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
                     {product.name}
                   </Text>
-                  <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}>
-                    ${lineTotal.toLocaleString()}
-                  </Text>
+                  <Price
+                    value={lineTotal}
+                    style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
+                  />
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
                     <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
                       <Pressable onPress={() => setQty(product.id, qty - 1)} style={styles.qtyBtn}>
@@ -144,9 +146,10 @@ export default function CartScreen() {
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                 Subtotal
               </Text>
-              <Text style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}>
-                ${total.toLocaleString()}
-              </Text>
+              <Price
+                value={total}
+                style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
+              />
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
@@ -160,9 +163,10 @@ export default function CartScreen() {
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
                 Total
               </Text>
-              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}>
-                ${total.toLocaleString()}
-              </Text>
+              <Price
+                value={total}
+                style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
+              />
             </View>
             <Pressable
               onPress={() => router.push("/checkout" as any)}

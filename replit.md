@@ -37,6 +37,8 @@ hand-bouquets, flower-boxes, flower-vases, lux-arrangements, dried-flowers, pres
 ### Frontend State
 - **CartContext** persists `items[]` to `AsyncStorage` under key `@presentail/cart-v1` (web → localStorage, native → SQLite). Hydration is gated by an `isHydrated` ref and merges with any in-flight items so adds during initial load are not lost.
 - **WooProductsContext** keeps `INITIAL_CATALOG` (deduped by id, since the static catalog has 8 duplicate slugs). After WC sync, `mergeProducts` overrides price/name/image when WC matches and preserves static `occasions`, `tag`, `description` when present.
+- **CurrencyContext** (`@presentail/currency-v1` AsyncStorage) holds the active display currency. All product `priceValue` is stored in USD (the WC base currency). Conversion happens only at display via `formatPrice(usd)` / `<Price usd={…} />`. The WC payload still sends USD `priceValue` to keep WC books in base currency. Rates and symbols live in `data/currencies.ts` (USD/AED/EUR/GBP/CAD/AUD/QAR/SAR/KWD/OMR/CHF/SEK/DKK; KWD & OMR use 2 decimals). AED renders with a custom inline SVG dirham glyph (`components/DirhamSymbol.tsx`) since Unicode coverage is unreliable. The `total` URL param sent to `/order-confirmed` stays USD-base; the page re-formats with the active currency.
+- **PhoneField** (`components/PhoneField.tsx`) — reusable country-code selector for recipient phone & sender WhatsApp (default Lebanon). Bottom-sheet modal with search; `data/countryCodes.ts` is the source list and **excludes Israel**. The WC payload sends `${country.dial} ${phone}` for both billing & recipient.
 - **API_BASE** in `lib/stripe.ts`: `https://${EXPO_PUBLIC_DOMAIN}` so `/api/...` hits the api-server proxied at the same origin. No `/api-server` path suffix.
 
 ## Stack

@@ -4,12 +4,14 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function OrderConfirmed() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { formatPrice } = useCurrency();
   const { orderId, total, date, slot, recipient } = useLocalSearchParams<{
     orderId: string;
     total: string;
@@ -92,7 +94,7 @@ export default function OrderConfirmed() {
           <Row colors={colors} icon="hash" label="Order number" value={String(orderId)} />
           <Row colors={colors} icon="user" label="Recipient" value={String(recipient || "—")} />
           <Row colors={colors} icon="calendar" label="Delivery" value={`${date} · ${slot}`} />
-          <Row colors={colors} icon="dollar-sign" label="Total" value={`$${Number(total || 0).toLocaleString()}`} highlight />
+          <Row colors={colors} icon="dollar-sign" label="Total" value={formatPrice(Number(total || 0))} highlight />
         </View>
 
         <View

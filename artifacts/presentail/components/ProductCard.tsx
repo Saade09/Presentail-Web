@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
@@ -64,9 +65,10 @@ export function ProductCard({ product, width, onPress }: Props) {
           {product.name}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}>
-            {product.price}
-          </Text>
+          <Price
+            value={product.priceValue}
+            style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
+          />
           {product.priceValue >= 130 ? (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               FREE DELIVERY

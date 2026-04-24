@@ -19,7 +19,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PhoneField } from "@/components/PhoneField";
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
@@ -101,6 +104,9 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
+  const { formatPrice } = useCurrency();
+
+  const LB = COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
   const [step, setStep] = useState<Step>(0);
 
@@ -108,6 +114,7 @@ export default function CheckoutScreen() {
   const [recipientFirst, setRecipientFirst] = useState("");
   const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [recipientCountry, setRecipientCountry] = useState<CountryDialCode>(LB);
   const [cardTo, setCardTo] = useState("");
   const [cardMessage, setCardMessage] = useState("");
   const [cardFrom, setCardFrom] = useState("");
@@ -123,6 +130,7 @@ export default function CheckoutScreen() {
   const [senderFirst, setSenderFirst] = useState("");
   const [senderLast, setSenderLast] = useState("");
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
+  const [senderCountry, setSenderCountry] = useState<CountryDialCode>(LB);
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(dayLabels, []);
@@ -186,12 +194,12 @@ export default function CheckoutScreen() {
       firstName: senderFirst,
       lastName: senderLast,
       email: senderEmail,
-      phone: senderWhatsapp,
+      phone: `${senderCountry.dial} ${senderWhatsapp}`.trim(),
     },
     recipient: {
       firstName: recipientFirst,
       lastName: recipientLast,
-      phone: recipientPhone,
+      phone: `${recipientCountry.dial} ${recipientPhone}`.trim(),
     },
     district: district.name,
     districtFee: fees.districtFee,
@@ -403,6 +411,8 @@ export default function CheckoutScreen() {
               setRecipientLast={setRecipientLast}
               recipientPhone={recipientPhone}
               setRecipientPhone={setRecipientPhone}
+              recipientCountry={recipientCountry}
+              setRecipientCountry={setRecipientCountry}
               district={district}
               setDistrict={setDistrict}
               districtOpen={districtOpen}
@@ -417,6 +427,8 @@ export default function CheckoutScreen() {
               setSenderLast={setSenderLast}
               senderWhatsapp={senderWhatsapp}
               setSenderWhatsapp={setSenderWhatsapp}
+              senderCountry={senderCountry}
+              setSenderCountry={setSenderCountry}
               senderEmail={senderEmail}
               setSenderEmail={setSenderEmail}
               identitySecret={identitySecret}
@@ -513,7 +525,7 @@ export default function CheckoutScreen() {
                 ? "Continue to Payment"
                 : paying
                   ? "Processing…"
-                  : `Pay $${fees.grand.toLocaleString()}`}
+                  : `Pay ${formatPrice(fees.grand)}`}
           </Text>
           <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
         </Pressable>
@@ -677,12 +689,15 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
 function DeliveryDetailsStep(props: any) {
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
-    recipientPhone, setRecipientPhone, district, setDistrict, districtOpen, setDistrictOpen,
+    recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
+    district, setDistrict, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
+    senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     days, date, setDate, slot, setSlot, deliveryMode, setDeliveryMode,
   } = props;
+  const { formatPrice } = useCurrency();
   const beirutHour = getBeirutHour();
   const todayIso = days[0]?.iso;
   return (
@@ -696,15 +711,14 @@ function DeliveryDetailsStep(props: any) {
             <Field colors={colors} label="Last name" value={recipientLast} onChangeText={setRecipientLast} placeholder="" required />
           </View>
         </View>
-        <Field
-          colors={colors}
+        <PhoneField
           label="Phone Number"
           value={recipientPhone}
           onChangeText={setRecipientPhone}
+          countryCode={recipientCountry.code}
+          onChangeCountry={setRecipientCountry}
           placeholder="3000000"
           required
-          keyboardType="phone-pad"
-          prefix="🇱🇧 +961"
         />
         <Pressable
           onPress={() => setNoAddress(!noAddress)}
@@ -750,7 +764,7 @@ function DeliveryDetailsStep(props: any) {
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                ${district.fee} delivery
+                {formatPrice(district.fee)} delivery
               </Text>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </View>
@@ -800,7 +814,7 @@ function DeliveryDetailsStep(props: any) {
                         {item.name}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>${item.fee}</Text>
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatPrice(item.fee)}</Text>
                         {selected && <Feather name="check" size={16} color={colors.gold} />}
                       </View>
                     </TouchableOpacity>
@@ -831,15 +845,14 @@ function DeliveryDetailsStep(props: any) {
             <Field colors={colors} label="Last name" value={senderLast} onChangeText={setSenderLast} placeholder="" required />
           </View>
         </View>
-        <Field
-          colors={colors}
+        <PhoneField
           label="WhatsApp number"
           value={senderWhatsapp}
           onChangeText={setSenderWhatsapp}
+          countryCode={senderCountry.code}
+          onChangeCountry={setSenderCountry}
           placeholder="3000000"
           required
-          keyboardType="phone-pad"
-          prefix="🇱🇧 +961"
         />
         <Field colors={colors} label="Email" value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
 
@@ -1316,6 +1329,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, chips, c
 // =============== Order Summary ===============
 
 function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
+  const { formatPrice } = useCurrency();
   return (
     <Card colors={colors} title="Order Summary">
       <View style={{ gap: 12 }}>
@@ -1338,7 +1352,7 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
             </View>
             <View style={{ alignItems: "flex-end", gap: 6 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
-                ${lineTotal.toLocaleString()}
+                {formatPrice(lineTotal)}
               </Text>
               <Pressable onPress={() => remove(product.id)} hitSlop={6}>
                 <Feather name="x-circle" size={14} color={colors.mutedForeground} />
@@ -1358,22 +1372,22 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
       ) : null}
 
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label="Subtotal" value={`$${fees.subtotal.toLocaleString()}`} colors={colors} />
+      <SummaryRow label="Subtotal" value={formatPrice(fees.subtotal)} colors={colors} />
       {showDeliveryFee ? (
         <>
           <SummaryRow
             label="Delivery Fee"
-            value={fees.districtFee === 0 ? "FREE" : `$${fees.districtFee}`}
+            value={fees.districtFee === 0 ? "FREE" : formatPrice(fees.districtFee)}
             colors={colors}
             highlight={fees.districtFee === 0}
           />
           {fees.expressFee > 0 ? (
-            <SummaryRow label="Express Delivery" value={`$${fees.expressFee}`} colors={colors} />
+            <SummaryRow label="Express Delivery" value={formatPrice(fees.expressFee)} colors={colors} />
           ) : null}
         </>
       ) : null}
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label="Total" value={`$${fees.grand.toLocaleString()}`} colors={colors} bold />
+      <SummaryRow label="Total" value={formatPrice(fees.grand)} colors={colors} bold />
     </Card>
   );
 }

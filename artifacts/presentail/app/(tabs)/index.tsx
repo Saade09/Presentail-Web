@@ -18,8 +18,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
+import { DirhamSymbol } from "@/components/DirhamSymbol";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   bestSellers,
   brands,
@@ -724,21 +726,8 @@ function Footer() {
   const colors = useColors();
   const router = useRouter();
   const [open, setOpen] = useState<string | null>("popular");
-  const [currency, setCurrency] = useState<string>("USD");
+  const { currencyCode, setCurrencyCode, list: CURRENCIES } = useCurrency();
   const [currencyOpen, setCurrencyOpen] = useState(false);
-  const CURRENCIES = [
-    { code: "USD", flag: "🇺🇸" },
-    { code: "AED", flag: "🇦🇪" },
-    { code: "EUR", flag: "🇪🇺" },
-    { code: "GBP", flag: "🇬🇧" },
-    { code: "CAD", flag: "🇨🇦" },
-    { code: "AUD", flag: "🇦🇺" },
-    { code: "QAR", flag: "🇶🇦" },
-    { code: "SAR", flag: "🇸🇦" },
-    { code: "KWD", flag: "🇰🇼" },
-    { code: "OMR", flag: "🇴🇲" },
-    { code: "LBP", flag: "🇱🇧" },
-  ];
   const [language, setLanguage] = useState<"EN" | "AR">("EN");
 
   const sections: { id: string; title: string; links: FooterLink[] }[] = [
@@ -906,19 +895,35 @@ function Footer() {
               }}
             >
               <Text style={{ fontSize: 16 }}>
-                {CURRENCIES.find((c) => c.code === currency)?.flag}
+                {CURRENCIES.find((c) => c.code === currencyCode)?.flag}
               </Text>
-              <Text
-                style={{
-                  fontFamily: "Inter_600SemiBold",
-                  fontSize: 12,
-                  color: "#fff",
-                  letterSpacing: 1,
-                  flex: 1,
-                }}
-              >
-                {currency}
-              </Text>
+              {currencyCode === "AED" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <DirhamSymbol size={13} color="#ffffff" />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 12,
+                      color: "#fff",
+                      letterSpacing: 1,
+                    }}
+                  >
+                    AED
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                    color: "#fff",
+                    letterSpacing: 1,
+                    flex: 1,
+                  }}
+                >
+                  {currencyCode}
+                </Text>
+              )}
               <Feather
                 name={currencyOpen ? "chevron-up" : "chevron-down"}
                 size={14}
@@ -941,12 +946,12 @@ function Footer() {
               >
                 <ScrollView>
                   {CURRENCIES.map((c) => {
-                    const active = c.code === currency;
+                    const active = c.code === currencyCode;
                     return (
                       <Pressable
                         key={c.code}
                         onPress={() => {
-                          setCurrency(c.code);
+                          setCurrencyCode(c.code);
                           setCurrencyOpen(false);
                         }}
                         style={{
@@ -959,16 +964,32 @@ function Footer() {
                         }}
                       >
                         <Text style={{ fontSize: 16 }}>{c.flag}</Text>
-                        <Text
-                          style={{
-                            fontFamily: "Inter_600SemiBold",
-                            fontSize: 12,
-                            color: "#fff",
-                            letterSpacing: 1,
-                          }}
-                        >
-                          {c.code}
-                        </Text>
+                        {c.code === "AED" ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <DirhamSymbol size={13} color="#ffffff" />
+                            <Text
+                              style={{
+                                fontFamily: "Inter_600SemiBold",
+                                fontSize: 12,
+                                color: "#fff",
+                                letterSpacing: 1,
+                              }}
+                            >
+                              AED
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text
+                            style={{
+                              fontFamily: "Inter_600SemiBold",
+                              fontSize: 12,
+                              color: "#fff",
+                              letterSpacing: 1,
+                            }}
+                          >
+                            {c.code}
+                          </Text>
+                        )}
                       </Pressable>
                     );
                   })}

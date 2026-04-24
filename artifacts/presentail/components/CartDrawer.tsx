@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 
 export function CartDrawer() {
@@ -20,6 +21,7 @@ export function CartDrawer() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
+  const { formatPrice } = useCurrency();
 
   return (
     <Modal
@@ -110,7 +112,7 @@ export function CartDrawer() {
                       {product.name}
                     </Text>
                     <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
-                      ${lineTotal}
+                      {formatPrice(lineTotal)}
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Pressable
@@ -167,7 +169,7 @@ export function CartDrawer() {
                   Total
                 </Text>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-                  ${total}
+                  {formatPrice(total)}
                 </Text>
               </View>
               <Pressable
@@ -184,7 +186,7 @@ export function CartDrawer() {
                 })}
               >
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                  CHECKOUT · ${total}
+                  CHECKOUT · {formatPrice(total)}
                 </Text>
               </Pressable>
               <Pressable
