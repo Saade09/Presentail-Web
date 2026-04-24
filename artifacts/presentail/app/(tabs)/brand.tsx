@@ -2,7 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
@@ -411,6 +411,17 @@ function Numbers() {
   );
 }
 
+async function shareApp() {
+  try {
+    await Share.share({
+      title: "Presentail Lebanon",
+      message:
+        "Discover Presentail — Lebanon's luxury flower & gift delivery. Same-day delivery across Lebanon. 🌸\nhttps://presentail.com/lebanon",
+      url: "https://presentail.com/lebanon",
+    });
+  } catch {}
+}
+
 function Contact() {
   const colors = useColors();
   const items = [
@@ -463,6 +474,42 @@ function Contact() {
             <Feather name="arrow-up-right" size={16} color={colors.gold} />
           </Pressable>
         ))}
+
+        <Pressable
+          onPress={shareApp}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+            backgroundColor: "#00414E",
+            borderRadius: 16,
+            padding: 16,
+            opacity: pressed ? 0.88 : 1,
+            marginTop: 4,
+          })}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Feather name="share-2" size={16} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>
+              Share Presentail
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
+              Recommend us to a friend
+            </Text>
+          </View>
+          <Feather name="arrow-up-right" size={16} color="rgba(255,255,255,0.7)" />
+        </Pressable>
       </View>
     </View>
   );

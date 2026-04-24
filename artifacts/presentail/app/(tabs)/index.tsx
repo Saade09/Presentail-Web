@@ -13,6 +13,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -64,6 +65,17 @@ function HomeHeader({ topPad }: { topPad: number }) {
     });
     AsyncStorage.setItem(ACCOUNT_KEY, "1");
     setHasAccount(true);
+  }
+
+  async function shareApp() {
+    try {
+      await Share.share({
+        title: "Presentail Lebanon",
+        message:
+          "Discover Presentail — Lebanon's luxury flower & gift delivery. Same-day delivery across Lebanon. 🌸\nhttps://presentail.com/lebanon",
+        url: "https://presentail.com/lebanon",
+      });
+    } catch {}
   }
 
   return (
@@ -162,8 +174,29 @@ function HomeHeader({ topPad }: { topPad: number }) {
               </Text>
             </Pressable>
           ))}
-          <View style={{ marginTop: 32, gap: 14 }}>
-            <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={() => { setMenuOpen(false); shareApp(); }}
+            style={{
+              marginTop: 8,
+              paddingVertical: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "rgba(0,0,0,0.07)",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <Feather name="share-2" size={16} color={colors.gold} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+              Share Presentail
+            </Text>
+          </Pressable>
+
+          <View style={{ marginTop: 24, gap: 14 }}>
+            <Pressable
+              onPress={() => Linking.openURL("tel:+9613136532")}
+              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+            >
               <Feather name="phone" size={16} color={colors.gold} />
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
                 +961 3 136 532
