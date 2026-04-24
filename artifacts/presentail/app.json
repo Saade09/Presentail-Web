@@ -1,24 +1,36 @@
 {
   "expo": {
-    "name": "Presentail",
+    "name": "Presentail Lebanon",
     "slug": "presentail",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "presentail",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#00414E"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.presentail.app"
+      "bundleIdentifier": "com.presentail.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
+        "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",
+        "CFBundleDisplayName": "Presentail"
+      }
     },
     "android": {
-      "package": "com.presentail.app"
+      "package": "com.presentail.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#00414E"
+      },
+      "permissions": []
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -36,6 +48,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }
