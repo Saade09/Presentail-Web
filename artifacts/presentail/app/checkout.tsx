@@ -149,8 +149,7 @@ export default function CheckoutScreen() {
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const [payMethod, setPayMethod] = useState<"card" | "whish" | "western" | "mamo" | "paypal">("card");
+  const [payMethod, setPayMethod] = useState<"card" | "wallet" | "whish" | "western" | "mamo" | "paypal">("card");
 
   useEffect(() => {
     if (currencyCode === "AED") {
@@ -183,7 +182,7 @@ export default function CheckoutScreen() {
         senderWhatsapp.trim() &&
         senderEmail.trim()
       );
-    if (s === 2) return !!payMethod && agreed;
+    if (s === 2) return !!payMethod;
     return false;
   };
 
@@ -210,8 +209,6 @@ export default function CheckoutScreen() {
           `Missing required fields:\n• ${missing.join("\n• ")}`,
           [{ text: "OK" }]
         );
-      } else if (step === 2 && !agreed) {
-        Alert.alert("Terms required", "Please agree to the terms and conditions to continue.", [{ text: "OK" }]);
       }
       return;
     }
@@ -266,7 +263,7 @@ export default function CheckoutScreen() {
     // Always create WooCommerce order (fire-and-forget; don't block UX on failure)
     createWooOrder(buildWooPayload(orderId)).catch(() => {/* silent */});
 
-    if (payMethod === "card") {
+    if (payMethod === "card" || payMethod === "wallet") {
       // Try real Stripe Checkout if configured
       const successUrl =
         (typeof window !== "undefined" ? window.location.origin : "https://presentail.app") + successPath;
@@ -538,8 +535,6 @@ export default function CheckoutScreen() {
               colors={colors}
               orderNotes={orderNotes}
               setOrderNotes={setOrderNotes}
-              agreed={agreed}
-              setAgreed={setAgreed}
               payMethod={payMethod}
               setPayMethod={setPayMethod}
               email={senderEmail}
@@ -1175,41 +1170,31 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail }: any) {
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCVC, setCardCVC] = useState("");
+  const [cardName, setCardName] = useState("");
   const { currencyCode } = useCurrency();
   const isAED = currencyCode === "AED";
   const isUSD = currencyCode === "USD";
+
+  const fmtCardNumber = (t: string) => {
+    const d = t.replace(/\D/g, "").slice(0, 16);
+    const parts: string[] = [];
+    for (let i = 0; i < d.length; i += 4) parts.push(d.slice(i, i + 4));
+    return parts.join(" ");
+  };
+
+  const fmtExpiry = (t: string) => {
+    const d = t.replace(/\D/g, "").slice(0, 4);
+    return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  };
 
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title="Note For Presentail Team">
         <Field colors={colors} label="Order notes" value={orderNotes} onChangeText={setOrderNotes} placeholder="Any special requests?" multiline />
-        <Pressable
-          onPress={() => setAgreed(!agreed)}
-          style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 4 }}
-        >
-          <View
-            style={{
-              marginTop: 2,
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              borderWidth: 1.5,
-              borderColor: agreed ? colors.primary : colors.border,
-              backgroundColor: agreed ? colors.primary : "#fff",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {agreed ? <Feather name="check" size={12} color="#fff" /> : null}
-          </View>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.primary, flex: 1 }}>
-            By checking this box, I confirm that I have read and agree to the{" "}
-            <Text style={{ color: colors.gold, textDecorationLine: "underline" }}>Terms and Conditions</Text> and{" "}
-            <Text style={{ color: colors.gold, textDecorationLine: "underline" }}>Privacy Policy</Text>.
-            <Text style={{ color: "#c0392b" }}> *</Text>
-          </Text>
-        </Pressable>
       </Card>
 
       <Card colors={colors} title="Ways to Pay">
@@ -1218,71 +1203,72 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
         </Text>
 
         {isAED ? (
-          <>
-            <PayOption
-              colors={colors}
-              active={payMethod === "mamo"}
-              onPress={() => setPayMethod("mamo")}
-              title="Mamo — UAE Wallets & Cards"
-              badge="AED"
-              badgeColor="#007C5B"
-            >
-              {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
-            </PayOption>
-          </>
+          <PayOption colors={colors} active={payMethod === "mamo"} onPress={() => setPayMethod("mamo")} title="Mamo — UAE Wallets & Cards" badge="AED" badgeColor="#007C5B">
+            {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+          </PayOption>
         ) : (
           <>
-            <PayOption
-              colors={colors}
-              active={payMethod === "card"}
-              onPress={() => setPayMethod("card")}
-              title="Card · Apple Pay · Google Pay"
-              payIcons="card"
-            >
+            <PayOption colors={colors} active={payMethod === "card"} onPress={() => setPayMethod("card")} title="Credit / Debit Card" payIcons="card">
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
+                  <Field colors={colors} label="Cardholder Name" value={cardName} onChangeText={setCardName} placeholder="Name on card" />
                   <Field
                     colors={colors}
-                    label="Email for receipt"
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="you@example.com"
-                    keyboardType="email-address"
+                    label="Card Number"
+                    value={cardNumber}
+                    onChangeText={(t: string) => setCardNumber(fmtCardNumber(t))}
+                    placeholder="1234 5678 9012 3456"
+                    keyboardType="number-pad"
+                    maxLength={19}
                   />
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        colors={colors}
+                        label="Expiry (MM/YY)"
+                        value={cardExpiry}
+                        onChangeText={(t: string) => setCardExpiry(fmtExpiry(t))}
+                        placeholder="MM/YY"
+                        keyboardType="number-pad"
+                        maxLength={5}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        colors={colors}
+                        label="CVC"
+                        value={cardCVC}
+                        onChangeText={(t: string) => setCardCVC(t.replace(/\D/g, "").slice(0, 4))}
+                        placeholder="123"
+                        keyboardType="number-pad"
+                        secureTextEntry
+                        maxLength={4}
+                      />
+                    </View>
+                  </View>
+                  <Field colors={colors} label="Email for receipt" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
             </PayOption>
 
-            <PayOption
-              colors={colors}
-              active={payMethod === "paypal"}
-              onPress={() => setPayMethod("paypal")}
-              title="PayPal"
-              badge="PP"
-              badgeColor="#003087"
-            >
+            <PayOption colors={colors} active={payMethod === "wallet"} onPress={() => setPayMethod("wallet")} title="Apple Pay / Google Pay" payIcons="wallet">
+              {payMethod === "wallet" ? (
+                <View style={{ gap: 12 }}>
+                  <Field colors={colors} label="Email for receipt" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                  <SecurityNote colors={colors} />
+                </View>
+              ) : null}
+            </PayOption>
+
+            <PayOption colors={colors} active={payMethod === "paypal"} onPress={() => setPayMethod("paypal")} title="PayPal" badge="PP" badgeColor="#003087">
               {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
             </PayOption>
 
             {isUSD ? (
               <>
-                <PayOption
-                  colors={colors}
-                  active={payMethod === "whish"}
-                  onPress={() => setPayMethod("whish")}
-                  title="Whish Money"
-                  badge="whish"
-                  badgeColor="#E5302E"
-                />
-                <PayOption
-                  colors={colors}
-                  active={payMethod === "western"}
-                  onPress={() => setPayMethod("western")}
-                  title="Western Union"
-                  badge="WU"
-                  badgeColor="#F8B400"
-                />
+                <PayOption colors={colors} active={payMethod === "whish"} onPress={() => setPayMethod("whish")} title="Whish Money" badge="whish" badgeColor="#E5302E" />
+                <PayOption colors={colors} active={payMethod === "western"} onPress={() => setPayMethod("western")} title="Western Union" badge="WU" badgeColor="#F8B400" />
               </>
             ) : null}
           </>
@@ -1304,6 +1290,22 @@ function CardIcons() {
       </View>
       <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
         <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#1A1F71" }}>VISA</Text>
+      </View>
+    </View>
+  );
+}
+
+function WalletIcons() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View style={{ backgroundColor: "#000", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4 }}>
+        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.3 }}> Pay</Text>
+      </View>
+      <View style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row", alignItems: "center", gap: 2 }}>
+        <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 6, color: "#fff" }}>G</Text>
+        </View>
+        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#555" }}>Pay</Text>
       </View>
     </View>
   );
@@ -1352,7 +1354,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
             </Text>
           </View>
         ) : null}
-        {payIcons === "card" ? <CardIcons /> : null}
+        {payIcons === "card" ? <CardIcons /> : payIcons === "wallet" ? <WalletIcons /> : null}
       </Pressable>
       {children ? <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View> : null}
     </View>

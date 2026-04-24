@@ -321,7 +321,8 @@ router.post("/woo/order", async (req, res) => {
   }
 
   const paymentTitles: Record<string, string> = {
-    card: "Card / Apple Pay / Google Pay (Stripe)",
+    card: "Credit / Debit Card (Stripe)",
+    wallet: "Apple Pay / Google Pay (Stripe)",
     whish: "Whish Money",
     western: "Western Union",
     mamo: "Mamo (UAE Wallets)",
@@ -424,9 +425,9 @@ router.post("/woo/order", async (req, res) => {
 
   const orderPayload = {
     status: "processing",
-    payment_method: body.paymentMethod === "card" ? "stripe" : body.paymentMethod,
+    payment_method: (body.paymentMethod === "card" || body.paymentMethod === "wallet") ? "stripe" : body.paymentMethod,
     payment_method_title: paymentTitles[body.paymentMethod] ?? body.paymentMethod,
-    set_paid: body.paymentMethod === "card",
+    set_paid: body.paymentMethod === "card" || body.paymentMethod === "wallet",
     billing: {
       first_name: body.billing.firstName,
       last_name: body.billing.lastName,
