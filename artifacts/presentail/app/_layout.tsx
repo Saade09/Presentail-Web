@@ -22,6 +22,7 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 
 SplashScreen.preventAutoHideAsync();
@@ -41,6 +42,7 @@ function RootLayoutNav() {
       <Stack.Screen name="faq" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="contact" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="brand/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="occasions" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }
@@ -70,6 +72,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
+              <LanguageProvider>
               <CurrencyProvider>
                 <WooProductsProvider>
                   <CartProvider>
@@ -78,6 +81,7 @@ export default function RootLayout() {
                   </CartProvider>
                 </WooProductsProvider>
               </CurrencyProvider>
+            </LanguageProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

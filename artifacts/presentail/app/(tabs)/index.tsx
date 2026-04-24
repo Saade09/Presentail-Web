@@ -32,7 +32,9 @@ import {
   occasions,
   reviews,
 } from "@/data/catalog";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -182,13 +184,14 @@ function HomeHeader({ topPad }: { topPad: number }) {
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isRTL } = useLanguage();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
       contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
       showsVerticalScrollIndicator={false}
     >
@@ -211,6 +214,9 @@ export default function HomeScreen() {
 function Hero() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
+  const { isRTL } = useLanguage();
+  const ta = isRTL ? "right" : "left";
   return (
     <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
       <Pressable
@@ -242,9 +248,10 @@ function Hero() {
                 color: colors.goldSoft,
                 letterSpacing: 3.5,
                 textTransform: "uppercase",
+                textAlign: ta,
               }}
             >
-              The Modern Flower Atelier
+              {t.heroEyebrow}
             </Text>
             <Text
               style={{
@@ -254,9 +261,10 @@ function Hero() {
                 color: "#ffffff",
                 marginTop: 14,
                 letterSpacing: 0.2,
+                textAlign: ta,
               }}
             >
-              Send a feeling,{"\n"}wrapped in petals.
+              {t.heroTitle}
             </Text>
             <Text
               style={{
@@ -266,15 +274,15 @@ function Hero() {
                 color: "rgba(255,255,255,0.85)",
                 marginTop: 14,
                 maxWidth: 320,
+                textAlign: ta,
               }}
             >
-              Hand-arranged in Beirut. Delivered the same day across Lebanon, with
-              quiet care for every occasion.
+              {t.heroSubtitle}
             </Text>
             <View
               style={[
                 styles.heroCta,
-                { backgroundColor: colors.gold },
+                { backgroundColor: colors.gold, flexDirection: isRTL ? "row-reverse" : "row" },
               ]}
             >
               <Text
@@ -286,7 +294,7 @@ function Hero() {
                   textTransform: "uppercase",
                 }}
               >
-                Shop the Collection
+                {t.heroCta}
               </Text>
               <Feather name="arrow-up-right" size={16} color={colors.primary} />
             </View>
@@ -299,10 +307,11 @@ function Hero() {
 
 function BrandStrip() {
   const colors = useColors();
+  const t = useT();
   const items = [
-    { icon: "truck-fast" as const, label: "Same-day", sub: "across Lebanon" },
-    { icon: "flower" as const, label: "Hand-tied", sub: "by florists" },
-    { icon: "shield-check" as const, label: "Guaranteed", sub: "or remade free" },
+    { icon: "truck-fast" as const, label: t.trustSameDay, sub: t.trustSameDaySub },
+    { icon: "flower" as const, label: t.trustHandTied, sub: t.trustHandTiedSub },
+    { icon: "shield-check" as const, label: t.trustGuaranteed, sub: t.trustGuaranteedSub },
   ];
   return (
     <View
@@ -322,10 +331,10 @@ function BrandStrip() {
       {items.map((it) => (
         <View key={it.label} style={{ flex: 1, alignItems: "center", gap: 6 }}>
           <MaterialCommunityIcons name={it.icon} size={20} color={colors.primary} />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary }}>
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary, textAlign: "center" }}>
             {it.label}
           </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, textAlign: "center" }}>
             {it.sub}
           </Text>
         </View>
@@ -381,10 +390,21 @@ function BestSellers() {
 function CategoryRail() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
+  const { isRTL } = useLanguage();
+  const CAT_KEYS: Record<string, string> = {
+    "hand-bouquets": "cat_hand_bouquets", "flower-boxes": "cat_flower_boxes",
+    "flower-vases": "cat_flower_vases", "lux-arrangements": "cat_lux_arrangements",
+    "dried-flowers": "cat_dried_flowers", "preserved-flowers": "cat_preserved_flowers",
+    plants: "cat_plants", balloons: "cat_balloons", "board-games": "cat_board_games",
+    cakes: "cat_cakes", chocolate: "cat_chocolate", "arabic-sweets": "cat_arabic_sweets",
+    electronics: "cat_electronics", "stuffed-animals": "cat_stuffed_animals",
+    bundles: "cat_bundles", baskets: "cat_baskets", beauty: "cat_beauty",
+  };
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
-        <SectionTitle eyebrow="Browse" title="Categories" />
+        <SectionTitle eyebrow={t.browseEyebrow} title={t.categoriesTitle} />
       </View>
       <ScrollView
         horizontal
@@ -420,7 +440,7 @@ function CategoryRail() {
                 lineHeight: 14,
               }}
             >
-              {c.name}
+              {CAT_KEYS[c.id] ? (t[CAT_KEYS[c.id] as keyof typeof t] as string) : c.name}
             </Text>
           </Pressable>
         ))}
@@ -534,54 +554,64 @@ function CollectionsSection() {
   );
 }
 
+const OCC_NAME_KEYS: Record<string, string> = {
+  housewarming: "occ_housewarming", birthday: "occ_birthday", "new-job": "occ_new_job",
+  promotion: "occ_promotion", "thank-you": "occ_thank_you", "love-romance": "occ_love_romance",
+  farewell: "occ_farewell", condolences: "occ_condolences",
+};
+
 function OccasionsGrid() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
+  const { isRTL } = useLanguage();
   return (
     <View style={{ marginTop: 44, paddingHorizontal: 24 }}>
       <View style={{ marginBottom: 18 }}>
-        <SectionTitle
-          eyebrow="Occasions"
-          title="A gift for every moment"
-        />
+        <SectionTitle eyebrow={t.occasionsEyebrow} title={t.occasionsTitle} />
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        {occasions.map((o) => (
-          <Pressable
-            key={o.id}
-            onPress={() => router.push(`/occasion/${o.id}` as any)}
-            style={({ pressed }) => ({
-              flexBasis: "48%",
-              flexGrow: 1,
-              backgroundColor: "#fff",
-              borderRadius: 18,
-              padding: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Image
-              source={o.image}
-              style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: colors.muted }}
-              contentFit="cover"
-            />
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: "Inter_500Medium",
-                fontSize: 13,
-                color: colors.primary,
-              }}
+        {occasions.map((o) => {
+          const nameKey = OCC_NAME_KEYS[o.id] as keyof typeof t;
+          const displayName = nameKey ? (t[nameKey] as string) : o.name;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => router.push(`/occasion/${o.id}` as any)}
+              style={({ pressed }) => ({
+                flexBasis: "48%",
+                flexGrow: 1,
+                backgroundColor: "#fff",
+                borderRadius: 18,
+                padding: 14,
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
-              {o.name}
-            </Text>
-            <Feather name="arrow-up-right" size={16} color={colors.gold} />
-          </Pressable>
-        ))}
+              <Image
+                source={o.image}
+                style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: colors.muted }}
+                contentFit="cover"
+              />
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 13,
+                  color: colors.primary,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {displayName}
+              </Text>
+              <Feather name="arrow-up-right" size={16} color={colors.gold} />
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -589,10 +619,12 @@ function OccasionsGrid() {
 
 function BrandStorySection() {
   const colors = useColors();
+  const t = useT();
+  const { isRTL } = useLanguage();
   const pillars = [
-    { title: "Hand-tied in Beirut", text: "Every bouquet is composed by a florist — never machine packed." },
-    { title: "Sourced with intention", text: "From Holland's tulip fields to Lebanon's mountain roses." },
-    { title: "Delivered with care", text: "Climate-controlled vans and a no-compromise freshness promise." },
+    { title: t.pillar1Title, text: t.pillar1Text },
+    { title: t.pillar2Title, text: t.pillar2Text },
+    { title: t.pillar3Title, text: t.pillar3Text },
   ];
   return (
     <View
@@ -606,14 +638,14 @@ function BrandStorySection() {
       }}
     >
       <SectionTitle
-        eyebrow="Our Story"
-        title="The modern flower delivery house of Lebanon."
-        description="Founded in Beirut, Presentail brings together florists, pâtissiers and artisans under one quiet, dependable promise: a beautiful gift, delivered exactly when it matters."
+        eyebrow={t.storyEyebrow}
+        title={t.storyTitle}
+        description={t.storyDesc}
         inverse
       />
       <View style={{ marginTop: 28, gap: 18 }}>
         {pillars.map((p, i) => (
-          <View key={p.title} style={{ flexDirection: "row", gap: 16 }}>
+          <View key={p.title} style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 16 }}>
             <Text
               style={{
                 fontFamily: "PlayfairDisplay_400Regular",
@@ -772,12 +804,13 @@ function Footer() {
   const [open, setOpen] = useState<string | null>("popular");
   const { currencyCode, setCurrencyCode, list: CURRENCIES } = useCurrency();
   const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [language, setLanguage] = useState<"EN" | "AR">("EN");
+  const { lang: language, setLang: setLanguage } = useLanguage();
+  const t = useT();
 
   const sections: { id: string; title: string; links: FooterLink[] }[] = [
     {
       id: "social",
-      title: "Social Media",
+      title: t.socialMedia,
       links: [
         { label: "Facebook", href: "https://www.facebook.com/presentail" },
         { label: "Instagram", href: "https://www.instagram.com/presentail.gifts/" },
@@ -787,36 +820,36 @@ function Footer() {
     },
     {
       id: "contact",
-      title: "Get in Touch",
+      title: t.getInTouch,
       links: [
-        { label: "Contact Us", href: "/contact" },
-        { label: "FAQs", href: "/faq" },
+        { label: t.contactUs, href: "/contact" },
+        { label: t.faqs, href: "/faq" },
       ],
     },
     {
       id: "popular",
-      title: "Popular Categories",
+      title: t.popularCategories,
       links: [
-        { label: "Flowers", href: "/category/hand-bouquets" },
-        { label: "Plants", href: "/category/plants" },
-        { label: "Gift Bundles", href: "/category/bundles" },
-        { label: "Cakes & Sweets", href: "/category/cakes" },
-        { label: "Baskets", href: "/category/baskets" },
-        { label: "Bears & Balloons", href: "/category/stuffed-animals" },
-        { label: "Occasions", href: "/(tabs)/catalog" },
+        { label: t.flowers, href: "/category/hand-bouquets" },
+        { label: t.plants, href: "/category/plants" },
+        { label: t.giftBundles, href: "/category/bundles" },
+        { label: t.cakesSweets, href: "/category/cakes" },
+        { label: t.baskets, href: "/category/baskets" },
+        { label: t.bearsAndBalloons, href: "/category/stuffed-animals" },
+        { label: t.occasions, href: "/occasions" },
       ],
     },
     {
       id: "know",
-      title: "Get to Know Us",
+      title: t.getToKnowUs,
       links: [
-        { label: "About Us", href: "/(tabs)/brand" },
-        { label: "Partner With Us", href: "https://presentail.com/lebanon/partner" },
-        { label: "Delivery Rates", href: "https://presentail.com/lebanon/delivery-rates" },
-        { label: "Weddings & Events", href: "https://presentail.com/lebanon/weddings-events" },
-        { label: "Corporate Gifts", href: "https://presentail.com/lebanon/corporate-gifts" },
-        { label: "Careers", href: "https://presentail.com/lebanon/careers" },
-        { label: "Blogs", href: "https://presentail.com/lebanon/blog" },
+        { label: t.aboutUs, href: "/(tabs)/brand" },
+        { label: t.partnerWithUs, href: "https://presentail.com/lebanon/partner" },
+        { label: t.deliveryRates, href: "https://presentail.com/lebanon/delivery-rates" },
+        { label: t.weddingsEvents, href: "https://presentail.com/lebanon/weddings-events" },
+        { label: t.corporateGifts, href: "https://presentail.com/lebanon/corporate-gifts" },
+        { label: t.careers, href: "https://presentail.com/lebanon/careers" },
+        { label: t.blogs, href: "https://presentail.com/lebanon/blog" },
       ],
     },
   ];
@@ -920,7 +953,7 @@ function Footer() {
       <View style={{ gap: 14, marginTop: 8 }}>
         <View>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
-            Currency
+            {t.currency}
           </Text>
           <View style={{ alignSelf: "flex-start" }}>
             <Pressable
@@ -1045,7 +1078,7 @@ function Footer() {
 
         <View>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
-            Language
+            {t.language}
           </Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             {(["EN", "AR"] as const).map((l) => {
@@ -1074,7 +1107,7 @@ function Footer() {
 
         <View>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.6, color: colors.goldSoft, textTransform: "uppercase", marginBottom: 8 }}>
-            Country
+            {t.country}
           </Text>
           <View
             style={{
