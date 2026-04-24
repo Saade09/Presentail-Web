@@ -1,39 +1,35 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
+import * as WebBrowser from "expo-web-browser";
 import { Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
 
-function NativeTabLayout() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="catalog">
-        <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
-        <Label>Boutique</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="brand">
-        <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
-        <Label>Brand</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
+const WC_LOGIN_URL = "https://presentail.com/lebanon/login";
+const WC_ACCOUNT_URL = "https://presentail.com/lebanon/my-account/";
+const ACCOUNT_KEY = "@presentail/has-account";
+
+async function openAccountBrowser() {
+  const v = await AsyncStorage.getItem(ACCOUNT_KEY);
+  const url = v === "1" ? WC_ACCOUNT_URL : WC_LOGIN_URL;
+  await WebBrowser.openBrowserAsync(url, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+  });
+  await AsyncStorage.setItem(ACCOUNT_KEY, "1");
 }
 
-function ClassicTabLayout() {
+function TabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const { count, openCart } = useCart();
 
   return (
     <Tabs
@@ -108,13 +104,58 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: "Cart",
+          tabBarBadge: count > 0 ? count : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.gold,
+            color: "#fff",
+            fontSize: 10,
+            fontFamily: "Inter_600SemiBold",
+            minWidth: 16,
+            height: 16,
+            lineHeight: 16,
+          },
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView
+                name={count > 0 ? "bag.fill" : "bag"}
+                tintColor={count > 0 ? colors.gold : color}
+                size={22}
+              />
+            ) : (
+              <Feather name="shopping-bag" size={20} color={count > 0 ? colors.gold : color} />
+            ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            openCart();
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: "Account",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="person" tintColor={color} size={22} />
+            ) : (
+              <Feather name="user" size={20} color={color} />
+            ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            openAccountBrowser();
+          },
+        }}
+      />
     </Tabs>
   );
 }
 
-export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
-  return <ClassicTabLayout />;
-}
+export default TabLayout;
