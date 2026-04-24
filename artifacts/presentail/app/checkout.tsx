@@ -2,7 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -24,6 +24,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
+import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import { createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 
@@ -104,7 +105,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currencyCode, convert } = useCurrency();
 
   const LB = COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
@@ -144,10 +145,16 @@ export default function CheckoutScreen() {
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [payMethod, setPayMethod] = useState<"card" | "whish" | "western">("card");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
+  const [payMethod, setPayMethod] = useState<"card" | "whish" | "western" | "mamo" | "paypal">("card");
+
+  useEffect(() => {
+    if (currencyCode === "AED") {
+      setPayMethod("mamo");
+    } else if (payMethod === "mamo") {
+      setPayMethod("card");
+    }
+  }, [currencyCode]);
+
   const [paying, setPaying] = useState(false);
 
   const EXPRESS_SURCHARGE = 15;
@@ -271,7 +278,57 @@ export default function CheckoutScreen() {
       }
     }
 
-    // Non-card or fallback: simulate confirmed order
+    if (payMethod === "mamo") {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://presentail.app";
+      const mamoReturn = origin + successPath;
+      const mamoFail = origin + "/cart";
+      const aedAmount = Math.round(convert(fees.grand) * 100) / 100;
+      const session = await createMamoPayment({
+        amount: aedAmount,
+        title: `Presentail — ${orderId}`,
+        description: `${recipientFirst} ${recipientLast} · ${date}`,
+        email: senderEmail || undefined,
+        firstName: senderFirst || undefined,
+        lastName: senderLast || undefined,
+        returnUrl: mamoReturn,
+        failureReturnUrl: mamoFail,
+      });
+      if (session.ok) {
+        clear();
+        await WebBrowser.openBrowserAsync(session.url);
+        router.replace(successPath as any);
+        setPaying(false);
+        return;
+      }
+      Alert.alert("Mamo error", session.code === "mamo_not_configured"
+        ? "Mamo payments are being set up. Your order is reserved — we'll confirm by SMS."
+        : session.message);
+    }
+
+    if (payMethod === "paypal") {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://presentail.app";
+      const ppReturn = origin + successPath;
+      const ppCancel = origin + "/cart";
+      const session = await createPayPalOrder({
+        amount: fees.grand,
+        currency: "USD",
+        returnUrl: ppReturn,
+        cancelUrl: ppCancel,
+        orderId,
+      });
+      if (session.ok) {
+        clear();
+        await WebBrowser.openBrowserAsync(session.url);
+        router.replace(successPath as any);
+        setPaying(false);
+        return;
+      }
+      Alert.alert("PayPal error", session.code === "paypal_not_configured"
+        ? "PayPal payments are being set up. Your order is reserved — we'll confirm by SMS."
+        : session.message);
+    }
+
+    // Whish / Western Union / fallback: navigate to confirmed screen
     clear();
     router.replace(successPath as any);
     setPaying(false);
@@ -456,12 +513,6 @@ export default function CheckoutScreen() {
               setPayMethod={setPayMethod}
               email={senderEmail}
               setEmail={setSenderEmail}
-              cardNumber={cardNumber}
-              setCardNumber={setCardNumber}
-              cardExpiry={cardExpiry}
-              setCardExpiry={setCardExpiry}
-              cardCvc={cardCvc}
-              setCardCvc={setCardCvc}
             />
             <OrderSummary
               colors={colors}
@@ -1068,16 +1119,32 @@ function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
 
 // =============== Step 3: Payment ===============
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail, cardNumber, setCardNumber, cardExpiry, setCardExpiry, cardCvc, setCardCvc }: any) {
-  const formatCard = (v: string) => {
-    const digits = v.replace(/\D/g, "").slice(0, 16);
-    return digits.replace(/(.{4})/g, "$1 ").trim();
-  };
-  const formatExpiry = (v: string) => {
-    const digits = v.replace(/\D/g, "").slice(0, 4);
-    if (digits.length > 2) return digits.slice(0, 2) + " / " + digits.slice(2);
-    return digits;
-  };
+function SecurityNote({ colors }: { colors: any }) {
+  return (
+    <View
+      style={{
+        borderRadius: 10,
+        backgroundColor: colors.secondary,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <Feather name="lock" size={14} color={colors.gold} />
+      <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
+        You will be redirected to a secure checkout to complete payment.
+      </Text>
+    </View>
+  );
+}
+
+function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, payMethod, setPayMethod, email, setEmail }: any) {
+  const { currencyCode } = useCurrency();
+  const isAED = currencyCode === "AED";
+  const isUSD = currencyCode === "USD";
 
   return (
     <View style={{ gap: 18 }}>
@@ -1116,153 +1183,76 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, agreed, setAgreed, pay
           All transactions are secure and encrypted.
         </Text>
 
-        <PayOption
-          colors={colors}
-          active={payMethod === "whish"}
-          onPress={() => setPayMethod("whish")}
-          title="Whish Money"
-          badge="whish"
-          badgeColor="#E5302E"
-        />
-        <PayOption
-          colors={colors}
-          active={payMethod === "western"}
-          onPress={() => setPayMethod("western")}
-          title="Western Union"
-          badge="WU"
-          badgeColor="#F8B400"
-        />
-        <PayOption
-          colors={colors}
-          active={payMethod === "card"}
-          onPress={() => setPayMethod("card")}
-          title="Credit / Debit Card"
-          chips={["MC", "VISA", "AMEX"]}
-        >
-          {payMethod === "card" ? (
-            <View style={{ gap: 12 }}>
-              <Field
-                colors={colors}
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-              />
-
-              <View style={{ gap: 6 }}>
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-                  Card number
-                </Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 10,
-                    backgroundColor: "#fff",
-                    paddingHorizontal: 14,
-                    paddingVertical: 12,
-                    gap: 8,
-                  }}
-                >
-                  <TextInput
-                    style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 14, color: colors.primary }}
-                    value={cardNumber}
-                    onChangeText={(v) => setCardNumber(formatCard(v))}
-                    placeholder="1234 5678 9012 3456"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="number-pad"
-                    maxLength={19}
+        {isAED ? (
+          <>
+            <PayOption
+              colors={colors}
+              active={payMethod === "mamo"}
+              onPress={() => setPayMethod("mamo")}
+              title="Mamo — UAE Wallets & Cards"
+              badge="AED"
+              badgeColor="#007C5B"
+            >
+              {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+            </PayOption>
+          </>
+        ) : (
+          <>
+            <PayOption
+              colors={colors}
+              active={payMethod === "card"}
+              onPress={() => setPayMethod("card")}
+              title="Card · Apple Pay · Google Pay"
+              chips={["MC", "VISA", "AMEX"]}
+            >
+              {payMethod === "card" ? (
+                <View style={{ gap: 12 }}>
+                  <Field
+                    colors={colors}
+                    label="Email for receipt"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    keyboardType="email-address"
                   />
-                  <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
-                    <View style={{ flexDirection: "row" }}>
-                      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
-                      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
-                    </View>
-                    <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 12, color: "#1A1F71", marginLeft: 4 }}>VISA</Text>
-                  </View>
+                  <SecurityNote colors={colors} />
                 </View>
-              </View>
+              ) : null}
+            </PayOption>
 
-              <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1, gap: 6 }}>
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-                    Expiration date
-                  </Text>
-                  <TextInput
-                    style={{
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderRadius: 10,
-                      backgroundColor: "#fff",
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 14,
-                      color: colors.primary,
-                    }}
-                    value={cardExpiry}
-                    onChangeText={(v) => setCardExpiry(formatExpiry(v))}
-                    placeholder="MM / YY"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="number-pad"
-                    maxLength={7}
-                  />
-                </View>
-                <View style={{ flex: 1, gap: 6 }}>
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-                    Security code
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderRadius: 10,
-                      backgroundColor: "#fff",
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                      gap: 6,
-                    }}
-                  >
-                    <TextInput
-                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 14, color: colors.primary }}
-                      value={cardCvc}
-                      onChangeText={(v) => setCardCvc(v.replace(/\D/g, "").slice(0, 4))}
-                      placeholder="CVC"
-                      placeholderTextColor={colors.mutedForeground}
-                      keyboardType="number-pad"
-                      secureTextEntry
-                      maxLength={4}
-                    />
-                    <MaterialCommunityIcons name="credit-card-outline" size={18} color={colors.mutedForeground} />
-                  </View>
-                </View>
-              </View>
+            <PayOption
+              colors={colors}
+              active={payMethod === "paypal"}
+              onPress={() => setPayMethod("paypal")}
+              title="PayPal"
+              badge="PP"
+              badgeColor="#003087"
+            >
+              {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
+            </PayOption>
 
-              <View
-                style={{
-                  borderRadius: 10,
-                  backgroundColor: colors.secondary,
-                  padding: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <Feather name="lock" size={14} color={colors.gold} />
-                <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
-                  Payments are processed securely via Stripe. We never store your card details.
-                </Text>
-              </View>
-            </View>
-          ) : null}
-        </PayOption>
+            {isUSD ? (
+              <>
+                <PayOption
+                  colors={colors}
+                  active={payMethod === "whish"}
+                  onPress={() => setPayMethod("whish")}
+                  title="Whish Money"
+                  badge="whish"
+                  badgeColor="#E5302E"
+                />
+                <PayOption
+                  colors={colors}
+                  active={payMethod === "western"}
+                  onPress={() => setPayMethod("western")}
+                  title="Western Union"
+                  badge="WU"
+                  badgeColor="#F8B400"
+                />
+              </>
+            ) : null}
+          </>
+        )}
       </Card>
     </View>
   );

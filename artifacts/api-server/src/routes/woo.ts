@@ -117,7 +117,7 @@ type WooOrderPayload = {
   qrLink?: string;
   qrLabel?: string;
   orderNotes?: string;
-  paymentMethod: "card" | "whish" | "western";
+  paymentMethod: "card" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
 };
 
@@ -131,9 +131,11 @@ router.post("/woo/order", async (req, res) => {
   }
 
   const paymentTitles: Record<string, string> = {
-    card: "Credit / Debit Card (App)",
+    card: "Card / Apple Pay / Google Pay (Stripe)",
     whish: "Whish Money",
     western: "Western Union",
+    mamo: "Mamo (UAE Wallets)",
+    paypal: "PayPal",
   };
 
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();

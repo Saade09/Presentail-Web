@@ -46,7 +46,7 @@ export type WooOrderPayload = {
   qrLink?: string;
   qrLabel?: string;
   orderNotes?: string;
-  paymentMethod: "card" | "whish" | "western";
+  paymentMethod: "card" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
 };
 
