@@ -5,13 +5,13 @@ const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
 const inferred = (() => {
   if (explicit) return explicit;
-  if (domain) return `https://${domain}/api-server`;
+  if (domain) return `https://${domain}`;
   const hostUri = (Constants as any)?.expoConfig?.hostUri || (Constants as any)?.manifest?.hostUri;
   if (hostUri) {
     const host = String(hostUri).split(":")[0];
-    return `http://${host}:3000/api-server`;
+    return `http://${host}:3000`;
   }
-  return "/api-server";
+  return "";
 })();
 
 export const API_BASE = inferred;

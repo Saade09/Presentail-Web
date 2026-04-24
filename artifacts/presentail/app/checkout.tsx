@@ -651,13 +651,23 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
         Paste a link to a video or photo from the internet. A QR code will be automatically added to your card message. No extra cost!
       </Text>
-      <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="Share A link as a QR code" />
+      <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="https://..." />
 
-      <Pressable>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, textDecorationLine: "underline" }}>
-          Preview gift card
-        </Text>
-      </Pressable>
+      {qrLink && qrLink.trim().length > 4 ? (
+        <View style={{ alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+          <Image
+            source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=${encodeURIComponent(qrLink.trim())}` }}
+            style={{ width: 140, height: 140, borderRadius: 6 }}
+            contentFit="contain"
+          />
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
+            Preview
+          </Text>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textAlign: "center" }}>
+            This QR code will be printed on your gift card
+          </Text>
+        </View>
+      ) : null}
     </Card>
   );
 }

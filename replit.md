@@ -23,15 +23,21 @@ Luxury flower & gift delivery app for Lebanon. Built with Expo Router (iOS/Andro
 hand-bouquets, flower-boxes, flower-vases, lux-arrangements, dried-flowers, preserved-flowers, plants, balloons, board-games, cakes, chocolate, bundles, electronics, arabic-sweets, stuffed-animals
 
 ### Checkout Flow
-1. Step 0 — Card message, recipient name, quantity
+1. Step 0 — Card message + QR link (live preview from `api.qrserver.com` when URL typed), recipient name, quantity
 2. Step 1 — District (26 Lebanese districts with fees), delivery date/slot, sender details
 3. Step 2 — Payment method (Card via Stripe, Whish Money, Western Union)
 - On confirm: WooCommerce order created immediately (fire-and-forget)
 - Card path: Stripe Checkout session opened in browser
+- Order metadata uses WFACP custom field IDs: `card_message`, `wfacp_card_message`, `to_text`, `from`, `delivery`, `secret_id`, `qr-code`, `qr-label` + visible delivery fields for ops.
 
 ### Delivery Fee Logic
 - `districtFee = subtotal >= $130 ? FREE : district.fee` ($8–$39)
 - `expressFee = deliveryMode === "express" ? $15 : 0`
+
+### Frontend State
+- **CartContext** persists `items[]` to `AsyncStorage` under key `@presentail/cart-v1` (web → localStorage, native → SQLite). Hydration is gated by an `isHydrated` ref and merges with any in-flight items so adds during initial load are not lost.
+- **WooProductsContext** keeps `INITIAL_CATALOG` (deduped by id, since the static catalog has 8 duplicate slugs). After WC sync, `mergeProducts` overrides price/name/image when WC matches and preserves static `occasions`, `tag`, `description` when present.
+- **API_BASE** in `lib/stripe.ts`: `https://${EXPO_PUBLIC_DOMAIN}` so `/api/...` hits the api-server proxied at the same origin. No `/api-server` path suffix.
 
 ## Stack
 
