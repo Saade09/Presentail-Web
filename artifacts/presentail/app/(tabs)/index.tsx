@@ -1,8 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import * as WebBrowser from "expo-web-browser";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -35,11 +37,31 @@ import { useColors } from "@/hooks/useColors";
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
+const WC_LOGIN_URL = "https://presentail.com/lebanon/login";
+const WC_ACCOUNT_URL = "https://presentail.com/lebanon/my-account/";
+const ACCOUNT_KEY = "presentail_has_account";
+
 function HomeHeader({ topPad }: { topPad: number }) {
   const colors = useColors();
   const router = useRouter();
   const { count, openCart } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasAccount, setHasAccount] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ACCOUNT_KEY).then((v) => {
+      if (v === "1") setHasAccount(true);
+    });
+  }, []);
+
+  async function openAccount() {
+    const url = hasAccount ? WC_ACCOUNT_URL : WC_LOGIN_URL;
+    await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+    });
+    AsyncStorage.setItem(ACCOUNT_KEY, "1");
+    setHasAccount(true);
+  }
 
   return (
     <View
@@ -67,7 +89,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
       <Wordmark size={26} />
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-        <Pressable hitSlop={10}>
+        <Pressable hitSlop={10} onPress={openAccount}>
           <Feather name="user" size={20} color={colors.primary} />
         </Pressable>
         <Pressable hitSlop={10} onPress={openCart}>
@@ -104,6 +126,22 @@ function HomeHeader({ topPad }: { topPad: number }) {
               <Feather name="x" size={22} color={colors.primary} />
             </Pressable>
           </View>
+          <Pressable
+            onPress={() => { setMenuOpen(false); openAccount(); }}
+            style={{
+              paddingVertical: 14,
+              borderBottomWidth: 1,
+              borderBottomColor: "rgba(0,0,0,0.07)",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <Feather name="user" size={16} color={colors.primary} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+              {hasAccount ? "My Account" : "Login"}
+            </Text>
+          </Pressable>
           {[
             { label: "Flowers & Plants", path: "/(tabs)/catalog" },
             { label: "Gifts", path: "/(tabs)/catalog" },
@@ -677,11 +715,12 @@ function ReviewsSection() {
 
 function BrandsRow() {
   const colors = useColors();
+  const router = useRouter();
   return (
     <View style={{ marginTop: 56, paddingHorizontal: 24 }}>
       <SectionTitle
         eyebrow="Gift by Brand"
-        title="Houses we work with"
+        title="Brands"
       />
       <View
         style={{
@@ -692,8 +731,9 @@ function BrandsRow() {
         }}
       >
         {brands.map((b) => (
-          <View
-            key={b}
+          <Pressable
+            key={b.slug}
+            onPress={() => router.push(`/brand/${b.slug}` as any)}
             style={{
               width: "18.5%",
               aspectRatio: 1,
@@ -708,33 +748,18 @@ function BrandsRow() {
             <Text
               style={{
                 fontFamily: "Inter_700Bold",
-                fontSize: b.length > 8 ? 7 : 9,
+                fontSize: b.name.length > 8 ? 7 : 9,
                 color: "#fff",
                 textAlign: "center",
                 letterSpacing: 0.2,
                 lineHeight: 13,
               }}
             >
-              {b}
+              {b.name}
             </Text>
-          </View>
+          </Pressable>
         ))}
       </View>
-      <Pressable
-        onPress={() => {}}
-        style={{ marginTop: 16, alignSelf: "flex-start" }}
-      >
-        <Text
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 13,
-            color: colors.primary,
-            textDecorationLine: "underline",
-          }}
-        >
-          View All Brands
-        </Text>
-      </Pressable>
     </View>
   );
 }

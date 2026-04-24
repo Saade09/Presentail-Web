@@ -68,6 +68,58 @@ function transformProduct(p: any) {
   };
 }
 
+router.get("/woo/brand-products", async (req, res) => {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const brandSlug = String(req.query.slug ?? "");
+  const brandName = String(req.query.name ?? brandSlug);
+  if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
+
+  try {
+    // Step 1: try to find a WC tag matching the brand slug or name
+    const tagRes = await wooFetch(`/tags?slug=${encodeURIComponent(brandSlug)}&per_page=5`);
+    let tagId: number | null = null;
+    if (tagRes.ok) {
+      const tags: any[] = await tagRes.json();
+      if (tags.length) {
+        tagId = tags[0].id;
+      } else {
+        // try search by name
+        const tagRes2 = await wooFetch(`/tags?search=${encodeURIComponent(brandName)}&per_page=5`);
+        if (tagRes2.ok) {
+          const tags2: any[] = await tagRes2.json();
+          if (tags2.length) tagId = tags2[0].id;
+        }
+      }
+    }
+
+    let products: any[] = [];
+
+    if (tagId) {
+      // Fetch products by tag
+      const r = await wooFetch(`/products?tag=${tagId}&per_page=30&status=publish&stock_status=instock`);
+      if (r.ok) {
+        const batch: any[] = await r.json();
+        products = batch.map(transformProduct);
+      }
+    }
+
+    // Fallback: search by brand name if no products found via tag
+    if (!products.length) {
+      const r = await wooFetch(`/products?search=${encodeURIComponent(brandName)}&per_page=30&status=publish&stock_status=instock`);
+      if (r.ok) {
+        const batch: any[] = await r.json();
+        products = batch.map(transformProduct);
+      }
+    }
+
+    return res.json({ ok: true, products, count: products.length });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
+  }
+});
+
 router.get("/woo/products", async (_req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });

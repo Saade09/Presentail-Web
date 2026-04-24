@@ -310,17 +310,19 @@ export const occasions: Occasion[] = [
   { id: "condolences", name: "Condolences", icon: "flower", image: occ["condolences"], description: "White and pastel arrangements to express quiet sympathy." },
 ];
 
-export const brands = [
-  "Apple",
-  "Super Heated Neurons",
-  "Salma",
-  "Hallab 1881",
-  "Rifai",
-  "Fujifilm",
-  "Samsung",
-  "Nintendo",
-  "PlayStation",
-  "Sablés Gourmets",
+export type Brand = { name: string; slug: string };
+
+export const brands: Brand[] = [
+  { name: "Apple", slug: "apple" },
+  { name: "Super Heated Neurons", slug: "super-heated-neurons" },
+  { name: "Salma", slug: "salma" },
+  { name: "Hallab 1881", slug: "hallab-1881" },
+  { name: "Rifai", slug: "rifai" },
+  { name: "Fujifilm", slug: "fujifilm" },
+  { name: "Samsung", slug: "samsung" },
+  { name: "Nintendo", slug: "nintendo" },
+  { name: "PlayStation", slug: "playstation" },
+  { name: "Sablés Gourmets", slug: "sables-gourmets" },
 ];
 
 export const reviews = [
