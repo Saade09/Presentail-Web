@@ -97,7 +97,7 @@ export type WooOrderPayload = {
   qrLink?: string;
   qrLabel?: string;
   orderNotes?: string;
-  paymentMethod: "card" | "whish" | "western" | "mamo" | "paypal";
+  paymentMethod: "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
 };
 

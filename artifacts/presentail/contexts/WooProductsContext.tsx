@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { products as CATALOG } from "@/data/catalog";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
 type AnyProduct = (typeof CATALOG)[number] & { wcId?: number };
+
+const SYNC_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
 function dedupeById<T extends { id: string }>(arr: T[]): T[] {
   const seen = new Set<string>();
@@ -21,40 +24,65 @@ type WooCtx = {
   products: AnyProduct[];
   loading: boolean;
   lastSync: Date | null;
+  refresh: () => void;
 };
 
 const WooProductsContext = createContext<WooCtx>({
   products: INITIAL_CATALOG,
   loading: true,
   lastSync: null,
+  refresh: () => {},
 });
 
 export function WooProductsProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<AnyProduct[]>(INITIAL_CATALOG);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const isSyncing = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function sync() {
+  const sync = useCallback(async (force = false) => {
+    if (isSyncing.current && !force) return;
+    isSyncing.current = true;
+    try {
       const woo = await fetchWooProducts();
-      if (cancelled) return;
-      if (!woo.length) {
-        setLoading(false);
-        return;
-      }
+      if (!woo.length) return;
       const merged = mergeProducts(CATALOG as AnyProduct[], woo);
-      if (cancelled) return;
       setProducts(merged);
       setLastSync(new Date());
+    } finally {
+      isSyncing.current = false;
       setLoading(false);
     }
-    sync();
-    return () => { cancelled = true; };
   }, []);
 
+  // Initial fetch
+  useEffect(() => {
+    sync(true);
+  }, [sync]);
+
+  // Refresh every 5 hours
+  useEffect(() => {
+    const timer = setInterval(() => sync(true), SYNC_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [sync]);
+
+  // Re-sync whenever the app comes back to the foreground
+  useEffect(() => {
+    const handleAppState = (next: AppStateStatus) => {
+      if (next === "active") {
+        const sinceLast = lastSync ? Date.now() - lastSync.getTime() : Infinity;
+        // Only re-sync if it's been at least 30 minutes since last sync
+        if (sinceLast > 30 * 60 * 1000) {
+          sync();
+        }
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppState);
+    return () => sub.remove();
+  }, [sync, lastSync]);
+
   return (
-    <WooProductsContext.Provider value={{ products, loading, lastSync }}>
+    <WooProductsContext.Provider value={{ products, loading, lastSync, refresh: () => sync(true) }}>
       {children}
     </WooProductsContext.Provider>
   );
