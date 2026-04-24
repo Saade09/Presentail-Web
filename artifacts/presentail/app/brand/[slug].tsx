@@ -35,7 +35,7 @@ export default function BrandScreen() {
     let cancelled = false;
     setLoading(true);
     setProducts([]);
-    fetchBrandProducts(String(slug), brandName).then((res) => {
+    fetchBrandProducts(String(slug)).then((res) => {
       if (!cancelled) {
         setProducts(res.filter((p) => p.image));
         setLoading(false);

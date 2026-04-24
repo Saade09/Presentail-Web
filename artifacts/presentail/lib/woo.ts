@@ -14,10 +14,10 @@ export type WooProduct = {
   occasions: string[];
 };
 
-export async function fetchBrandProducts(slug: string, name: string): Promise<WooProduct[]> {
+export async function fetchBrandProducts(slug: string): Promise<WooProduct[]> {
   try {
     const res = await fetch(
-      `${API_BASE}/api/woo/brand-products?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(name)}`,
+      `${API_BASE}/api/woo/brand-products?slug=${encodeURIComponent(slug)}`,
       { headers: { "Content-Type": "application/json" } }
     );
     const json = await res.json();

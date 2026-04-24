@@ -314,14 +314,14 @@ export type Brand = { name: string; slug: string };
 
 export const brands: Brand[] = [
   { name: "Apple", slug: "apple" },
-  { name: "Super Heated Neurons", slug: "super-heated-neurons" },
+  { name: "SuperHeated Neurons", slug: "superheated-neurons" },
   { name: "Salma", slug: "salma" },
-  { name: "Hallab 1881", slug: "hallab-1881" },
+  { name: "Hallab 1881", slug: "hallab" },
   { name: "Rifai", slug: "rifai" },
   { name: "Fujifilm", slug: "fujifilm" },
   { name: "Samsung", slug: "samsung" },
   { name: "Nintendo", slug: "nintendo" },
-  { name: "PlayStation", slug: "playstation" },
+  { name: "PlayStation", slug: "playstation-gifts-lebanon" },
   { name: "Sablés Gourmets", slug: "sables-gourmets" },
 ];
 

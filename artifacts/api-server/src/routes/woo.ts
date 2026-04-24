@@ -68,52 +68,60 @@ function transformProduct(p: any) {
   };
 }
 
+router.get("/woo/brands", async (_req, res) => {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  try {
+    const r = await wooFetch("/products/brands?per_page=100");
+    if (!r.ok) {
+      const err = await r.json();
+      return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
+    }
+    const brands: any[] = await r.json();
+    return res.json({
+      ok: true,
+      brands: brands.map((b) => ({
+        id: b.id,
+        name: b.name,
+        slug: b.slug,
+        count: b.count,
+        image: b.image?.src ?? null,
+      })),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
+  }
+});
+
 router.get("/woo/brand-products", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const brandSlug = String(req.query.slug ?? "");
-  const brandName = String(req.query.name ?? brandSlug);
   if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
 
   try {
-    // Step 1: try to find a WC tag matching the brand slug or name
-    const tagRes = await wooFetch(`/tags?slug=${encodeURIComponent(brandSlug)}&per_page=5`);
-    let tagId: number | null = null;
-    if (tagRes.ok) {
-      const tags: any[] = await tagRes.json();
-      if (tags.length) {
-        tagId = tags[0].id;
-      } else {
-        // try search by name
-        const tagRes2 = await wooFetch(`/tags?search=${encodeURIComponent(brandName)}&per_page=5`);
-        if (tagRes2.ok) {
-          const tags2: any[] = await tagRes2.json();
-          if (tags2.length) tagId = tags2[0].id;
-        }
-      }
+    // Look up brand ID by slug from the brands taxonomy
+    const brandRes = await wooFetch(`/products/brands?slug=${encodeURIComponent(brandSlug)}&per_page=5`);
+    if (!brandRes.ok) {
+      return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
     }
-
-    let products: any[] = [];
-
-    if (tagId) {
-      // Fetch products by tag
-      const r = await wooFetch(`/products?tag=${tagId}&per_page=30&status=publish&stock_status=instock`);
-      if (r.ok) {
-        const batch: any[] = await r.json();
-        products = batch.map(transformProduct);
-      }
+    const brandList: any[] = await brandRes.json();
+    if (!brandList.length) {
+      return res.json({ ok: true, products: [], count: 0 });
     }
+    const brandId = brandList[0].id;
 
-    // Fallback: search by brand name if no products found via tag
-    if (!products.length) {
-      const r = await wooFetch(`/products?search=${encodeURIComponent(brandName)}&per_page=30&status=publish&stock_status=instock`);
-      if (r.ok) {
-        const batch: any[] = await r.json();
-        products = batch.map(transformProduct);
-      }
+    // Fetch products filtered by brand ID
+    const r = await wooFetch(
+      `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`
+    );
+    if (!r.ok) {
+      return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
     }
-
+    const batch: any[] = await r.json();
+    const products = batch.map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
