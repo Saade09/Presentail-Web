@@ -35,6 +35,12 @@
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
+    "updates": {
+      "url": "https://u.expo.dev/YOUR_EAS_PROJECT_ID"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       [
         "expo-router",
@@ -43,7 +49,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true,
