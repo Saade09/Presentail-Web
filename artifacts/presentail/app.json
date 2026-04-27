@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",
-        "CFBundleDisplayName": "Presentail"
+        "CFBundleDisplayName": "Presentail",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
