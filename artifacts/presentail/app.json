@@ -36,7 +36,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "updates": {
-      "url": "https://u.expo.dev/YOUR_EAS_PROJECT_ID"
+      "url": "https://u.expo.dev/4dfed5db-2405-4de3-bca5-0e0ce9da84c0"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -58,7 +58,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "4dfed5db-2405-4de3-bca5-0e0ce9da84c0"
       }
     }
   }
