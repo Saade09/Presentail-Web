@@ -330,6 +330,8 @@ export default function CheckoutScreen() {
       Alert.alert("Mamo error", session.code === "mamo_not_configured"
         ? "Mamo payments are being set up. Your order is reserved — we'll confirm by SMS."
         : session.message);
+      setPaying(false);
+      return;
     }
 
     if (payMethod === "paypal") {
@@ -353,6 +355,8 @@ export default function CheckoutScreen() {
       Alert.alert("PayPal error", session.code === "paypal_not_configured"
         ? "PayPal payments are being set up. Your order is reserved — we'll confirm by SMS."
         : session.message);
+      setPaying(false);
+      return;
     }
 
     // Whish / Western Union / fallback: navigate to confirmed screen
