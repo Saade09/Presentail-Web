@@ -19,7 +19,7 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ecc66d74-6d2e-48a6-9649-831b70a47b53-00-2a2fua6i2o0no.riker.replit.dev"
+        "EXPO_PUBLIC_API_BASE_URL": "https://lebanon-luxury-showcase.replit.app"
       }
     }
   },
