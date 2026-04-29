@@ -1,5 +1,11 @@
 import Constants from "expo-constants";
 
+// Production API base — used by all native (TestFlight / App Store) builds.
+// Hardcoded so OTA updates never end up with an empty URL even when
+// EXPO_PUBLIC_API_BASE_URL isn't passed during `eas update` bundling.
+const PRODUCTION_API_BASE =
+  "https://ecc66d74-6d2e-48a6-9649-831b70a47b53-00-2a2fua6i2o0no.riker.replit.dev";
+
 const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -11,7 +17,9 @@ const inferred = (() => {
     const host = String(hostUri).split(":")[0];
     return `http://${host}:3000`;
   }
-  return "";
+  // Fall back to the production API for any non-dev native bundle so OTA
+  // updates without env vars don't break.
+  return PRODUCTION_API_BASE;
 })();
 
 export const API_BASE = inferred;
