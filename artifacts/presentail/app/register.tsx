@@ -101,10 +101,10 @@ export default function RegisterScreen() {
 
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="First name" value={firstName} onChangeText={setFirstName} placeholder="Ahmad" autoCapitalize="words" />
+            <Field colors={colors} label="First name" value={firstName} onChangeText={setFirstName} placeholder="" autoCapitalize="words" />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="Last name" value={lastName} onChangeText={setLastName} placeholder="Saadé" autoCapitalize="words" />
+            <Field colors={colors} label="Last name" value={lastName} onChangeText={setLastName} placeholder="" autoCapitalize="words" />
           </View>
         </View>
         <Field

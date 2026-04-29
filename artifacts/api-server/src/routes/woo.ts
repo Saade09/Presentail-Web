@@ -376,6 +376,9 @@ router.post("/woo/order", async (req, res) => {
     { key: "Delivery Address", value: body.deliveryDetails },
     { key: "Recipient Name", value: recipientFullName },
     { key: "Recipient Phone", value: body.recipient.phone },
+
+    // FunnelKit / WooFunnels checkout shortcode field IDs
+    { key: "checkout_delivery_slots", value: deliverySummary },
   ];
 
   // Delivery meta attached to each line item so it shows under the product in WC order admin

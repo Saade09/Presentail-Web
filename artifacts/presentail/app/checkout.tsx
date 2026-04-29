@@ -24,6 +24,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
@@ -142,6 +143,7 @@ export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
   const { formatPrice, currencyCode, convert } = useCurrency();
+  const t = useT();
 
   const LB = COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
@@ -274,8 +276,8 @@ export default function CheckoutScreen() {
     districtFee: fees.districtFee,
     expressFee: fees.expressFee,
     deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
-    deliveryDate: date,
-    deliverySlot: slot?.label ?? "",
+    deliveryDate: deliveryMode === "express" ? days[0].iso : date,
+    deliverySlot: deliveryMode === "express" ? "Express Delivery" : (slot?.label ?? ""),
     cardMessage,
     cardFrom,
     cardTo,
@@ -451,7 +453,7 @@ export default function CheckoutScreen() {
       {/* Stepper */}
       <View style={{ paddingHorizontal: 20, paddingVertical: 18, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: colors.border }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          {STEPS.map((label, i) => (
+          {([t.checkoutStep0, t.checkoutStep1, t.checkoutStep2] as const).map((label, i) => (
             <View key={label} style={{ alignItems: "center", flex: 1 }}>
               <View
                 style={{
@@ -640,12 +642,12 @@ export default function CheckoutScreen() {
             }}
           >
             {step === 0
-              ? "Continue to Delivery"
+              ? t.continueToDelivery
               : step === 1
-                ? "Continue to Payment"
+                ? t.continueToPayment
                 : paying
-                  ? "Processing…"
-                  : `Pay ${formatPrice(fees.grand)}`}
+                  ? t.processingOrder
+                  : `${t.payLabel} ${formatPrice(fees.grand)}`}
           </Text>
           <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
         </Pressable>
@@ -738,6 +740,7 @@ function Card({ children, colors, title }: any) {
 // =============== Step 1: Customize ===============
 
 function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
+  const t = useT();
   const presets = [
     "Try Suggested Messages",
     "Wishing you a magical birthday.",
@@ -745,11 +748,11 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
     "With all my love.",
   ];
   return (
-    <Card colors={colors} title="Card Message">
-      <Field colors={colors} label="To" value={cardTo} onChangeText={setCardTo} placeholder="" />
+    <Card colors={colors} title={t.cardMessageTitle}>
+      <Field colors={colors} label={t.toLabel} value={cardTo} onChangeText={setCardTo} placeholder="" />
       <Field
         colors={colors}
-        label="Card message"
+        label={t.cardMessageTitle}
         value={cardMessage}
         onChangeText={setCardMessage}
         placeholder=""
@@ -772,16 +775,16 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
             }}
           >
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: i === 0 ? colors.gold : colors.primary, textDecorationLine: i === 0 ? "underline" : "none" }}>
-              {i === 0 ? "Not sure what to say? Try Suggested Messages" : p}
+              {i === 0 ? t.notSureWhatToSay : p}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      <Field colors={colors} label="From" value={cardFrom} onChangeText={setCardFrom} placeholder="" />
+      <Field colors={colors} label={t.fromLabel} value={cardFrom} onChangeText={setCardFrom} placeholder="" />
 
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
-        Paste a link to a video or photo from the internet. A QR code will be automatically added to your card message. No extra cost!
+        {t.qrLinkHint}
       </Text>
       <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="https://..." />
 
@@ -793,10 +796,10 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
             contentFit="contain"
           />
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Preview
+            {t.qrPreview}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textAlign: "center" }}>
-            This QR code will be printed on your gift card
+            {t.qrPrintedOnCard}
           </Text>
         </View>
       ) : null}
@@ -819,21 +822,22 @@ function DeliveryDetailsStep(props: any) {
     expressAvailable,
   } = props;
   const { formatPrice } = useCurrency();
+  const t = useT();
   const beirutHour = getBeirutHour();
   const todayIso = days[0]?.iso;
   return (
     <View style={{ gap: 18 }}>
-      <Card colors={colors} title="Recipient Details">
+      <Card colors={colors} title={t.recipientDetailsTitle}>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="First name" value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required />
+            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="Last name" value={recipientLast} onChangeText={setRecipientLast} placeholder="" required />
+            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required />
           </View>
         </View>
         <PhoneField
-          label="Phone Number"
+          label={t.phoneNumberLabel}
           value={recipientPhone}
           onChangeText={setRecipientPhone}
           countryCode={recipientCountry.code}
@@ -860,12 +864,12 @@ function DeliveryDetailsStep(props: any) {
             {noAddress ? <Feather name="check" size={12} color="#fff" /> : null}
           </View>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
-            I don't know the address, please contact the recipient.
+            {t.dontKnowAddressCheck}
           </Text>
         </Pressable>
 
         <View>
-          <Label colors={colors} required>District</Label>
+          <Label colors={colors} required>{t.districtLabel}</Label>
           <Pressable
             onPress={() => setDistrictOpen(true)}
             style={{
@@ -907,7 +911,7 @@ function DeliveryDetailsStep(props: any) {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-                <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>Select District</Text>
+                <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</Text>
                 <Pressable onPress={() => setDistrictOpen(false)}>
                   <Feather name="x" size={20} color={colors.primary} />
                 </Pressable>
@@ -948,26 +952,26 @@ function DeliveryDetailsStep(props: any) {
 
         <Field
           colors={colors}
-          label="Delivery details"
+          label={t.deliveryDetailsField}
           value={deliveryDetails}
           onChangeText={setDeliveryDetails}
-          placeholder={noAddress ? "I don't know the address" : "Building, floor, street, area"}
+          placeholder={noAddress ? t.iDontKnowAddress : t.buildingFloorStreet}
           required={!noAddress}
           multiline
         />
       </Card>
 
-      <Card colors={colors} title="Sender Details">
+      <Card colors={colors} title={t.senderDetailsTitle}>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="First name" value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
+            <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="Last name" value={senderLast} onChangeText={setSenderLast} placeholder="" required />
+            <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required />
           </View>
         </View>
         <PhoneField
-          label="WhatsApp number"
+          label={t.whatsappNumberLabel}
           value={senderWhatsapp}
           onChangeText={setSenderWhatsapp}
           countryCode={senderCountry.code}
@@ -975,7 +979,7 @@ function DeliveryDetailsStep(props: any) {
           placeholder="3000000"
           required
         />
-        <Field colors={colors} label="Email" value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
+        <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
 
         <Pressable
           onPress={() => setIdentitySecret(!identitySecret)}
@@ -1003,7 +1007,7 @@ function DeliveryDetailsStep(props: any) {
             {identitySecret ? <Feather name="check" size={12} color="#fff" /> : null}
           </View>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
-            Keep my identity secret.
+            {t.keepIdentitySecretLabel}
           </Text>
         </Pressable>
 
@@ -1011,16 +1015,16 @@ function DeliveryDetailsStep(props: any) {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <MaterialCommunityIcons name="truck-fast" size={16} color={colors.primary} />
             <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
-              Delivery Time
+              {t.deliveryTimeTitle}
             </Text>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <DeliveryTile
               colors={colors}
               icon="zap"
-              title="Express Delivery"
-              subtitle="1–3 hrs"
-              footer={expressAvailable ? `+$${EXPRESS_SURCHARGE}` : "Opens 8 AM"}
+              title={t.expressDelivery}
+              subtitle={t.oneToThreeHrs}
+              footer={expressAvailable ? `+$${EXPRESS_SURCHARGE}` : t.opensAt8AM}
               active={deliveryMode === "express"}
               disabled={!expressAvailable}
               onPress={() => setDeliveryMode("express")}
@@ -1028,8 +1032,8 @@ function DeliveryDetailsStep(props: any) {
             <DeliveryTile
               colors={colors}
               icon=""
-              title="Today"
-              subtitle="Scheduled Slot"
+              title={t.todayDelivery}
+              subtitle={t.scheduledSlotLabel}
               active={deliveryMode === "today_slot"}
               onPress={() => {
                 setDeliveryMode("today_slot");
@@ -1041,8 +1045,8 @@ function DeliveryDetailsStep(props: any) {
             <DeliveryTile
               colors={colors}
               icon="calendar"
-              title="Choose Another Date"
-              subtitle="And Time Slot"
+              title={t.chooseAnotherDateLabel}
+              subtitle={t.andTimeSlotLabel}
               active={deliveryMode === "schedule"}
               onPress={() => setDeliveryMode("schedule")}
             />
@@ -1153,19 +1157,14 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
 }
 
 function DeliverySummaryCard({ colors, days, date, slot, mode }: any) {
+  const t = useT();
   const day = days.find((d: any) => d.iso === date);
   return (
-    <Card colors={colors} title="Delivery Summary">
-      <SummaryRow label="Date" value={day?.full ?? date} colors={colors} />
+    <Card colors={colors} title={t.deliverySummaryTitle}>
+      <SummaryRow label={t.dateLabel} value={day?.full ?? date} colors={colors} />
       <SummaryRow
-        label="Time"
-        value={
-          mode === "express"
-            ? "Express Delivery"
-            : mode === "today_slot"
-              ? "Today · 2:00 PM – 6:00 PM"
-              : slot
-        }
+        label={t.timeLabel}
+        value={mode === "express" ? t.expressDelivery : (slot || "—")}
         colors={colors}
       />
     </Card>
@@ -1192,6 +1191,7 @@ function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
 // =============== Step 3: Payment ===============
 
 function SecurityNote({ colors }: { colors: any }) {
+  const t = useT();
   return (
     <View
       style={{
@@ -1207,7 +1207,7 @@ function SecurityNote({ colors }: { colors: any }) {
     >
       <Feather name="lock" size={14} color={colors.gold} />
       <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
-        You will be redirected to a secure checkout to complete payment.
+        {t.secureRedirectNote}
       </Text>
     </View>
   );
@@ -1219,30 +1219,31 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const [cardCVC, setCardCVC] = useState("");
   const [cardName, setCardName] = useState("");
   const { currencyCode } = useCurrency();
+  const t = useT();
   const isAED = currencyCode === "AED";
   const isUSD = currencyCode === "USD";
 
-  const fmtCardNumber = (t: string) => {
-    const d = t.replace(/\D/g, "").slice(0, 16);
+  const fmtCardNumber = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 16);
     const parts: string[] = [];
     for (let i = 0; i < d.length; i += 4) parts.push(d.slice(i, i + 4));
     return parts.join(" ");
   };
 
-  const fmtExpiry = (t: string) => {
-    const d = t.replace(/\D/g, "").slice(0, 4);
+  const fmtExpiry = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 4);
     return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
   };
 
   return (
     <View style={{ gap: 18 }}>
-      <Card colors={colors} title="Note For Presentail Team">
-        <Field colors={colors} label="Order notes" value={orderNotes} onChangeText={setOrderNotes} placeholder="Any special requests?" multiline />
+      <Card colors={colors} title={t.noteForTeamTitle}>
+        <Field colors={colors} label={t.orderNotesLabel} value={orderNotes} onChangeText={setOrderNotes} placeholder={t.anySpecialRequests} multiline />
       </Card>
 
-      <Card colors={colors} title="Ways to Pay">
+      <Card colors={colors} title={t.waysToPayTitle}>
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
-          All transactions are secure and encrypted.
+          {t.secureAndEncrypted}
         </Text>
 
         {isAED ? (
@@ -1254,12 +1255,12 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
             <PayOption colors={colors} active={payMethod === "card"} onPress={() => setPayMethod("card")} title="Credit / Debit Card" payIcons="card">
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
-                  <Field colors={colors} label="Cardholder Name" value={cardName} onChangeText={setCardName} placeholder="Name on card" />
+                  <Field colors={colors} label={t.cardholderNameLabel} value={cardName} onChangeText={setCardName} placeholder={t.nameOnCard} />
                   <Field
                     colors={colors}
-                    label="Card Number"
+                    label={t.cardNumberLabel}
                     value={cardNumber}
-                    onChangeText={(t: string) => setCardNumber(fmtCardNumber(t))}
+                    onChangeText={(v: string) => setCardNumber(fmtCardNumber(v))}
                     placeholder="1234 5678 9012 3456"
                     keyboardType="number-pad"
                     maxLength={19}
@@ -1268,9 +1269,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                     <View style={{ flex: 1 }}>
                       <Field
                         colors={colors}
-                        label="Expiry (MM/YY)"
+                        label={t.expiryLabel}
                         value={cardExpiry}
-                        onChangeText={(t: string) => setCardExpiry(fmtExpiry(t))}
+                        onChangeText={(v: string) => setCardExpiry(fmtExpiry(v))}
                         placeholder="MM/YY"
                         keyboardType="number-pad"
                         maxLength={5}
@@ -1279,9 +1280,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                     <View style={{ flex: 1 }}>
                       <Field
                         colors={colors}
-                        label="CVC"
+                        label={t.cvcLabel}
                         value={cardCVC}
-                        onChangeText={(t: string) => setCardCVC(t.replace(/\D/g, "").slice(0, 4))}
+                        onChangeText={(v: string) => setCardCVC(v.replace(/\D/g, "").slice(0, 4))}
                         placeholder="123"
                         keyboardType="number-pad"
                         secureTextEntry
@@ -1289,7 +1290,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                       />
                     </View>
                   </View>
-                  <Field colors={colors} label="Email for receipt" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
@@ -1298,7 +1299,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
             <PayOption colors={colors} active={payMethod === "wallet"} onPress={() => setPayMethod("wallet")} title="Apple Pay / Google Pay" payIcons="wallet">
               {payMethod === "wallet" ? (
                 <View style={{ gap: 12 }}>
-                  <Field colors={colors} label="Email for receipt" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}

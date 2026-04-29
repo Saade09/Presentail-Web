@@ -20,6 +20,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -31,6 +32,7 @@ export default function ProductDetail() {
   const { add, count } = useCart();
   const { formatPrice } = useCurrency();
   const [qty, setQty] = useState(1);
+  const t = useT();
 
   const { products: allProducts } = useWooProducts();
   const product = allProducts.find((p) => p.id === String(slug)) ?? null;
@@ -38,10 +40,10 @@ export default function ProductDetail() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
-          Product not found
+          {t.productNotFound}
         </Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium" }}>Go back</Text>
+          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium" }}>{t.goBack}</Text>
         </Pressable>
       </View>
     );
@@ -115,7 +117,7 @@ export default function ProductDetail() {
                 marginBottom: 16,
               }}
             >
-              You may also love
+              {t.youMayAlsoLove}
             </Text>
             <ScrollView
               horizontal
@@ -186,7 +188,7 @@ export default function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            Add — {formatPrice(product.priceValue * qty)}
+            {t.addLabel} — {formatPrice(product.priceValue * qty)}
           </Text>
         </Pressable>
       </View>
@@ -198,6 +200,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
   const { formatPrice } = useCurrency();
+  const t = useT();
   const points = Math.max(1, Math.round(product.priceValue * 0.4));
 
   const days = useMemo(() => {
@@ -264,7 +267,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
           style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
         />
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
-          Tax inclusive
+          {t.taxInclusive}
         </Text>
       </View>
 
@@ -286,10 +289,10 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
-            Earn {points} Points
+            {t.earnPointsPrefix} {points} {t.earnPointsSuffix}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-            Presentail Points · redeem on future orders
+            {t.presentailPointsDesc}
           </Text>
         </View>
       </View>
@@ -300,14 +303,14 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
           <MaterialCommunityIcons key={i} name="star" size={14} color={colors.gold} />
         ))}
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginLeft: 4 }}>
-          Excellent · 4.8 of 5 on Trustpilot
+          {t.excellentRating}
         </Text>
       </View>
 
       {/* Delivery options */}
       <View style={{ marginTop: 8, gap: 10 }}>
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
-          Delivery options
+          {t.deliveryOptionsLabel}
         </Text>
 
         <DeliveryOption
@@ -315,9 +318,9 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
           active={delivery === "express"}
           onPress={() => setDelivery("express")}
           icon="flash-outline"
-          title="Express Delivery"
-          subtitle="Arrives in 90 minutes"
-          badge="Fastest"
+          title={t.expressDelivery}
+          subtitle={t.arrivesIn90}
+          badge={t.fastest}
         />
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -333,8 +336,8 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
           active={delivery === "scheduled"}
           onPress={() => setDelivery("scheduled")}
           icon="calendar-clock"
-          title="Select date & time"
-          subtitle={delivery === "scheduled" ? `${date} · ${slot}` : "Pick a window that works for them"}
+          title={t.selectDateAndTime}
+          subtitle={delivery === "scheduled" ? `${date} · ${slot}` : t.pickAWindow}
         />
 
         {delivery === "scheduled" ? (
@@ -379,9 +382,9 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Trust badges — informational, intentionally non-button */}
       <View style={{ marginTop: 14 }}>
         {[
-          { icon: "truck-fast", title: "Free Standard Delivery", sub: `On orders above ${formatPrice(130)}.` },
-          { icon: "map-marker-question", title: "No Address Hassle", sub: "We'll collect the address for you." },
-          { icon: "map-marker-path", title: "Live Order Tracking", sub: "You'll receive real-time updates." },
+          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatPrice(130)}.` },
+          { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
+          { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
         ].map((b, i, arr) => (
           <View
             key={b.title}
@@ -406,7 +409,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Payment methods */}
       <View style={{ marginTop: 6, gap: 8 }}>
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
-          Ways to pay
+          {t.waysToPayLabel}
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {["MC", "VISA", "G Pay", "Apple", "AMEX", "Whish"].map((p) => (
@@ -423,14 +426,14 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       <View style={{ marginTop: 18 }}>
         <View style={{ flexDirection: "row", borderBottomWidth: 1, borderColor: colors.border }}>
           {[
-            { id: "description", label: "Description" },
-            { id: "care", label: "Care Tips" },
-          ].map((t) => {
-            const a = tab === t.id;
+            { id: "description", label: t.descriptionTab },
+            { id: "care", label: t.careTipsTab },
+          ].map((tabItem) => {
+            const a = tab === tabItem.id;
             return (
-              <Pressable key={t.id} onPress={() => setTab(t.id as any)} style={{ paddingVertical: 12, marginRight: 24, borderBottomWidth: 2, borderColor: a ? colors.gold : "transparent" }}>
+              <Pressable key={tabItem.id} onPress={() => setTab(tabItem.id as any)} style={{ paddingVertical: 12, marginRight: 24, borderBottomWidth: 2, borderColor: a ? colors.gold : "transparent" }}>
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: a ? colors.primary : colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
-                  {t.label}
+                  {tabItem.label}
                 </Text>
               </Pressable>
             );
@@ -444,14 +447,9 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
                 `The "${product.name}" is a captivating Presentail piece — hand-arranged in our Beirut atelier with the freshest seasonal blooms, finished with our boutique wrapping and a personal note card.`}
             </Text>
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: colors.primary, marginTop: 4 }}>
-              This arrangement includes
+              {t.thisArrangementIncludes}
             </Text>
-            {[
-              "Hand-tied seasonal stems",
-              "Boutique wrapping & ribbon",
-              "Complimentary message card",
-              "Climate-controlled delivery",
-            ].map((b) => (
+            {[t.includedStem, t.includedWrap, t.includedCard, t.includedDelivery].map((b) => (
               <View key={b} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                 <Text style={{ color: colors.gold, fontSize: 14, lineHeight: 20 }}>•</Text>
                 <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>

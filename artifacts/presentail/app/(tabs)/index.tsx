@@ -35,6 +35,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
+import { fetchWcBrands, type WcBrand } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -863,50 +864,93 @@ function ReviewsSection() {
 function BrandsRow() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
+  const [wcBrands, setWcBrands] = useState<WcBrand[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchWcBrands().then((list) => {
+      if (list.length > 0) setWcBrands(list.filter((b) => b.count > 0));
+      setLoaded(true);
+    });
+  }, []);
+
+  type DisplayBrand = { id: number | string; name: string; slug: string; count: number; image: string | null };
+  const displayBrands: DisplayBrand[] = wcBrands.length > 0
+    ? wcBrands
+    : brands.map((b) => ({ id: b.slug, name: b.name, slug: b.slug, count: 1, image: null }));
+
   return (
-    <View style={{ marginTop: 56, paddingHorizontal: 24 }}>
-      <SectionTitle
-        eyebrow="Gift by Brand"
-        title="Brands"
-      />
-      <View
-        style={{
-          marginTop: 18,
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 10,
-        }}
-      >
-        {brands.map((b) => (
-          <Pressable
-            key={b.slug}
-            onPress={() => router.push(`/brand/${b.slug}` as any)}
-            style={{
-              width: "18.5%",
-              aspectRatio: 1,
-              minWidth: 62,
-              backgroundColor: colors.primary,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: "Inter_700Bold",
-                fontSize: b.name.length > 8 ? 7 : 9,
-                color: "#fff",
-                textAlign: "center",
-                letterSpacing: 0.2,
-                lineHeight: 13,
-              }}
-            >
-              {b.name}
-            </Text>
-          </Pressable>
-        ))}
+    <View style={{ marginTop: 56 }}>
+      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
+        <SectionTitle eyebrow={t.brandsEyebrow} title={t.brandsTitle} />
       </View>
+      <FlatList
+        data={displayBrands}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(b) => String(b.id ?? b.slug)}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+        renderItem={({ item: b }) => (
+          <Pressable
+            onPress={() => router.push(`/brand/${b.slug}` as any)}
+            style={({ pressed }) => ({
+              width: 116,
+              borderRadius: 16,
+              overflow: "hidden",
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: "#fff",
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            {b.image ? (
+              <Image
+                source={{ uri: b.image }}
+                style={{ width: 116, height: 80 }}
+                contentFit="contain"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 116,
+                  height: 80,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Inter_700Bold",
+                    fontSize: b.name.length > 10 ? 9 : 11,
+                    color: "#fff",
+                    textAlign: "center",
+                    letterSpacing: 0.3,
+                    lineHeight: 15,
+                  }}
+                >
+                  {b.name}
+                </Text>
+              </View>
+            )}
+            <View style={{ paddingHorizontal: 10, paddingVertical: 8 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 11,
+                  color: colors.primary,
+                  letterSpacing: 0.3,
+                }}
+                numberOfLines={1}
+              >
+                {b.name}
+              </Text>
+            </View>
+          </Pressable>
+        )}
+      />
     </View>
   );
 }

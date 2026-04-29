@@ -101,6 +101,27 @@ export type WooOrderPayload = {
   identitySecret?: boolean;
 };
 
+export type WcBrand = {
+  id: number;
+  name: string;
+  slug: string;
+  count: number;
+  image: string | null;
+};
+
+export async function fetchWcBrands(): Promise<WcBrand[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/woo/brands`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.brands)) return json.brands;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export async function createWooOrder(
   payload: WooOrderPayload
 ): Promise<{ ok: true; wcOrderId: number } | { ok: false; message: string }> {
