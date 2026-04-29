@@ -136,7 +136,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
           >
             <Feather name="user" size={16} color={colors.primary} />
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-              {hasAccount ? "My Account" : "Login"}
+              My Account
             </Text>
           </Pressable>
           {[
