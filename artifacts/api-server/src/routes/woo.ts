@@ -16,6 +16,8 @@ async function wooFetch(path: string, options: RequestInit = {}) {
     headers: {
       Authorization: wooAuth(),
       "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "PresentailApp/1.0",
       ...(options.headers ?? {}),
     },
   });

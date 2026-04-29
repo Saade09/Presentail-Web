@@ -17,6 +17,20 @@ async function wcFetch(path: string, options: RequestInit = {}) {
     headers: {
       Authorization: wooAuth(),
       "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "PresentailApp/1.0",
+      ...(options.headers ?? {}),
+    },
+  });
+}
+
+async function wpFetch(path: string, options: RequestInit = {}) {
+  return fetch(`${WP_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "PresentailApp/1.0",
       ...(options.headers ?? {}),
     },
   });
@@ -63,7 +77,7 @@ async function authenticate(authHeader: string | undefined): Promise<
 
   // Validate the token with WordPress.
   try {
-    const v = await fetch(`${WP_BASE}/jwt-auth/v1/token/validate`, {
+    const v = await wpFetch(`/jwt-auth/v1/token/validate`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -97,9 +111,8 @@ router.post("/auth/login", async (req, res) => {
   }
 
   try {
-    const tokenRes = await fetch(`${WP_BASE}/jwt-auth/v1/token`, {
+    const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: email, password }),
     });
 
@@ -200,9 +213,8 @@ router.post("/auth/register", async (req, res) => {
     // Try to issue a JWT immediately (best-effort)
     let token: string | null = null;
     try {
-      const tokenRes = await fetch(`${WP_BASE}/jwt-auth/v1/token`, {
+      const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: email, password }),
       });
       const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
