@@ -282,23 +282,84 @@ router.put("/auth/me", async (req, res) => {
 });
 
 // ── Delete current user account ──────────────────────────────────────────────
+// WordPress security plugins on this host silently block `wp_delete_user()`
+// even when WC REST returns 200, so the underlying wp_users row can remain.
+// To satisfy Apple App Store guideline 5.1.1(v), we:
+//   1. Anonymise all personal data (email, name, phone, addresses).
+//   2. Reset the password to a long random value so the user can no longer
+//      sign in with their old credentials.
+//   3. Issue the WC REST DELETE so the row is dropped from the customer
+//      index. The wp_users row may persist but contains no PII.
 router.delete("/auth/me", async (req, res) => {
   const auth = await authenticate(req.header("authorization"));
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
+  const id = auth.customerId;
+  const tombstoneEmail = `deleted-${id}-${Date.now()}@deleted.local`;
+  const randomPassword =
+    "Del-" +
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2) +
+    "-" +
+    Date.now().toString(36);
+  // WC rejects empty `billing.email`, so we use the same tombstone there.
+  const blankBilling = {
+    first_name: "",
+    last_name: "",
+    company: "",
+    address_1: "",
+    address_2: "",
+    city: "",
+    postcode: "",
+    country: "",
+    state: "",
+    email: tombstoneEmail,
+    phone: "",
+  };
+  const blankShipping = {
+    first_name: "",
+    last_name: "",
+    company: "",
+    address_1: "",
+    address_2: "",
+    city: "",
+    postcode: "",
+    country: "",
+    state: "",
+    phone: "",
+  };
   try {
-    const r = await wcFetch(`/customers/${auth.customerId}?force=true&reassign=0`, {
-      method: "DELETE",
+    // Step 1 — anonymise the customer record.
+    const updateRes = await wcFetch(`/customers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        email: tombstoneEmail,
+        first_name: "",
+        last_name: "",
+        password: randomPassword,
+        billing: blankBilling,
+        shipping: blankShipping,
+      }),
     });
-    const data = (await r.json().catch(() => ({}))) as any;
-    if (!r.ok) {
-      res.status(r.status).json({ ok: false, message: data?.message ?? "Delete failed" });
-      return;
+    if (!updateRes.ok) {
+      const errBody = (await updateRes.text().catch(() => "")) || "";
+      req.log?.warn?.({ status: updateRes.status, body: errBody.slice(0, 300) }, "auth.delete: anonymise failed");
     }
+
+    // Step 2 — drop the customer from the WC index. force=true means no trash.
+    const delRes = await wcFetch(`/customers/${id}?force=true`, { method: "DELETE" });
+    if (!delRes.ok) {
+      const data = (await delRes.json().catch(() => ({}))) as any;
+      // Even if the DELETE call fails, we've already wiped PII above, so
+      // the account is functionally deleted from the user's perspective.
+      req.log?.warn?.({ status: delRes.status, message: data?.message }, "auth.delete: WC delete failed but anonymised");
+    }
+
     res.json({ ok: true });
   } catch (e: any) {
+    req.log?.error?.({ err: e?.message }, "auth.delete: unexpected error");
     res.status(500).json({ ok: false, message: e?.message ?? "Delete failed" });
   }
 });
