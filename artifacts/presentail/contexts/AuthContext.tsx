@@ -73,9 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login: AuthState["login"] = useCallback(async (email, password) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
+      const url = `${API_BASE}/api/auth/login?_=${Date.now()}`;
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store",
+          Pragma: "no-cache",
+        },
+        cache: "no-store" as RequestCache,
         body: JSON.stringify({ email, password }),
       });
       const text = await res.text();
