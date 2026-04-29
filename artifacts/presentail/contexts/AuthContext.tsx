@@ -72,8 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login: AuthState["login"] = useCallback(async (email, password) => {
+    const url = `${API_BASE}/api/auth/login?_=${Date.now()}`;
     try {
-      const url = `${API_BASE}/api/auth/login?_=${Date.now()}`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let data: any = {};
       try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON */ }
       if (!res.ok || !data?.ok) {
-        const fallback = `Login failed (HTTP ${res.status}${text ? ` — ${text.slice(0, 120)}` : ""})`;
+        const fallback = `HTTP ${res.status} from ${url.split("?")[0]}${text ? ` — ${text.slice(0, 100)}` : ""}`;
         return { ok: false, message: data?.message ?? fallback };
       }
       setToken(data.token ?? null);
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await persist(data.token ?? null, data.user ?? null);
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, message: e?.message ?? "Network error" };
+      return { ok: false, message: `${e?.message ?? "Network error"} (URL: ${url.split("?")[0]})` };
     }
   }, [persist]);
 
