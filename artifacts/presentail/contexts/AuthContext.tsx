@@ -78,9 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json().catch(() => ({}));
+      const text = await res.text();
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON */ }
       if (!res.ok || !data?.ok) {
-        return { ok: false, message: data?.message ?? "Login failed" };
+        const fallback = `Login failed (HTTP ${res.status}${text ? ` — ${text.slice(0, 120)}` : ""})`;
+        return { ok: false, message: data?.message ?? fallback };
       }
       setToken(data.token ?? null);
       setUser(data.user ?? null);
