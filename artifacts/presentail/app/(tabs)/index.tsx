@@ -1,9 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -41,30 +39,14 @@ import { useWooProducts } from "@/contexts/WooProductsContext";
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
-const WC_LOGIN_URL = "https://presentail.com/lebanon/login";
-const WC_ACCOUNT_URL = "https://presentail.com/lebanon/my-account/";
-const ACCOUNT_KEY = "presentail_has_account";
-
 function HomeHeader({ topPad }: { topPad: number }) {
   const colors = useColors();
   const router = useRouter();
   const { count, openCart } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hasAccount, setHasAccount] = useState(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(ACCOUNT_KEY).then((v) => {
-      if (v === "1") setHasAccount(true);
-    });
-  }, []);
-
-  async function openAccount() {
-    const url = hasAccount ? WC_ACCOUNT_URL : WC_LOGIN_URL;
-    await WebBrowser.openBrowserAsync(url, {
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-    });
-    AsyncStorage.setItem(ACCOUNT_KEY, "1");
-    setHasAccount(true);
+  function openAccount() {
+    router.push("/(tabs)/account" as any);
   }
 
   async function shareApp() {
