@@ -26,7 +26,6 @@ export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,7 +49,6 @@ export default function RegisterScreen() {
       password,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      phone: phone.trim(),
     });
     setBusy(false);
     if (!r.ok) {
@@ -119,14 +117,6 @@ export default function RegisterScreen() {
           autoCapitalize="none"
           autoComplete="email"
           textContentType="emailAddress"
-        />
-        <Field
-          colors={colors}
-          label="Phone (optional)"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+961 70 154 912"
-          keyboardType="phone-pad"
         />
         <Field
           colors={colors}

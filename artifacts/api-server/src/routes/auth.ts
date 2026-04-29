@@ -120,10 +120,37 @@ router.post("/auth/login", async (req, res) => {
       });
     }
 
-    // Look up the WC customer record so we have id/firstName/etc.
-    const cRes = await wcFetch(`/customers?email=${encodeURIComponent(email)}`);
-    const cList = (await cRes.json().catch(() => [])) as any[];
-    const customer = Array.isArray(cList) && cList[0] ? mapCustomer(cList[0]) : null;
+    // Try to look up the WC customer record so we have id/firstName/etc.
+    let customer: ReturnType<typeof mapCustomer> | null = null;
+    try {
+      const cRes = await wcFetch(`/customers?email=${encodeURIComponent(email)}`);
+      const cList = (await cRes.json().catch(() => [])) as any[];
+      if (Array.isArray(cList) && cList[0]) customer = mapCustomer(cList[0]);
+    } catch {
+      // ignore - we'll fall back to JWT payload data
+    }
+
+    // Fall back to JWT/WP data when there's no WC customer record (e.g. WP-only
+    // users or WC customer create lag). We still derive the id from the JWT
+    // payload so /auth/me works.
+    if (!customer) {
+      const payload = decodeJwtPayload(tokenData.token);
+      const id =
+        Number(payload?.data?.user?.id) ||
+        Number(payload?.user_id) ||
+        Number(payload?.sub) ||
+        0;
+      const display = String(tokenData?.user_display_name ?? "").trim();
+      const [first = "", ...rest] = display ? display.split(/\s+/) : [];
+      customer = {
+        id,
+        email: String(tokenData?.user_email ?? email),
+        firstName: first,
+        lastName: rest.join(" "),
+        username: String(tokenData?.user_nicename ?? ""),
+        phone: "",
+      };
+    }
 
     return res.json({ ok: true, token: tokenData.token, user: customer });
   } catch (e: any) {
