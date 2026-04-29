@@ -13,13 +13,16 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Updates from "expo-updates";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -43,8 +46,35 @@ function RootLayoutNav() {
       <Stack.Screen name="contact" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="brand/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="occasions" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="login" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="register" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
+}
+
+// Auto-apply OTA updates on cold launch (TestFlight / App Store builds).
+function useAutoUpdate() {
+  useEffect(() => {
+    if (__DEV__) return;
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (cancelled) return;
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          if (cancelled) return;
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // silent — updates are best-effort
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 }
 
 export default function RootLayout() {
@@ -57,6 +87,8 @@ export default function RootLayout() {
     PlayfairDisplay_500Medium,
     PlayfairDisplay_600SemiBold,
   });
+
+  useAutoUpdate();
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -74,12 +106,14 @@ export default function RootLayout() {
             <KeyboardProvider>
               <LanguageProvider>
               <CurrencyProvider>
-                <WooProductsProvider>
-                  <CartProvider>
-                    <RootLayoutNav />
-                    <CartDrawer />
-                  </CartProvider>
-                </WooProductsProvider>
+                <AuthProvider>
+                  <WooProductsProvider>
+                    <CartProvider>
+                      <RootLayoutNav />
+                      <CartDrawer />
+                    </CartProvider>
+                  </WooProductsProvider>
+                </AuthProvider>
               </CurrencyProvider>
             </LanguageProvider>
             </KeyboardProvider>

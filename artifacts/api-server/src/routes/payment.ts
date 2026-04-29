@@ -2,6 +2,25 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
+// ── Payment-return bridge ─────────────────────────────────────────────────
+// Payment providers (Mamo, PayPal) only accept HTTPS return URLs. We give them
+// this URL with a `deeplink` query, then 302-redirect to the app's custom
+// scheme. expo-web-browser's openAuthSessionAsync detects the deep link and
+// closes the in-app browser, returning control to the app.
+router.get("/payment/return", (req, res) => {
+  const deeplink = String(req.query.deeplink ?? "");
+  const status = String(req.query.status ?? "success");
+  if (!deeplink || !/^[a-z][a-z0-9+.-]*:\/\//i.test(deeplink)) {
+    res.status(400).send("Invalid deep link");
+    return;
+  }
+  const sep = deeplink.includes("?") ? "&" : "?";
+  const target = `${deeplink}${sep}status=${encodeURIComponent(status)}`;
+  res.setHeader("Cache-Control", "no-store");
+  // Use HTML meta-refresh + JS in case some browsers won't 302 to a custom scheme.
+  res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>Returning to Presentail…</title><meta http-equiv="refresh" content="0;url=${target}"><script>window.location.replace(${JSON.stringify(target)});</script></head><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#fff8ec;color:#00414e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;"><div><div style="font-size:18px;margin-bottom:8px">Returning to Presentail…</div><div style="font-size:13px;opacity:.7">If nothing happens, <a href="${target}">tap here</a>.</div></div></body></html>`);
+});
+
 // ── Mamo Payment Link ──────────────────────────────────────────────────────
 router.post("/payment/mamo", async (req, res) => {
   const key = process.env.MAMO_SECRET_KEY;

@@ -25,8 +25,43 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
-import { createStripeCheckoutSession } from "@/lib/stripe";
+import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+
+const APP_SCHEME = "presentail";
+
+function buildReturnUrls(orderId: string) {
+  const deeplinkBase = `${APP_SCHEME}://payment-return`;
+  const deeplinkOk = `${deeplinkBase}?orderId=${encodeURIComponent(orderId)}&status=success`;
+  const deeplinkCancel = `${deeplinkBase}?orderId=${encodeURIComponent(orderId)}&status=cancel`;
+  const successUrl = `${API_BASE}/api/payment/return?status=success&deeplink=${encodeURIComponent(deeplinkOk)}`;
+  const cancelUrl = `${API_BASE}/api/payment/return?status=cancel&deeplink=${encodeURIComponent(deeplinkCancel)}`;
+  return { deeplinkBase, successUrl, cancelUrl };
+}
+
+function getStatusFromReturnUrl(url: string): string | null {
+  // Hand-rolled query parsing — `URL` isn't reliably available on RN.
+  const q = url.split("?")[1];
+  if (!q) return null;
+  for (const pair of q.split("&")) {
+    const [k, v = ""] = pair.split("=");
+    if (decodeURIComponent(k) === "status") return decodeURIComponent(v);
+  }
+  return null;
+}
+
+async function runHostedCheckout(url: string, deeplinkBase: string): Promise<"success" | "cancel"> {
+  if (Platform.OS === "web") {
+    // On web, just open in a new tab; treat as success since we can't track return
+    if (typeof window !== "undefined") window.open(url, "_blank");
+    return "success";
+  }
+  const result = await WebBrowser.openAuthSessionAsync(url, deeplinkBase);
+  if (result.type === "success" && result.url) {
+    return getStatusFromReturnUrl(result.url) === "success" ? "success" : "cancel";
+  }
+  return "cancel";
+}
 
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
@@ -263,12 +298,9 @@ export default function CheckoutScreen() {
     // Always create WooCommerce order (fire-and-forget; don't block UX on failure)
     createWooOrder(buildWooPayload(orderId)).catch(() => {/* silent */});
 
+    const { deeplinkBase, successUrl, cancelUrl } = buildReturnUrls(orderId);
+
     if (payMethod === "card" || payMethod === "wallet") {
-      // Try real Stripe Checkout if configured
-      const successUrl =
-        (typeof window !== "undefined" ? window.location.origin : "https://presentail.app") + successPath;
-      const cancelUrl =
-        (typeof window !== "undefined" ? window.location.origin : "https://presentail.app") + "/cart";
       const session = await createStripeCheckoutSession({
         items: detailed.map(({ product, qty }) => ({
           name: product.name,
@@ -287,28 +319,30 @@ export default function CheckoutScreen() {
         cancelUrl,
       });
       if (session.ok) {
-        clear();
-        await WebBrowser.openBrowserAsync(session.url);
-        router.replace(successPath as any);
+        const outcome = await runHostedCheckout(session.url, deeplinkBase);
+        if (outcome === "success") {
+          clear();
+          router.replace(successPath as any);
+        } else {
+          Alert.alert("Payment cancelled", "You can try again or pick a different payment method.");
+        }
         setPaying(false);
         return;
       }
-      // Fallback if Stripe not configured
       if (session.code === "stripe_not_configured") {
         Alert.alert(
           "Card payments coming soon",
-          "We're finalising the Stripe setup for your account. Your order is reserved — we'll confirm by SMS shortly.",
-          [{ text: "Continue" }]
+          "We're finalising the Stripe setup for your account. Please pick another payment method.",
+          [{ text: "OK" }]
         );
       } else {
         Alert.alert("Payment error", session.message);
       }
+      setPaying(false);
+      return;
     }
 
     if (payMethod === "mamo") {
-      const origin = typeof window !== "undefined" ? window.location.origin : "https://presentail.app";
-      const mamoReturn = origin + successPath;
-      const mamoFail = origin + "/cart";
       const aedAmount = Math.round(convert(fees.grand) * 100) / 100;
       const session = await createMamoPayment({
         amount: aedAmount,
@@ -317,49 +351,54 @@ export default function CheckoutScreen() {
         email: senderEmail || undefined,
         firstName: senderFirst || undefined,
         lastName: senderLast || undefined,
-        returnUrl: mamoReturn,
-        failureReturnUrl: mamoFail,
+        returnUrl: successUrl,
+        failureReturnUrl: cancelUrl,
       });
       if (session.ok) {
-        clear();
-        await WebBrowser.openBrowserAsync(session.url);
-        router.replace(successPath as any);
+        const outcome = await runHostedCheckout(session.url, deeplinkBase);
+        if (outcome === "success") {
+          clear();
+          router.replace(successPath as any);
+        } else {
+          Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
+        }
         setPaying(false);
         return;
       }
       Alert.alert("Mamo error", session.code === "mamo_not_configured"
-        ? "Mamo payments are being set up. Your order is reserved — we'll confirm by SMS."
+        ? "Mamo payments are being set up. Please choose another payment method."
         : session.message);
       setPaying(false);
       return;
     }
 
     if (payMethod === "paypal") {
-      const origin = typeof window !== "undefined" ? window.location.origin : "https://presentail.app";
-      const ppReturn = origin + successPath;
-      const ppCancel = origin + "/cart";
       const session = await createPayPalOrder({
         amount: fees.grand,
         currency: "USD",
-        returnUrl: ppReturn,
-        cancelUrl: ppCancel,
+        returnUrl: successUrl,
+        cancelUrl,
         orderId,
       });
       if (session.ok) {
-        clear();
-        await WebBrowser.openBrowserAsync(session.url);
-        router.replace(successPath as any);
+        const outcome = await runHostedCheckout(session.url, deeplinkBase);
+        if (outcome === "success") {
+          clear();
+          router.replace(successPath as any);
+        } else {
+          Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
+        }
         setPaying(false);
         return;
       }
       Alert.alert("PayPal error", session.code === "paypal_not_configured"
-        ? "PayPal payments are being set up. Your order is reserved — we'll confirm by SMS."
+        ? "PayPal payments are being set up. Please choose another payment method."
         : session.message);
       setPaying(false);
       return;
     }
 
-    // Whish / Western Union / fallback: navigate to confirmed screen
+    // Whish / Western Union: no online payment, treat as confirmed
     clear();
     router.replace(successPath as any);
     setPaying(false);

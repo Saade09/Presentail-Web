@@ -1,6 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
-import * as WebBrowser from "expo-web-browser";
 import { Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -9,19 +7,6 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
-
-const WC_LOGIN_URL = "https://presentail.com/lebanon/login";
-const WC_ACCOUNT_URL = "https://presentail.com/lebanon/my-account/";
-const ACCOUNT_KEY = "@presentail/has-account";
-
-async function openAccountBrowser() {
-  const v = await AsyncStorage.getItem(ACCOUNT_KEY);
-  const url = v === "1" ? WC_ACCOUNT_URL : WC_LOGIN_URL;
-  await WebBrowser.openBrowserAsync(url, {
-    presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-  });
-  await AsyncStorage.setItem(ACCOUNT_KEY, "1");
-}
 
 function TabLayout() {
   const colors = useColors();
@@ -146,12 +131,6 @@ function TabLayout() {
             ) : (
               <Feather name="user" size={20} color={color} />
             ),
-        }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            openAccountBrowser();
-          },
         }}
       />
     </Tabs>

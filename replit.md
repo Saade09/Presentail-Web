@@ -25,10 +25,25 @@ hand-bouquets, flower-boxes, flower-vases, lux-arrangements, dried-flowers, pres
 ### Checkout Flow
 1. Step 0 — Card message + QR link (live preview from `api.qrserver.com` when URL typed), recipient name, quantity
 2. Step 1 — District (26 Lebanese districts with fees), delivery date/slot, sender details
-3. Step 2 — Payment method (Card via Stripe, Whish Money, Western Union)
+3. Step 2 — Payment method (Card via Stripe, Whish Money, Western Union, Mamo, PayPal)
 - On confirm: WooCommerce order created immediately (fire-and-forget)
-- Card path: Stripe Checkout session opened in browser
+- Hosted-checkout payments (Stripe / Mamo / PayPal): opened with `WebBrowser.openAuthSessionAsync` so the in-app browser blocks until the user is redirected back via the `presentail://payment-return` deep link. The success screen is **only** shown when the return URL contains `status=success` — cancel/dismiss returns to checkout with an alert.
+- Return URL bridge: `GET /api/payment/return?deeplink=presentail://payment-return?...&status=...` → 302/HTML-redirect to the deep link. Necessary because Mamo/PayPal require HTTPS return URLs.
 - Order metadata uses WFACP custom field IDs: `card_message`, `wfacp_card_message`, `to_text`, `from`, `delivery`, `secret_id`, `qr-code`, `qr-label` + visible delivery fields for ops.
+
+### In-App Account (Apple Guideline 2.1.0 / 5.1.1)
+Optional sign-in / sign-up / delete, fully native — no web redirect (replaces the old `WebBrowser.openBrowserAsync` to `/lebanon/login`).
+- **Server**: `routes/auth.ts`
+  - `POST /api/auth/login` → WordPress JWT Auth plugin's `/jwt-auth/v1/token`
+  - `POST /api/auth/register` → WC REST `/customers` (then auto-issues JWT)
+  - `GET / PUT / DELETE /api/auth/me` → require `Authorization: Bearer <jwt>`. Token is validated against WP's `/jwt-auth/v1/token/validate`, then the customer id is read from the validated JWT payload (never trust client-supplied id).
+- **Client**: `contexts/AuthContext.tsx` stores `{ token, user }` in `expo-secure-store` (Keychain/Keystore). Screens: `app/login.tsx`, `app/register.tsx`, `app/(tabs)/account.tsx` (signed-out and signed-in views with profile + delete).
+- **WordPress requirement**: install **JWT Authentication for WP REST API** plugin on `presentail.com`. While the plugin is missing, login responds `503 jwt_not_installed` with a friendly message; registration still works (uses WC REST keys), but the new account can't sign in until the plugin is enabled.
+
+### OTA Updates (`expo-updates`)
+- `app.json`: `updates.url`, `runtimeVersion: { policy: "appVersion" }`, `expo-updates` plugin.
+- `app/_layout.tsx` `useAutoUpdate()` runs on cold start in production builds: `checkForUpdateAsync` → `fetchUpdateAsync` → `reloadAsync`. Result: a single cold start applies the latest OTA (no more "open twice to see changes").
+- Push: `cd artifacts/presentail && EXPO_PUBLIC_API_BASE_URL=<api-base> eas update --branch production --message "…"`. Requires being logged into EAS (`eas login`) or `EXPO_TOKEN` env var.
 
 ### Delivery Fee Logic
 - `districtFee = subtotal >= $130 ? FREE : district.fee` ($8–$39)
