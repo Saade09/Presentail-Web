@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { API_BASE } from "@/lib/stripe";
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -41,20 +40,6 @@ export default function LoginScreen() {
       return;
     }
     router.replace("/(tabs)/account" as any);
-  };
-
-  const onTestConnection = async () => {
-    const url = `${API_BASE}/api/healthz?_=${Date.now()}`;
-    try {
-      const res = await fetch(url, { cache: "no-store" as RequestCache });
-      const text = await res.text();
-      Alert.alert(
-        "Connection test",
-        `URL: ${url.split("?")[0]}\nHTTP ${res.status}\nBody: ${text.slice(0, 200)}`
-      );
-    } catch (e: any) {
-      Alert.alert("Connection test failed", `URL: ${url.split("?")[0]}\nError: ${e?.message ?? "unknown"}`);
-    }
   };
 
   return (
@@ -167,27 +152,6 @@ export default function LoginScreen() {
             Continue without signing in
           </Text>
         </Pressable>
-
-        <Pressable
-          onPress={onTestConnection}
-          style={{ alignItems: "center", marginTop: 24, padding: 8 }}
-        >
-          <Text style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 11 }}>
-            Test connection
-          </Text>
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: "Inter_400Regular",
-            color: colors.mutedForeground,
-            fontSize: 9,
-            textAlign: "center",
-            marginTop: 4,
-          }}
-          selectable
-        >
-          API: {API_BASE || "(not configured)"}
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
