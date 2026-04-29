@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",
