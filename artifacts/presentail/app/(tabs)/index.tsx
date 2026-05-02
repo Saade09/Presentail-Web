@@ -7,11 +7,9 @@ import {
   Dimensions,
   FlatList,
   Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -22,7 +20,6 @@ import { SectionTitle, Wordmark } from "@/components/Brand";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
-import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   bestSellers,
@@ -49,23 +46,7 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 function HomeHeader({ topPad }: { topPad: number }) {
   const colors = useColors();
   const router = useRouter();
-  const { count, openCart } = useCart();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  function openAccount() {
-    router.push("/(tabs)/account" as any);
-  }
-
-  async function shareApp() {
-    try {
-      await Share.share({
-        title: "Presentail Lebanon",
-        message:
-          "Discover Presentail — Lebanon's luxury flower & gift delivery. Same-day delivery across Lebanon. 🌸\nhttps://presentail.com/lebanon",
-        url: "https://presentail.com/lebanon",
-      });
-    } catch {}
-  }
+  const SIDE_W = 20;
 
   return (
     <View
@@ -81,10 +62,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
         justifyContent: "space-between",
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-        <Pressable hitSlop={10} onPress={() => setMenuOpen(true)}>
-          <Feather name="menu" size={22} color={colors.primary} />
-        </Pressable>
+      <View style={{ width: SIDE_W, alignItems: "flex-start" }}>
         <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
           <Feather name="search" size={20} color={colors.primary} />
         </Pressable>
@@ -92,113 +70,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
 
       <Wordmark size={26} />
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-        <Pressable hitSlop={10} onPress={openAccount}>
-          <Feather name="user" size={20} color={colors.primary} />
-        </Pressable>
-        <Pressable hitSlop={10} onPress={openCart}>
-          <Feather name="shopping-bag" size={20} color={colors.primary} />
-          {count > 0 ? (
-            <View
-              style={{
-                position: "absolute",
-                top: -5,
-                right: -8,
-                minWidth: 17,
-                height: 17,
-                borderRadius: 999,
-                backgroundColor: colors.gold,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingHorizontal: 3,
-              }}
-            >
-              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>
-                {count}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-
-      <Modal visible={menuOpen} transparent animationType="slide" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }} onPress={() => setMenuOpen(false)} />
-        <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "78%", backgroundColor: "#fff", paddingTop: topPad + 16, paddingHorizontal: 24, paddingBottom: 40, gap: 0 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-            <Wordmark size={26} />
-            <Pressable onPress={() => setMenuOpen(false)} hitSlop={12}>
-              <Feather name="x" size={22} color={colors.primary} />
-            </Pressable>
-          </View>
-          <Pressable
-            onPress={() => { setMenuOpen(false); openAccount(); }}
-            style={{
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: "rgba(0,0,0,0.07)",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <Feather name="user" size={16} color={colors.primary} />
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-              My Account
-            </Text>
-          </Pressable>
-          {[
-            { label: "Flowers & Plants", path: "/category/hand-bouquets" },
-            { label: "Gifts", path: "/category/baskets" },
-            { label: "Occasions", path: "/occasions" },
-            { label: "Brands", path: "/(tabs)/catalog" },
-          ].map((m) => (
-            <Pressable
-              key={m.label}
-              onPress={() => { setMenuOpen(false); router.push(m.path as any); }}
-              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.07)" }}
-            >
-              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
-                {m.label}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable
-            onPress={() => { setMenuOpen(false); shareApp(); }}
-            style={{
-              marginTop: 8,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "rgba(0,0,0,0.07)",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <Feather name="share-2" size={16} color={colors.gold} />
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-              Share Presentail
-            </Text>
-          </Pressable>
-
-          <View style={{ marginTop: 24, gap: 14 }}>
-            <Pressable
-              onPress={() => Linking.openURL("tel:+9613136532")}
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-            >
-              <Feather name="phone" size={16} color={colors.gold} />
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
-                +961 3 136 532
-              </Text>
-            </Pressable>
-            <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Feather name="map-pin" size={16} color={colors.gold} />
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
-                Achrafieh, Beirut
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <View style={{ width: SIDE_W }} />
     </View>
   );
 }
@@ -241,26 +113,29 @@ export default function HomeScreen() {
 
   return (
     <>
-      <ScrollView
+      <View
         style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
-        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
-        showsVerticalScrollIndicator={false}
       >
         <HomeHeader topPad={topPad} />
-
-        <Hero />
-        <BrandStrip />
-        <BestSellers />
-        <FlowersSection />
-        <CategoryRail />
-        <OccasionsGrid />
-        <BundlesSection />
-        <CollectionsSection />
-        <BrandStorySection />
-        <ReviewsSection />
-        <BrandsRow />
-        <Footer />
-      </ScrollView>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Hero />
+          <BrandStrip />
+          <BestSellers />
+          <FlowersSection />
+          <CategoryRail />
+          <OccasionsGrid />
+          <BundlesSection />
+          <CollectionsSection />
+          <BrandStorySection />
+          <ReviewsSection />
+          <BrandsRow />
+          <Footer />
+        </ScrollView>
+      </View>
       <NotificationPermissionModal
         visible={notifModalOpen}
         onAllow={handleAllow}
