@@ -7,12 +7,14 @@ type LanguageContextType = {
   lang: Lang;
   setLang: (l: Lang) => void;
   isRTL: boolean;
+  isReady: boolean;
 };
 
 const LanguageContext = createContext<LanguageContextType>({
   lang: "EN",
   setLang: () => {},
   isRTL: false,
+  isReady: false,
 });
 
 function applyRTL(l: Lang) {
@@ -29,16 +31,21 @@ function applyRTL(l: Lang) {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("EN");
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem("presentail_lang").then((v) => {
-      if (v === "AR" || v === "EN" || v === "FR") {
-        setLangState(v);
-        applyRTL(v);
-      } else {
-        applyRTL("EN");
-      }
-    });
+    AsyncStorage.getItem("presentail_lang")
+      .then((v) => {
+        if (v === "AR" || v === "EN" || v === "FR") {
+          setLangState(v);
+          applyRTL(v);
+        } else {
+          applyRTL("EN");
+        }
+      })
+      .finally(() => {
+        setIsReady(true);
+      });
   }, []);
 
   const setLang = (l: Lang) => {
@@ -48,7 +55,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, isRTL: lang === "AR" }}>
+    <LanguageContext.Provider value={{ lang, setLang, isRTL: lang === "AR", isReady }}>
       {children}
     </LanguageContext.Provider>
   );

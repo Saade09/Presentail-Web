@@ -15,7 +15,7 @@ import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -23,11 +23,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AnimatedSplash } from "@/components/SplashScreen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
+import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { registerPushToken } from "@/services/notifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -117,6 +119,24 @@ function useAutoUpdate() {
   }, []);
 }
 
+function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { ready } = useAppInitialization({ fontsLoaded });
+  const [splashGone, setSplashGone] = useState(false);
+
+  const handleFadeOutEnd = useCallback(() => {
+    setSplashGone(true);
+  }, []);
+
+  return (
+    <>
+      <PushTokenRotationListener />
+      <RootLayoutNav />
+      <CartDrawer />
+      {!splashGone && <AnimatedSplash fadingOut={ready} onFadeOutEnd={handleFadeOutEnd} />}
+    </>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -130,13 +150,20 @@ export default function RootLayout() {
 
   useAutoUpdate();
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
+  const fontsReady = fontsLoaded || !!fontError;
 
-  if (!fontsLoaded && !fontError) return null;
+  useEffect(() => {
+    if (fontsReady) {
+      // Hand off from the native splash to the in-app animated splash. The
+      // native splash and in-app splash share the same cream background and
+      // dark-teal logo so the transition is seamless.
+      SplashScreen.hideAsync().catch(() => {
+        // ignore — already hidden
+      });
+    }
+  }, [fontsReady]);
+
+  if (!fontsReady) return null;
 
   return (
     <SafeAreaProvider>
@@ -145,18 +172,16 @@ export default function RootLayout() {
           <GestureHandlerRootView>
             <KeyboardProvider>
               <LanguageProvider>
-              <CurrencyProvider>
-                <AuthProvider>
-                  <PushTokenRotationListener />
-                  <WooProductsProvider>
-                    <CartProvider>
-                      <RootLayoutNav />
-                      <CartDrawer />
-                    </CartProvider>
-                  </WooProductsProvider>
-                </AuthProvider>
-              </CurrencyProvider>
-            </LanguageProvider>
+                <CurrencyProvider>
+                  <AuthProvider>
+                    <WooProductsProvider>
+                      <CartProvider>
+                        <AppShell fontsLoaded={fontsReady} />
+                      </CartProvider>
+                    </WooProductsProvider>
+                  </AuthProvider>
+                </CurrencyProvider>
+              </LanguageProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

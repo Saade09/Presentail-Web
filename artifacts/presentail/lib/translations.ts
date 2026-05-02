@@ -712,6 +712,7 @@ const EN = {
   privacyTitle: "Privacy Policy",
   termsTitle: "Terms & Conditions",
   legalComingSoon: "Coming soon. Please check back later.",
+  splashTagline: "Gifts made personal",
 };
 
 const AR: typeof EN = {
@@ -1426,6 +1427,7 @@ const AR: typeof EN = {
   privacyTitle: "سياسة الخصوصية",
   termsTitle: "الشروط والأحكام",
   legalComingSoon: "قريباً. يرجى التحقق لاحقاً.",
+  splashTagline: "هدايا بلمسة شخصية",
 };
 
 const FR: typeof EN = {
@@ -2140,6 +2142,7 @@ const FR: typeof EN = {
   privacyTitle: "Politique de confidentialité",
   termsTitle: "Conditions générales",
   legalComingSoon: "Bientôt disponible. Revenez plus tard.",
+  splashTagline: "Des cadeaux personnalisés",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };
