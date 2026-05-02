@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
+import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -36,6 +37,11 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { fetchWcBrands, type WcBrand } from "@/lib/woo";
+import {
+  getNotificationStatus,
+  requestPermission,
+  saveNotificationStatus,
+} from "@/services/notifications";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -205,28 +211,63 @@ export default function HomeScreen() {
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
+  const [notifModalOpen, setNotifModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const status = await getNotificationStatus();
+      if (cancelled) return;
+      if (status === "not_determined") {
+        await saveNotificationStatus("prompted");
+        if (!cancelled) setNotifModalOpen(true);
+      }
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const handleAllow = async () => {
+    setNotifModalOpen(false);
+    await requestPermission();
+  };
+
+  const handleSkip = async () => {
+    setNotifModalOpen(false);
+    await saveNotificationStatus("skipped");
+  };
 
   return (
-    <ScrollView
-      style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
-      contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <HomeHeader topPad={topPad} />
+    <>
+      <ScrollView
+        style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
+        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <HomeHeader topPad={topPad} />
 
-      <Hero />
-      <BrandStrip />
-      <BestSellers />
-      <FlowersSection />
-      <CategoryRail />
-      <OccasionsGrid />
-      <BundlesSection />
-      <CollectionsSection />
-      <BrandStorySection />
-      <ReviewsSection />
-      <BrandsRow />
-      <Footer />
-    </ScrollView>
+        <Hero />
+        <BrandStrip />
+        <BestSellers />
+        <FlowersSection />
+        <CategoryRail />
+        <OccasionsGrid />
+        <BundlesSection />
+        <CollectionsSection />
+        <BrandStorySection />
+        <ReviewsSection />
+        <BrandsRow />
+        <Footer />
+      </ScrollView>
+      <NotificationPermissionModal
+        visible={notifModalOpen}
+        onAllow={handleAllow}
+        onSkip={handleSkip}
+      />
+    </>
   );
 }
 

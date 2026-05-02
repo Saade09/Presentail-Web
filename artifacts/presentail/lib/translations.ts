@@ -275,6 +275,22 @@ const EN = {
   langEnglish: "English",
   langArabic: "العربية",
   langFrench: "Français",
+
+  // ── Notifications ──
+  notifPermTitle: "Stay updated on your gifts",
+  notifPermSubtitle: "Turn on notifications so we can keep you in the loop on every gift moment.",
+  notifPermBullet1: "Order confirmations and delivery updates",
+  notifPermBullet2: "When your gift is on the way",
+  notifPermBullet3: "Seasonal drops and quiet treats — no spam",
+  notifPermAllow: "Allow Notifications",
+  notifPermMaybeLater: "Maybe Later",
+  notifications: "Notifications",
+  enableNotifications: "Enable Notifications",
+  notificationsEnabled: "Enabled",
+  notificationsDisabled: "Disabled",
+  notificationsOpenSettings: "Notifications are turned off in your device settings. Open Settings to enable them.",
+  openSettings: "Open Settings",
+  cancel: "Cancel",
 };
 
 const AR: typeof EN = {
@@ -552,6 +568,22 @@ const AR: typeof EN = {
   langEnglish: "English",
   langArabic: "العربية",
   langFrench: "Français",
+
+  // ── Notifications ──
+  notifPermTitle: "ابقَ على اطلاع بهداياك",
+  notifPermSubtitle: "فعّل الإشعارات لنبقيك على اطلاع بكل لحظة هدية.",
+  notifPermBullet1: "تأكيدات الطلب وتحديثات التوصيل",
+  notifPermBullet2: "عندما تكون هديتك في الطريق",
+  notifPermBullet3: "إصدارات موسمية ولفتات هادئة — بلا إزعاج",
+  notifPermAllow: "السماح بالإشعارات",
+  notifPermMaybeLater: "ربما لاحقاً",
+  notifications: "الإشعارات",
+  enableNotifications: "تفعيل الإشعارات",
+  notificationsEnabled: "مفعّلة",
+  notificationsDisabled: "معطّلة",
+  notificationsOpenSettings: "الإشعارات معطّلة من إعدادات جهازك. افتح الإعدادات لتفعيلها.",
+  openSettings: "فتح الإعدادات",
+  cancel: "إلغاء",
 };
 
 const FR: typeof EN = {
@@ -829,6 +861,22 @@ const FR: typeof EN = {
   langEnglish: "English",
   langArabic: "العربية",
   langFrench: "Français",
+
+  // ── Notifications ──
+  notifPermTitle: "Restez informé de vos cadeaux",
+  notifPermSubtitle: "Activez les notifications pour suivre chaque moment cadeau en temps réel.",
+  notifPermBullet1: "Confirmations de commande et suivi de livraison",
+  notifPermBullet2: "Quand votre cadeau est en route",
+  notifPermBullet3: "Éditions saisonnières et attentions — sans spam",
+  notifPermAllow: "Autoriser les notifications",
+  notifPermMaybeLater: "Peut-être plus tard",
+  notifications: "Notifications",
+  enableNotifications: "Activer les notifications",
+  notificationsEnabled: "Activées",
+  notificationsDisabled: "Désactivées",
+  notificationsOpenSettings: "Les notifications sont désactivées dans les réglages de l'appareil. Ouvrez les Réglages pour les activer.",
+  openSettings: "Ouvrir les réglages",
+  cancel: "Annuler",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };

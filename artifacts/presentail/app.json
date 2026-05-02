@@ -20,6 +20,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",
+        "NSUserNotificationUsageDescription": "Allow notifications so we can update you about your orders, deliveries, and gift moments.",
         "CFBundleDisplayName": "Presentail",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -31,7 +32,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#00414E"
       },
-      "permissions": []
+      "permissions": ["POST_NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -51,7 +52,13 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "color": "#00414E"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

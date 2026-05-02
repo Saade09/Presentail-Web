@@ -1,10 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -13,12 +14,21 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
+import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
+import {
+  getNativePermissionStatus,
+  getNotificationStatus,
+  openSystemSettings,
+  requestPermission,
+  saveNotificationStatus,
+  type NotificationStatus,
+} from "@/services/notifications";
 
 export default function AccountTab() {
   const colors = useColors();
@@ -30,6 +40,85 @@ export default function AccountTab() {
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
+  const [notifModalOpen, setNotifModalOpen] = useState(false);
+
+  const refreshNotifStatus = useCallback(async () => {
+    const stored = await getNotificationStatus();
+    if (stored === "granted" || stored === "denied") {
+      const native = await getNativePermissionStatus();
+      if (native === "granted" || native === "denied") {
+        if (native !== stored) {
+          await saveNotificationStatus(native);
+        }
+        setNotifStatus(native);
+        return;
+      }
+    }
+    setNotifStatus(stored);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifStatus();
+    }, [refreshNotifStatus])
+  );
+
+  const onNotifRowPress = async () => {
+    if (Platform.OS === "web") return;
+    if (notifStatus === "granted") {
+      // already enabled — no-op
+      return;
+    }
+    if (notifStatus === "denied") {
+      Alert.alert(
+        t.notifications,
+        t.notificationsOpenSettings,
+        [
+          { text: t.cancel, style: "cancel" },
+          {
+            text: t.openSettings,
+            onPress: () => openSystemSettings(),
+          },
+        ]
+      );
+      return;
+    }
+    // not_determined / prompted / skipped → re-show modal
+    setNotifModalOpen(true);
+  };
+
+  const onNotifAllow = async () => {
+    setNotifModalOpen(false);
+    const next = await requestPermission();
+    setNotifStatus(next);
+    if (next === "denied") {
+      Alert.alert(
+        t.notifications,
+        t.notificationsOpenSettings,
+        [
+          { text: t.cancel, style: "cancel" },
+          {
+            text: t.openSettings,
+            onPress: () => openSystemSettings(),
+          },
+        ]
+      );
+    }
+  };
+
+  const onNotifSkip = async () => {
+    setNotifModalOpen(false);
+    await saveNotificationStatus("skipped");
+    setNotifStatus("skipped");
+  };
+
+  const notifValueLabel =
+    notifStatus === "granted"
+      ? t.notificationsEnabled
+      : notifStatus === "denied"
+      ? t.notificationsDisabled
+      : t.enableNotifications;
 
   if (!ready) {
     return (
@@ -124,6 +213,20 @@ export default function AccountTab() {
               label={t.languageLabel}
               onPress={() => setLangOpen(true)}
             />
+            {Platform.OS !== "web" ? (
+              <>
+                <Divider colors={colors} />
+                <SettingsRow
+                  colors={colors}
+                  isRTL={isRTL}
+                  icon="bell"
+                  label={t.notifications}
+                  value={notifValueLabel}
+                  hideChevron={notifStatus === "granted"}
+                  onPress={onNotifRowPress}
+                />
+              </>
+            ) : null}
           </Card>
 
           <Card colors={colors}>
@@ -247,6 +350,12 @@ export default function AccountTab() {
             </View>
           </View>
         </BottomSheet>
+
+        <NotificationPermissionModal
+          visible={notifModalOpen}
+          onAllow={onNotifAllow}
+          onSkip={onNotifSkip}
+        />
       </View>
     );
   }
@@ -331,6 +440,20 @@ export default function AccountTab() {
           <Row colors={colors} icon="package" label="My orders" onPress={() => router.push("/(tabs)" as any)} />
         </Section>
 
+        {Platform.OS !== "web" ? (
+          <Section colors={colors} title="Preferences">
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="bell"
+              label={t.notifications}
+              value={notifValueLabel}
+              hideChevron={notifStatus === "granted"}
+              onPress={onNotifRowPress}
+            />
+          </Section>
+        ) : null}
+
         <Section colors={colors} title="Account">
           <Row colors={colors} icon="log-out" label="Sign out" onPress={onLogout} />
           <Row
@@ -356,6 +479,12 @@ export default function AccountTab() {
           Deleting your account permanently removes your profile and personal data.
         </Text>
       </ScrollView>
+
+      <NotificationPermissionModal
+        visible={notifModalOpen}
+        onAllow={onNotifAllow}
+        onSkip={onNotifSkip}
+      />
     </View>
   );
 }
@@ -389,9 +518,11 @@ type SettingsRowProps = {
   icon: FeatherIcon;
   label: string;
   onPress: () => void;
+  value?: string;
+  hideChevron?: boolean;
 };
 
-function SettingsRow({ colors, isRTL, icon, label, onPress }: SettingsRowProps) {
+function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron }: SettingsRowProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -416,11 +547,25 @@ function SettingsRow({ colors, isRTL, icon, label, onPress }: SettingsRowProps) 
       >
         {label}
       </Text>
-      <Feather
-        name={isRTL ? "chevron-left" : "chevron-right"}
-        size={18}
-        color={colors.mutedForeground}
-      />
+      {value ? (
+        <Text
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 13,
+            color: colors.mutedForeground,
+            textAlign: isRTL ? "left" : "right",
+          }}
+        >
+          {value}
+        </Text>
+      ) : null}
+      {!hideChevron && (
+        <Feather
+          name={isRTL ? "chevron-left" : "chevron-right"}
+          size={18}
+          color={colors.mutedForeground}
+        />
+      )}
     </Pressable>
   );
 }
