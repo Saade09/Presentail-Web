@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PhoneField } from "@/components/PhoneField";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
@@ -28,6 +29,7 @@ import { useT } from "@/hooks/useT";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+import { getDeviceId } from "@/services/notifications";
 
 const APP_SCHEME = "presentail";
 
@@ -143,7 +145,21 @@ export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
   const { formatPrice, currencyCode, convert } = useCurrency();
+  const { token: authToken } = useAuth();
   const t = useT();
+
+  // Resolved lazily inside placeOrder to avoid hitting AsyncStorage on
+  // every checkout render.
+  const [deviceIdForOrder, setDeviceIdForOrder] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getDeviceId().then((id) => {
+      if (!cancelled) setDeviceIdForOrder(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const LB = COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
@@ -287,6 +303,7 @@ export default function CheckoutScreen() {
     orderNotes,
     paymentMethod: payMethod,
     identitySecret,
+    appDeviceId: deviceIdForOrder ?? undefined,
   });
 
   const placeOrder = async () => {
@@ -304,7 +321,7 @@ export default function CheckoutScreen() {
     // is shown after a successful payment if order creation failed, so the
     // customer knows to contact us with their payment reference.
     let wooOrderFailed = false;
-    const wooOrderPromise = createWooOrder(buildWooPayload(orderId))
+    const wooOrderPromise = createWooOrder(buildWooPayload(orderId), { authToken })
       .then((res) => {
         if (!res?.ok) {
           wooOrderFailed = true;

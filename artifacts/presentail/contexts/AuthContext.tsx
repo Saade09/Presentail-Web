@@ -2,6 +2,10 @@ import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { API_BASE } from "@/lib/stripe";
+import {
+  registerPushToken,
+  unregisterPushToken,
+} from "@/services/notifications";
 
 export type AuthUser = {
   id: number;
@@ -94,6 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.token ?? null);
       setUser(data.user ?? null);
       await persist(data.token ?? null, data.user ?? null);
+      // Re-register the push token under the now-signed-in user so future
+      // order pushes route to this user across devices.
+      registerPushToken({
+        authToken: data.token ?? null,
+        userId: data.user?.id ?? null,
+      }).catch(() => {});
       return { ok: true };
     } catch (e: any) {
       return { ok: false, message: `${e?.message ?? "Network error"} (URL: ${url.split("?")[0]})` };
@@ -119,6 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         await persist(null, data.user);
       }
+      // Associate the push token with the new account.
+      registerPushToken({
+        authToken: data.token ?? null,
+        userId: data.user?.id ?? null,
+      }).catch(() => {});
       return { ok: true };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? "Network error" };
@@ -126,10 +141,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const logout = useCallback(async () => {
+    // Capture the current token before clearing state so the unregister
+    // request is authenticated (so the server will actually remove the
+    // user-scoped rows, not only guest rows).
+    const currentToken = token;
+    unregisterPushToken({ authToken: currentToken }).catch(() => {});
     setUser(null);
     setToken(null);
     await persist(null, null);
-  }, [persist]);
+  }, [persist, token]);
 
   const deleteAccount: AuthState["deleteAccount"] = useCallback(async () => {
     if (!user || !token) return { ok: false, message: "Not signed in" };
@@ -142,6 +162,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok || !data?.ok) {
         return { ok: false, message: data?.message ?? "Delete failed" };
       }
+      // Token cleanup happens inside logout(), but we also call it here
+      // explicitly with the still-valid token so the server can remove
+      // the user-scoped rows immediately, even if logout() races ahead.
+      unregisterPushToken({ authToken: token }).catch(() => {});
       await logout();
       return { ok: true };
     } catch (e: any) {

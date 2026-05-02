@@ -34,8 +34,11 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { fetchWcBrands, type WcBrand } from "@/lib/woo";
+import { useAuth } from "@/contexts/AuthContext";
 import {
+  getNativePermissionStatus,
   getNotificationStatus,
+  registerPushToken,
   requestPermission,
   saveNotificationStatus,
 } from "@/services/notifications";
@@ -83,6 +86,7 @@ export default function HomeScreen() {
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const { token: authToken, user } = useAuth();
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -93,17 +97,36 @@ export default function HomeScreen() {
       if (status === "not_determined") {
         await saveNotificationStatus("prompted");
         if (!cancelled) setNotifModalOpen(true);
+        return;
+      }
+      // If the user previously granted at the OS level, make sure the
+      // server still has our current Expo push token (it can rotate).
+      if (status === "granted") {
+        const native = await getNativePermissionStatus();
+        if (cancelled) return;
+        if (native === "granted") {
+          registerPushToken({
+            authToken,
+            userId: user?.id ?? null,
+          }).catch(() => {});
+        }
       }
     }, 1500);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [authToken, user?.id]);
 
   const handleAllow = async () => {
     setNotifModalOpen(false);
-    await requestPermission();
+    const status = await requestPermission();
+    if (status === "granted") {
+      registerPushToken({
+        authToken,
+        userId: user?.id ?? null,
+      }).catch(() => {});
+    }
   };
 
   const handleSkip = async () => {

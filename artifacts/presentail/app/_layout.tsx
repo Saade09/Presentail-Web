@@ -11,6 +11,7 @@ import {
   PlayfairDisplay_600SemiBold,
 } from "@expo-google-fonts/playfair-display";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
@@ -22,13 +23,48 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
+import { registerPushToken } from "@/services/notifications";
 
 SplashScreen.preventAutoHideAsync();
+
+// Display incoming pushes as banners + sounds even when the app is in the
+// foreground. Without this, foreground pushes are silently swallowed by
+// expo-notifications.
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
+
+// Re-register the push token when expo-notifications rotates it (this can
+// happen when APNs/FCM expires the underlying device token). Lives at the
+// module level because the listener API isn't tied to React lifecycle.
+function PushTokenRotationListener() {
+  const { token: authToken, user } = useAuth();
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = Notifications.addPushTokenListener(() => {
+      registerPushToken({
+        authToken,
+        userId: user?.id ?? null,
+      }).catch(() => {});
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [authToken, user?.id]);
+  return null;
+}
 
 const queryClient = new QueryClient();
 
@@ -107,6 +143,7 @@ export default function RootLayout() {
               <LanguageProvider>
               <CurrencyProvider>
                 <AuthProvider>
+                  <PushTokenRotationListener />
                   <WooProductsProvider>
                     <CartProvider>
                       <RootLayoutNav />

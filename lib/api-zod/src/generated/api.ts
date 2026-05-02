@@ -14,3 +14,86 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Register an Expo push token (or APNs/FCM token in production) for the
+current device. When the request is authenticated, the token is
+associated with the signed-in user; otherwise it is associated only
+with the supplied deviceId so guest devices can still receive pushes.
+
+ * @summary Register a device push token
+ */
+export const RegisterPushTokenBody = zod.object({
+  token: zod
+    .string()
+    .describe("The Expo push token, or APNs\/FCM token in production builds."),
+  platform: zod.enum(["ios", "android", "web"]),
+  deviceId: zod
+    .string()
+    .optional()
+    .describe(
+      "A stable per-device identifier so guest devices can receive pushes.",
+    ),
+  userId: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional client-provided WC customer id; ignored when an Authorization header is present.",
+    ),
+});
+
+export const RegisterPushTokenResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Remove a previously-registered push token. Either token or deviceId
+must be provided. Called on sign-out, account deletion, or when the
+device permission is revoked.
+
+ * @summary Unregister a device push token
+ */
+export const UnregisterPushTokenBody = zod.object({
+  token: zod.string().optional(),
+  deviceId: zod.string().optional(),
+});
+
+export const UnregisterPushTokenResponse = zod.object({
+  ok: zod.boolean(),
+  removed: zod.number(),
+});
+
+/**
+ * Looks up the registered tokens for the recipient of the given order
+and sends an order-state push (confirmed, out-for-delivery,
+delivered). Requires the X-Push-Admin-Token header to match
+PUSH_ADMIN_TOKEN.
+
+ * @summary Trigger an order-event push notification (admin)
+ */
+export const SendOrderEventPushBody = zod.object({
+  state: zod.enum(["confirmed", "out_for_delivery", "delivered"]),
+  appOrderId: zod
+    .string()
+    .optional()
+    .describe("Internal Presentail order id (e.g. PR-123456)."),
+  wcOrderId: zod
+    .number()
+    .optional()
+    .describe(
+      "WooCommerce order id. Either appOrderId or wcOrderId must be provided.",
+    ),
+  title: zod
+    .string()
+    .optional()
+    .describe("Optional override for the notification title."),
+  body: zod
+    .string()
+    .optional()
+    .describe("Optional override for the notification body."),
+});
+
+export const SendOrderEventPushResponse = zod.object({
+  ok: zod.boolean(),
+  sent: zod.number(),
+});

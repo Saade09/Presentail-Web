@@ -5,18 +5,30 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  HealthStatus,
+  PushOrderEventRequest,
+  PushOrderEventResponse,
+  PushRegisterRequest,
+  PushRegisterResponse,
+  PushUnregisterRequest,
+  PushUnregisterResponse,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +111,275 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Register an Expo push token (or APNs/FCM token in production) for the
+current device. When the request is authenticated, the token is
+associated with the signed-in user; otherwise it is associated only
+with the supplied deviceId so guest devices can still receive pushes.
+
+ * @summary Register a device push token
+ */
+export const getRegisterPushTokenUrl = () => {
+  return `/api/push/register`;
+};
+
+export const registerPushToken = async (
+  pushRegisterRequest: PushRegisterRequest,
+  options?: RequestInit,
+): Promise<PushRegisterResponse> => {
+  return customFetch<PushRegisterResponse>(getRegisterPushTokenUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushRegisterRequest),
+  });
+};
+
+export const getRegisterPushTokenMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushToken>>,
+    TError,
+    { data: BodyType<PushRegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerPushToken>>,
+  TError,
+  { data: BodyType<PushRegisterRequest> },
+  TContext
+> => {
+  const mutationKey = ["registerPushToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerPushToken>>,
+    { data: BodyType<PushRegisterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerPushToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterPushTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerPushToken>>
+>;
+export type RegisterPushTokenMutationBody = BodyType<PushRegisterRequest>;
+export type RegisterPushTokenMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Register a device push token
+ */
+export const useRegisterPushToken = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushToken>>,
+    TError,
+    { data: BodyType<PushRegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerPushToken>>,
+  TError,
+  { data: BodyType<PushRegisterRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterPushTokenMutationOptions(options));
+};
+
+/**
+ * Remove a previously-registered push token. Either token or deviceId
+must be provided. Called on sign-out, account deletion, or when the
+device permission is revoked.
+
+ * @summary Unregister a device push token
+ */
+export const getUnregisterPushTokenUrl = () => {
+  return `/api/push/unregister`;
+};
+
+export const unregisterPushToken = async (
+  pushUnregisterRequest: PushUnregisterRequest,
+  options?: RequestInit,
+): Promise<PushUnregisterResponse> => {
+  return customFetch<PushUnregisterResponse>(getUnregisterPushTokenUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushUnregisterRequest),
+  });
+};
+
+export const getUnregisterPushTokenMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unregisterPushToken>>,
+    TError,
+    { data: BodyType<PushUnregisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unregisterPushToken>>,
+  TError,
+  { data: BodyType<PushUnregisterRequest> },
+  TContext
+> => {
+  const mutationKey = ["unregisterPushToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unregisterPushToken>>,
+    { data: BodyType<PushUnregisterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return unregisterPushToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnregisterPushTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unregisterPushToken>>
+>;
+export type UnregisterPushTokenMutationBody = BodyType<PushUnregisterRequest>;
+export type UnregisterPushTokenMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Unregister a device push token
+ */
+export const useUnregisterPushToken = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unregisterPushToken>>,
+    TError,
+    { data: BodyType<PushUnregisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unregisterPushToken>>,
+  TError,
+  { data: BodyType<PushUnregisterRequest> },
+  TContext
+> => {
+  return useMutation(getUnregisterPushTokenMutationOptions(options));
+};
+
+/**
+ * Looks up the registered tokens for the recipient of the given order
+and sends an order-state push (confirmed, out-for-delivery,
+delivered). Requires the X-Push-Admin-Token header to match
+PUSH_ADMIN_TOKEN.
+
+ * @summary Trigger an order-event push notification (admin)
+ */
+export const getSendOrderEventPushUrl = () => {
+  return `/api/push/order-event`;
+};
+
+export const sendOrderEventPush = async (
+  pushOrderEventRequest: PushOrderEventRequest,
+  options?: RequestInit,
+): Promise<PushOrderEventResponse> => {
+  return customFetch<PushOrderEventResponse>(getSendOrderEventPushUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushOrderEventRequest),
+  });
+};
+
+export const getSendOrderEventPushMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendOrderEventPush>>,
+    TError,
+    { data: BodyType<PushOrderEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendOrderEventPush>>,
+  TError,
+  { data: BodyType<PushOrderEventRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendOrderEventPush"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendOrderEventPush>>,
+    { data: BodyType<PushOrderEventRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendOrderEventPush(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendOrderEventPushMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendOrderEventPush>>
+>;
+export type SendOrderEventPushMutationBody = BodyType<PushOrderEventRequest>;
+export type SendOrderEventPushMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Trigger an order-event push notification (admin)
+ */
+export const useSendOrderEventPush = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendOrderEventPush>>,
+    TError,
+    { data: BodyType<PushOrderEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendOrderEventPush>>,
+  TError,
+  { data: BodyType<PushOrderEventRequest> },
+  TContext
+> => {
+  return useMutation(getSendOrderEventPushMutationOptions(options));
+};

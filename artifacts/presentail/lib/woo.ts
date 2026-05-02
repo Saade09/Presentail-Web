@@ -99,6 +99,10 @@ export type WooOrderPayload = {
   orderNotes?: string;
   paymentMethod: "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
+  // Per-install device id used by the API to route order push
+  // notifications. The owning user (when signed in) is derived server-side
+  // from the JWT in the Authorization header — never sent in the body.
+  appDeviceId?: string;
 };
 
 export type WcBrand = {
@@ -123,12 +127,21 @@ export async function fetchWcBrands(): Promise<WcBrand[]> {
 }
 
 export async function createWooOrder(
-  payload: WooOrderPayload
+  payload: WooOrderPayload,
+  opts: { authToken?: string | null } = {},
 ): Promise<{ ok: true; wcOrderId: number } | { ok: false; message: string }> {
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    // When the buyer is signed in, send their JWT so the server can
+    // associate the order with their user id (and route push
+    // notifications back to all their devices).
+    if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
+
     const res = await fetch(`${API_BASE}/api/woo/order`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
     const json = await res.json();

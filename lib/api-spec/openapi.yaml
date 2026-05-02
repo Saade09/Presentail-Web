@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: push
+    description: Push notification operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /push/register:
+    post:
+      operationId: registerPushToken
+      tags: [push]
+      summary: Register a device push token
+      description: |
+        Register an Expo push token (or APNs/FCM token in production) for the
+        current device. When the request is authenticated, the token is
+        associated with the signed-in user; otherwise it is associated only
+        with the supplied deviceId so guest devices can still receive pushes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushRegisterRequest"
+      responses:
+        "200":
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushRegisterResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /push/unregister:
+    post:
+      operationId: unregisterPushToken
+      tags: [push]
+      summary: Unregister a device push token
+      description: |
+        Remove a previously-registered push token. Either token or deviceId
+        must be provided. Called on sign-out, account deletion, or when the
+        device permission is revoked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushUnregisterRequest"
+      responses:
+        "200":
+          description: Token removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushUnregisterResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /push/order-event:
+    post:
+      operationId: sendOrderEventPush
+      tags: [push]
+      summary: Trigger an order-event push notification (admin)
+      description: |
+        Looks up the registered tokens for the recipient of the given order
+        and sends an order-state push (confirmed, out-for-delivery,
+        delivered). Requires the X-Push-Admin-Token header to match
+        PUSH_ADMIN_TOKEN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushOrderEventRequest"
+      responses:
+        "200":
+          description: Pushes sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushOrderEventResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +127,90 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+      required:
+        - ok
+        - message
+    PushPlatform:
+      type: string
+      enum: [ios, android, web]
+    PushRegisterRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The Expo push token, or APNs/FCM token in production builds.
+        platform:
+          $ref: "#/components/schemas/PushPlatform"
+        deviceId:
+          type: string
+          description: A stable per-device identifier so guest devices can receive pushes.
+        userId:
+          type: integer
+          description: Optional client-provided WC customer id; ignored when an Authorization header is present.
+      required:
+        - token
+        - platform
+    PushRegisterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    PushUnregisterRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        deviceId:
+          type: string
+    PushUnregisterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        removed:
+          type: integer
+      required:
+        - ok
+        - removed
+    OrderEventState:
+      type: string
+      enum: [confirmed, out_for_delivery, delivered]
+    PushOrderEventRequest:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/OrderEventState"
+        appOrderId:
+          type: string
+          description: Internal Presentail order id (e.g. PR-123456).
+        wcOrderId:
+          type: integer
+          description: WooCommerce order id. Either appOrderId or wcOrderId must be provided.
+        title:
+          type: string
+          description: Optional override for the notification title.
+        body:
+          type: string
+          description: Optional override for the notification body.
+      required:
+        - state
+    PushOrderEventResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        sent:
+          type: integer
+      required:
+        - ok
+        - sent
 

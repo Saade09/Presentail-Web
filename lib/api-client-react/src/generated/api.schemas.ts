@@ -8,3 +8,66 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  ok: boolean;
+  message: string;
+}
+
+export type PushPlatform = (typeof PushPlatform)[keyof typeof PushPlatform];
+
+export const PushPlatform = {
+  ios: "ios",
+  android: "android",
+  web: "web",
+} as const;
+
+export interface PushRegisterRequest {
+  /** The Expo push token, or APNs/FCM token in production builds. */
+  token: string;
+  platform: PushPlatform;
+  /** A stable per-device identifier so guest devices can receive pushes. */
+  deviceId?: string;
+  /** Optional client-provided WC customer id; ignored when an Authorization header is present. */
+  userId?: number;
+}
+
+export interface PushRegisterResponse {
+  ok: boolean;
+}
+
+export interface PushUnregisterRequest {
+  token?: string;
+  deviceId?: string;
+}
+
+export interface PushUnregisterResponse {
+  ok: boolean;
+  removed: number;
+}
+
+export type OrderEventState =
+  (typeof OrderEventState)[keyof typeof OrderEventState];
+
+export const OrderEventState = {
+  confirmed: "confirmed",
+  out_for_delivery: "out_for_delivery",
+  delivered: "delivered",
+} as const;
+
+export interface PushOrderEventRequest {
+  state: OrderEventState;
+  /** Internal Presentail order id (e.g. PR-123456). */
+  appOrderId?: string;
+  /** WooCommerce order id. Either appOrderId or wcOrderId must be provided. */
+  wcOrderId?: number;
+  /** Optional override for the notification title. */
+  title?: string;
+  /** Optional override for the notification body. */
+  body?: string;
+}
+
+export interface PushOrderEventResponse {
+  ok: boolean;
+  sent: number;
+}

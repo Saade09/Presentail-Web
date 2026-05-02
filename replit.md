@@ -40,6 +40,21 @@ Optional sign-in / sign-up / delete, fully native — no web redirect (replaces 
 - **Client**: `contexts/AuthContext.tsx` stores `{ token, user }` in `expo-secure-store` (Keychain/Keystore). Screens: `app/login.tsx`, `app/register.tsx`, `app/(tabs)/account.tsx` (signed-out and signed-in views with profile + delete).
 - **WordPress requirement**: install **JWT Authentication for WP REST API** plugin on `presentail.com`. While the plugin is missing, login responds `503 jwt_not_installed` with a friendly message; registration still works (uses WC REST keys), but the new account can't sign in until the plugin is enabled.
 
+### Push Notifications (real Expo pushes on order events)
+- **DB**: `lib/db/src/schema/pushTokens.ts` (token unique, platform, userId, deviceId) and `appOrders.ts` (appOrderId unique, wcOrderId, userId, deviceId, recipientName, deliveryDate/slot, state).
+- **API**:
+  - `POST /api/push/register` — upserts the Expo token; if `Authorization: Bearer <jwt>` is present, the userId comes from the validated JWT (never the client). Also claims any guest tokens previously stored against the same `deviceId`.
+  - `POST /api/push/unregister` — deletes by token and/or deviceId. Called on sign-out and account deletion.
+  - `POST /api/push/order-event` — admin-only (header `x-push-admin-token: $PUSH_ADMIN_TOKEN`), looks up the app order and pushes a copy-mapped notification for state `confirmed | out_for_delivery | delivered`. Persists the new state on the order row. Use this from a Woo/CRM webhook to trigger pushes when ops change order status.
+  - On `POST /api/woo/order` success the server inserts the app↔WC mapping (`appOrders`) and fire-and-forgets a `confirmed` push, both wrapped in try/catch so checkout never fails on push errors.
+- **Push delivery**: `lib/expoPush.ts` posts to `https://exp.host/--/api/v2/push/send` and prunes any token returned with `DeviceNotRegistered`.
+- **Mobile**:
+  - `services/notifications.ts` — `getDeviceId` (stable per-install id in AsyncStorage), `registerPushToken` / `unregisterPushToken`, sets up the Android default channel, fetches the Expo token via `Notifications.getExpoPushTokenAsync({ projectId })`. No-ops on web.
+  - `app/_layout.tsx` — global `Notifications.setNotificationHandler` (banner/sound/badge in foreground) plus `PushTokenRotationListener` re-registering on `addPushTokenListener`.
+  - `app/(tabs)/index.tsx` — registers after `requestPermission()` returns `granted`, and re-syncs on cold start when status is already `granted`.
+  - `contexts/AuthContext.tsx` — login/register call `registerPushToken({ authToken, userId })` to claim the token; logout/deleteAccount call `unregisterPushToken()`.
+  - `app/checkout.tsx` + `lib/woo.ts` — checkout payload now sends `appUserId` and `appDeviceId` so the server-side `confirmed` push routes back to the buyer's tokens.
+
 ### OTA Updates (`expo-updates`)
 - `app.json`: `updates.url`, `runtimeVersion: { policy: "appVersion" }`, `expo-updates` plugin.
 - `app/_layout.tsx` `useAutoUpdate()` runs on cold start in production builds: `checkForUpdateAsync` → `fetchUpdateAsync` → `reloadAsync`. Result: a single cold start applies the latest OTA (no more "open twice to see changes").

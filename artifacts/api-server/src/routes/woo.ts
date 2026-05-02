@@ -1,6 +1,17 @@
 import { Router, type IRouter } from "express";
+import { db, appOrdersTable } from "@workspace/db";
+import { authenticate } from "../lib/auth";
+import { sendOrderEventPush } from "../lib/orderEvents";
 
 const router: IRouter = Router();
+
+// Minimal subset of the WooCommerce order response that we consume.
+// Typed narrowly so we don't have to fall back to `any` in the handler.
+type WcOrderResponse = {
+  id?: number;
+  order_key?: string;
+  message?: string;
+};
 
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
 
@@ -311,6 +322,11 @@ type WooOrderPayload = {
   orderNotes?: string;
   paymentMethod: "card" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
+  // App-side identifier used to route push notifications back to the
+  // buyer's device. Not authenticated — used only as a routing hint.
+  // The owning user is derived server-side from the JWT (if present),
+  // never from the request body.
+  appDeviceId?: string;
 };
 
 router.post("/woo/order", async (req, res) => {
@@ -456,15 +472,91 @@ router.post("/woo/order", async (req, res) => {
     meta_data: metaData,
   };
 
+  // Resolve the owning user from the Authorization header (if any).
+  // We do NOT trust any client-supplied user id in the body — that would
+  // let a malicious caller redirect another customer's order pushes to
+  // their own account.
+  let resolvedUserId: number | null = null;
+  const authHeader = req.header("authorization");
+  if (authHeader) {
+    const auth = await authenticate(authHeader);
+    if (auth.ok) {
+      resolvedUserId = auth.customerId;
+    }
+    // Silently ignore invalid tokens here — checkout supports guests, so
+    // an expired/missing token must not block the order. Push routing
+    // simply falls back to deviceId in that case.
+  }
+
   try {
     const r = await wooFetch("/orders", {
       method: "POST",
       body: JSON.stringify(orderPayload),
     });
-    const data = await r.json();
+    const data = (await r.json()) as WcOrderResponse;
     if (!r.ok) {
       return res.status(r.status).json({ ok: false, message: data?.message ?? "WooCommerce order failed", data });
     }
+
+    // Persist app↔WC mapping and fire the "confirmed" push. Both are
+    // best-effort — failures must not break the customer's checkout.
+    const wcOrderId = typeof data?.id === "number" ? data.id : null;
+    const appUserId = resolvedUserId;
+    const appDeviceId =
+      typeof body.appDeviceId === "string" && body.appDeviceId
+        ? body.appDeviceId
+        : null;
+
+    (async () => {
+      try {
+        await db
+          .insert(appOrdersTable)
+          .values({
+            appOrderId: body.orderId,
+            wcOrderId,
+            userId: appUserId,
+            deviceId: appDeviceId,
+            recipientName: recipientFullName || null,
+            deliveryDate: body.deliveryDate ?? null,
+            deliverySlot: body.deliverySlot ?? null,
+            state: "confirmed",
+          })
+          .onConflictDoUpdate({
+            target: appOrdersTable.appOrderId,
+            set: {
+              wcOrderId,
+              userId: appUserId,
+              deviceId: appDeviceId,
+              recipientName: recipientFullName || null,
+              deliveryDate: body.deliveryDate ?? null,
+              deliverySlot: body.deliverySlot ?? null,
+              state: "confirmed",
+              updatedAt: new Date(),
+            },
+          });
+      } catch (err: any) {
+        req.log?.warn?.(
+          { err: err?.message, appOrderId: body.orderId },
+          "woo.order: failed to persist app order mapping",
+        );
+      }
+
+      try {
+        await sendOrderEventPush({
+          state: "confirmed",
+          appOrderId: body.orderId,
+          userId: appUserId,
+          deviceId: appDeviceId,
+          recipientName: recipientFullName || null,
+        });
+      } catch (err: any) {
+        req.log?.warn?.(
+          { err: err?.message, appOrderId: body.orderId },
+          "woo.order: failed to send confirmed push",
+        );
+      }
+    })();
+
     return res.json({ ok: true, wcOrderId: data.id, orderKey: data.order_key });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to create order" });
