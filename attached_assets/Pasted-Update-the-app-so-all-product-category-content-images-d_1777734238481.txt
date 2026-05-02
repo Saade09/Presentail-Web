@@ -1,0 +1,65 @@
+Update the app so all product/category/content images display as square images instead of tall portrait images.
+
+Goal:
+Make image presentation consistent across the app by using a 1:1 square aspect ratio wherever product, category, collection, or card images are shown.
+
+Requirements:
+- All images should render as square, not tall/portrait.
+- Use aspectRatio: 1 or equivalent CSS/React Native styling.
+- Do not stretch or distort images.
+- Images should crop cleanly using cover/object-fit: cover.
+- Keep rounded corners consistent with the app design.
+- Preserve the existing premium Presentail style.
+
+Areas to check and update:
+- Home page product cards
+- Boutique/Explore product grid
+- Category cards
+- Collection cards
+- Best sellers sections
+- Product recommendation sections
+- Search results
+- Related products
+- Cart item thumbnails, if applicable
+- Favorites/saved items, if applicable
+- Any reusable ProductCard, CategoryCard, ImageCard, or CollectionCard components
+
+Implementation guidance:
+- Prefer updating reusable image/card components instead of changing every screen manually.
+- Create a shared image style/helper if needed, for example:
+  - squareImage
+  - productImageContainer
+  - aspectRatio: 1
+- Make sure each image container has a defined width and square height through aspect ratio.
+- Use resizeMode="cover" for React Native images.
+- Use object-fit: cover for web images.
+- Keep images centered within the crop.
+- Do not use fixed tall heights like 240, 300, 360 unless the width matches exactly.
+- Remove old portrait/tall image styles where they conflict.
+
+Design details:
+- Product cards should remain visually balanced.
+- Text below images should not overlap.
+- Spacing between cards should remain clean.
+- Two-column grids should show equal square image tiles.
+- Single large feature images should also use a square ratio unless they are clearly hero banners.
+- Hero banners may remain wide if they are intentionally designed as banners, but product/content card images should be square.
+
+Important exceptions:
+- Do not force the splash screen logo/image into a square.
+- Do not force full-width hero banners into square if they are intentionally banner sections.
+- Do not change icons.
+- Do not distort brand logos.
+- Only apply square ratio to content/product/category/card images.
+
+Acceptance criteria:
+1. Product images are square across the app.
+2. Category and collection images are square.
+3. No product image appears tall/portrait.
+4. Images are cropped with cover, not stretched.
+5. Rounded corners remain consistent.
+6. Product grids stay aligned.
+7. Text and buttons below cards still display correctly.
+8. Hero banners, icons, and logos are not unintentionally broken.
+9. App works correctly on different phone screen sizes.
+10. App builds and runs without visual layout errors.
