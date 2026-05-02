@@ -15,8 +15,71 @@ export type NotificationStatus =
 const STORAGE_KEY = "presentail_notification_status";
 const DEVICE_ID_KEY = "presentail_device_id";
 const PUSH_TOKEN_KEY = "presentail_push_token";
+const CATEGORY_PREFS_STORAGE_KEY = "presentail_notification_category_prefs";
 
 const ANDROID_DEFAULT_CHANNEL = "default";
+
+export type NotificationCategory = "orders" | "delivery" | "drops";
+
+export type NotificationCategoryPrefs = Record<NotificationCategory, boolean>;
+
+export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
+  "orders",
+  "delivery",
+  "drops",
+];
+
+export const DEFAULT_CATEGORY_PREFS: NotificationCategoryPrefs = {
+  orders: true,
+  delivery: true,
+  drops: true,
+};
+
+function isValidPrefs(v: unknown): v is NotificationCategoryPrefs {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.orders === "boolean" &&
+    typeof o.delivery === "boolean" &&
+    typeof o.drops === "boolean"
+  );
+}
+
+export async function getCategoryPreferences(): Promise<NotificationCategoryPrefs> {
+  try {
+    const raw = await AsyncStorage.getItem(CATEGORY_PREFS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (isValidPrefs(parsed)) return parsed;
+    }
+  } catch {
+    // ignore — fall through to defaults
+  }
+  return { ...DEFAULT_CATEGORY_PREFS };
+}
+
+export async function saveCategoryPreferences(
+  prefs: NotificationCategoryPrefs
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      CATEGORY_PREFS_STORAGE_KEY,
+      JSON.stringify(prefs)
+    );
+  } catch {
+    // ignore — best effort
+  }
+}
+
+export async function setCategoryPreference(
+  category: NotificationCategory,
+  enabled: boolean
+): Promise<NotificationCategoryPrefs> {
+  const current = await getCategoryPreferences();
+  const next = { ...current, [category]: enabled };
+  await saveCategoryPreferences(next);
+  return next;
+}
 
 export async function getNotificationStatus(): Promise<NotificationStatus> {
   try {

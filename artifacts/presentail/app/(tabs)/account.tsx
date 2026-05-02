@@ -66,22 +66,8 @@ export default function AccountTab() {
 
   const onNotifRowPress = async () => {
     if (Platform.OS === "web") return;
-    if (notifStatus === "granted") {
-      // already enabled — no-op
-      return;
-    }
-    if (notifStatus === "denied") {
-      Alert.alert(
-        t.notifications,
-        t.notificationsOpenSettings,
-        [
-          { text: t.cancel, style: "cancel" },
-          {
-            text: t.openSettings,
-            onPress: () => openSystemSettings(),
-          },
-        ]
-      );
+    if (notifStatus === "granted" || notifStatus === "denied") {
+      router.push("/notification-preferences");
       return;
     }
     // not_determined / prompted / skipped → re-show modal
@@ -222,7 +208,6 @@ export default function AccountTab() {
                   icon="bell"
                   label={t.notifications}
                   value={notifValueLabel}
-                  hideChevron={notifStatus === "granted"}
                   onPress={onNotifRowPress}
                 />
               </>
@@ -448,7 +433,6 @@ export default function AccountTab() {
               icon="bell"
               label={t.notifications}
               value={notifValueLabel}
-              hideChevron={notifStatus === "granted"}
               onPress={onNotifRowPress}
             />
           </Section>
