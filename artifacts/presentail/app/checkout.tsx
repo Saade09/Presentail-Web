@@ -304,6 +304,10 @@ export default function CheckoutScreen() {
     paymentMethod: payMethod,
     identitySecret,
     appDeviceId: deviceIdForOrder ?? undefined,
+    // Forwarded so the backend can record the customer-facing currency.
+    // NOTE: WooCommerce may not honor non-USD totals automatically; the
+    // server should treat this as informational unless explicitly handled.
+    currencyCode,
   });
 
   const placeOrder = async () => {
@@ -1080,7 +1084,7 @@ function DeliveryDetailsStep(props: any) {
               icon="zap"
               title={t.expressDelivery}
               subtitle={t.oneToThreeHrs}
-              footer={expressAvailable ? `+$${EXPRESS_SURCHARGE}` : t.opensAt8AM}
+              footer={expressAvailable ? `+${formatPrice(EXPRESS_SURCHARGE)}` : t.opensAt8AM}
               active={deliveryMode === "express"}
               disabled={!expressAvailable}
               onPress={() => setDeliveryMode("express")}

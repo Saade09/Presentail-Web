@@ -9,9 +9,7 @@ export type CurrencyCode =
   | "SAR"
   | "KWD"
   | "OMR"
-  | "CHF"
-  | "SEK"
-  | "DKK";
+  | "CHF";
 
 export type Currency = {
   code: CurrencyCode;
@@ -23,6 +21,8 @@ export type Currency = {
   rate: number;
   decimals: number;
 };
+
+export const FALLBACK_CURRENCY_CODE: CurrencyCode = "USD";
 
 export const CURRENCIES: Currency[] = [
   {
@@ -135,28 +135,62 @@ export const CURRENCIES: Currency[] = [
     rate: 0.785,
     decimals: 0,
   },
-  {
-    code: "SEK",
-    name: "Swedish krona",
-    flag: "🇸🇪",
-    symbol: "kr",
-    symbolPosition: "left",
-    spaceBetween: true,
-    rate: 9.242,
-    decimals: 0,
-  },
-  {
-    code: "DKK",
-    name: "Danish krone",
-    flag: "🇩🇰",
-    symbol: "kr",
-    symbolPosition: "left",
-    spaceBetween: true,
-    rate: 8.391,
-    decimals: 0,
-  },
 ];
 
 export function getCurrency(code: CurrencyCode): Currency {
   return CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0];
+}
+
+export function isSupportedCurrencyCode(value: unknown): value is CurrencyCode {
+  return typeof value === "string" && CURRENCIES.some((c) => c.code === value);
+}
+
+const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
+  AE: "AED",
+  US: "USD",
+  GB: "GBP",
+  IM: "GBP",
+  JE: "GBP",
+  GG: "GBP",
+  CA: "CAD",
+  AU: "AUD",
+  QA: "QAR",
+  SA: "SAR",
+  KW: "KWD",
+  OM: "OMR",
+  CH: "CHF",
+  LI: "CHF",
+  // Eurozone
+  AT: "EUR",
+  BE: "EUR",
+  CY: "EUR",
+  DE: "EUR",
+  EE: "EUR",
+  ES: "EUR",
+  FI: "EUR",
+  FR: "EUR",
+  GR: "EUR",
+  HR: "EUR",
+  IE: "EUR",
+  IT: "EUR",
+  LT: "EUR",
+  LU: "EUR",
+  LV: "EUR",
+  MT: "EUR",
+  NL: "EUR",
+  PT: "EUR",
+  SI: "EUR",
+  SK: "EUR",
+  AD: "EUR",
+  MC: "EUR",
+  SM: "EUR",
+  VA: "EUR",
+  ME: "EUR",
+  XK: "EUR",
+};
+
+export function currencyForCountry(countryCode: string | null | undefined): CurrencyCode {
+  if (!countryCode) return FALLBACK_CURRENCY_CODE;
+  const upper = countryCode.trim().toUpperCase();
+  return COUNTRY_TO_CURRENCY[upper] ?? FALLBACK_CURRENCY_CODE;
 }

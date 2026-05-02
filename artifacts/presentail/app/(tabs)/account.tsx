@@ -17,7 +17,9 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { CURRENCIES, type CurrencyCode } from "@/data/currencies";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
@@ -36,10 +38,12 @@ export default function AccountTab() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
+  const { currencyCode, setCurrencyCode } = useCurrency();
   const { ready, user, logout, deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
   const [notifModalOpen, setNotifModalOpen] = useState(false);
 
@@ -130,6 +134,14 @@ export default function AccountTab() {
     setLangOpen(false);
   };
 
+  const onSelectCurrency = (code: CurrencyCode) => {
+    setCurrencyCode(code);
+    setCurrencyOpen(false);
+  };
+
+  const currencyName = (code: CurrencyCode) =>
+    (t as any)[`cur_${code}`] ?? code;
+
   if (!user) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -198,6 +210,16 @@ export default function AccountTab() {
               icon="globe"
               label={t.languageLabel}
               onPress={() => setLangOpen(true)}
+            />
+            <Divider colors={colors} />
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="dollar-sign"
+              label={t.currency}
+              value={currencyCode}
+              valueLTR
+              onPress={() => setCurrencyOpen(true)}
             />
             {Platform.OS !== "web" ? (
               <>
@@ -336,6 +358,17 @@ export default function AccountTab() {
           </View>
         </BottomSheet>
 
+        <CurrencySheet
+          visible={currencyOpen}
+          onClose={() => setCurrencyOpen(false)}
+          colors={colors}
+          isRTL={isRTL}
+          title={t.selectCurrency}
+          currencyCode={currencyCode}
+          onSelect={onSelectCurrency}
+          currencyName={currencyName}
+        />
+
         <NotificationPermissionModal
           visible={notifModalOpen}
           onAllow={onNotifAllow}
@@ -425,18 +458,38 @@ export default function AccountTab() {
           <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/(tabs)" as any)} />
         </Section>
 
-        {Platform.OS !== "web" ? (
-          <Section colors={colors} title={t.accountPreferences}>
-            <SettingsRow
-              colors={colors}
-              isRTL={isRTL}
-              icon="bell"
-              label={t.notifications}
-              value={notifValueLabel}
-              onPress={onNotifRowPress}
-            />
-          </Section>
-        ) : null}
+        <Section colors={colors} title={t.accountPreferences}>
+          <SettingsRow
+            colors={colors}
+            isRTL={isRTL}
+            icon="globe"
+            label={t.languageLabel}
+            onPress={() => setLangOpen(true)}
+          />
+          <Divider colors={colors} />
+          <SettingsRow
+            colors={colors}
+            isRTL={isRTL}
+            icon="dollar-sign"
+            label={t.currency}
+            value={currencyCode}
+            valueLTR
+            onPress={() => setCurrencyOpen(true)}
+          />
+          {Platform.OS !== "web" ? (
+            <>
+              <Divider colors={colors} />
+              <SettingsRow
+                colors={colors}
+                isRTL={isRTL}
+                icon="bell"
+                label={t.notifications}
+                value={notifValueLabel}
+                onPress={onNotifRowPress}
+              />
+            </>
+          ) : null}
+        </Section>
 
         <Section colors={colors} title={t.accountSection}>
           <Row colors={colors} icon="log-out" label={t.accountSignOut} onPress={onLogout} />
@@ -463,6 +516,66 @@ export default function AccountTab() {
           {t.accountFooterNote}
         </Text>
       </ScrollView>
+
+      <BottomSheet visible={langOpen} onClose={() => setLangOpen(false)}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 22,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+              marginBottom: 16,
+            }}
+          >
+            {t.languageLabel}
+          </Text>
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              overflow: "hidden",
+            }}
+          >
+            <LangOption
+              colors={colors}
+              isRTL={isRTL}
+              label={t.langEnglish}
+              active={lang === "EN"}
+              onPress={() => onSelectLang("EN")}
+            />
+            <Divider colors={colors} />
+            <LangOption
+              colors={colors}
+              isRTL={isRTL}
+              label={t.langArabic}
+              active={lang === "AR"}
+              onPress={() => onSelectLang("AR")}
+            />
+            <Divider colors={colors} />
+            <LangOption
+              colors={colors}
+              isRTL={isRTL}
+              label={t.langFrench}
+              active={lang === "FR"}
+              onPress={() => onSelectLang("FR")}
+            />
+          </View>
+        </View>
+      </BottomSheet>
+
+      <CurrencySheet
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+        colors={colors}
+        isRTL={isRTL}
+        title={t.selectCurrency}
+        currencyCode={currencyCode}
+        onSelect={onSelectCurrency}
+        currencyName={currencyName}
+      />
 
       <NotificationPermissionModal
         visible={notifModalOpen}
@@ -504,9 +617,11 @@ type SettingsRowProps = {
   onPress: () => void;
   value?: string;
   hideChevron?: boolean;
+  /** Force the trailing value to render LTR even in RTL layouts (e.g. currency codes). */
+  valueLTR?: boolean;
 };
 
-function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron }: SettingsRowProps) {
+function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, valueLTR }: SettingsRowProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -538,6 +653,7 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron }
             fontSize: 13,
             color: colors.mutedForeground,
             textAlign: isRTL ? "left" : "right",
+            ...(valueLTR ? { writingDirection: "ltr" as const } : {}),
           }}
         >
           {value}
@@ -551,6 +667,102 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron }
         />
       )}
     </Pressable>
+  );
+}
+
+type CurrencySheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  colors: Colors;
+  isRTL: boolean;
+  title: string;
+  currencyCode: CurrencyCode;
+  onSelect: (code: CurrencyCode) => void;
+  currencyName: (code: CurrencyCode) => string;
+};
+
+function CurrencySheet({
+  visible,
+  onClose,
+  colors,
+  isRTL,
+  title,
+  currencyCode,
+  onSelect,
+  currencyName,
+}: CurrencySheetProps) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
+        <Text
+          style={{
+            fontFamily: "PlayfairDisplay_500Medium",
+            fontSize: 22,
+            color: colors.primary,
+            textAlign: isRTL ? "right" : "left",
+            marginBottom: 16,
+          }}
+        >
+          {title}
+        </Text>
+        <ScrollView
+          style={{ maxHeight: 440 }}
+          contentContainerStyle={{
+            backgroundColor: "#fff",
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: "hidden",
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {CURRENCIES.map((c, idx) => (
+            <React.Fragment key={c.code}>
+              {idx > 0 ? <Divider colors={colors} /> : null}
+              <Pressable
+                onPress={() => onSelect(c.code)}
+                style={({ pressed }) => ({
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  backgroundColor: pressed ? "#0001" : "#fff",
+                })}
+              >
+                <Text style={{ fontSize: 22 }}>{c.flag}</Text>
+                <Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 14,
+                    color: colors.primary,
+                    minWidth: 44,
+                    writingDirection: "ltr",
+                  }}
+                >
+                  {c.code}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    fontFamily: currencyCode === c.code ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontSize: 14,
+                    color: colors.primary,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {currencyName(c.code)}
+                </Text>
+                {currencyCode === c.code ? (
+                  <Feather name="check" size={18} color={colors.primary} />
+                ) : null}
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </ScrollView>
+      </View>
+    </BottomSheet>
   );
 }
 

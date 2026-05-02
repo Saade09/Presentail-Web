@@ -1,13 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { CURRENCIES, getCurrency, type Currency, type CurrencyCode } from "@/data/currencies";
+import {
+  CURRENCIES,
+  FALLBACK_CURRENCY_CODE,
+  getCurrency,
+  isSupportedCurrencyCode,
+  type Currency,
+  type CurrencyCode,
+} from "@/data/currencies";
+import { detectCurrencyFromLocation } from "@/services/locationCurrencyService";
 
 const STORAGE_KEY = "@presentail/currency-v1";
+const SOURCE_KEY = "@presentail/currency-source-v1";
+
+type CurrencySource = "manual" | "auto";
 
 type CurrencyContextValue = {
   currency: Currency;
   currencyCode: CurrencyCode;
+  source: CurrencySource;
   setCurrencyCode: (code: CurrencyCode) => void;
   /** Convert a USD amount into the active currency, formatted with symbol/position. */
   formatPrice: (usdValue: number) => string;
@@ -19,22 +31,52 @@ type CurrencyContextValue = {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>("USD");
+  const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(FALLBACK_CURRENCY_CODE);
+  const [source, setSource] = useState<CurrencySource>("auto");
   const hydrated = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
+
+    (async () => {
+      try {
+        const [savedCode, savedSource] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY),
+          AsyncStorage.getItem(SOURCE_KEY),
+        ]);
+
         if (cancelled) return;
-        if (raw && CURRENCIES.some((c) => c.code === raw)) {
-          setCurrencyCodeState(raw as CurrencyCode);
+
+        // Manual selection always wins — never overwrite with auto-detection.
+        if (savedSource === "manual" && isSupportedCurrencyCode(savedCode)) {
+          setCurrencyCodeState(savedCode);
+          setSource("manual");
+          hydrated.current = true;
+          return;
         }
+
+        // Otherwise: detect from IP. Use the previously detected value as a
+        // fast first paint while detection runs (avoids flicker on cold start).
+        if (isSupportedCurrencyCode(savedCode)) {
+          setCurrencyCodeState(savedCode);
+        }
+
+        const detected = await detectCurrencyFromLocation();
+        if (cancelled) return;
+
+        setCurrencyCodeState(detected);
+        setSource("auto");
+        await Promise.all([
+          AsyncStorage.setItem(STORAGE_KEY, detected),
+          AsyncStorage.setItem(SOURCE_KEY, "auto"),
+        ]).catch(() => {});
+      } catch {
+        // Fall through with the default fallback already in state.
+      } finally {
         hydrated.current = true;
-      })
-      .catch(() => {
-        if (!cancelled) hydrated.current = true;
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -42,7 +84,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrencyCode = useCallback((code: CurrencyCode) => {
     setCurrencyCodeState(code);
-    AsyncStorage.setItem(STORAGE_KEY, code).catch(() => {});
+    setSource("manual");
+    Promise.all([
+      AsyncStorage.setItem(STORAGE_KEY, code),
+      AsyncStorage.setItem(SOURCE_KEY, "manual"),
+    ]).catch(() => {});
   }, []);
 
   const currency = useMemo(() => getCurrency(currencyCode), [currencyCode]);
@@ -75,12 +121,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     () => ({
       currency,
       currencyCode,
+      source,
       setCurrencyCode,
       formatPrice,
       convert,
       list: CURRENCIES,
     }),
-    [currency, currencyCode, setCurrencyCode, formatPrice, convert],
+    [currency, currencyCode, source, setCurrencyCode, formatPrice, convert],
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
