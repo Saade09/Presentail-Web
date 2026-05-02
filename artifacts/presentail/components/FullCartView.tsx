@@ -16,7 +16,11 @@ import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
-export default function CartScreen() {
+type FullCartViewProps = {
+  showBackButton?: boolean;
+};
+
+export function FullCartView({ showBackButton = true }: FullCartViewProps) {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -35,9 +39,13 @@ export default function CartScreen() {
           justifyContent: "space-between",
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Feather name="arrow-left" size={22} color={colors.primary} />
-        </Pressable>
+        {showBackButton ? (
+          <Pressable onPress={() => router.back()} hitSlop={10}>
+            <Feather name="arrow-left" size={22} color={colors.primary} />
+          </Pressable>
+        ) : (
+          <View style={{ width: 22 }} />
+        )}
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
           {t.cartTitleBag}
         </Text>

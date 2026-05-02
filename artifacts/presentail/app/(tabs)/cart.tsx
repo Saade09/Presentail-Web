@@ -3,12 +3,12 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FullCartView } from "@/components/FullCartView";
 import { GiftIllustration } from "@/components/GiftIllustration";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
-import FullCartScreen from "../cart";
 
 export default function CartTab() {
   const colors = useColors();
@@ -19,7 +19,7 @@ export default function CartTab() {
   const { detailed } = useCart();
 
   if (detailed.length > 0) {
-    return <FullCartScreen />;
+    return <FullCartView showBackButton={false} />;
   }
 
   return (
