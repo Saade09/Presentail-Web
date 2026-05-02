@@ -19,6 +19,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, type OccasionGroup } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -29,6 +30,7 @@ export default function OccasionScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { count } = useCart();
   const occasion = getOccasion(String(slug));
 
@@ -87,10 +89,10 @@ export default function OccasionScreen() {
           </View>
           <View style={{ position: "absolute", bottom: 22, left: 24, right: 24 }}>
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.goldSoft, letterSpacing: 3, textTransform: "uppercase" }}>
-              For the occasion
+              {t.occasionForTheOccasion}
             </Text>
             <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, color: "#fff", marginTop: 6 }}>
-              {occasion?.name ?? "Occasion"}
+              {occasion?.name ?? t.occasionFallback}
             </Text>
             {occasion?.description ? (
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.82)", marginTop: 6, lineHeight: 19 }}>
@@ -134,17 +136,17 @@ export default function OccasionScreen() {
           <View style={{ paddingTop: 60, alignItems: "center", gap: 12 }}>
             <ActivityIndicator color={colors.primary} size="large" />
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
-              Finding the perfect gifts…
+              {t.occasionFindingGifts}
             </Text>
           </View>
         ) : groups.length === 0 ? (
           <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
             <Feather name="inbox" size={28} color={colors.mutedForeground} />
-            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
-              Curating new pieces
+            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+              {t.occasionCuratingTitle}
             </Text>
             <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-              We're hand-picking our favourites for this occasion.
+              {t.occasionCuratingDesc}
             </Text>
           </View>
         ) : (
@@ -154,6 +156,7 @@ export default function OccasionScreen() {
                 key={group.slug}
                 group={group}
                 colors={colors}
+                t={t}
                 onProduct={(id) => router.push(`/product/${id}` as any)}
                 onSeeAll={() => router.push(`/category/${group.slug}` as any)}
               />
@@ -168,11 +171,13 @@ export default function OccasionScreen() {
 function CategorySection({
   group,
   colors,
+  t,
   onProduct,
   onSeeAll,
 }: {
   group: OccasionGroup;
   colors: any;
+  t: any;
   onProduct: (id: string) => void;
   onSeeAll: () => void;
 }) {
@@ -198,7 +203,7 @@ function CategorySection({
             {group.label}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>
-            {group.count} item{group.count !== 1 ? "s" : ""}
+            {group.count} {group.count !== 1 ? t.occasionItems : t.occasionItem}
           </Text>
         </View>
         <Pressable onPress={onSeeAll} hitSlop={8}>
@@ -210,7 +215,7 @@ function CategorySection({
               textDecorationLine: "underline",
             }}
           >
-            See All
+            {t.seeAll}
           </Text>
         </Pressable>
       </View>

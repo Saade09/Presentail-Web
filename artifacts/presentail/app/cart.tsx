@@ -14,12 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 export default function CartScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, setQty, remove, clear } = useCart();
+  const t = useT();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -37,11 +39,11 @@ export default function CartScreen() {
           <Feather name="arrow-left" size={22} color={colors.primary} />
         </Pressable>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-          Your Bag
+          {t.cartTitleBag}
         </Text>
         <Pressable onPress={clear} hitSlop={10}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-            Clear
+            {t.cartClear}
           </Text>
         </Pressable>
       </View>
@@ -60,18 +62,18 @@ export default function CartScreen() {
           >
             <Feather name="shopping-bag" size={28} color={colors.primary} />
           </View>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-            Your bag is empty
+          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+            {t.cartEmptyBag}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
-            Add a bouquet, cake or boutique gift and it will appear here.
+            {t.cartEmptyBagDesc}
           </Text>
           <Pressable
             onPress={() => router.replace("/(tabs)/catalog" as any)}
             style={{ marginTop: 8, paddingHorizontal: 22, paddingVertical: 14, borderRadius: 999, backgroundColor: colors.primary }}
           >
-            <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 12 }}>
-              Browse the boutique
+            <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
+              {t.cartBrowseBoutique}
             </Text>
           </Pressable>
         </View>
@@ -144,7 +146,7 @@ export default function CartScreen() {
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-                Subtotal
+                {t.subtotal}
               </Text>
               <Price
                 value={total}
@@ -153,15 +155,15 @@ export default function CartScreen() {
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-                Delivery
+                {t.cartDelivery}
               </Text>
               <Text style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 13 }}>
-                Free
+                {t.cartFree}
               </Text>
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
-                Total
+                {t.cartTotal}
               </Text>
               <Price
                 value={total}
@@ -185,8 +187,8 @@ export default function CartScreen() {
               ]}
             >
               <Feather name="lock" size={14} color="#fff" />
-              <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12 }}>
-                Proceed to Checkout
+              <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
+                {t.cartProceed}
               </Text>
             </Pressable>
           </View>

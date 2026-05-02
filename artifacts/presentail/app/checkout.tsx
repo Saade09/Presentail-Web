@@ -120,7 +120,7 @@ function getBeirutHour(): number {
   }
 }
 
-function dayLabels() {
+function dayLabels(todayLabel: string, tomLabel: string) {
   const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
   const now = new Date();
   for (let i = 0; i < 10; i++) {
@@ -128,7 +128,7 @@ function dayLabels() {
     d.setDate(now.getDate() + i);
     out.push({
       iso: d.toISOString().slice(0, 10),
-      label: i === 0 ? "Today" : i === 1 ? "Tom" : d.toLocaleDateString(undefined, { weekday: "short" }),
+      label: i === 0 ? todayLabel : i === 1 ? tomLabel : d.toLocaleDateString(undefined, { weekday: "short" }),
       day: d.toLocaleDateString(undefined, { weekday: "short" }),
       date: String(d.getDate()),
       full: d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
@@ -174,7 +174,7 @@ export default function CheckoutScreen() {
   const [senderCountry, setSenderCountry] = useState<CountryDialCode>(LB);
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
-  const days = useMemo(dayLabels, []);
+  const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const expressAvailable = useMemo(() => {
     const h = getBeirutHour();
     return h >= 8 && h < 22;
@@ -228,14 +228,14 @@ export default function CheckoutScreen() {
   const getMissingFields = (): string[] => {
     if (step !== 1) return [];
     const missing: string[] = [];
-    if (!recipientFirst.trim()) missing.push("Recipient first name");
-    if (!recipientLast.trim()) missing.push("Recipient last name");
-    if (!recipientPhone.trim()) missing.push("Recipient phone number");
-    if (!noAddress && !deliveryDetails.trim()) missing.push("Delivery address");
-    if (!senderFirst.trim()) missing.push("Your first name");
-    if (!senderLast.trim()) missing.push("Your last name");
-    if (!senderWhatsapp.trim()) missing.push("Your WhatsApp number");
-    if (!senderEmail.trim()) missing.push("Your email address");
+    if (!recipientFirst.trim()) missing.push(t.checkoutMfRecipientFirst);
+    if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
+    if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
+    if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
+    if (!senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
+    if (!senderLast.trim()) missing.push(t.checkoutMfSenderLast);
+    if (!senderWhatsapp.trim()) missing.push(t.checkoutMfSenderWhatsapp);
+    if (!senderEmail.trim()) missing.push(t.checkoutMfSenderEmail);
     return missing;
   };
 
@@ -244,8 +244,8 @@ export default function CheckoutScreen() {
       const missing = getMissingFields();
       if (missing.length > 0) {
         Alert.alert(
-          "Please complete the form",
-          `Missing required fields:\n• ${missing.join("\n• ")}`,
+          t.checkoutPleaseCompleteTitle,
+          `${t.checkoutMissingFieldsMsg}\n• ${missing.join("\n• ")}`,
           [{ text: "OK" }]
         );
       }
@@ -279,7 +279,7 @@ export default function CheckoutScreen() {
     expressFee: fees.expressFee,
     deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
-    deliverySlot: deliveryMode === "express" ? "Express Delivery" : (slot?.label ?? ""),
+    deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
     cardFrom,
     cardTo,
@@ -322,8 +322,8 @@ export default function CheckoutScreen() {
       try { await wooOrderPromise; } catch {}
       if (wooOrderFailed) {
         Alert.alert(
-          "Payment received — order pending",
-          `Your payment went through, but we couldn't fully record your order yet. Please screenshot this reference and contact us so we can confirm: ${orderId}`,
+          t.checkoutPaymentPendingTitle,
+          `${t.checkoutPaymentPendingMsg} ${orderId}`,
         );
       }
     };
@@ -355,19 +355,19 @@ export default function CheckoutScreen() {
           router.replace(successPath as any);
           notifyIfWooFailed();
         } else {
-          Alert.alert("Payment cancelled", "You can try again or pick a different payment method.");
+          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
         }
         setPaying(false);
         return;
       }
       if (session.code === "stripe_not_configured") {
         Alert.alert(
-          "Card payments coming soon",
-          "We're finalising the Stripe setup for your account. Please pick another payment method.",
+          t.checkoutCardSoonTitle,
+          t.checkoutCardSoonMsg,
           [{ text: "OK" }]
         );
       } else {
-        Alert.alert("Payment error", session.message);
+        Alert.alert(t.checkoutPaymentErrorTitle, session.message);
       }
       setPaying(false);
       return;
@@ -392,13 +392,13 @@ export default function CheckoutScreen() {
           router.replace(successPath as any);
           notifyIfWooFailed();
         } else {
-          Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
+          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
         setPaying(false);
         return;
       }
-      Alert.alert("Mamo error", session.code === "mamo_not_configured"
-        ? "Mamo payments are being set up. Please choose another payment method."
+      Alert.alert(t.checkoutMamoErrorTitle, session.code === "mamo_not_configured"
+        ? t.checkoutMamoNotConfigured
         : session.message);
       setPaying(false);
       return;
@@ -419,13 +419,13 @@ export default function CheckoutScreen() {
           router.replace(successPath as any);
           notifyIfWooFailed();
         } else {
-          Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
+          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
         setPaying(false);
         return;
       }
-      Alert.alert("PayPal error", session.code === "paypal_not_configured"
-        ? "PayPal payments are being set up. Please choose another payment method."
+      Alert.alert(t.checkoutPaypalErrorTitle, session.code === "paypal_not_configured"
+        ? t.checkoutPaypalNotConfigured
         : session.message);
       setPaying(false);
       return;
@@ -441,12 +441,12 @@ export default function CheckoutScreen() {
   if (detailed.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-          Your bag is empty
+        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+          {t.checkoutBagEmpty}
         </Text>
         <Pressable onPress={() => router.replace("/(tabs)/catalog" as any)} style={{ marginTop: 14 }}>
-          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase" }}>
-            Browse the boutique
+          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+            {t.checkoutBrowseBoutique}
           </Text>
         </Pressable>
       </View>
@@ -478,7 +478,7 @@ export default function CheckoutScreen() {
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
-          Presentail
+          {t.checkoutBrandHeader}
         </Text>
       </View>
 
@@ -739,11 +739,18 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>{helper}</Text>
       ) : null}
       {characterCount && maxLength ? (
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4, textAlign: "right" }}>
-          {maxLength - (value?.length ?? 0)} characters left
-        </Text>
+        <CharsLeft maxLength={maxLength} value={value} colors={colors} />
       ) : null}
     </View>
+  );
+}
+
+function CharsLeft({ maxLength, value, colors }: { maxLength: number; value?: string; colors: any }) {
+  const t = useT();
+  return (
+    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4, textAlign: "right" }}>
+      {maxLength - (value?.length ?? 0)} {t.checkoutCharsLeft}
+    </Text>
   );
 }
 
@@ -774,10 +781,10 @@ function Card({ children, colors, title }: any) {
 function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
   const t = useT();
   const presets = [
-    "Try Suggested Messages",
-    "Wishing you a magical birthday.",
-    "Thinking of you today.",
-    "With all my love.",
+    t.checkoutSuggestedMessages,
+    t.checkoutPresetMagicalBirthday,
+    t.checkoutPresetThinkingOfYou,
+    t.checkoutPresetWithLove,
   ];
   return (
     <Card colors={colors} title={t.cardMessageTitle}>
@@ -921,7 +928,7 @@ function DeliveryDetailsStep(props: any) {
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                {formatPrice(district.fee)} delivery
+                {formatPrice(district.fee)} {t.checkoutDeliverySuffix}
               </Text>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </View>
@@ -1284,7 +1291,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           </PayOption>
         ) : (
           <>
-            <PayOption colors={colors} active={payMethod === "card"} onPress={() => setPayMethod("card")} title="Credit / Debit Card" payIcons="card">
+            <PayOption colors={colors} active={payMethod === "card"} onPress={() => setPayMethod("card")} title={t.checkoutPayCard} payIcons="card">
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
                   <Field colors={colors} label={t.cardholderNameLabel} value={cardName} onChangeText={setCardName} placeholder={t.nameOnCard} />
@@ -1328,7 +1335,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
               ) : null}
             </PayOption>
 
-            <PayOption colors={colors} active={payMethod === "wallet"} onPress={() => setPayMethod("wallet")} title="Apple Pay / Google Pay" payIcons="wallet">
+            <PayOption colors={colors} active={payMethod === "wallet"} onPress={() => setPayMethod("wallet")} title={t.checkoutPayWallet} payIcons="wallet">
               {payMethod === "wallet" ? (
                 <View style={{ gap: 12 }}>
                   <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
@@ -1441,8 +1448,9 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
   const { formatPrice } = useCurrency();
+  const t = useT();
   return (
-    <Card colors={colors} title="Order Summary">
+    <Card colors={colors} title={t.checkoutOrderSummaryCard}>
       <View style={{ gap: 12 }}>
         {detailed.map(({ product, qty, lineTotal }: any) => (
           <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -1475,30 +1483,30 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
 
       <Pressable onPress={() => setCouponOpen(!couponOpen)}>
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
-          Have a coupon? <Text style={{ textDecorationLine: "underline" }}>Click here to enter your code</Text>
+          {t.checkoutHaveCoupon} <Text style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</Text>
         </Text>
       </Pressable>
       {couponOpen ? (
-        <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder="Coupon code" />
+        <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
       ) : null}
 
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label="Subtotal" value={formatPrice(fees.subtotal)} colors={colors} />
+      <SummaryRow label={t.checkoutSubtotalLabel} value={formatPrice(fees.subtotal)} colors={colors} />
       {showDeliveryFee ? (
         <>
           <SummaryRow
-            label="Delivery Fee"
-            value={fees.districtFee === 0 ? "FREE" : formatPrice(fees.districtFee)}
+            label={t.checkoutDeliveryFeeLabel}
+            value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatPrice(fees.districtFee)}
             colors={colors}
             highlight={fees.districtFee === 0}
           />
           {fees.expressFee > 0 ? (
-            <SummaryRow label="Express Delivery" value={formatPrice(fees.expressFee)} colors={colors} />
+            <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatPrice(fees.expressFee)} colors={colors} />
           ) : null}
         </>
       ) : null}
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label="Total" value={formatPrice(fees.grand)} colors={colors} bold />
+      <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />
     </Card>
   );
 }

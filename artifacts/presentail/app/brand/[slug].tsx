@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/ProductCard";
 import { brands } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -24,6 +25,7 @@ export default function BrandScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
 
   const brand = brands.find((b) => b.slug === slug);
   const brandName = brand?.name ?? slug ?? "";
@@ -71,7 +73,7 @@ export default function BrandScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2, textTransform: "uppercase" }}>
-              Brand
+              {t.brandSlugLabel}
             </Text>
             <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: "#fff", marginTop: 2 }}>
               {brandName}
@@ -84,23 +86,23 @@ export default function BrandScreen() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
           <ActivityIndicator color={colors.primary} size="large" />
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
-            Loading products…
+            {t.brandSlugLoading}
           </Text>
         </View>
       ) : products.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 40 }}>
           <Feather name="package" size={40} color={colors.mutedForeground} />
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary, textAlign: "center" }}>
-            No products found
+            {t.brandSlugNoProducts}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
-            We couldn't find products for {brandName} right now. Check back soon.
+            {t.brandSlugNoProductsPrefix} {brandName} {t.brandSlugNoProductsSuffix}
           </Text>
           <Pressable
             onPress={() => router.back()}
             style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 999 }}
           >
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>Go Back</Text>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>{t.brandSlugGoBack}</Text>
           </Pressable>
         </View>
       ) : (
@@ -114,7 +116,7 @@ export default function BrandScreen() {
           ListHeaderComponent={
             <View style={{ paddingHorizontal: 24, marginBottom: 4 }}>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                {products.length} product{products.length !== 1 ? "s" : ""}
+                {products.length} {products.length !== 1 ? t.brandSlugProducts : t.brandSlugProduct}
               </Text>
             </View>
           }

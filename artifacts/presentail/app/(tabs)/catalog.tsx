@@ -21,6 +21,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { categories } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -32,6 +33,7 @@ export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { count } = useCart();
+  const t = useT();
   const params = useLocalSearchParams<{ category?: string; q?: string }>();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -67,7 +69,7 @@ export default function CatalogScreen() {
               textTransform: "uppercase",
             }}
           >
-            Boutique
+            {t.boutique}
           </Text>
           <Pressable hitSlop={10} onPress={() => router.push("/cart" as any)}>
             <Feather name="shopping-bag" size={18} color={colors.primary} />
@@ -94,8 +96,8 @@ export default function CatalogScreen() {
           </Pressable>
         </View>
         <SectionTitle
-          title="The full catalogue"
-          description="Every flower, plant and gift from our atelier — refined by what you're looking for."
+          title={t.catalogFullTitle}
+          description={t.catalogFullDesc}
         />
         <View
           style={{
@@ -114,7 +116,7 @@ export default function CatalogScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search bouquets, gifts, occasions"
+            placeholder={t.searchPlaceholder}
             placeholderTextColor={colors.mutedForeground}
             style={{
               flex: 1,
@@ -138,7 +140,7 @@ export default function CatalogScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingTop: 22 }}
       >
-        {[{ id: ALL, name: "All" }, ...categories.map((c) => ({ id: c.id, name: c.name }))].map(
+        {[{ id: ALL, name: t.catalogAll }, ...categories.map((c) => ({ id: c.id, name: c.name }))].map(
           (c) => {
             const active = c.id === activeCat;
             return (
@@ -193,7 +195,7 @@ export default function CatalogScreen() {
               textTransform: "uppercase",
             }}
           >
-            Featured · Lux Arrangements
+            {t.catalogFeaturedEyebrow}
           </Text>
           <Text
             style={{
@@ -203,7 +205,7 @@ export default function CatalogScreen() {
               marginTop: 6,
             }}
           >
-            Sculpted Roses & Statement Stems
+            {t.catalogFeaturedTitle}
           </Text>
         </View>
       </Pressable>
@@ -211,11 +213,11 @@ export default function CatalogScreen() {
       {filtered.length === 0 ? (
         <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
           <Feather name="search" size={28} color={colors.mutedForeground} />
-          <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
-            No matches
+          <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+            {t.noMatches}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-            Try a different category or search term.
+            {t.noMatchesDesc}
           </Text>
         </View>
       ) : (

@@ -16,12 +16,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 export default function LoginScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
+  const t = useT();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,14 +31,14 @@ export default function LoginScreen() {
 
   const onSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Missing details", "Please enter your email and password.");
+      Alert.alert(t.loginMissingTitle, t.loginMissingMsg);
       return;
     }
     setBusy(true);
     const r = await login(email.trim(), password);
     setBusy(false);
     if (!r.ok) {
-      Alert.alert("Sign in failed", r.message);
+      Alert.alert(t.loginFailedTitle, r.message);
       return;
     }
     router.replace("/(tabs)/account" as any);
@@ -66,7 +68,7 @@ export default function LoginScreen() {
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
-          Sign in
+          {t.loginTitle}
         </Text>
       </View>
 
@@ -76,16 +78,16 @@ export default function LoginScreen() {
       >
         <View style={{ gap: 6, marginBottom: 6 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 26, color: colors.primary }}>
-            Welcome back
+            {t.loginWelcomeBack}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-            Sign in to track orders, save addresses and re-order favourites.
+            {t.loginHelper}
           </Text>
         </View>
 
         <Field
           colors={colors}
-          label="Email"
+          label={t.loginEmailLabel}
           value={email}
           onChangeText={setEmail}
           placeholder="you@example.com"
@@ -96,7 +98,7 @@ export default function LoginScreen() {
         />
         <Field
           colors={colors}
-          label="Password"
+          label={t.loginPasswordLabel}
           value={password}
           onChangeText={setPassword}
           placeholder="••••••••"
@@ -128,18 +130,18 @@ export default function LoginScreen() {
                 fontSize: 14,
               }}
             >
-              Sign in
+              {t.loginTitle}
             </Text>
           )}
         </Pressable>
 
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
-            New to Presentail?
+            {t.loginNewTo}
           </Text>
           <Pressable onPress={() => router.replace("/register" as any)}>
             <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.gold }}>
-              Create an account
+              {t.loginCreateAccountLink}
             </Text>
           </Pressable>
         </View>
@@ -148,8 +150,8 @@ export default function LoginScreen() {
           onPress={() => router.replace("/(tabs)" as any)}
           style={{ alignItems: "center", marginTop: 16 }}
         >
-          <Text style={{ fontFamily: "Inter_500Medium", color: colors.mutedForeground, fontSize: 12 }}>
-            Continue without signing in
+          <Text style={{ fontFamily: "Inter_500Medium", color: colors.mutedForeground, fontSize: 12, textAlign: "center" }}>
+            {t.loginContinueWithout}
           </Text>
         </Pressable>
       </ScrollView>

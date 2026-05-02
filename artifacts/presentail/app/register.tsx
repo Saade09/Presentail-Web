@@ -16,12 +16,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 export default function RegisterScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
+  const t = useT();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -32,15 +34,15 @@ export default function RegisterScreen() {
 
   const onSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Missing details", "Email and password are required.");
+      Alert.alert(t.loginMissingTitle, t.registerMissingMsg);
       return;
     }
     if (password.length < 8) {
-      Alert.alert("Weak password", "Password must be at least 8 characters.");
+      Alert.alert(t.registerWeakTitle, t.registerWeakMsg);
       return;
     }
     if (password !== confirm) {
-      Alert.alert("Passwords don't match", "Please make sure the passwords are the same.");
+      Alert.alert(t.registerMismatchTitle, t.registerMismatchMsg);
       return;
     }
     setBusy(true);
@@ -52,7 +54,7 @@ export default function RegisterScreen() {
     });
     setBusy(false);
     if (!r.ok) {
-      Alert.alert("Couldn't create account", r.message);
+      Alert.alert(t.registerCouldntTitle, r.message);
       return;
     }
     router.replace("/(tabs)/account" as any);
@@ -82,7 +84,7 @@ export default function RegisterScreen() {
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
-          Create account
+          {t.registerTitle}
         </Text>
       </View>
 
@@ -92,24 +94,24 @@ export default function RegisterScreen() {
       >
         <View style={{ gap: 6, marginBottom: 6 }}>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 26, color: colors.primary }}>
-            Join Presentail
+            {t.registerJoin}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-            Save addresses, view past orders and re-order favourites in one tap.
+            {t.registerHelper}
           </Text>
         </View>
 
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="First name" value={firstName} onChangeText={setFirstName} placeholder="" autoCapitalize="words" />
+            <Field colors={colors} label={t.registerFirstName} value={firstName} onChangeText={setFirstName} placeholder="" autoCapitalize="words" />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label="Last name" value={lastName} onChangeText={setLastName} placeholder="" autoCapitalize="words" />
+            <Field colors={colors} label={t.registerLastName} value={lastName} onChangeText={setLastName} placeholder="" autoCapitalize="words" />
           </View>
         </View>
         <Field
           colors={colors}
-          label="Email"
+          label={t.loginEmailLabel}
           value={email}
           onChangeText={setEmail}
           placeholder="you@example.com"
@@ -120,20 +122,20 @@ export default function RegisterScreen() {
         />
         <Field
           colors={colors}
-          label="Password"
+          label={t.loginPasswordLabel}
           value={password}
           onChangeText={setPassword}
-          placeholder="At least 8 characters"
+          placeholder={t.registerPasswordPlaceholder}
           secureTextEntry
           autoComplete="new-password"
           textContentType="newPassword"
         />
         <Field
           colors={colors}
-          label="Confirm password"
+          label={t.registerConfirmLabel}
           value={confirm}
           onChangeText={setConfirm}
-          placeholder="Re-enter your password"
+          placeholder={t.registerConfirmPlaceholder}
           secureTextEntry
           autoComplete="new-password"
         />
@@ -161,18 +163,18 @@ export default function RegisterScreen() {
                 fontSize: 14,
               }}
             >
-              Create account
+              {t.registerTitle}
             </Text>
           )}
         </Pressable>
 
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
-            Already have an account?
+            {t.registerAlready}
           </Text>
           <Pressable onPress={() => router.replace("/login" as any)}>
             <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.gold }}>
-              Sign in
+              {t.registerSignInLink}
             </Text>
           </Pressable>
         </View>

@@ -10,29 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-
-const CHANNELS = [
-  {
-    id: "whatsapp",
-    icon: "message-circle" as const,
-    label: "WhatsApp",
-    value: "+961 3 136 532",
-    action: () => Linking.openURL("https://wa.me/9613136532"),
-    color: "#25D366",
-    bg: "#f0fdf4",
-    border: "#bbf7d0",
-  },
-  {
-    id: "email",
-    icon: "mail" as const,
-    label: "Email",
-    value: "hello@presentail.com",
-    action: () => Linking.openURL("mailto:hello@presentail.com"),
-    color: "#1a4e5f",
-    bg: "#f0f9ff",
-    border: "#bae6fd",
-  },
-];
+import { useT } from "@/hooks/useT";
 
 const SOCIALS = [
   {
@@ -69,22 +47,45 @@ const SOCIALS = [
   },
 ];
 
-const LOCATIONS = [
-  { name: "Our Boutique in Achrafieh", icon: "map-pin" as const },
-  { name: "Our Boutique in Jdeideh", icon: "map-pin" as const },
-  { name: "Our Headquarters", icon: "home" as const },
-  { name: "Dubai Boutique", icon: "map-pin" as const },
-  { name: "Abu Dhabi Boutique", icon: "map-pin" as const },
-];
-
 export default function ContactScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
+
+  const CHANNELS = [
+    {
+      id: "whatsapp",
+      icon: "message-circle" as const,
+      label: "WhatsApp",
+      value: "+961 3 136 532",
+      action: () => Linking.openURL("https://wa.me/9613136532"),
+      color: "#25D366",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+    },
+    {
+      id: "email",
+      icon: "mail" as const,
+      label: "Email",
+      value: "hello@presentail.com",
+      action: () => Linking.openURL("mailto:hello@presentail.com"),
+      color: "#1a4e5f",
+      bg: "#f0f9ff",
+      border: "#bae6fd",
+    },
+  ];
+
+  const LOCATIONS = [
+    { name: t.contactLocAchrafieh, icon: "map-pin" as const },
+    { name: t.contactLocJdeideh, icon: "map-pin" as const },
+    { name: t.contactLocHQ, icon: "home" as const },
+    { name: t.contactLocDubai, icon: "map-pin" as const },
+    { name: t.contactLocAbuDhabi, icon: "map-pin" as const },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
       <View
         style={{
           paddingTop: insets.top + 6,
@@ -107,7 +108,7 @@ export default function ContactScreen() {
               color: "#fff",
             }}
           >
-            Contact Us
+            {t.contactTitle}
           </Text>
           <Text
             style={{
@@ -117,7 +118,7 @@ export default function ContactScreen() {
               marginTop: 2,
             }}
           >
-            We're here to help
+            {t.contactSubtitle}
           </Text>
         </View>
         <Feather name="phone" size={20} color="rgba(255,255,255,0.6)" />
@@ -128,7 +129,6 @@ export default function ContactScreen() {
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
       >
-        {/* Hero text */}
         <View style={{ paddingTop: 28, gap: 8 }}>
           <Text
             style={{
@@ -138,7 +138,7 @@ export default function ContactScreen() {
               lineHeight: 32,
             }}
           >
-            Reach us on one of our contact channels
+            {t.contactReachUs}
           </Text>
           <Text
             style={{
@@ -148,11 +148,10 @@ export default function ContactScreen() {
               lineHeight: 20,
             }}
           >
-            Our team is available every day from 8 AM to 10 PM Lebanon time.
+            {t.contactReachUsDesc}
           </Text>
         </View>
 
-        {/* Contact channels */}
         <View style={{ gap: 12 }}>
           {CHANNELS.map((ch) => (
             <Pressable
@@ -207,7 +206,6 @@ export default function ContactScreen() {
           ))}
         </View>
 
-        {/* Social media */}
         <View style={{ gap: 14 }}>
           <Text
             style={{
@@ -216,7 +214,7 @@ export default function ContactScreen() {
               color: colors.primary,
             }}
           >
-            Follow Us
+            {t.contactFollowUs}
           </Text>
           <View style={{ gap: 10 }}>
             {SOCIALS.map((s) => (
@@ -273,7 +271,6 @@ export default function ContactScreen() {
           </View>
         </View>
 
-        {/* Locations */}
         <View style={{ gap: 14 }}>
           <Text
             style={{
@@ -282,7 +279,7 @@ export default function ContactScreen() {
               color: colors.primary,
             }}
           >
-            Visit Us
+            {t.contactVisitUs}
           </Text>
           <View
             style={{
@@ -333,7 +330,6 @@ export default function ContactScreen() {
           </View>
         </View>
 
-        {/* FAQ link */}
         <Pressable
           onPress={() => router.push("/faq" as any)}
           style={{
@@ -356,7 +352,7 @@ export default function ContactScreen() {
                 color: colors.primary,
               }}
             >
-              Frequently Asked Questions
+              {t.contactFAQTitle}
             </Text>
             <Text
               style={{
@@ -366,7 +362,7 @@ export default function ContactScreen() {
                 marginTop: 2,
               }}
             >
-              Find quick answers to common questions
+              {t.contactFAQDesc}
             </Text>
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />

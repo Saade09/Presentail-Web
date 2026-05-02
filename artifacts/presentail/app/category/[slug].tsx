@@ -22,20 +22,28 @@ import {
   getCategory,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
-const SORTS = ["Featured", "Price ↑", "Price ↓", "Name"] as const;
+type SortKey = "featured" | "priceUp" | "priceDown" | "name";
 
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { count } = useCart();
-  const [sort, setSort] = useState<(typeof SORTS)[number]>("Featured");
+  const [sort, setSort] = useState<SortKey>("featured");
+  const SORTS: { key: SortKey; label: string }[] = [
+    { key: "featured", label: t.sortFeatured },
+    { key: "priceUp", label: t.sortPriceUp },
+    { key: "priceDown", label: t.sortPriceDown },
+    { key: "name", label: t.sortName },
+  ];
   const [wcProducts, setWcProducts] = useState<any[]>([]);
   const [wcCategoryName, setWcCategoryName] = useState<string>("");
   const [wcLoading, setWcLoading] = useState(false);
@@ -72,9 +80,9 @@ export default function CategoryScreen() {
 
   const sourceProducts = mergedProducts.length > 0 ? mergedProducts : wcProducts;
   const products = useMemo(() => {
-    if (sort === "Price ↑") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
-    if (sort === "Price ↓") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
-    if (sort === "Name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "priceUp") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
+    if (sort === "priceDown") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
+    if (sort === "name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
     return sourceProducts;
   }, [sourceProducts, sort]);
 
@@ -132,7 +140,7 @@ export default function CategoryScreen() {
                 textTransform: "uppercase",
               }}
             >
-              Boutique · Lebanon
+              {t.categoryBoutiqueLebanon}
             </Text>
             <Text
               style={{
@@ -142,7 +150,7 @@ export default function CategoryScreen() {
                 marginTop: 6,
               }}
             >
-              {displayName || "Category"}
+              {displayName || t.categoryFallback}
             </Text>
             <Text
               style={{
@@ -152,7 +160,7 @@ export default function CategoryScreen() {
                 marginTop: 4,
               }}
             >
-              {wcLoading ? "Loading…" : `${products.length} pieces · Same-day delivery`}
+              {wcLoading ? t.loading : `${products.length} ${t.categoryPiecesLabel} · ${t.categorySameDay}`}
             </Text>
           </View>
         </View>
@@ -201,24 +209,24 @@ export default function CategoryScreen() {
           }}
         >
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-            {products.length} pieces
+            {products.length} {t.categoryPiecesLabel}
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {SORTS.map((s) => (
               <Pressable
-                key={s}
-                onPress={() => setSort(s)}
+                key={s.key}
+                onPress={() => setSort(s.key)}
                 style={{
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 999,
                   borderWidth: 1,
-                  borderColor: sort === s ? colors.gold : colors.border,
-                  backgroundColor: sort === s ? colors.gold : "transparent",
+                  borderColor: sort === s.key ? colors.gold : colors.border,
+                  backgroundColor: sort === s.key ? colors.gold : "transparent",
                 }}
               >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s ? "#fff" : colors.primary }}>
-                  {s}
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
+                  {s.label}
                 </Text>
               </Pressable>
             ))}
@@ -229,17 +237,17 @@ export default function CategoryScreen() {
           <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
             <ActivityIndicator color={colors.primary} />
             <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-              Loading products…
+              {t.categoryLoadingProducts}
             </Text>
           </View>
         ) : products.length === 0 ? (
           <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
             <Feather name="inbox" size={28} color={colors.mutedForeground} />
-            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
-              Coming soon
+            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+              {t.comingSoon}
             </Text>
             <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-              We're curating new pieces for this category. Check back shortly.
+              {t.comingSoonDesc}
             </Text>
           </View>
         ) : (

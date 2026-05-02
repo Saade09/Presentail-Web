@@ -1154,8 +1154,9 @@ function Footer() {
             {t.language}
           </Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
-            {(["EN", "AR"] as const).map((l) => {
+            {(["EN", "AR", "FR"] as const).map((l) => {
               const active = l === language;
+              const label = l === "EN" ? t.langEnglish : l === "AR" ? t.langArabic : t.langFrench;
               return (
                 <Pressable
                   key={l}
@@ -1170,7 +1171,7 @@ function Footer() {
                   }}
                 >
                   <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
-                    {l === "EN" ? "English" : "العربية"}
+                    {label}
                   </Text>
                 </Pressable>
               );

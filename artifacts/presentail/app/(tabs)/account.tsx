@@ -361,10 +361,10 @@ export default function AccountTab() {
   }
 
   const onLogout = () => {
-    Alert.alert("Sign out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t.accountSignOut, t.accountSignOutMsg, [
+      { text: t.accountCancel, style: "cancel" },
       {
-        text: "Sign out",
+        text: t.accountSignOut,
         style: "destructive",
         onPress: async () => {
           await logout();
@@ -375,22 +375,22 @@ export default function AccountTab() {
 
   const onDelete = () => {
     Alert.alert(
-      "Delete account",
-      "This permanently deletes your Presentail account, profile and saved data. Past orders kept for our records will be anonymised. This cannot be undone.",
+      t.accountDeleteAccount,
+      t.accountDeleteMsg,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t.accountCancel, style: "cancel" },
         {
-          text: "Delete",
+          text: t.accountDelete,
           style: "destructive",
           onPress: async () => {
             setBusy(true);
             const r = await deleteAccount();
             setBusy(false);
             if (!r.ok) {
-              Alert.alert("Couldn't delete account", r.message);
+              Alert.alert(t.accountCouldntDelete, r.message);
               return;
             }
-            Alert.alert("Account deleted", "Your account has been removed.");
+            Alert.alert(t.accountDeletedTitle, t.accountDeletedMsg);
           },
         },
       ]
@@ -408,7 +408,7 @@ export default function AccountTab() {
         }}
       >
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
-          My account
+          {t.accountMyAccount}
         </Text>
       </View>
 
@@ -436,12 +436,12 @@ export default function AccountTab() {
           ) : null}
         </View>
 
-        <Section colors={colors} title="Orders & history">
-          <Row colors={colors} icon="package" label="My orders" onPress={() => router.push("/(tabs)" as any)} />
+        <Section colors={colors} title={t.accountOrdersHistory}>
+          <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/(tabs)" as any)} />
         </Section>
 
         {Platform.OS !== "web" ? (
-          <Section colors={colors} title="Preferences">
+          <Section colors={colors} title={t.accountPreferences}>
             <SettingsRow
               colors={colors}
               isRTL={isRTL}
@@ -454,12 +454,12 @@ export default function AccountTab() {
           </Section>
         ) : null}
 
-        <Section colors={colors} title="Account">
-          <Row colors={colors} icon="log-out" label="Sign out" onPress={onLogout} />
+        <Section colors={colors} title={t.accountSection}>
+          <Row colors={colors} icon="log-out" label={t.accountSignOut} onPress={onLogout} />
           <Row
             colors={colors}
             icon="trash-2"
-            label={busy ? "Deleting…" : "Delete account"}
+            label={busy ? t.accountDeleting : t.accountDeleteAccount}
             destructive
             onPress={onDelete}
             disabled={busy}
@@ -476,7 +476,7 @@ export default function AccountTab() {
             marginTop: 8,
           }}
         >
-          Deleting your account permanently removes your profile and personal data.
+          {t.accountFooterNote}
         </Text>
       </ScrollView>
 

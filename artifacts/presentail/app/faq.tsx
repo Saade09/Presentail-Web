@@ -144,7 +144,6 @@ export default function FAQScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
       <View
         style={{
           paddingTop: insets.top + 6,
@@ -193,7 +192,6 @@ export default function FAQScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Section tabs */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -244,7 +242,6 @@ export default function FAQScreen() {
           })}
         </ScrollView>
 
-        {/* FAQ Sections */}
         <View style={{ paddingHorizontal: 22, gap: 36 }}>
           {SECTIONS.filter(
             (s) => activeSection === null || activeSection === s.id
@@ -294,7 +291,6 @@ export default function FAQScreen() {
           ))}
         </View>
 
-        {/* Bottom CTA */}
         <View
           style={{
             margin: 22,

@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 export default function OrderConfirmed() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { formatPrice } = useCurrency();
+  const t = useT();
   const { orderId, total, date, slot, recipient } = useLocalSearchParams<{
     orderId: string;
     total: string;
@@ -51,9 +53,10 @@ export default function OrderConfirmed() {
             color: colors.gold,
             letterSpacing: 3,
             textTransform: "uppercase",
+            textAlign: "center",
           }}
         >
-          Order placed
+          {t.ocOrderPlaced}
         </Text>
         <Text
           style={{
@@ -64,7 +67,7 @@ export default function OrderConfirmed() {
             lineHeight: 38,
           }}
         >
-          Your gift is on its way
+          {t.ocYourGiftOnWay}
         </Text>
         <Text
           style={{
@@ -76,7 +79,7 @@ export default function OrderConfirmed() {
             maxWidth: 320,
           }}
         >
-          Thank you for trusting Presentail. We've sent a confirmation by SMS, and our atelier is preparing the order with care.
+          {t.ocThanksMsg}
         </Text>
 
         <View
@@ -91,10 +94,10 @@ export default function OrderConfirmed() {
             gap: 14,
           }}
         >
-          <Row colors={colors} icon="hash" label="Order number" value={String(orderId)} />
-          <Row colors={colors} icon="user" label="Recipient" value={String(recipient || "—")} />
-          <Row colors={colors} icon="calendar" label="Delivery" value={`${date} · ${slot}`} />
-          <Row colors={colors} icon="dollar-sign" label="Total" value={formatPrice(Number(total || 0))} highlight />
+          <Row colors={colors} icon="hash" label={t.ocOrderNumber} value={String(orderId)} />
+          <Row colors={colors} icon="user" label={t.ocRecipient} value={String(recipient || "—")} />
+          <Row colors={colors} icon="calendar" label={t.ocDelivery} value={`${date} · ${slot}`} />
+          <Row colors={colors} icon="dollar-sign" label={t.ocTotal} value={formatPrice(Number(total || 0))} highlight />
         </View>
 
         <View
@@ -116,16 +119,16 @@ export default function OrderConfirmed() {
               textTransform: "uppercase",
             }}
           >
-            What happens next
+            {t.ocWhatHappensNext}
           </Text>
           {[
-            { icon: "flower", text: "Our florist hand-arranges your gift" },
-            { icon: "package-variant", text: "Boutique wrapping with your card" },
-            { icon: "truck-fast", text: "Climate-controlled delivery to the door" },
+            { icon: "flower", text: t.ocStep1 },
+            { icon: "package-variant", text: t.ocStep2 },
+            { icon: "truck-fast", text: t.ocStep3 },
           ].map((s) => (
             <View key={s.text} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <MaterialCommunityIcons name={s.icon as any} size={18} color={colors.goldSoft} />
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "#fff" }}>{s.text}</Text>
+              <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 13, color: "#fff" }}>{s.text}</Text>
             </View>
           ))}
         </View>
@@ -147,14 +150,15 @@ export default function OrderConfirmed() {
               letterSpacing: 1.5,
               textTransform: "uppercase",
               fontSize: 12,
+              textAlign: "center",
             }}
           >
-            Back to home
+            {t.ocBackToHome}
           </Text>
         </Pressable>
         <Pressable onPress={() => router.replace("/(tabs)/catalog" as any)}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase" }}>
-            Continue shopping
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+            {t.continueShopping}
           </Text>
         </Pressable>
       </ScrollView>
