@@ -1,0 +1,106 @@
+Update the Cart screen into a polished full-screen empty cart page with new wording and a different illustration from the current screenshot.
+
+Goal:
+Create a full-screen Cart page for when the user has no items in their cart. Keep the bottom navigation visible and unchanged.
+
+Important:
+Do not reuse the current empty cart wording:
+- Do not use “Your Cart is Empty!”
+- Do not use “Looks like you haven’t added anything to your cart yet.”
+
+Use different, more gift-focused wording instead.
+
+Suggested new copy:
+Title:
+“Your gift bag is waiting”
+
+Subtitle:
+“Start adding thoughtful gifts and we’ll keep them here until you’re ready to send.”
+
+Primary button:
+“Browse Gifts”
+
+Design requirements:
+- Full-screen white or soft cream background.
+- Keep the existing app colors, especially the dark teal primary button.
+- Keep the existing bottom navigation.
+- Cart tab should remain active.
+- Center the empty state content vertically, but slightly above center so it feels balanced with the bottom nav.
+- Add generous spacing between the illustration, title, subtitle, and button.
+- Use the app’s existing typography system.
+- Title should be bold and friendly.
+- Subtitle should be softer, centered, and easy to read.
+- Button should be wide, rounded, and touch-friendly.
+
+Illustration:
+Replace the current basket illustration with a different image/illustration.
+
+Use one of these directions:
+- A gift box with ribbon
+- A shopping bag with flowers/gifts
+- A wrapped present with sparkles
+- A friendly minimal line illustration that matches the app’s teal/cream style
+
+Do not use the same basket-with-people image shown in the screenshot.
+
+If the app already has illustration assets:
+- Check existing assets first.
+- Use a more relevant unused gift/cart illustration if available.
+
+If no suitable asset exists:
+- Add a new local SVG or image asset.
+- Keep it lightweight.
+- Match the brand colors: dark teal, light teal, cream, soft gray.
+- Avoid stock-photo style imagery.
+
+Button behavior:
+When the user taps “Browse Gifts”:
+- Navigate to the Explore tab or main shopping/browsing screen.
+- If the route name is different, use the app’s existing route for browsing products.
+
+Multilingual support:
+The app is being made multilingual.
+Do not hardcode strings directly in the Cart screen.
+Add the empty cart strings to the existing i18n translation files/objects.
+
+English:
+- Your gift bag is waiting
+- Start adding thoughtful gifts and we’ll keep them here until you’re ready to send.
+- Browse Gifts
+
+Arabic:
+- حقيبة الهدايا بانتظارك
+- ابدأ بإضافة هدايا مميزة وسنحتفظ بها هنا حتى تكون جاهزاً لإرسالها.
+- تصفح الهدايا
+
+French:
+- Votre sac cadeau vous attend
+- Ajoutez des cadeaux attentionnés et nous les garderons ici jusqu’à ce que vous soyez prêt à les envoyer.
+- Parcourir les cadeaux
+
+RTL support:
+When Arabic is selected:
+- Text should align naturally.
+- Layout should support RTL without breaking.
+- Button text should render correctly.
+- Bottom navigation should continue to work normally.
+
+Implementation guidance:
+- Create or update a reusable EmptyState component if helpful.
+- Keep the Cart screen ready for future non-empty cart content.
+- Structure the code so the empty state only appears when cart items length is 0.
+- Do not remove or break existing cart logic.
+- Add loading-safe checks if cart data is async.
+- Avoid duplicating styles unnecessarily.
+
+Acceptance criteria:
+1. Empty Cart screen is full-screen and polished.
+2. Existing bottom navigation remains visible and unchanged.
+3. Cart tab remains active.
+4. Current basket illustration is replaced with a different gift/cart illustration.
+5. Empty-state wording is updated and does not match the screenshot copy.
+6. Primary CTA says “Browse Gifts.”
+7. CTA navigates to the Explore/shopping screen.
+8. Strings are added to i18n for English, Arabic, and French.
+9. Arabic RTL layout works correctly.
+10. The screen still supports future non-empty cart items without refactoring.

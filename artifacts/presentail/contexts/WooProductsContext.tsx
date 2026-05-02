@@ -39,25 +39,36 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const isSyncing = useRef(false);
+  const syncSeq = useRef(0);
+  const unmounted = useRef(false);
 
   const sync = useCallback(async (force = false) => {
     if (isSyncing.current && !force) return;
     isSyncing.current = true;
+    const seq = ++syncSeq.current;
     try {
       const woo = await fetchWooProducts();
+      // Drop the result if a newer sync started or the provider unmounted.
+      if (unmounted.current || seq !== syncSeq.current) return;
       if (!woo.length) return;
       const merged = mergeProducts(CATALOG as AnyProduct[], woo);
       setProducts(merged);
       setLastSync(new Date());
     } finally {
       isSyncing.current = false;
-      setLoading(false);
+      if (!unmounted.current && seq === syncSeq.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
-  // Initial fetch
+  // Initial fetch + unmount tracking
   useEffect(() => {
+    unmounted.current = false;
     sync(true);
+    return () => {
+      unmounted.current = true;
+    };
   }, [sync]);
 
   // Refresh every 5 hours

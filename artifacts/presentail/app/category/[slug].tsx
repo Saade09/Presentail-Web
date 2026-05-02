@@ -49,6 +49,12 @@ export default function CategoryScreen() {
 
   // When catalog is done loading and has no products for this slug,
   // fall back to fetching directly from WooCommerce by category slug.
+  // Use a stable signature of the merged products (ids) so the effect
+  // re-runs when the actual product set changes, not just its length.
+  const mergedSig = useMemo(
+    () => mergedProducts.map((p) => p.id).join("|"),
+    [mergedProducts],
+  );
   useEffect(() => {
     if (catalogLoading) return;
     if (mergedProducts.length > 0) { setWcProducts([]); return; }
@@ -61,7 +67,8 @@ export default function CategoryScreen() {
       setWcLoading(false);
     });
     return () => { cancelled = true; };
-  }, [slug, catalogLoading, mergedProducts.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, catalogLoading, mergedSig]);
 
   const sourceProducts = mergedProducts.length > 0 ? mergedProducts : wcProducts;
   const products = useMemo(() => {

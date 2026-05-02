@@ -230,8 +230,9 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
     } catch { return (new Date().getUTCHours() + 2) % 24; }
   }
   const beirutH = getBeirutHourLocal();
-  const [date, setDate] = useState(days[0].iso);
-  const [slot, setSlot] = useState(() => PROD_SLOTS.find(s => s.cutoffHour > beirutH)?.label ?? PROD_SLOTS[2].label);
+  const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > beirutH);
+  const [date, setDate] = useState(nextSlot ? days[0].iso : days[1].iso);
+  const [slot, setSlot] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
 
   const careTips: string[] = [
     "Trim 2cm off stems at a 45° angle every 2–3 days.",

@@ -101,7 +101,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
                 minWidth: 17,
                 height: 17,
                 borderRadius: 999,
-                backgroundColor: "#E5302E",
+                backgroundColor: colors.gold,
                 alignItems: "center",
                 justifyContent: "center",
                 paddingHorizontal: 3,

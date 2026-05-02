@@ -8,6 +8,7 @@ export type Product = {
   category: string;
   occasions?: string[];
   description?: string;
+  wcId?: number;
 };
 
 export type Collection = {

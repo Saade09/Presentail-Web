@@ -1,0 +1,146 @@
+Add push notification permission support to the app. This feature does not currently exist.
+
+Goal:
+Implement a first-time notification permission flow so the app can ask users if they want to receive notifications.
+
+Recommended behavior:
+Do not show the native OS notification permission popup immediately on app launch without context.
+
+Instead, show a branded in-app permission screen or modal first, then trigger the native permission prompt only if the user taps “Allow Notifications.”
+
+Where to ask:
+Show the notification prompt after one of these moments:
+1. After the user signs in or creates an account for the first time.
+2. After the user places their first order.
+3. If neither flow exists yet, show it after the user opens the app for the first time and reaches the Home screen, but only after a short delay so it does not feel abrupt.
+
+Create the structure so the trigger can be moved later.
+
+In-app permission prompt copy:
+Title:
+“Stay updated on your gifts”
+
+Subtitle:
+“Get notified about order updates, delivery progress, special moments, and reminders so you never miss an important gift.”
+
+Primary button:
+“Allow Notifications”
+
+Secondary button:
+“Maybe Later”
+
+Behavior:
+- If user taps “Allow Notifications,” request native push notification permission.
+- If user grants permission, save notification permission status locally.
+- If user denies permission, save denied status locally.
+- If user taps “Maybe Later,” dismiss the prompt and save that it was skipped.
+- Do not show the prompt repeatedly every time the app opens.
+- Allow the app to ask again later from Settings/Profile if the user previously tapped “Maybe Later.”
+- If the user denied native permissions, direct them to system settings if they try to enable notifications again.
+
+Platform support:
+iOS:
+- Request notification permission using the appropriate native API/library already used by the project.
+- Support alert, sound, and badge permissions.
+- Handle granted, denied, provisional, and not determined states if available.
+
+Android:
+- For Android 13/API 33+, request POST_NOTIFICATIONS runtime permission.
+- For older Android versions, handle notifications as allowed unless disabled by system/app settings.
+- Handle denied and granted states correctly.
+
+If the app is Expo:
+- Use expo-notifications.
+- Configure notification permissions properly.
+- Add any required app.json/app.config changes.
+- Add iOS notification usage strings if needed.
+- Add Android notification permission configuration if needed.
+
+If the app is React Native bare:
+- Use the existing notification library if present.
+- Otherwise add a clean notification permission service abstraction and document what library/config is needed.
+
+Important:
+- Do not implement real push campaigns or backend notification sending yet.
+- This task is only for permission handling and local app state.
+- Keep the notification logic modular so backend push token registration can be added later.
+
+Files/structure to create or update:
+- services/notifications or utils/notifications
+- notification permission helper/service
+- reusable NotificationPermissionModal component
+- app startup or auth success hook where the prompt is triggered
+- local storage key for notification prompt state
+- i18n translation files/objects
+- Profile/Settings entry point for enabling notifications later, if a settings area already exists
+
+Suggested notification state values:
+- not_determined
+- prompted
+- granted
+- denied
+- skipped
+
+Persistence:
+Save locally:
+- Whether the in-app prompt was shown
+- Whether the user skipped it
+- Native permission status
+- Timestamp of the prompt if useful
+
+Multilingual support:
+The app is multilingual. Do not hardcode strings directly in components.
+Add notification strings to English, Arabic, and French translation files.
+
+English:
+- Stay updated on your gifts
+- Get notified about order updates, delivery progress, special moments, and reminders so you never miss an important gift.
+- Allow Notifications
+- Maybe Later
+- Notifications
+- Enable Notifications
+- Notifications are disabled
+- To enable notifications, please allow them in your device settings.
+
+Arabic:
+- ابقَ على اطلاع بهداياك
+- احصل على إشعارات حول تحديثات الطلب، وتتبع التوصيل، والمناسبات الخاصة، والتذكيرات حتى لا تفوّت أي هدية مهمة.
+- السماح بالإشعارات
+- ربما لاحقاً
+- الإشعارات
+- تفعيل الإشعارات
+- الإشعارات معطلة
+- لتفعيل الإشعارات، يرجى السماح بها من إعدادات جهازك.
+
+French:
+- Restez informé de vos cadeaux
+- Recevez des notifications sur les mises à jour de commande, le suivi de livraison, les moments importants et les rappels afin de ne jamais manquer un cadeau important.
+- Autoriser les notifications
+- Peut-être plus tard
+- Notifications
+- Activer les notifications
+- Les notifications sont désactivées
+- Pour activer les notifications, veuillez les autoriser dans les réglages de votre appareil.
+
+UI requirements:
+- Match the app’s existing design style.
+- Use cream/off-white background, dark teal text, and rounded buttons.
+- The in-app prompt should feel branded and friendly.
+- Include a small notification/bell/gift illustration or icon if available.
+- Respect safe areas.
+- Work on small and large phone screens.
+- Support RTL layout for Arabic.
+
+Acceptance criteria:
+1. App has a reusable notification permission service.
+2. App shows a branded in-app notification permission prompt before the native OS prompt.
+3. Native permission prompt only appears after tapping “Allow Notifications.”
+4. “Maybe Later” dismisses and does not repeatedly show on every app open.
+5. Permission status is saved locally.
+6. iOS notification permission request works.
+7. Android 13+ notification permission request works.
+8. Older Android versions are handled safely.
+9. Strings are added to English, Arabic, and French i18n.
+10. Arabic RTL layout does not break the prompt.
+11. No backend push notification sending is implemented yet.
+12. Code is modular and ready for future push token/backend integration.

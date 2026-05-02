@@ -38,7 +38,6 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="product/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="category/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
-      <Stack.Screen name="cart" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
       <Stack.Screen name="occasion/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="checkout" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="order-confirmed" options={{ presentation: "card", animation: "fade", gestureEnabled: false }} />

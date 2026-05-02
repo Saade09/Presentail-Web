@@ -24,10 +24,34 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
+type PendingMutation =
+  | { type: "add"; productId: string; qty: number }
+  | { type: "remove"; productId: string }
+  | { type: "setQty"; productId: string; qty: number }
+  | { type: "clear" };
+
+function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
+  if (m.type === "clear") return [];
+  if (m.type === "remove") return items.filter((i) => i.productId !== m.productId);
+  if (m.type === "setQty") {
+    if (m.qty <= 0) return items.filter((i) => i.productId !== m.productId);
+    return items.map((i) => (i.productId === m.productId ? { ...i, qty: m.qty } : i));
+  }
+  // add
+  const existing = items.find((i) => i.productId === m.productId);
+  if (existing) {
+    return items.map((i) =>
+      i.productId === m.productId ? { ...i, qty: i.qty + m.qty } : i,
+    );
+  }
+  return [...items, { productId: m.productId, qty: m.qty }];
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const hydrated = useRef(false);
+  const pending = useRef<PendingMutation[]>([]);
   const { products: wooProducts } = useWooProducts();
 
   useEffect(() => {
@@ -35,30 +59,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.getItem(CART_STORAGE_KEY)
       .then((raw) => {
         if (cancelled) return;
-        if (!raw) {
-          hydrated.current = true;
-          return;
+        let stored: CartItem[] = [];
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) stored = parsed as CartItem[];
+          } catch {}
         }
-        try {
-          const parsed = JSON.parse(raw) as CartItem[];
-          if (Array.isArray(parsed)) {
-            setItems((current) => {
-              if (current.length === 0) return parsed;
-              const map = new Map<string, CartItem>();
-              for (const it of parsed) map.set(it.productId, { ...it });
-              for (const it of current) {
-                const existing = map.get(it.productId);
-                if (existing) existing.qty = Math.max(existing.qty, it.qty);
-                else map.set(it.productId, { ...it });
-              }
-              return Array.from(map.values());
-            });
-          }
-        } catch {}
+        // Replay any mutations that came in during hydration on top of
+        // the stored cart, so we don't lose items the user added pre-hydration
+        // and also don't accidentally double-count by merging.
+        let next = stored;
+        for (const m of pending.current) next = applyMutation(next, m);
+        pending.current = [];
         hydrated.current = true;
+        setItems(next);
       })
       .catch(() => {
-        if (!cancelled) hydrated.current = true;
+        if (cancelled) return;
+        // Storage failed — keep whatever in-memory state we have plus replays.
+        let next: CartItem[] = [];
+        for (const m of pending.current) next = applyMutation(next, m);
+        pending.current = [];
+        hydrated.current = true;
+        setItems(next);
       });
     return () => {
       cancelled = true;
@@ -74,31 +98,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
   const add = useCallback((productId: string, qty = 1) => {
-    setItems((prev) => {
-      const existing = prev.find((i) => i.productId === productId);
-      if (existing) {
-        return prev.map((i) =>
-          i.productId === productId ? { ...i, qty: i.qty + qty } : i,
-        );
-      }
-      return [...prev, { productId, qty }];
-    });
+    if (!hydrated.current) {
+      pending.current.push({ type: "add", productId, qty });
+    } else {
+      setItems((prev) => applyMutation(prev, { type: "add", productId, qty }));
+    }
     setIsCartOpen(true);
   }, []);
 
   const remove = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+    if (!hydrated.current) {
+      pending.current.push({ type: "remove", productId });
+      return;
+    }
+    setItems((prev) => applyMutation(prev, { type: "remove", productId }));
   }, []);
 
   const setQty = useCallback((productId: string, qty: number) => {
-    setItems((prev) =>
-      qty <= 0
-        ? prev.filter((i) => i.productId !== productId)
-        : prev.map((i) => (i.productId === productId ? { ...i, qty } : i)),
-    );
+    if (!hydrated.current) {
+      pending.current.push({ type: "setQty", productId, qty });
+      return;
+    }
+    setItems((prev) => applyMutation(prev, { type: "setQty", productId, qty }));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    if (!hydrated.current) {
+      pending.current.push({ type: "clear" });
+      return;
+    }
+    setItems([]);
+  }, []);
 
   const detailed = useMemo(
     () =>
@@ -106,7 +136,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         .map((i) => {
           // Prefer the live WooCommerce product (has current price); fall back to static catalog
           const wooProduct = wooProducts.find((p) => p.id === i.productId) as Product | undefined;
-          const product: Product | null = wooProduct ?? getProduct(i.productId);
+          const product: Product | undefined = wooProduct ?? getProduct(i.productId);
           if (!product) return null;
           return { product, qty: i.qty, lineTotal: product.priceValue * i.qty };
         })

@@ -1,0 +1,295 @@
+Build an advanced Login / Create Account flow matching the provided screenshots and existing app style.
+
+Goal:
+When the user taps “SIGN IN OR CREATE ACCOUNT” from the Account/Profile page, show a polished authentication modal/screen that supports:
+1. Continue with email
+2. Continue with Apple
+3. Continue with Google
+
+Use the same visual direction as the screenshots:
+- Cream/off-white background
+- Dark teal primary color
+- Elegant serif headings
+- Rounded modal/sheet container
+- Large rounded buttons
+- Thin outlined social login buttons
+- Clean spacing and mobile-first layout
+- Close icon on the first login screen
+- Back arrow on the next step screens
+
+Core authentication flow:
+
+Step 1: Login or Create Account
+Create a screen/modal titled:
+“Login or Create Account”
+
+Subtitle:
+“Sign in with your email address”
+
+Fields:
+- Email Address
+- Placeholder: “Enter your email address”
+
+Primary button:
+- “Continue”
+
+Divider:
+- horizontal line, “Or”, horizontal line
+
+Social buttons:
+- “Continue with Apple”
+- “Continue with Google”
+
+Footer text:
+“By proceeding, you agree to our Privacy Policy and Terms & Conditions.”
+
+Privacy Policy and Terms & Conditions should be tappable links using the app’s existing routes or placeholder routes if they do not exist yet.
+
+Behavior:
+- User enters email and taps Continue.
+- Validate email format.
+- Show inline validation if invalid.
+- If valid, check whether an account exists for that email.
+- If the account exists, navigate to password sign-in step.
+- If the account does not exist, navigate to sign-up step.
+
+If there is no backend/account lookup yet:
+- Create a clean async function like checkEmailExists(email).
+- For now, mock it clearly in one auth service file.
+- Structure it so it can later be replaced with a real API call or Supabase/Firebase/Auth provider.
+
+Step 2A: Existing account password login
+If email exists, show a password sign-in screen.
+
+Content:
+- Back arrow
+- Title: “Welcome back”
+- Subtitle: “Enter your password to continue.”
+- Show the selected email address
+- Password field
+- Password visibility toggle
+- Primary button: “Sign in”
+- Secondary link: “Forgot password?”
+
+Behavior:
+- Validate password is not empty.
+- Submit login using an auth service function like signInWithEmail(email, password).
+- Show loading state on button.
+- Show error message if login fails.
+- On success, close auth flow and update the user session/profile state.
+
+Step 2B: New account sign-up
+If email does not exist, show a sign-up screen matching the second screenshot.
+
+Content:
+- Back arrow
+- Title: “Sign up”
+- Subtitle: “Enter your name and create a password.”
+- Name field
+  - Label: “Name”
+  - Placeholder: “Please add your full name”
+- Password field
+  - Label: “Create A Password”
+  - Placeholder: “Enter your password”
+  - Password visibility toggle
+
+Password requirements section:
+“Your password must contain:”
+- Lower case letters (password)
+- Upper case letters (PASSWORD)
+- At least 8 characters including numbers
+
+Primary button:
+- “Create account”
+
+Behavior:
+- Validate name is not empty.
+- Validate password live while typing.
+- Show each password requirement with an incomplete/complete indicator.
+- Disable “Create account” until all requirements are met.
+- Submit using an auth service function like createAccountWithEmail(email, name, password).
+- Show loading state.
+- Show error message if account creation fails.
+- On success, close auth flow and update the user session/profile state.
+
+Social login:
+Add buttons for:
+- Continue with Apple
+- Continue with Google
+
+Behavior:
+- Apple button should call signInWithApple().
+- Google button should call signInWithGoogle().
+- If auth providers are not configured yet, create placeholder service functions with clear TODO comments.
+- Show loading state for the selected provider.
+- Handle errors gracefully.
+- Do not block the UI indefinitely.
+- Keep the implementation modular so real Apple/Google auth can be added later.
+
+UI requirements:
+- Match the screenshots closely.
+- First auth screen should appear as a modal/bottom sheet or full-height sheet with rounded top corners, depending on existing app patterns.
+- Use a close “X” icon on the first auth screen.
+- Use a back chevron on email password/sign-up steps.
+- Buttons should be large, rounded, and touch-friendly.
+- Inputs should have rounded borders and clear focus states.
+- Use the app’s existing typography and color tokens where available.
+- Maintain safe area spacing for iOS.
+- Ensure the screen works correctly when the keyboard is open.
+- On the sign-up screen, content should scroll if the keyboard covers the button.
+- Keep the bottom action button visible or easily reachable when keyboard is open.
+
+State management:
+Create a clean auth flow state:
+- email entry
+- checking email
+- existing user password login
+- new user sign-up
+- loading states
+- error states
+
+Recommended structure:
+- components/auth/AuthModal or AuthSheet
+- components/auth/EmailEntryStep
+- components/auth/PasswordLoginStep
+- components/auth/SignupStep
+- components/auth/SocialAuthButtons
+- services/authService
+- utils/validation
+
+Accessibility:
+- Inputs should have labels.
+- Buttons should have accessible names.
+- Error messages should be readable by screen readers.
+- Social login buttons should be clear and tappable.
+
+Multilingual compatibility:
+The app is being made multilingual.
+Do not hardcode strings directly in components.
+Add all auth strings to the existing i18n translation files/objects for:
+- English
+- Arabic
+- French
+
+Default language remains English.
+Arabic must support RTL layout.
+When Arabic is active:
+- Back/close/chevron icons should mirror correctly where appropriate.
+- Text alignment should feel natural.
+- Input alignment should be correct for the selected language.
+- The layout should not break.
+
+Translations needed:
+
+English:
+- Login or Create Account
+- Sign in with your email address
+- Email Address
+- Enter your email address
+- Continue
+- Or
+- Continue with Apple
+- Continue with Google
+- By proceeding, you agree to our Privacy Policy and Terms & Conditions.
+- Privacy Policy
+- Terms & Conditions
+- Please enter a valid email address
+- Welcome back
+- Enter your password to continue.
+- Password
+- Enter your password
+- Sign in
+- Forgot password?
+- Sign up
+- Enter your name and create a password.
+- Name
+- Please add your full name
+- Create A Password
+- Create account
+- Your password must contain:
+- Lower case letters (password)
+- Upper case letters (PASSWORD)
+- At least 8 characters including numbers
+- This field is required
+- Something went wrong. Please try again.
+
+Arabic:
+- تسجيل الدخول أو إنشاء حساب
+- سجّل الدخول باستخدام بريدك الإلكتروني
+- البريد الإلكتروني
+- أدخل بريدك الإلكتروني
+- متابعة
+- أو
+- المتابعة باستخدام Apple
+- المتابعة باستخدام Google
+- بالمتابعة، فإنك توافق على سياسة الخصوصية والشروط والأحكام.
+- سياسة الخصوصية
+- الشروط والأحكام
+- يرجى إدخال بريد إلكتروني صالح
+- مرحباً بعودتك
+- أدخل كلمة المرور للمتابعة.
+- كلمة المرور
+- أدخل كلمة المرور
+- تسجيل الدخول
+- هل نسيت كلمة المرور؟
+- إنشاء حساب
+- أدخل اسمك وأنشئ كلمة مرور.
+- الاسم
+- الرجاء إضافة اسمك الكامل
+- إنشاء كلمة مرور
+- إنشاء الحساب
+- يجب أن تحتوي كلمة المرور على:
+- أحرف صغيرة (password)
+- أحرف كبيرة (PASSWORD)
+- 8 أحرف على الأقل مع أرقام
+- هذا الحقل مطلوب
+- حدث خطأ ما. يرجى المحاولة مرة أخرى.
+
+French:
+- Connexion ou création de compte
+- Connectez-vous avec votre adresse e-mail
+- Adresse e-mail
+- Entrez votre adresse e-mail
+- Continuer
+- Ou
+- Continuer avec Apple
+- Continuer avec Google
+- En continuant, vous acceptez notre Politique de confidentialité et nos Conditions générales.
+- Politique de confidentialité
+- Conditions générales
+- Veuillez saisir une adresse e-mail valide
+- Bon retour
+- Entrez votre mot de passe pour continuer.
+- Mot de passe
+- Entrez votre mot de passe
+- Se connecter
+- Mot de passe oublié ?
+- S’inscrire
+- Entrez votre nom et créez un mot de passe.
+- Nom
+- Veuillez ajouter votre nom complet
+- Créer un mot de passe
+- Créer un compte
+- Votre mot de passe doit contenir :
+- Lettres minuscules (password)
+- Lettres majuscules (PASSWORD)
+- Au moins 8 caractères avec des chiffres
+- Ce champ est obligatoire
+- Une erreur s’est produite. Veuillez réessayer.
+
+Acceptance criteria:
+1. Tapping “SIGN IN OR CREATE ACCOUNT” opens the new auth flow.
+2. User can continue with Apple.
+3. User can continue with Google.
+4. User can enter email and continue.
+5. Invalid email shows validation.
+6. Existing email routes to password login.
+7. New email routes to sign-up.
+8. Password login validates input and handles loading/errors.
+9. Sign-up validates name and password requirements.
+10. Password requirements update live while typing.
+11. Auth UI matches the screenshots closely.
+12. All strings are connected to i18n.
+13. Arabic layout supports RTL.
+14. Keyboard does not break the layout.
+15. Auth service is modular and ready for real backend integration.

@@ -162,7 +162,9 @@ export default function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
-  const [district, setDistrict] = useState<District>(DISTRICTS.find(d => d.name === "Beirut")!);
+  const [district, setDistrict] = useState<District>(
+    DISTRICTS.find((d) => d.name === "Beirut") ?? DISTRICTS[0],
+  );
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
@@ -259,7 +261,7 @@ export default function CheckoutScreen() {
       name: product.name,
       quantity: qty,
       price: product.priceValue,
-      wcId: (product as any).wcId as number | undefined,
+      wcId: product.wcId,
     })),
     billing: {
       firstName: senderFirst,
@@ -297,8 +299,34 @@ export default function CheckoutScreen() {
       slotLabel
     )}&recipient=${encodeURIComponent(`${recipientFirst} ${recipientLast}`)}`;
 
-    // Always create WooCommerce order (fire-and-forget; don't block UX on failure)
-    createWooOrder(buildWooPayload(orderId)).catch(() => {/* silent */});
+    // Always create WooCommerce order (fire-and-forget; don't block UX on failure).
+    // We log failures so they're discoverable in the server logs and an alert
+    // is shown after a successful payment if order creation failed, so the
+    // customer knows to contact us with their payment reference.
+    let wooOrderFailed = false;
+    const wooOrderPromise = createWooOrder(buildWooPayload(orderId))
+      .then((res) => {
+        if (!res?.ok) {
+          wooOrderFailed = true;
+          console.warn("[checkout] Woo order creation returned not-ok", { orderId, res });
+        }
+        return res;
+      })
+      .catch((err) => {
+        wooOrderFailed = true;
+        console.warn("[checkout] Woo order creation threw", { orderId, err });
+        return null;
+      });
+
+    const notifyIfWooFailed = async () => {
+      try { await wooOrderPromise; } catch {}
+      if (wooOrderFailed) {
+        Alert.alert(
+          "Payment received — order pending",
+          `Your payment went through, but we couldn't fully record your order yet. Please screenshot this reference and contact us so we can confirm: ${orderId}`,
+        );
+      }
+    };
 
     const { deeplinkBase, successUrl, cancelUrl } = buildReturnUrls(orderId);
 
@@ -325,6 +353,7 @@ export default function CheckoutScreen() {
         if (outcome === "success") {
           clear();
           router.replace(successPath as any);
+          notifyIfWooFailed();
         } else {
           Alert.alert("Payment cancelled", "You can try again or pick a different payment method.");
         }
@@ -361,6 +390,7 @@ export default function CheckoutScreen() {
         if (outcome === "success") {
           clear();
           router.replace(successPath as any);
+          notifyIfWooFailed();
         } else {
           Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
         }
@@ -387,6 +417,7 @@ export default function CheckoutScreen() {
         if (outcome === "success") {
           clear();
           router.replace(successPath as any);
+          notifyIfWooFailed();
         } else {
           Alert.alert("Payment cancelled", "Your payment was not completed. Please try again.");
         }
@@ -403,6 +434,7 @@ export default function CheckoutScreen() {
     // Whish / Western Union: no online payment, treat as confirmed
     clear();
     router.replace(successPath as any);
+    notifyIfWooFailed();
     setPaying(false);
   };
 
@@ -699,7 +731,7 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
             fontSize: 14,
             color: colors.primary,
             textAlignVertical: multiline ? "top" : "auto",
-            ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+            ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
           }}
         />
       </View>
