@@ -14,7 +14,7 @@ function TabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
-  const { count, openCart } = useCart();
+  const { count } = useCart();
 
   return (
     <Tabs
@@ -101,17 +101,6 @@ function TabLayout() {
             ) : (
               <Feather name="shopping-bag" size={20} color={count > 0 ? colors.gold : color} />
             ),
-        }}
-        listeners={{
-          tabPress: (e) => {
-            // When the cart has items, keep the existing drawer flow.
-            // When it's empty, allow the tab to navigate so the empty
-            // Cart screen renders inline with the tab bar.
-            if (count > 0) {
-              e.preventDefault();
-              openCart();
-            }
-          },
         }}
       />
       <Tabs.Screen
