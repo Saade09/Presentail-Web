@@ -4,7 +4,6 @@ const EN = {
   // Navigation
   home: "Home",
   boutique: "Boutique",
-  brand: "Brand",
 
   // Hero
   heroEyebrow: "THE MODERN FLOWER ATELIER",
@@ -158,7 +157,6 @@ const EN = {
   baskets: "Baskets",
   bearsAndBalloons: "Bears & Balloons",
   occasions: "Occasions",
-  aboutUs: "About Us",
   partnerWithUs: "Partner With Us",
   deliveryRates: "Delivery Rates",
   weddingsEvents: "Weddings & Events",
@@ -364,7 +362,6 @@ const AR: typeof EN = {
   // Navigation
   home: "الرئيسية",
   boutique: "البوتيك",
-  brand: "العلامة",
 
   // Hero
   heroEyebrow: "بيت الزهور العصري",
@@ -518,7 +515,6 @@ const AR: typeof EN = {
   baskets: "السلال",
   bearsAndBalloons: "الدمى والبالونات",
   occasions: "المناسبات",
-  aboutUs: "عنا",
   partnerWithUs: "شاركنا",
   deliveryRates: "أسعار التوصيل",
   weddingsEvents: "الأعراس والفعاليات",
@@ -724,7 +720,6 @@ const FR: typeof EN = {
   // Navigation
   home: "Accueil",
   boutique: "Boutique",
-  brand: "Marque",
 
   // Hero
   heroEyebrow: "L'ATELIER FLORAL MODERNE",
@@ -878,7 +873,6 @@ const FR: typeof EN = {
   baskets: "Paniers",
   bearsAndBalloons: "Peluches & ballons",
   occasions: "Occasions",
-  aboutUs: "À propos",
   partnerWithUs: "Partenariat",
   deliveryRates: "Tarifs de livraison",
   weddingsEvents: "Mariages & événements",

@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -74,18 +74,6 @@ function TabLayout() {
               <SymbolView name="square.grid.2x2" tintColor={color} size={22} />
             ) : (
               <Feather name="grid" size={20} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="brand"
-        options={{
-          title: "Brand",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="sparkles" tintColor={color} size={22} />
-            ) : (
-              <MaterialCommunityIcons name="diamond-stone" size={20} color={color} />
             ),
         }}
       />

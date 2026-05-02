@@ -151,7 +151,6 @@ function HomeHeader({ topPad }: { topPad: number }) {
             { label: "Gifts", path: "/category/baskets" },
             { label: "Occasions", path: "/occasions" },
             { label: "Brands", path: "/(tabs)/catalog" },
-            { label: "About Us", path: "/(tabs)/brand" },
           ].map((m) => (
             <Pressable
               key={m.label}
@@ -1043,7 +1042,6 @@ function Footer() {
       id: "know",
       title: t.getToKnowUs,
       links: [
-        { label: t.aboutUs, href: "/(tabs)/brand" },
         { label: t.partnerWithUs, href: "https://presentail.com/lebanon/partner" },
         { label: t.deliveryRates, href: "https://presentail.com/lebanon/delivery-rates" },
         { label: t.weddingsEvents, href: "https://presentail.com/lebanon/weddings-events" },
