@@ -713,6 +713,18 @@ const EN = {
   termsTitle: "Terms & Conditions",
   legalComingSoon: "Coming soon. Please check back later.",
   splashTagline: "Gifts made personal",
+
+  // ── Delivery location ──
+  deliverTo: "Deliver To",
+  deliveryHeading: "Delivery",
+  deliverySheetTitle: "Send your gift to...",
+  deliverySelectCountry: "Select Country",
+  deliverySelectCity: "Select City",
+  deliveryChangeCountry: "Change Country",
+  deliveryChooseLocation: "Choose delivery location",
+  deliveryNoneAvailable: "No delivery locations available",
+  deliveryUnableToLoad: "Unable to load delivery locations",
+  deliveryRetry: "Retry",
 };
 
 const AR: typeof EN = {
@@ -1428,6 +1440,18 @@ const AR: typeof EN = {
   termsTitle: "الشروط والأحكام",
   legalComingSoon: "قريباً. يرجى التحقق لاحقاً.",
   splashTagline: "هدايا بلمسة شخصية",
+
+  // ── Delivery location ──
+  deliverTo: "التوصيل إلى",
+  deliveryHeading: "التوصيل",
+  deliverySheetTitle: "أرسل هديتك إلى...",
+  deliverySelectCountry: "اختر البلد",
+  deliverySelectCity: "اختر المدينة",
+  deliveryChangeCountry: "تغيير البلد",
+  deliveryChooseLocation: "اختر موقع التوصيل",
+  deliveryNoneAvailable: "لا توجد مواقع توصيل متاحة",
+  deliveryUnableToLoad: "تعذّر تحميل مواقع التوصيل",
+  deliveryRetry: "إعادة المحاولة",
 };
 
 const FR: typeof EN = {
@@ -2143,6 +2167,18 @@ const FR: typeof EN = {
   termsTitle: "Conditions générales",
   legalComingSoon: "Bientôt disponible. Revenez plus tard.",
   splashTagline: "Des cadeaux personnalisés",
+
+  // ── Delivery location ──
+  deliverTo: "Livrer à",
+  deliveryHeading: "Livraison",
+  deliverySheetTitle: "Envoyez votre cadeau à...",
+  deliverySelectCountry: "Sélectionner un pays",
+  deliverySelectCity: "Sélectionner une ville",
+  deliveryChangeCountry: "Changer de pays",
+  deliveryChooseLocation: "Choisir le lieu de livraison",
+  deliveryNoneAvailable: "Aucun lieu de livraison disponible",
+  deliveryUnableToLoad: "Impossible de charger les lieux de livraison",
+  deliveryRetry: "Réessayer",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };

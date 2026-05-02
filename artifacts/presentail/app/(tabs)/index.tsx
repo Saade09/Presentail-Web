@@ -18,9 +18,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
+import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
   bestSellers,
   brands,
@@ -46,10 +48,21 @@ import {
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
-function HomeHeader({ topPad }: { topPad: number }) {
+function HomeHeader({
+  topPad,
+  onOpenDelivery,
+}: {
+  topPad: number;
+  onOpenDelivery: () => void;
+}) {
   const colors = useColors();
   const router = useRouter();
-  const SIDE_W = 20;
+  const t = useT();
+  const { isRTL } = useLanguage();
+  const { selectedCity } = useDeliveryLocation();
+
+  const cityLabel = selectedCity?.name ?? t.deliverySelectCity;
+  const isLong = cityLabel.length > 12;
 
   return (
     <View
@@ -65,7 +78,7 @@ function HomeHeader({ topPad }: { topPad: number }) {
         justifyContent: "space-between",
       }}
     >
-      <View style={{ width: SIDE_W, alignItems: "flex-start" }}>
+      <View style={{ width: 28, alignItems: "flex-start" }}>
         <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
           <Feather name="search" size={20} color={colors.primary} />
         </Pressable>
@@ -73,7 +86,54 @@ function HomeHeader({ topPad }: { topPad: number }) {
 
       <Wordmark size={26} />
 
-      <View style={{ width: SIDE_W }} />
+      <Pressable
+        hitSlop={6}
+        onPress={onOpenDelivery}
+        accessibilityLabel={t.deliveryChooseLocation}
+        style={({ pressed }) => ({
+          maxWidth: 130,
+          alignItems: isRTL ? "flex-start" : "flex-end",
+          opacity: pressed ? 0.65 : 1,
+        })}
+      >
+        <Text
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 9,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            color: colors.mutedForeground,
+            textAlign: isRTL ? "left" : "right",
+          }}
+          numberOfLines={1}
+        >
+          {t.deliverTo}
+        </Text>
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 3,
+            marginTop: 1,
+          }}
+        >
+          {isLong ? (
+            <Feather name="map-pin" size={11} color={colors.primary} />
+          ) : null}
+          <Text
+            style={{
+              fontFamily: "Inter_600SemiBold",
+              fontSize: 13,
+              color: colors.primary,
+              maxWidth: 100,
+            }}
+            numberOfLines={1}
+          >
+            {cityLabel}
+          </Text>
+          <Feather name="chevron-down" size={14} color={colors.primary} />
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -86,6 +146,7 @@ export default function HomeScreen() {
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [deliverySheetOpen, setDeliverySheetOpen] = useState(false);
   const { token: authToken, user } = useAuth();
 
   useEffect(() => {
@@ -139,7 +200,7 @@ export default function HomeScreen() {
       <View
         style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
       >
-        <HomeHeader topPad={topPad} />
+        <HomeHeader topPad={topPad} onOpenDelivery={() => setDeliverySheetOpen(true)} />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
@@ -163,6 +224,10 @@ export default function HomeScreen() {
         visible={notifModalOpen}
         onAllow={handleAllow}
         onSkip={handleSkip}
+      />
+      <DeliveryLocationSheet
+        visible={deliverySheetOpen}
+        onClose={() => setDeliverySheetOpen(false)}
       />
     </>
   );

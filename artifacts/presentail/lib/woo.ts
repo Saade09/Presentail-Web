@@ -21,10 +21,29 @@ export type OccasionGroup = {
   products: WooProduct[];
 };
 
-export async function fetchCategoryProducts(slug: string): Promise<{ products: WooProduct[]; categoryName: string }> {
+export type DeliveryFilter = {
+  countryCode?: string | null;
+  cityId?: string | null;
+};
+
+function appendDeliveryParams(params: URLSearchParams, filter?: DeliveryFilter) {
+  // TODO: forward to backend filtering once Presentail OS supports it.
+  // For now we send these as opaque query params; the WooCommerce API
+  // ignores them and returns the full catalogue.
+  if (!filter) return;
+  if (filter.countryCode) params.set("countryCode", filter.countryCode);
+  if (filter.cityId) params.set("cityId", filter.cityId);
+}
+
+export async function fetchCategoryProducts(
+  slug: string,
+  filter?: DeliveryFilter,
+): Promise<{ products: WooProduct[]; categoryName: string }> {
   try {
+    const params = new URLSearchParams({ slug });
+    appendDeliveryParams(params, filter);
     const res = await fetch(
-      `${API_BASE}/api/woo/category-products?slug=${encodeURIComponent(slug)}`,
+      `${API_BASE}/api/woo/category-products?${params.toString()}`,
       { headers: { "Content-Type": "application/json" } }
     );
     const json = await res.json();
@@ -37,10 +56,15 @@ export async function fetchCategoryProducts(slug: string): Promise<{ products: W
   }
 }
 
-export async function fetchOccasionProducts(slug: string): Promise<OccasionGroup[]> {
+export async function fetchOccasionProducts(
+  slug: string,
+  filter?: DeliveryFilter,
+): Promise<OccasionGroup[]> {
   try {
+    const params = new URLSearchParams({ slug });
+    appendDeliveryParams(params, filter);
     const res = await fetch(
-      `${API_BASE}/api/woo/occasion-products?slug=${encodeURIComponent(slug)}`,
+      `${API_BASE}/api/woo/occasion-products?${params.toString()}`,
       { headers: { "Content-Type": "application/json" } }
     );
     const json = await res.json();
@@ -51,10 +75,15 @@ export async function fetchOccasionProducts(slug: string): Promise<OccasionGroup
   }
 }
 
-export async function fetchBrandProducts(slug: string): Promise<WooProduct[]> {
+export async function fetchBrandProducts(
+  slug: string,
+  filter?: DeliveryFilter,
+): Promise<WooProduct[]> {
   try {
+    const params = new URLSearchParams({ slug });
+    appendDeliveryParams(params, filter);
     const res = await fetch(
-      `${API_BASE}/api/woo/brand-products?slug=${encodeURIComponent(slug)}`,
+      `${API_BASE}/api/woo/brand-products?${params.toString()}`,
       { headers: { "Content-Type": "application/json" } }
     );
     const json = await res.json();
@@ -65,9 +94,15 @@ export async function fetchBrandProducts(slug: string): Promise<WooProduct[]> {
   }
 }
 
-export async function fetchWooProducts(): Promise<WooProduct[]> {
+export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProduct[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/woo/products`, {
+    const params = new URLSearchParams();
+    appendDeliveryParams(params, filter);
+    const qs = params.toString();
+    const url = qs
+      ? `${API_BASE}/api/woo/products?${qs}`
+      : `${API_BASE}/api/woo/products`;
+    const res = await fetch(url, {
       headers: { "Content-Type": "application/json" },
     });
     const json = await res.json();

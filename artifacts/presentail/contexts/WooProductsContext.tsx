@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { products as CATALOG } from "@/data/catalog";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
 type AnyProduct = (typeof CATALOG)[number] & { wcId?: number };
@@ -41,13 +42,19 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
   const isSyncing = useRef(false);
   const syncSeq = useRef(0);
   const unmounted = useRef(false);
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
 
   const sync = useCallback(async (force = false) => {
     if (isSyncing.current && !force) return;
     isSyncing.current = true;
     const seq = ++syncSeq.current;
     try {
-      const woo = await fetchWooProducts();
+      // TODO: forward delivery filter to backend filtering once Presentail OS
+      // supports it. The params are accepted by the helper today but ignored
+      // by WooCommerce.
+      const woo = await fetchWooProducts({ countryCode, cityId });
       // Drop the result if a newer sync started or the provider unmounted.
       if (unmounted.current || seq !== syncSeq.current) return;
       if (!woo.length) return;
@@ -60,7 +67,7 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
         setLoading(false);
       }
     }
-  }, []);
+  }, [countryCode, cityId]);
 
   // Initial fetch + unmount tracking
   useEffect(() => {

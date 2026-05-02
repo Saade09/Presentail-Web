@@ -27,6 +27,7 @@ import { AnimatedSplash } from "@/components/SplashScreen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
@@ -173,13 +174,15 @@ export default function RootLayout() {
             <KeyboardProvider>
               <LanguageProvider>
                 <CurrencyProvider>
-                  <AuthProvider>
-                    <WooProductsProvider>
-                      <CartProvider>
-                        <AppShell fontsLoaded={fontsReady} />
-                      </CartProvider>
-                    </WooProductsProvider>
-                  </AuthProvider>
+                  <DeliveryLocationProvider>
+                    <AuthProvider>
+                      <WooProductsProvider>
+                        <CartProvider>
+                          <AppShell fontsLoaded={fontsReady} />
+                        </CartProvider>
+                      </WooProductsProvider>
+                    </AuthProvider>
+                  </DeliveryLocationProvider>
                 </CurrencyProvider>
               </LanguageProvider>
             </KeyboardProvider>
