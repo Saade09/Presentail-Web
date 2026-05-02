@@ -94,7 +94,7 @@ export default function CartScreen() {
                 <Pressable onPress={() => router.push(`/product/${product.id}` as any)}>
                   <Image
                     source={product.image}
-                    style={{ width: 84, height: 96, borderRadius: 12, backgroundColor: colors.muted }}
+                    style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: colors.muted }}
                     contentFit="cover"
                   />
                 </Pressable>

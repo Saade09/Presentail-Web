@@ -60,7 +60,7 @@ export default function ProductDetail() {
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: SCREEN_W * 1.05, backgroundColor: colors.muted }}>
+        <View style={{ height: SCREEN_W, backgroundColor: colors.muted }}>
           <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient
             colors={["rgba(0,0,0,0.25)", "transparent", "rgba(0,0,0,0.05)"]}

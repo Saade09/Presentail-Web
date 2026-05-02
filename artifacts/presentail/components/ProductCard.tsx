@@ -36,7 +36,7 @@ export function ProductCard({ product, width, onPress }: Props) {
           {
             backgroundColor: colors.muted,
             borderRadius: colors.radius,
-            height: width * 1.15,
+            aspectRatio: 1,
           },
         ]}
       >

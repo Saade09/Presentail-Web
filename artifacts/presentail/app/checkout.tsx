@@ -1446,7 +1446,7 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
       <View style={{ gap: 12 }}>
         {detailed.map(({ product, qty, lineTotal }: any) => (
           <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Image source={product.image} style={{ width: 48, height: 56, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
+            <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
             <View style={{ flex: 1 }}>
               <Text numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
                 {product.name}

@@ -505,7 +505,7 @@ function CollectionsSection() {
                 borderRadius: 22,
                 overflow: "hidden",
                 backgroundColor: colors.muted,
-                height: 380,
+                aspectRatio: 1,
               }}
             >
               <Image
