@@ -235,7 +235,7 @@ export default function AccountTab() {
               isRTL={isRTL}
               icon="help-circle"
               label={t.faq}
-              onPress={() => {}}
+              onPress={() => router.push("/faq")}
             />
             <Divider colors={colors} />
             <SettingsRow
@@ -243,7 +243,7 @@ export default function AccountTab() {
               isRTL={isRTL}
               icon="file-text"
               label={t.termsAndConditions}
-              onPress={() => {}}
+              onPress={() => router.push("/terms")}
             />
           </Card>
         </ScrollView>
