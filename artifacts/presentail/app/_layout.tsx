@@ -82,9 +82,12 @@ function RootLayoutNav() {
       <Stack.Screen name="contact" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="brand/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="occasions" options={{ presentation: "card", animation: "slide_from_right" }} />
-      <Stack.Screen name="login" options={{ presentation: "card", animation: "slide_from_right" }} />
-      <Stack.Screen name="register" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="notification-preferences" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen
+        name="auth"
+        options={{ presentation: "card", animation: "slide_from_right", gestureEnabled: true }}
+      />
+      <Stack.Screen name="privacy" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }

@@ -48,6 +48,39 @@ function mapCustomer(c: any) {
   };
 }
 
+// ── Email existence check ────────────────────────────────────────────────────
+// Lightweight lookup so the multi-step auth flow can route users to either the
+// password-login step (existing account) or the sign-up step (new account).
+// Returns `{ ok: true, exists: false }` early on malformed input so the
+// endpoint can't be turned into an oracle. WC `customers?email=` requires the
+// REST credentials, so when those aren't configured we return `exists: false`
+// rather than leaking a 503.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+router.get("/auth/exists", async (req, res) => {
+  const raw = String(req.query.email ?? "").trim().toLowerCase();
+  if (!raw || raw.length > 254 || !EMAIL_RE.test(raw)) {
+    res.json({ ok: true, exists: false });
+    return;
+  }
+  if (!process.env.WC_CONSUMER_KEY) {
+    res.json({ ok: true, exists: false });
+    return;
+  }
+  try {
+    const r = await wcFetch(`/customers?email=${encodeURIComponent(raw)}&per_page=1`);
+    if (!r.ok) {
+      res.json({ ok: true, exists: false });
+      return;
+    }
+    const list = (await r.json().catch(() => [])) as any[];
+    const exists = Array.isArray(list) && list.length > 0;
+    res.json({ ok: true, exists });
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.exists: lookup failed");
+    res.json({ ok: true, exists: false });
+  }
+});
+
 // ── Login: uses JWT Authentication for WP REST API plugin ────────────────────
 router.post("/auth/login", async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };

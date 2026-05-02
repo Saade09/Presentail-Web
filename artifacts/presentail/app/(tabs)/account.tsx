@@ -160,7 +160,7 @@ export default function AccountTab() {
           </Text>
 
           <Pressable
-            onPress={() => router.push("/login" as any)}
+            onPress={() => router.push("/auth" as any)}
             style={({ pressed }) => ({
               borderWidth: 1.5,
               borderColor: colors.primary,
