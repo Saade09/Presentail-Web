@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none" role="img" aria-label="Gift box illustration">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FAF6EE" stop-opacity="1"/>
+      <stop offset="1" stop-color="#FAF6EE" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="boxFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FAF6EE" stop-opacity="1"/>
+      <stop offset="1" stop-color="#F5DDD2" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="lidFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5DDD2" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FAF6EE" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="120" cy="132" r="104" fill="url(#bg)"/>
+
+  <circle cx="62" cy="70" r="3" fill="#C9A94B" opacity="0.7"/>
+  <circle cx="188" cy="62" r="2.5" fill="#177889" opacity="0.55"/>
+  <circle cx="196" cy="156" r="3" fill="#C9A94B" opacity="0.6"/>
+  <circle cx="48" cy="170" r="2.5" fill="#177889" opacity="0.5"/>
+  <path d="M40 110 l4 4 M44 110 l-4 4" stroke="#C9A94B" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+  <path d="M198 102 l4 4 M202 102 l-4 4" stroke="#177889" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>
+
+  <rect x="56" y="120" width="128" height="84" rx="8" fill="url(#boxFace)" stroke="#00414E" stroke-width="3"/>
+  <rect x="112" y="120" width="16" height="84" fill="#00414E"/>
+
+  <rect x="48" y="100" width="144" height="28" rx="6" fill="url(#lidFace)" stroke="#00414E" stroke-width="3"/>
+  <rect x="112" y="100" width="16" height="28" fill="#00414E"/>
+
+  <path d="M120 100 C 120 80, 96 76, 92 60 C 90 50, 100 44, 108 50 C 116 56, 120 70, 120 84 Z" fill="#00414E" stroke="#00414E" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M120 100 C 120 80, 144 76, 148 60 C 150 50, 140 44, 132 50 C 124 56, 120 70, 120 84 Z" fill="#00414E" stroke="#00414E" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="120" cy="96" r="5" fill="#C9A94B"/>
+
+  <path d="M70 132 q 6 -6 12 0" stroke="#177889" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <path d="M158 168 q 6 -6 12 0" stroke="#177889" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.55"/>
+</svg>

@@ -104,8 +104,13 @@ function TabLayout() {
         }}
         listeners={{
           tabPress: (e) => {
-            e.preventDefault();
-            openCart();
+            // When the cart has items, keep the existing drawer flow.
+            // When it's empty, allow the tab to navigate so the empty
+            // Cart screen renders inline with the tab bar.
+            if (count > 0) {
+              e.preventDefault();
+              openCart();
+            }
           },
         }}
       />
