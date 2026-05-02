@@ -15,18 +15,36 @@ const LanguageContext = createContext<LanguageContextType>({
   isRTL: false,
 });
 
+function applyRTL(l: Lang) {
+  const shouldBeRTL = l === "AR";
+  if (I18nManager.isRTL !== shouldBeRTL) {
+    try {
+      I18nManager.allowRTL(shouldBeRTL);
+      I18nManager.forceRTL(shouldBeRTL);
+    } catch {
+      // no-op: some platforms (e.g. web) may not support forceRTL
+    }
+  }
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("EN");
 
   useEffect(() => {
     AsyncStorage.getItem("presentail_lang").then((v) => {
-      if (v === "AR" || v === "EN") setLangState(v);
+      if (v === "AR" || v === "EN" || v === "FR") {
+        setLangState(v);
+        applyRTL(v);
+      } else {
+        applyRTL("EN");
+      }
     });
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
     AsyncStorage.setItem("presentail_lang", l);
+    applyRTL(l);
   };
 
   return (

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -11,15 +12,24 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomSheet } from "@/components/BottomSheet";
+import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
+import type { Lang } from "@/lib/translations";
 
 export default function AccountTab() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
+  const { lang, setLang, isRTL } = useLanguage();
   const { ready, user, logout, deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [careOpen, setCareOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
 
   if (!ready) {
     return (
@@ -29,72 +39,214 @@ export default function AccountTab() {
     );
   }
 
+  const openTel = () => {
+    setCareOpen(false);
+    Linking.openURL(`tel:${phoneNumber}`).catch(() => {});
+  };
+
+  const openWhatsApp = () => {
+    setCareOpen(false);
+    const sanitized = whatsappNumber.replace(/[^\d]/g, "");
+    Linking.openURL(`https://wa.me/${sanitized}`).catch(() => {});
+  };
+
+  const onSelectLang = (l: Lang) => {
+    setLang(l);
+    setLangOpen(false);
+  };
+
   if (!user) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 40, gap: 18 }}>
-          <View style={{ alignItems: "center", marginBottom: 14 }}>
-            <View
-              style={{
-                width: 86,
-                height: 86,
-                borderRadius: 999,
-                backgroundColor: colors.primary,
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 12,
-              }}
-            >
-              <Feather name="user" size={36} color="#fff" />
-            </View>
-            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}>
-              Your Presentail account
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Inter_400Regular",
-                color: colors.mutedForeground,
-                fontSize: 13,
-                textAlign: "center",
-                marginTop: 6,
-                paddingHorizontal: 16,
-              }}
-            >
-              Sign in to track orders, save addresses, and re-order favourites — or continue browsing without an account.
-            </Text>
-          </View>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: 120, gap: 18 }}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 28,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+              marginTop: 4,
+            }}
+          >
+            {t.profileTitle}
+          </Text>
+
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 14,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+              opacity: 0.85,
+              lineHeight: 20,
+            }}
+          >
+            {t.profileSignInHelper}
+          </Text>
 
           <Pressable
             onPress={() => router.push("/login" as any)}
             style={({ pressed }) => ({
-              backgroundColor: colors.primary,
-              paddingVertical: 16,
-              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: colors.primary,
+              borderRadius: 999,
+              paddingVertical: 18,
               alignItems: "center",
-              opacity: pressed ? 0.85 : 1,
+              marginTop: 4,
+              opacity: pressed ? 0.75 : 1,
             })}
           >
-            <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", letterSpacing: 0.6, fontSize: 14 }}>
-              Sign in
+            <Text
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                color: colors.primary,
+                letterSpacing: 1,
+                fontSize: 13,
+              }}
+            >
+              {t.profileSignInBtn}
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={() => router.push("/register" as any)}
-            style={({ pressed }) => ({
-              borderWidth: 1,
-              borderColor: colors.primary,
-              paddingVertical: 16,
-              borderRadius: 14,
-              alignItems: "center",
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", letterSpacing: 0.6, fontSize: 14 }}>
-              Create an account
-            </Text>
-          </Pressable>
+          <Card colors={colors}>
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="headphones"
+              label={t.customerCare}
+              onPress={() => setCareOpen(true)}
+            />
+            <Divider colors={colors} />
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="globe"
+              label={t.languageLabel}
+              onPress={() => setLangOpen(true)}
+            />
+          </Card>
+
+          <Card colors={colors}>
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="help-circle"
+              label={t.faq}
+              onPress={() => {}}
+            />
+            <Divider colors={colors} />
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
+              icon="file-text"
+              label={t.termsAndConditions}
+              onPress={() => {}}
+            />
+          </Card>
         </ScrollView>
+
+        <BottomSheet visible={careOpen} onClose={() => setCareOpen(false)}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 22,
+                color: colors.primary,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {t.customerCareHeading}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                color: colors.mutedForeground,
+                textAlign: isRTL ? "right" : "left",
+                marginTop: 6,
+                marginBottom: 18,
+              }}
+            >
+              {t.customerCareSubheading}
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                overflow: "hidden",
+              }}
+            >
+              <SettingsRow
+                colors={colors}
+                isRTL={isRTL}
+                icon="phone"
+                label={t.phoneCall}
+                onPress={openTel}
+              />
+              <Divider colors={colors} />
+              <SettingsRow
+                colors={colors}
+                isRTL={isRTL}
+                icon="message-circle"
+                label={t.whatsApp}
+                onPress={openWhatsApp}
+              />
+            </View>
+          </View>
+        </BottomSheet>
+
+        <BottomSheet visible={langOpen} onClose={() => setLangOpen(false)}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 22,
+                color: colors.primary,
+                textAlign: isRTL ? "right" : "left",
+                marginBottom: 16,
+              }}
+            >
+              {t.languageLabel}
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                overflow: "hidden",
+              }}
+            >
+              <LangOption
+                colors={colors}
+                isRTL={isRTL}
+                label={t.langEnglish}
+                active={lang === "EN"}
+                onPress={() => onSelectLang("EN")}
+              />
+              <Divider colors={colors} />
+              <LangOption
+                colors={colors}
+                isRTL={isRTL}
+                label={t.langArabic}
+                active={lang === "AR"}
+                onPress={() => onSelectLang("AR")}
+              />
+              <Divider colors={colors} />
+              <LangOption
+                colors={colors}
+                isRTL={isRTL}
+                label={t.langFrench}
+                active={lang === "FR"}
+                onPress={() => onSelectLang("FR")}
+              />
+            </View>
+          </View>
+        </BottomSheet>
       </View>
     );
   }
@@ -205,6 +357,108 @@ export default function AccountTab() {
         </Text>
       </ScrollView>
     </View>
+  );
+}
+
+type Colors = ReturnType<typeof useColors>;
+type FeatherIcon = React.ComponentProps<typeof Feather>["name"];
+
+function Card({ colors, children }: { colors: Colors; children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        overflow: "hidden",
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+function Divider({ colors }: { colors: Colors }) {
+  return <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 16 }} />;
+}
+
+type SettingsRowProps = {
+  colors: Colors;
+  isRTL: boolean;
+  icon: FeatherIcon;
+  label: string;
+  onPress: () => void;
+};
+
+function SettingsRow({ colors, isRTL, icon, label, onPress }: SettingsRowProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: isRTL ? "row-reverse" : "row",
+        alignItems: "center",
+        gap: 14,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: pressed ? "#0001" : "#fff",
+      })}
+    >
+      <Feather name={icon} size={20} color={colors.primary} />
+      <Text
+        style={{
+          flex: 1,
+          fontFamily: "Inter_500Medium",
+          fontSize: 15,
+          color: colors.primary,
+          textAlign: isRTL ? "right" : "left",
+        }}
+      >
+        {label}
+      </Text>
+      <Feather
+        name={isRTL ? "chevron-left" : "chevron-right"}
+        size={18}
+        color={colors.mutedForeground}
+      />
+    </Pressable>
+  );
+}
+
+type LangOptionProps = {
+  colors: Colors;
+  isRTL: boolean;
+  label: string;
+  active: boolean;
+  onPress: () => void;
+};
+
+function LangOption({ colors, isRTL, label, active, onPress }: LangOptionProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: isRTL ? "row-reverse" : "row",
+        alignItems: "center",
+        gap: 14,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: pressed ? "#0001" : "#fff",
+      })}
+    >
+      <Text
+        style={{
+          flex: 1,
+          fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
+          fontSize: 15,
+          color: colors.primary,
+          textAlign: isRTL ? "right" : "left",
+        }}
+      >
+        {label}
+      </Text>
+      {active ? <Feather name="check" size={20} color={colors.primary} /> : null}
+    </Pressable>
   );
 }
 
