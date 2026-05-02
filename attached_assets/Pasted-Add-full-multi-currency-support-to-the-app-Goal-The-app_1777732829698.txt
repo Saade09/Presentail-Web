@@ -1,0 +1,313 @@
+Add full multi-currency support to the app.
+
+Goal:
+The app should support multiple currencies, automatically select a default currency based on the user’s current IP/location, and allow the user to manually change currency from the Profile/My Account page.
+
+Supported currencies:
+- AED
+- USD
+- EUR
+- GBP
+- CAD
+- AUD
+- QAR
+- SAR
+- KWD
+- OMR
+- CHF
+
+Reference:
+The existing Presentail web experience includes a currency switcher with these currencies. Implement the same currency support in the mobile app.
+
+Core requirements:
+
+1. Currency detection on first app launch
+When the user opens the app for the first time:
+- Detect the user’s country/region from IP or existing location service.
+- Automatically choose the most appropriate currency.
+- Save the selected currency locally.
+- Do not ask the user on first launch unless detection fails.
+
+Suggested default mapping:
+- United Arab Emirates → AED
+- United States → USD
+- Eurozone countries → EUR
+- United Kingdom → GBP
+- Canada → CAD
+- Australia → AUD
+- Qatar → QAR
+- Saudi Arabia → SAR
+- Kuwait → KWD
+- Oman → OMR
+- Switzerland → CHF
+- Lebanon or unsupported countries → USD by default, unless the business prefers AED
+
+If IP detection fails:
+- Default to USD.
+- Make the fallback easy to change from one config file.
+
+2. Manual currency selection
+Add a “Currency” row to the Profile/My Account page.
+
+Suggested placement:
+- In the same settings section as Language.
+- Row title: “Currency”
+- Right side should show the currently selected currency code, for example “AED”.
+
+When tapped:
+Open a bottom sheet/modal currency selector.
+
+Currency selector should show:
+- AED
+- USD
+- EUR
+- GBP
+- CAD
+- AUD
+- QAR
+- SAR
+- KWD
+- OMR
+- CHF
+
+Each option should include:
+- Currency code
+- Currency name
+- Optional flag icon if assets are already available
+- Checkmark for the currently selected currency
+
+Currency names:
+- AED — UAE Dirham
+- USD — US Dollar
+- EUR — Euro
+- GBP — British Pound
+- CAD — Canadian Dollar
+- AUD — Australian Dollar
+- QAR — Qatari Riyal
+- SAR — Saudi Riyal
+- KWD — Kuwaiti Dinar
+- OMR — Omani Rial
+- CHF — Swiss Franc
+
+Behavior:
+- When the user selects a currency, save it locally.
+- Update all visible product prices immediately.
+- Persist the selected currency after app restart.
+- Manual selection should override IP-based detection.
+- Do not re-detect and overwrite the user’s manual choice after they have selected a currency.
+
+3. Currency conversion
+Create a centralized currency service/helper.
+
+All prices should be stored and calculated from a single base currency.
+
+Recommended:
+- Use USD as the base currency unless the current backend already uses another base currency.
+- If the backend already returns prices in a specific base currency, use that as the base and document it in the currency config.
+
+Create a config file for:
+- Supported currencies
+- Currency symbols
+- Currency names
+- Decimal precision
+- Exchange rates
+- Default fallback currency
+- Country-to-currency mapping
+
+Important:
+If no live exchange-rate API exists yet, implement static exchange rates in a single config file with clear TODO comments so they can be replaced later.
+
+Example structure:
+- constants/currencies.ts
+- services/currencyService.ts
+- context/CurrencyProvider.tsx or equivalent
+- hooks/useCurrency.ts
+- utils/formatCurrency.ts
+
+Do not hardcode currency formatting inside product cards or screens.
+
+4. Price formatting
+Create a reusable price formatter.
+
+Formatting examples:
+- AED 250
+- USD 68.00
+- EUR 62.00
+- GBP 54.00
+- CAD 92.00
+- AUD 104.00
+- QAR 248
+- SAR 255
+- KWD 20.80
+- OMR 26.20
+- CHF 60.00
+
+Rules:
+- Use each currency’s appropriate number of decimals.
+- KWD and OMR should support 3 decimals if needed, but avoid showing unnecessary trailing zeros if the existing design prefers clean prices.
+- Keep formatting consistent across the app.
+- Make sure sale prices, discounts, cart totals, delivery fees, checkout totals, and product listing prices all use the same formatter.
+
+5. Areas that must update
+Apply multi-currency support to all price displays, including:
+- Home product sections
+- Explore/product listing screens
+- Product detail page
+- Search results
+- Cart
+- Checkout/order summary
+- Delivery fees
+- Discounts
+- Add-ons or gift options
+- Any subtotal/total views
+- Any saved gifts or Moments price displays if they exist
+
+6. Cart behavior
+If the user changes currency while items are already in the cart:
+- Cart prices should refresh in the selected currency.
+- Cart item quantities and selected products should remain unchanged.
+- Do not clear the cart.
+- Totals should recalculate correctly.
+
+7. Checkout behavior
+Before payment:
+- Make sure the selected currency is passed to checkout/payment logic if supported.
+- If the backend/payment provider only supports certain currencies, add a safe fallback and show clear handling.
+- Do not silently charge in a different currency without making it clear in the UI.
+
+If checkout/payment integration is not ready:
+- Prepare the selected currency value in the order payload or checkout state.
+- Add TODO comments for backend/payment integration.
+
+8. Profile page UI
+Update Profile/My Account page to include:
+- Customer Care
+- Language
+- Currency
+- FAQ
+- Terms & Conditions
+
+Currency row:
+- Icon: currency, wallet, globe, or similar
+- Label: “Currency”
+- Right value: selected currency code
+- Tapping opens currency selector bottom sheet
+
+9. Multilingual support
+The app is multilingual. Add all currency-related UI strings to i18n.
+
+English:
+- Currency
+- Select Currency
+- UAE Dirham
+- US Dollar
+- Euro
+- British Pound
+- Canadian Dollar
+- Australian Dollar
+- Qatari Riyal
+- Saudi Riyal
+- Kuwaiti Dinar
+- Omani Rial
+- Swiss Franc
+
+Arabic:
+- العملة
+- اختر العملة
+- الدرهم الإماراتي
+- الدولار الأمريكي
+- اليورو
+- الجنيه الإسترليني
+- الدولار الكندي
+- الدولار الأسترالي
+- الريال القطري
+- الريال السعودي
+- الدينار الكويتي
+- الريال العماني
+- الفرنك السويسري
+
+French:
+- Devise
+- Choisir la devise
+- Dirham des Émirats arabes unis
+- Dollar américain
+- Euro
+- Livre sterling
+- Dollar canadien
+- Dollar australien
+- Riyal qatari
+- Riyal saoudien
+- Dinar koweïtien
+- Rial omanais
+- Franc suisse
+
+10. RTL support
+Arabic must support RTL:
+- Currency selector layout should not break.
+- Currency code can remain LTR, for example “AED”, “USD”, “EUR”.
+- Make sure numbers and currency codes display clearly in Arabic layout.
+- Row chevrons and alignment should mirror naturally.
+
+11. Persistence
+Save locally:
+- selectedCurrency
+- whether the currency was manually selected by the user
+- detected country/currency if available
+
+Suggested storage behavior:
+- If selectedCurrency exists, use it.
+- Else detect currency from IP/location.
+- Else fallback to USD.
+
+12. IP/location detection
+Use a clean abstraction:
+- services/locationCurrencyService.ts or similar
+
+If an API is needed:
+- Create a helper function like detectCurrencyFromIP().
+- Use an environment variable for any API URL/key if needed.
+- Do not hardcode secret keys.
+- If no API is configured, gracefully fallback to USD.
+
+The function should be easy to replace later.
+
+13. UI/UX requirements
+- Currency selector should look like the existing language/customer care bottom sheets.
+- Use dark teal text/icons.
+- Use rounded white cards.
+- Use cream/off-white background.
+- Keep the design premium, clean, and consistent.
+- Show current selected currency in the Profile row.
+- Show checkmark beside selected currency in the selector.
+- Currency changes should feel instant.
+
+14. Testing requirements
+Test these scenarios:
+- First install with no saved currency.
+- IP detection returns UAE → AED.
+- IP detection returns US → USD.
+- Unsupported country → fallback currency.
+- User manually changes currency from Profile.
+- App restart keeps manually selected currency.
+- Changing currency updates product cards.
+- Changing currency updates product detail.
+- Changing currency updates cart totals.
+- Arabic RTL layout works.
+- French and English LTR layouts work.
+- Checkout/order summary displays selected currency.
+
+Acceptance criteria:
+1. App supports AED, USD, EUR, GBP, CAD, AUD, QAR, SAR, KWD, OMR, and CHF.
+2. First launch attempts to detect currency based on user IP/location.
+3. App falls back safely if detection fails.
+4. User can manually change currency from Profile/My Account page.
+5. Manual currency choice persists and overrides future IP detection.
+6. All product prices use the selected currency.
+7. Cart totals update when currency changes.
+8. Checkout/order summary uses selected currency.
+9. Currency configuration is centralized.
+10. Price formatting is reusable and consistent.
+11. Currency UI strings are translated into English, Arabic, and French.
+12. Arabic RTL layout works correctly.
+13. No price formatting is hardcoded inside individual screens/components.
+14. Code is modular and ready for live exchange rates and backend checkout integration later.
