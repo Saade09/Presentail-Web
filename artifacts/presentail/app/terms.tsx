@@ -45,7 +45,13 @@ export default function TermsScreen() {
           gap: 14,
         }}
       >
-        <Pressable hitSlop={10} onPress={() => router.back()}>
+        <Pressable
+          hitSlop={10}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/(tabs)/account")
+          }
+          accessibilityLabel={t.authBack}
+        >
           <Feather
             name={isRTL ? "arrow-right" : "arrow-left"}
             size={22}
