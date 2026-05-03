@@ -1,0 +1,116 @@
+Here’s a prompt you can send to Replit:
+
+---
+
+**Prompt:**
+
+Fix the customer website authentication flow so existing users are sent directly to the **login page**, not the **create account page**.
+
+### Current issue
+
+On `new.presentail.com/auth`, the user first sees:
+
+`Login or Create Account`
+
+After entering an email address and continuing, if the email already belongs to an existing account, the flow should show the **login screen**.
+
+Right now, the app may still send the user into the create account/sign-up flow or show the wrong screen.
+
+### Desired behavior
+
+When the user enters an email and clicks **Continue**:
+
+1. Check whether the email already exists.
+2. If the email **already exists**:
+
+   * Show the **Welcome Back / Login** screen.
+   * Keep the entered email populated.
+   * Ask for password.
+   * Show:
+     `Account found. Please log in.`
+3. If the email **does not exist**:
+
+   * Show the **Create Account / Sign Up** screen.
+   * Keep the entered email populated.
+   * Ask for name and password.
+
+### Screens
+
+The correct existing-user screen should be the one with:
+
+* Heading: `Welcome Back`
+* Subtitle: `Sign in to manage your orders and addresses.`
+* Message: `Account found. Please log in.`
+* Email field prefilled
+* Password field
+* `Sign In` button
+* `Forgot password?`
+* `Use a different email`
+
+The first screen should remain:
+
+* Heading: `Login or Create Account`
+* Subtitle: `Sign in with your email address`
+* Email input
+* `Continue`
+* Apple / Google sign-in options
+
+### Implementation requirements
+
+Please inspect the current auth flow and fix the routing/state logic.
+
+Do not create a separate disconnected login page.
+
+Update the existing email continuation logic so it performs an account existence check before deciding which screen to show.
+
+Suggested logic:
+
+```ts
+onContinue(email) {
+  const result = await checkAccountExists(email)
+
+  if (result.exists) {
+    showLoginScreen(email)
+  } else {
+    showCreateAccountScreen(email)
+  }
+}
+```
+
+### Important details
+
+* Normalize email before checking:
+
+  * Trim spaces
+  * Convert to lowercase
+* Keep loading state while checking.
+* Handle errors gracefully.
+* Do not redirect existing users to sign-up.
+* Do not show “Create account” for emails that already exist.
+* Preserve Apple and Google login behavior.
+* Preserve forgot password behavior.
+* Preserve “Use a different email” behavior so users can return to the first email entry screen.
+
+### Edge cases to test
+
+Please test:
+
+1. Existing email → goes to `Welcome Back` login screen.
+2. New email → goes to create account screen.
+3. Existing email with uppercase letters → still goes to login screen.
+4. Existing email with spaces before/after → still goes to login screen.
+5. “Use a different email” returns to the first screen.
+6. Wrong password shows login error, not sign-up.
+7. Apple and Google buttons still work.
+
+### Deliverables
+
+Please provide:
+
+* Updated auth flow logic
+* Confirmation that existing users are routed to login
+* Confirmation that new users are routed to sign-up
+* Summary of files changed
+* Testing notes
+
+Important: this should be fixed at the auth logic/API level, not with a superficial UI workaround.
