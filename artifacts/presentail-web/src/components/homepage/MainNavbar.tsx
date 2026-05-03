@@ -72,7 +72,7 @@ export function MainNavbar() {
             aria-label="Presentail"
             data-testid="link-logo"
           >
-            <Logo height={36} className="md:h-10" />
+            <Logo height={56} className="md:h-16" />
           </Link>
         </div>
 
