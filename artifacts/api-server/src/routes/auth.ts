@@ -2,6 +2,16 @@ import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
+import {
+  existsIpLimiter,
+  loginIpLimiter,
+  registerIpLimiter,
+  resetRequestIpLimiter,
+  resetConfirmIpLimiter,
+  socialIpLimiter,
+  loginEmailLimiter,
+  resetEmailLimiter,
+} from "../lib/auth-rate-limit";
 
 const router: IRouter = Router();
 
@@ -59,7 +69,7 @@ function mapCustomer(c: any) {
 // REST credentials, so when those aren't configured we return `exists: false`
 // rather than leaking a 503.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-router.get("/auth/exists", async (req, res) => {
+router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   const raw = String(req.query.email ?? "").trim().toLowerCase();
   if (!raw || raw.length > 254 || !EMAIL_RE.test(raw)) {
     res.json({ ok: true, exists: false });
@@ -85,10 +95,22 @@ router.get("/auth/exists", async (req, res) => {
 });
 
 // ── Login: uses JWT Authentication for WP REST API plugin ────────────────────
-router.post("/auth/login", async (req, res) => {
+router.post("/auth/login", loginIpLimiter, async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     return res.status(400).json({ ok: false, message: "Email and password are required" });
+  }
+
+  // Check per-email failure cap before forwarding. Successful logins do NOT
+  // increment the counter — only failed auth responses do (see below). This
+  // prevents locking out a legitimate user who logs in repeatedly.
+  const emailCheck = loginEmailLimiter.check(email);
+  if (!emailCheck.allowed) {
+    return res.status(429).json({
+      ok: false,
+      code: "too_many_requests",
+      message: "Too many login attempts for this account. Please wait a moment and try again.",
+    });
   }
 
   try {
@@ -108,6 +130,9 @@ router.post("/auth/login", async (req, res) => {
     }
 
     if (!tokenRes.ok || !tokenData?.token) {
+      // Record the failure against this email's cap so repeated wrong-password
+      // attempts on the same account are throttled even across IP rotations.
+      loginEmailLimiter.record(email);
       return res.status(401).json({
         ok: false,
         message: tokenData?.message?.replace(/<[^>]*>/g, "") ?? "Invalid email or password",
@@ -153,7 +178,7 @@ router.post("/auth/login", async (req, res) => {
 });
 
 // ── Register: create a WooCommerce customer ──────────────────────────────────
-router.post("/auth/register", async (req, res) => {
+router.post("/auth/register", registerIpLimiter, async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "Registration unavailable" });
   }
@@ -471,11 +496,26 @@ async function issueSocialSession(
 // can show an inline "we don't recognise that email" error per the product
 // spec, while still treating upstream/network failures as generic.
 
-router.post("/auth/reset/request", async (req, res) => {
+router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
     return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email is required" });
   }
+
+  // Email-based cap prevents one address from being flooded with reset emails.
+  // Record the attempt before forwarding — every request to this endpoint
+  // causes WordPress to attempt to send a reset email, so we cap at the
+  // Express layer regardless of whether the email is known.
+  const emailCheck = resetEmailLimiter.check(email);
+  if (!emailCheck.allowed) {
+    return res.status(429).json({
+      ok: false,
+      code: "too_many_requests",
+      message: "Too many reset attempts for this email. Please wait before requesting another reset.",
+    });
+  }
+  resetEmailLimiter.record(email);
+
   try {
     const form = new URLSearchParams({
       user_login: email,
@@ -544,7 +584,7 @@ function collectSetCookies(headers: Headers): string {
     .join("; ");
 }
 
-router.post("/auth/reset/confirm", async (req, res) => {
+router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
   const { key, login, password } = (req.body ?? {}) as {
     key?: string;
     login?: string;
@@ -651,7 +691,7 @@ router.post("/auth/reset/confirm", async (req, res) => {
   }
 });
 
-router.post("/auth/social/apple", async (req, res) => {
+router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
   const { identityToken, fullName } = req.body as {
     identityToken?: string;
     fullName?: { givenName?: string | null; familyName?: string | null } | null;
@@ -691,7 +731,7 @@ router.post("/auth/social/apple", async (req, res) => {
   });
 });
 
-router.post("/auth/social/google", async (req, res) => {
+router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
   const { idToken } = req.body as { idToken?: string };
   if (!idToken) {
     return res
