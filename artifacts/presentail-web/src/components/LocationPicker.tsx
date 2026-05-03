@@ -1,23 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowLeft, X } from "lucide-react";
 import {
   useLocationSelection,
   type DeliveryCountry,
 } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
+  onClose?: () => void;
   initialCountryCode?: string | null;
 };
 
 export function LocationPicker({
   onComplete,
+  onClose,
   initialCountryCode = null,
 }: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
-  const { t, countryName, cityName } = useLocale();
+  const { t, countryName, cityName, language } = useLocale();
+  const isRtl = language === "ar";
   const [selectedCountry, setSelectedCountry] =
     useState<DeliveryCountry | null>(() => {
       if (!initialCountryCode) return null;
@@ -39,7 +41,7 @@ export function LocationPicker({
     setSelectedCountry(country);
   };
 
-  const handleChangeCountry = () => {
+  const handleBackToCountries = () => {
     userInteractedRef.current = true;
     setSelectedCountry(null);
   };
@@ -50,85 +52,97 @@ export function LocationPicker({
     onComplete?.({ countryCode: selectedCountry.code, cityId });
   };
 
+  const showCities = !!selectedCountry;
+  const sectionLabel = showCities
+    ? t("locationPicker.selectCityLabel")
+    : t("locationPicker.selectCountryLabel");
+
   return (
-    <div className="w-full max-w-[560px] mx-auto px-6 py-10">
-      <div className="flex items-center justify-between mb-12">
-        <div className="flex-1" />
-        <div className="text-2xl font-serif font-bold text-primary tracking-tight">
-          PRESENTAIL
-        </div>
-        <div className="flex-1 flex justify-end">
-          <LanguageSwitcher />
-        </div>
-      </div>
-
-      <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">
-        {t("locationPicker.sendGiftTo")}
-      </h1>
-      <p className="text-muted-foreground mb-8">
-        {selectedCountry
-          ? t("locationPicker.selectCity")
-          : t("locationPicker.selectCountry")}
-      </p>
-
-      {selectedCountry && (
-        <div className="flex items-center justify-between bg-background border rounded-xl px-4 py-3 mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl leading-none">{selectedCountry.flag}</span>
-            <span className="font-medium">
-              {countryName(selectedCountry.code, selectedCountry.name)}
-            </span>
-          </div>
+    <div className="flex flex-col w-full">
+      <div className="relative flex items-center justify-center mb-5 min-h-[28px]">
+        {showCities ? (
           <button
             type="button"
-            onClick={handleChangeCountry}
-            className="text-sm text-primary hover:underline"
-            data-testid="button-change-country"
+            onClick={handleBackToCountries}
+            aria-label={t("locationPicker.back")}
+            data-testid="button-picker-back"
+            className="absolute start-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors"
           >
-            {t("locationPicker.changeCountry")}
+            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
-        </div>
-      )}
+        ) : null}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("locationPicker.close")}
+            data-testid="button-picker-close"
+            className="absolute end-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
 
-      <div className="space-y-3">
+      <h2 className="text-2xl md:text-[26px] font-serif text-primary text-center mb-1">
+        {t("locationPicker.sendGiftTo")}
+      </h2>
+      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground text-center mb-5">
+        {sectionLabel}
+      </p>
+
+      <div
+        className="flex flex-col overflow-y-auto -mx-1"
+        style={{ maxHeight: "min(60vh, 480px)" }}
+      >
         {isLoadingCountries && countries.length === 0 ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-16 rounded-xl bg-muted animate-pulse"
-            />
-          ))
-        ) : !selectedCountry ? (
-          countries.map((country) => (
+          <div className="flex flex-col">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[52px] mx-1 my-1 rounded-md bg-muted/60 animate-pulse"
+              />
+            ))}
+          </div>
+        ) : !showCities ? (
+          countries.map((country, idx) => (
             <button
               key={country.id}
               type="button"
               onClick={() => handleCountrySelect(country)}
-              className="w-full flex items-center justify-between bg-background border hover:border-primary/40 hover:bg-secondary/30 transition-colors rounded-xl px-5 py-4 text-left"
+              className={`w-full flex items-center justify-between px-3 min-h-[52px] py-3 text-start transition-colors hover:bg-secondary/50 active:bg-secondary/70 ${
+                idx > 0 ? "border-t border-border/70" : ""
+              }`}
               data-testid={`button-country-${country.code.toLowerCase()}`}
             >
-              <div className="flex items-center gap-4">
-                <span className="text-2xl leading-none">{country.flag}</span>
-                <span className="text-base font-medium">
+              <div className="flex items-center gap-3">
+                <span className="text-xl leading-none">{country.flag}</span>
+                <span className="text-base font-medium text-foreground">
                   {countryName(country.code, country.name)}
                 </span>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
+              <ChevronRight
+                className={`w-4 h-4 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+              />
             </button>
           ))
         ) : (
-          selectedCountry.cities.map((city) => (
+          selectedCountry!.cities.map((city, idx) => (
             <button
               key={city.id}
               type="button"
               onClick={() => handleCitySelect(city.id)}
-              className="w-full flex items-center justify-between bg-background border hover:border-primary/40 hover:bg-secondary/30 transition-colors rounded-xl px-5 py-4 text-left"
+              className={`w-full flex items-center justify-between px-3 min-h-[52px] py-3 text-start transition-colors hover:bg-secondary/50 active:bg-secondary/70 ${
+                idx > 0 ? "border-t border-border/70" : ""
+              }`}
               data-testid={`button-city-${city.id}`}
             >
-              <span className="text-base font-medium">
+              <span className="text-base font-medium text-foreground">
                 {cityName(city.id, city.name)}
               </span>
-              <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
+              <ChevronRight
+                className={`w-4 h-4 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+              />
             </button>
           ))
         )}
