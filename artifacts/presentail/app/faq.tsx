@@ -325,7 +325,7 @@ export default function FAQScreen() {
             {t.faqStillBody}
           </Text>
           <Pressable
-            onPress={() => router.push("/contact" as any)}
+            onPress={() => router.push("/contact")}
             style={{
               marginTop: 8,
               paddingHorizontal: 28,

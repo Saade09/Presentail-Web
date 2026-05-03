@@ -172,7 +172,7 @@ export default function AccountTab() {
           </Text>
 
           <Pressable
-            onPress={() => router.push("/auth" as any)}
+            onPress={() => router.push("/auth")}
             style={({ pressed }) => ({
               borderWidth: 1.5,
               borderColor: colors.primary,
@@ -455,7 +455,7 @@ export default function AccountTab() {
         </View>
 
         <Section colors={colors} title={t.accountOrdersHistory}>
-          <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/(tabs)" as any)} />
+          <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/(tabs)")} />
         </Section>
 
         <Section colors={colors} title={t.accountPreferences}>

@@ -71,7 +71,7 @@ export default function CatalogScreen() {
           >
             {t.boutique}
           </Text>
-          <Pressable hitSlop={10} onPress={() => router.push("/cart" as any)}>
+          <Pressable hitSlop={10} onPress={() => router.push("/cart")}>
             <Feather name="shopping-bag" size={18} color={colors.primary} />
             {count > 0 ? (
               <View
@@ -173,7 +173,7 @@ export default function CatalogScreen() {
       </ScrollView>
 
       <Pressable
-        onPress={() => router.push("/category/lux-arrangements" as any)}
+        onPress={() => router.push("/category/lux-arrangements")}
         style={{ marginTop: 24, marginHorizontal: 24, borderRadius: 22, overflow: "hidden" }}
       >
         <Image

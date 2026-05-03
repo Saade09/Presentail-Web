@@ -55,7 +55,7 @@ export default function AuthScreen() {
 
   const close = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/account" as any);
+    else router.replace("/(tabs)/account");
   };
 
   const errorText = (err: AuthError): string => {
@@ -233,8 +233,8 @@ export default function AuthScreen() {
                 onContinue={onContinueEmail}
                 onApple={onApple}
                 onGoogle={onGoogle}
-                onOpenPrivacy={() => router.push("/privacy" as any)}
-                onOpenTerms={() => router.push("/terms" as any)}
+                onOpenPrivacy={() => router.push("/privacy")}
+                onOpenTerms={() => router.push("/terms")}
               />
             </>
           ) : null}

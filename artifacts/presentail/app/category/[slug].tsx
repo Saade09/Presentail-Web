@@ -123,7 +123,7 @@ export default function CategoryScreen() {
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/cart" as any)}
+              onPress={() => router.push("/cart")}
               style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
             >
               <Feather name="shopping-bag" size={18} color={colors.primary} />
@@ -179,7 +179,7 @@ export default function CategoryScreen() {
             return (
               <Pressable
                 key={c.id}
-                onPress={() => router.replace(`/category/${c.id}` as any)}
+                onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: c.id } })}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 10,

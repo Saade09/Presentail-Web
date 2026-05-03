@@ -26,6 +26,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { getBeirutHour } from "@/lib/beirutTime";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
@@ -70,6 +71,36 @@ type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 const EXPRESS_SURCHARGE = 15;
 
+// Each payment method declares the currencies it can settle in.
+// Used by the checkout UI to disable incompatible options instead of
+// silently switching the customer's selection on a currency change.
+type PayMethodId = "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
+const PAY_METHOD_CURRENCIES: Record<PayMethodId, readonly string[] | "all"> = {
+  // Stripe processes USD/EUR/GBP/etc. cards directly; card+wallet are the
+  // safe default for any non-AED currency.
+  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // PayPal: settle in USD only (we always send USD to the API).
+  paypal: ["USD"],
+  // Mamo is the UAE-only wallet/card processor; only AED.
+  mamo: ["AED"],
+  // Manual cash flows operate in USD locally.
+  whish: ["USD"],
+  western: ["USD"],
+};
+
+export function isPayMethodSupported(method: PayMethodId, currency: string): boolean {
+  const allowed = PAY_METHOD_CURRENCIES[method];
+  return allowed === "all" || allowed.includes(currency);
+}
+
+export function defaultPayMethodFor(currency: string): PayMethodId {
+  if (isPayMethodSupported("card", currency)) return "card";
+  if (isPayMethodSupported("mamo", currency)) return "mamo";
+  if (isPayMethodSupported("paypal", currency)) return "paypal";
+  return "card";
+}
+
 type District = { name: string; fee: number };
 const DISTRICTS: District[] = [
   { name: "Akkar", fee: 39 },
@@ -107,20 +138,6 @@ const TIME_SLOTS: TimeSlot[] = [
   { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
   { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
 ];
-
-function getBeirutHour(): number {
-  try {
-    const now = new Date();
-    const h = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Beirut",
-      hour: "numeric",
-      hour12: false,
-    }).format(now);
-    return parseInt(h, 10);
-  } catch {
-    return (new Date().getUTCHours() + 2) % 24;
-  }
-}
 
 function dayLabels(todayLabel: string, tomLabel: string) {
   const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
@@ -204,15 +221,16 @@ export default function CheckoutScreen() {
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
-  const [payMethod, setPayMethod] = useState<"card" | "wallet" | "whish" | "western" | "mamo" | "paypal">("card");
+  const [payMethod, setPayMethod] = useState<PayMethodId>("card");
 
+  // Reset the selected method only when the active currency makes it
+  // unusable. Otherwise we preserve the customer's explicit choice so
+  // a USD shopper who picked PayPal isn't silently forced onto card.
   useEffect(() => {
-    if (currencyCode === "AED") {
-      setPayMethod("mamo");
-    } else if (payMethod === "mamo") {
-      setPayMethod("card");
+    if (!isPayMethodSupported(payMethod, currencyCode)) {
+      setPayMethod(defaultPayMethodFor(currencyCode));
     }
-  }, [currencyCode]);
+  }, [currencyCode, payMethod]);
 
   const [paying, setPaying] = useState(false);
 
@@ -293,6 +311,12 @@ export default function CheckoutScreen() {
     district: district.name,
     districtFee: fees.districtFee,
     expressFee: fees.expressFee,
+    // ISO-3166 alpha-2 country codes from the customer's selected
+    // country dialer. The API persists these on the WC order so tax
+    // and shipping records reflect the actual destination (e.g. AE)
+    // instead of a hardcoded LB.
+    billingCountry: senderCountry.code,
+    shippingCountry: recipientCountry.code,
     deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
@@ -310,42 +334,67 @@ export default function CheckoutScreen() {
     currencyCode,
   });
 
+  // Await WooCommerce order creation with a sensible timeout and a single
+  // retry. After a successful payment we must never silently lose the
+  // order — if both attempts fail, we route to a failure/retry screen and
+  // keep the cart intact so the customer can re-submit, while the server
+  // logs the failure (with the orderId) so support can reconcile.
+  const submitWooOrder = async (
+    orderId: string,
+    paymentRef?: string,
+  ): Promise<boolean> => {
+    const ATTEMPT_TIMEOUT_MS = 15_000;
+    const attemptOnce = async (): Promise<boolean> => {
+      try {
+        const timeout = new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), ATTEMPT_TIMEOUT_MS),
+        );
+        const request = createWooOrder(
+          { ...buildWooPayload(orderId), paymentRef },
+          { authToken },
+        ).then((r) => !!r?.ok);
+        return await Promise.race([request, timeout]);
+      } catch (err) {
+        console.warn("[checkout] Woo order creation threw", { orderId, err });
+        return false;
+      }
+    };
+    const first = await attemptOnce();
+    if (first) return true;
+    console.warn("[checkout] Woo order creation failed; retrying once", { orderId });
+    return await attemptOnce();
+  };
+
   const placeOrder = async () => {
     if (paying) return;
     setPaying(true);
     const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
 
     const slotLabel = slot?.label ?? "";
-    const successPath = `/order-confirmed?orderId=${orderId}&total=${fees.grand}&date=${date}&slot=${encodeURIComponent(
-      slotLabel
-    )}&recipient=${encodeURIComponent(`${recipientFirst} ${recipientLast}`)}`;
-
-    // Always create WooCommerce order (fire-and-forget; don't block UX on failure).
-    // We log failures so they're discoverable in the server logs and an alert
-    // is shown after a successful payment if order creation failed, so the
-    // customer knows to contact us with their payment reference.
-    let wooOrderFailed = false;
-    const wooOrderPromise = createWooOrder(buildWooPayload(orderId), { authToken })
-      .then((res) => {
-        if (!res?.ok) {
-          wooOrderFailed = true;
-          console.warn("[checkout] Woo order creation returned not-ok", { orderId, res });
-        }
-        return res;
-      })
-      .catch((err) => {
-        wooOrderFailed = true;
-        console.warn("[checkout] Woo order creation threw", { orderId, err });
-        return null;
+    const buildResultPath = (status: "success" | "failed", paymentRef?: string) => {
+      const params = new URLSearchParams({
+        orderId,
+        total: String(fees.grand),
+        date,
+        slot: slotLabel,
+        recipient: `${recipientFirst} ${recipientLast}`,
+        status,
       });
+      if (paymentRef) params.set("paymentRef", paymentRef);
+      return `/order-confirmed?${params.toString()}` as const;
+    };
 
-    const notifyIfWooFailed = async () => {
-      try { await wooOrderPromise; } catch {}
-      if (wooOrderFailed) {
-        Alert.alert(
-          t.checkoutPaymentPendingTitle,
-          `${t.checkoutPaymentPendingMsg} ${orderId}`,
-        );
+    // After a successful payment, await WC order creation. On failure,
+    // navigate to the result screen with status=failed so the customer
+    // sees a retry/contact-support state — not a generic confirmation.
+    const finishAfterPayment = async (paymentRef?: string) => {
+      const ok = await submitWooOrder(orderId, paymentRef);
+      if (ok) {
+        clear();
+        router.replace(buildResultPath("success", paymentRef));
+      } else {
+        // Keep cart intact so the customer can retry without rebuilding it.
+        router.replace(buildResultPath("failed", paymentRef));
       }
     };
 
@@ -374,9 +423,7 @@ export default function CheckoutScreen() {
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
         if (outcome === "success") {
-          clear();
-          router.replace(successPath as any);
-          notifyIfWooFailed();
+          await finishAfterPayment(session.id);
         } else {
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
         }
@@ -413,9 +460,7 @@ export default function CheckoutScreen() {
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
         if (outcome === "success") {
-          clear();
-          router.replace(successPath as any);
-          notifyIfWooFailed();
+          await finishAfterPayment(session.id);
         } else {
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
@@ -442,9 +487,7 @@ export default function CheckoutScreen() {
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
         if (outcome === "success") {
-          clear();
-          router.replace(successPath as any);
-          notifyIfWooFailed();
+          await finishAfterPayment(session.id);
         } else {
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
@@ -458,10 +501,10 @@ export default function CheckoutScreen() {
       return;
     }
 
-    // Whish / Western Union: no online payment, treat as confirmed
-    clear();
-    router.replace(successPath as any);
-    notifyIfWooFailed();
+    // Whish / Western Union: no online payment, but the WC order must
+    // still be recorded reliably or the customer's offline payment will
+    // never be reconciled. Surface a failure state if WC creation fails.
+    await finishAfterPayment();
     setPaying(false);
   };
 
@@ -471,7 +514,7 @@ export default function CheckoutScreen() {
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
           {t.checkoutBagEmpty}
         </Text>
-        <Pressable onPress={() => router.replace("/(tabs)/catalog" as any)} style={{ marginTop: 14 }}>
+        <Pressable onPress={() => router.replace("/(tabs)/catalog")} style={{ marginTop: 14 }}>
           <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
             {t.checkoutBrowseBoutique}
           </Text>
@@ -1286,8 +1329,21 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const [cardName, setCardName] = useState("");
   const { currencyCode } = useCurrency();
   const t = useT();
-  const isAED = currencyCode === "AED";
-  const isUSD = currencyCode === "USD";
+
+  // Each method is enabled iff the active currency is in its supported
+  // list. Incompatible methods are shown disabled with a short reason
+  // so customers understand why they cannot pick them — rather than
+  // having the option silently disappear or override their selection.
+  const supports = (m: PayMethodId) => isPayMethodSupported(m, currencyCode);
+  const reason = (m: PayMethodId): string | undefined => {
+    if (supports(m)) return undefined;
+    if (m === "mamo") return t.checkoutPayDisabledMamo;
+    if (m === "paypal" || m === "whish" || m === "western") return t.checkoutPayDisabledUsdOnly;
+    return t.checkoutPayDisabledGeneric;
+  };
+  const tap = (m: PayMethodId) => {
+    if (supports(m)) setPayMethod(m);
+  };
 
   const fmtCardNumber = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 16);
@@ -1312,13 +1368,27 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           {t.secureAndEncrypted}
         </Text>
 
-        {isAED ? (
-          <PayOption colors={colors} active={payMethod === "mamo"} onPress={() => setPayMethod("mamo")} title="Mamo — UAE Wallets & Cards" badge="AED" badgeColor="#007C5B">
-            {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
-          </PayOption>
-        ) : (
-          <>
-            <PayOption colors={colors} active={payMethod === "card"} onPress={() => setPayMethod("card")} title={t.checkoutPayCard} payIcons="card">
+        <PayOption
+          colors={colors}
+          active={payMethod === "mamo"}
+          onPress={() => tap("mamo")}
+          disabled={!supports("mamo")}
+          disabledReason={reason("mamo")}
+          title="Mamo — UAE Wallets & Cards"
+          badge="AED"
+          badgeColor="#007C5B"
+        >
+          {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+        </PayOption>
+        <PayOption
+          colors={colors}
+          active={payMethod === "card"}
+          onPress={() => tap("card")}
+          disabled={!supports("card")}
+          disabledReason={reason("card")}
+          title={t.checkoutPayCard}
+          payIcons="card"
+        >
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
                   <Field colors={colors} label={t.cardholderNameLabel} value={cardName} onChangeText={setCardName} placeholder={t.nameOnCard} />
@@ -1360,29 +1430,58 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
-            </PayOption>
+        </PayOption>
 
-            <PayOption colors={colors} active={payMethod === "wallet"} onPress={() => setPayMethod("wallet")} title={t.checkoutPayWallet} payIcons="wallet">
-              {payMethod === "wallet" ? (
-                <View style={{ gap: 12 }}>
-                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
-                  <SecurityNote colors={colors} />
-                </View>
-              ) : null}
-            </PayOption>
+        <PayOption
+          colors={colors}
+          active={payMethod === "wallet"}
+          onPress={() => tap("wallet")}
+          disabled={!supports("wallet")}
+          disabledReason={reason("wallet")}
+          title={t.checkoutPayWallet}
+          payIcons="wallet"
+        >
+          {payMethod === "wallet" ? (
+            <View style={{ gap: 12 }}>
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+              <SecurityNote colors={colors} />
+            </View>
+          ) : null}
+        </PayOption>
 
-            <PayOption colors={colors} active={payMethod === "paypal"} onPress={() => setPayMethod("paypal")} title="PayPal" badge="PP" badgeColor="#003087">
-              {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
-            </PayOption>
+        <PayOption
+          colors={colors}
+          active={payMethod === "paypal"}
+          onPress={() => tap("paypal")}
+          disabled={!supports("paypal")}
+          disabledReason={reason("paypal")}
+          title="PayPal"
+          badge="PP"
+          badgeColor="#003087"
+        >
+          {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
+        </PayOption>
 
-            {isUSD ? (
-              <>
-                <PayOption colors={colors} active={payMethod === "whish"} onPress={() => setPayMethod("whish")} title="Whish Money" badge="whish" badgeColor="#E5302E" />
-                <PayOption colors={colors} active={payMethod === "western"} onPress={() => setPayMethod("western")} title="Western Union" badge="WU" badgeColor="#F8B400" />
-              </>
-            ) : null}
-          </>
-        )}
+        <PayOption
+          colors={colors}
+          active={payMethod === "whish"}
+          onPress={() => tap("whish")}
+          disabled={!supports("whish")}
+          disabledReason={reason("whish")}
+          title="Whish Money"
+          badge="whish"
+          badgeColor="#E5302E"
+        />
+        <PayOption
+          colors={colors}
+          active={payMethod === "western"}
+          onPress={() => tap("western")}
+          disabled={!supports("western")}
+          disabledReason={reason("western")}
+          title="Western Union"
+          badge="WU"
+          badgeColor="#F8B400"
+        />
       </Card>
     </View>
   );
@@ -1421,7 +1520,12 @@ function WalletIcons() {
   );
 }
 
-function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children }: any) {
+function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children, disabled, disabledReason }: any) {
+  // When disabled we render the option in a dimmed state with a short
+  // reason underneath, instead of removing it from the list. Hiding
+  // would silently change the available choices when the customer
+  // switches currency, which is confusing and was the source of the
+  // "selection mysteriously moved" bug.
   return (
     <View
       style={{
@@ -1430,10 +1534,12 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
         borderColor: active ? colors.primary : colors.border,
         backgroundColor: active ? colors.secondary : "#fff",
         overflow: "hidden",
+        opacity: disabled ? 0.45 : 1,
       }}
     >
       <Pressable
-        onPress={onPress}
+        onPress={disabled ? undefined : onPress}
+        disabled={disabled}
         style={{
           padding: 14,
           flexDirection: "row",
@@ -1466,6 +1572,13 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
         ) : null}
         {payIcons === "card" ? <CardIcons /> : payIcons === "wallet" ? <WalletIcons /> : null}
       </Pressable>
+      {disabled && disabledReason ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 12, marginTop: -4 }}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
+            {disabledReason}
+          </Text>
+        </View>
+      ) : null}
       {children ? <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View> : null}
     </View>
   );

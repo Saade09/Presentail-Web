@@ -130,6 +130,17 @@ export type WooOrderPayload = {
   district: string;
   districtFee: number;
   expressFee: number;
+  // ISO-3166 alpha-2 country codes derived from the customer's selected
+  // billing/shipping country. The API persists these on the WC order so
+  // tax and shipping records reflect the actual destination instead of
+  // a hardcoded LB. Optional for backward compatibility — the server
+  // falls back to LB if either is missing.
+  billingCountry?: string;
+  shippingCountry?: string;
+  // Optional reference from the upstream PSP (Stripe session id, Mamo
+  // payment id, PayPal order id) so support can correlate a failed WC
+  // creation to the actual settled payment.
+  paymentRef?: string;
   deliveryDetails: string;
   deliveryDate: string;
   deliverySlot: string;

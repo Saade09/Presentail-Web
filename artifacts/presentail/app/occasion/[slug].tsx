@@ -82,7 +82,7 @@ export default function OccasionScreen() {
             <Pressable onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}>
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
-            <Pressable onPress={() => router.push("/cart" as any)} style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}>
+            <Pressable onPress={() => router.push("/cart")} style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}>
               <Feather name="shopping-bag" size={18} color={colors.primary} />
               {count > 0 ? (
                 <View style={[styles.badge, { backgroundColor: colors.gold }]}>
@@ -117,7 +117,7 @@ export default function OccasionScreen() {
             return (
               <Pressable
                 key={o.id}
-                onPress={() => router.replace(`/occasion/${o.id}` as any)}
+                onPress={() => router.replace({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 10,
@@ -161,8 +161,8 @@ export default function OccasionScreen() {
                 group={group}
                 colors={colors}
                 t={t}
-                onProduct={(id) => router.push(`/product/${id}` as any)}
-                onSeeAll={() => router.push(`/category/${group.slug}` as any)}
+                onProduct={(id) => router.push({ pathname: "/product/[slug]", params: { slug: id } })}
+                onSeeAll={() => router.push({ pathname: "/category/[slug]", params: { slug: group.slug } })}
               />
             ))}
           </View>

@@ -79,7 +79,7 @@ export default function OccasionsScreen() {
               <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={20} color="#fff" />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/cart" as any)}
+              onPress={() => router.push("/cart")}
               style={{
                 width: 40,
                 height: 40,
@@ -160,7 +160,7 @@ export default function OccasionsScreen() {
             return (
               <Pressable
                 key={o.id}
-                onPress={() => router.push(`/occasion/${o.id}` as any)}
+                onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
                 style={({ pressed }) => ({
                   flexDirection: isRTL ? "row-reverse" : "row",
                   alignItems: "center",

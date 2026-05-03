@@ -22,7 +22,7 @@ export function ProductCard({ product, width, onPress }: Props) {
 
   const handlePress = () => {
     if (onPress) return onPress();
-    router.push(`/product/${product.id}` as any);
+    router.push({ pathname: "/product/[slug]", params: { slug: product.id } });
   };
 
   return (

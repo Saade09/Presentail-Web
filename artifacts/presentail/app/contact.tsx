@@ -331,7 +331,7 @@ export default function ContactScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push("/faq" as any)}
+          onPress={() => router.push("/faq")}
           style={{
             backgroundColor: colors.secondary,
             borderRadius: 16,

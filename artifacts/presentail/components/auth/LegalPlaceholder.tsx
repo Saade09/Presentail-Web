@@ -31,7 +31,7 @@ export function LegalPlaceholder({ title, body }: { title: string; body: string 
       >
         <Pressable
           hitSlop={10}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/account" as any))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/account"))}
           accessibilityLabel={t.authBack}
         >
           <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={22} color="#fff" />

@@ -128,7 +128,7 @@ export default function BrandScreen() {
             <ProductCard
               product={item as any}
               width={CARD_W}
-              onPress={() => router.push(`/product/${item.id}` as any)}
+              onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: item.id } })}
             />
           )}
         />

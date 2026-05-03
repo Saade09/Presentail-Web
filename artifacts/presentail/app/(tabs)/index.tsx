@@ -1,7 +1,7 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -78,6 +78,12 @@ function HomeHeader({
         justifyContent: "space-between",
       }}
     >
+      <View style={{ width: 28, alignItems: "flex-start" }}>
+        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog")}>
+          <Feather name="search" size={20} color={colors.primary} />
+        </Pressable>
+      </View>
+
       <Wordmark size={26} />
 
       <Pressable
@@ -132,9 +138,7 @@ function HomeHeader({
       </Pressable>
 
       <View style={{ width: 28, alignItems: "flex-end" }}>
-        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
-          <Feather name="search" size={20} color={colors.primary} />
-        </Pressable>
+        <View />
       </View>
     </View>
   );
@@ -244,7 +248,7 @@ function Hero() {
   return (
     <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
       <Pressable
-        onPress={() => router.push("/category/lux-arrangements" as any)}
+        onPress={() => router.push("/category/lux-arrangements")}
         style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
       >
         <View
@@ -393,7 +397,7 @@ function BestSellers() {
             description="A rotating shortlist chosen by our atelier — the bouquets and gifts that arrive most often at the front door."
           />
         </View>
-        <Pressable onPress={() => router.push("/(tabs)/catalog" as any)}>
+        <Pressable onPress={() => router.push("/(tabs)/catalog")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             VIEW ALL
           </Text>
@@ -443,7 +447,7 @@ function FlowersSection() {
             description="Hand-tied bouquets, artisan boxes, and statement arrangements crafted daily in Beirut."
           />
         </View>
-        <Pressable onPress={() => router.push("/category/hand-bouquets" as any)}>
+        <Pressable onPress={() => router.push("/category/hand-bouquets")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             VIEW ALL
           </Text>
@@ -487,7 +491,7 @@ function BundlesSection() {
             description="Curated sets pairing our finest blooms with sweets, wines and keepsakes."
           />
         </View>
-        <Pressable onPress={() => router.push("/category/bundles" as any)}>
+        <Pressable onPress={() => router.push("/category/bundles")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             VIEW ALL
           </Text>
@@ -529,7 +533,7 @@ function CategoryRail() {
         {categories.map((c) => (
           <Pressable
             key={c.id}
-            onPress={() => router.push(`/category/${c.id}` as any)}
+            onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: c.id } })}
             style={{ alignItems: "center", gap: 10, width: 88 }}
           >
             <View
@@ -586,7 +590,7 @@ function CollectionsSection() {
         {collections.map((c) => (
           <Pressable
             key={c.id}
-            onPress={() => c.category && router.push(`/category/${c.category}` as any)}
+            onPress={() => c.category && router.push({ pathname: "/category/[slug]", params: { slug: c.category } })}
             style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
           >
             <View
@@ -695,7 +699,7 @@ function OccasionsGrid() {
           return (
             <Pressable
               key={o.id}
-              onPress={() => router.push(`/occasion/${o.id}` as any)}
+              onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
               style={({ pressed }) => ({
                 flexBasis: "48%",
                 flexGrow: 1,
@@ -898,7 +902,7 @@ function BrandsRow() {
         contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
         renderItem={({ item: b }) => (
           <Pressable
-            onPress={() => router.push(`/brand/${b.slug}` as any)}
+            onPress={() => router.push({ pathname: "/brand/[slug]", params: { slug: b.slug } })}
             style={({ pressed }) => ({
               width: 116,
               borderRadius: 16,
@@ -960,7 +964,7 @@ function BrandsRow() {
   );
 }
 
-type FooterLink = { label: string; href?: string; action?: "contact" };
+type FooterLink = { label: string; href?: Href; action?: "contact" };
 
 function Footer() {
   const colors = useColors();
@@ -1023,11 +1027,14 @@ function Footer() {
       return;
     }
     if (!l.href) return;
-    if (l.href.startsWith("http")) {
+    // External URLs are stored as plain strings; internal hrefs may be
+    // typed Href objects too. Open externals via Linking and route the
+    // rest through expo-router so type-checking works without `as any`.
+    if (typeof l.href === "string" && l.href.startsWith("http")) {
       Linking.openURL(l.href);
-    } else {
-      router.push(l.href as any);
+      return;
     }
+    router.push(l.href);
   };
 
   return (

@@ -77,7 +77,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
             {t.cartEmptyBagDesc}
           </Text>
           <Pressable
-            onPress={() => router.replace("/(tabs)/catalog" as any)}
+            onPress={() => router.replace("/(tabs)/catalog")}
             style={{ marginTop: 8, paddingHorizontal: 22, paddingVertical: 14, borderRadius: 999, backgroundColor: colors.primary }}
           >
             <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
@@ -101,7 +101,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
                   borderColor: colors.border,
                 }}
               >
-                <Pressable onPress={() => router.push(`/product/${product.id}` as any)}>
+                <Pressable onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: product.id } })}>
                   <Image
                     source={product.image}
                     style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: colors.muted }}
@@ -179,7 +179,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
               />
             </View>
             <Pressable
-              onPress={() => router.push("/checkout" as any)}
+              onPress={() => router.push("/checkout")}
               style={({ pressed }) => [
                 {
                   backgroundColor: colors.primary,

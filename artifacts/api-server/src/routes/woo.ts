@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { sendOrderEventPush } from "../lib/orderEvents";
@@ -147,10 +148,10 @@ router.get("/woo/brands", async (_req, res) => {
   try {
     const r = await wooFetch("/products/brands?per_page=100");
     if (!r.ok) {
-      const err = await r.json();
+      const err = (await r.json()) as { message?: string };
       return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
     }
-    const brands: any[] = await r.json();
+    const brands = (await r.json()) as any[];
     return res.json({
       ok: true,
       brands: brands.map((b) => ({
@@ -179,7 +180,7 @@ router.get("/woo/brand-products", async (req, res) => {
     if (!brandRes.ok) {
       return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
     }
-    const brandList: any[] = await brandRes.json();
+    const brandList = (await brandRes.json()) as any[];
     if (!brandList.length) {
       return res.json({ ok: true, products: [], count: 0 });
     }
@@ -192,7 +193,7 @@ router.get("/woo/brand-products", async (req, res) => {
     if (!r.ok) {
       return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
     }
-    const batch: any[] = await r.json();
+    const batch = (await r.json()) as any[];
     const filter = readDeliveryFilter(req);
     const products = batch.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
@@ -255,7 +256,7 @@ router.get("/woo/category-products", async (req, res) => {
     // Resolve category slug to ID
     const catRes = await wooFetch(`/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`);
     if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
-    const catList: any[] = await catRes.json();
+    const catList = (await catRes.json()) as any[];
     if (!catList.length) return res.json({ ok: true, products: [], count: 0 });
     const catId = catList[0].id;
     const catName: string = catList[0].name ?? slug;
@@ -265,7 +266,7 @@ router.get("/woo/category-products", async (req, res) => {
     while (allProducts.length < 200) {
       const r = await wooFetch(`/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch: any[] = await r.json();
+      const batch = (await r.json()) as any[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -295,7 +296,7 @@ router.get("/woo/occasion-products", async (req, res) => {
     while (allProducts.length < 200) {
       const r = await wooFetch(`/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch: any[] = await r.json();
+      const batch = (await r.json()) as any[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -346,7 +347,7 @@ router.get("/woo/products", async (req, res) => {
     while (true) {
       const r = await wooFetch(`/products?per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch: any[] = await r.json();
+      const batch = (await r.json()) as any[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -360,53 +361,85 @@ router.get("/woo/products", async (req, res) => {
   }
 });
 
-type WooOrderPayload = {
-  orderId: string;
-  items: { name: string; quantity: number; price: number; wcId?: number }[];
-  billing: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-  };
-  recipient: {
-    firstName: string;
-    lastName: string;
-    phone: string;
-  };
-  district: string;
-  districtFee: number;
-  expressFee: number;
-  deliveryDetails: string;
-  deliveryDate: string;
-  deliverySlot: string;
-  cardMessage?: string;
-  cardFrom?: string;
-  cardTo?: string;
-  qrLink?: string;
-  qrLabel?: string;
-  orderNotes?: string;
-  paymentMethod: "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
-  identitySecret?: boolean;
+// ISO-3166 alpha-2 (e.g. "LB", "AE"). We accept any 2-letter uppercase
+// code and let WooCommerce reject unknown ones — keeping the list here
+// in sync with the country dialer would be brittle.
+const Iso2 = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/)
+  .transform((s) => s.toUpperCase());
+
+const WooOrderSchema = z.object({
+  orderId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        quantity: z.number().int().positive(),
+        price: z.number().nonnegative(),
+        wcId: z.number().int().positive().optional(),
+      }),
+    )
+    .min(1),
+  billing: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().default(""),
+    email: z.string().email(),
+    phone: z.string().min(1),
+  }),
+  recipient: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().default(""),
+    phone: z.string().min(1),
+  }),
+  district: z.string().min(1),
+  districtFee: z.number().nonnegative(),
+  expressFee: z.number().nonnegative(),
+  // Optional, defaults to LB to preserve backward compatibility with
+  // older app versions that don't send these fields yet.
+  billingCountry: Iso2.optional(),
+  shippingCountry: Iso2.optional(),
+  paymentRef: z.string().optional(),
+  deliveryDetails: z.string().default(""),
+  deliveryDate: z.string().default(""),
+  deliverySlot: z.string().default(""),
+  cardMessage: z.string().optional(),
+  cardFrom: z.string().optional(),
+  cardTo: z.string().optional(),
+  qrLink: z.string().optional(),
+  qrLabel: z.string().optional(),
+  orderNotes: z.string().optional(),
+  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal"]),
+  identitySecret: z.boolean().optional(),
   // App-side identifier used to route push notifications back to the
-  // buyer's device. Not authenticated — used only as a routing hint.
-  // The owning user is derived server-side from the JWT (if present),
-  // never from the request body.
-  appDeviceId?: string;
+  // buyer's device. Only honoured when the request is authenticated —
+  // see the route handler for the rationale.
+  appDeviceId: z.string().optional(),
   // ISO 4217 of the currency the shopper saw in-app. The server converts
   // every monetary field below from USD into this currency so the
   // WooCommerce order total matches what the customer was charged.
-  currencyCode?: string;
-};
+  currencyCode: z.string().optional(),
+});
+
+type WooOrderPayload = z.infer<typeof WooOrderSchema>;
 
 router.post("/woo/order", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
-  const body = req.body as WooOrderPayload;
-  if (!body.items?.length || !body.billing) {
-    return res.status(400).json({ ok: false, message: "Missing required fields" });
+  const parsed = WooOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    req.log?.warn?.(
+      { issues: parsed.error.issues },
+      "woo.order: invalid payload",
+    );
+    return res
+      .status(400)
+      .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues });
   }
+  const body: WooOrderPayload = parsed.data;
 
   const paymentTitles: Record<string, string> = {
     card: "Credit / Debit Card (Stripe)",
@@ -554,14 +587,14 @@ router.post("/woo/order", async (req, res) => {
       last_name: body.billing.lastName,
       email: body.billing.email,
       phone: body.billing.phone,
-      country: "LB",
+      country: body.billingCountry ?? "LB",
     },
     shipping: {
       first_name: body.recipient.firstName,
       last_name: body.recipient.lastName,
       address_1: body.deliveryDetails,
       city: body.district,
-      country: "LB",
+      country: body.shippingCountry ?? "LB",
     },
     line_items: lineItems,
     fee_lines: feeLines,
@@ -602,10 +635,22 @@ router.post("/woo/order", async (req, res) => {
     // best-effort — failures must not break the customer's checkout.
     const wcOrderId = typeof data?.id === "number" ? data.id : null;
     const appUserId = resolvedUserId;
-    const appDeviceId =
+    // Only persist the app device id when the request is authenticated.
+    // An unauthenticated caller could otherwise spoof another user's
+    // deviceId and hijack push notifications for that order. For guest
+    // checkouts we drop the device id and the order simply won't push
+    // back into the buyer's app — that's the safe default.
+    const rawDeviceId =
       typeof body.appDeviceId === "string" && body.appDeviceId
         ? body.appDeviceId
         : null;
+    const appDeviceId = appUserId != null ? rawDeviceId : null;
+    if (rawDeviceId && appUserId == null) {
+      req.log?.info?.(
+        { appOrderId: body.orderId },
+        "woo.order: ignoring appDeviceId on unauthenticated request",
+      );
+    }
 
     (async () => {
       try {

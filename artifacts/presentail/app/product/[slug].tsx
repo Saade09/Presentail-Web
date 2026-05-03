@@ -83,7 +83,7 @@ export default function ProductDetail() {
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/cart" as any)}
+              onPress={() => router.push("/cart")}
               style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
             >
               <Feather name="shopping-bag" size={18} color={colors.primary} />
@@ -246,7 +246,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Breadcrumb */}
       {cat ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Pressable onPress={() => router.push(`/category/${cat.id}` as any)}>
+          <Pressable onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: cat.id } })}>
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 2.2, textTransform: "uppercase" }}>
               {cat.name}
             </Text>
