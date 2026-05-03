@@ -5,89 +5,86 @@ import {
   paypalCurrencyFor,
   roundForCurrency,
 } from "../lib/fx";
+import {
+  resolveCartItems,
+  computeDistrictFeeUsd,
+  EXPRESS_SURCHARGE_USD,
+} from "../lib/catalog";
+import { storePaymentIntent } from "../lib/checkoutIntents";
 
 const router: IRouter = Router();
 
 // ── Payment-return bridge ─────────────────────────────────────────────────
 // Payment providers (Mamo, PayPal) only accept HTTPS return URLs. We give them
-// this URL with a `deeplink` query, then 302-redirect to the app's custom
-// scheme. expo-web-browser's openAuthSessionAsync detects the deep link and
-// closes the in-app browser, returning control to the app.
+// this endpoint which validates and 302-redirects to the app's custom scheme.
+// expo-web-browser's openAuthSessionAsync detects the deep link and closes
+// the in-app browser, returning control to the app.
+//
+// Security measures:
+//   1. Strict scheme allowlist — only the Presentail app scheme is accepted.
+//   2. No user-supplied values are reflected into HTML/JS/anchors; the
+//      deep-link target is placed only in a Location header and a safe <meta>
+//      redirect whose content attribute is fully escaped.
+const ALLOWED_DEEP_LINK_SCHEMES = new Set(["presentail"]);
 
-/** Escape a string for safe embedding in an HTML attribute or text node. */
-function escapeHtml(value: string): string {
-  return value
+function htmlEncode(s: string): string {
+  return s
     .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/\//g, "&#x2F;");
 }
 
-/**
- * Allowlisted deep-link host+path combinations that the payment-return bridge
- * is permitted to redirect to. Only the expected payment-return screen is
- * accepted; every other destination is rejected.
- */
-const ALLOWED_DEEPLINK_HOSTS = new Set(["payment-return"]);
-
-/**
- * Build the strictly validated target deep link from the inbound query params.
- * Returns null if the caller-supplied deeplink is not on the allowlist.
- *
- * Rather than reflecting the raw `deeplink` value, we extract only the host
- * portion (the path segment after `presentail://`) and reconstruct the URL
- * from scratch so no injected characters can survive into the output.
- */
-function buildTarget(deeplink: string, status: string): string | null {
-  // Must start with exactly the expected scheme.
-  if (!deeplink.startsWith("presentail://")) return null;
-
-  // Extract and validate the host (everything between `presentail://` and the
-  // first `?` or end of string — no path segments, no injected characters).
-  const afterScheme = deeplink.slice("presentail://".length);
-  const host = afterScheme.split("?")[0];
-
-  if (!ALLOWED_DEEPLINK_HOSTS.has(host)) return null;
-
-  // Reconstruct the target entirely from known-safe components.
-  return `presentail://${host}?status=${encodeURIComponent(status)}`;
+function parseScheme(url: string): string {
+  const m = url.match(/^([a-z][a-z0-9+.-]*):/i);
+  return m ? m[1].toLowerCase() : "";
 }
 
 router.get("/payment/return", (req, res) => {
-  const deeplink = String(req.query.deeplink ?? "");
+  const rawDeeplink = String(req.query.deeplink ?? "");
   const rawStatus = String(req.query.status ?? "success");
 
-  const target = buildTarget(deeplink, rawStatus);
-  if (!target) {
-    res.status(400).send("Invalid deep link");
-    return;
+  // Validate deep link: must be a non-empty string using an explicitly
+  // allowed custom scheme. We never accept http/https (open redirect risk)
+  // or javascript/data (injection risk).
+  if (!rawDeeplink) {
+    return res.status(400).send("Missing deeplink parameter");
+  }
+  const scheme = parseScheme(rawDeeplink);
+  if (!ALLOWED_DEEP_LINK_SCHEMES.has(scheme)) {
+    return res.status(400).send("Unsupported deep link scheme");
   }
 
-  res.setHeader("Cache-Control", "no-store");
+  // Validate status to a known safe set before appending it to the URL.
+  const status = rawStatus === "cancel" ? "cancel" : "success";
 
-  // Primary: 302 redirect — the fastest and cleanest path for browsers and
-  // in-app WebViews that honour custom-scheme redirects.
-  // Fallback HTML is provided for environments that do not follow 302s to
-  // custom schemes (some older in-app browsers); all values are HTML-escaped.
-  const safeTarget = escapeHtml(target);
+  const sep = rawDeeplink.includes("?") ? "&" : "?";
+  const target = `${rawDeeplink}${sep}status=${encodeURIComponent(status)}`;
+
+  // Primary redirect via Location header — custom scheme handlers on iOS/Android
+  // intercept it correctly.
+  res.setHeader("Cache-Control", "no-store");
   res.setHeader("Location", target);
-  res.status(302).send(
+  // Secondary: meta-refresh with fully escaped target in case some WebView
+  // contexts don't follow the Location header for custom schemes.
+  const safeTarget = htmlEncode(target);
+  return res.status(302).send(
     `<!doctype html><html><head><meta charset="utf-8"><title>Returning to Presentail\u2026</title>` +
     `<meta http-equiv="refresh" content="0;url=${safeTarget}">` +
-    `<script>window.location.replace(${JSON.stringify(target)});</script>` +
-    `</head><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#fff8ec;color:#00414e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;">` +
-    `<div><div style="font-size:18px;margin-bottom:8px">Returning to Presentail\u2026</div>` +
-    `<div style="font-size:13px;opacity:.7">If nothing happens, <a href="${safeTarget}">tap here</a>.</div></div>` +
-    `</body></html>`
+    `</head><body>` +
+    `<p>Returning to Presentail\u2026 <a href="${safeTarget}">Tap here if nothing happens</a></p>` +
+    `</body></html>`,
   );
 });
 
 // ── Mamo Payment Link ──────────────────────────────────────────────────────
-// Mamo settles in AED only. The app sends `amount` as the USD total plus the
-// shopper's selected `currency`; the server converts to AED here so what the
-// user sees in-app matches what Mamo charges (and persists the presented
-// currency for receipts).
+// The client sends cart items (with WC product IDs), delivery info, and the
+// app orderId. The server resolves catalog prices and computes the true total
+// server-side so the client cannot manipulate the charged amount.
+// The cart snapshot and orderId→paymentRef mapping are stored so /woo/order
+// can verify both the binding and that the submitted cart matches the paid cart.
 router.post("/payment/mamo", async (req, res) => {
   const key = process.env.MAMO_SECRET_KEY;
   if (!key) {
@@ -99,7 +96,10 @@ router.post("/payment/mamo", async (req, res) => {
   }
 
   const {
-    amount,
+    items,
+    orderId,
+    district,
+    expressDelivery,
     currency: rawCurrency,
     title,
     description,
@@ -109,7 +109,10 @@ router.post("/payment/mamo", async (req, res) => {
     returnUrl,
     failureReturnUrl,
   } = req.body as {
-    amount: number;
+    items: { wcId: number; quantity: number }[];
+    orderId: string;
+    district?: string;
+    expressDelivery?: boolean;
     currency?: string;
     title?: string;
     description?: string;
@@ -120,14 +123,32 @@ router.post("/payment/mamo", async (req, res) => {
     failureReturnUrl: string;
   };
 
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" });
+  }
   if (!returnUrl || !failureReturnUrl) {
     return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" });
   }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" });
+  }
 
-  // The app sends the USD subtotal; Mamo only accepts AED so we convert here.
+  // Resolve catalog prices server-side.
+  const catalogResult = await resolveCartItems(items);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
+  const expressFeeUsd = isExpress ? EXPRESS_SURCHARGE_USD : 0;
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+
+  // Mamo settles in AED only — convert the server-computed USD total.
   const presented = normalizeCurrency(rawCurrency ?? "USD");
-  const usdAmount = Number(amount) || 0;
-  const aedAmount = roundForCurrency(await convertFromUsd(usdAmount, "AED"), "AED");
+  const aedAmount = roundForCurrency(await convertFromUsd(totalUsd, "AED"), "AED");
 
   try {
     const r = await fetch("https://business.mamopay.com/manage_api/v1/links", {
@@ -155,6 +176,25 @@ router.post("/payment/mamo", async (req, res) => {
         data?.errors?.[0]?.message ?? data?.message ?? data?.error ?? "Mamo error";
       return res.status(r.status).json({ ok: false, code: "mamo_error", message: msg });
     }
+
+    // Store the intent with the full cart snapshot so /woo/order can verify:
+    //   1. orderId↔paymentRef binding (prevents replay for a different order)
+    //   2. submitted cart matches the paid-for cart (prevents cart substitution)
+    storePaymentIntent({
+      orderId,
+      paymentRef: String(data.id),
+      provider: "mamo",
+      totalUsd,
+      snapshot: {
+        items: catalogResult.items.map((i) => ({
+          wcId: i.wcId,
+          quantity: i.quantity,
+          priceUsd: i.priceUsd,
+        })),
+        district: resolvedDistrict,
+        expressDelivery: isExpress,
+      },
+    });
 
     return res.json({
       ok: true,
@@ -198,6 +238,9 @@ async function getPayPalToken(): Promise<string> {
   return data.access_token;
 }
 
+// The client sends cart items, delivery info, and orderId. The server computes
+// the true total from catalog prices and stores the intent + cart snapshot for
+// order binding verification.
 router.post("/payment/paypal", async (req, res) => {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
@@ -210,26 +253,50 @@ router.post("/payment/paypal", async (req, res) => {
     });
   }
 
-  // The app sends `amount` as the USD total plus the shopper's selected
-  // `currency`. PayPal supports a fixed presentment-currency list; if the
-  // shopper picked something outside it (e.g. AED, KWD), we fall back to
-  // USD so the order can still be created.
-  const { amount, currency: rawCurrency, returnUrl, cancelUrl, orderId } = req.body as {
-    amount: number;
+  const {
+    items,
+    orderId,
+    district,
+    expressDelivery,
+    currency: rawCurrency,
+    returnUrl,
+    cancelUrl,
+  } = req.body as {
+    items: { wcId: number; quantity: number }[];
+    orderId: string;
+    district?: string;
+    expressDelivery?: boolean;
     currency?: string;
     returnUrl: string;
     cancelUrl: string;
-    orderId: string;
   };
 
-  if (!returnUrl || !cancelUrl || !orderId) {
-    return res.status(400).json({ ok: false, message: "returnUrl, cancelUrl and orderId are required" });
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" });
   }
+  if (!returnUrl || !cancelUrl) {
+    return res.status(400).json({ ok: false, message: "returnUrl and cancelUrl are required" });
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "items is required" });
+  }
+
+  // Resolve catalog prices server-side.
+  const catalogResult = await resolveCartItems(items);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, message: catalogResult.message });
+  }
+
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
+  const expressFeeUsd = isExpress ? EXPRESS_SURCHARGE_USD : 0;
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
 
   const presented = normalizeCurrency(rawCurrency ?? "USD");
   const settle = paypalCurrencyFor(presented);
-  const usdAmount = Number(amount) || 0;
-  const settleAmount = roundForCurrency(await convertFromUsd(usdAmount, settle), settle);
+  const settleAmount = roundForCurrency(await convertFromUsd(totalUsd, settle), settle);
 
   try {
     const token = await getPayPalToken();
@@ -277,6 +344,25 @@ router.post("/payment/paypal", async (req, res) => {
     const approveLink =
       data.links?.find((l: any) => l.rel === "payer-action")?.href ??
       data.links?.find((l: any) => l.rel === "approve")?.href;
+
+    // Store the intent with the full cart snapshot so /woo/order can verify:
+    //   1. orderId↔paymentRef binding (prevents replay for a different order)
+    //   2. submitted cart matches the paid-for cart (prevents cart substitution)
+    storePaymentIntent({
+      orderId,
+      paymentRef: String(data.id),
+      provider: "paypal",
+      totalUsd,
+      snapshot: {
+        items: catalogResult.items.map((i) => ({
+          wcId: i.wcId,
+          quantity: i.quantity,
+          priceUsd: i.priceUsd,
+        })),
+        district: resolvedDistrict,
+        expressDelivery: isExpress,
+      },
+    });
 
     return res.json({
       ok: true,

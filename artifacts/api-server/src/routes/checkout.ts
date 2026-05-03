@@ -5,21 +5,23 @@ import {
   normalizeCurrency,
   toStripeMinorUnits,
 } from "../lib/fx";
+import { resolveCartItems } from "../lib/catalog";
+import { storePaymentIntent } from "../lib/checkoutIntents";
 
 const router: IRouter = Router();
 
-type LineItem = {
-  name: string;
+type LineItemInput = {
+  wcId: number;
+  quantity: number;
+  // Display-only fields forwarded to Stripe; prices are never read from here.
+  name?: string;
   description?: string;
   image?: string;
-  amount: number; // unit amount in USD cents (catalogue is priced in USD)
-  quantity: number;
 };
 
 type Body = {
-  items: LineItem[];
-  // ISO 4217 of the currency the shopper saw in-app. Server converts USD →
-  // this currency so Stripe charges the same amount the customer agreed to.
+  items: LineItemInput[];
+  orderId: string; // app order ID — bound to the intent so /woo/order can verify
   currency?: string;
   email?: string;
   metadata?: Record<string, string>;
@@ -40,6 +42,7 @@ router.post("/checkout/session", async (req, res) => {
 
   const {
     items,
+    orderId,
     currency: rawCurrency,
     email,
     metadata,
@@ -47,25 +50,35 @@ router.post("/checkout/session", async (req, res) => {
     cancelUrl,
   } = req.body as Body;
 
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" });
+  }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "No items in cart" });
   }
+  if (items.some((i) => !i.wcId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
+    return res.status(400).json({
+      ok: false,
+      message: "Each item must have a valid wcId and a positive integer quantity",
+    });
+  }
   if (!successUrl || !cancelUrl) {
-    return res
-      .status(400)
-      .json({ ok: false, message: "successUrl and cancelUrl are required" });
+    return res.status(400).json({ ok: false, message: "successUrl and cancelUrl are required" });
+  }
+
+  // Resolve catalog prices server-side. Client-supplied amounts are ignored.
+  const catalogResult = await resolveCartItems(items);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
   const stripeCurrency = currency.toLowerCase();
 
   try {
-    // Convert each line item's USD price into the customer's currency using
-    // live FX rates, then format for Stripe's smallest-unit convention.
     const convertedItems = await Promise.all(
-      items.map(async (i) => {
-        const usdUnit = i.amount / 100; // amount was in USD cents
-        const convertedUnit = await convertFromUsd(usdUnit, currency);
+      catalogResult.items.map(async (i) => {
+        const convertedUnit = await convertFromUsd(i.priceUsd, currency);
         return {
           ...i,
           minorUnit: toStripeMinorUnits(convertedUnit, currency),
@@ -90,9 +103,35 @@ router.post("/checkout/session", async (req, res) => {
           },
         },
       })),
-      metadata: { ...(metadata ?? {}), presented_currency: currency },
+      // orderId is embedded in metadata so verifyStripePayment can confirm
+      // this session was not created for a different order and replayed.
+      metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       success_url: successUrl,
       cancel_url: cancelUrl,
+    });
+
+    // Store a payment intent that binds this Stripe session to the specific
+    // orderId AND records the authoritative cart snapshot (catalog-resolved
+    // wcId+quantity+priceUsd). The /woo/order endpoint will verify that the
+    // submitted cart matches this snapshot before marking the order as paid.
+    // For Stripe, the charged total covers product subtotal only (no delivery).
+    storePaymentIntent({
+      orderId,
+      paymentRef: session.id,
+      provider: "stripe",
+      totalUsd: catalogResult.subtotalUsd,
+      snapshot: {
+        items: catalogResult.items.map((i) => ({
+          wcId: i.wcId,
+          quantity: i.quantity,
+          priceUsd: i.priceUsd,
+        })),
+        // District/express are not part of the Stripe charge for this flow,
+        // but they are stored for audit purposes. The /woo/order endpoint
+        // computes delivery fees independently from the server-side table.
+        district: "",
+        expressDelivery: false,
+      },
     });
 
     return res.json({

@@ -125,12 +125,19 @@ export const useCreateOrder = () => {
   });
 };
 
+// Cart item sent to hosted-payment endpoints. Prices are resolved server-side
+// from the WooCommerce catalog using wcId — never send client-controlled amounts.
+type PayCartItem = { wcId: number; quantity: number };
+
 // Hosted-payment-session hooks. Each returns a redirect URL the storefront
 // sends the shopper to; on return we finalize the order via /woo/order.
 export const useStripeCheckoutSession = () => {
   return useMutation({
     mutationFn: (data: {
-      items: { name: string; description?: string; image?: string; amount: number; quantity: number }[];
+      items: { wcId: number; quantity: number; name?: string; description?: string; image?: string }[];
+      // orderId binds this session to the order so the server can prevent
+      // replay attacks (paid session reused for a different, higher-value order).
+      orderId: string;
       currency?: string;
       email?: string;
       metadata?: Record<string, string>;
@@ -146,7 +153,11 @@ export const useStripeCheckoutSession = () => {
 export const useMamoPayment = () => {
   return useMutation({
     mutationFn: (data: {
-      amount: number;
+      items: PayCartItem[];
+      // orderId binds this session to the order so the server can prevent replay attacks.
+      orderId: string;
+      district?: string;
+      expressDelivery?: boolean;
       currency?: string;
       title?: string;
       description?: string;
@@ -165,7 +176,9 @@ export const useMamoPayment = () => {
 export const usePaypalPayment = () => {
   return useMutation({
     mutationFn: (data: {
-      amount: number;
+      items: PayCartItem[];
+      district?: string;
+      expressDelivery?: boolean;
       currency?: string;
       returnUrl: string;
       cancelUrl: string;

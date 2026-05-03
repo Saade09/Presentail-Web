@@ -14,6 +14,11 @@ import {
   roundForCurrency,
   type SupportedCurrency,
 } from "./fx";
+import {
+  fetchWcProductPrice,
+  computeDistrictFeeUsd,
+  EXPRESS_SURCHARGE_USD,
+} from "./catalog";
 
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
 
@@ -50,6 +55,9 @@ export const WooOrderSchema = z.object({
       z.object({
         name: z.string().min(1),
         quantity: z.number().int().positive(),
+        // price is kept for non-catalog (fee) items without a wcId.
+        // For catalog items (wcId present), the server re-derives the price
+        // from the WooCommerce catalog and ignores the client-supplied value.
         price: z.number().nonnegative(),
         wcId: z.number().int().positive().optional(),
       }),
@@ -67,6 +75,9 @@ export const WooOrderSchema = z.object({
     phone: z.string().min(1),
   }),
   district: z.string().min(1),
+  // districtFee and expressFee are accepted for schema compatibility but the
+  // server recomputes them from trusted tables and ignores the client values
+  // for all financial calculations.
   districtFee: z.number().nonnegative(),
   expressFee: z.number().nonnegative(),
   billingCountry: Iso2.optional(),
@@ -121,8 +132,13 @@ const PAYMENT_TITLES: Record<string, string> = {
 // Build the WooCommerce REST payload and POST it. Pure function w.r.t. the
 // queue/db side effects — those are handled by the caller. Used by both the
 // HTTP route handler and the reconciliation worker.
+//
+// `paymentVerified` must be true for card/wallet/mamo/paypal methods.
+// The route handler verifies with the provider before calling this function.
+// The reconciliation worker passes the stored verified flag.
 export async function attemptCreateWcOrder(
   body: WooOrderPayload,
+  opts: { paymentVerified?: boolean } = {},
 ): Promise<WcOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
   const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
@@ -176,20 +192,52 @@ export async function attemptCreateWcOrder(
     roundForCurrency(await convertFromUsd(usd, presentedCurrency), presentedCurrency);
   const fmt = (v: number) => v.toFixed(2);
 
-  const lineItems = await Promise.all(
-    body.items
-      .filter((item) => !!item.wcId)
-      .map(async (item) => {
-        const unit = await conv(item.price);
-        const lineTotal = unit * item.quantity;
+  // For catalog items (wcId present), fetch the real price from WooCommerce
+  // and refuse to fall back to client-supplied prices. This prevents price
+  // manipulation even when the payment verification step was somehow bypassed.
+  // Accumulate the catalog subtotal in USD for delivery fee computation.
+  const catalogItemInputs = body.items.filter((item) => !!item.wcId);
+  let catalogSubtotalUsd = 0;
+  const lineItemData: { wcId: number | undefined; quantity: number; priceUsd: number }[] = [];
+
+  for (const item of catalogItemInputs) {
+    const catalog = await fetchWcProductPrice(item.wcId!);
+    if (!catalog) {
+      if (process.env.WC_CONSUMER_KEY) {
+        // WC is configured but the product wasn't found — fail hard rather
+        // than falling back to the client-supplied price which is untrusted.
         return {
-          product_id: item.wcId,
-          quantity: item.quantity,
-          subtotal: fmt(lineTotal),
-          total: fmt(lineTotal),
-          meta_data: lineItemDeliveryMeta,
+          ok: false,
+          status: 422,
+          message: `Catalog price unavailable for product ${item.wcId}. Cannot create order with unverified pricing.`,
+          recipientName: recipientFullName,
         };
-      }),
+      }
+      // WC not configured (dev/test) — use client price with a log warning.
+      logger.warn(
+        { wcId: item.wcId, appOrderId: body.orderId },
+        "wooOrders: WC not configured, using client price (dev mode only)",
+      );
+      lineItemData.push({ wcId: item.wcId, quantity: item.quantity, priceUsd: item.price });
+      catalogSubtotalUsd += item.price * item.quantity;
+    } else {
+      lineItemData.push({ wcId: item.wcId, quantity: item.quantity, priceUsd: catalog.price });
+      catalogSubtotalUsd += catalog.price * item.quantity;
+    }
+  }
+
+  const lineItems = await Promise.all(
+    lineItemData.map(async (d) => {
+      const unit = await conv(d.priceUsd);
+      const lineTotal = unit * d.quantity;
+      return {
+        product_id: d.wcId,
+        quantity: d.quantity,
+        subtotal: fmt(lineTotal),
+        total: fmt(lineTotal),
+        meta_data: lineItemDeliveryMeta,
+      };
+    }),
   );
 
   const feeLines = await Promise.all(
@@ -206,7 +254,10 @@ export async function attemptCreateWcOrder(
   );
 
   const shippingLines: any[] = [];
-  const convertedDistrictFee = await conv(body.districtFee);
+  // Compute the district fee from the server-side authoritative table using
+  // the catalog-resolved subtotal. The client-supplied districtFee is ignored.
+  const serverDistrictFeeUsd = computeDistrictFeeUsd(body.district, catalogSubtotalUsd);
+  const convertedDistrictFee = await conv(serverDistrictFeeUsd);
   if (convertedDistrictFee > 0) {
     shippingLines.push({
       method_id: "flat_rate",
@@ -220,13 +271,27 @@ export async function attemptCreateWcOrder(
       total: "0.00",
     });
   }
-  if (body.expressFee > 0) {
+
+  // Express surcharge: use the server constant when the client signalled
+  // express (body.expressFee > 0). We never use the client's numeric value.
+  const clientSignalledExpress = body.expressFee > 0;
+  if (clientSignalledExpress) {
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
-      total: fmt(await conv(body.expressFee)),
+      total: fmt(await conv(EXPRESS_SURCHARGE_USD)),
     });
   }
+
+  // Determine set_paid: only true when payment has been verified with the
+  // provider. The route handler sets paymentVerified; the reconciliation
+  // worker reuses the stored flag.
+  const requiresOnlinePayment =
+    body.paymentMethod === "card" ||
+    body.paymentMethod === "wallet" ||
+    body.paymentMethod === "mamo" ||
+    body.paymentMethod === "paypal";
+  const setPaid = requiresOnlinePayment && opts.paymentVerified === true;
 
   metaData.push(
     { key: "Presented Currency", value: presentedCurrency },
@@ -241,7 +306,7 @@ export async function attemptCreateWcOrder(
         ? "stripe"
         : body.paymentMethod,
     payment_method_title: PAYMENT_TITLES[body.paymentMethod] ?? body.paymentMethod,
-    set_paid: body.paymentMethod === "card" || body.paymentMethod === "wallet",
+    set_paid: setPaid,
     billing: {
       first_name: body.billing.firstName,
       last_name: body.billing.lastName,
@@ -393,20 +458,26 @@ export async function enqueuePendingWcOrder(input: {
   paymentRef: string | null;
   userId: number | null;
   errorMessage: string;
+  paymentVerified: boolean;
   log?: { warn?: (...args: any[]) => void };
 }) {
-  const { body, paymentRef, userId, errorMessage, log } = input;
+  const { body, paymentRef, userId, errorMessage, paymentVerified, log } = input;
   const deviceId =
     typeof body.appDeviceId === "string" && body.appDeviceId
       ? body.appDeviceId
       : null;
+
+  // Store the payment-verified flag alongside the payload so the worker
+  // doesn't re-verify an already-confirmed payment.
+  const storedPayload = { ...body, _paymentVerified: paymentVerified };
+
   try {
     await db
       .insert(pendingWooOrdersTable)
       .values({
         appOrderId: body.orderId,
         paymentRef,
-        payload: body,
+        payload: storedPayload,
         userId,
         deviceId,
         lastError: errorMessage,
@@ -418,7 +489,7 @@ export async function enqueuePendingWcOrder(input: {
         target: pendingWooOrdersTable.appOrderId,
         set: {
           paymentRef,
-          payload: body,
+          payload: storedPayload,
           userId,
           deviceId,
           lastError: errorMessage,
@@ -476,7 +547,12 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
     return;
   }
   const body = parsed.data;
-  const result = await attemptCreateWcOrder(body);
+
+  // Recover the paymentVerified flag stored alongside the payload.
+  const rawPayload = row.payload as any;
+  const paymentVerified = rawPayload?._paymentVerified === true;
+
+  const result = await attemptCreateWcOrder(body, { paymentVerified });
   const nextAttempts = row.attempts + 1;
 
   if (result.ok) {

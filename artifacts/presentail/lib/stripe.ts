@@ -24,19 +24,23 @@ const inferred = (() => {
 
 export const API_BASE = inferred;
 
+// Item passed to the Stripe checkout endpoint. Prices are resolved server-side
+// from the WooCommerce catalog using wcId — never trust a client-supplied amount.
 export type CheckoutLineItem = {
-  name: string;
+  wcId: number;
+  quantity: number;
+  // Display-only fields forwarded to Stripe; ignored for pricing.
+  name?: string;
   description?: string;
   image?: string;
-  amount: number; // cents
-  quantity: number;
 };
 
 export async function createStripeCheckoutSession(payload: {
   items: CheckoutLineItem[];
-  // ISO 4217 of the currency the shopper saw in-app. The server converts USD
-  // line-item amounts into this currency using live FX rates so Stripe
-  // charges the same amount the customer agreed to.
+  // orderId is REQUIRED so the server can bind the payment intent to this
+  // specific order and prevent replay attacks (paid session reused for a
+  // different, higher-value order).
+  orderId: string;
   currency?: string;
   email?: string;
   metadata?: Record<string, string>;

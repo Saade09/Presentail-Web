@@ -7,6 +7,12 @@ import {
   listPendingWooOrders,
   recordSuccessfulWcOrder,
 } from "../lib/wooOrders";
+import {
+  verifyStripePayment,
+  verifyMamoPayment,
+  captureAndVerifyPayPalOrder,
+} from "../lib/catalog";
+import { consumePaymentIntent, verifyCartMatchesSnapshot } from "../lib/checkoutIntents";
 
 const router: IRouter = Router();
 
@@ -119,11 +125,6 @@ function readDeliveryFilter(req: { query: any }): DeliveryFilter {
 }
 
 // Read a per-product deliverability list from WooCommerce meta_data.
-// Presentail OS publishes per-location availability as product meta keys:
-//   _deliverable_countries / deliverable_countries  → comma-separated ISO codes
-//   _deliverable_cities    / deliverable_cities     → comma-separated city ids
-// A missing/empty value means the product is deliverable everywhere (the
-// safe default while OS metadata is still being backfilled).
 function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] | null {
   if (!Array.isArray(meta)) return null;
   for (const key of keys) {
@@ -159,8 +160,7 @@ function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
 
 function transformProduct(p: WcProduct) {
   const price = parseFloat(p.price ?? "") || 0;
-  const image =
-    p.images?.[0]?.src ?? null;
+  const image = p.images?.[0]?.src ?? null;
   return {
     id: p.slug,
     wcId: p.id,
@@ -212,7 +212,6 @@ router.get("/woo/brand-products", async (req, res) => {
   if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
 
   try {
-    // Look up brand ID by slug from the brands taxonomy
     const brandRes = await wooFetch(`/products/brands?slug=${encodeURIComponent(brandSlug)}&per_page=5`);
     if (!brandRes.ok) {
       return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
@@ -223,7 +222,6 @@ router.get("/woo/brand-products", async (req, res) => {
     }
     const brandId = brandList[0].id;
 
-    // Fetch products filtered by brand ID
     const r = await wooFetch(
       `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`
     );
@@ -290,7 +288,6 @@ router.get("/woo/category-products", async (req, res) => {
   const slug = String(req.query.slug ?? "");
   if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
   try {
-    // Resolve category slug to ID
     const catRes = await wooFetch(`/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`);
     if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
     const catList = (await catRes.json()) as WcCategory[];
@@ -343,7 +340,6 @@ router.get("/woo/occasion-products", async (req, res) => {
     const filter = readDeliveryFilter(req);
     const deliverable = allProducts.filter((p) => isDeliverable(p, filter));
 
-    // Group products by type category (priority-ordered)
     type TransformedProduct = ReturnType<typeof transformProduct>;
     const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
     const assigned = new Set<number>();
@@ -375,11 +371,6 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 });
 
-// In-memory cache + in-flight de-duplication for the full product list.
-// The upstream WooCommerce REST API is slow (multi-page pagination of 100s
-// of products) and was timing out the storefront. Cache the raw list for
-// a short TTL and coalesce concurrent loads onto a single fetch so the
-// per-request work is just delivery filtering + transform.
 const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
 let allProductsCache: { fetchedAt: number; products: WcProduct[] } | null = null;
 let allProductsInflight: Promise<WcProduct[]> | null = null;
@@ -424,6 +415,27 @@ router.get("/woo/products", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/woo/order
+//
+// Security (layered defence):
+//
+// 1. Payment verification: The server calls the upstream PSP (Stripe, Mamo,
+//    PayPal) to confirm the payment is genuinely paid/captured.
+//
+// 2. Intent binding (payment↔order): When a payment session is created, the
+//    server stores a checkout intent that links the paymentRef (provider ID)
+//    to the specific orderId. On finalization the intent is consumed (single
+//    use) and the orderId must match. This prevents:
+//      - Replay attacks: using a paid session for a different/higher-value order.
+//      - Cross-order payment substitution.
+//
+// 3. Catalog prices: Product prices are re-derived from the WooCommerce catalog
+//    by wcId. Client-supplied prices are ignored for all financial calculations.
+//
+// 4. Server-side fees: Delivery fees are computed from an authoritative
+//    server-side table; client-supplied districtFee/expressFee are ignored.
+// ---------------------------------------------------------------------------
 router.post("/woo/order", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
@@ -441,10 +453,6 @@ router.post("/woo/order", async (req, res) => {
   const body = parsed.data;
 
   // Resolve the owning user from the Authorization header (if any).
-  // We do NOT trust any client-supplied user id in the body — that would
-  // let a malicious caller redirect another customer's order pushes to
-  // their own account. Silently ignore invalid tokens here — checkout
-  // supports guests, so an expired/missing token must not block the order.
   let resolvedUserId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
@@ -454,17 +462,214 @@ router.post("/woo/order", async (req, res) => {
     }
   }
 
-  const result = await attemptCreateWcOrder(body);
+  // ── Payment verification (layered) ────────────────────────────────────
+  let paymentVerified = false;
+  const paymentRef = body.paymentRef;
+
+  if (body.paymentMethod === "card" || body.paymentMethod === "wallet") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A Stripe session ID (paymentRef) is required for card/wallet payments.",
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding from the checkout intent.
+    // This prevents replaying a paid session for a different order.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.",
+      });
+    }
+
+    // Layer 1b: Verify the submitted cart matches the canonical cart snapshot
+    // stored when the payment session was created. This closes the cart-
+    // substitution gap: a client cannot pay for a cheap cart and submit a more
+    // expensive one to /woo/order — the wcId+quantity pairs must match exactly.
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot);
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: submitted cart does not match paid-for cart snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.",
+      });
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: STRIPE_SECRET_KEY not configured, recording order without set_paid",
+      );
+    } else {
+      // Layer 2: Verify with Stripe that payment_status is "paid" AND that
+      // the session's metadata.orderId matches (guards against Stripe-side
+      // tampering and confirms the session was created for this order).
+      paymentVerified = await verifyStripePayment(paymentRef, body.orderId);
+      if (!paymentVerified) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef },
+          "woo.order: Stripe payment not confirmed — rejecting order",
+        );
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be confirmed with Stripe. Please complete payment before placing the order.",
+        });
+      }
+    }
+  } else if (body.paymentMethod === "mamo") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A Mamo payment link ID (paymentRef) is required for Mamo payments.",
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.",
+      });
+    }
+
+    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
+    // must match the paid snapshot. Mamo charges the full total (products +
+    // delivery), so a district or express substitution is also fraud.
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+    });
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: submitted order does not match paid-for Mamo snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.",
+      });
+    }
+
+    if (!process.env.MAMO_SECRET_KEY) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: MAMO_SECRET_KEY not configured, recording order without set_paid",
+      );
+    } else {
+      // Layer 2: Verify with Mamo provider.
+      paymentVerified = await verifyMamoPayment(paymentRef);
+      if (!paymentVerified) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef },
+          "woo.order: Mamo payment not confirmed — rejecting order",
+        );
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.",
+        });
+      }
+    }
+  } else if (body.paymentMethod === "paypal") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A PayPal order ID (paymentRef) is required for PayPal payments.",
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.",
+      });
+    }
+
+    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
+    // must match the paid snapshot. PayPal charges the full total (products +
+    // delivery), so a district or express substitution is also fraud.
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0,
+    });
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: submitted order does not match paid-for PayPal snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.",
+      });
+    }
+
+    if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: PayPal credentials not configured, recording order without set_paid",
+      );
+    } else {
+      // Layer 2: Capture + verify with PayPal provider.
+      paymentVerified = await captureAndVerifyPayPalOrder(paymentRef);
+      if (!paymentVerified) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef },
+          "woo.order: PayPal payment capture/verification failed — rejecting order",
+        );
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be captured with PayPal. Please complete payment before placing the order.",
+        });
+      }
+    }
+  }
+  // whish / western: offline payments — paymentVerified stays false,
+  // WC order will be created with set_paid: false (pending payment).
+
+  const result = await attemptCreateWcOrder(body, { paymentVerified });
 
   if (!result.ok) {
     // Payment already succeeded but WC order creation failed. Persist the
-    // payload to the reconciliation queue so the worker can keep retrying
-    // without involving support — see lib/wooOrders.ts for the worker.
+    // payload to the reconciliation queue so the worker can keep retrying.
     await enqueuePendingWcOrder({
       body,
       paymentRef: body.paymentRef ?? null,
       userId: resolvedUserId,
       errorMessage: result.message,
+      paymentVerified,
       log: req.log,
     });
     req.log?.warn?.(
@@ -481,8 +686,6 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: result.message, queued: true });
   }
 
-  // Persist app↔WC mapping and fire the "confirmed" push. Both are
-  // best-effort — failures must not break the customer's checkout.
   void recordSuccessfulWcOrder({
     body,
     wcOrderId: result.wcOrderId,
@@ -499,9 +702,7 @@ router.post("/woo/order", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Admin: list pending/exhausted reconciliation rows so support has a single
-// view of orders that the worker couldn't recover automatically. Reuses the
-// existing PUSH_ADMIN_TOKEN as the shared admin credential.
+// Admin: list pending/exhausted reconciliation rows.
 // ---------------------------------------------------------------------------
 router.get("/woo/pending-orders", async (req, res) => {
   const adminToken = process.env.PUSH_ADMIN_TOKEN;

@@ -69,8 +69,11 @@ export default function Checkout() {
     mamoPayment.isPending ||
     paypalPayment.isPending;
 
-  const buildOrderPayload = (overrides: { paymentRef?: string } = {}) => ({
-    orderId: `web-${Date.now()}`,
+  // orderId is generated once per checkout attempt and threaded through the
+  // payment session creation AND the WC order payload so the server can bind
+  // them together and reject any replay of a paid session for a different order.
+  const buildOrderPayload = (overrides: { paymentRef?: string; orderId?: string } = {}) => ({
+    orderId: overrides.orderId ?? `web-${Date.now()}`,
     items: items.map((i) => ({
       name: i.product.name,
       quantity: i.quantity,
@@ -110,8 +113,12 @@ export default function Checkout() {
     }
   };
 
-  const stashAndRedirect = (url: string) => {
-    const payload = buildOrderPayload();
+  // Stash the order payload to sessionStorage so the post-redirect page can
+  // finalize the WC order using the SAME orderId that was bound to the payment
+  // session. Passing orderId here ensures the paymentRef↔orderId binding
+  // created by the server during session creation is preserved end-to-end.
+  const stashAndRedirect = (url: string, orderId: string) => {
+    const payload = buildOrderPayload({ orderId });
     sessionStorage.setItem(
       PENDING_ORDER_KEY,
       JSON.stringify({ payload, createdAt: Date.now() }),
@@ -128,14 +135,23 @@ export default function Checkout() {
       const returnUrl = `${origin}${base}/order-confirmed?status=success`;
       const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
 
+      // Generate orderId ONCE and pass it to the payment endpoint AND the
+      // order payload so both sides reference the same order ID.
+      const orderId = `web-${Date.now()}`;
+
       if (paymentMethod === "card") {
         const res = await stripeSession.mutateAsync({
+          // Send wcId + quantity; the server resolves prices from the
+          // WooCommerce catalog so the client cannot manipulate the charge.
           items: items.map((i) => ({
-            name: i.product.name,
-            amount: Math.round(i.product.priceValue * 100),
+            wcId: i.product.wcId,
             quantity: i.quantity,
+            name: i.product.name,
             image: i.product.image?.uri,
           })),
+          // orderId sent to the server so it can bind the Stripe session to
+          // this specific order (prevents replay for a different order).
+          orderId,
           currency: "USD",
           email: sender.email,
           successUrl,
@@ -149,18 +165,18 @@ export default function Checkout() {
           });
           return;
         }
-        stashAndRedirect(res.url);
+        stashAndRedirect(res.url, orderId);
         return;
       }
 
       if (paymentMethod === "paypal") {
-        const orderRefId = `web-${Date.now()}`;
         const res = await paypalPayment.mutateAsync({
-          amount: total,
+          items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+          district: recipient.district || "Beirut",
           currency: "USD",
           returnUrl,
           cancelUrl: failureUrl,
-          orderId: orderRefId,
+          orderId,
         });
         if (!res.ok || !res.url) {
           toast({
@@ -170,13 +186,15 @@ export default function Checkout() {
           });
           return;
         }
-        stashAndRedirect(res.url);
+        stashAndRedirect(res.url, orderId);
         return;
       }
 
       if (paymentMethod === "mamo") {
         const res = await mamoPayment.mutateAsync({
-          amount: total,
+          items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+          orderId,
+          district: recipient.district || "Beirut",
           currency: "USD",
           title: t("checkout.payment.orderTitle"),
           description: t("checkout.payment.orderDesc", { name: `${sender.firstName} ${sender.lastName}`.trim() }),
@@ -194,7 +212,7 @@ export default function Checkout() {
           });
           return;
         }
-        stashAndRedirect(res.url);
+        stashAndRedirect(res.url, orderId);
         return;
       }
 

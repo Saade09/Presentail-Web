@@ -375,13 +375,17 @@ export default function CheckoutScreen() {
 
     if (payMethod === "card" || payMethod === "wallet") {
       const session = await createStripeCheckoutSession({
+        // Send wcId + quantity only; the server resolves prices from the
+        // WooCommerce catalog so the client cannot manipulate the charge.
         items: detailed.map(({ product, qty }) => ({
+          wcId: product.wcId,
+          quantity: qty,
           name: product.name,
           description: product.description ?? undefined,
-          amount: Math.round(product.priceValue * 100),
-          quantity: qty,
         })),
-        // Forward the shopper's selected currency so Stripe charges in it.
+        // orderId is sent as a top-level field so the server can bind this
+        // payment intent to the specific order and prevent replay attacks.
+        orderId,
         currency: currencyCode,
         email: senderEmail,
         metadata: {
@@ -418,9 +422,14 @@ export default function CheckoutScreen() {
 
     if (payMethod === "mamo") {
       const session = await createMamoPayment({
-        // Send the USD total — the server converts to AED with live FX so the
-        // amount Mamo charges matches what the customer was just shown.
-        amount: fees.grand,
+        // Send cart items with wcIds so the server can compute the true
+        // total from the catalog; never send client-controlled amounts.
+        items: detailed.map(({ product, qty }) => ({ wcId: product.wcId, quantity: qty })),
+        // orderId binds this payment intent to the order so the server can
+        // reject any attempt to reuse this session for a different order.
+        orderId,
+        district: district.name,
+        expressDelivery: deliveryMode === "express",
         currency: currencyCode,
         title: `Presentail — ${orderId}`,
         description: `${recipientFirst} ${recipientLast} · ${date}`,
@@ -449,9 +458,11 @@ export default function CheckoutScreen() {
 
     if (payMethod === "paypal") {
       const session = await createPayPalOrder({
-        // Send USD; the server converts into the shopper's selected
-        // currency (or falls back to USD when PayPal doesn't list it).
-        amount: fees.grand,
+        // Send cart items with wcIds so the server can compute the true
+        // total from the catalog; never send client-controlled amounts.
+        items: detailed.map(({ product, qty }) => ({ wcId: product.wcId, quantity: qty })),
+        district: district.name,
+        expressDelivery: deliveryMode === "express",
         currency: currencyCode,
         returnUrl: successUrl,
         cancelUrl,
