@@ -53,7 +53,7 @@ export default function Landing() {
             className="flex items-center justify-center"
             data-testid="text-wordmark"
           >
-            <Logo height={40} className="md:h-12" />
+            <Logo height={72} className="md:h-24" />
           </div>
           <div className="flex-1 flex justify-end">
             <button
