@@ -124,7 +124,7 @@ export default function Auth() {
 
   const handleContinueEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = formData.email.trim();
+    const email = formData.email.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) {
       setEmailError(t("auth.invalidEmail"));
       return;
@@ -133,6 +133,12 @@ export default function Auth() {
     setEmailChecking(true);
     try {
       const r = await checkEmailExists(email);
+      // If the server couldn't actually verify (missing creds / upstream
+      // failure), it returns a `code` so we don't silently route to sign-up.
+      if (r.code === "lookup_unavailable" || r.code === "lookup_failed") {
+        setEmailError(t("auth.checkFailed"));
+        return;
+      }
       setFormData((d) => ({ ...d, email }));
       setArrivedFromCheck(true);
       setStep(r.exists ? "login" : "signup");

@@ -65,9 +65,17 @@ function mapCustomer(c: any) {
 // Lightweight lookup so the multi-step auth flow can route users to either the
 // password-login step (existing account) or the sign-up step (new account).
 // Returns `{ ok: true, exists: false }` early on malformed input so the
-// endpoint can't be turned into an oracle. WC `customers?email=` requires the
-// REST credentials, so when those aren't configured we return `exists: false`
-// rather than leaking a 503.
+// endpoint can't be turned into an oracle. When the lookup itself cannot be
+// completed (missing WC creds or upstream failure), we return a `code` so the
+// frontend can show an error rather than silently routing the user to sign-up.
+//
+// Manual smoke tests when touching this endpoint:
+//   - existing email → { exists: true }
+//   - new email     → { exists: false } (no `code`)
+//   - uppercase email (e.g. "User@Example.com") → still { exists: true }
+//   - padded email (e.g. "  user@example.com  ") → still { exists: true }
+//   - missing WC creds → { exists: false, code: "lookup_unavailable" }
+//   - WC upstream error → { exists: false, code: "lookup_failed" }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 router.get("/auth/exists", existsIpLimiter, async (req, res) => {
   const raw = String(req.query.email ?? "").trim().toLowerCase();
@@ -76,13 +84,14 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     return;
   }
   if (!process.env.WC_CONSUMER_KEY) {
-    res.json({ ok: true, exists: false });
+    res.json({ ok: true, exists: false, code: "lookup_unavailable" });
     return;
   }
   try {
     const r = await wcFetch(`/customers?email=${encodeURIComponent(raw)}&per_page=1`);
     if (!r.ok) {
-      res.json({ ok: true, exists: false });
+      req.log?.warn?.({ status: r.status }, "auth.exists: WC upstream non-ok");
+      res.json({ ok: true, exists: false, code: "lookup_failed" });
       return;
     }
     const list = (await r.json().catch(() => [])) as any[];
@@ -90,7 +99,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     res.json({ ok: true, exists });
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.exists: lookup failed");
-    res.json({ ok: true, exists: false });
+    res.json({ ok: true, exists: false, code: "lookup_failed" });
   }
 });
 
