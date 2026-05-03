@@ -24,7 +24,10 @@
         "NSUserNotificationUsageDescription": "Allow notifications so we can update you about your orders, deliveries, and gift moments.",
         "CFBundleDisplayName": "Presentail",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "associatedDomains": [
+        "applinks:presentail.com"
+      ]
     },
     "android": {
       "package": "com.presentail.lb",
@@ -35,6 +38,20 @@
       },
       "permissions": [
         "POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "presentail.com",
+              "pathPrefix": "/lebanon/wp-login.php"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {

@@ -11,6 +11,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmailEntryStep } from "@/components/auth/EmailEntryStep";
+import { ForgotPasswordPasteStep } from "@/components/auth/ForgotPasswordPasteStep";
+import { ForgotPasswordSentStep } from "@/components/auth/ForgotPasswordSentStep";
+import { ForgotPasswordStep } from "@/components/auth/ForgotPasswordStep";
 import { PasswordLoginStep } from "@/components/auth/PasswordLoginStep";
 import { SignupStep } from "@/components/auth/SignupStep";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,13 +24,20 @@ import {
   AuthError,
   checkEmailExists,
   createAccountWithEmail,
+  requestPasswordReset,
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
 } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
 
-type Step = "email" | "passwordLogin" | "signup";
+type Step =
+  | "email"
+  | "passwordLogin"
+  | "signup"
+  | "forgot"
+  | "forgotSent"
+  | "forgotPasteLink";
 
 export default function AuthScreen() {
   const colors = useColors();
@@ -53,6 +63,12 @@ export default function AuthScreen() {
   const [socialBusy, setSocialBusy] = useState<"apple" | "google" | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
 
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [pastedLink, setPastedLink] = useState("");
+  const [pasteLinkError, setPasteLinkError] = useState<string | null>(null);
+
   const close = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/account");
@@ -74,6 +90,14 @@ export default function AuthScreen() {
         return t.authGoogleFailed;
       case "canceled":
         return "";
+      case "expired_link":
+        return t.authResetExpired;
+      case "weak_password":
+        return t.authResetWeak;
+      case "missing_link":
+        return t.authResetMissingLink;
+      case "unknown_email":
+        return t.authForgotUnknownEmail;
       case "server":
         return err.serverMessage || t.authGenericError;
     }
@@ -82,7 +106,20 @@ export default function AuthScreen() {
   const goBackStep = () => {
     setLoginError(null);
     setSignupError(null);
+    setForgotError(null);
     setPassword("");
+    if (step === "forgotPasteLink") {
+      setStep("forgotSent");
+      return;
+    }
+    if (step === "forgotSent") {
+      setStep("forgot");
+      return;
+    }
+    if (step === "forgot") {
+      setStep("passwordLogin");
+      return;
+    }
     setStep("email");
   };
 
@@ -168,7 +205,69 @@ export default function AuthScreen() {
   };
 
   const onForgotPassword = () => {
-    setLoginError(t.authForgotPasswordSoon);
+    setLoginError(null);
+    setForgotError(null);
+    setForgotEmail(email.trim());
+    setStep("forgot");
+  };
+
+  const onSubmitForgot = async () => {
+    const trimmed = forgotEmail.trim();
+    if (!isValidEmail(trimmed)) {
+      setForgotError(t.authInvalidEmail);
+      return;
+    }
+    setForgotError(null);
+    setForgotBusy(true);
+    const r = await requestPasswordReset(trimmed);
+    setForgotBusy(false);
+    if (!r.ok) {
+      setForgotError(errorText(r) || t.authGenericError);
+      return;
+    }
+    setForgotEmail(trimmed);
+    setStep("forgotSent");
+  };
+
+  const onResendForgot = async () => {
+    if (forgotBusy) return;
+    setForgotBusy(true);
+    await requestPasswordReset(forgotEmail.trim());
+    setForgotBusy(false);
+  };
+
+  const onForgotSentBackToSignIn = () => {
+    setForgotError(null);
+    setStep("passwordLogin");
+  };
+
+  const onOpenPasteLink = () => {
+    setForgotError(null);
+    setPastedLink("");
+    setPasteLinkError(null);
+    setStep("forgotPasteLink");
+  };
+
+  const onSubmitPastedLink = () => {
+    const raw = pastedLink.trim();
+    if (!raw) {
+      setPasteLinkError(t.authForgotPasteLinkInvalid);
+      return;
+    }
+    try {
+      const url = new URL(raw);
+      const key = url.searchParams.get("key");
+      const login = url.searchParams.get("login");
+      if (!key || !login) {
+        setPasteLinkError(t.authForgotPasteLinkInvalid);
+        return;
+      }
+      const qs = new URLSearchParams({ key, login }).toString();
+      setPasteLinkError(null);
+      router.push(`/reset-password?${qs}` as never);
+    } catch {
+      setPasteLinkError(t.authForgotPasteLinkInvalid);
+    }
   };
 
   const isFirstStep = step === "email";
@@ -251,6 +350,42 @@ export default function AuthScreen() {
               errorMessage={loginError}
               onSubmit={onSubmitLogin}
               onForgotPassword={onForgotPassword}
+            />
+          ) : null}
+
+          {step === "forgot" ? (
+            <ForgotPasswordStep
+              email={forgotEmail}
+              onEmailChange={(v) => {
+                setForgotEmail(v);
+                if (forgotError) setForgotError(null);
+              }}
+              errorMessage={forgotError}
+              busy={forgotBusy}
+              onSubmit={onSubmitForgot}
+            />
+          ) : null}
+
+          {step === "forgotSent" ? (
+            <ForgotPasswordSentStep
+              email={forgotEmail}
+              busy={forgotBusy}
+              onResend={onResendForgot}
+              onBackToSignIn={onForgotSentBackToSignIn}
+              onPasteLink={onOpenPasteLink}
+            />
+          ) : null}
+
+          {step === "forgotPasteLink" ? (
+            <ForgotPasswordPasteStep
+              value={pastedLink}
+              onChange={(v) => {
+                setPastedLink(v);
+                if (pasteLinkError) setPasteLinkError(null);
+              }}
+              errorMessage={pasteLinkError}
+              busy={false}
+              onSubmit={onSubmitPastedLink}
             />
           ) : null}
 

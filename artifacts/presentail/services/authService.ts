@@ -18,6 +18,10 @@ export type AuthErrorCode =
   | "apple_failed"
   | "google_failed"
   | "canceled"
+  | "expired_link"
+  | "weak_password"
+  | "missing_link"
+  | "unknown_email"
   | "server";
 
 export type AuthError = {
@@ -95,6 +99,63 @@ export async function createAccountWithEmail(
   });
   if (r.ok) return { ok: true };
   return { ok: false, code: "server", serverMessage: r.message };
+}
+
+export async function requestPasswordReset(
+  email: string,
+): Promise<AuthResult> {
+  const trimmed = email.trim();
+  if (!trimmed) return { ok: false, code: "email_required" };
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/reset/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmed }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      code?: string;
+      message?: string;
+    };
+    if (!res.ok || !data?.ok) {
+      if (data?.code === "unknown_email") return { ok: false, code: "unknown_email" };
+      return { ok: false, code: "server", serverMessage: data?.message };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, code: "network" };
+  }
+}
+
+export async function completePasswordReset(input: {
+  key: string;
+  login: string;
+  password: string;
+}): Promise<AuthResult> {
+  if (!input.key || !input.login) {
+    return { ok: false, code: "missing_link" };
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/reset/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      code?: string;
+      message?: string;
+    };
+    if (!res.ok || !data?.ok) {
+      if (data?.code === "expired_link") return { ok: false, code: "expired_link" };
+      if (data?.code === "weak_password") return { ok: false, code: "weak_password" };
+      if (data?.code === "missing_link") return { ok: false, code: "missing_link" };
+      return { ok: false, code: "server", serverMessage: data?.message };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, code: "network" };
+  }
 }
 
 // ── Social sign-in ──────────────────────────────────────────────────────────

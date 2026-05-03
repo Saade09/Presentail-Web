@@ -7,6 +7,7 @@ const router: IRouter = Router();
 
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
 const WP_BASE = "https://presentail.com/lebanon/wp-json";
+const WP_LOGIN = "https://presentail.com/lebanon/wp-login.php";
 
 function wooAuth() {
   const key = process.env.WC_CONSUMER_KEY ?? "";
@@ -456,6 +457,199 @@ async function issueSocialSession(
       .json({ ok: false, message: e?.message ?? "Sign-in failed" });
   }
 }
+
+// ── Password reset ───────────────────────────────────────────────────────────
+// We proxy WordPress's standard `wp-login.php` form endpoints. The lostpassword
+// action triggers WP's reset email; the resetpass action consumes the key from
+// the email link plus a new password. WP responds with HTML / 302 redirects, so
+// we treat status codes and the Location header as the source of truth and
+// always return a JSON envelope to the client.
+//
+// WP `wp-login.php?action=lostpassword` redirects to `?checkemail=confirm` on
+// success and to `?action=lostpassword&error=...` on a failed lookup (unknown
+// email, invalid login, etc.). We map those into structured codes so the UI
+// can show an inline "we don't recognise that email" error per the product
+// spec, while still treating upstream/network failures as generic.
+
+router.post("/auth/reset/request", async (req, res) => {
+  const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
+  if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email is required" });
+  }
+  try {
+    const form = new URLSearchParams({
+      user_login: email,
+      redirect_to: "",
+      wp_lang: "",
+    });
+    const r = await fetch(`${WP_LOGIN}?action=lostpassword`, {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "PresentailApp/1.0",
+      },
+      body: form.toString(),
+    });
+    if (r.status >= 500) {
+      req.log?.warn?.({ status: r.status }, "auth.reset.request: upstream error");
+      return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." });
+    }
+    const location = r.headers.get("location") ?? "";
+    const isRedirect = r.status >= 300 && r.status < 400;
+    if (isRedirect && /checkemail=confirm/.test(location)) {
+      return res.json({ ok: true });
+    }
+    if (isRedirect && /[?&]error=/.test(location)) {
+      // WP error codes here include `invaliduserdata`, `invalid_email`,
+      // `invalidcombo` — all of which mean "we couldn't find this account".
+      return res.status(404).json({
+        ok: false,
+        code: "unknown_email",
+        message: "We couldn't find a Presentail account for that email.",
+      });
+    }
+    if (r.status === 200) {
+      // WP renders the form with errors inline when validation fails. Treat
+      // this as "unknown email" since that's by far the most common cause.
+      const body = await r.text().catch(() => "");
+      if (/login_error|invalid|no.+user|user.+not/i.test(body)) {
+        return res.status(404).json({
+          ok: false,
+          code: "unknown_email",
+          message: "We couldn't find a Presentail account for that email.",
+        });
+      }
+    }
+    // Anything else: treat as success rather than leak ambiguous state.
+    return res.json({ ok: true });
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.reset.request: failed");
+    return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." });
+  }
+});
+
+function collectSetCookies(headers: Headers): string {
+  const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
+  const list: string[] =
+    typeof anyHeaders.getSetCookie === "function"
+      ? anyHeaders.getSetCookie()
+      : (() => {
+          const raw = headers.get("set-cookie");
+          return raw ? [raw] : [];
+        })();
+  return list
+    .map((c) => c.split(";")[0])
+    .filter(Boolean)
+    .join("; ");
+}
+
+router.post("/auth/reset/confirm", async (req, res) => {
+  const { key, login, password } = (req.body ?? {}) as {
+    key?: string;
+    login?: string;
+    password?: string;
+  };
+  if (!key || !login || !password) {
+    return res.status(400).json({
+      ok: false,
+      code: "missing_link",
+      message: "Missing reset link details or new password.",
+    });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({
+      ok: false,
+      code: "weak_password",
+      message: "Password must be at least 8 characters.",
+    });
+  }
+  try {
+    // Step 1: hit `?action=rp` so WP sets the resetpass cookie that authorises
+    // the resetpass POST. On an invalid/expired key WP redirects to
+    // `?action=lostpassword&error=...` and does not set the cookie.
+    const rpRes = await fetch(
+      `${WP_LOGIN}?action=rp&key=${encodeURIComponent(key)}&login=${encodeURIComponent(login)}`,
+      {
+        method: "GET",
+        redirect: "manual",
+        headers: { "User-Agent": "PresentailApp/1.0" },
+      },
+    );
+    const cookieHeader = collectSetCookies(rpRes.headers);
+    const rpLocation = rpRes.headers.get("location") ?? "";
+    const cookieIsResetpass = /wp-resetpass-/.test(cookieHeader);
+    const errorRedirect = /[?&]error=/.test(rpLocation);
+    if (!cookieIsResetpass || errorRedirect) {
+      return res.status(400).json({
+        ok: false,
+        code: "expired_link",
+        message: "This reset link has expired or is invalid. Please request a new one.",
+      });
+    }
+
+    // Step 2: POST the new password to `?action=resetpass` with the cookie.
+    const form = new URLSearchParams({
+      pass1: password,
+      pass2: password,
+      "pass1-text": password,
+      wp_lang: "",
+    });
+    const resetRes = await fetch(`${WP_LOGIN}?action=resetpass`, {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+        "User-Agent": "PresentailApp/1.0",
+      },
+      body: form.toString(),
+    });
+    const resetLoc = resetRes.headers.get("location") ?? "";
+    const isRedirect = resetRes.status >= 300 && resetRes.status < 400;
+    if (isRedirect && /password=changed|action=login/.test(resetLoc)) {
+      return res.json({ ok: true });
+    }
+    if (isRedirect && /[?&]error=/.test(resetLoc)) {
+      return res.status(400).json({
+        ok: false,
+        code: "expired_link",
+        message: "This reset link has expired or is invalid. Please request a new one.",
+      });
+    }
+    const body = await resetRes.text().catch(() => "");
+    if (/expired|invalid.+key|invalidkey/i.test(body)) {
+      return res.status(400).json({
+        ok: false,
+        code: "expired_link",
+        message: "This reset link has expired or is invalid. Please request a new one.",
+      });
+    }
+    if (resetRes.status === 200) {
+      // WP usually redirects on success. A 200 here means the form was
+      // re-rendered with a validation error (most often a weak password).
+      return res.status(400).json({
+        ok: false,
+        code: "weak_password",
+        message: "Please choose a stronger password and try again.",
+      });
+    }
+    req.log?.warn?.(
+      { status: resetRes.status, location: resetLoc },
+      "auth.reset.confirm: unexpected upstream response",
+    );
+    return res.status(502).json({
+      ok: false,
+      message: "Could not reset your password right now. Please try again.",
+    });
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.reset.confirm: failed");
+    return res.status(502).json({
+      ok: false,
+      message: "Could not reset your password right now. Please try again.",
+    });
+  }
+});
 
 router.post("/auth/social/apple", async (req, res) => {
   const { identityToken, fullName } = req.body as {
