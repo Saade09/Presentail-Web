@@ -1,0 +1,117 @@
+import { useCart } from "@/contexts/CartContext";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function Cart() {
+  const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
+
+  if (itemCount === 0) {
+    return (
+      <div className="min-h-[70vh] pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-4">
+        <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
+          <ShoppingBag className="w-10 h-10" />
+        </div>
+        <h1 className="text-3xl font-serif mb-4">Your bag is empty</h1>
+        <p className="text-muted-foreground mb-8 max-w-md text-center">
+          Find the perfect floral arrangement or luxury gift for your next special occasion.
+        </p>
+        <Button asChild size="lg" className="rounded-full px-8">
+          <Link href="/shop">Start Shopping</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pt-24 pb-24">
+      <div className="container mx-auto px-4 max-w-5xl">
+        <h1 className="text-4xl font-serif mb-12">Your Bag ({itemCount})</h1>
+
+        <div className="flex flex-col lg:flex-row gap-12">
+          {/* Cart Items */}
+          <div className="flex-1 space-y-8">
+            {items.map((item, index) => (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                key={item.product.id} 
+                className="flex gap-6 py-6 border-b"
+              >
+                <div className="w-24 md:w-32 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
+                  {item.product.image?.uri && (
+                    <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="flex flex-col justify-between flex-1">
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <h3 className="font-serif text-lg leading-tight mb-1">{item.product.name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.product.price}</p>
+                    </div>
+                    <button 
+                      onClick={() => removeItem(item.product.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors h-fit p-1"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center border rounded-full overflow-hidden bg-background">
+                      <button 
+                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)} 
+                        className="px-3 py-1.5 hover:bg-secondary transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
+                      <button 
+                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)} 
+                        className="px-3 py-1.5 hover:bg-secondary transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className="font-medium">${(item.product.priceValue * item.quantity).toFixed(2)}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Order Summary */}
+          <div className="w-full lg:w-96 shrink-0">
+            <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
+              <h2 className="text-2xl font-serif mb-6">Order Summary</h2>
+              
+              <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Delivery</span>
+                  <span className="text-muted-foreground">Calculated at checkout</span>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mb-8">
+                <span className="font-medium">Total</span>
+                <span className="text-2xl font-serif">${subtotal.toFixed(2)}</span>
+              </div>
+              
+              <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
+                <Link href="/checkout">
+                  Proceed to Checkout <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

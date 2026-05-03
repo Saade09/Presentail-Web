@@ -48,3 +48,39 @@ id = "F6Nd6SwVvA6WYH1cQFxcN"
 uri = "file://artifacts/presentail/assets/images/best-mixed.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "nZBZiLtr7BQX0dqb1QHa8"
+uri = "file://artifacts/presentail-web/src/assets/hero.png"
+type = "image"
+title = "Hero banner flowers"
+
+[[generated]]
+id = "U3dZiEOTmNucuWdulr1SJ"
+uri = "file://artifacts/presentail-web/src/assets/category-bouquets.png"
+type = "image"
+title = "Hand Bouquets category"
+
+[[generated]]
+id = "lWz643PelSSnCRPjnzwhD"
+uri = "file://artifacts/presentail-web/src/assets/category-boxes.png"
+type = "image"
+title = "Flower Boxes category"
+
+[[generated]]
+id = "gylZGZw7_mpLwvXf2eHnZ"
+uri = "file://artifacts/presentail-web/src/assets/category-plants.png"
+type = "image"
+title = "Plants category"
+
+[[generated]]
+id = "OuS-UYB51U1h9SB7YP32o"
+uri = "file://artifacts/presentail-web/src/assets/category-cakes.png"
+type = "image"
+title = "Cakes category"
+
+[[generated]]
+id = "cc37P6NpW-LeOeItF_J6L"
+uri = "file://artifacts/presentail-web/src/assets/category-chocolate.png"
+type = "image"
+title = "Chocolate category"

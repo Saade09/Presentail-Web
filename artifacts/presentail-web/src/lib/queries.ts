@@ -1,0 +1,174 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "./api";
+
+// Types matching the backend shape
+export type Product = {
+  id: string; // slug
+  wcId: number;
+  name: string;
+  price: string;
+  priceValue: number;
+  image: { uri: string } | null;
+  category: string;
+  inStock: boolean;
+  description?: string;
+  tag?: string;
+  occasions: string[];
+};
+
+export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };
+export type OccasionProductsResponse = { ok: boolean; groups: { slug: string; label: string; count: number; products: Product[] }[]; total: number };
+export type DeliveryLocationsResponse = { 
+  countries: { id: string; name: string; code: string; flag: string; cities: { id: string; name: string }[] }[] 
+};
+
+// Query Hooks
+export const useProducts = (
+  params: { countryCode?: string } = {},
+  enabled: boolean = true,
+) => {
+  const q = new URLSearchParams();
+  if (params.countryCode) q.set("countryCode", params.countryCode);
+  const qs = q.toString();
+
+  return useQuery({
+    queryKey: ["products", params],
+    queryFn: () => apiFetch<{ ok: boolean; products: Product[] }>(`/woo/products${qs ? `?${qs}` : ""}`),
+    enabled,
+  });
+};
+
+export const useCategoryProducts = (slug: string) => {
+  return useQuery({
+    queryKey: ["category", slug],
+    queryFn: () => apiFetch<CategoryProductsResponse>(`/woo/category-products?slug=${slug}`),
+    enabled: !!slug
+  });
+};
+
+export const useOccasionProducts = (slug: string) => {
+  return useQuery({
+    queryKey: ["occasion", slug],
+    queryFn: () => apiFetch<OccasionProductsResponse>(`/woo/occasion-products?slug=${slug}`),
+    enabled: !!slug
+  });
+};
+
+export const useDeliveryLocations = () => {
+  return useQuery({
+    queryKey: ["delivery-locations"],
+    queryFn: () => apiFetch<DeliveryLocationsResponse>("/delivery-locations")
+  });
+};
+
+export const useFxRates = () => {
+  return useQuery({
+    queryKey: ["fx-rates"],
+    queryFn: () => apiFetch<{ ok: boolean; base: string; rates: Record<string, number> }>("/fx/rates")
+  });
+};
+
+export const useBrands = () => {
+  return useQuery({
+    queryKey: ["brands"],
+    queryFn: () => apiFetch<{ ok: boolean; brands: { id: number; name: string; slug: string; count: number; image: string | null }[] }>("/woo/brands")
+  });
+};
+
+// Auth Hooks
+export const useCurrentUser = (token: string | null) => {
+  return useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => apiFetch<{ ok: boolean; user: any }>("/auth/me"),
+    enabled: !!token,
+    retry: false
+  });
+};
+
+export const useLogin = () => {
+  return useMutation({
+    mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data)
+    })
+  });
+};
+
+export const useRegister = () => {
+  return useMutation({
+    mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data)
+    })
+  });
+};
+
+// Order Hooks
+export const useCreateOrder = () => {
+  return useMutation({
+    mutationFn: (data: any) => apiFetch<{ ok: boolean; wcOrderId?: number; orderKey?: string; message?: string }>("/woo/order", {
+      method: "POST",
+      body: JSON.stringify(data)
+    })
+  });
+};
+
+// Hosted-payment-session hooks. Each returns a redirect URL the storefront
+// sends the shopper to; on return we finalize the order via /woo/order.
+export const useStripeCheckoutSession = () => {
+  return useMutation({
+    mutationFn: (data: {
+      items: { name: string; description?: string; image?: string; amount: number; quantity: number }[];
+      currency?: string;
+      email?: string;
+      metadata?: Record<string, string>;
+      successUrl: string;
+      cancelUrl: string;
+    }) => apiFetch<{ ok: boolean; id?: string; url?: string; message?: string; code?: string }>("/checkout/session", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const useMamoPayment = () => {
+  return useMutation({
+    mutationFn: (data: {
+      amount: number;
+      currency?: string;
+      title?: string;
+      description?: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      returnUrl: string;
+      failureReturnUrl: string;
+    }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/mamo", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const usePaypalPayment = () => {
+  return useMutation({
+    mutationFn: (data: {
+      amount: number;
+      currency?: string;
+      returnUrl: string;
+      cancelUrl: string;
+      orderId: string;
+    }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/paypal", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  });
+};
+
+export const useBrandProducts = (slug: string) => {
+  return useQuery({
+    queryKey: ["brand-products", slug],
+    queryFn: () => apiFetch<{ ok: boolean; products: Product[]; brandName?: string }>(`/woo/brand-products?slug=${slug}`),
+    enabled: !!slug,
+  });
+};

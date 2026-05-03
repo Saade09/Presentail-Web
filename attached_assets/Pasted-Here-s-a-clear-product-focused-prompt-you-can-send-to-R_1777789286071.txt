@@ -1,0 +1,56 @@
+Here’s a clear, product-focused prompt you can send to Replit:
+
+---
+
+**Prompt:**
+
+> Update the authentication flow to improve UX when a user tries to sign up with an existing account.
+>
+> Current issue:
+>
+> * When a user enters an email that already exists and proceeds to sign up, they see an error message on the **Sign Up screen**.
+>
+> Desired behavior:
+>
+> 1. **Detect existing account earlier**
+>
+>    * When the user enters their email on the first screen (Login/Create Account screen) and clicks "Continue", check if the email already exists.
+> 2. **Redirect intelligently**
+>
+>    * If the email **exists** → send the user to the **Login screen**
+>    * If the email **does NOT exist** → send the user to the **Create Account screen**
+> 3. **Improve UX messaging**
+>
+>    * On redirect to login, optionally show a subtle message like:
+>      "Account found. Please log in."
+>    * Do NOT show error states on the signup form for this case anymore
+> 4. **Remove current friction**
+>
+>    * Eliminate the error:
+>      "An account is already registered..."
+>    * Users should never reach the signup form if the account already exists
+> 5. **Implementation details**
+>
+>    * Add an API call (or use existing auth endpoint) to check if email exists
+>    * Perform this check right after email submission
+>    * Keep the flow fast (loading state if needed)
+> 6. **Edge cases**
+>
+>    * Handle network failure gracefully
+>    * Avoid revealing too much info (keep messaging neutral if needed for security)
+> 7. **Deliver**
+>
+>    * Updated flow logic
+>    * Clean, minimal changes
+>    * Explanation of where the check is implemented
+>
+> Important:
+>
+> * Do NOT hack this in the UI only — ensure logic is correct
+> * Keep the experience smooth and mobile-first
+>
+> Goal: Users should always land on the correct screen (login vs signup) based on whether their email already exists.
+
+---
+
+If you want, I can push this further into a **best-in-class auth flow (magic links, OTP, no passwords)** — which would significantly improve conversion.

@@ -1,0 +1,111 @@
+Here’s a strong, structured prompt you can send to Replit to build a **complementary web app** to your existing mobile app:
+
+---
+
+**Prompt:**
+
+> Build a modern, production-ready web application that complements an existing mobile app.
+>
+> Context:
+> The mobile app allows users to browse and purchase flowers, gifts, and other items. The web app should extend this experience for desktop users while staying consistent with the existing product.
+>
+> ---
+>
+> ### 🎯 Goals
+>
+> * Create a clean, fast, and responsive web app
+> * Mirror core mobile functionality
+> * Optimize for desktop browsing and conversions
+>
+> ---
+>
+> ### 🧩 Core Features
+>
+> 1. **Homepage**
+>
+>    * Hero banner (flowers, gifts, occasions)
+>    * Featured products
+>    * Categories (Flowers, Gifts, Combos, etc.)
+>    * Promotions / seasonal highlights
+> 2. **Product Listing (PLP)**
+>
+>    * Grid layout
+>    * Filters (price, category, occasion)
+>    * Sorting (popular, price, newest)
+> 3. **Product Detail Page (PDP)**
+>
+>    * High-quality images
+>    * Product description
+>    * Price and variants (size, add-ons)
+>    * Add to cart
+> 4. **Cart & Checkout**
+>
+>    * Cart management (add/remove/update)
+>    * Delivery date & time selection
+>    * Address input
+>    * Checkout flow (mock or real integration if API available)
+> 5. **User Authentication (optional but recommended)**
+>
+>    * Sign up / login
+>    * Guest checkout support
+> 6. **Order Tracking (if API available)**
+>
+>    * Order status page
+>
+> ---
+>
+> ### 🔗 Integration
+>
+> * Connect to existing backend APIs used by the mobile app (if available)
+> * If APIs are not provided, mock them cleanly with a service layer
+>
+> ---
+>
+> ### 🎨 Design Requirements
+>
+> * Match the mobile app branding (colors, typography, tone)
+> * Clean, premium feel (important for gifting experience)
+> * Mobile-responsive (desktop-first but works on all devices)
+>
+> ---
+>
+> ### ⚙️ Tech Requirements
+>
+> * Use a modern stack (preferably **Next.js + React**)
+> * Component-based architecture
+> * Clean folder structure
+> * Use reusable UI components
+> * SEO-friendly pages (especially product pages)
+>
+> ---
+>
+> ### 🧠 UX Considerations
+>
+> * Fast browsing experience
+> * Clear CTAs ("Add to Cart", "Buy Now")
+> * Smooth checkout flow
+> * Trust signals (reviews, delivery info)
+>
+> ---
+>
+> ### 🚀 Deliverables
+>
+> * Fully functional web app
+> * Clear README with setup instructions
+> * Modular codebase ready for scaling
+>
+> ---
+>
+> ### ⚠️ Important
+>
+> * Do NOT assume APIs — verify or mock properly
+> * Do NOT hardcode data in UI components
+> * Keep logic clean and maintainable
+>
+> ---
+>
+> If anything is unclear, ask before building. Otherwise, start with a solid architecture and homepage.
+
+---
+
+If you want, I can level this up further into a **production-grade spec (with database, admin panel, and growth features like subscriptions & reminders)** — which would be very relevant for your business.
