@@ -10,7 +10,7 @@ import {
   type CurrencyCode,
 } from "@/data/currencies";
 import { detectCurrencyFromLocation } from "@/services/locationCurrencyService";
-import { refreshFxRates } from "@/services/fxRatesService";
+import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
 
 const STORAGE_KEY = "@presentail/currency-v1";
 const SOURCE_KEY = "@presentail/currency-source-v1";
@@ -40,11 +40,22 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useRef(false);
 
   useEffect(() => {
-    // Pull the same live FX rates the server uses so display amounts match
-    // what we'll actually charge. Best-effort — failures keep static rates.
-    refreshFxRates().then((ok) => {
-      if (ok) setRatesVersion((v) => v + 1);
-    });
+    // Stale-while-revalidate: apply last-known cached rates immediately so the
+    // first render reflects live values (not the static fallback) on warm
+    // starts, then revalidate against the server in the background. Both
+    // steps bump ratesVersion so memoized convert/format pick up new values.
+    let cancelled = false;
+    (async () => {
+      const hydrated = await hydrateFxRatesFromCache();
+      if (cancelled) return;
+      if (hydrated) setRatesVersion((v) => v + 1);
+      const refreshed = await refreshFxRates({ applyCacheFirst: false });
+      if (cancelled) return;
+      if (refreshed) setRatesVersion((v) => v + 1);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
