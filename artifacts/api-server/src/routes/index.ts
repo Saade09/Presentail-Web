@@ -6,6 +6,7 @@ import wooRouter from "./woo";
 import authRouter from "./auth";
 import pushRouter from "./push";
 import deliveryLocationsRouter from "./delivery-locations";
+import deliveryConfigRouter from "./delivery-config";
 import fxRouter from "./fx";
 import homepageRouter from "./homepage";
 
@@ -18,6 +19,7 @@ router.use(wooRouter);
 router.use(authRouter);
 router.use(pushRouter);
 router.use(deliveryLocationsRouter);
+router.use(deliveryConfigRouter);
 router.use(fxRouter);
 router.use(homepageRouter);
 

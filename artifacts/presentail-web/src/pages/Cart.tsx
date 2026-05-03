@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
+import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
@@ -91,7 +92,9 @@ export default function Cart() {
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               <h2 className="text-2xl font-serif mb-6">{t("cart.summary")}</h2>
-              
+
+              <FreeDeliveryBanner className="mb-6" />
+
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>

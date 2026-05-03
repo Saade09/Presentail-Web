@@ -16,6 +16,8 @@ tags:
     description: Supported delivery countries and cities
   - name: homepage
     description: Homepage feed content (banners, etc.)
+  - name: deliveryConfig
+    description: Per-city express delivery time and free-delivery threshold copy
 paths:
   /healthz:
     get:
@@ -150,6 +152,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HomepageBannersResponse"
+  /delivery-config:
+    get:
+      operationId: getDeliveryConfig
+      tags: [deliveryConfig]
+      summary: Get delivery copy for a country/city
+      description: |
+        Returns the express-delivery time label, the free-delivery threshold
+        copy and the currency code Presentail uses for the given country and
+        (optionally) city. Values are sourced from a server-side config so
+        operations can change them without a client release. Falls back to
+        the country default when cityId is unknown, and to a global default
+        when countryCode is unknown.
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          description: ISO 3166-1 alpha-2 country code (case-insensitive).
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          description: Optional city id from /delivery-locations.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery config for the location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryConfigResponse"
   /delivery-locations:
     get:
       operationId: getDeliveryLocations
@@ -365,6 +399,22 @@ components:
             $ref: "#/components/schemas/HomepageBanner"
       required:
         - banners
+    DeliveryConfigResponse:
+      type: object
+      properties:
+        expressDeliveryTimeLabel:
+          type: string
+          description: Human-readable express delivery promise (e.g. "Arrives in 90 minutes").
+        freeDeliveryThreshold:
+          type: string
+          description: Localized free-delivery threshold copy (e.g. "AED 480").
+        currency:
+          type: string
+          description: ISO 4217 currency code that the threshold is denominated in.
+      required:
+        - expressDeliveryTimeLabel
+        - freeDeliveryThreshold
+        - currency
     DeliveryLocationsResponse:
       type: object
       properties:

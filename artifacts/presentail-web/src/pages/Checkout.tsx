@@ -15,6 +15,7 @@ import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
+import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
 
@@ -382,6 +383,7 @@ export default function Checkout() {
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-6 lg:p-8 sticky top-32">
               <h3 className="text-xl font-serif mb-6">{t("checkout.summary")}</h3>
+              <FreeDeliveryBanner className="mb-6" />
               <div className="space-y-4 mb-6 max-h-60 overflow-y-auto">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex gap-4" data-testid={`row-summary-${item.product.id}`}>

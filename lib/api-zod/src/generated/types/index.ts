@@ -7,9 +7,11 @@
  */
 
 export * from "./deliveryCity";
+export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";
 export * from "./deliveryLocationsResponse";
 export * from "./errorResponse";
+export * from "./getDeliveryConfigParams";
 export * from "./getHomepageBannersParams";
 export * from "./healthStatus";
 export * from "./homepageBanner";

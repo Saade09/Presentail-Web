@@ -122,6 +122,15 @@ export interface HomepageBannersResponse {
   banners: HomepageBanner[];
 }
 
+export interface DeliveryConfigResponse {
+  /** Human-readable express delivery promise (e.g. "Arrives in 90 minutes"). */
+  expressDeliveryTimeLabel: string;
+  /** Localized free-delivery threshold copy (e.g. "AED 480"). */
+  freeDeliveryThreshold: string;
+  /** ISO 4217 currency code that the threshold is denominated in. */
+  currency: string;
+}
+
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
 }
@@ -134,4 +143,15 @@ the global ("*") banners.
 
  */
   countryCode?: string;
+};
+
+export type GetDeliveryConfigParams = {
+  /**
+   * ISO 3166-1 alpha-2 country code (case-insensitive).
+   */
+  countryCode?: string;
+  /**
+   * Optional city id from /delivery-locations.
+   */
+  cityId?: string;
 };

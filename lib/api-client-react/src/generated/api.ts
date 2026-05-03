@@ -17,8 +17,10 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
+  GetDeliveryConfigParams,
   GetHomepageBannersParams,
   HealthStatus,
   HomepageBannersResponse,
@@ -485,6 +487,110 @@ export function useGetHomepageBanners<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHomepageBannersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the express-delivery time label, the free-delivery threshold
+copy and the currency code Presentail uses for the given country and
+(optionally) city. Values are sourced from a server-side config so
+operations can change them without a client release. Falls back to
+the country default when cityId is unknown, and to a global default
+when countryCode is unknown.
+
+ * @summary Get delivery copy for a country/city
+ */
+export const getGetDeliveryConfigUrl = (params?: GetDeliveryConfigParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/delivery-config?${stringifiedParams}`
+    : `/api/delivery-config`;
+};
+
+export const getDeliveryConfig = async (
+  params?: GetDeliveryConfigParams,
+  options?: RequestInit,
+): Promise<DeliveryConfigResponse> => {
+  return customFetch<DeliveryConfigResponse>(getGetDeliveryConfigUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDeliveryConfigQueryKey = (
+  params?: GetDeliveryConfigParams,
+) => {
+  return [`/api/delivery-config`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetDeliveryConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDeliveryConfig>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetDeliveryConfigParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDeliveryConfig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDeliveryConfigQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDeliveryConfig>>
+  > = ({ signal }) => getDeliveryConfig(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDeliveryConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDeliveryConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDeliveryConfig>>
+>;
+export type GetDeliveryConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get delivery copy for a country/city
+ */
+
+export function useGetDeliveryConfig<
+  TData = Awaited<ReturnType<typeof getDeliveryConfig>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetDeliveryConfigParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDeliveryConfig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDeliveryConfigQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

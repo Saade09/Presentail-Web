@@ -143,6 +143,41 @@ export const GetHomepageBannersResponse = zod.object({
 });
 
 /**
+ * Returns the express-delivery time label, the free-delivery threshold
+copy and the currency code Presentail uses for the given country and
+(optionally) city. Values are sourced from a server-side config so
+operations can change them without a client release. Falls back to
+the country default when cityId is unknown, and to a global default
+when countryCode is unknown.
+
+ * @summary Get delivery copy for a country/city
+ */
+export const GetDeliveryConfigQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe("ISO 3166-1 alpha-2 country code (case-insensitive)."),
+  cityId: zod.coerce
+    .string()
+    .optional()
+    .describe("Optional city id from \/delivery-locations."),
+});
+
+export const GetDeliveryConfigResponse = zod.object({
+  expressDeliveryTimeLabel: zod
+    .string()
+    .describe(
+      'Human-readable express delivery promise (e.g. \"Arrives in 90 minutes\").',
+    ),
+  freeDeliveryThreshold: zod
+    .string()
+    .describe('Localized free-delivery threshold copy (e.g. \"AED 480\").'),
+  currency: zod
+    .string()
+    .describe("ISO 4217 currency code that the threshold is denominated in."),
+});
+
+/**
  * Returns the canonical list of countries and cities Presentail can
 deliver to, including their isActive flags, currency, flag emoji
 and display ordering. Consumed by the mobile app on launch so

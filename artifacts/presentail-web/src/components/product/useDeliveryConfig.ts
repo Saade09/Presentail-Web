@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 import { useLocationSelection } from "@/contexts/LocationContext";
 
 export type DeliveryConfig = {
@@ -12,7 +14,7 @@ const FALLBACK: DeliveryConfig = {
   currency: "AED",
 };
 
-const COUNTRY_CONFIG: Record<string, Partial<DeliveryConfig>> = {
+const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   AE: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "AED 480",
@@ -30,9 +32,24 @@ const COUNTRY_CONFIG: Record<string, Partial<DeliveryConfig>> = {
   },
 };
 
-export function useDeliveryConfig(): DeliveryConfig {
-  const { countryCode } = useLocationSelection();
+function fallbackFor(countryCode: string | null): DeliveryConfig {
   const code = (countryCode ?? "").toUpperCase();
-  const overrides = COUNTRY_CONFIG[code] ?? {};
-  return { ...FALLBACK, ...overrides };
+  return { ...FALLBACK, ...(COUNTRY_FALLBACK[code] ?? {}) };
+}
+
+export function useDeliveryConfig(): DeliveryConfig {
+  const { countryCode, cityId } = useLocationSelection();
+  const params = new URLSearchParams();
+  if (countryCode) params.set("countryCode", countryCode);
+  if (cityId) params.set("cityId", cityId);
+  const qs = params.toString();
+
+  const { data } = useQuery({
+    queryKey: ["delivery-config", countryCode ?? null, cityId ?? null],
+    queryFn: () =>
+      apiFetch<DeliveryConfig>(`/delivery-config${qs ? `?${qs}` : ""}`),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return data ?? fallbackFor(countryCode);
 }
