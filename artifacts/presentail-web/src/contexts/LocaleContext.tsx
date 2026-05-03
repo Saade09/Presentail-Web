@@ -307,11 +307,44 @@ type LocaleContextType = {
   setLanguage: (l: Language) => void;
   dir: "ltr" | "rtl";
   t: (key: keyof typeof STRINGS | string, params?: Record<string, string | number>) => string;
+  countryName: (code: string, fallback: string) => string;
+  cityName: (id: string, fallback: string) => string;
 };
 
 const LocaleContext = createContext<LocaleContextType | null>(null);
 
 const STORAGE_KEY = "presentail_lang_v1";
+const LEGACY_STORAGE_KEY = "presentail_language_v1";
+
+// Localized names for the picker's supported countries and their cities.
+const COUNTRY_NAMES_AR: Record<string, string> = {
+  LB: "لبنان",
+  AE: "الإمارات العربية المتحدة",
+  CY: "قبرص",
+};
+
+const CITY_NAMES_AR: Record<string, string> = {
+  "lb-beirut": "بيروت",
+  "lb-jounieh": "جونيه",
+  "lb-tripoli": "طرابلس",
+  "lb-saida": "صيدا",
+  "lb-tyre": "صور",
+  "lb-zahle": "زحلة",
+  "lb-byblos": "جبيل",
+  "lb-baalbek": "بعلبك",
+  "ae-dubai": "دبي",
+  "ae-abu-dhabi": "أبو ظبي",
+  "ae-sharjah": "الشارقة",
+  "ae-ajman": "عجمان",
+  "ae-ras-al-khaimah": "رأس الخيمة",
+  "ae-fujairah": "الفجيرة",
+  "ae-umm-al-quwain": "أم القيوين",
+  "ae-al-ain": "العين",
+  "cy-nicosia": "نيقوسيا",
+  "cy-limassol": "ليماسول",
+  "cy-larnaca": "لارنكا",
+  "cy-paphos": "بافوس",
+};
 
 function format(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
@@ -321,7 +354,20 @@ function format(template: string, params?: Record<string, string | number>): str
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
     if (typeof window === "undefined") return "en";
-    const saved = localStorage.getItem(STORAGE_KEY) as Language | null;
+    let saved = localStorage.getItem(STORAGE_KEY) as Language | null;
+    if (saved !== "ar" && saved !== "en") {
+      // One-time migration from the legacy I18nContext storage key.
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY) as Language | null;
+      if (legacy === "ar" || legacy === "en") {
+        saved = legacy;
+        try {
+          localStorage.setItem(STORAGE_KEY, legacy);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+      }
+    }
     return saved === "ar" ? "ar" : "en";
   });
 
@@ -333,6 +379,17 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, language);
   }, [language, dir]);
 
+  // Sync across tabs.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && (e.newValue === "ar" || e.newValue === "en")) {
+        setLanguageState(e.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const value = useMemo<LocaleContextType>(
     () => ({
       language,
@@ -343,6 +400,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
         const template = entry ? entry[language] : (key as string);
         return format(template, params);
       },
+      countryName: (code, fallback) =>
+        language === "ar" ? (COUNTRY_NAMES_AR[code] ?? fallback) : fallback,
+      cityName: (id, fallback) =>
+        language === "ar" ? (CITY_NAMES_AR[id] ?? fallback) : fallback,
     }),
     [language, dir],
   );

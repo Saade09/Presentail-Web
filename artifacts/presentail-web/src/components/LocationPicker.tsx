@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocationSelection, type DeliveryCountry } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useI18n } from "@/contexts/I18nContext";
 
 type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
@@ -11,8 +10,7 @@ type Props = {
 
 export function LocationPicker({ onComplete, initialCountryCode = null }: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
-  const { t, language, setLanguage } = useLocale();
-  const { countryName, cityName } = useI18n();
+  const { t, language, setLanguage, countryName, cityName } = useLocale();
   const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(() => {
     if (!initialCountryCode) return null;
     return countries.find((c) => c.code === initialCountryCode) ?? null;

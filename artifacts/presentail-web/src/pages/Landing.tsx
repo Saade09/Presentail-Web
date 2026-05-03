@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useI18n } from "@/contexts/I18nContext";
 import {
   PICKER_COUNTRY_CODES,
   countryCodeToSlug,
@@ -17,8 +16,7 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
 ];
 
 export default function Landing() {
-  const { language, setLanguage, t } = useLocale();
-  const { countryName } = useI18n();
+  const { language, setLanguage, t, countryName } = useLocale();
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
   const [, navigate] = useLocation();
 
