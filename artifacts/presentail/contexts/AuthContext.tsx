@@ -1,5 +1,16 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
+
+const secureStorage = {
+  getItemAsync: (key: string): Promise<string | null> =>
+    Platform.OS === "web" ? AsyncStorage.getItem(key) : SecureStore.getItemAsync(key),
+  setItemAsync: (key: string, value: string): Promise<void> =>
+    Platform.OS === "web" ? AsyncStorage.setItem(key, value) : SecureStore.setItemAsync(key, value),
+  deleteItemAsync: (key: string): Promise<void> =>
+    Platform.OS === "web" ? AsyncStorage.removeItem(key) : SecureStore.deleteItemAsync(key),
+};
 
 import { API_BASE } from "@/lib/stripe";
 import {
@@ -51,8 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const [t, u] = await Promise.all([
-          SecureStore.getItemAsync(TOKEN_KEY),
-          SecureStore.getItemAsync(USER_KEY),
+          secureStorage.getItemAsync(TOKEN_KEY),
+          secureStorage.getItemAsync(USER_KEY),
         ]);
         if (t) setToken(t);
         if (u) {
@@ -69,10 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback(async (newToken: string | null, newUser: AuthUser | null) => {
-    if (newToken) await SecureStore.setItemAsync(TOKEN_KEY, newToken);
-    else await SecureStore.deleteItemAsync(TOKEN_KEY);
-    if (newUser) await SecureStore.setItemAsync(USER_KEY, JSON.stringify(newUser));
-    else await SecureStore.deleteItemAsync(USER_KEY);
+    if (newToken) await secureStorage.setItemAsync(TOKEN_KEY, newToken);
+    else await secureStorage.deleteItemAsync(TOKEN_KEY);
+    if (newUser) await secureStorage.setItemAsync(USER_KEY, JSON.stringify(newUser));
+    else await secureStorage.deleteItemAsync(USER_KEY);
   }, []);
 
   const login: AuthState["login"] = useCallback(async (email, password) => {
