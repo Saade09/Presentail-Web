@@ -1,0 +1,265 @@
+Here’s the prompt to send to the **presentail.com Replit app**:
+
+---
+
+**Prompt:**
+
+We are implementing a shared customer database architecture between two apps:
+
+1. **presentail.com**
+
+   * Customer-facing website where customers browse products and place orders
+
+2. **Presentail Core**
+
+   * Internal operations/admin platform where the team manages orders, customers, products, and operations
+
+Replit recommended:
+
+**Option A — Shared backend/database**
+
+Both `presentail.com` and `Presentail Core` should use the same backend/customer database.
+
+Now I need you to update the **presentail.com** app so it correctly creates, updates, and reads customer data from the shared backend/database.
+
+---
+
+## Goal
+
+When a customer uses `presentail.com`, the app should:
+
+1. Capture customer information during authentication, checkout, and order placement.
+2. Create or update the customer record in the shared customer database.
+3. Link every order to the correct `customer_id`.
+4. Avoid duplicate customer records.
+5. Keep Presentail Core as the place where the team can view/manage customers, while `presentail.com` acts as the customer-facing data capture layer.
+
+---
+
+## Important architecture rule
+
+Do **not** create a separate customer database inside `presentail.com`.
+
+Instead:
+
+* Use the shared backend/database already used by Presentail Core.
+* If a shared API exists, call that API.
+* If both apps share the same database directly, use the same customer table/model/schema.
+* Follow the architecture already established by Presentail Core.
+
+---
+
+## Step 1: Inspect current app
+
+Before implementing, inspect the current `presentail.com` codebase and identify:
+
+* Current checkout flow
+* Current order creation logic
+* Current auth/customer account logic
+* Where customer email, phone, first name, last name, address, country, and city are collected
+* Current backend/API client setup
+* Existing order API endpoints
+* Existing environment variables
+* Whether this app already connects to the same database/backend as Presentail Core
+
+Do not guess. Confirm the current data flow first.
+
+---
+
+## Step 2: Customer data to capture
+
+For now, capture and send the following customer fields:
+
+* `first_name`
+* `last_name`
+* `email`
+* `phone`
+* `country_id` or `country`
+* `city_id` or `city`
+
+If the checkout already captures delivery address, keep that separate from the customer profile unless the backend already supports customer addresses.
+
+---
+
+## Step 3: Customer upsert behavior
+
+Before or during order creation, run a customer upsert.
+
+Suggested behavior:
+
+1. Normalize email:
+
+   * Trim spaces
+   * Lowercase
+
+2. Normalize phone:
+
+   * Prefer E.164 format if phone input supports it
+   * Example: `+971501234567`
+
+3. Check if customer already exists:
+
+   * Match by email first
+   * If email is missing, match by phone
+   * Do not create duplicates
+
+4. If customer exists:
+
+   * Update missing or changed fields
+   * Do not overwrite useful existing data with empty values
+
+5. If customer does not exist:
+
+   * Create a new customer record
+
+6. Return `customer_id`
+
+---
+
+## Step 4: Link orders to customers
+
+Every new order created from `presentail.com` should include:
+
+* `customer_id`
+
+If the order model already stores customer information directly, keep backward compatibility, but add the clean `customer_id` relationship.
+
+Expected order creation flow:
+
+```text
+1. Customer enters checkout details
+2. presentail.com upserts customer in shared backend/database
+3. Backend returns customer_id
+4. presentail.com creates order with customer_id
+5. Presentail Core can now show the customer and their order history
+```
+
+---
+
+## Step 5: API integration
+
+If Presentail Core/shared backend exposes an endpoint like this, use it:
+
+`POST /api/customers/upsert-from-order`
+
+Example payload:
+
+```json
+{
+  "first_name": "Adnan",
+  "last_name": "Ammache",
+  "email": "adnan@presentail.com",
+  "phone": "+971501234567",
+  "country": "United Arab Emirates",
+  "city": "Dubai",
+  "source": "presentail.com"
+}
+```
+
+Expected response:
+
+```json
+{
+  "customer_id": "customer_123",
+  "created": false
+}
+```
+
+If this endpoint does not exist yet, create the correct client/service wrapper in `presentail.com` and document what backend endpoint is required.
+
+Do not hardcode the backend URL. Use environment variables.
+
+Suggested env variable:
+
+```env
+PRESENTAIL_CORE_API_URL=
+PRESENTAIL_CORE_API_KEY=
+```
+
+Use whatever naming pattern already exists in the project.
+
+---
+
+## Step 6: Auth integration
+
+If the customer logs in or creates an account on `presentail.com`:
+
+* Make sure their auth user is linked to the customer record if the backend supports it.
+* Store or send:
+
+  * `auth_user_id`
+  * email
+  * phone
+  * name
+
+If there is a logged-in user during checkout, reuse that identity instead of creating a duplicate customer.
+
+If checkout is guest checkout, still create/update a customer record based on email/phone.
+
+---
+
+## Step 7: Customer account/profile pages
+
+If `presentail.com` has customer account pages, update them to read customer data from the shared customer source of truth.
+
+Customer-facing pages should only show that customer’s own data.
+
+Do not expose admin-only customer fields such as internal notes, tags, or support history.
+
+---
+
+## Step 8: Privacy and security
+
+Customer data is sensitive.
+
+Please ensure:
+
+* Public users cannot access other customers’ data.
+* Customer APIs require appropriate authentication or secure server-side access.
+* Admin-only customer fields are not exposed to `presentail.com`.
+* API keys are only used server-side, never exposed in browser JS.
+* Do not put secret keys in frontend code.
+
+---
+
+## Step 9: Error handling
+
+If customer upsert fails during checkout:
+
+* Do not silently ignore it.
+* Show a user-friendly error if order placement cannot continue.
+* Log enough detail server-side for debugging.
+* Avoid creating an order without a customer unless absolutely necessary and clearly documented.
+
+---
+
+## Step 10: Testing scenarios
+
+Please test:
+
+1. New guest customer places an order → customer is created.
+2. Same guest customer places another order with same email → same customer is reused.
+3. Existing logged-in customer places an order → order links to existing customer.
+4. Email with uppercase letters still matches existing customer.
+5. Email with spaces before/after still matches existing customer.
+6. Phone number is normalized where possible.
+7. Order record includes `customer_id`.
+8. Presentail Core can see the customer and order history.
+9. No duplicate customers are created for the same email.
+10. API secrets are not exposed to frontend/browser.
+
+---
+
+## Deliverables
+
+Please provide:
+
+* Explanation of current `presentail.com` customer/order data flow
+* Updated customer upsert integration
+* Updated checkout/order creation flow
+* Updated order payload with `customer_id`
+* Any required environment variables
+* Summary of files changed
+* Testing notes
+
+Important: `presentail.com` should not own a separate customer database. It should use the shared customer source of truth and link all orders to the shared `customer_id`.
