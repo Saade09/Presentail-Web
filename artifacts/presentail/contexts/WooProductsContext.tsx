@@ -51,14 +51,23 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
     isSyncing.current = true;
     const seq = ++syncSeq.current;
     try {
-      // TODO: forward delivery filter to backend filtering once Presentail OS
-      // supports it. The params are accepted by the helper today but ignored
-      // by WooCommerce.
-      const woo = await fetchWooProducts({ countryCode, cityId });
+      // Forward the selected delivery country / city to the API server,
+      // which filters the WooCommerce catalogue by per-product
+      // deliverability meta before returning it.
+      const result = await fetchWooProducts({ countryCode, cityId });
       // Drop the result if a newer sync started or the provider unmounted.
       if (unmounted.current || seq !== syncSeq.current) return;
-      if (!woo.length) return;
-      const merged = mergeProducts(CATALOG as AnyProduct[], woo);
+      // Bail out on transport / API failure so a network blip doesn't wipe
+      // the catalogue (the previously rendered products stay visible).
+      if (!result.ok) return;
+      const woo = result.products;
+      const hasDeliveryFilter = !!(countryCode || cityId);
+      // When a delivery filter is active we trust the server's filtered
+      // result (even an empty list — that means nothing is deliverable to
+      // the chosen location). With no filter, skip empty payloads so a
+      // misconfigured backend doesn't blank the catalogue.
+      if (!hasDeliveryFilter && !woo.length) return;
+      const merged = mergeProducts(CATALOG as AnyProduct[], woo, hasDeliveryFilter);
       setProducts(merged);
       setLastSync(new Date());
     } finally {
@@ -110,7 +119,11 @@ export function useWooProducts() {
   return useContext(WooProductsContext);
 }
 
-function mergeProducts(staticCatalog: AnyProduct[], woo: WooProduct[]): AnyProduct[] {
+function mergeProducts(
+  staticCatalog: AnyProduct[],
+  woo: WooProduct[],
+  restrictToWoo = false,
+): AnyProduct[] {
   const wooById = new Map<string, WooProduct>();
   for (const p of woo) {
     if (!wooById.has(p.id)) wooById.set(p.id, p);
@@ -124,6 +137,10 @@ function mergeProducts(staticCatalog: AnyProduct[], woo: WooProduct[]): AnyProdu
     if (seen.has(sp.id)) continue;
     seen.add(sp.id);
     const wp = wooById.get(sp.id);
+    // When the server has applied a delivery filter, drop static seed
+    // items that aren't in the filtered WC result so undeliverable
+    // products don't leak through the static catalogue.
+    if (restrictToWoo && !wp) continue;
     if (wp) {
       const nextPriceValue = wp.priceValue ?? sp.priceValue;
       result.push({

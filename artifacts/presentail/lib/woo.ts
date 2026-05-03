@@ -27,9 +27,11 @@ export type DeliveryFilter = {
 };
 
 function appendDeliveryParams(params: URLSearchParams, filter?: DeliveryFilter) {
-  // TODO: forward to backend filtering once Presentail OS supports it.
-  // For now we send these as opaque query params; the WooCommerce API
-  // ignores them and returns the full catalogue.
+  // The API server reads these and filters out any product whose
+  // `_deliverable_countries` / `_deliverable_cities` meta excludes the
+  // selected location. Products without that meta are treated as
+  // deliverable everywhere, so the catalogue is unaffected for items
+  // that haven't been tagged yet.
   if (!filter) return;
   if (filter.countryCode) params.set("countryCode", filter.countryCode);
   if (filter.cityId) params.set("cityId", filter.cityId);
@@ -94,7 +96,11 @@ export async function fetchBrandProducts(
   }
 }
 
-export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProduct[]> {
+export type WooProductsResult =
+  | { ok: true; products: WooProduct[] }
+  | { ok: false };
+
+export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProductsResult> {
   try {
     const params = new URLSearchParams();
     appendDeliveryParams(params, filter);
@@ -105,13 +111,14 @@ export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProd
     const res = await fetch(url, {
       headers: { "Content-Type": "application/json" },
     });
+    if (!res.ok) return { ok: false };
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
-      return json.products;
+      return { ok: true, products: json.products };
     }
-    return [];
+    return { ok: false };
   } catch {
-    return [];
+    return { ok: false };
   }
 }
 

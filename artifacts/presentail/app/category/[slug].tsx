@@ -22,6 +22,7 @@ import {
   getCategory,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts } from "@/lib/woo";
 
@@ -49,6 +50,9 @@ export default function CategoryScreen() {
   const [wcLoading, setWcLoading] = useState(false);
 
   const { products: allProducts, loading: catalogLoading } = useWooProducts();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
   const category = getCategory(String(slug));
   const mergedProducts = useMemo(
     () => allProducts.filter((p) => p.category === String(slug)),
@@ -68,7 +72,7 @@ export default function CategoryScreen() {
     if (mergedProducts.length > 0) { setWcProducts([]); return; }
     let cancelled = false;
     setWcLoading(true);
-    fetchCategoryProducts(String(slug)).then(({ products, categoryName }) => {
+    fetchCategoryProducts(String(slug), { countryCode, cityId }).then(({ products, categoryName }) => {
       if (cancelled) return;
       setWcProducts(products.filter((p) => p.image));
       setWcCategoryName(categoryName);
@@ -76,7 +80,7 @@ export default function CategoryScreen() {
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, catalogLoading, mergedSig]);
+  }, [slug, catalogLoading, mergedSig, countryCode, cityId]);
 
   const sourceProducts = mergedProducts.length > 0 ? mergedProducts : wcProducts;
   const products = useMemo(() => {

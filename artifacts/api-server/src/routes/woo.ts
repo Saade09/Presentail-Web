@@ -60,6 +60,59 @@ function mapCategory(cats: { id: number; name: string; slug: string }[]): string
   return "bundles";
 }
 
+type DeliveryFilter = {
+  countryCode: string | null;
+  cityId: string | null;
+};
+
+function readDeliveryFilter(req: { query: any }): DeliveryFilter {
+  const country = typeof req.query.countryCode === "string" ? req.query.countryCode.trim() : "";
+  const city = typeof req.query.cityId === "string" ? req.query.cityId.trim() : "";
+  return {
+    countryCode: country ? country.toUpperCase() : null,
+    cityId: city || null,
+  };
+}
+
+// Read a per-product deliverability list from WooCommerce meta_data.
+// Presentail OS publishes per-location availability as product meta keys:
+//   _deliverable_countries / deliverable_countries  → comma-separated ISO codes
+//   _deliverable_cities    / deliverable_cities     → comma-separated city ids
+// A missing/empty value means the product is deliverable everywhere (the
+// safe default while OS metadata is still being backfilled).
+function readMetaList(meta: any[] | undefined, ...keys: string[]): string[] | null {
+  if (!Array.isArray(meta)) return null;
+  for (const key of keys) {
+    const entry = meta.find((m) => m && m.key === key);
+    if (!entry) continue;
+    const raw = entry.value;
+    if (raw == null || raw === "") return null;
+    if (Array.isArray(raw)) {
+      const list = raw.map((v) => String(v).trim()).filter(Boolean);
+      return list.length ? list : null;
+    }
+    const list = String(raw)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return list.length ? list : null;
+  }
+  return null;
+}
+
+function isDeliverable(p: any, filter: DeliveryFilter): boolean {
+  const countries = readMetaList(p?.meta_data, "_deliverable_countries", "deliverable_countries");
+  if (countries && filter.countryCode) {
+    const wanted = filter.countryCode.toUpperCase();
+    if (!countries.some((c) => c.toUpperCase() === wanted)) return false;
+  }
+  const cities = readMetaList(p?.meta_data, "_deliverable_cities", "deliverable_cities");
+  if (cities && filter.cityId) {
+    if (!cities.some((c) => c === filter.cityId)) return false;
+  }
+  return true;
+}
+
 function transformProduct(p: any) {
   const price = parseFloat(p.price) || 0;
   const image =
@@ -134,7 +187,8 @@ router.get("/woo/brand-products", async (req, res) => {
       return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
     }
     const batch: any[] = await r.json();
-    const products = batch.map(transformProduct);
+    const filter = readDeliveryFilter(req);
+    const products = batch.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
@@ -211,7 +265,9 @@ router.get("/woo/category-products", async (req, res) => {
       if (batch.length < 100) break;
       page++;
     }
-    return res.json({ ok: true, products: allProducts.map(transformProduct), count: allProducts.length, categoryName: catName });
+    const filter = readDeliveryFilter(req);
+    const filtered = allProducts.filter((p) => isDeliverable(p, filter));
+    return res.json({ ok: true, products: filtered.map(transformProduct), count: filtered.length, categoryName: catName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" });
   }
@@ -240,12 +296,15 @@ router.get("/woo/occasion-products", async (req, res) => {
       page++;
     }
 
+    const filter = readDeliveryFilter(req);
+    const deliverable = allProducts.filter((p) => isDeliverable(p, filter));
+
     // Group products by type category (priority-ordered)
     const groups = new Map<string, { label: string; products: any[] }>();
     const assigned = new Set<number>();
 
     for (const typecat of OCCASION_TYPE_CATEGORIES) {
-      for (const p of allProducts) {
+      for (const p of deliverable) {
         if (assigned.has(p.id)) continue;
         const slugs = (p.categories ?? []).map((c: any) => c.slug as string);
         if (slugs.includes(typecat.slug)) {
@@ -271,7 +330,7 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 });
 
-router.get("/woo/products", async (_req, res) => {
+router.get("/woo/products", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
@@ -287,7 +346,8 @@ router.get("/woo/products", async (_req, res) => {
       if (batch.length < 100) break;
       page++;
     }
-    const products = allProducts.map(transformProduct);
+    const filter = readDeliveryFilter(req);
+    const products = allProducts.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch products" });

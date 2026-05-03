@@ -19,6 +19,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, type OccasionGroup } from "@/lib/woo";
 
@@ -36,19 +37,22 @@ export default function OccasionScreen() {
 
   const [groups, setGroups] = useState<OccasionGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setGroups([]);
-    fetchOccasionProducts(String(slug)).then((g) => {
+    fetchOccasionProducts(String(slug), { countryCode, cityId }).then((g) => {
       if (!cancelled) {
         setGroups(g.filter((gr) => gr.products.length > 0));
         setLoading(false);
       }
     });
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, countryCode, cityId]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

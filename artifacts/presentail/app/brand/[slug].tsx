@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/ProductCard";
 import { brands } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
 
@@ -32,19 +33,22 @@ export default function BrandScreen() {
 
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setProducts([]);
-    fetchBrandProducts(String(slug)).then((res) => {
+    fetchBrandProducts(String(slug), { countryCode, cityId }).then((res) => {
       if (!cancelled) {
         setProducts(res.filter((p) => p.image));
         setLoading(false);
       }
     });
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, countryCode, cityId]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
