@@ -22,6 +22,9 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://lebanon-luxury-showcase.replit.app",
         "EXPO_PUBLIC_DELIVERY_LOCATIONS_URL": "https://lebanon-luxury-showcase.replit.app/api/delivery-locations"
       }
+    },
+    "_socialAuthEnvNotes": {
+      "_comment": "Google sign-in requires the following env vars at build time. Add them as EAS secrets (eas secret:create) — do NOT commit real client ids to this file. EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: iOS OAuth 2.0 client id from Google Cloud Console. EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: Web OAuth 2.0 client id (used for ID token audience). EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID: the iOS client id reversed (e.g. com.googleusercontent.apps.<digits>) — used as the iOS URL scheme by app.config.js. The API server must also have GOOGLE_CLIENT_IDS set to a comma-separated list including the iOS and web client ids so the server-side audience check accepts both. Apple sign-in: APPLE_CLIENT_IDS on the API defaults to the iOS bundle id (com.presentail.lb / presentail); override only if using a Service ID for web."
     }
   },
   "submit": {

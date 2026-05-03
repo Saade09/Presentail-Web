@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
-import { authenticate, decodeJwtPayload } from "../lib/auth";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { randomBytes } from "node:crypto";
+import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -340,6 +342,206 @@ router.delete("/auth/me", async (req, res) => {
     req.log?.error?.({ err: e?.message }, "auth.delete: unexpected error");
     res.status(500).json({ ok: false, message: e?.message ?? "Delete failed" });
   }
+});
+
+// ── Social sign-in: Apple & Google ───────────────────────────────────────────
+// Both providers send us their identity JWT. We verify the signature against
+// the provider's JWKS, ensure the audience matches our app's client ID, then
+// resolve (or create) the matching WC customer and mint a server-side session
+// JWT that the rest of the API accepts via `authenticate()`.
+
+const APPLE_JWKS = createRemoteJWKSet(
+  new URL("https://appleid.apple.com/auth/keys"),
+);
+const GOOGLE_JWKS = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/oauth2/v3/certs"),
+);
+
+function envList(name: string): string[] {
+  return (process.env[name] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function appleAudiences(): string[] {
+  const list = envList("APPLE_CLIENT_IDS");
+  if (list.length) return list;
+  // Sensible defaults: native iOS bundle id (Apple uses bundleId as the
+  // audience for native Sign in with Apple).
+  return ["presentail", "com.presentail.lb"];
+}
+
+function googleAudiences(): string[] {
+  return envList("GOOGLE_CLIENT_IDS");
+}
+
+function randomPassword(): string {
+  return (
+    "soc-" + randomBytes(24).toString("base64url") + "-" + Date.now().toString(36)
+  );
+}
+
+async function findCustomerByEmail(email: string) {
+  const r = await wcFetch(`/customers?email=${encodeURIComponent(email)}&per_page=1`);
+  if (!r.ok) return null;
+  const list = (await r.json().catch(() => [])) as any[];
+  return Array.isArray(list) && list[0] ? list[0] : null;
+}
+
+async function createCustomer(input: {
+  email: string;
+  firstName: string;
+  lastName: string;
+}) {
+  // Username must be unique. Derive from local part + short random suffix
+  // so concurrent social sign-ups don't collide.
+  const localPart = input.email.split("@")[0]?.replace(/[^a-zA-Z0-9_.-]/g, "") || "user";
+  const username = `${localPart}-${randomBytes(3).toString("hex")}`;
+  const r = await wcFetch("/customers", {
+    method: "POST",
+    body: JSON.stringify({
+      email: input.email,
+      password: randomPassword(),
+      username,
+      first_name: input.firstName,
+      last_name: input.lastName,
+    }),
+  });
+  const data = (await r.json().catch(() => ({}))) as any;
+  if (!r.ok) {
+    const msg = data?.message?.replace(/<[^>]*>/g, "") ?? "Could not create account";
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function ensureCustomerForSocial(input: {
+  email: string;
+  firstName: string;
+  lastName: string;
+}) {
+  const existing = await findCustomerByEmail(input.email);
+  if (existing) return existing;
+  return createCustomer(input);
+}
+
+async function issueSocialSession(
+  res: import("express").Response,
+  req: import("express").Request,
+  provider: "apple" | "google",
+  profile: { email: string; firstName: string; lastName: string },
+) {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res
+      .status(503)
+      .json({ ok: false, message: "Sign-in is not available right now." });
+  }
+  try {
+    const customer = await ensureCustomerForSocial(profile);
+    const mapped = mapCustomer(customer);
+    const token = await signServerToken({
+      customerId: mapped.id,
+      email: mapped.email,
+      provider,
+    });
+    return res.json({ ok: true, token, user: mapped });
+  } catch (e: any) {
+    req.log?.warn?.(
+      { err: e?.message, provider },
+      "auth.social: customer link failed",
+    );
+    return res
+      .status(500)
+      .json({ ok: false, message: e?.message ?? "Sign-in failed" });
+  }
+}
+
+router.post("/auth/social/apple", async (req, res) => {
+  const { identityToken, fullName } = req.body as {
+    identityToken?: string;
+    fullName?: { givenName?: string | null; familyName?: string | null } | null;
+  };
+  if (!identityToken) {
+    return res
+      .status(400)
+      .json({ ok: false, message: "Missing Apple identity token" });
+  }
+  let payload: any;
+  try {
+    const verified = await jwtVerify(identityToken, APPLE_JWKS, {
+      issuer: "https://appleid.apple.com",
+      audience: appleAudiences(),
+    });
+    payload = verified.payload;
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.social.apple: token invalid");
+    return res
+      .status(401)
+      .json({ ok: false, message: "Apple sign-in could not be verified" });
+  }
+  const email = String(payload.email ?? "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        "Your Apple ID didn't share an email. Please retry and choose 'Share My Email'.",
+    });
+  }
+  const givenName = String(fullName?.givenName ?? "").trim();
+  const familyName = String(fullName?.familyName ?? "").trim();
+  return issueSocialSession(res, req, "apple", {
+    email,
+    firstName: givenName,
+    lastName: familyName,
+  });
+});
+
+router.post("/auth/social/google", async (req, res) => {
+  const { idToken } = req.body as { idToken?: string };
+  if (!idToken) {
+    return res
+      .status(400)
+      .json({ ok: false, message: "Missing Google ID token" });
+  }
+  const audiences = googleAudiences();
+  if (!audiences.length) {
+    return res.status(503).json({
+      ok: false,
+      message: "Google sign-in is not configured on the server.",
+    });
+  }
+  let payload: any;
+  try {
+    const verified = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: audiences,
+    });
+    payload = verified.payload;
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.social.google: token invalid");
+    return res
+      .status(401)
+      .json({ ok: false, message: "Google sign-in could not be verified" });
+  }
+  if (payload.email_verified === false) {
+    return res
+      .status(401)
+      .json({ ok: false, message: "Your Google email is not verified." });
+  }
+  const email = String(payload.email ?? "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return res
+      .status(400)
+      .json({ ok: false, message: "Google didn't share an email address." });
+  }
+  const givenName = String(payload.given_name ?? "").trim();
+  const familyName = String(payload.family_name ?? "").trim();
+  return issueSocialSession(res, req, "google", {
+    email,
+    firstName: givenName,
+    lastName: familyName,
+  });
 });
 
 export default router;

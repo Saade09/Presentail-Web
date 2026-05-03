@@ -35,7 +35,7 @@ export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { isRTL } = useLanguage();
-  const { login, register } = useAuth();
+  const { login, register, applySession } = useAuth();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -65,9 +65,15 @@ export default function AuthScreen() {
       case "network":
         return t.authNetworkError;
       case "apple_unavailable":
-        return t.authAppleComingSoon;
+        return t.authAppleUnavailable;
       case "google_unavailable":
-        return t.authGoogleComingSoon;
+        return t.authGoogleUnavailable;
+      case "apple_failed":
+        return t.authAppleFailed;
+      case "google_failed":
+        return t.authGoogleFailed;
+      case "canceled":
+        return "";
       case "server":
         return err.serverMessage || t.authGenericError;
     }
@@ -138,17 +144,27 @@ export default function AuthScreen() {
   const onApple = async () => {
     setSocialError(null);
     setSocialBusy("apple");
-    const r = await signInWithApple();
+    const r = await signInWithApple(applySession);
     setSocialBusy(null);
-    if (!r.ok) setSocialError(errorText(r));
+    if (r.ok) {
+      close();
+      return;
+    }
+    if (r.code === "canceled") return;
+    setSocialError(errorText(r));
   };
 
   const onGoogle = async () => {
     setSocialError(null);
     setSocialBusy("google");
-    const r = await signInWithGoogle();
+    const r = await signInWithGoogle(applySession);
     setSocialBusy(null);
-    if (!r.ok) setSocialError(errorText(r));
+    if (r.ok) {
+      close();
+      return;
+    }
+    if (r.code === "canceled") return;
+    setSocialError(errorText(r));
   };
 
   const onForgotPassword = () => {

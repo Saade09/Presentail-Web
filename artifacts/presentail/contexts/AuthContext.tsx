@@ -39,6 +39,7 @@ type AuthState = {
     lastName?: string;
     phone?: string;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
+  applySession: (input: { token: string; user: AuthUser }) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ ok: true } | { ok: false; message: string }>;
   updateProfile: (input: {
@@ -151,6 +152,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persist]);
 
+  const applySession = useCallback(async (input: { token: string; user: AuthUser }) => {
+    setToken(input.token);
+    setUser(input.user);
+    await persist(input.token, input.user);
+    registerPushToken({
+      authToken: input.token,
+      userId: input.user.id,
+    }).catch(() => {});
+  }, [persist]);
+
   const logout = useCallback(async () => {
     // Capture the current token before clearing state so the unregister
     // request is authenticated (so the server will actually remove the
@@ -213,10 +224,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token,
     login,
     register,
+    applySession,
     logout,
     deleteAccount,
     updateProfile,
-  }), [ready, user, token, login, register, logout, deleteAccount, updateProfile]);
+  }), [ready, user, token, login, register, applySession, logout, deleteAccount, updateProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
