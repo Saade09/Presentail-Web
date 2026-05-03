@@ -15,9 +15,11 @@ import { passwordRequirements, passwordMeetsAll } from "@/utils/validation";
 
 type Props = {
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   password: string;
-  onNameChange: (v: string) => void;
+  onFirstNameChange: (v: string) => void;
+  onLastNameChange: (v: string) => void;
   onPasswordChange: (v: string) => void;
   busy: boolean;
   errorMessage: string | null;
@@ -26,9 +28,11 @@ type Props = {
 
 export function SignupStep({
   email,
-  fullName,
+  firstName,
+  lastName,
   password,
-  onNameChange,
+  onFirstNameChange,
+  onLastNameChange,
   onPasswordChange,
   busy,
   errorMessage,
@@ -41,7 +45,11 @@ export function SignupStep({
   const [show, setShow] = useState(false);
 
   const reqs = passwordRequirements(password);
-  const canSubmit = !busy && fullName.trim().length > 0 && passwordMeetsAll(password);
+  const canSubmit =
+    !busy &&
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    passwordMeetsAll(password);
 
   return (
     <View style={{ gap: 22 }}>
@@ -92,41 +100,84 @@ export function SignupStep({
         </Text>
       </View>
 
-      <View style={{ gap: 8 }}>
-        <Text
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 12,
-            color: colors.mutedForeground,
-            textAlign: align,
-          }}
-        >
-          {t.authNameLabel}
-        </Text>
-        <TextInput
-          value={fullName}
-          onChangeText={onNameChange}
-          placeholder={t.authNamePlaceholder}
-          placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
-          editable={!busy}
-          returnKeyType="next"
-          style={{
-            fontFamily: "Inter_400Regular",
-            fontSize: 15,
-            color: colors.primary,
-            backgroundColor: "#fff",
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            textAlign: align,
-            writingDirection: isRTL ? "rtl" : "ltr",
-          }}
-        />
+      <View
+        style={{
+          flexDirection: isRTL ? "row-reverse" : "row",
+          gap: 12,
+        }}
+      >
+        <View style={{ flex: 1, gap: 8 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 12,
+              color: colors.mutedForeground,
+              textAlign: align,
+            }}
+          >
+            {t.authFirstNameLabel}
+          </Text>
+          <TextInput
+            value={firstName}
+            onChangeText={onFirstNameChange}
+            placeholder={t.authFirstNamePlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="words"
+            autoComplete="given-name"
+            textContentType="givenName"
+            editable={!busy}
+            returnKeyType="next"
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 15,
+              color: colors.primary,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              textAlign: align,
+              writingDirection: isRTL ? "rtl" : "ltr",
+            }}
+          />
+        </View>
+        <View style={{ flex: 1, gap: 8 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 12,
+              color: colors.mutedForeground,
+              textAlign: align,
+            }}
+          >
+            {t.authLastNameLabel}
+          </Text>
+          <TextInput
+            value={lastName}
+            onChangeText={onLastNameChange}
+            placeholder={t.authLastNamePlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
+            editable={!busy}
+            returnKeyType="next"
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 15,
+              color: colors.primary,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              textAlign: align,
+              writingDirection: isRTL ? "rtl" : "ltr",
+            }}
+          />
+        </View>
       </View>
 
       <View style={{ gap: 8 }}>

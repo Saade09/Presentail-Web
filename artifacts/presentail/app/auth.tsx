@@ -56,7 +56,8 @@ export default function AuthScreen() {
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
@@ -168,7 +169,8 @@ export default function AuthScreen() {
     const r = await createAccountWithEmail(register, {
       email,
       password,
-      fullName,
+      firstName,
+      lastName,
     });
     setSignupBusy(false);
     if (!r.ok) {
@@ -392,10 +394,15 @@ export default function AuthScreen() {
           {step === "signup" ? (
             <SignupStep
               email={email}
-              fullName={fullName}
+              firstName={firstName}
+              lastName={lastName}
               password={password}
-              onNameChange={(v) => {
-                setFullName(v);
+              onFirstNameChange={(v) => {
+                setFirstName(v);
+                if (signupError) setSignupError(null);
+              }}
+              onLastNameChange={(v) => {
+                setLastName(v);
                 if (signupError) setSignupError(null);
               }}
               onPasswordChange={(v) => {

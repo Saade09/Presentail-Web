@@ -89,7 +89,6 @@ export default function Shop() {
               Browse our curated selection of luxury floral designs and premium gifts, thoughtfully crafted for delivery in Lebanon.
             </p>
           </div>
-
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
               <SelectTrigger className="w-[180px] bg-background" data-testid="select-sort">
@@ -126,7 +125,6 @@ export default function Shop() {
                 ))}
               </ul>
             </div>
-
             <div>
               <h3 className="font-serif text-lg mb-4">Occasions</h3>
               <ul className="space-y-3">
@@ -143,14 +141,12 @@ export default function Shop() {
                 ))}
               </ul>
             </div>
-
             {(category || occasion) && (
               <Link href="/shop" className="text-sm font-medium text-primary hover:underline" data-testid="link-clear-filters">
                 Clear all filters
               </Link>
             )}
           </div>
-
           <div className="flex-1">
             {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">

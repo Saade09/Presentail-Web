@@ -87,15 +87,18 @@ export async function signInWithEmail(
 
 export async function createAccountWithEmail(
   register: RegisterFn,
-  input: { email: string; password: string; fullName: string },
+  input: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  },
 ): Promise<AuthResult> {
-  const fullName = input.fullName.trim();
-  const [first = "", ...rest] = fullName ? fullName.split(/\s+/) : [];
   const r = await register({
     email: input.email.trim(),
     password: input.password,
-    firstName: first,
-    lastName: rest.join(" "),
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
   });
   if (r.ok) return { ok: true };
   return { ok: false, code: "server", serverMessage: r.message };

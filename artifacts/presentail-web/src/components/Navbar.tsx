@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeliveryLocations } from "@/lib/queries";
@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 export function Navbar() {
   const { itemCount } = useCart();
   const { user } = useAuth();
+  const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const { data: locations } = useDeliveryLocations();
 

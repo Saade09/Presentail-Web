@@ -12,7 +12,6 @@ import categoryCakes from "@/assets/category-cakes.png";
 
 export default function Home() {
   const { data: featuredData, isLoading } = useCategoryProducts("hand-bouquets");
-
   // Just take a few for the featured strip
   const featured = featuredData?.products.slice(0, 4) || [];
 
