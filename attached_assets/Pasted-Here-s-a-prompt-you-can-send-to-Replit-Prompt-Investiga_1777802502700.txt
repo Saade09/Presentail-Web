@@ -1,0 +1,134 @@
+Here’s a prompt you can send to Replit:
+
+---
+
+**Prompt:**
+
+Investigate and fix why the website favicon is not showing correctly on `new.presentail.com`.
+
+### Current issue
+
+The browser tab is not showing the Presentail favicon correctly. In the screenshot, the tab either shows a missing/default icon or an incorrect favicon.
+
+Please investigate the favicon setup in detail and resolve it.
+
+---
+
+## Expected behavior
+
+The website should show the correct **Presentail favicon** in:
+
+* Browser tab
+* Safari tab
+* Chrome tab
+* Bookmarks/favorites
+* Mobile home screen preview where applicable
+
+---
+
+## Investigation checklist
+
+Please inspect the current project and verify:
+
+1. **Favicon files exist**
+
+   * Check if favicon files are present in the correct public/static folder.
+   * Common expected files:
+
+     * `/favicon.ico`
+     * `/favicon.svg`
+     * `/apple-touch-icon.png`
+     * `/icon.png`
+     * `/manifest.json`
+
+2. **Correct file paths**
+
+   * Confirm favicon paths are correct and publicly accessible.
+   * Test directly in browser:
+
+     * `https://new.presentail.com/favicon.ico`
+     * `https://new.presentail.com/favicon.svg`
+     * `https://new.presentail.com/apple-touch-icon.png`
+
+3. **HTML/head metadata**
+
+   * Ensure the app includes correct favicon tags in the document head.
+
+Example:
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+```
+
+4. **Framework-specific setup**
+
+   * If this is Next.js App Router, check:
+
+     * `app/icon.png`
+     * `app/favicon.ico`
+     * `app/apple-icon.png`
+     * `metadata.icons`
+   * If this is Next.js Pages Router, check:
+
+     * `_document.tsx`
+     * `_app.tsx`
+     * `public/favicon.ico`
+   * If this is Vite/React, check:
+
+     * `index.html`
+     * `public/favicon.ico`
+
+5. **File format issues**
+
+   * Confirm favicon files are valid image files.
+   * Confirm `.ico` is actually an ICO file, not a renamed PNG.
+   * Make sure favicon is square, preferably:
+
+     * 16x16
+     * 32x32
+     * 48x48
+     * 180x180 for Apple touch icon
+     * 512x512 for PWA icon if needed
+
+6. **Caching issues**
+
+   * Favicons are aggressively cached by browsers.
+   * Add a cache-busting version if needed:
+
+```html
+<link rel="icon" href="/favicon.ico?v=2" />
+```
+
+7. **Deployment issue**
+
+   * Confirm favicon files are included in the deployed build.
+   * Confirm production domain serves the latest assets.
+   * Check whether the Replit deployment is serving an older cached build.
+
+---
+
+## Required fix
+
+Please add or repair the favicon configuration so the correct Presentail icon appears reliably.
+
+Use the Presentail logo/favicon asset already in the project if available. If not available, create a clean favicon from the existing Presentail “P” logo and place it in the correct public/static folder.
+
+---
+
+## Deliverables
+
+Please provide:
+
+* Root cause of why favicon was not showing
+* Files added or changed
+* Correct favicon assets added
+* Correct head/metadata configuration
+* Confirmation that these URLs load:
+
+  * `/favicon.ico`
+  * `/apple-touch-icon.png`
+* Confirmation that favicon appears after hard refresh / cache clear
+
+Important: do not only change the visible logo in the page. Fix the actual browser favicon configuration.
