@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { Filter, SlidersHorizontal } from "lucide-react";
+import { Filter, MapPin, SlidersHorizontal } from "lucide-react";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 const CATEGORIES = [
   { slug: "hand-bouquets", label: "Hand Bouquets" },
@@ -31,13 +32,16 @@ export default function Shop() {
   const category = searchParams.get("category") || "";
   const occasion = searchParams.get("occasion") || "";
 
+  const { countryCode, country, openPicker } = useLocationSelection();
+  const countryParams = countryCode ? { countryCode } : {};
+
   // Pick the right endpoint: category-products and occasion-products actually
   // filter on the backend; the generic /woo/products endpoint ignores
   // category/occasion params, so we route filtered views through the
   // dedicated endpoints.
-  const allProducts = useProducts({}, !category && !occasion);
-  const categoryProducts = useCategoryProducts(category);
-  const occasionProducts = useOccasionProducts(occasion);
+  const allProducts = useProducts(countryParams, !category && !occasion);
+  const categoryProducts = useCategoryProducts(category, countryParams);
+  const occasionProducts = useOccasionProducts(occasion, countryParams);
 
   const isLoading = category
     ? categoryProducts.isLoading
@@ -159,12 +163,35 @@ export default function Shop() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
-                <h3 className="font-serif text-2xl mb-3">No products found</h3>
-                <p className="text-muted-foreground mb-6">We couldn't find any products matching your current filters.</p>
-                <Button asChild variant="outline" data-testid="button-clear-filters">
-                  <Link href="/shop">Clear Filters</Link>
-                </Button>
+              <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed" data-testid="empty-state-no-products">
+                {country ? (
+                  <>
+                    <MapPin className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-serif text-2xl mb-3">No products available in {country.name}</h3>
+                    <p className="text-muted-foreground mb-6">
+                      We couldn't find any products that can be delivered to {country.name} for your current filters.
+                      Try a different category or change your delivery country.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
+                        Change delivery country
+                      </Button>
+                      {(category || occasion) && (
+                        <Button asChild variant="ghost" data-testid="button-clear-filters">
+                          <Link href="/shop">Clear filters</Link>
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-serif text-2xl mb-3">No products found</h3>
+                    <p className="text-muted-foreground mb-6">We couldn't find any products matching your current filters.</p>
+                    <Button asChild variant="outline" data-testid="button-clear-filters">
+                      <Link href="/shop">Clear Filters</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">

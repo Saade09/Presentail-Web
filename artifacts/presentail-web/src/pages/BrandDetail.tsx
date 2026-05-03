@@ -1,10 +1,10 @@
 import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
-import { Product, useBrands } from "@/lib/queries";
+import { useBrands, useBrandProducts } from "@/lib/queries";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, MapPin } from "lucide-react";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 export default function BrandDetail() {
   const [, params] = useRoute("/brand/:slug");
@@ -13,11 +13,11 @@ export default function BrandDetail() {
   const { data: brandsData } = useBrands();
   const brand = brandsData?.brands.find(b => b.slug === slug);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["brand-products", slug],
-    queryFn: () => apiFetch<{ ok: boolean; products: Product[]; count: number }>(`/woo/brand-products?slug=${slug}`),
-    enabled: !!slug
-  });
+  const { countryCode, country, openPicker } = useLocationSelection();
+  const { data, isLoading } = useBrandProducts(
+    slug ?? "",
+    countryCode ? { countryCode } : {},
+  );
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">
@@ -53,9 +53,27 @@ export default function BrandDetail() {
             ))}
           </div>
         ) : data?.products.length === 0 ? (
-          <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
-            <h3 className="font-serif text-2xl mb-3">No products available</h3>
-            <p className="text-muted-foreground">This brand currently has no products available for delivery.</p>
+          <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed" data-testid="empty-state-no-brand-products">
+            {country ? (
+              <>
+                <MapPin className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="font-serif text-2xl mb-3">
+                  No products available in {country.name}
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  {brand?.name || slug} doesn't currently deliver any products to {country.name}.
+                  Try changing your delivery country to see more options.
+                </p>
+                <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
+                  Change delivery country
+                </Button>
+              </>
+            ) : (
+              <>
+                <h3 className="font-serif text-2xl mb-3">No products available</h3>
+                <p className="text-muted-foreground">This brand currently has no products available for delivery.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
