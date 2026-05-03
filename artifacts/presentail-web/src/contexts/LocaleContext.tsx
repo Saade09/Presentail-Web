@@ -253,6 +253,12 @@ const STRINGS: Dict = {
   "auth.toast.regFailed": { en: "Registration Failed", ar: "فشل التسجيل" },
   "auth.toast.regFailedDesc": { en: "Could not create account", ar: "تعذّر إنشاء الحساب" },
   "auth.toast.error": { en: "Error", ar: "خطأ" },
+  "auth.continue": { en: "Continue", ar: "متابعة" },
+  "auth.emailStepDesc": { en: "Enter your email to sign in or create an account.", ar: "أدخل بريدك الإلكتروني لتسجيل الدخول أو إنشاء حساب." },
+  "auth.changeEmail": { en: "Use a different email", ar: "استخدم بريدًا إلكترونيًا آخر" },
+  "auth.accountFound": { en: "Account found. Please log in.", ar: "تم العثور على الحساب. الرجاء تسجيل الدخول." },
+  "auth.checkFailed": { en: "Something went wrong, please try again.", ar: "حدث خطأ ما، يرجى المحاولة مرة أخرى." },
+  "auth.invalidEmail": { en: "Please enter a valid email.", ar: "يرجى إدخال بريد إلكتروني صالح." },
 
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },

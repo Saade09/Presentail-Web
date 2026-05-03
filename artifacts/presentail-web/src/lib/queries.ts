@@ -97,6 +97,9 @@ export const useCurrentUser = (token: string | null) => {
   });
 };
 
+export const checkEmailExists = (email: string) =>
+  apiFetch<{ ok: boolean; exists: boolean }>(`/auth/exists?email=${encodeURIComponent(email)}`);
+
 export const useLogin = () => {
   return useMutation({
     mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/login", {
