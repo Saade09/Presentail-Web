@@ -285,6 +285,8 @@ const STRINGS: Dict = {
   "auth.forgotSentTitle": { en: "Check your email", ar: "تحقق من بريدك الإلكتروني" },
   "auth.forgotSentDesc": { en: "If an account exists for {email}, you'll receive a reset link shortly.", ar: "إذا كان هناك حساب مرتبط بـ {email}, فستتلقى رابط إعادة التعيين قريبًا." },
   "auth.forgotResend": { en: "Resend email", ar: "إعادة إرسال البريد" },
+  "auth.showPassword": { en: "Show password", ar: "إظهار كلمة المرور" },
+  "auth.hidePassword": { en: "Hide password", ar: "إخفاء كلمة المرور" },
   "auth.forgotBackToSignIn": { en: "Back to sign in", ar: "العودة إلى تسجيل الدخول" },
   "auth.forgotFailed": { en: "Couldn't send reset email. Please try again.", ar: "تعذّر إرسال بريد إعادة التعيين. يرجى المحاولة مرة أخرى." },
   "auth.cardHeading": { en: "Login or Create Account", ar: "تسجيل الدخول أو إنشاء حساب" },

@@ -1,4 +1,5 @@
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, ComponentProps } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLogin, useRegister, checkEmailExists, requestPasswordReset } from "@/lib/queries";
 import { useLocation } from "wouter";
@@ -36,6 +37,38 @@ function GoogleLogo() {
       <path fill="#4CAF50" d="M24 43.2c5.3 0 10.1-2 13.7-5.3l-6.3-5.3c-2 1.4-4.6 2.3-7.4 2.3-4.7 0-8.7-3-10.2-7.1l-5.9 4.5C10.2 39 16.6 43.2 24 43.2z"/>
       <path fill="#1976D2" d="M43.6 20.5H42V20.4H24v7.2h11.3c-.7 2-2 3.7-3.7 5l6.3 5.3c-.4.4 6.7-4.9 6.7-13.7 0-1.3-.1-2.5-.4-3.7z"/>
     </svg>
+  );
+}
+
+function PasswordInput({
+  showLabel,
+  hideLabel,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Input>, "type"> & { showLabel: string; hideLabel: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        {...props}
+        type={visible ? "text" : "password"}
+        className={`${className ?? ""} pr-12`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? hideLabel : showLabel}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-[hsl(var(--primary))] hover:text-[hsl(var(--primary)/0.75)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary)/0.35)] rounded-r-2xl"
+        tabIndex={0}
+      >
+        {visible ? (
+          <EyeOff className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <Eye className="h-5 w-5" aria-hidden="true" />
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -274,14 +307,15 @@ export default function Auth() {
             <label className="text-sm font-medium text-[hsl(var(--primary))]">
               {t("auth.password")}
             </label>
-            <Input
-              type="password"
+            <PasswordInput
               required
               autoFocus
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               minLength={8}
               className={inputClass}
+              showLabel={t("auth.showPassword")}
+              hideLabel={t("auth.hidePassword")}
             />
           </div>
 
@@ -415,13 +449,14 @@ export default function Auth() {
             <label className="text-sm font-medium text-[hsl(var(--primary))]">
               {t("auth.password")}
             </label>
-            <Input
-              type="password"
+            <PasswordInput
               required
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               minLength={8}
               className={inputClass}
+              showLabel={t("auth.showPassword")}
+              hideLabel={t("auth.hidePassword")}
             />
           </div>
 
