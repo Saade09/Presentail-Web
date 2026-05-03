@@ -79,8 +79,8 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* ivory */
-  --background: 38 100% 98%;
+  /* light grey — matches presentail.com */
+  --background: 0 0% 95%;
   /* charcoal */
   --foreground: 20 19% 13%;
   /* cream */
