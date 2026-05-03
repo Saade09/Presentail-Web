@@ -70,10 +70,20 @@ const server = http.createServer((req, res) => {
         res.end(out);
         return;
       }
+      const baseName = path.basename(filePath);
+      const isIconAsset =
+        baseName === "favicon.ico" ||
+        baseName === "apple-touch-icon.png" ||
+        baseName === "site.webmanifest" ||
+        /^favicon-\d+x\d+\.png$/.test(baseName) ||
+        /^android-chrome-\d+x\d+\.png$/.test(baseName);
+      const cacheControl = isIconAsset
+        ? "public, max-age=86400, must-revalidate"
+        : "public, max-age=31536000, immutable";
       const stream = fs.createReadStream(filePath);
       res.writeHead(200, {
         "content-type": MIME[ext] ?? "application/octet-stream",
-        "cache-control": "public, max-age=31536000, immutable",
+        "cache-control": cacheControl,
       });
       stream.pipe(res);
       return;
