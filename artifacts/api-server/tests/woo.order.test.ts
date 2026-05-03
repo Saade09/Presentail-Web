@@ -26,6 +26,17 @@ vi.mock("../src/lib/orderEvents", () => ({
   sendOrderEventPush: vi.fn().mockResolvedValue(undefined),
 }));
 
+// The customer upsert + WC sync layer is exercised by its own tests; here
+// we stub it to return a stable mirror id so /woo/order can proceed.
+vi.mock("../src/lib/customers", () => ({
+  upsertCustomer: vi.fn().mockResolvedValue({
+    customer: { id: 7, wcCustomerId: 777, email: "jane@example.com" },
+    created: false,
+  }),
+  syncCustomerToWoo: vi.fn().mockResolvedValue(777),
+  getCustomerByWcId: vi.fn().mockResolvedValue(null),
+}));
+
 const authenticateMock = vi.fn();
 vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),

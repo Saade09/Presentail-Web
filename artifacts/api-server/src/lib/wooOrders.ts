@@ -138,7 +138,7 @@ const PAYMENT_TITLES: Record<string, string> = {
 // The reconciliation worker passes the stored verified flag.
 export async function attemptCreateWcOrder(
   body: WooOrderPayload,
-  opts: { paymentVerified?: boolean } = {},
+  opts: { paymentVerified?: boolean; wcCustomerId?: number | null } = {},
 ): Promise<WcOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
   const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
@@ -298,7 +298,7 @@ export async function attemptCreateWcOrder(
     { key: "_presented_currency", value: presentedCurrency },
   );
 
-  const orderPayload = {
+  const orderPayload: Record<string, unknown> = {
     status: "processing",
     currency: presentedCurrency,
     payment_method:
@@ -332,6 +332,13 @@ export async function attemptCreateWcOrder(
       .join("\n"),
     meta_data: metaData,
   };
+
+  // Attach the WooCommerce customer mirror id so the WC order is properly
+  // linked (rather than stored as billing text only). Falsy values are
+  // skipped so guest orders without a mirror still go through cleanly.
+  if (opts.wcCustomerId && Number.isFinite(opts.wcCustomerId) && opts.wcCustomerId > 0) {
+    orderPayload.customer_id = opts.wcCustomerId;
+  }
 
   try {
     const r = await wooFetch("/orders", {
@@ -370,10 +377,11 @@ export async function recordSuccessfulWcOrder(input: {
   body: WooOrderPayload;
   wcOrderId: number | null;
   userId: number | null;
+  customerId?: number | null;
   recipientName: string;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
-  const { body, wcOrderId, userId, recipientName, log } = input;
+  const { body, wcOrderId, userId, customerId, recipientName, log } = input;
   const rawDeviceId =
     typeof body.appDeviceId === "string" && body.appDeviceId
       ? body.appDeviceId
@@ -393,6 +401,7 @@ export async function recordSuccessfulWcOrder(input: {
         appOrderId: body.orderId,
         wcOrderId,
         userId,
+        customerId: customerId ?? null,
         deviceId: appDeviceId,
         recipientName: recipientName || null,
         deliveryDate: body.deliveryDate ?? null,
@@ -404,6 +413,7 @@ export async function recordSuccessfulWcOrder(input: {
         set: {
           wcOrderId,
           userId,
+          customerId: customerId ?? null,
           deviceId: appDeviceId,
           recipientName: recipientName || null,
           deliveryDate: body.deliveryDate ?? null,
@@ -457,11 +467,22 @@ export async function enqueuePendingWcOrder(input: {
   body: WooOrderPayload;
   paymentRef: string | null;
   userId: number | null;
+  customerId?: number | null;
+  wcCustomerId?: number | null;
   errorMessage: string;
   paymentVerified: boolean;
   log?: { warn?: (...args: any[]) => void };
 }) {
-  const { body, paymentRef, userId, errorMessage, paymentVerified, log } = input;
+  const {
+    body,
+    paymentRef,
+    userId,
+    customerId,
+    wcCustomerId,
+    errorMessage,
+    paymentVerified,
+    log,
+  } = input;
   const deviceId =
     typeof body.appDeviceId === "string" && body.appDeviceId
       ? body.appDeviceId
@@ -469,7 +490,12 @@ export async function enqueuePendingWcOrder(input: {
 
   // Store the payment-verified flag alongside the payload so the worker
   // doesn't re-verify an already-confirmed payment.
-  const storedPayload = { ...body, _paymentVerified: paymentVerified };
+  const storedPayload = {
+    ...body,
+    _paymentVerified: paymentVerified,
+    _customerId: customerId ?? null,
+    _wcCustomerId: wcCustomerId ?? null,
+  };
 
   try {
     await db
@@ -551,8 +577,17 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
   // Recover the paymentVerified flag stored alongside the payload.
   const rawPayload = row.payload as any;
   const paymentVerified = rawPayload?._paymentVerified === true;
+  const storedCustomerId =
+    typeof rawPayload?._customerId === "number" ? rawPayload._customerId : null;
+  const storedWcCustomerId =
+    typeof rawPayload?._wcCustomerId === "number"
+      ? rawPayload._wcCustomerId
+      : null;
 
-  const result = await attemptCreateWcOrder(body, { paymentVerified });
+  const result = await attemptCreateWcOrder(body, {
+    paymentVerified,
+    wcCustomerId: storedWcCustomerId,
+  });
   const nextAttempts = row.attempts + 1;
 
   if (result.ok) {
@@ -570,6 +605,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       body,
       wcOrderId: result.wcOrderId,
       userId: row.userId,
+      customerId: storedCustomerId,
       recipientName: result.recipientName,
       log: logger,
     });

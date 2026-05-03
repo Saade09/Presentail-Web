@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
+import { and, eq, isNull } from "drizzle-orm";
+import { db, customersTable } from "@workspace/db";
+import { upsertCustomer, getCustomerByWcId } from "../lib/customers";
 import {
   existsIpLimiter,
   loginIpLimiter,
@@ -59,6 +62,62 @@ function mapCustomer(c: any) {
     username: (c.username ?? "") as string,
     phone: (c.billing?.phone ?? "") as string,
   };
+}
+
+// Mirror an authenticated WC customer into our local `customers` table.
+// Best-effort: failures are logged but never break the auth flow, since
+// the WC mirror is still authoritative for orders during the migration.
+async function mirrorWcCustomerLocally(
+  wcCustomerId: number,
+  profile: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    provider?: "apple" | "google" | "password";
+  },
+  log?: { warn?: (...args: any[]) => void },
+): Promise<void> {
+  try {
+    const existing = await getCustomerByWcId(wcCustomerId);
+    const upserted = await upsertCustomer({
+      email: profile.email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      phone: profile.phone,
+      authProvider: profile.provider ?? null,
+      authUserId: profile.provider ? String(wcCustomerId) : null,
+      preferredCustomerId: existing?.id ?? null,
+      source: "presentail.com",
+    });
+    // Ensure the WC linkage is set on the local row. We already know the
+    // WC id from the auth flow, so persist it directly rather than going
+    // back through WC email-lookup — this is deterministic and avoids
+    // edge-case mismatches if a stale row with the same email exists.
+    if (!upserted.customer.wcCustomerId) {
+      try {
+        await db
+          .update(customersTable)
+          .set({ wcCustomerId, updatedAt: new Date() })
+          .where(
+            and(
+              eq(customersTable.id, upserted.customer.id),
+              isNull(customersTable.wcCustomerId),
+            ),
+          );
+      } catch (err: any) {
+        log?.warn?.(
+          { err: err?.message, wcCustomerId, customerId: upserted.customer.id },
+          "auth.mirror: failed to persist wcCustomerId (non-fatal)",
+        );
+      }
+    }
+  } catch (err: any) {
+    log?.warn?.(
+      { err: err?.message, wcCustomerId },
+      "auth.mirror: local customer upsert failed (non-fatal)",
+    );
+  }
 }
 
 // ── Email existence check ────────────────────────────────────────────────────
@@ -180,6 +239,19 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       };
     }
 
+    if (customer && customer.id) {
+      void mirrorWcCustomerLocally(
+        customer.id,
+        {
+          email: customer.email,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          phone: customer.phone,
+          provider: "password",
+        },
+        req.log,
+      );
+    }
     return res.json({ ok: true, token: tokenData.token, user: customer });
   } catch (e: any) {
     return res.status(500).json({ ok: false, message: e?.message ?? "Login failed" });
@@ -238,7 +310,21 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       // ignore - user can log in manually
     }
 
-    return res.json({ ok: true, token, user: mapCustomer(data) });
+    const mapped = mapCustomer(data);
+    if (mapped.id) {
+      void mirrorWcCustomerLocally(
+        mapped.id,
+        {
+          email: mapped.email,
+          firstName: mapped.firstName,
+          lastName: mapped.lastName,
+          phone: mapped.phone,
+          provider: "password",
+        },
+        req.log,
+      );
+    }
+    return res.json({ ok: true, token, user: mapped });
   } catch (e: any) {
     return res.status(500).json({ ok: false, message: e?.message ?? "Registration failed" });
   }
@@ -251,14 +337,43 @@ router.get("/auth/me", async (req, res) => {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
+  // Read from the canonical local `customers` row first; fall back to WC
+  // during the migration window so accounts not yet mirrored still work.
   try {
+    const local = await getCustomerByWcId(auth.customerId);
+    if (local) {
+      res.json({
+        ok: true,
+        user: {
+          id: auth.customerId,
+          email: local.email,
+          firstName: local.firstName ?? "",
+          lastName: local.lastName ?? "",
+          username: "",
+          phone: local.phoneE164 ?? "",
+        },
+      });
+      return;
+    }
     const r = await wcFetch(`/customers/${auth.customerId}`);
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
       res.status(r.status).json({ ok: false, message: data?.message ?? "Not found" });
       return;
     }
-    res.json({ ok: true, user: mapCustomer(data) });
+    const mapped = mapCustomer(data);
+    // Seed the local row so subsequent reads use the canonical store.
+    void mirrorWcCustomerLocally(
+      mapped.id,
+      {
+        email: mapped.email,
+        firstName: mapped.firstName,
+        lastName: mapped.lastName,
+        phone: mapped.phone,
+      },
+      req.log,
+    );
+    res.json({ ok: true, user: mapped });
   } catch (e: any) {
     res.status(500).json({ ok: false, message: e?.message ?? "Failed" });
   }
@@ -290,7 +405,18 @@ router.put("/auth/me", async (req, res) => {
       res.status(r.status).json({ ok: false, message: data?.message ?? "Update failed" });
       return;
     }
-    res.json({ ok: true, user: mapCustomer(data) });
+    const mapped = mapCustomer(data);
+    void mirrorWcCustomerLocally(
+      mapped.id,
+      {
+        email: mapped.email,
+        firstName: mapped.firstName,
+        lastName: mapped.lastName,
+        phone: mapped.phone,
+      },
+      req.log,
+    );
+    res.json({ ok: true, user: mapped });
   } catch (e: any) {
     res.status(500).json({ ok: false, message: e?.message ?? "Update failed" });
   }
@@ -491,6 +617,17 @@ async function issueSocialSession(
   try {
     const customer = await ensureCustomerForSocial(profile);
     const mapped = mapCustomer(customer);
+    void mirrorWcCustomerLocally(
+      mapped.id,
+      {
+        email: mapped.email,
+        firstName: mapped.firstName,
+        lastName: mapped.lastName,
+        phone: mapped.phone,
+        provider,
+      },
+      req.log,
+    );
     const token = await signServerToken({
       customerId: mapped.id,
       email: mapped.email,

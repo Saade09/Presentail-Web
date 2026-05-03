@@ -13,6 +13,11 @@ import {
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
 import { consumePaymentIntent, verifyCartMatchesSnapshot } from "../lib/checkoutIntents";
+import {
+  upsertCustomer,
+  syncCustomerToWoo,
+  getCustomerByWcId,
+} from "../lib/customers";
 
 const router: IRouter = Router();
 
@@ -539,7 +544,10 @@ router.post("/woo/order", async (req, res) => {
   }
   const body = parsed.data;
 
-  // Resolve the owning user from the Authorization header (if any).
+  // Resolve the owning user from the Authorization header (if any). The
+  // legacy `userId` column stores the WC customer id (kept for backward
+  // compatibility); the new `customerId` column points at the canonical
+  // local customer row in `customers` and is populated below.
   let resolvedUserId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
@@ -547,6 +555,81 @@ router.post("/woo/order", async (req, res) => {
     if (auth.ok) {
       resolvedUserId = auth.customerId;
     }
+  }
+
+  // ── Canonical customer upsert ────────────────────────────────────────
+  // Always link the order to a row in our own `customers` table — guest
+  // and logged-in alike — so WooCommerce can later be removed without
+  // losing customer continuity.
+  let resolvedCustomerId: number | null = null;
+  let wcCustomerId: number | null = null;
+  try {
+    // For authenticated requests, prefer the existing local row tied to
+    // the auth identity (looked up via wcCustomerId) so we patch it rather
+    // than creating a duplicate via email lookup.
+    let preferredCustomerId: number | null = null;
+    if (resolvedUserId != null) {
+      const existing = await getCustomerByWcId(resolvedUserId);
+      if (existing) preferredCustomerId = existing.id;
+    }
+
+    const upserted = await upsertCustomer({
+      email: body.billing.email,
+      phone: body.billing.phone,
+      firstName: body.billing.firstName,
+      lastName: body.billing.lastName,
+      country: body.billingCountry ?? body.shippingCountry ?? null,
+      city: body.district,
+      source: "presentail.com",
+      preferredCustomerId,
+    });
+    resolvedCustomerId = upserted.customer.id;
+
+    // Mirror to WooCommerce so the WC order is properly attached to a
+    // customer record (rather than being stored as billing text only).
+    try {
+      wcCustomerId = await syncCustomerToWoo(resolvedCustomerId);
+    } catch (syncErr: any) {
+      // While WooCommerce is still the order system, this is a hard
+      // failure. The local customer row is already saved, so when WC is
+      // phased out this branch can be relaxed to "best-effort".
+      req.log?.error?.(
+        {
+          err: syncErr?.message,
+          appOrderId: body.orderId,
+          customerId: resolvedCustomerId,
+        },
+        "woo.order: WooCommerce customer sync failed",
+      );
+      return res.status(502).json({
+        ok: false,
+        code: "customer_sync_failed",
+        message:
+          "We saved your details but couldn't link them to your order. Please try again or contact support.",
+      });
+    }
+  } catch (upsertErr: any) {
+    req.log?.error?.(
+      {
+        err: upsertErr?.message,
+        appOrderId: body.orderId,
+        email: String(body.billing.email ?? "").trim().toLowerCase(),
+      },
+      "woo.order: customer upsert failed",
+    );
+    return res.status(500).json({
+      ok: false,
+      code: "customer_upsert_failed",
+      message:
+        "We couldn't save your contact details. Please double-check your email and try again.",
+    });
+  }
+
+  // The WC order is attached to the WC customer mirror id when available.
+  // Authenticated requests still take precedence — we keep their existing
+  // WC id rather than overwriting it.
+  if (resolvedUserId == null && wcCustomerId != null) {
+    resolvedUserId = wcCustomerId;
   }
 
   // ── Payment verification (layered) ────────────────────────────────────
@@ -746,7 +829,10 @@ router.post("/woo/order", async (req, res) => {
   // whish / western: offline payments — paymentVerified stays false,
   // WC order will be created with set_paid: false (pending payment).
 
-  const result = await attemptCreateWcOrder(body, { paymentVerified });
+  const result = await attemptCreateWcOrder(body, {
+    paymentVerified,
+    wcCustomerId,
+  });
 
   if (!result.ok) {
     // Payment already succeeded but WC order creation failed. Persist the
@@ -755,6 +841,8 @@ router.post("/woo/order", async (req, res) => {
       body,
       paymentRef: body.paymentRef ?? null,
       userId: resolvedUserId,
+      customerId: resolvedCustomerId,
+      wcCustomerId,
       errorMessage: result.message,
       paymentVerified,
       log: req.log,
@@ -777,6 +865,7 @@ router.post("/woo/order", async (req, res) => {
     body,
     wcOrderId: result.wcOrderId,
     userId: resolvedUserId,
+    customerId: resolvedCustomerId,
     recipientName: result.recipientName,
     log: req.log,
   });
