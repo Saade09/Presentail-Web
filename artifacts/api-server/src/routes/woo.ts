@@ -1,24 +1,14 @@
 import { Router, type IRouter } from "express";
-import { z } from "zod";
-import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
-import { sendOrderEventPush } from "../lib/orderEvents";
 import {
-  convertFromUsd,
-  normalizeCurrency,
-  roundForCurrency,
-  type SupportedCurrency,
-} from "../lib/fx";
+  WooOrderSchema,
+  attemptCreateWcOrder,
+  enqueuePendingWcOrder,
+  listPendingWooOrders,
+  recordSuccessfulWcOrder,
+} from "../lib/wooOrders";
 
 const router: IRouter = Router();
-
-// Minimal subset of the WooCommerce order response that we consume.
-// Typed narrowly so we don't have to fall back to `any` in the handler.
-type WcOrderResponse = {
-  id?: number;
-  order_key?: string;
-  message?: string;
-};
 
 // Narrow subsets of the WooCommerce REST responses we actually read.
 // These intentionally model only the fields consumed by this route so a
@@ -65,18 +55,6 @@ type WcCategory = {
   id: number;
   name?: string;
   slug: string;
-};
-
-type WcFeeLine = {
-  name: string;
-  total: string;
-  tax_status: string;
-};
-
-type WcShippingLine = {
-  method_id: string;
-  method_title: string;
-  total: string;
 };
 
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
@@ -421,70 +399,6 @@ router.get("/woo/products", async (req, res) => {
   }
 });
 
-// ISO-3166 alpha-2 (e.g. "LB", "AE"). We accept any 2-letter uppercase
-// code and let WooCommerce reject unknown ones — keeping the list here
-// in sync with the country dialer would be brittle.
-const Iso2 = z
-  .string()
-  .trim()
-  .length(2)
-  .regex(/^[A-Za-z]{2}$/)
-  .transform((s) => s.toUpperCase());
-
-const WooOrderSchema = z.object({
-  orderId: z.string().min(1),
-  items: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        quantity: z.number().int().positive(),
-        price: z.number().nonnegative(),
-        wcId: z.number().int().positive().optional(),
-      }),
-    )
-    .min(1),
-  billing: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().default(""),
-    email: z.string().email(),
-    phone: z.string().min(1),
-  }),
-  recipient: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().default(""),
-    phone: z.string().min(1),
-  }),
-  district: z.string().min(1),
-  districtFee: z.number().nonnegative(),
-  expressFee: z.number().nonnegative(),
-  // Optional, defaults to LB to preserve backward compatibility with
-  // older app versions that don't send these fields yet.
-  billingCountry: Iso2.optional(),
-  shippingCountry: Iso2.optional(),
-  paymentRef: z.string().optional(),
-  deliveryDetails: z.string().default(""),
-  deliveryDate: z.string().default(""),
-  deliverySlot: z.string().default(""),
-  cardMessage: z.string().optional(),
-  cardFrom: z.string().optional(),
-  cardTo: z.string().optional(),
-  qrLink: z.string().optional(),
-  qrLabel: z.string().optional(),
-  orderNotes: z.string().optional(),
-  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal"]),
-  identitySecret: z.boolean().optional(),
-  // App-side identifier used to route push notifications back to the
-  // buyer's device. Only honoured when the request is authenticated —
-  // see the route handler for the rationale.
-  appDeviceId: z.string().optional(),
-  // ISO 4217 of the currency the shopper saw in-app. The server converts
-  // every monetary field below from USD into this currency so the
-  // WooCommerce order total matches what the customer was charged.
-  currencyCode: z.string().optional(),
-});
-
-type WooOrderPayload = z.infer<typeof WooOrderSchema>;
-
 router.post("/woo/order", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
@@ -499,176 +413,13 @@ router.post("/woo/order", async (req, res) => {
       .status(400)
       .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues });
   }
-  const body: WooOrderPayload = parsed.data;
-
-  const paymentTitles: Record<string, string> = {
-    card: "Credit / Debit Card (Stripe)",
-    wallet: "Apple Pay / Google Pay (Stripe)",
-    whish: "Whish Money",
-    western: "Western Union",
-    mamo: "Mamo (UAE Wallets)",
-    paypal: "PayPal",
-  };
-
-  const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
-  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
-
-  // Format delivery date as "Friday, April 24, 2026" (human-readable for WC admin)
-  const deliveryDateFormatted = body.deliveryDate
-    ? new Date(`${body.deliveryDate}T12:00:00`).toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        timeZone: "Asia/Beirut",
-      })
-    : body.deliveryDate ?? "";
-
-  const deliverySummary = deliveryDateFormatted && body.deliverySlot
-    ? `${deliveryDateFormatted} · ${body.deliverySlot}`
-    : deliveryDateFormatted || body.deliverySlot || "";
-
-  const deliveryCombined = deliverySummary;
-
-  // Meta keys matching WooFunnels (WFACP) custom field IDs from the checkout page
-  // so values display in the right field on the WooCommerce order admin.
-  const metaData = [
-    // Internal app meta (underscore-prefixed = hidden in admin UI by default)
-    { key: "_app_order_id", value: body.orderId },
-    { key: "_source", value: "presentail-app" },
-
-    // WFACP custom fields (must match checkout field IDs)
-    { key: "card_message", value: body.cardMessage ?? "" },
-    { key: "wfacp_card_message", value: body.cardMessage ?? "" },
-    { key: "to_text", value: cardToValue },
-    { key: "from", value: body.cardFrom ?? "" },
-    { key: "delivery", value: deliveryCombined },
-    { key: "secret_id", value: body.identitySecret ? "Yes" : "No" },
-    { key: "qr-code", value: body.qrLink ?? "" },
-    { key: "qr-label", value: body.qrLabel ?? "" },
-
-    // Extra structured meta (visible) for ops staff
-    { key: "Delivery Summary", value: deliverySummary },
-    { key: "Delivery Date", value: deliveryDateFormatted },
-    { key: "Delivery Time", value: body.deliverySlot ?? "" },
-    { key: "Delivery District", value: body.district },
-    { key: "Delivery Address", value: body.deliveryDetails },
-    { key: "Recipient Name", value: recipientFullName },
-    { key: "Recipient Phone", value: body.recipient.phone },
-
-    // FunnelKit / WooFunnels checkout shortcode field IDs
-    { key: "checkout_delivery_slots", value: deliverySummary },
-  ];
-
-  // Delivery meta attached to each line item so it shows under the product in WC order admin
-  const lineItemDeliveryMeta = [
-    { key: "Delivery Summary", value: deliverySummary },
-    { key: "Delivery Date", value: deliveryDateFormatted },
-    { key: "Delivery Time", value: body.deliverySlot ?? "" },
-  ];
-
-  // Resolve presented currency (sent by the app) and convert every monetary
-  // amount from USD into that currency before sending to WooCommerce, so the
-  // WC order total matches what Stripe / Mamo / PayPal actually charged the
-  // customer. We do not rely on WC to convert.
-  const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
-  const conv = async (usd: number) =>
-    roundForCurrency(await convertFromUsd(usd, presentedCurrency), presentedCurrency);
-  const fmt = (v: number) => v.toFixed(2);
-
-  // Items with a WooCommerce product ID → proper line_items
-  // Items without (static catalog only) → fee_lines so WC still captures them
-  const lineItems = await Promise.all(
-    body.items
-      .filter((item) => !!item.wcId)
-      .map(async (item) => {
-        const unit = await conv(item.price);
-        const lineTotal = unit * item.quantity;
-        return {
-          product_id: item.wcId,
-          quantity: item.quantity,
-          subtotal: fmt(lineTotal),
-          total: fmt(lineTotal),
-          meta_data: lineItemDeliveryMeta,
-        };
-      }),
-  );
-
-  const feeLines: WcFeeLine[] = await Promise.all(
-    body.items
-      .filter((item) => !item.wcId)
-      .map(async (item) => {
-        const lineTotal = (await conv(item.price)) * item.quantity;
-        return {
-          name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
-          total: fmt(lineTotal),
-          tax_status: "none",
-        };
-      }),
-  );
-
-  const shippingLines: WcShippingLine[] = [];
-  const convertedDistrictFee = await conv(body.districtFee);
-  if (convertedDistrictFee > 0) {
-    shippingLines.push({
-      method_id: "flat_rate",
-      method_title: `Delivery – ${body.district}`,
-      total: fmt(convertedDistrictFee),
-    });
-  } else {
-    shippingLines.push({
-      method_id: "free_shipping",
-      method_title: `Free Delivery – ${body.district}`,
-      total: "0.00",
-    });
-  }
-  if (body.expressFee > 0) {
-    shippingLines.push({
-      method_id: "flat_rate",
-      method_title: "Express Delivery Surcharge",
-      total: fmt(await conv(body.expressFee)),
-    });
-  }
-
-  // Surface the presented currency in admin meta for ops staff & receipts.
-  metaData.push(
-    { key: "Presented Currency", value: presentedCurrency },
-    { key: "_presented_currency", value: presentedCurrency },
-  );
-
-  const orderPayload = {
-    status: "processing",
-    currency: presentedCurrency,
-    payment_method: (body.paymentMethod === "card" || body.paymentMethod === "wallet") ? "stripe" : body.paymentMethod,
-    payment_method_title: paymentTitles[body.paymentMethod] ?? body.paymentMethod,
-    set_paid: body.paymentMethod === "card" || body.paymentMethod === "wallet",
-    billing: {
-      first_name: body.billing.firstName,
-      last_name: body.billing.lastName,
-      email: body.billing.email,
-      phone: body.billing.phone,
-      country: body.billingCountry ?? "LB",
-    },
-    shipping: {
-      first_name: body.recipient.firstName,
-      last_name: body.recipient.lastName,
-      address_1: body.deliveryDetails,
-      city: body.district,
-      country: body.shippingCountry ?? "LB",
-    },
-    line_items: lineItems,
-    fee_lines: feeLines,
-    shipping_lines: shippingLines,
-    customer_note: [body.orderNotes, body.cardMessage ? `Card: "${body.cardMessage}" – from ${body.cardFrom}` : ""]
-      .filter(Boolean)
-      .join("\n"),
-    meta_data: metaData,
-  };
+  const body = parsed.data;
 
   // Resolve the owning user from the Authorization header (if any).
   // We do NOT trust any client-supplied user id in the body — that would
   // let a malicious caller redirect another customer's order pushes to
-  // their own account.
+  // their own account. Silently ignore invalid tokens here — checkout
+  // supports guests, so an expired/missing token must not block the order.
   let resolvedUserId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
@@ -676,95 +427,93 @@ router.post("/woo/order", async (req, res) => {
     if (auth.ok) {
       resolvedUserId = auth.customerId;
     }
-    // Silently ignore invalid tokens here — checkout supports guests, so
-    // an expired/missing token must not block the order. Push routing
-    // simply falls back to deviceId in that case.
   }
 
-  try {
-    const r = await wooFetch("/orders", {
-      method: "POST",
-      body: JSON.stringify(orderPayload),
+  const result = await attemptCreateWcOrder(body);
+
+  if (!result.ok) {
+    // Payment already succeeded but WC order creation failed. Persist the
+    // payload to the reconciliation queue so the worker can keep retrying
+    // without involving support — see lib/wooOrders.ts for the worker.
+    await enqueuePendingWcOrder({
+      body,
+      paymentRef: body.paymentRef ?? null,
+      userId: resolvedUserId,
+      errorMessage: result.message,
+      log: req.log,
     });
-    const data = (await r.json()) as WcOrderResponse;
-    if (!r.ok) {
-      return res.status(r.status).json({ ok: false, message: data?.message ?? "WooCommerce order failed", data });
-    }
+    req.log?.warn?.(
+      {
+        appOrderId: body.orderId,
+        paymentRef: body.paymentRef,
+        status: result.status,
+        message: result.message,
+      },
+      "woo.order: WC create failed, queued for reconciliation",
+    );
+    return res
+      .status(result.status)
+      .json({ ok: false, message: result.message, queued: true });
+  }
 
-    // Persist app↔WC mapping and fire the "confirmed" push. Both are
-    // best-effort — failures must not break the customer's checkout.
-    const wcOrderId = typeof data?.id === "number" ? data.id : null;
-    const appUserId = resolvedUserId;
-    // Only persist the app device id when the request is authenticated.
-    // An unauthenticated caller could otherwise spoof another user's
-    // deviceId and hijack push notifications for that order. For guest
-    // checkouts we drop the device id and the order simply won't push
-    // back into the buyer's app — that's the safe default.
-    const rawDeviceId =
-      typeof body.appDeviceId === "string" && body.appDeviceId
-        ? body.appDeviceId
-        : null;
-    const appDeviceId = appUserId != null ? rawDeviceId : null;
-    if (rawDeviceId && appUserId == null) {
-      req.log?.info?.(
-        { appOrderId: body.orderId },
-        "woo.order: ignoring appDeviceId on unauthenticated request",
-      );
-    }
+  // Persist app↔WC mapping and fire the "confirmed" push. Both are
+  // best-effort — failures must not break the customer's checkout.
+  void recordSuccessfulWcOrder({
+    body,
+    wcOrderId: result.wcOrderId,
+    userId: resolvedUserId,
+    recipientName: result.recipientName,
+    log: req.log,
+  });
 
-    (async () => {
-      try {
-        await db
-          .insert(appOrdersTable)
-          .values({
-            appOrderId: body.orderId,
-            wcOrderId,
-            userId: appUserId,
-            deviceId: appDeviceId,
-            recipientName: recipientFullName || null,
-            deliveryDate: body.deliveryDate ?? null,
-            deliverySlot: body.deliverySlot ?? null,
-            state: "confirmed",
-          })
-          .onConflictDoUpdate({
-            target: appOrdersTable.appOrderId,
-            set: {
-              wcOrderId,
-              userId: appUserId,
-              deviceId: appDeviceId,
-              recipientName: recipientFullName || null,
-              deliveryDate: body.deliveryDate ?? null,
-              deliverySlot: body.deliverySlot ?? null,
-              state: "confirmed",
-              updatedAt: new Date(),
-            },
-          });
-      } catch (err: any) {
-        req.log?.warn?.(
-          { err: err?.message, appOrderId: body.orderId },
-          "woo.order: failed to persist app order mapping",
-        );
-      }
+  return res.json({
+    ok: true,
+    wcOrderId: result.wcOrderId,
+    orderKey: result.orderKey,
+  });
+});
 
-      try {
-        await sendOrderEventPush({
-          state: "confirmed",
-          appOrderId: body.orderId,
-          userId: appUserId,
-          deviceId: appDeviceId,
-          recipientName: recipientFullName || null,
-        });
-      } catch (err: any) {
-        req.log?.warn?.(
-          { err: err?.message, appOrderId: body.orderId },
-          "woo.order: failed to send confirmed push",
-        );
-      }
-    })();
-
-    return res.json({ ok: true, wcOrderId: data.id, orderKey: data.order_key });
+// ---------------------------------------------------------------------------
+// Admin: list pending/exhausted reconciliation rows so support has a single
+// view of orders that the worker couldn't recover automatically. Reuses the
+// existing PUSH_ADMIN_TOKEN as the shared admin credential.
+// ---------------------------------------------------------------------------
+router.get("/woo/pending-orders", async (req, res) => {
+  const adminToken = process.env.PUSH_ADMIN_TOKEN;
+  const supplied = req.header("x-admin-token") ?? req.header("x-push-admin-token");
+  if (!adminToken || !supplied || supplied !== adminToken) {
+    return res
+      .status(401)
+      .json({ ok: false, message: "Invalid or missing admin token" });
+  }
+  const rawStatus = typeof req.query.status === "string" ? req.query.status : "";
+  const status =
+    rawStatus === "pending" || rawStatus === "succeeded" || rawStatus === "exhausted"
+      ? rawStatus
+      : undefined;
+  try {
+    const rows = await listPendingWooOrders({ status });
+    return res.json({
+      ok: true,
+      count: rows.length,
+      orders: rows.map((r) => ({
+        id: r.id,
+        appOrderId: r.appOrderId,
+        paymentRef: r.paymentRef,
+        status: r.status,
+        attempts: r.attempts,
+        maxAttempts: r.maxAttempts,
+        nextAttemptAt: r.nextAttemptAt,
+        wcOrderId: r.wcOrderId,
+        lastError: r.lastError,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+    });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to create order" });
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message ?? "Failed to list pending orders" });
   }
 });
 

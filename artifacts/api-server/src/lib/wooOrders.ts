@@ -1,0 +1,645 @@
+import {
+  db,
+  appOrdersTable,
+  pendingWooOrdersTable,
+  type PendingWooOrder,
+} from "@workspace/db";
+import { and, eq, lte, sql } from "drizzle-orm";
+import { z } from "zod";
+import { logger } from "./logger";
+import { sendOrderEventPush } from "./orderEvents";
+import {
+  convertFromUsd,
+  normalizeCurrency,
+  roundForCurrency,
+  type SupportedCurrency,
+} from "./fx";
+
+const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
+
+function wooAuth() {
+  const key = process.env.WC_CONSUMER_KEY ?? "";
+  const secret = process.env.WC_CONSUMER_SECRET ?? "";
+  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
+}
+
+async function wooFetch(path: string, options: RequestInit = {}) {
+  return fetch(`${WC_BASE}${path}`, {
+    ...options,
+    headers: {
+      Authorization: wooAuth(),
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "User-Agent": "PresentailApp/1.0",
+      ...(options.headers ?? {}),
+    },
+  });
+}
+
+const Iso2 = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/)
+  .transform((s) => s.toUpperCase());
+
+export const WooOrderSchema = z.object({
+  orderId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        quantity: z.number().int().positive(),
+        price: z.number().nonnegative(),
+        wcId: z.number().int().positive().optional(),
+      }),
+    )
+    .min(1),
+  billing: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().default(""),
+    email: z.string().email(),
+    phone: z.string().min(1),
+  }),
+  recipient: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().default(""),
+    phone: z.string().min(1),
+  }),
+  district: z.string().min(1),
+  districtFee: z.number().nonnegative(),
+  expressFee: z.number().nonnegative(),
+  billingCountry: Iso2.optional(),
+  shippingCountry: Iso2.optional(),
+  paymentRef: z.string().optional(),
+  deliveryDetails: z.string().default(""),
+  deliveryDate: z.string().default(""),
+  deliverySlot: z.string().default(""),
+  cardMessage: z.string().optional(),
+  cardFrom: z.string().optional(),
+  cardTo: z.string().optional(),
+  qrLink: z.string().optional(),
+  qrLabel: z.string().optional(),
+  orderNotes: z.string().optional(),
+  paymentMethod: z.enum(["card", "wallet", "whish", "western", "mamo", "paypal"]),
+  identitySecret: z.boolean().optional(),
+  appDeviceId: z.string().optional(),
+  currencyCode: z.string().optional(),
+});
+
+export type WooOrderPayload = z.infer<typeof WooOrderSchema>;
+
+type WcOrderResponse = {
+  id?: number;
+  order_key?: string;
+  message?: string;
+};
+
+export type WcOrderAttemptResult =
+  | {
+      ok: true;
+      wcOrderId: number | null;
+      orderKey: string | undefined;
+      recipientName: string;
+    }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      recipientName: string;
+    };
+
+const PAYMENT_TITLES: Record<string, string> = {
+  card: "Credit / Debit Card (Stripe)",
+  wallet: "Apple Pay / Google Pay (Stripe)",
+  whish: "Whish Money",
+  western: "Western Union",
+  mamo: "Mamo (UAE Wallets)",
+  paypal: "PayPal",
+};
+
+// Build the WooCommerce REST payload and POST it. Pure function w.r.t. the
+// queue/db side effects — those are handled by the caller. Used by both the
+// HTTP route handler and the reconciliation worker.
+export async function attemptCreateWcOrder(
+  body: WooOrderPayload,
+): Promise<WcOrderAttemptResult> {
+  const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
+  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
+
+  const deliveryDateFormatted = body.deliveryDate
+    ? new Date(`${body.deliveryDate}T12:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Beirut",
+      })
+    : body.deliveryDate ?? "";
+
+  const deliverySummary =
+    deliveryDateFormatted && body.deliverySlot
+      ? `${deliveryDateFormatted} · ${body.deliverySlot}`
+      : deliveryDateFormatted || body.deliverySlot || "";
+
+  const deliveryCombined = deliverySummary;
+
+  const metaData: { key: string; value: string }[] = [
+    { key: "_app_order_id", value: body.orderId },
+    { key: "_source", value: "presentail-app" },
+    { key: "card_message", value: body.cardMessage ?? "" },
+    { key: "wfacp_card_message", value: body.cardMessage ?? "" },
+    { key: "to_text", value: cardToValue },
+    { key: "from", value: body.cardFrom ?? "" },
+    { key: "delivery", value: deliveryCombined },
+    { key: "secret_id", value: body.identitySecret ? "Yes" : "No" },
+    { key: "qr-code", value: body.qrLink ?? "" },
+    { key: "qr-label", value: body.qrLabel ?? "" },
+    { key: "Delivery Summary", value: deliverySummary },
+    { key: "Delivery Date", value: deliveryDateFormatted },
+    { key: "Delivery Time", value: body.deliverySlot ?? "" },
+    { key: "Delivery District", value: body.district },
+    { key: "Delivery Address", value: body.deliveryDetails },
+    { key: "Recipient Name", value: recipientFullName },
+    { key: "Recipient Phone", value: body.recipient.phone },
+    { key: "checkout_delivery_slots", value: deliverySummary },
+  ];
+
+  const lineItemDeliveryMeta = [
+    { key: "Delivery Summary", value: deliverySummary },
+    { key: "Delivery Date", value: deliveryDateFormatted },
+    { key: "Delivery Time", value: body.deliverySlot ?? "" },
+  ];
+
+  const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
+  const conv = async (usd: number) =>
+    roundForCurrency(await convertFromUsd(usd, presentedCurrency), presentedCurrency);
+  const fmt = (v: number) => v.toFixed(2);
+
+  const lineItems = await Promise.all(
+    body.items
+      .filter((item) => !!item.wcId)
+      .map(async (item) => {
+        const unit = await conv(item.price);
+        const lineTotal = unit * item.quantity;
+        return {
+          product_id: item.wcId,
+          quantity: item.quantity,
+          subtotal: fmt(lineTotal),
+          total: fmt(lineTotal),
+          meta_data: lineItemDeliveryMeta,
+        };
+      }),
+  );
+
+  const feeLines = await Promise.all(
+    body.items
+      .filter((item) => !item.wcId)
+      .map(async (item) => {
+        const lineTotal = (await conv(item.price)) * item.quantity;
+        return {
+          name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+          total: fmt(lineTotal),
+          tax_status: "none",
+        };
+      }),
+  );
+
+  const shippingLines: any[] = [];
+  const convertedDistrictFee = await conv(body.districtFee);
+  if (convertedDistrictFee > 0) {
+    shippingLines.push({
+      method_id: "flat_rate",
+      method_title: `Delivery – ${body.district}`,
+      total: fmt(convertedDistrictFee),
+    });
+  } else {
+    shippingLines.push({
+      method_id: "free_shipping",
+      method_title: `Free Delivery – ${body.district}`,
+      total: "0.00",
+    });
+  }
+  if (body.expressFee > 0) {
+    shippingLines.push({
+      method_id: "flat_rate",
+      method_title: "Express Delivery Surcharge",
+      total: fmt(await conv(body.expressFee)),
+    });
+  }
+
+  metaData.push(
+    { key: "Presented Currency", value: presentedCurrency },
+    { key: "_presented_currency", value: presentedCurrency },
+  );
+
+  const orderPayload = {
+    status: "processing",
+    currency: presentedCurrency,
+    payment_method:
+      body.paymentMethod === "card" || body.paymentMethod === "wallet"
+        ? "stripe"
+        : body.paymentMethod,
+    payment_method_title: PAYMENT_TITLES[body.paymentMethod] ?? body.paymentMethod,
+    set_paid: body.paymentMethod === "card" || body.paymentMethod === "wallet",
+    billing: {
+      first_name: body.billing.firstName,
+      last_name: body.billing.lastName,
+      email: body.billing.email,
+      phone: body.billing.phone,
+      country: body.billingCountry ?? "LB",
+    },
+    shipping: {
+      first_name: body.recipient.firstName,
+      last_name: body.recipient.lastName,
+      address_1: body.deliveryDetails,
+      city: body.district,
+      country: body.shippingCountry ?? "LB",
+    },
+    line_items: lineItems,
+    fee_lines: feeLines,
+    shipping_lines: shippingLines,
+    customer_note: [
+      body.orderNotes,
+      body.cardMessage ? `Card: "${body.cardMessage}" – from ${body.cardFrom}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    meta_data: metaData,
+  };
+
+  try {
+    const r = await wooFetch("/orders", {
+      method: "POST",
+      body: JSON.stringify(orderPayload),
+    });
+    const data = (await r.json()) as WcOrderResponse;
+    if (!r.ok) {
+      return {
+        ok: false,
+        status: r.status,
+        message: data?.message ?? "WooCommerce order failed",
+        recipientName: recipientFullName,
+      };
+    }
+    return {
+      ok: true,
+      wcOrderId: typeof data?.id === "number" ? data.id : null,
+      orderKey: data.order_key,
+      recipientName: recipientFullName,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 500,
+      message: err?.message ?? "Failed to create order",
+      recipientName: recipientFullName,
+    };
+  }
+}
+
+// Persist the app↔WC order mapping and fire the "confirmed" push. Best-effort:
+// errors are logged but never propagated — the caller has already responded
+// to the customer (or the worker has already marked the queue row done).
+export async function recordSuccessfulWcOrder(input: {
+  body: WooOrderPayload;
+  wcOrderId: number | null;
+  userId: number | null;
+  recipientName: string;
+  log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
+}) {
+  const { body, wcOrderId, userId, recipientName, log } = input;
+  const rawDeviceId =
+    typeof body.appDeviceId === "string" && body.appDeviceId
+      ? body.appDeviceId
+      : null;
+  const appDeviceId = userId != null ? rawDeviceId : null;
+  if (rawDeviceId && userId == null) {
+    log?.info?.(
+      { appOrderId: body.orderId },
+      "woo.order: ignoring appDeviceId on unauthenticated request",
+    );
+  }
+
+  try {
+    await db
+      .insert(appOrdersTable)
+      .values({
+        appOrderId: body.orderId,
+        wcOrderId,
+        userId,
+        deviceId: appDeviceId,
+        recipientName: recipientName || null,
+        deliveryDate: body.deliveryDate ?? null,
+        deliverySlot: body.deliverySlot ?? null,
+        state: "confirmed",
+      })
+      .onConflictDoUpdate({
+        target: appOrdersTable.appOrderId,
+        set: {
+          wcOrderId,
+          userId,
+          deviceId: appDeviceId,
+          recipientName: recipientName || null,
+          deliveryDate: body.deliveryDate ?? null,
+          deliverySlot: body.deliverySlot ?? null,
+          state: "confirmed",
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err: any) {
+    log?.warn?.(
+      { err: err?.message, appOrderId: body.orderId },
+      "woo.order: failed to persist app order mapping",
+    );
+  }
+
+  try {
+    await sendOrderEventPush({
+      state: "confirmed",
+      appOrderId: body.orderId,
+      userId,
+      deviceId: appDeviceId,
+      recipientName: recipientName || null,
+    });
+  } catch (err: any) {
+    log?.warn?.(
+      { err: err?.message, appOrderId: body.orderId },
+      "woo.order: failed to send confirmed push",
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending order queue: when WC order creation fails after a successful payment,
+// we persist the validated payload here so the reconciliation worker can keep
+// retrying it without involving support.
+// ---------------------------------------------------------------------------
+
+const RECONCILE_MAX_ATTEMPTS = 8;
+const RECONCILE_BACKOFF_BASE_MS = 5 * 60 * 1000; // 5 min
+const RECONCILE_BACKOFF_CAP_MS = 6 * 60 * 60 * 1000; // 6 h
+const RECONCILE_TICK_MS = 2 * 60 * 1000; // every 2 min
+const RECONCILE_BATCH_SIZE = 10;
+
+function backoffMsFor(attempts: number): number {
+  // attempts is the post-failure count (1-indexed): exponential with cap.
+  const ms = RECONCILE_BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts - 1));
+  return Math.min(ms, RECONCILE_BACKOFF_CAP_MS);
+}
+
+export async function enqueuePendingWcOrder(input: {
+  body: WooOrderPayload;
+  paymentRef: string | null;
+  userId: number | null;
+  errorMessage: string;
+  log?: { warn?: (...args: any[]) => void };
+}) {
+  const { body, paymentRef, userId, errorMessage, log } = input;
+  const deviceId =
+    typeof body.appDeviceId === "string" && body.appDeviceId
+      ? body.appDeviceId
+      : null;
+  try {
+    await db
+      .insert(pendingWooOrdersTable)
+      .values({
+        appOrderId: body.orderId,
+        paymentRef,
+        payload: body,
+        userId,
+        deviceId,
+        lastError: errorMessage,
+        attempts: 0,
+        nextAttemptAt: new Date(Date.now() + RECONCILE_BACKOFF_BASE_MS),
+        status: "pending",
+      })
+      .onConflictDoUpdate({
+        target: pendingWooOrdersTable.appOrderId,
+        set: {
+          paymentRef,
+          payload: body,
+          userId,
+          deviceId,
+          lastError: errorMessage,
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err: any) {
+    log?.warn?.(
+      { err: err?.message, appOrderId: body.orderId },
+      "woo.order: failed to enqueue pending order for reconciliation",
+    );
+  }
+}
+
+// Atomically claim a batch of due pending orders so concurrent workers don't
+// pick up the same row. We immediately push `nextAttemptAt` forward by the
+// tick interval so a row can't be re-claimed mid-attempt if processing is
+// slow; the actual next attempt time is rewritten below based on the result.
+async function claimDueRows(): Promise<PendingWooOrder[]> {
+  const claimUntil = new Date(Date.now() + RECONCILE_TICK_MS * 2);
+  const rows = await db.execute(sql`
+    UPDATE ${pendingWooOrdersTable}
+    SET next_attempt_at = ${claimUntil}, updated_at = now()
+    WHERE id IN (
+      SELECT id FROM ${pendingWooOrdersTable}
+      WHERE status = 'pending'
+        AND next_attempt_at <= now()
+      ORDER BY next_attempt_at ASC
+      LIMIT ${RECONCILE_BATCH_SIZE}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING *;
+  `);
+  return (rows.rows as unknown as PendingWooOrder[]) ?? [];
+}
+
+async function processPendingRow(row: PendingWooOrder): Promise<void> {
+  const parsed = WooOrderSchema.safeParse(row.payload);
+  if (!parsed.success) {
+    // The stored payload is no longer valid against the schema (very unlikely
+    // unless we changed the schema in a breaking way). Mark as exhausted so
+    // a human can look at it.
+    await db
+      .update(pendingWooOrdersTable)
+      .set({
+        status: "exhausted",
+        lastError: "Stored payload failed schema validation",
+        updatedAt: new Date(),
+      })
+      .where(eq(pendingWooOrdersTable.id, row.id));
+    logger.error(
+      { id: row.id, appOrderId: row.appOrderId, issues: parsed.error.issues },
+      "wooReconcile: stored payload no longer matches schema",
+    );
+    return;
+  }
+  const body = parsed.data;
+  const result = await attemptCreateWcOrder(body);
+  const nextAttempts = row.attempts + 1;
+
+  if (result.ok) {
+    await db
+      .update(pendingWooOrdersTable)
+      .set({
+        status: "succeeded",
+        wcOrderId: result.wcOrderId,
+        attempts: nextAttempts,
+        lastError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(pendingWooOrdersTable.id, row.id));
+    await recordSuccessfulWcOrder({
+      body,
+      wcOrderId: result.wcOrderId,
+      userId: row.userId,
+      recipientName: result.recipientName,
+      log: logger,
+    });
+    logger.info(
+      { id: row.id, appOrderId: row.appOrderId, wcOrderId: result.wcOrderId },
+      "wooReconcile: pending order reconciled",
+    );
+    return;
+  }
+
+  if (nextAttempts >= row.maxAttempts) {
+    await db
+      .update(pendingWooOrdersTable)
+      .set({
+        status: "exhausted",
+        attempts: nextAttempts,
+        lastError: result.message,
+        updatedAt: new Date(),
+      })
+      .where(eq(pendingWooOrdersTable.id, row.id));
+    logger.error(
+      {
+        id: row.id,
+        appOrderId: row.appOrderId,
+        paymentRef: row.paymentRef,
+        attempts: nextAttempts,
+        lastError: result.message,
+      },
+      "wooReconcile: pending order exhausted retries — manual reconciliation required",
+    );
+    return;
+  }
+
+  const nextAttemptAt = new Date(Date.now() + backoffMsFor(nextAttempts));
+  await db
+    .update(pendingWooOrdersTable)
+    .set({
+      attempts: nextAttempts,
+      lastError: result.message,
+      nextAttemptAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(pendingWooOrdersTable.id, row.id));
+  logger.warn(
+    {
+      id: row.id,
+      appOrderId: row.appOrderId,
+      attempts: nextAttempts,
+      nextAttemptAt: nextAttemptAt.toISOString(),
+      lastError: result.message,
+    },
+    "wooReconcile: retry scheduled",
+  );
+}
+
+export async function runReconcileTick(): Promise<{
+  claimed: number;
+}> {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return { claimed: 0 };
+  }
+  let claimed: PendingWooOrder[] = [];
+  try {
+    claimed = await claimDueRows();
+  } catch (err: any) {
+    logger.warn(
+      { err: err?.message },
+      "wooReconcile: failed to claim due rows",
+    );
+    return { claimed: 0 };
+  }
+  if (!claimed.length) return { claimed: 0 };
+  for (const row of claimed) {
+    try {
+      await processPendingRow(row);
+    } catch (err: any) {
+      logger.error(
+        { err: err?.message, id: row.id, appOrderId: row.appOrderId },
+        "wooReconcile: unexpected error processing row",
+      );
+    }
+  }
+  return { claimed: claimed.length };
+}
+
+let reconcileTimer: NodeJS.Timeout | null = null;
+
+export function startReconcileWorker(): void {
+  if (reconcileTimer) return;
+  if (process.env.WOO_RECONCILE_DISABLED === "1") {
+    logger.info("wooReconcile: worker disabled via WOO_RECONCILE_DISABLED");
+    return;
+  }
+  const tick = async () => {
+    try {
+      const { claimed } = await runReconcileTick();
+      if (claimed > 0) {
+        logger.info({ claimed }, "wooReconcile: tick processed rows");
+      }
+    } catch (err: any) {
+      logger.error({ err: err?.message }, "wooReconcile: tick crashed");
+    }
+  };
+  reconcileTimer = setInterval(tick, RECONCILE_TICK_MS);
+  // Don't keep the event loop alive solely for the worker.
+  reconcileTimer.unref?.();
+  logger.info(
+    { intervalMs: RECONCILE_TICK_MS },
+    "wooReconcile: worker started",
+  );
+  // Kick off one tick shortly after startup so any rows queued before a
+  // restart get processed without waiting a full interval.
+  setTimeout(tick, 10_000).unref?.();
+}
+
+export function stopReconcileWorker(): void {
+  if (reconcileTimer) {
+    clearInterval(reconcileTimer);
+    reconcileTimer = null;
+  }
+}
+
+export async function listPendingWooOrders(filter?: {
+  status?: "pending" | "succeeded" | "exhausted";
+}): Promise<PendingWooOrder[]> {
+  if (filter?.status) {
+    return db
+      .select()
+      .from(pendingWooOrdersTable)
+      .where(eq(pendingWooOrdersTable.status, filter.status))
+      .orderBy(pendingWooOrdersTable.createdAt);
+  }
+  return db
+    .select()
+    .from(pendingWooOrdersTable)
+    .orderBy(pendingWooOrdersTable.createdAt);
+}
+
+// Re-exported for tests / route handlers that want to know the due cutoff.
+export const _internals = {
+  backoffMsFor,
+  RECONCILE_MAX_ATTEMPTS,
+  RECONCILE_TICK_MS,
+  claimDueRows,
+  processPendingRow,
+  // Silence unused import warnings for tools that strip `and`/`lte`.
+  _and: and,
+  _lte: lte,
+};
