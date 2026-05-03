@@ -1,0 +1,136 @@
+Update the country switcher / city selector modal UI to match Screenshot A and Screenshot B.
+
+Context:
+The current country switcher looks messy on mobile/desktop overlay. It should look clean, centered, and polished like the provided screenshots.
+
+Scope:
+Update the country switcher modal and city selector modal only. Do not redesign unrelated login/product/header UI.
+
+Visual requirements:
+
+1. Overlay
+- When the switcher is open, show a dark translucent overlay over the page.
+- The page behind should remain visible but dimmed.
+- Overlay should cover the full viewport.
+- Modal should appear centered horizontally and vertically on desktop.
+- On mobile, modal should fit nicely within the screen with proper margins.
+
+2. Modal container
+- White background.
+- Rounded corners, around 16–20px.
+- Width should be around 460–520px on desktop.
+- On mobile, width should be `calc(100% - 32px)` or similar.
+- Add subtle shadow.
+- Padding should feel spacious and clean.
+- Modal should not touch screen edges.
+- Max height should fit viewport; if content is long, list area should scroll internally.
+
+3. Header area
+- Title: “Send your gift to:”
+- Use the Presentail serif-style heading font if available.
+- Heading color should be dark teal, matching brand color.
+- Heading size should be large and elegant, similar to screenshots.
+- For country selection modal, include an X close icon in the top-right.
+- For city selection modal, include a back arrow in the top-left.
+- Icons should be dark teal and aligned cleanly.
+
+4. Country selection state
+Match Screenshot B.
+
+Content:
+- Section label: “Select Country”
+- Country rows:
+  - Lebanon
+  - United Arab Emirates
+  - Cyprus
+
+Each row should include:
+- Flag on the left.
+- Country name next to flag.
+- Chevron arrow on the far right.
+- Thin divider line between rows.
+- Generous vertical spacing, about 48–56px row height.
+- Text should be dark teal or near black.
+- Rows should be clickable.
+- Hover/tap state should be subtle, such as light gray background.
+
+5. City selection state
+Match Screenshot A.
+
+Content:
+- Back arrow top-left.
+- Title: “Send your gift to:”
+- Section label: “Select City”
+- City rows depending on selected country.
+
+For United Arab Emirates:
+- Abu Dhabi
+- Al Ain
+- Dubai
+- Sharjah
+
+For Lebanon:
+- Beirut
+- Jounieh
+- Tripoli
+- Saida
+- Tyre
+- Zahle
+- Byblos
+- Baalbek
+
+Each city row should include:
+- City name on left.
+- Chevron arrow on far right.
+- Divider line between rows.
+- Same spacing and style as the country list.
+
+6. Remove the messy pill/list design
+- Do not use large rounded pill cards for every city.
+- Do not show the current country as a separate pill row with “Change country” inside the city list.
+- The flow should be:
+  - Country modal: select country.
+  - City modal: select city for that country.
+  - Back arrow returns from city modal to country modal.
+  - X closes modal.
+
+7. Behavior
+- Clicking the country selector in the header opens the country modal.
+- Selecting a country opens the city modal for that country.
+- Clicking back returns to country selection.
+- Clicking X closes the modal.
+- Clicking outside the modal should close it, unless existing app behavior prevents this.
+- Selecting a city should update the selected country/city and close the modal or proceed with existing behavior.
+- Preserve existing routing/country/city logic. Do not break checkout/product/login flows.
+
+8. Responsive behavior
+- Desktop modal should be centered like screenshots.
+- Mobile modal should be centered with 16px side margin.
+- For very small screens, keep max height around `80vh` and allow list scrolling.
+- Ensure the modal does not get hidden behind browser/mobile viewport chrome.
+
+9. Styling details
+Use these approximate values:
+- Brand teal: `#004C55` or existing brand variable.
+- Overlay: `rgba(0, 0, 0, 0.55)`
+- Modal radius: `18px`
+- Row divider: `1px solid rgba(0,0,0,0.08)`
+- Modal padding: `24px`
+- Row height: `52px`
+- Heading size desktop: `30–36px`
+- Heading size mobile: `28–32px`
+
+Implementation notes:
+- Inspect the existing country switcher / location modal component and update it directly.
+- Reuse existing flags, country data, city data, route handlers, and translation logic where possible.
+- Keep changes minimal and clean.
+- Avoid duplicating country/city data if it already exists.
+- Make sure the UI matches Screenshot A and Screenshot B: clean white modal, elegant title, simple list rows, flags, chevrons, proper spacing, dark teal icons/text.
+
+Acceptance criteria:
+- Country modal looks like Screenshot B.
+- City modal looks like Screenshot A.
+- No large stacked rounded city pills.
+- Back and close controls work.
+- Country and city selection still update the app correctly.
+- Works on both desktop and mobile.

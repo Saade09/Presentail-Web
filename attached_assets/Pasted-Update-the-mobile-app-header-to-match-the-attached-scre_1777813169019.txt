@@ -1,0 +1,44 @@
+Update the mobile app header to match the attached screenshot of presentail.com.
+
+Focus only on the mobile header/top navigation area.
+
+Requirements:
+
+1. Add a slim top utility bar:
+   - Light gray background.
+   - Left side: location pin icon + text “No Hassle Details”.
+   - Right side: country selector pill showing Lebanon flag + “Lebanon” + down chevron.
+   - Next to it: language pill with Arabic text “عربية”.
+   - Pills should have rounded corners and light gray backgrounds.
+
+2. Main mobile header:
+   - White background.
+   - Left side: hamburger menu icon, then search icon.
+   - Center: Presentail wordmark/logo.
+   - Right side: account/user icon, then shopping bag icon.
+   - Icons should be dark teal.
+   - Header should have generous vertical spacing, similar to the screenshot.
+   - Logo should be centered horizontally, not just between left/right icons.
+   - Keep icon sizes close to the screenshot: around 28–34px.
+
+3. Styling:
+   - Use the brand dark teal color similar to the screenshot: `#004C55` or nearest existing brand variable.
+   - Top utility bar height should be around 48–56px.
+   - Main header height should be around 90–105px.
+   - Mobile breakpoint only. Do not alter desktop header unless needed for shared components.
+   - Ensure spacing looks clean on iPhone-sized screens around 390px width.
+   - Header should be responsive and not overflow.
+
+4. Behavior:
+   - Hamburger opens the existing mobile menu.
+   - Search icon opens the existing search behavior.
+   - Account icon links to the existing account page/login.
+   - Bag icon links to cart.
+   - Country selector and language pill can reuse existing handlers if available; otherwise make them clickable placeholders without breaking UI.
+
+5. Visual target:
+   - Match the screenshot layout: utility bar at the top, then the large white header row with icons and centered Presentail logo.
+   - The header should appear above the hero carousel.
+   - Make sure the hero image starts directly below the header, as shown.
+
+Please inspect the existing header/mobile nav components and update the appropriate files. Keep the changes minimal, clean, and reusable. Use existing icons/assets where available; otherwise use the app’s current icon library.
