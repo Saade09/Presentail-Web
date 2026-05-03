@@ -29,7 +29,7 @@ export function BestSellersPreview() {
                 .fill(0)
                 .map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="aspect-[4/5] bg-muted rounded-2xl mb-4" />
+                    <div className="aspect-square bg-muted rounded-2xl mb-4" />
                     <div className="h-5 bg-muted rounded w-2/3 mb-2" />
                     <div className="h-4 bg-muted rounded w-1/3" />
                   </div>

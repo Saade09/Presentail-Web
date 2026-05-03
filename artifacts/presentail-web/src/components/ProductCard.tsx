@@ -30,7 +30,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       data-testid={`card-product-${product.id}`}
     >
       <Link href={`/product/${product.id}`}>
-        <div className="aspect-[4/5] bg-secondary/50 rounded-2xl overflow-hidden relative mb-4">
+        <div className="aspect-square bg-secondary/50 rounded-2xl overflow-hidden relative mb-4">
           {product.image?.uri ? (
             <img
               src={product.image.uri}
