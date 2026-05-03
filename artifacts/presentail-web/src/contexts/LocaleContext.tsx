@@ -296,8 +296,7 @@ const STRINGS: Dict = {
   "auth.or": { en: "Or", ar: "أو" },
   "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
   "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
-  "auth.providerSoonTitle": { en: "Coming soon", ar: "قريباً" },
-  "auth.providerSoonDesc": { en: "{provider} sign-in isn't available yet. Please continue with your email.", ar: "تسجيل الدخول عبر {provider} غير متاح بعد. يرجى المتابعة باستخدام بريدك الإلكتروني." },
+  "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
 
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },

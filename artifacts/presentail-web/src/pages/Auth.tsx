@@ -1,7 +1,15 @@
 import { useState, ReactNode, ComponentProps } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLogin, useRegister, checkEmailExists, requestPasswordReset } from "@/lib/queries";
+import {
+  useLogin,
+  useRegister,
+  checkEmailExists,
+  requestPasswordReset,
+  useGoogleOAuth,
+  useAppleOAuth,
+} from "@/lib/queries";
+import { signInWithGoogle, signInWithApple } from "@/lib/oauth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +98,10 @@ export default function Auth() {
 
   const loginMutation = useLogin();
   const registerMutation = useRegister();
+  const googleOAuth = useGoogleOAuth();
+  const appleOAuth = useAppleOAuth();
 
+  const [oauthBusy, setOauthBusy] = useState<null | "apple" | "google">(null);
   const [step, setStep] = useState<Step>("email");
   const [arrivedFromCheck, setArrivedFromCheck] = useState(false);
   const [emailChecking, setEmailChecking] = useState(false);
@@ -193,11 +204,59 @@ export default function Auth() {
     }
   };
 
-  const handleProviderSoon = (provider: "Apple" | "Google") => {
-    toast({
-      title: t("auth.providerSoonTitle"),
-      description: t("auth.providerSoonDesc", { provider }),
-    });
+  const handleAppleSignIn = async () => {
+    if (oauthBusy) return;
+    setOauthBusy("apple");
+    try {
+      const r = await signInWithApple();
+      const res = await appleOAuth.mutateAsync({
+        idToken: r.idToken,
+        user: r.user,
+      });
+      if (res.ok) {
+        setAuth(res.token, res.user);
+        setLocation("/account");
+      } else {
+        toast({
+          title: t("auth.toast.oauthFailed", { provider: "Apple" }),
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: t("auth.toast.oauthFailed", { provider: "Apple" }),
+        description: error?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (oauthBusy) return;
+    setOauthBusy("google");
+    try {
+      const r = await signInWithGoogle();
+      const res = await googleOAuth.mutateAsync({ credential: r.credential });
+      if (res.ok) {
+        setAuth(res.token, res.user);
+        setLocation("/account");
+      } else {
+        toast({
+          title: t("auth.toast.oauthFailed", { provider: "Google" }),
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: t("auth.toast.oauthFailed", { provider: "Google" }),
+        description: error?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setOauthBusy(null);
+    }
   };
 
   const heading =
@@ -272,9 +331,10 @@ export default function Auth() {
             type="button"
             variant="outline"
             className={outlineButtonClass}
-            onClick={() => handleProviderSoon("Apple")}
+            onClick={handleAppleSignIn}
+            disabled={oauthBusy !== null}
           >
-            <AppleLogo />
+            {oauthBusy === "apple" ? spinner : <AppleLogo />}
             <span>{t("auth.continueApple")}</span>
           </Button>
 
@@ -282,9 +342,10 @@ export default function Auth() {
             type="button"
             variant="outline"
             className={outlineButtonClass}
-            onClick={() => handleProviderSoon("Google")}
+            onClick={handleGoogleSignIn}
+            disabled={oauthBusy !== null}
           >
-            <GoogleLogo />
+            {oauthBusy === "google" ? spinner : <GoogleLogo />}
             <span>{t("auth.continueGoogle")}</span>
           </Button>
         </form>

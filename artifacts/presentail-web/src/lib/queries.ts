@@ -125,6 +125,32 @@ export const useRegister = () => {
   });
 };
 
+// Social OAuth — these endpoints accept the identity token returned by the
+// provider's web SDK, verify it server-side, and return a Presentail session
+// token + user, identical in shape to /auth/login.
+export const useGoogleOAuth = () => {
+  return useMutation({
+    mutationFn: (data: { credential: string }) =>
+      apiFetch<{ ok: boolean; token: string; user: any }>("/auth/oauth/google", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+};
+
+export const useAppleOAuth = () => {
+  return useMutation({
+    mutationFn: (data: {
+      idToken: string;
+      user?: { name?: { firstName?: string | null; lastName?: string | null } | null } | null;
+    }) =>
+      apiFetch<{ ok: boolean; token: string; user: any }>("/auth/oauth/apple", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+};
+
 // Order Hooks
 export const useCreateOrder = () => {
   return useMutation({

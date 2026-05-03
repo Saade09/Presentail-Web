@@ -398,8 +398,24 @@ function appleAudiences(): string[] {
   return ["presentail", "com.presentail.lb"];
 }
 
+// Web Sign in with Apple uses a Services ID as the audience (distinct from
+// the native iOS bundle id used by mobile). We accept both lists so the same
+// /auth route file can serve mobile-native AND web OAuth callers.
+function appleWebAudiences(): string[] {
+  const web = envList("APPLE_SERVICE_IDS");
+  return web.length ? web : appleAudiences();
+}
+
 function googleAudiences(): string[] {
   return envList("GOOGLE_CLIENT_IDS");
+}
+
+// Web Google Sign-In uses a different OAuth Client ID (a Web client) than
+// the iOS/Android client IDs used by mobile. Allow callers to set a separate
+// list if the deployment uses different clients per platform.
+function googleWebAudiences(): string[] {
+  const web = envList("GOOGLE_WEB_CLIENT_IDS");
+  return web.length ? web : googleAudiences();
 }
 
 function randomPassword(): string {
@@ -754,6 +770,114 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
     payload = verified.payload;
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.social.google: token invalid");
+    return res
+      .status(401)
+      .json({ ok: false, message: "Google sign-in could not be verified" });
+  }
+  if (payload.email_verified === false) {
+    return res
+      .status(401)
+      .json({ ok: false, message: "Your Google email is not verified." });
+  }
+  const email = String(payload.email ?? "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return res
+      .status(400)
+      .json({ ok: false, message: "Google didn't share an email address." });
+  }
+  const givenName = String(payload.given_name ?? "").trim();
+  const familyName = String(payload.family_name ?? "").trim();
+  return issueSocialSession(res, req, "google", {
+    email,
+    firstName: givenName,
+    lastName: familyName,
+  });
+});
+
+// ── Web OAuth: Apple & Google ────────────────────────────────────────────────
+// These mirror /auth/social/* but use the web Sign in with Apple / Google
+// Identity Services flows. The web SDKs return an identity token client-side;
+// we verify the signature against the provider JWKS, then resolve (or create)
+// the matching WC customer and mint a server-issued session JWT.
+//
+// Apple's web flow returns a payload shaped like:
+//   { authorization: { id_token, code, state }, user?: { name: { firstName, lastName }, email } }
+// The `user` object is sent only on the very first sign-in; we accept either
+// `user` (web shape) or `fullName` (mobile shape) for the name fields.
+
+router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
+  const body = req.body as {
+    idToken?: string;
+    id_token?: string;
+    user?: { name?: { firstName?: string | null; lastName?: string | null } | null } | null;
+    fullName?: { givenName?: string | null; familyName?: string | null } | null;
+  };
+  const idToken = body.idToken ?? body.id_token;
+  if (!idToken) {
+    return res.status(400).json({ ok: false, message: "Missing Apple identity token" });
+  }
+  let payload: any;
+  try {
+    const verified = await jwtVerify(idToken, APPLE_JWKS, {
+      issuer: "https://appleid.apple.com",
+      audience: appleWebAudiences(),
+    });
+    payload = verified.payload;
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.oauth.apple: token invalid");
+    return res
+      .status(401)
+      .json({ ok: false, message: "Apple sign-in could not be verified" });
+  }
+  const email = String(payload.email ?? "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        "Your Apple ID didn't share an email. Please retry and choose 'Share My Email'.",
+    });
+  }
+  const givenName = String(
+    body.user?.name?.firstName ?? body.fullName?.givenName ?? "",
+  ).trim();
+  const familyName = String(
+    body.user?.name?.lastName ?? body.fullName?.familyName ?? "",
+  ).trim();
+  return issueSocialSession(res, req, "apple", {
+    email,
+    firstName: givenName,
+    lastName: familyName,
+  });
+});
+
+router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
+  const body = req.body as {
+    idToken?: string;
+    id_token?: string;
+    credential?: string;
+  };
+  // Google Identity Services callbacks deliver the JWT as `credential`; we
+  // accept idToken/id_token too so other clients can use the same endpoint.
+  const idToken = body.idToken ?? body.id_token ?? body.credential;
+  if (!idToken) {
+    return res.status(400).json({ ok: false, message: "Missing Google ID token" });
+  }
+  const audiences = googleWebAudiences();
+  if (!audiences.length) {
+    return res.status(503).json({
+      ok: false,
+      message: "Google sign-in is not configured on the server.",
+    });
+  }
+  let payload: any;
+  try {
+    const verified = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: audiences,
+    });
+    payload = verified.payload;
+  } catch (e: any) {
+    req.log?.warn?.({ err: e?.message }, "auth.oauth.google: token invalid");
     return res
       .status(401)
       .json({ ok: false, message: "Google sign-in could not be verified" });
