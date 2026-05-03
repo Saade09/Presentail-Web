@@ -259,6 +259,15 @@ const STRINGS: Dict = {
   "auth.accountFound": { en: "Account found. Please log in.", ar: "تم العثور على الحساب. الرجاء تسجيل الدخول." },
   "auth.checkFailed": { en: "Something went wrong, please try again.", ar: "حدث خطأ ما، يرجى المحاولة مرة أخرى." },
   "auth.invalidEmail": { en: "Please enter a valid email.", ar: "يرجى إدخال بريد إلكتروني صالح." },
+  "auth.forgotPassword": { en: "Forgot password?", ar: "نسيت كلمة المرور؟" },
+  "auth.forgotTitle": { en: "Reset your password", ar: "إعادة تعيين كلمة المرور" },
+  "auth.forgotDesc": { en: "We'll email you a link to set a new password.", ar: "سنرسل إليك رابطًا عبر البريد الإلكتروني لتعيين كلمة مرور جديدة." },
+  "auth.forgotSend": { en: "Send reset link", ar: "إرسال رابط إعادة التعيين" },
+  "auth.forgotSentTitle": { en: "Check your email", ar: "تحقق من بريدك الإلكتروني" },
+  "auth.forgotSentDesc": { en: "If an account exists for {email}, you'll receive a reset link shortly.", ar: "إذا كان هناك حساب مرتبط بـ {email}, فستتلقى رابط إعادة التعيين قريبًا." },
+  "auth.forgotResend": { en: "Resend email", ar: "إعادة إرسال البريد" },
+  "auth.forgotBackToSignIn": { en: "Back to sign in", ar: "العودة إلى تسجيل الدخول" },
+  "auth.forgotFailed": { en: "Couldn't send reset email. Please try again.", ar: "تعذّر إرسال بريد إعادة التعيين. يرجى المحاولة مرة أخرى." },
 
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },

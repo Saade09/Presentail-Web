@@ -109,6 +109,12 @@ export const useLogin = () => {
   });
 };
 
+export const requestPasswordReset = (email: string) =>
+  apiFetch<{ ok: boolean; message?: string }>("/auth/reset/request", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
 export const useRegister = () => {
   return useMutation({
     mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/register", {

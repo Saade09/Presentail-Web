@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLogin, useRegister, checkEmailExists } from "@/lib/queries";
+import { useLogin, useRegister, checkEmailExists, requestPasswordReset } from "@/lib/queries";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import authBg from "@/assets/hero.png";
 import { useLocale } from "@/contexts/LocaleContext";
 
-type Step = "email" | "login" | "signup";
+type Step = "email" | "login" | "signup" | "forgot" | "forgotSent";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -25,6 +25,8 @@ export default function Auth() {
   const [arrivedFromCheck, setArrivedFromCheck] = useState(false);
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -102,14 +104,49 @@ export default function Auth() {
     }
   };
 
+  const handleSendReset = async () => {
+    if (forgotBusy) return;
+    setForgotError(null);
+    setForgotBusy(true);
+    try {
+      await requestPasswordReset(formData.email);
+      setStep("forgotSent");
+    } catch (err: any) {
+      // Unknown-email responses come back as a 404 with code "unknown_email".
+      // Treat those as success so we don't leak account existence beyond what
+      // the email-first step already implied. Transport/upstream failures
+      // surface a neutral retry message instead of silently advancing.
+      const msg = String(err?.message ?? "").toLowerCase();
+      if (msg.includes("couldn't find") || msg.includes("unknown")) {
+        setStep("forgotSent");
+      } else {
+        setForgotError(t("auth.forgotFailed"));
+      }
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
   const heading =
-    step === "email" ? t("auth.welcome") : step === "login" ? t("auth.welcome") : t("auth.create");
+    step === "email"
+      ? t("auth.welcome")
+      : step === "login"
+      ? t("auth.welcome")
+      : step === "signup"
+      ? t("auth.create")
+      : step === "forgot"
+      ? t("auth.forgotTitle")
+      : t("auth.forgotSentTitle");
   const description =
     step === "email"
       ? t("auth.emailStepDesc")
       : step === "login"
       ? t("auth.signinDesc")
-      : t("auth.signupDesc");
+      : step === "signup"
+      ? t("auth.signupDesc")
+      : step === "forgot"
+      ? t("auth.forgotDesc")
+      : t("auth.forgotSentDesc", { email: formData.email });
 
   return (
     <div className="min-h-screen flex pt-20">
@@ -183,7 +220,17 @@ export default function Auth() {
                 {t("auth.signin")}
               </Button>
 
-              <div className="text-center text-sm">
+              <div className="flex flex-col items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotError(null);
+                    setStep("forgot");
+                  }}
+                  className="font-medium hover:text-primary transition-colors"
+                >
+                  {t("auth.forgotPassword")}
+                </button>
                 <button
                   type="button"
                   onClick={resetToEmail}
@@ -193,6 +240,85 @@ export default function Auth() {
                 </button>
               </div>
             </form>
+          )}
+
+          {step === "forgot" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendReset();
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("auth.email")}</label>
+                <Input type="email" value={formData.email} readOnly />
+              </div>
+
+              {forgotError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {forgotError}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full h-14 rounded-xl mt-6"
+                disabled={forgotBusy}
+              >
+                {forgotBusy ? (
+                  <span className="inline-block h-5 w-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                ) : (
+                  t("auth.forgotSend")
+                )}
+              </Button>
+
+              <div className="text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotError(null);
+                    setStep("login");
+                  }}
+                  className="font-medium hover:text-primary transition-colors"
+                >
+                  {t("auth.forgotBackToSignIn")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === "forgotSent" && (
+            <div className="space-y-4">
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="w-full h-14 rounded-xl"
+                disabled={forgotBusy}
+                onClick={handleSendReset}
+              >
+                {forgotBusy ? (
+                  <span className="inline-block h-5 w-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                ) : (
+                  t("auth.forgotResend")
+                )}
+              </Button>
+
+              <div className="text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotError(null);
+                    setStep("login");
+                  }}
+                  className="font-medium hover:text-primary transition-colors"
+                >
+                  {t("auth.forgotBackToSignIn")}
+                </button>
+              </div>
+            </div>
           )}
 
           {step === "signup" && (
