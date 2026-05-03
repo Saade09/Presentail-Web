@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { Logo } from "@/components/Logo";
 import {
   PICKER_COUNTRY_CODES,
   countryCodeToSlug,
@@ -47,13 +46,15 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col" data-testid="page-landing">
       <div className="w-full max-w-[560px] mx-auto px-6 pt-10 pb-16 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-16">
+        <div className="flex items-center justify-between mb-10">
           <div className="flex-1" />
           <div
             className="flex items-center justify-center"
             data-testid="text-wordmark"
           >
-            <Logo height={72} className="md:h-24" />
+            <span className="font-serif text-primary text-5xl md:text-6xl leading-none">
+              {language === "ar" ? "بريزانتيل" : "Presentail"}
+            </span>
           </div>
           <div className="flex-1 flex justify-end">
             <button
@@ -68,13 +69,13 @@ export default function Landing() {
         </div>
 
         <h1
-          className="text-3xl md:text-4xl font-serif text-foreground mb-2 text-center"
+          className="text-3xl md:text-[2rem] font-serif text-foreground mb-2 text-center"
           data-testid="text-heading"
         >
           {t("locationPicker.sendGiftTo")}
         </h1>
         <p
-          className="text-primary mb-10 text-center"
+          className="text-sm text-foreground mb-10 text-center font-medium"
           data-testid="text-subtitle"
         >
           {t("locationPicker.selectCountry")}
