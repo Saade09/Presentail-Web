@@ -78,12 +78,6 @@ function HomeHeader({
         justifyContent: "space-between",
       }}
     >
-      <View style={{ width: 28, alignItems: "flex-start" }}>
-        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
-          <Feather name="search" size={20} color={colors.primary} />
-        </Pressable>
-      </View>
-
       <Wordmark size={26} />
 
       <Pressable
@@ -92,6 +86,8 @@ function HomeHeader({
         accessibilityLabel={t.deliveryChooseLocation}
         style={({ pressed }) => ({
           maxWidth: 130,
+          marginLeft: "auto",
+          marginRight: 14,
           alignItems: isRTL ? "flex-start" : "flex-end",
           opacity: pressed ? 0.65 : 1,
         })}
@@ -134,6 +130,12 @@ function HomeHeader({
           <Feather name="chevron-down" size={14} color={colors.primary} />
         </View>
       </Pressable>
+
+      <View style={{ width: 28, alignItems: "flex-end" }}>
+        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog" as any)}>
+          <Feather name="search" size={20} color={colors.primary} />
+        </Pressable>
+      </View>
     </View>
   );
 }
