@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
+import { Logo } from "@/components/Logo";
 
 export function Footer() {
   const { t } = useLocale();
@@ -8,7 +9,9 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="md:col-span-1">
-            <h3 className="text-2xl font-serif font-bold mb-6">PRESENTAIL</h3>
+            <div className="mb-6">
+              <Logo height={40} />
+            </div>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6">
               {t("footer.tagline")}
             </p>

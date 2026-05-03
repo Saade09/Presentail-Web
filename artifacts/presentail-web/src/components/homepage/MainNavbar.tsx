@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronDown, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Logo } from "@/components/Logo";
 
 const NAV_LINKS = [
   { key: "nav.occasions", href: "/shop?occasion=birthday" },
@@ -67,10 +68,11 @@ export function MainNavbar() {
         <div className="flex justify-center">
           <Link
             href="/"
-            className="text-2xl md:text-3xl font-serif tracking-[0.18em] text-primary"
+            className="flex items-center"
+            aria-label="Presentail"
             data-testid="link-logo"
           >
-            PRESENTAIL
+            <Logo height={36} className="md:h-10" />
           </Link>
         </div>
 

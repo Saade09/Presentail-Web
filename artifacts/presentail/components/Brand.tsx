@@ -1,28 +1,35 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const LOGO_EN = require("@/assets/images/presentail-logo-en.png");
+const LOGO_AR = require("@/assets/images/presentail-logo-ar.png");
+
+const LOGO_EN_RATIO = 4167 / 2383;
+const LOGO_AR_RATIO = 3250 / 792;
 
 type WordmarkProps = {
   size?: number;
   color?: string;
 };
 
-export function Wordmark({ size = 28, color }: WordmarkProps) {
-  const colors = useColors();
-  const tone = color ?? colors.primary;
+export function Wordmark({ size = 28, color: _color }: WordmarkProps) {
+  const { lang } = useLanguage();
+  const isArabic = lang === "AR";
+  const source = isArabic ? LOGO_AR : LOGO_EN;
+  const ratio = isArabic ? LOGO_AR_RATIO : LOGO_EN_RATIO;
+  const height = size;
+  const width = height * ratio;
   return (
     <View style={styles.wordmarkRow}>
-      <Text
-        style={{
-          fontFamily: "PlayfairDisplay_500Medium",
-          fontSize: size,
-          color: tone,
-          letterSpacing: 0.4,
-        }}
-      >
-        Presentail
-      </Text>
+      <Image
+        source={source}
+        accessibilityLabel="Presentail"
+        resizeMode="contain"
+        style={{ width, height }}
+      />
     </View>
   );
 }

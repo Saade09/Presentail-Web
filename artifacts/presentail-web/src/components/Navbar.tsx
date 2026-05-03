@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Logo } from "@/components/Logo";
 
 export function Navbar() {
   const { itemCount } = useCart();
@@ -51,8 +52,8 @@ export function Navbar() {
             </SheetContent>
           </Sheet>
 
-          <Link href="/" className="text-2xl font-serif font-bold text-primary tracking-tight">
-            PRESENTAIL
+          <Link href="/" className="flex items-center" aria-label="Presentail">
+            <Logo height={32} />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">

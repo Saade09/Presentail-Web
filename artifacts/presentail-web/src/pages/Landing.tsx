@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
+import { Logo } from "@/components/Logo";
 import {
   PICKER_COUNTRY_CODES,
   countryCodeToSlug,
@@ -49,10 +50,10 @@ export default function Landing() {
         <div className="flex items-center justify-between mb-16">
           <div className="flex-1" />
           <div
-            className="text-2xl md:text-3xl font-serif tracking-[0.18em] text-primary"
+            className="flex items-center justify-center"
             data-testid="text-wordmark"
           >
-            PRESENTAIL
+            <Logo height={40} className="md:h-12" />
           </div>
           <div className="flex-1 flex justify-end">
             <button
