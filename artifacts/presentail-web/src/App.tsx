@@ -1,18 +1,23 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LocaleProvider } from "@/contexts/LocaleContext";
-import { LocationProvider } from "@/contexts/LocationContext";
+import {
+  LocationProvider,
+  useLocationSelection,
+} from "@/contexts/LocationContext";
 import { I18nProvider } from "@/contexts/I18nContext";
 
 import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 
-import Home from "@/pages/Home";
+import Landing from "@/pages/Landing";
+import CountryHome from "@/pages/CountryHome";
 import Shop from "@/pages/Shop";
 import ProductDetail from "@/pages/ProductDetail";
 import Brands from "@/pages/Brands";
@@ -33,20 +38,64 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function RequireCountry({ children }: { children: React.ReactNode }) {
+  const { cityId, isLoadingCountries, country, city } = useLocationSelection();
+  const [, navigate] = useLocation();
+  const hasValidSelection =
+    !!cityId && (isLoadingCountries || (!!country && !!city));
+
+  useEffect(() => {
+    if (!cityId) {
+      navigate("/", { replace: true });
+    }
+  }, [cityId, navigate]);
+
+  if (!hasValidSelection) {
+    return <div className="min-h-[60vh]" data-testid="require-country-loading" />;
+  }
+  return <>{children}</>;
+}
+
+function ShopShell() {
   return (
     <LocationPickerGate>
       <div className="min-h-screen flex flex-col">
         <HomepageHeader />
         <main className="flex-1">
           <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/shop" component={Shop} />
-            <Route path="/product/:slug" component={ProductDetail} />
-            <Route path="/brands" component={Brands} />
-            <Route path="/brand/:slug" component={BrandDetail} />
-            <Route path="/cart" component={Cart} />
-            <Route path="/checkout" component={Checkout} />
+            <Route path="/lb" component={CountryHome} />
+            <Route path="/ae" component={CountryHome} />
+            <Route path="/cy" component={CountryHome} />
+            <Route path="/shop">
+              <RequireCountry>
+                <Shop />
+              </RequireCountry>
+            </Route>
+            <Route path="/product/:slug">
+              <RequireCountry>
+                <ProductDetail />
+              </RequireCountry>
+            </Route>
+            <Route path="/brands">
+              <RequireCountry>
+                <Brands />
+              </RequireCountry>
+            </Route>
+            <Route path="/brand/:slug">
+              <RequireCountry>
+                <BrandDetail />
+              </RequireCountry>
+            </Route>
+            <Route path="/cart">
+              <RequireCountry>
+                <Cart />
+              </RequireCountry>
+            </Route>
+            <Route path="/checkout">
+              <RequireCountry>
+                <Checkout />
+              </RequireCountry>
+            </Route>
             <Route path="/order-confirmed" component={OrderConfirmed} />
             <Route path="/auth" component={Auth} />
             <Route path="/account" component={Account} />
@@ -56,6 +105,15 @@ function Router() {
         <Footer />
       </div>
     </LocationPickerGate>
+  );
+}
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route component={ShopShell} />
+    </Switch>
   );
 }
 

@@ -4,10 +4,19 @@ import { useDeliveryLocations, type DeliveryLocationsResponse } from "@/lib/quer
 const STORAGE_KEY = "presentail_delivery_location_v1";
 
 export const PICKER_COUNTRY_CODES = ["LB", "AE", "CY"] as const;
-type PickerCountryCode = (typeof PICKER_COUNTRY_CODES)[number];
+export type PickerCountryCode = (typeof PICKER_COUNTRY_CODES)[number];
 
-function isPickerCountryCode(code: string): code is PickerCountryCode {
+export function isPickerCountryCode(code: string): code is PickerCountryCode {
   return (PICKER_COUNTRY_CODES as readonly string[]).includes(code);
+}
+
+export function countrySlugToCode(slug: string): PickerCountryCode | null {
+  const upper = slug.toUpperCase();
+  return isPickerCountryCode(upper) ? upper : null;
+}
+
+export function countryCodeToSlug(code: string): string {
+  return code.toLowerCase();
 }
 
 export type DeliveryCountry = DeliveryLocationsResponse["countries"][number];
