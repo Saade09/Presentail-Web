@@ -28,9 +28,22 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { getBeirutHour } from "@/lib/beirutTime";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
+import {
+  isPayMethodSupported,
+  nextPayMethodForCurrency,
+  type PayMethodId,
+} from "@/lib/payMethods";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { getDeviceId } from "@/services/notifications";
+
+export {
+  isPayMethodSupported,
+  defaultPayMethodFor,
+  nextPayMethodForCurrency,
+  payMethodAvailability,
+} from "@/lib/payMethods";
 
 const APP_SCHEME = "presentail";
 
@@ -70,36 +83,6 @@ async function runHostedCheckout(url: string, deeplinkBase: string): Promise<"su
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 const EXPRESS_SURCHARGE = 15;
-
-// Each payment method declares the currencies it can settle in.
-// Used by the checkout UI to disable incompatible options instead of
-// silently switching the customer's selection on a currency change.
-type PayMethodId = "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
-const PAY_METHOD_CURRENCIES: Record<PayMethodId, readonly string[] | "all"> = {
-  // Stripe processes USD/EUR/GBP/etc. cards directly; card+wallet are the
-  // safe default for any non-AED currency.
-  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  // PayPal: settle in USD only (we always send USD to the API).
-  paypal: ["USD"],
-  // Mamo is the UAE-only wallet/card processor; only AED.
-  mamo: ["AED"],
-  // Manual cash flows operate in USD locally.
-  whish: ["USD"],
-  western: ["USD"],
-};
-
-export function isPayMethodSupported(method: PayMethodId, currency: string): boolean {
-  const allowed = PAY_METHOD_CURRENCIES[method];
-  return allowed === "all" || allowed.includes(currency);
-}
-
-export function defaultPayMethodFor(currency: string): PayMethodId {
-  if (isPayMethodSupported("card", currency)) return "card";
-  if (isPayMethodSupported("mamo", currency)) return "mamo";
-  if (isPayMethodSupported("paypal", currency)) return "paypal";
-  return "card";
-}
 
 type District = { name: string; fee: number };
 const DISTRICTS: District[] = [
@@ -226,10 +209,10 @@ export default function CheckoutScreen() {
   // Reset the selected method only when the active currency makes it
   // unusable. Otherwise we preserve the customer's explicit choice so
   // a USD shopper who picked PayPal isn't silently forced onto card.
+  // (See `nextPayMethodForCurrency` for the unit-tested rule.)
   useEffect(() => {
-    if (!isPayMethodSupported(payMethod, currencyCode)) {
-      setPayMethod(defaultPayMethodFor(currencyCode));
-    }
+    const next = nextPayMethodForCurrency(payMethod, currencyCode);
+    if (next !== payMethod) setPayMethod(next);
   }, [currencyCode, payMethod]);
 
   const [paying, setPaying] = useState(false);
@@ -343,26 +326,16 @@ export default function CheckoutScreen() {
     orderId: string,
     paymentRef?: string,
   ): Promise<boolean> => {
-    const ATTEMPT_TIMEOUT_MS = 15_000;
-    const attemptOnce = async (): Promise<boolean> => {
-      try {
-        const timeout = new Promise<boolean>((resolve) =>
-          setTimeout(() => resolve(false), ATTEMPT_TIMEOUT_MS),
-        );
-        const request = createWooOrder(
+    const result = await submitWooOrderWithRetry({
+      createWooOrder: () =>
+        createWooOrder(
           { ...buildWooPayload(orderId), paymentRef },
           { authToken },
-        ).then((r) => !!r?.ok);
-        return await Promise.race([request, timeout]);
-      } catch (err) {
-        console.warn("[checkout] Woo order creation threw", { orderId, err });
-        return false;
-      }
-    };
-    const first = await attemptOnce();
-    if (first) return true;
-    console.warn("[checkout] Woo order creation failed; retrying once", { orderId });
-    return await attemptOnce();
+        ),
+      warn: (msg, meta) =>
+        console.warn(`[checkout] ${msg}`, { orderId, ...(meta ?? {}) }),
+    });
+    return result.ok;
   };
 
   const placeOrder = async () => {
