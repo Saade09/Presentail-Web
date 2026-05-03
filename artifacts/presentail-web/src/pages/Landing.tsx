@@ -15,7 +15,7 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
 ];
 
 export default function Landing() {
-  const { t, countryName } = useLocale();
+  const { t, countryName, language } = useLocale();
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
 
   const rows = useMemo(() => {

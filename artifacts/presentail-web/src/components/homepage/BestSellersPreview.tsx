@@ -5,8 +5,8 @@ import { useCategoryProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function BestSellersPreview() {
-  const { data, isLoading } = useCategoryProducts("hand-bouquets");
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { data, isLoading } = useCategoryProducts("hand-bouquets", { lang: language });
   const products = data?.products.slice(0, 4) ?? [];
 
   return (

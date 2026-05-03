@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export default function Brands() {
-  const { data, isLoading } = useBrands();
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { data, isLoading } = useBrands({ lang: language });
   
   return (
     <div className="min-h-screen pt-32 pb-24 bg-background">

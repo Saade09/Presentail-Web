@@ -5,8 +5,8 @@ import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function BrandSpotlight() {
-  const { t } = useLocale();
-  const { data, isLoading } = useBrands();
+  const { t, language } = useLocale();
+  const { data, isLoading } = useBrands({ lang: language });
   const brands = (data?.brands ?? []).slice(0, 6);
 
   return (

@@ -56,15 +56,15 @@ function categoryLabel(slug: string): string {
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
   const slug = params?.slug;
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const { toast } = useToast();
   const { addItem } = useCart();
   const delivery = useDeliveryConfig();
 
-  const { data: allData, isLoading } = useProducts();
+  const { data: allData, isLoading } = useProducts({ lang: language });
   const product = allData?.products?.find((p) => p.id === slug);
 
-  const { data: categoryData } = useCategoryProducts(product?.category || "");
+  const { data: categoryData } = useCategoryProducts(product?.category || "", { lang: language });
   const similar = (categoryData?.products ?? [])
     .filter((p) => p.id !== slug)
     .slice(0, 4);

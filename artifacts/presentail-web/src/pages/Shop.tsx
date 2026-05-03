@@ -29,17 +29,18 @@ const OCCASIONS = [
 export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
-  const { t } = useLocale();
+  const { t, language } = useLocale();
 
   const category = searchParams.get("category") || "";
   const occasion = searchParams.get("occasion") || "";
 
   const { countryCode, country, openPicker } = useLocationSelection();
-  const countryParams = countryCode ? { countryCode } : {};
+  const queryParams: { countryCode?: string; lang?: string } = { lang: language };
+  if (countryCode) queryParams.countryCode = countryCode;
 
-  const allProducts = useProducts(countryParams, !category && !occasion);
-  const categoryProducts = useCategoryProducts(category, countryParams);
-  const occasionProducts = useOccasionProducts(occasion, countryParams);
+  const allProducts = useProducts(queryParams, !category && !occasion);
+  const categoryProducts = useCategoryProducts(category, queryParams);
+  const occasionProducts = useOccasionProducts(occasion, queryParams);
 
   const isLoading = category
     ? categoryProducts.isLoading

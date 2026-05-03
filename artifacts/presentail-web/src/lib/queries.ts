@@ -23,13 +23,16 @@ export type DeliveryLocationsResponse = {
   countries: { id: string; name: string; code: string; flag: string; cities: { id: string; name: string }[] }[] 
 };
 
+type LocalizedParams = { countryCode?: string; lang?: string };
+
 // Query Hooks
 export const useProducts = (
-  params: { countryCode?: string } = {},
+  params: LocalizedParams = {},
   enabled: boolean = true,
 ) => {
   const q = new URLSearchParams();
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.lang) q.set("lang", params.lang);
   const qs = q.toString();
 
   return useQuery({
@@ -41,11 +44,12 @@ export const useProducts = (
 
 export const useCategoryProducts = (
   slug: string,
-  params: { countryCode?: string } = {},
+  params: LocalizedParams = {},
 ) => {
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["category", slug, params],
     queryFn: () => apiFetch<CategoryProductsResponse>(`/woo/category-products?${q.toString()}`),
@@ -55,11 +59,12 @@ export const useCategoryProducts = (
 
 export const useOccasionProducts = (
   slug: string,
-  params: { countryCode?: string } = {},
+  params: LocalizedParams = {},
 ) => {
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["occasion", slug, params],
     queryFn: () => apiFetch<OccasionProductsResponse>(`/woo/occasion-products?${q.toString()}`),
@@ -81,10 +86,13 @@ export const useFxRates = () => {
   });
 };
 
-export const useBrands = () => {
+export const useBrands = (params: { lang?: string } = {}) => {
+  const q = new URLSearchParams();
+  if (params.lang) q.set("lang", params.lang);
+  const qs = q.toString();
   return useQuery({
-    queryKey: ["brands"],
-    queryFn: () => apiFetch<{ ok: boolean; brands: { id: number; name: string; slug: string; count: number; image: string | null }[] }>("/woo/brands")
+    queryKey: ["brands", params],
+    queryFn: () => apiFetch<{ ok: boolean; brands: { id: number; name: string; slug: string; count: number; image: string | null }[] }>(`/woo/brands${qs ? `?${qs}` : ""}`)
   });
 };
 
@@ -228,11 +236,12 @@ export const usePaypalPayment = () => {
 
 export const useBrandProducts = (
   slug: string,
-  params: { countryCode?: string } = {},
+  params: LocalizedParams = {},
 ) => {
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["brand-products", slug, params],
     queryFn: () => apiFetch<{ ok: boolean; products: Product[]; count?: number; brandName?: string }>(`/woo/brand-products?${q.toString()}`),

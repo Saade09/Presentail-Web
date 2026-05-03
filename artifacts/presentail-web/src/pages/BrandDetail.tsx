@@ -10,16 +10,15 @@ import { useLocale } from "@/contexts/LocaleContext";
 export default function BrandDetail() {
   const [, params] = useRoute("/brand/:slug");
   const slug = params?.slug;
-  const { t, dir } = useLocale();
+  const { t, dir, language } = useLocale();
 
-  const { data: brandsData } = useBrands();
+  const { data: brandsData } = useBrands({ lang: language });
   const brand = brandsData?.brands.find(b => b.slug === slug);
 
   const { countryCode, country, openPicker } = useLocationSelection();
-  const { data, isLoading } = useBrandProducts(
-    slug ?? "",
-    countryCode ? { countryCode } : {},
-  );
+  const brandQueryParams: { countryCode?: string; lang?: string } = { lang: language };
+  if (countryCode) brandQueryParams.countryCode = countryCode;
+  const { data, isLoading } = useBrandProducts(slug ?? "", brandQueryParams);
 
   const brandName = brand?.name || slug || "";
 

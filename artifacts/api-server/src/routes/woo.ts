@@ -65,14 +65,33 @@ type WcCategory = {
 
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
 
+const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
+type Lang = (typeof SUPPORTED_LANGS)[number];
+
+function readLang(req: { query: any }): Lang {
+  const raw = typeof req.query?.lang === "string" ? req.query.lang.toLowerCase() : "";
+  return (SUPPORTED_LANGS as readonly string[]).includes(raw) ? (raw as Lang) : "en";
+}
+
 function wooAuth() {
   const key = process.env.WC_CONSUMER_KEY ?? "";
   const secret = process.env.WC_CONSUMER_SECRET ?? "";
   return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
 }
 
-async function wooFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WC_BASE}${path}`, {
+// Append a `lang` query param to a Woo REST path. This is the convention used
+// by WPML and Polylang to request translated content. If the WooCommerce site
+// does not have a multilingual plugin installed, the parameter is harmlessly
+// ignored and the response is the default-language (English) content — which
+// is the desired English fallback behaviour.
+function withLang(path: string, lang: Lang): string {
+  if (lang === "en") return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}lang=${lang}`;
+}
+
+async function wooFetch(path: string, options: RequestInit = {}, lang: Lang = "en") {
+  return fetch(`${WC_BASE}${withLang(path, lang)}`, {
     ...options,
     headers: {
       Authorization: wooAuth(),
@@ -82,6 +101,37 @@ async function wooFetch(path: string, options: RequestInit = {}) {
       ...(options.headers ?? {}),
     },
   });
+}
+
+// Translation tables for content that is hardcoded server-side (group labels,
+// fallbacks). Product/brand/category names returned by WooCommerce are
+// translated upstream by the multilingual plugin via the `lang` query param;
+// when a translation is missing, we fall back to the English string.
+const OCCASION_GROUP_LABELS: Record<string, Record<Lang, string>> = {
+  flowers: { en: "Flowers & Bouquets", ar: "الأزهار والباقات", fr: "Fleurs et bouquets" },
+  "hand-bouquets": { en: "Hand Bouquets", ar: "الباقات اليدوية", fr: "Bouquets à la main" },
+  "flower-boxes": { en: "Flower Boxes", ar: "صناديق الأزهار", fr: "Boîtes de fleurs" },
+  "flower-vases": { en: "Flower Vases", ar: "مزهريات الأزهار", fr: "Vases à fleurs" },
+  "lux-arrangements": { en: "Lux Arrangements", ar: "تنسيقات فاخرة", fr: "Compositions de luxe" },
+  "dried-flowers": { en: "Dried Flowers", ar: "أزهار مجففة", fr: "Fleurs séchées" },
+  "preserved-flowers": { en: "Preserved Flowers", ar: "أزهار محفوظة", fr: "Fleurs préservées" },
+  chocolate: { en: "Chocolates", ar: "الشوكولاتة", fr: "Chocolats" },
+  cakes: { en: "Cakes & Sweets", ar: "الكعك والحلويات", fr: "Gâteaux et douceurs" },
+  "arabic-sweets": { en: "Arabic Sweets", ar: "حلويات عربية", fr: "Pâtisseries orientales" },
+  balloons: { en: "Balloons", ar: "البالونات", fr: "Ballons" },
+  electronics: { en: "Electronics & Tech", ar: "إلكترونيات وتقنية", fr: "Électronique et tech" },
+  "stuffed-animals": { en: "Stuffed Animals", ar: "الدمى المحشوة", fr: "Peluches" },
+  "board-games": { en: "Board Games", ar: "ألعاب الطاولة", fr: "Jeux de société" },
+  plants: { en: "Plants", ar: "النباتات", fr: "Plantes" },
+  baskets: { en: "Baskets", ar: "السلال", fr: "Paniers" },
+  beauty: { en: "Beauty", ar: "الجمال", fr: "Beauté" },
+  bundles: { en: "Gift Bundles", ar: "حزم الهدايا", fr: "Coffrets cadeaux" },
+};
+
+function translateOccasionLabel(slug: string, fallback: string, lang: Lang): string {
+  const entry = OCCASION_GROUP_LABELS[slug];
+  if (!entry) return fallback;
+  return entry[lang] ?? entry.en ?? fallback;
 }
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -183,12 +233,13 @@ function transformProduct(p: WcProduct) {
   };
 }
 
-router.get("/woo/brands", async (_req, res) => {
+router.get("/woo/brands", async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
-    const r = await wooFetch("/products/brands?per_page=100");
+    const lang = readLang(req);
+    const r = await wooFetch("/products/brands?per_page=100", {}, lang);
     if (!r.ok) {
       const err = (await r.json()) as WcErrorResponse;
       return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
@@ -215,9 +266,14 @@ router.get("/woo/brand-products", async (req, res) => {
   }
   const brandSlug = String(req.query.slug ?? "");
   if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  const lang = readLang(req);
 
   try {
-    const brandRes = await wooFetch(`/products/brands?slug=${encodeURIComponent(brandSlug)}&per_page=5`);
+    const brandRes = await wooFetch(
+      `/products/brands?slug=${encodeURIComponent(brandSlug)}&per_page=5`,
+      {},
+      lang,
+    );
     if (!brandRes.ok) {
       return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
     }
@@ -226,9 +282,12 @@ router.get("/woo/brand-products", async (req, res) => {
       return res.json({ ok: true, products: [], count: 0 });
     }
     const brandId = brandList[0].id;
+    const brandName = brandList[0].name;
 
     const r = await wooFetch(
-      `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`
+      `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`,
+      {},
+      lang,
     );
     if (!r.ok) {
       return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
@@ -236,7 +295,7 @@ router.get("/woo/brand-products", async (req, res) => {
     const batch = (await r.json()) as WcProduct[];
     const filter = readDeliveryFilter(req);
     const products = batch.filter((p) => isDeliverable(p, filter)).map(transformProduct);
-    return res.json({ ok: true, products, count: products.length });
+    return res.json({ ok: true, products, count: products.length, brandName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
   }
@@ -292,8 +351,13 @@ router.get("/woo/category-products", async (req, res) => {
   }
   const slug = String(req.query.slug ?? "");
   if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  const lang = readLang(req);
   try {
-    const catRes = await wooFetch(`/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`);
+    const catRes = await wooFetch(
+      `/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`,
+      {},
+      lang,
+    );
     if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
     const catList = (await catRes.json()) as WcCategory[];
     if (!catList.length) return res.json({ ok: true, products: [], count: 0 });
@@ -303,7 +367,11 @@ router.get("/woo/category-products", async (req, res) => {
     const allProducts: WcProduct[] = [];
     let page = 1;
     while (allProducts.length < 200) {
-      const r = await wooFetch(`/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
+      const r = await wooFetch(
+        `/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`,
+        {},
+        lang,
+      );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
@@ -328,12 +396,17 @@ router.get("/woo/occasion-products", async (req, res) => {
   if (!categoryId) {
     return res.json({ ok: true, groups: [] });
   }
+  const lang = readLang(req);
 
   try {
     const allProducts: WcProduct[] = [];
     let page = 1;
     while (allProducts.length < 200) {
-      const r = await wooFetch(`/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
+      const r = await wooFetch(
+        `/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`,
+        {},
+        lang,
+      );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
@@ -355,7 +428,8 @@ router.get("/woo/occasion-products", async (req, res) => {
         const slugs = (p.categories ?? []).map((c) => c.slug);
         if (slugs.includes(typecat.slug)) {
           if (!groups.has(typecat.slug)) {
-            groups.set(typecat.slug, { label: typecat.label, products: [] });
+            const label = translateOccasionLabel(typecat.slug, typecat.label, lang);
+            groups.set(typecat.slug, { label, products: [] });
           }
           groups.get(typecat.slug)!.products.push(transformProduct(p));
           assigned.add(p.id);
@@ -377,20 +451,26 @@ router.get("/woo/occasion-products", async (req, res) => {
 });
 
 const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
-let allProductsCache: { fetchedAt: number; products: WcProduct[] } | null = null;
-let allProductsInflight: Promise<WcProduct[]> | null = null;
+const allProductsCache: Map<Lang, { fetchedAt: number; products: WcProduct[] }> = new Map();
+const allProductsInflight: Map<Lang, Promise<WcProduct[]>> = new Map();
 
-async function fetchAllProducts(): Promise<WcProduct[]> {
+async function fetchAllProducts(lang: Lang): Promise<WcProduct[]> {
   const now = Date.now();
-  if (allProductsCache && now - allProductsCache.fetchedAt < ALL_PRODUCTS_TTL_MS) {
-    return allProductsCache.products;
+  const cached = allProductsCache.get(lang);
+  if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) {
+    return cached.products;
   }
-  if (allProductsInflight) return allProductsInflight;
-  allProductsInflight = (async () => {
+  const existing = allProductsInflight.get(lang);
+  if (existing) return existing;
+  const promise = (async () => {
     const collected: WcProduct[] = [];
     let page = 1;
     while (true) {
-      const r = await wooFetch(`/products?per_page=100&page=${page}&status=publish&stock_status=instock`);
+      const r = await wooFetch(
+        `/products?per_page=100&page=${page}&status=publish&stock_status=instock`,
+        {},
+        lang,
+      );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
@@ -398,12 +478,13 @@ async function fetchAllProducts(): Promise<WcProduct[]> {
       if (batch.length < 100) break;
       page++;
     }
-    allProductsCache = { fetchedAt: Date.now(), products: collected };
+    allProductsCache.set(lang, { fetchedAt: Date.now(), products: collected });
     return collected;
   })().finally(() => {
-    allProductsInflight = null;
+    allProductsInflight.delete(lang);
   });
-  return allProductsInflight;
+  allProductsInflight.set(lang, promise);
+  return promise;
 }
 
 router.get("/woo/products", async (req, res) => {
@@ -411,7 +492,8 @@ router.get("/woo/products", async (req, res) => {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
-    const allProducts = await fetchAllProducts();
+    const lang = readLang(req);
+    const allProducts = await fetchAllProducts(lang);
     const filter = readDeliveryFilter(req);
     const products = allProducts.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
