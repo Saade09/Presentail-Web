@@ -78,12 +78,6 @@ function HomeHeader({
         justifyContent: "space-between",
       }}
     >
-      <View style={{ width: 28, alignItems: "flex-start" }}>
-        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog")}>
-          <Feather name="search" size={20} color={colors.primary} />
-        </Pressable>
-      </View>
-
       <Wordmark size={26} />
 
       <Pressable
@@ -138,7 +132,9 @@ function HomeHeader({
       </Pressable>
 
       <View style={{ width: 28, alignItems: "flex-end" }}>
-        <View />
+        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog")}>
+          <Feather name="search" size={20} color={colors.primary} />
+        </Pressable>
       </View>
     </View>
   );
