@@ -255,7 +255,7 @@ const STRINGS: Dict = {
   "auth.toast.error": { en: "Error", ar: "خطأ" },
 
   // Brands
-  "brands.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
+  "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
   "brands.desc": { en: "Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium electronics.", ar: "اكتشف مجموعتنا المنتقاة من علامات الهدايا الفاخرة، من صنّاع الشوكولاتة الحرفيين إلى الإلكترونيات المميزة." },
   "brands.products": { en: "products", ar: "منتجات" },
   "brand.backToBrands": { en: "Back to Brands", ar: "العودة إلى العلامات" },

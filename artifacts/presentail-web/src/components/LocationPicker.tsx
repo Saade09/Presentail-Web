@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocationSelection, type DeliveryCountry } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useI18n } from "@/contexts/I18nContext";
 
 type Props = {
   onComplete?: () => void;
@@ -11,6 +12,7 @@ type Props = {
 export function LocationPicker({ onComplete, initialCountryCode = null }: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
   const { t, language, setLanguage } = useLocale();
+  const { countryName, cityName } = useI18n();
   const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(() => {
     if (!initialCountryCode) return null;
     return countries.find((c) => c.code === initialCountryCode) ?? null;
@@ -107,7 +109,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
             >
               <div className="flex items-center gap-4">
                 <span className="text-2xl leading-none">{country.flag}</span>
-                <span className="text-base font-medium">{country.name}</span>
+                <span className="text-base font-medium">{countryName(country.code, country.name)}</span>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
@@ -121,7 +123,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
               className="w-full flex items-center justify-between bg-background border hover:border-primary/40 hover:bg-secondary/30 transition-colors rounded-xl px-5 py-4 text-left"
               data-testid={`button-city-${city.id}`}
             >
-              <span className="text-base font-medium">{city.name}</span>
+              <span className="text-base font-medium">{cityName(city.id, city.name)}</span>
               <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
           ))

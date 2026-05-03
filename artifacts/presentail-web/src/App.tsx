@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LocaleProvider } from "@/contexts/LocaleContext";
 import { LocationProvider } from "@/contexts/LocationContext";
+import { I18nProvider } from "@/contexts/I18nContext";
 
 import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
@@ -62,18 +63,20 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LocaleProvider>
-          <AuthProvider>
-            <CartProvider>
-              <LocationProvider>
-                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                  <Router />
-                </WouterRouter>
-                <Toaster />
-              </LocationProvider>
-            </CartProvider>
-          </AuthProvider>
-        </LocaleProvider>
+        <I18nProvider>
+          <LocaleProvider>
+            <AuthProvider>
+              <CartProvider>
+                <LocationProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                    <Router />
+                  </WouterRouter>
+                  <Toaster />
+                </LocationProvider>
+              </CartProvider>
+            </AuthProvider>
+          </LocaleProvider>
+        </I18nProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

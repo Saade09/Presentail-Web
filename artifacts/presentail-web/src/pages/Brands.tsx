@@ -11,7 +11,7 @@ export default function Brands() {
   return (
     <div className="min-h-screen pt-32 pb-24 bg-background">
       <div className="container mx-auto px-4">
-        <h1 className="text-4xl md:text-5xl font-serif mb-4">{t("brands.title")}</h1>
+        <h1 className="text-4xl md:text-5xl font-serif mb-4">{t("brandsPage.title")}</h1>
         <p className="text-muted-foreground text-lg max-w-xl mb-12">
           {t("brands.desc")}
         </p>
