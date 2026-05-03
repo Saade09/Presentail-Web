@@ -268,6 +268,15 @@ const STRINGS: Dict = {
   "auth.forgotResend": { en: "Resend email", ar: "إعادة إرسال البريد" },
   "auth.forgotBackToSignIn": { en: "Back to sign in", ar: "العودة إلى تسجيل الدخول" },
   "auth.forgotFailed": { en: "Couldn't send reset email. Please try again.", ar: "تعذّر إرسال بريد إعادة التعيين. يرجى المحاولة مرة أخرى." },
+  "auth.cardHeading": { en: "Login or Create Account", ar: "تسجيل الدخول أو إنشاء حساب" },
+  "auth.cardSubheading": { en: "Sign in with your email address", ar: "سجّل الدخول باستخدام بريدك الإلكتروني" },
+  "auth.emailLabel": { en: "Email Address", ar: "البريد الإلكتروني" },
+  "auth.emailPlaceholder": { en: "Enter your email address", ar: "أدخل بريدك الإلكتروني" },
+  "auth.or": { en: "Or", ar: "أو" },
+  "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
+  "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
+  "auth.providerSoonTitle": { en: "Coming soon", ar: "قريباً" },
+  "auth.providerSoonDesc": { en: "{provider} sign-in isn't available yet. Please continue with your email.", ar: "تسجيل الدخول عبر {provider} غير متاح بعد. يرجى المتابعة باستخدام بريدك الإلكتروني." },
 
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
