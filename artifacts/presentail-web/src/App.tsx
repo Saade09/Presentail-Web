@@ -4,9 +4,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { LocaleProvider } from "@/contexts/LocaleContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 
-import { Navbar } from "@/components/Navbar";
+import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 
@@ -35,7 +36,7 @@ function Router() {
   return (
     <LocationPickerGate>
       <div className="min-h-screen flex flex-col">
-        <Navbar />
+        <HomepageHeader />
         <main className="flex-1">
           <Switch>
             <Route path="/" component={Home} />
@@ -61,16 +62,18 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <CartProvider>
-            <LocationProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Router />
-              </WouterRouter>
-              <Toaster />
-            </LocationProvider>
-          </CartProvider>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <CartProvider>
+              <LocationProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <Router />
+                </WouterRouter>
+                <Toaster />
+              </LocationProvider>
+            </CartProvider>
+          </AuthProvider>
+        </LocaleProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
