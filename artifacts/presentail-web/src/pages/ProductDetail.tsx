@@ -1,56 +1,137 @@
-import { useRoute, Link } from "wouter";
-import { useProducts, useCategoryProducts } from "@/lib/queries";
-import { useCart } from "@/contexts/CartContext";
+import { useMemo, useState } from "react";
+import { Link, useRoute } from "wouter";
+import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState } from "react";
-import { Minus, Plus, ShoppingBag, ArrowLeft, ShieldCheck, Truck } from "lucide-react";
-import { ProductCard } from "@/components/ProductCard";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useProducts, useCategoryProducts } from "@/lib/queries";
+import { ProductCard } from "@/components/ProductCard";
+import { ProductGallery } from "@/components/product/ProductGallery";
+import { ProductInfo } from "@/components/product/ProductInfo";
+import { DeliveryOptions, type DeliveryChoice } from "@/components/product/DeliveryOptions";
+import { ProductBenefits } from "@/components/product/ProductBenefits";
+import { PaymentMethods } from "@/components/product/PaymentMethods";
+import { ProductTabs } from "@/components/product/ProductTabs";
+import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { buildProductViewModel } from "@/components/product/productViewModel";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "hand-bouquets": "Hand Bouquets",
+  "flower-boxes": "Flower Boxes",
+  "flower-vases": "Flower Vases",
+  bundles: "Bundles",
+  "lux-arrangements": "Lux Arrangements",
+  "dried-flowers": "Dried Flowers",
+  "preserved-flowers": "Preserved Flowers",
+  plants: "Plants",
+  balloons: "Balloons",
+  "board-games": "Board Games",
+  cakes: "Cakes",
+  chocolate: "Chocolate",
+  "arabic-sweets": "Arabic Sweets",
+  electronics: "Electronics",
+  "stuffed-animals": "Stuffed Animals",
+};
+
+function categoryLabel(slug: string): string {
+  return (
+    CATEGORY_LABELS[slug] ??
+    slug
+      .split("-")
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(" ")
+  );
+}
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
   const slug = params?.slug;
+  const { t } = useLocale();
   const { toast } = useToast();
-  const { t, dir } = useLocale();
-  
-  const { data: allData, isLoading } = useProducts();
-  const product = allData?.products?.find(p => p.id === slug);
-  
-  // Get similar products
-  const { data: categoryData } = useCategoryProducts(product?.category || "bundles");
-  const similar = categoryData?.products?.filter(p => p.id !== slug).slice(0, 4) || [];
-
-  const [qty, setQty] = useState(1);
   const { addItem } = useCart();
+  const delivery = useDeliveryConfig();
+
+  const { data: allData, isLoading } = useProducts();
+  const product = allData?.products?.find((p) => p.id === slug);
+
+  const { data: categoryData } = useCategoryProducts(product?.category || "");
+  const similar = (categoryData?.products ?? [])
+    .filter((p) => p.id !== slug)
+    .slice(0, 4);
+
+  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>("express");
+  const [qty, setQty] = useState(1);
+  const vm = useMemo(
+    () => (product ? buildProductViewModel(product) : null),
+    [product],
+  );
 
   const handleAdd = () => {
-    if (product) {
-      addItem(product, qty);
-      toast({
-        title: t("product.toast.addedTitle"),
-        description: t("product.toast.addedDescQty", { qty, name: product.name }),
-      });
+    if (!product) return;
+    addItem(product, qty);
+    toast({
+      title: t("product.toast.addedTitle"),
+      description:
+        qty > 1
+          ? t("product.toast.addedDescQty", { qty, name: product.name })
+          : t("product.toast.addedDesc", { name: product.name }),
+    });
+  };
+
+  const handleShare = async () => {
+    if (typeof window === "undefined" || !product) return;
+    const url = window.location.href;
+    try {
+      if (typeof navigator !== "undefined" && (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }).share) {
+        await (navigator as Navigator & { share: (data: ShareData) => Promise<void> }).share({
+          title: product.name,
+          url,
+        });
+        return;
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Product link copied to clipboard." });
+      }
+    } catch {
+      // user cancelled — no-op
+    }
+  };
+
+  const handleExpand = (uri: string) => {
+    if (uri && typeof window !== "undefined") {
+      window.open(uri, "_blank", "noopener,noreferrer");
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 pt-32 pb-24">
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-24">
-          <Skeleton className="aspect-square md:aspect-[4/5] rounded-3xl" />
-          <div className="space-y-8 pt-8">
+      <div className="container mx-auto px-4 pt-12 pb-24">
+        <Skeleton className="h-4 w-64 mb-8" />
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
+          <Skeleton className="aspect-square rounded-3xl" />
+          <div className="space-y-6">
             <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-8 w-1/4" />
-            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         </div>
       </div>
     );
   }
 
-  if (!product) {
+  if (!product || !vm) {
     return (
       <div className="container mx-auto px-4 pt-32 pb-24 text-center">
         <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>
@@ -61,82 +142,112 @@ export default function ProductDetail() {
     );
   }
 
+  const catLabel = categoryLabel(product.category);
+  const catHref = `/shop?category=${product.category}`;
+
   return (
-    <div className="min-h-screen pt-24 pb-24 bg-background">
-      <div className="container mx-auto px-4">
-        <Link href="/shop" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-          <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("product.backToShop")}
-        </Link>
+    <div className="bg-background min-h-screen">
+      <div className="container mx-auto px-4 pt-8 pb-20">
+        <Breadcrumb className="mb-6" data-testid="product-breadcrumb">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Home</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={catHref}>{catLabel}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{product.name}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-24 mb-24">
-          {/* Images */}
-          <div className="bg-secondary/30 rounded-3xl overflow-hidden aspect-square md:aspect-[4/5] relative">
-            {product.image?.uri ? (
-              <img src={product.image.uri} alt={product.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground font-serif text-4xl">
-                Presentail
-              </div>
-            )}
-            {product.tag && (
-              <div className="absolute top-6 left-6 bg-background/90 backdrop-blur text-sm font-medium px-4 py-1.5 rounded-full uppercase tracking-wider">
-                {product.tag}
-              </div>
-            )}
-          </div>
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
+          <ProductGallery
+            images={vm.galleryImages}
+            productName={product.name}
+            onShare={handleShare}
+            onExpand={handleExpand}
+          />
 
-          {/* Details */}
-          <div className="flex flex-col justify-center">
-            <h1 className="text-4xl md:text-5xl font-serif leading-tight mb-4">{product.name}</h1>
-            <p className="text-2xl font-medium text-primary mb-8">{product.price}</p>
-            
-            {product.description && (
-              <div className="prose prose-sm md:prose-base text-muted-foreground mb-10">
-                <p>{product.description}</p>
-              </div>
-            )}
+          <div className="flex flex-col gap-7">
+            <ProductInfo
+              name={product.name}
+              price={product.price}
+              taxLabel="TAX Inclusive"
+              rewardPoints={vm.rewardPoints}
+            />
 
-            <div className="space-y-6 mb-10 border-t border-b py-8">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium w-24">{t("product.quantity")}</span>
-                <div className="flex items-center border rounded-full overflow-hidden bg-background">
-                  <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-4 py-2 hover:bg-secondary transition-colors" disabled={qty <= 1}>
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="w-12 text-center font-medium">{qty}</span>
-                  <button onClick={() => setQty(qty + 1)} className="px-4 py-2 hover:bg-secondary transition-colors">
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
+            <DeliveryOptions
+              value={deliveryChoice}
+              onChange={setDeliveryChoice}
+              expressLabel={delivery.expressDeliveryTimeLabel}
+            />
+
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div
+                className="flex items-center border border-border rounded-xl overflow-hidden bg-card shrink-0"
+                data-testid="product-quantity"
+              >
+                <button
+                  type="button"
+                  onClick={() => setQty(Math.max(1, qty - 1))}
+                  disabled={qty <= 1}
+                  className="px-3 h-14 text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                  aria-label={t("cart.decreaseAria")}
+                  data-testid="button-quantity-decrease"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span
+                  className="w-10 text-center font-medium text-sm select-none"
+                  data-testid="text-quantity"
+                >
+                  {qty}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQty(qty + 1)}
+                  className="px-3 h-14 text-foreground hover:bg-secondary transition-colors"
+                  aria-label={t("cart.increaseAria")}
+                  data-testid="button-quantity-increase"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               </div>
+
+              <Button
+                size="lg"
+                className="flex-1 h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
+                onClick={handleAdd}
+                disabled={!vm.inStock}
+                data-testid="button-add-to-cart"
+              >
+                <ShoppingBag className="w-5 h-5 mr-2" />
+                {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
+              </Button>
             </div>
 
-            <Button 
-              size="lg" 
-              className="w-full h-14 text-base rounded-xl mb-8" 
-              onClick={handleAdd}
-              disabled={!product.inStock}
-            >
-              <ShoppingBag className="w-5 h-5 mr-2" />
-              {product.inStock ? t("product.addToCart") : t("product.outOfStock")}
-            </Button>
+            <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
 
-            <div className="grid grid-cols-2 gap-4 mt-auto">
-              <div className="flex items-center gap-3 p-4 bg-secondary/50 rounded-xl">
-                <Truck className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium">{t("product.sameDay")}</span>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-secondary/50 rounded-xl">
-                <ShieldCheck className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium">{t("product.secureCheckout")}</span>
-              </div>
-            </div>
+            <PaymentMethods />
           </div>
         </div>
 
-        {/* Similar Products */}
+        <ProductTabs
+          description={vm.description}
+          bouquetIncludes={vm.bouquetIncludes}
+          careTips={vm.careTips}
+        />
+
         {similar.length > 0 && (
-          <div className="pt-16 border-t">
+          <div className="pt-20 mt-20 border-t border-border">
             <h2 className="text-3xl font-serif mb-10">{t("product.youMayLike")}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {similar.map((p, i) => (

@@ -160,14 +160,19 @@ function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
 
 function transformProduct(p: WcProduct) {
   const price = parseFloat(p.price ?? "") || 0;
-  const image = p.images?.[0]?.src ?? null;
+  const imageList = (p.images ?? [])
+    .map((img) => img?.src)
+    .filter((src): src is string => typeof src === "string" && src.length > 0)
+    .map((src) => ({ uri: src }));
+  const image = imageList[0] ?? null;
   return {
     id: p.slug,
     wcId: p.id,
     name: p.name?.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'") ?? "",
     price: `$${price.toLocaleString()}`,
     priceValue: price,
-    image: image ? { uri: image } : null,
+    image,
+    images: imageList,
     category: mapCategory(p.categories ?? []),
     inStock: p.stock_status === "instock",
     description: p.short_description
