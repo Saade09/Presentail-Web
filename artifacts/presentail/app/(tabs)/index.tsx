@@ -58,83 +58,205 @@ function HomeHeader({
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL } = useLanguage();
-  const { selectedCity } = useDeliveryLocation();
+  const { isRTL, lang, setLang } = useLanguage();
+  const { selectedCountry } = useDeliveryLocation();
+  const { token: authToken } = useAuth();
 
-  const cityLabel = selectedCity?.name ?? t.deliverySelectCity;
-  const isLong = cityLabel.length > 12;
+  const countryName = selectedCountry?.name ?? "Lebanon";
+  const countryFlag = selectedCountry?.flag ?? "🇱🇧";
+  const utilityBg = "#f1f1f1";
+  const pillBg = "#e6e6e6";
+
+  const sideRowDir = isRTL ? "row-reverse" : "row";
+
+  const nextLang = lang === "EN" ? "AR" : lang === "AR" ? "FR" : "EN";
+  const toggleLanguage = () => {
+    setLang(nextLang);
+  };
+  const languagePillLabel =
+    nextLang === "AR" ? "عربية" : nextLang === "FR" ? "Français" : "English";
+
+  const goAccount = () => {
+    router.push(authToken ? "/(tabs)/account" : "/auth");
+  };
 
   return (
-    <View
-      style={{
-        backgroundColor: "#fff",
-        paddingTop: topPad,
-        paddingHorizontal: 18,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(0,0,0,0.07)",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <Wordmark size={26} />
-
-      <Pressable
-        hitSlop={6}
-        onPress={onOpenDelivery}
-        accessibilityLabel={t.deliveryChooseLocation}
-        style={({ pressed }) => ({
-          maxWidth: 130,
-          marginLeft: "auto",
-          marginRight: 14,
-          alignItems: isRTL ? "flex-start" : "flex-end",
-          opacity: pressed ? 0.65 : 1,
-        })}
+    <View style={{ backgroundColor: "#fff", paddingTop: topPad }}>
+      {/* Slim utility bar */}
+      <View
+        style={{
+          backgroundColor: utilityBg,
+          flexDirection: sideRowDir,
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          minHeight: 48,
+          gap: 8,
+        }}
       >
-        <Text
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 9,
-            letterSpacing: 1.4,
-            textTransform: "uppercase",
-            color: colors.mutedForeground,
-            textAlign: isRTL ? "left" : "right",
-          }}
-          numberOfLines={1}
-        >
-          {t.deliverTo}
-        </Text>
         <View
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: sideRowDir,
             alignItems: "center",
-            gap: 3,
-            marginTop: 1,
+            gap: 6,
+            flexShrink: 1,
           }}
         >
-          {isLong ? (
-            <Feather name="map-pin" size={11} color={colors.primary} />
-          ) : null}
+          <Feather name="map-pin" size={13} color={colors.primary} />
           <Text
             style={{
-              fontFamily: "Inter_600SemiBold",
-              fontSize: 13,
+              fontFamily: "Inter_500Medium",
+              fontSize: 12,
               color: colors.primary,
-              maxWidth: 100,
             }}
             numberOfLines={1}
           >
-            {cityLabel}
+            {t.noHassleDetails}
           </Text>
-          <Feather name="chevron-down" size={14} color={colors.primary} />
         </View>
-      </Pressable>
 
-      <View style={{ width: 28, alignItems: "flex-end" }}>
-        <Pressable hitSlop={10} onPress={() => router.push("/(tabs)/catalog")}>
-          <Feather name="search" size={20} color={colors.primary} />
-        </Pressable>
+        <View
+          style={{
+            flexDirection: sideRowDir,
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Pressable
+            hitSlop={6}
+            onPress={onOpenDelivery}
+            accessibilityLabel={t.deliveryChooseLocation}
+            style={({ pressed }) => ({
+              flexDirection: sideRowDir,
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: pillBg,
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 13 }}>{countryFlag}</Text>
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 12,
+                color: colors.primary,
+                maxWidth: 80,
+              }}
+              numberOfLines={1}
+            >
+              {countryName}
+            </Text>
+            <Feather name="chevron-down" size={13} color={colors.primary} />
+          </Pressable>
+
+          <Pressable
+            hitSlop={6}
+            onPress={toggleLanguage}
+            accessibilityLabel={t.languageLabel}
+            style={({ pressed }) => ({
+              backgroundColor: pillBg,
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 12,
+                color: colors.primary,
+              }}
+              numberOfLines={1}
+            >
+              {languagePillLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Main header row */}
+      <View
+        style={{
+          height: 96,
+          flexDirection: sideRowDir,
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 18,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: sideRowDir,
+            alignItems: "center",
+            gap: 18,
+            zIndex: 1,
+          }}
+        >
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              // Placeholder — a dedicated drawer menu will be wired in later.
+            }}
+            accessibilityLabel="Open menu"
+          >
+            <Feather name="menu" size={28} color={colors.primary} />
+          </Pressable>
+          <Pressable
+            hitSlop={10}
+            onPress={() => router.push("/(tabs)/catalog")}
+            accessibilityLabel="Search"
+          >
+            <Feather name="search" size={26} color={colors.primary} />
+          </Pressable>
+        </View>
+
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Wordmark size={28} />
+        </View>
+
+        <View
+          style={{
+            flexDirection: sideRowDir,
+            alignItems: "center",
+            gap: 18,
+            zIndex: 1,
+          }}
+        >
+          <Pressable
+            hitSlop={10}
+            onPress={goAccount}
+            accessibilityLabel="Account"
+          >
+            <Feather name="user" size={26} color={colors.primary} />
+          </Pressable>
+          <Pressable
+            hitSlop={10}
+            onPress={() => router.push("/(tabs)/cart")}
+            accessibilityLabel="Cart"
+          >
+            <MaterialCommunityIcons
+              name="shopping-outline"
+              size={28}
+              color={colors.primary}
+            />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -242,7 +364,7 @@ function Hero() {
   const { isRTL } = useLanguage();
   const ta = isRTL ? "right" : "left";
   return (
-    <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
+    <View style={{ paddingHorizontal: 24, marginTop: 0 }}>
       <Pressable
         onPress={() => router.push("/category/lux-arrangements")}
         style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
