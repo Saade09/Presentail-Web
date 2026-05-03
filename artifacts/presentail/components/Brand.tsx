@@ -23,12 +23,6 @@ export function Wordmark({ size = 28, color }: WordmarkProps) {
       >
         Presentail
       </Text>
-      <View
-        style={[
-          styles.dot,
-          { backgroundColor: colors.gold, width: size * 0.18, height: size * 0.18, borderRadius: size * 0.09 },
-        ]}
-      />
     </View>
   );
 }
