@@ -99,6 +99,50 @@ export const SendOrderEventPushResponse = zod.object({
 });
 
 /**
+ * Returns the active homepage hero banner carousel for the supplied
+country. Banners are filtered server-side by isActive, the optional
+startsAt/endsAt window (inclusive bounds against the current server
+time), and country code (entries with countryCode "*" match every
+country). Results are sorted by sortOrder ascending.
+
+ * @summary Get active homepage hero banners
+ */
+export const GetHomepageBannersQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'ISO 3166-1 alpha-2 country code (case-insensitive) used to filter\ncountry-targeted banners. Wildcard \"\*\" or omission returns only\nthe global (\"\*\") banners.\n',
+    ),
+});
+
+export const GetHomepageBannersResponse = zod.object({
+  banners: zod.array(
+    zod.object({
+      id: zod.string(),
+      countryCode: zod
+        .string()
+        .describe(
+          'ISO 3166-1 alpha-2 country code, or \"\*\" for global banners.',
+        ),
+      title: zod.string().optional(),
+      subtitle: zod.string().optional(),
+      ctaText: zod.string().optional(),
+      desktopMediaType: zod.enum(["image", "video"]),
+      desktopMediaUrl: zod.string(),
+      desktopLinkUrl: zod.string(),
+      mobileMediaType: zod.enum(["image", "video"]),
+      mobileMediaUrl: zod.string(),
+      mobileLinkUrl: zod.string(),
+      sortOrder: zod.number(),
+      isActive: zod.boolean(),
+      startsAt: zod.coerce.date().optional(),
+      endsAt: zod.coerce.date().optional(),
+    }),
+  ),
+});
+
+/**
  * Returns the canonical list of countries and cities Presentail can
 deliver to, including their isActive flags, currency, flag emoji
 and display ordering. Consumed by the mobile app on launch so

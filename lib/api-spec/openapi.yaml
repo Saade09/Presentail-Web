@@ -14,6 +14,8 @@ tags:
     description: Push notification operations
   - name: deliveryLocations
     description: Supported delivery countries and cities
+  - name: homepage
+    description: Homepage feed content (banners, etc.)
 paths:
   /healthz:
     get:
@@ -120,6 +122,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /homepage/banners:
+    get:
+      operationId: getHomepageBanners
+      tags: [homepage]
+      summary: Get active homepage hero banners
+      description: |
+        Returns the active homepage hero banner carousel for the supplied
+        country. Banners are filtered server-side by isActive, the optional
+        startsAt/endsAt window (inclusive bounds against the current server
+        time), and country code (entries with countryCode "*" match every
+        country). Results are sorted by sortOrder ascending.
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          description: |
+            ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
+            country-targeted banners. Wildcard "*" or omission returns only
+            the global ("*") banners.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active banners for the country
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageBannersResponse"
   /delivery-locations:
     get:
       operationId: getDeliveryLocations
@@ -276,6 +306,65 @@ components:
         - currency
         - isActive
         - cities
+    HomepageBannerMediaType:
+      type: string
+      enum: [image, video]
+    HomepageBanner:
+      type: object
+      properties:
+        id:
+          type: string
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code, or "*" for global banners.
+        title:
+          type: string
+        subtitle:
+          type: string
+        ctaText:
+          type: string
+        desktopMediaType:
+          $ref: "#/components/schemas/HomepageBannerMediaType"
+        desktopMediaUrl:
+          type: string
+        desktopLinkUrl:
+          type: string
+        mobileMediaType:
+          $ref: "#/components/schemas/HomepageBannerMediaType"
+        mobileMediaUrl:
+          type: string
+        mobileLinkUrl:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - countryCode
+        - desktopMediaType
+        - desktopMediaUrl
+        - desktopLinkUrl
+        - mobileMediaType
+        - mobileMediaUrl
+        - mobileLinkUrl
+        - sortOrder
+        - isActive
+    HomepageBannersResponse:
+      type: object
+      properties:
+        banners:
+          type: array
+          items:
+            $ref: "#/components/schemas/HomepageBanner"
+      required:
+        - banners
     DeliveryLocationsResponse:
       type: object
       properties:

@@ -91,6 +91,47 @@ export interface DeliveryCountry {
   cities: DeliveryCity[];
 }
 
+export type HomepageBannerMediaType =
+  (typeof HomepageBannerMediaType)[keyof typeof HomepageBannerMediaType];
+
+export const HomepageBannerMediaType = {
+  image: "image",
+  video: "video",
+} as const;
+
+export interface HomepageBanner {
+  id: string;
+  /** ISO 3166-1 alpha-2 country code, or "*" for global banners. */
+  countryCode: string;
+  title?: string;
+  subtitle?: string;
+  ctaText?: string;
+  desktopMediaType: HomepageBannerMediaType;
+  desktopMediaUrl: string;
+  desktopLinkUrl: string;
+  mobileMediaType: HomepageBannerMediaType;
+  mobileMediaUrl: string;
+  mobileLinkUrl: string;
+  sortOrder: number;
+  isActive: boolean;
+  startsAt?: string;
+  endsAt?: string;
+}
+
+export interface HomepageBannersResponse {
+  banners: HomepageBanner[];
+}
+
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
 }
+
+export type GetHomepageBannersParams = {
+  /**
+ * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
+country-targeted banners. Wildcard "*" or omission returns only
+the global ("*") banners.
+
+ */
+  countryCode?: string;
+};

@@ -7,6 +7,7 @@ import authRouter from "./auth";
 import pushRouter from "./push";
 import deliveryLocationsRouter from "./delivery-locations";
 import fxRouter from "./fx";
+import homepageRouter from "./homepage";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(authRouter);
 router.use(pushRouter);
 router.use(deliveryLocationsRouter);
 router.use(fxRouter);
+router.use(homepageRouter);
 
 export default router;

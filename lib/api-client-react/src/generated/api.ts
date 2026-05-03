@@ -19,7 +19,9 @@ import type {
 import type {
   DeliveryLocationsResponse,
   ErrorResponse,
+  GetHomepageBannersParams,
   HealthStatus,
+  HomepageBannersResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -384,6 +386,112 @@ export const useSendOrderEventPush = <
 > => {
   return useMutation(getSendOrderEventPushMutationOptions(options));
 };
+
+/**
+ * Returns the active homepage hero banner carousel for the supplied
+country. Banners are filtered server-side by isActive, the optional
+startsAt/endsAt window (inclusive bounds against the current server
+time), and country code (entries with countryCode "*" match every
+country). Results are sorted by sortOrder ascending.
+
+ * @summary Get active homepage hero banners
+ */
+export const getGetHomepageBannersUrl = (params?: GetHomepageBannersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/homepage/banners?${stringifiedParams}`
+    : `/api/homepage/banners`;
+};
+
+export const getHomepageBanners = async (
+  params?: GetHomepageBannersParams,
+  options?: RequestInit,
+): Promise<HomepageBannersResponse> => {
+  return customFetch<HomepageBannersResponse>(
+    getGetHomepageBannersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHomepageBannersQueryKey = (
+  params?: GetHomepageBannersParams,
+) => {
+  return [`/api/homepage/banners`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetHomepageBannersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomepageBanners>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetHomepageBannersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageBanners>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHomepageBannersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomepageBanners>>
+  > = ({ signal }) => getHomepageBanners(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageBanners>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomepageBannersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomepageBanners>>
+>;
+export type GetHomepageBannersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get active homepage hero banners
+ */
+
+export function useGetHomepageBanners<
+  TData = Awaited<ReturnType<typeof getHomepageBanners>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetHomepageBannersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageBanners>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageBannersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns the canonical list of countries and cities Presentail can
