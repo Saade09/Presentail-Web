@@ -13,18 +13,74 @@ const router: IRouter = Router();
 // this URL with a `deeplink` query, then 302-redirect to the app's custom
 // scheme. expo-web-browser's openAuthSessionAsync detects the deep link and
 // closes the in-app browser, returning control to the app.
+
+/** Escape a string for safe embedding in an HTML attribute or text node. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Allowlisted deep-link host+path combinations that the payment-return bridge
+ * is permitted to redirect to. Only the expected payment-return screen is
+ * accepted; every other destination is rejected.
+ */
+const ALLOWED_DEEPLINK_HOSTS = new Set(["payment-return"]);
+
+/**
+ * Build the strictly validated target deep link from the inbound query params.
+ * Returns null if the caller-supplied deeplink is not on the allowlist.
+ *
+ * Rather than reflecting the raw `deeplink` value, we extract only the host
+ * portion (the path segment after `presentail://`) and reconstruct the URL
+ * from scratch so no injected characters can survive into the output.
+ */
+function buildTarget(deeplink: string, status: string): string | null {
+  // Must start with exactly the expected scheme.
+  if (!deeplink.startsWith("presentail://")) return null;
+
+  // Extract and validate the host (everything between `presentail://` and the
+  // first `?` or end of string — no path segments, no injected characters).
+  const afterScheme = deeplink.slice("presentail://".length);
+  const host = afterScheme.split("?")[0];
+
+  if (!ALLOWED_DEEPLINK_HOSTS.has(host)) return null;
+
+  // Reconstruct the target entirely from known-safe components.
+  return `presentail://${host}?status=${encodeURIComponent(status)}`;
+}
+
 router.get("/payment/return", (req, res) => {
   const deeplink = String(req.query.deeplink ?? "");
-  const status = String(req.query.status ?? "success");
-  if (!deeplink || !/^[a-z][a-z0-9+.-]*:\/\//i.test(deeplink)) {
+  const rawStatus = String(req.query.status ?? "success");
+
+  const target = buildTarget(deeplink, rawStatus);
+  if (!target) {
     res.status(400).send("Invalid deep link");
     return;
   }
-  const sep = deeplink.includes("?") ? "&" : "?";
-  const target = `${deeplink}${sep}status=${encodeURIComponent(status)}`;
+
   res.setHeader("Cache-Control", "no-store");
-  // Use HTML meta-refresh + JS in case some browsers won't 302 to a custom scheme.
-  res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>Returning to Presentail…</title><meta http-equiv="refresh" content="0;url=${target}"><script>window.location.replace(${JSON.stringify(target)});</script></head><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#fff8ec;color:#00414e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;"><div><div style="font-size:18px;margin-bottom:8px">Returning to Presentail…</div><div style="font-size:13px;opacity:.7">If nothing happens, <a href="${target}">tap here</a>.</div></div></body></html>`);
+
+  // Primary: 302 redirect — the fastest and cleanest path for browsers and
+  // in-app WebViews that honour custom-scheme redirects.
+  // Fallback HTML is provided for environments that do not follow 302s to
+  // custom schemes (some older in-app browsers); all values are HTML-escaped.
+  const safeTarget = escapeHtml(target);
+  res.setHeader("Location", target);
+  res.status(302).send(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Returning to Presentail\u2026</title>` +
+    `<meta http-equiv="refresh" content="0;url=${safeTarget}">` +
+    `<script>window.location.replace(${JSON.stringify(target)});</script>` +
+    `</head><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#fff8ec;color:#00414e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;">` +
+    `<div><div style="font-size:18px;margin-bottom:8px">Returning to Presentail\u2026</div>` +
+    `<div style="font-size:13px;opacity:.7">If nothing happens, <a href="${safeTarget}">tap here</a>.</div></div>` +
+    `</body></html>`
+  );
 });
 
 // ── Mamo Payment Link ──────────────────────────────────────────────────────
