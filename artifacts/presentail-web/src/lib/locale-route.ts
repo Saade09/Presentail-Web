@@ -121,6 +121,34 @@ export function switchLanguage(fullUrl: string, newLang: Lang): string {
   return next + search + hash;
 }
 
+/**
+ * Build the list of language alternates for the given pathname. Returns one
+ * entry per supported language, all sharing the same country/city/rest. Useful
+ * for emitting hreflang link tags. Returns an empty array when the path has no
+ * locale prefix (e.g. the landing page).
+ */
+export function buildLanguageAlternates(
+  pathname: string,
+): Array<{ lang: Lang; path: string }> {
+  const parsed = parseLocalePath(pathname);
+  if (!parsed.hasLocalePrefix || !parsed.country) return [];
+  const country = parsed.country;
+  return SUPPORTED_LANGS.map((lang) => ({
+    lang,
+    path: buildLocalePath({
+      lang,
+      country,
+      city: parsed.city,
+      rest: parsed.rest,
+    }),
+  }));
+}
+
+/** BCP 47 hreflang code for a supported language + country slug. */
+export function hreflangCode(lang: Lang, country: CountrySlug): string {
+  return `${lang}-${country.toUpperCase()}`;
+}
+
 /** Convert a delivery API city id like "ae-dubai" to its URL slug "dubai". */
 export function cityIdToSlug(cityId: string): string {
   return cityId.replace(/^[a-z]{2}-/, "");

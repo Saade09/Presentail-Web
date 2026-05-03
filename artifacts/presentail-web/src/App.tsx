@@ -29,6 +29,7 @@ import {
 import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
+import { SeoHead } from "@/components/SeoHead";
 
 import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
@@ -201,6 +202,7 @@ function App() {
               <AuthProvider>
                 <CartProvider>
                   <DocumentMeta />
+                  <SeoHead />
                   <RootRouter />
                   <Toaster />
                 </CartProvider>

@@ -18,13 +18,15 @@ localPort = 24188
 run = "pnpm --filter @workspace/presentail-web run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/presentail-web", "run", "build" ]
-publicDir = "artifacts/presentail-web/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.build]
+args = [ "pnpm", "--filter", "@workspace/presentail-web", "run", "build" ]
+
+[services.production.run]
+args = [ "node", "artifacts/presentail-web/serve.mjs" ]
+
+[services.production.run.env]
+NODE_ENV = "production"
 
 [services.env]
 PORT = "24188"

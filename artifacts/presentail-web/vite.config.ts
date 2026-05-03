@@ -1,8 +1,34 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+// @ts-expect-error - plain ESM module (no types).
+import { injectSeoTags } from "./seo-inject.mjs";
+
+/**
+ * Inject locale-aware SEO tags (title, meta description, OG, hreflang,
+ * canonical) into the served index.html so they're present in the initial
+ * HTML for crawlers viewing source on /{lang}-{country}/{city}/... URLs.
+ */
+function seoInjectPlugin(basePath: string): Plugin {
+  return {
+    name: "presentail-seo-inject",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        // ctx.originalUrl is the full request URL including the base prefix.
+        const reqUrl = ctx.originalUrl ?? ctx.path ?? "/";
+        const cleanBase = basePath.replace(/\/$/, "");
+        let pathname = reqUrl.split("?")[0].split("#")[0];
+        if (cleanBase && pathname.startsWith(cleanBase)) {
+          pathname = pathname.slice(cleanBase.length) || "/";
+        }
+        return injectSeoTags(html, pathname, { basePath: cleanBase });
+      },
+    },
+  };
+}
 
 const rawPort = process.env.PORT;
 
@@ -32,6 +58,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    seoInjectPlugin(basePath),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
