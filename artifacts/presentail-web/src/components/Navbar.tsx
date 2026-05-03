@@ -42,9 +42,8 @@ export function Navbar() {
             <SheetContent side="left" className="w-[300px] sm:w-[400px]">
               <nav className="flex flex-col gap-4 mt-8">
                 <Link href="/shop" className="text-lg font-serif">Shop</Link>
-                <Link href="/shop?category=hand-bouquets" className="text-lg font-serif">Occasions</Link>
+                <Link href="/shop?occasion=birthday" className="text-lg font-serif">Occasions</Link>
                 <Link href="/brands" className="text-lg font-serif">Brands</Link>
-                <Link href="/about" className="text-lg font-serif">About</Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -55,9 +54,8 @@ export function Navbar() {
 
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">Shop</Link>
-            <Link href="/shop?category=hand-bouquets" className="text-sm font-medium hover:text-primary/80 transition-colors">Occasions</Link>
+            <Link href="/shop?occasion=birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">Occasions</Link>
             <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">Brands</Link>
-            <Link href="/about" className="text-sm font-medium hover:text-primary/80 transition-colors">About</Link>
           </nav>
         </div>
 
@@ -91,7 +89,7 @@ export function Navbar() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     exit={{ scale: 0 }}
-                    className="absolute 1 top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
+                    className="absolute top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
                   >
                     {itemCount}
                   </motion.span>

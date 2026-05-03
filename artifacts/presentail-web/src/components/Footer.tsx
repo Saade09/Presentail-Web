@@ -39,10 +39,14 @@ export function Footer() {
           <div>
             <h4 className="font-serif text-lg mb-6">Help</h4>
             <ul className="space-y-4 text-sm text-primary-foreground/80">
-              <li><a href="#" className="hover:text-gold transition-colors">Contact Us</a></li>
-              <li><a href="#" className="hover:text-gold transition-colors">Delivery Info</a></li>
-              <li><a href="#" className="hover:text-gold transition-colors">FAQ</a></li>
-              <li><a href="#" className="hover:text-gold transition-colors">Terms & Conditions</a></li>
+              <li>
+                <a href="mailto:hello@presentail.com" className="hover:text-gold transition-colors">
+                  Contact Us
+                </a>
+              </li>
+              <li className="text-primary-foreground/60">Delivery Info — coming soon</li>
+              <li className="text-primary-foreground/60">FAQ — coming soon</li>
+              <li className="text-primary-foreground/60">Terms & Conditions — coming soon</li>
             </ul>
           </div>
         </div>

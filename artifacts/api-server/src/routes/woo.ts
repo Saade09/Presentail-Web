@@ -375,22 +375,47 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 });
 
-router.get("/woo/products", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+// In-memory cache + in-flight de-duplication for the full product list.
+// The upstream WooCommerce REST API is slow (multi-page pagination of 100s
+// of products) and was timing out the storefront. Cache the raw list for
+// a short TTL and coalesce concurrent loads onto a single fetch so the
+// per-request work is just delivery filtering + transform.
+const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
+let allProductsCache: { fetchedAt: number; products: WcProduct[] } | null = null;
+let allProductsInflight: Promise<WcProduct[]> | null = null;
+
+async function fetchAllProducts(): Promise<WcProduct[]> {
+  const now = Date.now();
+  if (allProductsCache && now - allProductsCache.fetchedAt < ALL_PRODUCTS_TTL_MS) {
+    return allProductsCache.products;
   }
-  try {
-    const allProducts: WcProduct[] = [];
+  if (allProductsInflight) return allProductsInflight;
+  allProductsInflight = (async () => {
+    const collected: WcProduct[] = [];
     let page = 1;
     while (true) {
       const r = await wooFetch(`/products?per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
-      allProducts.push(...batch);
+      collected.push(...batch);
       if (batch.length < 100) break;
       page++;
     }
+    allProductsCache = { fetchedAt: Date.now(), products: collected };
+    return collected;
+  })().finally(() => {
+    allProductsInflight = null;
+  });
+  return allProductsInflight;
+}
+
+router.get("/woo/products", async (req, res) => {
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  try {
+    const allProducts = await fetchAllProducts();
     const filter = readDeliveryFilter(req);
     const products = allProducts.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });

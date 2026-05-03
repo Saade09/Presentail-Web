@@ -32,13 +32,27 @@ export default function Account() {
               <User className="w-5 h-5 text-primary" />
               <span className="font-medium">Profile Details</span>
             </div>
-            <div className="p-4 hover:bg-secondary/50 rounded-xl cursor-pointer transition-colors flex items-center gap-3">
+            <div
+              className="p-4 rounded-xl flex items-center gap-3 opacity-60"
+              aria-disabled="true"
+              title="Coming soon"
+            >
               <Package className="w-5 h-5 text-muted-foreground" />
               <span className="font-medium text-muted-foreground">Order History</span>
+              <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                Soon
+              </span>
             </div>
-            <div className="p-4 hover:bg-secondary/50 rounded-xl cursor-pointer transition-colors flex items-center gap-3">
+            <div
+              className="p-4 rounded-xl flex items-center gap-3 opacity-60"
+              aria-disabled="true"
+              title="Coming soon"
+            >
               <MapPin className="w-5 h-5 text-muted-foreground" />
               <span className="font-medium text-muted-foreground">Saved Addresses</span>
+              <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                Soon
+              </span>
             </div>
             <div 
               className="p-4 hover:bg-destructive/10 hover:text-destructive rounded-xl cursor-pointer transition-colors flex items-center gap-3 text-muted-foreground mt-8"
