@@ -2,7 +2,6 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useHomepageBanners } from "@/lib/banners";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
-import { CategoriesGrid } from "@/components/homepage/CategoriesGrid";
 import { ShopByOccasion } from "@/components/homepage/ShopByOccasion";
 import { TrustStrip } from "@/components/homepage/TrustStrip";
 import { BrandSpotlight } from "@/components/homepage/BrandSpotlight";
@@ -18,7 +17,6 @@ export default function Home() {
     <div className="min-h-screen" data-testid="page-country-homepage">
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} />
       <BestSellersPreview />
-      <CategoriesGrid />
       <ShopByOccasion />
       <TrustStrip />
       <BrandSpotlight />
