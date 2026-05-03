@@ -1,8 +1,24 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
+import { useLocation } from "wouter";
+import {
+  parseLocalePath,
+  switchLanguage,
+  isSupportedLang,
+  type Lang,
+} from "@/lib/locale-route";
 
-export type Language = "en" | "ar";
+export type Language = Lang;
 
-type Dict = Record<string, { en: string; ar: string }>;
+type Entry = { en: string; ar: string };
+type Dict = Record<string, Entry>;
 
 const STRINGS: Dict = {
   // Top utility / nav
@@ -25,6 +41,9 @@ const STRINGS: Dict = {
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
   "lang.toggle": { en: "العربية", ar: "English" },
+  "lang.label.en": { en: "English", ar: "English" },
+  "lang.label.ar": { en: "العربية", ar: "العربية" },
+  "lang.label.fr": { en: "Français", ar: "Français" },
 
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
   "categories.title": { en: "Shop by Category", ar: "تسوّق حسب الفئة" },
@@ -326,6 +345,308 @@ const STRINGS: Dict = {
   "notFound.desc": { en: "Did you forget to add the page to the router?", ar: "هل نسيت إضافة الصفحة إلى الموجّه؟" },
 };
 
+// French overlay. Keys not present here fall back to the English string from
+// STRINGS, so partial coverage is safe.
+const STRINGS_FR: Record<string, string> = {
+  "utility.deliverTo": "Livraison à",
+  "utility.help": "Besoin d'aide ? Nous livrons dans tout le Golfe.",
+  "nav.shop": "Boutique",
+  "nav.occasions": "Occasions",
+  "nav.flowersPlants": "Fleurs et plantes",
+  "nav.gifts": "Cadeaux",
+  "nav.brands": "Marques",
+  "nav.about": "À propos",
+  "nav.searchAria": "Rechercher",
+  "nav.accountAria": "Compte",
+  "nav.bagAria": "Panier",
+  "navbar.selectCity": "Choisir une ville",
+
+  "carousel.prev": "Diapositive précédente",
+  "carousel.next": "Diapositive suivante",
+  "bestSellers.title": "Meilleures ventes",
+  "bestSellers.viewAll": "Tout voir",
+  "lang.toggle": "English",
+
+  "categories.eyebrow": "Collections sélectionnées",
+  "categories.title": "Acheter par catégorie",
+  "categories.subtitle":
+    "Des bouquets signature aux gâteaux artisanaux — chaque cadeau, joliment présenté.",
+  "categories.bouquets": "Bouquets à la main",
+  "categories.boxes": "Boîtes de fleurs",
+  "categories.plants": "Plantes",
+  "categories.cakes": "Gâteaux",
+  "categories.chocolate": "Chocolat",
+  "categories.gifts": "Coffrets cadeaux",
+
+  "occasions.eyebrow": "Pour chaque moment",
+  "occasions.title": "Acheter par occasion",
+  "occasions.subtitle":
+    "Trouvez le geste parfait pour les jours les plus précieux de la vie.",
+  "occasions.birthday": "Anniversaire",
+  "occasions.romance": "Amour et romance",
+  "occasions.anniversary": "Anniversaire de mariage",
+  "occasions.congrats": "Félicitations",
+  "occasions.newBaby": "Nouveau bébé",
+  "occasions.thankYou": "Merci",
+  "occasions.sympathy": "Condoléances",
+  "occasions.justBecause": "Sans raison",
+
+  "brands.eyebrow": "Maisons partenaires",
+  "brands.title": "Marques que nous aimons",
+  "brands.subtitle":
+    "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",
+  "brands.viewAll": "Découvrir toutes les marques",
+
+  "trust.delivery.title": "Livraison le jour même",
+  "trust.delivery.desc": "Commandez avant 16h dans tout le Golfe.",
+  "trust.fresh.title": "Garantie fleuriste",
+  "trust.fresh.desc": "Composé chaque jour, fraîcheur garantie.",
+  "trust.payment.title": "Paiement sécurisé",
+  "trust.payment.desc": "Protégé par Stripe, Mamo et PayPal.",
+  "trust.care.title": "Service conciergerie",
+  "trust.care.desc": "Une équipe humaine, prête à aider 7j/7.",
+
+  "editorial.eyebrow": "L'Atelier",
+  "editorial.title": "Conçu à Beyrouth, livré dans tout le Golfe",
+  "editorial.body":
+    "Chaque composition Presentail commence dans notre atelier de Gemmayzeh — où fleurs de saison, rubans noués à la main et détails soignés se réunissent. Nous croyons qu'un cadeau doit être un événement, pas une corvée.",
+  "editorial.cta": "Notre histoire",
+  "editorial.feature1.title": "Approvisionnement saisonnier",
+  "editorial.feature1.desc": "Directement de producteurs néerlandais et libanais.",
+  "editorial.feature2.title": "Emballage signature",
+  "editorial.feature2.desc": "Nos boîtes en forme d'enveloppe sont faites pour durer.",
+  "editorial.badgeYears": "12+",
+  "editorial.badgeLabel": "années de savoir-faire",
+  "editorial.imageAlt": "Atelier Presentail",
+
+  "newsletter.eyebrow": "Restez en fleur",
+  "newsletter.title": "Rejoignez la liste Presentail",
+  "newsletter.subtitle":
+    "Accès anticipé aux collections saisonnières, événements privés et offre de bienvenue de 10%.",
+  "newsletter.placeholder": "Votre adresse email",
+  "newsletter.button": "S'abonner",
+  "newsletter.thanks": "Bienvenue — vérifiez votre boîte de réception sous peu.",
+
+  "locationPicker.sendGiftTo": "Envoyez votre cadeau à :",
+  "locationPicker.selectCountry": "Sélectionnez le pays du destinataire",
+  "locationPicker.selectCity": "Sélectionnez la ville du destinataire",
+  "locationPicker.changeCountry": "Changer de pays",
+  "locationPicker.langLink": "English",
+  "locationPickerGate.dialogTitle": "Choisir le lieu de livraison",
+  "locationPickerGate.dialogDesc":
+    "Sélectionnez le pays et la ville où vous souhaitez livrer votre cadeau.",
+
+  "shop.subtitle":
+    "Parcourez notre sélection de compositions florales de luxe et de cadeaux premium, conçus avec soin pour la livraison au Liban.",
+  "shop.sortPlaceholder": "Trier par",
+  "shop.sort.featured": "À la une",
+  "shop.sort.priceAsc": "Prix : croissant",
+  "shop.sort.priceDesc": "Prix : décroissant",
+  "shop.filters": "Filtres",
+  "shop.categoriesTitle": "Catégories",
+  "shop.occasionsTitle": "Occasions",
+  "shop.clearAll": "Effacer tous les filtres",
+  "shop.clearFiltersBtn": "Effacer les filtres",
+  "shop.clearFiltersBtnCap": "Effacer les filtres",
+  "shop.allCollection": "Toute la collection",
+  "shop.empty.titleCountry": "Aucun produit disponible en {country}",
+  "shop.empty.descCountry":
+    "Aucun produit livrable en {country} ne correspond à vos filtres actuels. Essayez une autre catégorie ou changez de pays de livraison.",
+  "shop.empty.changeCountry": "Changer le pays de livraison",
+  "shop.empty.titleNoCountry": "Aucun produit trouvé",
+  "shop.empty.descNoCountry":
+    "Aucun produit ne correspond à vos filtres actuels.",
+
+  "shop.cat.handBouquets": "Bouquets à la main",
+  "shop.cat.flowerBoxes": "Boîtes de fleurs",
+  "shop.cat.plants": "Plantes",
+  "shop.cat.cakes": "Gâteaux",
+  "shop.cat.chocolate": "Chocolat",
+  "shop.cat.bundles": "Coffrets",
+
+  "shop.occ.birthday": "Anniversaire",
+  "shop.occ.loveRomance": "Amour et romance",
+  "shop.occ.congratulations": "Félicitations",
+  "shop.occ.thankYou": "Merci",
+  "shop.occ.condolences": "Condoléances",
+  "shop.occ.romance": "Romance",
+
+  "product.toast.addedTitle": "Ajouté au panier",
+  "product.toast.addedDesc": "{name} ajouté à votre panier.",
+  "product.toast.addedDescQty": "{qty}× {name} ajouté à votre panier.",
+  "product.notFound": "Produit introuvable",
+  "product.returnShop": "Retour à la boutique",
+  "product.backToShop": "Retour à la boutique",
+  "product.quantity": "Quantité",
+  "product.addToCart": "Ajouter au panier",
+  "product.outOfStock": "Rupture de stock",
+  "product.sameDay": "Livraison le jour même au Liban",
+  "product.secureCheckout": "Paiement 100% sécurisé",
+  "product.youMayLike": "Vous aimerez aussi",
+
+  "cart.empty.title": "Votre panier est vide",
+  "cart.empty.desc":
+    "Trouvez la composition florale ou le cadeau de luxe parfait pour votre prochaine occasion.",
+  "cart.empty.cta": "Commencer mes achats",
+  "cart.title": "Votre panier",
+  "cart.summary": "Récapitulatif de la commande",
+  "cart.subtotal": "Sous-total",
+  "cart.delivery": "Livraison",
+  "cart.calculatedAtCheckout": "Calculé au paiement",
+  "cart.total": "Total",
+  "cart.proceed": "Passer au paiement",
+  "cart.removeAria": "Retirer l'article",
+  "cart.decreaseAria": "Diminuer la quantité",
+  "cart.increaseAria": "Augmenter la quantité",
+  "auth.heroAlt": "Atelier Presentail",
+  "checkout.payment.orderTitle": "Commande Presentail",
+  "checkout.payment.orderDesc": "Commande de {name}",
+
+  "checkout.backToCart": "Retour au panier",
+  "checkout.empty.title": "Votre panier est vide",
+  "checkout.empty.cta": "Retour à la boutique",
+  "checkout.step1.title": "Qui reçoit ce cadeau ?",
+  "checkout.step1.desc": "Saisissez les coordonnées du destinataire pour la livraison.",
+  "checkout.firstName": "Prénom",
+  "checkout.lastName": "Nom",
+  "checkout.firstNamePh": "Jeanne",
+  "checkout.lastNamePh": "Dupont",
+  "checkout.phoneLB": "Numéro de téléphone (Liban)",
+  "checkout.phonePh": "+961 70 123 456",
+  "checkout.district": "District de livraison",
+  "checkout.selectDistrict": "Sélectionner un district",
+  "checkout.address": "Adresse complète",
+  "checkout.addressPh": "Rue, immeuble, étage…",
+  "checkout.deliveryDate": "Date de livraison",
+  "checkout.cardMessage": "Message de la carte (facultatif)",
+  "checkout.cardMessagePh": "Écrivez un mot à joindre à votre cadeau",
+  "checkout.continueSender": "Continuer vers les coordonnées de l'expéditeur",
+  "checkout.step2.title": "Coordonnées de l'expéditeur",
+  "checkout.step2.desc":
+    "Nécessaires pour vous envoyer le reçu et les mises à jour.",
+  "checkout.emailAddress": "Adresse email",
+  "checkout.phoneNumber": "Numéro de téléphone",
+  "checkout.back": "Retour",
+  "checkout.continuePayment": "Continuer vers le paiement",
+  "checkout.step3.title": "Paiement",
+  "checkout.step3.desc":
+    "Choisissez votre mode de paiement sécurisé. Vous serez redirigé vers votre fournisseur pour finaliser le paiement.",
+  "checkout.pay.card": "Carte bancaire (Stripe)",
+  "checkout.pay.paypal": "PayPal",
+  "checkout.pay.mamo": "Mamo (portefeuilles UAE)",
+  "checkout.pay.whish": "Whish Money (paiement à la confirmation)",
+  "checkout.processing": "Traitement…",
+  "checkout.payAmount": "Payer ${amount}",
+  "checkout.summary": "Récapitulatif de la commande",
+  "checkout.qty": "Qté",
+  "checkout.deliveryEstimated": "Livraison (estimée)",
+  "checkout.toast.failTitle": "Échec du paiement",
+  "checkout.toast.failGeneric": "Une erreur est survenue",
+  "checkout.toast.cardUnavailable": "Paiement indisponible",
+  "checkout.toast.cardUnavailableDesc":
+    "Le paiement par carte n'est pas disponible pour le moment.",
+  "checkout.toast.paypalUnavailable": "PayPal indisponible",
+  "checkout.toast.paypalUnavailableDesc":
+    "PayPal n'est pas disponible pour le moment.",
+  "checkout.toast.mamoUnavailable": "Mamo indisponible",
+  "checkout.toast.mamoUnavailableDesc":
+    "Mamo n'est pas disponible pour le moment.",
+  "checkout.toast.errorTitle": "Erreur de paiement",
+
+  "account.loading": "Chargement…",
+  "account.title": "Mon compte",
+  "account.profile": "Détails du profil",
+  "account.orders": "Historique des commandes",
+  "account.addresses": "Adresses enregistrées",
+  "account.signOut": "Se déconnecter",
+  "account.firstName": "Prénom",
+  "account.lastName": "Nom",
+  "account.email": "Adresse email",
+  "account.phone": "Numéro de téléphone",
+  "account.notProvided": "Non renseigné",
+  "account.soon": "Bientôt",
+
+  "auth.welcome": "Bon retour",
+  "auth.create": "Créer un compte",
+  "auth.signinDesc": "Connectez-vous pour gérer vos commandes et adresses.",
+  "auth.signupDesc": "Rejoignez Presentail pour un paiement plus rapide.",
+  "auth.firstName": "Prénom",
+  "auth.lastName": "Nom",
+  "auth.email": "Email",
+  "auth.password": "Mot de passe",
+  "auth.signin": "Se connecter",
+  "auth.signup": "S'inscrire",
+  "auth.noAccount": "Vous n'avez pas de compte ? ",
+  "auth.haveAccount": "Vous avez déjà un compte ? ",
+  "auth.quote":
+    "« Chaque composition raconte une histoire d'affection, créée avec intention et livrée avec soin. »",
+  "auth.atelier": "L'Atelier Presentail",
+  "auth.toast.loginFailed": "Échec de la connexion",
+  "auth.toast.invalidCreds": "Identifiants invalides",
+  "auth.toast.created": "Compte créé",
+  "auth.toast.createdDesc": "Veuillez vous connecter avec vos nouveaux identifiants.",
+  "auth.toast.regFailed": "Échec de l'inscription",
+  "auth.toast.regFailedDesc": "Impossible de créer le compte",
+  "auth.toast.error": "Erreur",
+  "auth.continue": "Continuer",
+  "auth.emailStepDesc":
+    "Saisissez votre email pour vous connecter ou créer un compte.",
+  "auth.changeEmail": "Utiliser un autre email",
+  "auth.accountFound": "Compte trouvé. Veuillez vous connecter.",
+  "auth.checkFailed": "Une erreur est survenue, veuillez réessayer.",
+  "auth.invalidEmail": "Veuillez saisir un email valide.",
+
+  "brandsPage.title": "Nos marques partenaires",
+  "brands.desc":
+    "Découvrez notre sélection de marques cadeaux de luxe, des chocolatiers artisanaux à l'électronique haut de gamme.",
+  "brands.products": "produits",
+  "brand.backToBrands": "Retour aux marques",
+  "brand.descPrefix": "Explorez la collection complète de {name}.",
+  "brand.empty.titleCountry": "Aucun produit disponible en {country}",
+  "brand.empty.descCountry":
+    "{name} ne livre actuellement aucun produit en {country}. Essayez de changer de pays de livraison pour voir plus d'options.",
+  "brand.empty.changeCountry": "Changer le pays de livraison",
+  "brand.empty.titleNoCountry": "Aucun produit disponible",
+  "brand.empty.descNoCountry":
+    "Cette marque n'a actuellement aucun produit disponible à la livraison.",
+
+  "order.finalizing": "Finalisation de votre commande…",
+  "order.dontClose": "Veuillez ne pas fermer cette fenêtre.",
+  "order.confirmed": "Commande confirmée !",
+  "order.failed": "Échec de la commande",
+  "order.thanks":
+    "Merci d'avoir choisi Presentail. Votre composition est préparée avec soin.",
+  "order.failGeneric":
+    "Une erreur est survenue lors du traitement de votre paiement. Veuillez réessayer.",
+  "order.reference": "Référence de la commande",
+  "order.continueShopping": "Continuer mes achats",
+  "order.returnCheckout": "Retour au paiement",
+  "order.backHome": "Retour à l'accueil",
+  "order.fail.cantFind":
+    "Nous n'avons pas trouvé votre commande en attente. Si vous avez été débité, contactez-nous avec votre référence de paiement.",
+  "order.fail.missing": "Commande en attente introuvable.",
+  "order.fail.couldntRead": "Impossible de lire la commande en attente.",
+  "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
+  "order.fail.failed": "Échec de la finalisation de la commande.",
+
+  "footer.tagline":
+    "Le fleuriste et maison de cadeaux premium de Beyrouth. Confiance, générosité, élégance.",
+  "footer.address1": "Rue Gouraud, Gemmayzeh",
+  "footer.address2": "Beyrouth, Liban",
+  "footer.shop": "Boutique",
+  "footer.help": "Aide",
+  "footer.contact": "Nous contacter",
+  "footer.deliveryInfo": "Infos de livraison",
+  "footer.faq": "FAQ",
+  "footer.terms": "Conditions générales",
+  "footer.comingSoon": "bientôt disponible",
+  "footer.copyright": "© {year} Presentail Liban. Tous droits réservés.",
+  "footer.payments": "Paiements sécurisés par Stripe et Mamo",
+
+  "notFound.title": "404 Page introuvable",
+  "notFound.desc": "Avez-vous oublié d'ajouter la page au routeur ?",
+};
+
 type LocaleContextType = {
   language: Language;
   setLanguage: (l: Language) => void;
@@ -340,11 +661,16 @@ const LocaleContext = createContext<LocaleContextType | null>(null);
 const STORAGE_KEY = "presentail_lang_v1";
 const LEGACY_STORAGE_KEY = "presentail_language_v1";
 
-// Localized names for the picker's supported countries and their cities.
 const COUNTRY_NAMES_AR: Record<string, string> = {
   LB: "لبنان",
   AE: "الإمارات العربية المتحدة",
   CY: "قبرص",
+};
+
+const COUNTRY_NAMES_FR: Record<string, string> = {
+  LB: "Liban",
+  AE: "Émirats arabes unis",
+  CY: "Chypre",
 };
 
 const CITY_NAMES_AR: Record<string, string> = {
@@ -370,66 +696,147 @@ const CITY_NAMES_AR: Record<string, string> = {
   "cy-paphos": "بافوس",
 };
 
+const CITY_NAMES_FR: Record<string, string> = {
+  "lb-beirut": "Beyrouth",
+  "lb-jounieh": "Jounieh",
+  "lb-tripoli": "Tripoli",
+  "lb-saida": "Saïda",
+  "lb-tyre": "Tyr",
+  "lb-zahle": "Zahlé",
+  "lb-byblos": "Byblos",
+  "lb-baalbek": "Baalbek",
+  "ae-dubai": "Dubaï",
+  "ae-abu-dhabi": "Abou Dhabi",
+  "ae-sharjah": "Charjah",
+  "ae-ajman": "Ajman",
+  "ae-ras-al-khaimah": "Ras el Khaïmah",
+  "ae-fujairah": "Foujaïrah",
+  "ae-umm-al-quwain": "Oumm al Qaïwaïn",
+  "ae-al-ain": "Al-Aïn",
+  "cy-nicosia": "Nicosie",
+  "cy-limassol": "Limassol",
+  "cy-larnaca": "Larnaca",
+  "cy-paphos": "Paphos",
+};
+
 function format(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (_, k) => (k in params ? String(params[k]) : `{${k}}`));
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window === "undefined") return "en";
-    let saved = localStorage.getItem(STORAGE_KEY) as Language | null;
-    if (saved !== "ar" && saved !== "en") {
-      // One-time migration from the legacy I18nContext storage key.
-      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY) as Language | null;
-      if (legacy === "ar" || legacy === "en") {
+function readStoredLang(): Language {
+  if (typeof window === "undefined") return "en";
+  try {
+    let saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved || !isSupportedLang(saved)) {
+      const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy && isSupportedLang(legacy)) {
         saved = legacy;
         try {
-          localStorage.setItem(STORAGE_KEY, legacy);
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          window.localStorage.setItem(STORAGE_KEY, legacy);
+          window.localStorage.removeItem(LEGACY_STORAGE_KEY);
         } catch {
           // ignore
         }
       }
     }
-    return saved === "ar" ? "ar" : "en";
-  });
+    return saved && isSupportedLang(saved) ? saved : "en";
+  } catch {
+    return "en";
+  }
+}
 
+const BASE_PREFIX = (import.meta as any).env?.BASE_URL?.replace(/\/$/, "") ?? "";
+
+function currentRelativeUrl(routerPath: string): string {
+  if (typeof window === "undefined") return routerPath;
+  return routerPath + window.location.search + window.location.hash;
+}
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const [path, navigate] = useLocation();
+  const parsed = parseLocalePath(path);
+
+  const [stored, setStored] = useState<Language>(() => readStoredLang());
+
+  const language: Language = parsed.lang ?? stored;
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
+
+  // Persist URL-derived language to localStorage so reloads from `/` keep it.
+  useEffect(() => {
+    if (parsed.lang && parsed.lang !== stored) {
+      setStored(parsed.lang);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, parsed.lang);
+      } catch {
+        // ignore
+      }
+    }
+  }, [parsed.lang, stored]);
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = dir;
-    localStorage.setItem(STORAGE_KEY, language);
   }, [language, dir]);
 
   // Sync across tabs.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && (e.newValue === "ar" || e.newValue === "en")) {
-        setLanguageState(e.newValue);
+      if (e.key === STORAGE_KEY && e.newValue && isSupportedLang(e.newValue)) {
+        setStored(e.newValue);
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  const setLanguage = useCallback(
+    (lang: Language) => {
+      setStored(lang);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, lang);
+      } catch {
+        // ignore
+      }
+      // If the URL has a locale prefix, replace just the language segment so
+      // the country, city, remaining path, query and hash all survive.
+      if (parsed.hasLocalePrefix) {
+        const next = switchLanguage(currentRelativeUrl(path), lang);
+        navigate(next);
+      }
+    },
+    [parsed.hasLocalePrefix, path, navigate],
+  );
+
   const value = useMemo<LocaleContextType>(
     () => ({
       language,
-      setLanguage: setLanguageState,
+      setLanguage,
       dir,
       t: (key, params) => {
-        const entry = STRINGS[key as string];
-        const template = entry ? entry[language] : (key as string);
-        return format(template, params);
+        const k = key as string;
+        if (language === "fr") {
+          const fr = STRINGS_FR[k];
+          if (fr) return format(fr, params);
+          const en = STRINGS[k]?.en;
+          return format(en ?? k, params);
+        }
+        const entry = STRINGS[k];
+        if (!entry) return format(k, params);
+        return format(entry[language as "en" | "ar"], params);
       },
-      countryName: (code, fallback) =>
-        language === "ar" ? (COUNTRY_NAMES_AR[code] ?? fallback) : fallback,
-      cityName: (id, fallback) =>
-        language === "ar" ? (CITY_NAMES_AR[id] ?? fallback) : fallback,
+      countryName: (code, fallback) => {
+        if (language === "ar") return COUNTRY_NAMES_AR[code] ?? fallback;
+        if (language === "fr") return COUNTRY_NAMES_FR[code] ?? fallback;
+        return fallback;
+      },
+      cityName: (id, fallback) => {
+        if (language === "ar") return CITY_NAMES_AR[id] ?? fallback;
+        if (language === "fr") return CITY_NAMES_FR[id] ?? fallback;
+        return fallback;
+      },
     }),
-    [language, dir],
+    [language, dir, setLanguage],
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
@@ -440,3 +847,6 @@ export function useLocale() {
   if (!ctx) throw new Error("useLocale must be used within LocaleProvider");
   return ctx;
 }
+
+// Re-export for callers that still import from this module.
+export { BASE_PREFIX };

@@ -1,7 +1,26 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
+import { useLocation } from "wouter";
 import { useDeliveryLocations, type DeliveryLocationsResponse } from "@/lib/queries";
+import {
+  parseLocalePath,
+  buildLocalePath,
+  cityIdToSlug,
+  isSupportedCountrySlug,
+  isSupportedLang,
+  type CountrySlug,
+  type Lang,
+} from "@/lib/locale-route";
 
 const STORAGE_KEY = "presentail_delivery_location_v1";
+const LANG_STORAGE_KEY = "presentail_lang_v1";
 
 export const PICKER_COUNTRY_CODES = ["LB", "AE", "CY"] as const;
 export type PickerCountryCode = (typeof PICKER_COUNTRY_CODES)[number];
@@ -53,7 +72,20 @@ function readStored(): StoredLocation | null {
   }
 }
 
+function readStoredLang(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const v = window.localStorage.getItem(LANG_STORAGE_KEY);
+    return v && isSupportedLang(v) ? v : "en";
+  } catch {
+    return "en";
+  }
+}
+
 export function LocationProvider({ children }: { children: ReactNode }) {
+  const [path, navigate] = useLocation();
+  const parsed = parseLocalePath(path);
+
   const [stored, setStored] = useState<StoredLocation | null>(() => readStored());
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const { data, isLoading } = useDeliveryLocations();
@@ -70,25 +102,70 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => orderOf(a.code) - orderOf(b.code));
   }, [data]);
 
-  const country = useMemo(() => {
-    if (!stored) return null;
-    return countries.find((c) => c.code === stored.countryCode) ?? null;
-  }, [stored, countries]);
+  // URL is the source of truth when it carries a valid locale prefix.
+  const fromUrlCountryCode = parsed.country
+    ? (parsed.country.toUpperCase() as PickerCountryCode)
+    : null;
+  const fromUrlCityId =
+    parsed.country && parsed.city ? `${parsed.country}-${parsed.city}` : null;
 
-  const city = useMemo(() => {
-    if (!stored || !country) return null;
-    return country.cities.find((ct) => ct.id === stored.cityId) ?? null;
-  }, [stored, country]);
+  const countryCode = fromUrlCountryCode ?? stored?.countryCode ?? null;
+  const cityId = fromUrlCityId ?? stored?.cityId ?? null;
 
-  const setLocation = useCallback((countryCode: string, cityId: string) => {
-    const next = { countryCode, cityId };
+  // Persist URL → localStorage so reloads from `/` still know the location.
+  useEffect(() => {
+    if (!fromUrlCountryCode || !fromUrlCityId) return;
+    if (
+      stored?.countryCode === fromUrlCountryCode &&
+      stored?.cityId === fromUrlCityId
+    ) {
+      return;
+    }
+    const next = { countryCode: fromUrlCountryCode, cityId: fromUrlCityId };
     setStored(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      // ignore quota / privacy mode errors
+      // ignore
     }
-  }, []);
+  }, [fromUrlCountryCode, fromUrlCityId, stored?.countryCode, stored?.cityId]);
+
+  const country = useMemo(() => {
+    if (!countryCode) return null;
+    return countries.find((c) => c.code === countryCode) ?? null;
+  }, [countryCode, countries]);
+
+  const city = useMemo(() => {
+    if (!cityId || !country) return null;
+    return country.cities.find((ct) => ct.id === cityId) ?? null;
+  }, [cityId, country]);
+
+  const setLocation = useCallback(
+    (cc: string, cid: string) => {
+      const next: StoredLocation = { countryCode: cc, cityId: cid };
+      setStored(next);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      const newCountrySlug = cc.toLowerCase();
+      if (!isSupportedCountrySlug(newCountrySlug)) return;
+      const newCitySlug = cityIdToSlug(cid);
+      const lang: Lang = parsed.lang ?? readStoredLang();
+      const rest = parsed.hasLocalePrefix ? parsed.rest : "";
+      const newPath = buildLocalePath({
+        lang,
+        country: newCountrySlug as CountrySlug,
+        city: newCitySlug,
+        rest,
+      });
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      navigate(newPath + search + hash);
+    },
+    [parsed.lang, parsed.rest, parsed.hasLocalePrefix, navigate],
+  );
 
   const clearLocation = useCallback(() => {
     setStored(null);
@@ -102,7 +179,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const openPicker = useCallback(() => setIsPickerOpen(true), []);
   const closePicker = useCallback(() => setIsPickerOpen(false), []);
 
-  // Sync across tabs
+  // Sync across tabs.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setStored(readStored());
@@ -112,8 +189,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: LocationContextType = {
-    countryCode: stored?.countryCode ?? null,
-    cityId: stored?.cityId ?? null,
+    countryCode,
+    cityId,
     country,
     city,
     countries,

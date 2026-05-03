@@ -1,13 +1,12 @@
 import { useMemo } from "react";
-import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
-  countryCodeToSlug,
   useLocationSelection,
   type DeliveryCountry,
 } from "@/contexts/LocationContext";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = [
   { code: "LB", name: "Lebanon", flag: "🇱🇧" },
@@ -16,9 +15,8 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
 ];
 
 export default function Landing() {
-  const { language, setLanguage, t, countryName } = useLocale();
+  const { t, countryName } = useLocale();
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
-  const [, navigate] = useLocation();
 
   const rows = useMemo(() => {
     const byCode = new Map<string, DeliveryCountry>();
@@ -37,14 +35,16 @@ export default function Landing() {
   }, [countries]);
 
   const handleSelect = (code: string, firstCityId: string | null) => {
-    if (firstCityId) {
-      setLocation(code, firstCityId);
-    }
-    navigate(`/${countryCodeToSlug(code)}`);
+    if (!firstCityId) return;
+    // setLocation handles persistence and locale-aware navigation.
+    setLocation(code, firstCityId);
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="page-landing">
+    <div
+      className="min-h-screen bg-background flex flex-col"
+      data-testid="page-landing"
+    >
       <div className="w-full max-w-[560px] mx-auto px-6 pt-10 pb-16 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-10">
           <div className="flex-1" />
@@ -57,14 +57,7 @@ export default function Landing() {
             </span>
           </div>
           <div className="flex-1 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="button-language-toggle"
-            >
-              {t("lang.toggle")}
-            </button>
+            <LanguageSwitcher />
           </div>
         </div>
 

@@ -83,6 +83,38 @@ Optional sign-in / sign-up / delete, fully native — no web redirect (replaces 
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Presentail Web (`artifacts/presentail-web`)
+
+React + Vite SPA. Companion site to the Expo app; talks to the same API server.
+
+### Locale-aware URL routing
+URL pattern: `/{lang}-{country}/{city}/...` (e.g. `/en-ae/dubai`, `/fr-lb/beirut/product/x`).
+
+- Languages: `en`, `ar`, `fr` (RTL only for `ar`). French is an overlay map in
+  `LocaleContext`; missing keys fall back to English.
+- Country slugs: `ae`, `lb`, `cy`. City slugs are `cityId` minus the `"{country}-"`
+  prefix (`ae-dubai` → `dubai`).
+- Source of truth is the URL: `LocaleContext` and `LocationContext` derive
+  `language`, `countryCode`, `cityId` from the path via `useLocation()` and
+  persist them to `localStorage` for cold reloads from `/`.
+- `setLanguage(lang)` calls `switchLanguage(currentUrl, lang)` from
+  `lib/locale-route.ts` — only the language segment changes; country, city,
+  rest of the path, query string and hash are preserved.
+- `setLocation(country, cityId)` navigates to a new locale-aware URL keeping
+  the language and remaining path.
+- `App.tsx` mounts a nested `<WouterRouter base="/{lang}-{country}/{city}">`
+  inside `RootRouter`, so all internal `<Link href="/shop">` and
+  `setLocation("/checkout")` calls auto-prefix correctly.
+- Routing rules:
+  - `/` → if a saved location exists, redirect to `/{lang}-{country}/{city}`;
+    else show `Landing`.
+  - `/{lang}-{country}` → resolve a city (saved or first) and redirect.
+  - `/{lang}-{country}/{city}/...` → mount the shop shell at that base.
+  - Unsupported lang/country or any other path → redirect to the saved location
+    (or `/`).
+- `LanguageSwitcher` is a 3-button toggle used by the landing page,
+  `LocationPicker`, and the top utility bar.
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

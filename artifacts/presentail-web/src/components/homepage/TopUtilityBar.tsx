@@ -1,10 +1,11 @@
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ChevronDown } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export function TopUtilityBar() {
   const { country, city, openPicker } = useLocationSelection();
-  const { language, setLanguage, t } = useLocale();
+  const { t, countryName, cityName } = useLocale();
 
   return (
     <div className="bg-secondary/60 border-b border-border/60 text-xs text-muted-foreground">
@@ -20,24 +21,21 @@ export function TopUtilityBar() {
           >
             <span className="text-base leading-none">{country?.flag ?? "🌍"}</span>
             <span className="font-medium text-foreground">
-              {country?.name ?? "Select country"}
+              {country
+                ? countryName(country.code, country.name)
+                : t("locationPicker.selectCountry")}
             </span>
             {city && (
-              <span className="hidden md:inline opacity-70">· {city.name}</span>
+              <span className="hidden md:inline opacity-70">
+                · {cityName(city.id, city.name)}
+              </span>
             )}
             <ChevronDown className="w-3 h-3" />
           </button>
 
           <span className="opacity-40">|</span>
 
-          <button
-            type="button"
-            onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-            className="hover:text-foreground transition-colors font-medium text-foreground"
-            data-testid="button-language-toggle"
-          >
-            {t("lang.toggle")}
-          </button>
+          <LanguageSwitcher />
         </div>
       </div>
     </div>

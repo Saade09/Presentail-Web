@@ -1,25 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { useLocationSelection, type DeliveryCountry } from "@/contexts/LocationContext";
+import {
+  useLocationSelection,
+  type DeliveryCountry,
+} from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
   initialCountryCode?: string | null;
 };
 
-export function LocationPicker({ onComplete, initialCountryCode = null }: Props) {
+export function LocationPicker({
+  onComplete,
+  initialCountryCode = null,
+}: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
-  const { t, language, setLanguage, countryName, cityName } = useLocale();
-  const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(() => {
-    if (!initialCountryCode) return null;
-    return countries.find((c) => c.code === initialCountryCode) ?? null;
-  });
-  // Once the user explicitly chooses or clears, do not re-hydrate from props.
+  const { t, countryName, cityName } = useLocale();
+  const [selectedCountry, setSelectedCountry] =
+    useState<DeliveryCountry | null>(() => {
+      if (!initialCountryCode) return null;
+      return countries.find((c) => c.code === initialCountryCode) ?? null;
+    });
   const userInteractedRef = useRef<boolean>(!!selectedCountry);
 
-  // If countries load after initial render, hydrate the preselected country
-  // (only before the user has interacted).
   useEffect(() => {
     if (userInteractedRef.current || !initialCountryCode) return;
     const found = countries.find((c) => c.code === initialCountryCode);
@@ -53,14 +58,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
           PRESENTAIL
         </div>
         <div className="flex-1 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            data-testid="link-arabic"
-          >
-            {t("lang.toggle")}
-          </button>
+          <LanguageSwitcher />
         </div>
       </div>
 
@@ -68,14 +66,18 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
         {t("locationPicker.sendGiftTo")}
       </h1>
       <p className="text-muted-foreground mb-8">
-        {selectedCountry ? t("locationPicker.selectCity") : t("locationPicker.selectCountry")}
+        {selectedCountry
+          ? t("locationPicker.selectCity")
+          : t("locationPicker.selectCountry")}
       </p>
 
       {selectedCountry && (
         <div className="flex items-center justify-between bg-background border rounded-xl px-4 py-3 mb-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl leading-none">{selectedCountry.flag}</span>
-            <span className="font-medium">{selectedCountry.name}</span>
+            <span className="font-medium">
+              {countryName(selectedCountry.code, selectedCountry.name)}
+            </span>
           </div>
           <button
             type="button"
@@ -107,7 +109,9 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
             >
               <div className="flex items-center gap-4">
                 <span className="text-2xl leading-none">{country.flag}</span>
-                <span className="text-base font-medium">{countryName(country.code, country.name)}</span>
+                <span className="text-base font-medium">
+                  {countryName(country.code, country.name)}
+                </span>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
@@ -121,7 +125,9 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
               className="w-full flex items-center justify-between bg-background border hover:border-primary/40 hover:bg-secondary/30 transition-colors rounded-xl px-5 py-4 text-left"
               data-testid={`button-city-${city.id}`}
             >
-              <span className="text-base font-medium">{cityName(city.id, city.name)}</span>
+              <span className="text-base font-medium">
+                {cityName(city.id, city.name)}
+              </span>
               <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
           ))
