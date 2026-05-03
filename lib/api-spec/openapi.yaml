@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: push
     description: Push notification operations
+  - name: deliveryLocations
+    description: Supported delivery countries and cities
 paths:
   /healthz:
     get:
@@ -118,6 +120,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /delivery-locations:
+    get:
+      operationId: getDeliveryLocations
+      tags: [deliveryLocations]
+      summary: List supported delivery countries and cities
+      description: |
+        Returns the canonical list of countries and cities Presentail can
+        deliver to, including their isActive flags, currency, flag emoji
+        and display ordering. Consumed by the mobile app on launch so
+        toggling a country or city in the backend (no app update
+        required) is reflected on the next launch.
+      responses:
+        "200":
+          description: Delivery locations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryLocationsResponse"
 components:
   schemas:
     HealthStatus:
@@ -213,4 +233,56 @@ components:
       required:
         - ok
         - sent
+    DeliveryCity:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+      required:
+        - id
+        - name
+        - isActive
+    DeliveryCountry:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        flag:
+          type: string
+          description: Flag emoji or icon for the country.
+        currency:
+          type: string
+          description: ISO 4217 currency code used by default for this country.
+        isActive:
+          type: boolean
+        cities:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryCity"
+      required:
+        - id
+        - name
+        - code
+        - flag
+        - currency
+        - isActive
+        - cities
+    DeliveryLocationsResponse:
+      type: object
+      properties:
+        countries:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryCountry"
+      required:
+        - countries
 

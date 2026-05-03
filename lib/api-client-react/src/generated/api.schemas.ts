@@ -71,3 +71,26 @@ export interface PushOrderEventResponse {
   ok: boolean;
   sent: number;
 }
+
+export interface DeliveryCity {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface DeliveryCountry {
+  id: string;
+  name: string;
+  /** ISO 3166-1 alpha-2 country code. */
+  code: string;
+  /** Flag emoji or icon for the country. */
+  flag: string;
+  /** ISO 4217 currency code used by default for this country. */
+  currency: string;
+  isActive: boolean;
+  cities: DeliveryCity[];
+}
+
+export interface DeliveryLocationsResponse {
+  countries: DeliveryCountry[];
+}

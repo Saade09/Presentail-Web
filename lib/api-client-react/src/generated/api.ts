@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  DeliveryLocationsResponse,
   ErrorResponse,
   HealthStatus,
   PushOrderEventRequest,
@@ -383,3 +384,84 @@ export const useSendOrderEventPush = <
 > => {
   return useMutation(getSendOrderEventPushMutationOptions(options));
 };
+
+/**
+ * Returns the canonical list of countries and cities Presentail can
+deliver to, including their isActive flags, currency, flag emoji
+and display ordering. Consumed by the mobile app on launch so
+toggling a country or city in the backend (no app update
+required) is reflected on the next launch.
+
+ * @summary List supported delivery countries and cities
+ */
+export const getGetDeliveryLocationsUrl = () => {
+  return `/api/delivery-locations`;
+};
+
+export const getDeliveryLocations = async (
+  options?: RequestInit,
+): Promise<DeliveryLocationsResponse> => {
+  return customFetch<DeliveryLocationsResponse>(getGetDeliveryLocationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDeliveryLocationsQueryKey = () => {
+  return [`/api/delivery-locations`] as const;
+};
+
+export const getGetDeliveryLocationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDeliveryLocations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDeliveryLocations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDeliveryLocationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDeliveryLocations>>
+  > = ({ signal }) => getDeliveryLocations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDeliveryLocations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDeliveryLocationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDeliveryLocations>>
+>;
+export type GetDeliveryLocationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supported delivery countries and cities
+ */
+
+export function useGetDeliveryLocations<
+  TData = Awaited<ReturnType<typeof getDeliveryLocations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDeliveryLocations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDeliveryLocationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

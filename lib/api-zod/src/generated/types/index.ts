@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./deliveryCity";
+export * from "./deliveryCountry";
+export * from "./deliveryLocationsResponse";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./orderEventState";

@@ -5,6 +5,7 @@ import paymentRouter from "./payment";
 import wooRouter from "./woo";
 import authRouter from "./auth";
 import pushRouter from "./push";
+import deliveryLocationsRouter from "./delivery-locations";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(paymentRouter);
 router.use(wooRouter);
 router.use(authRouter);
 router.use(pushRouter);
+router.use(deliveryLocationsRouter);
 
 export default router;

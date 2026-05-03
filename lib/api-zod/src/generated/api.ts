@@ -97,3 +97,34 @@ export const SendOrderEventPushResponse = zod.object({
   ok: zod.boolean(),
   sent: zod.number(),
 });
+
+/**
+ * Returns the canonical list of countries and cities Presentail can
+deliver to, including their isActive flags, currency, flag emoji
+and display ordering. Consumed by the mobile app on launch so
+toggling a country or city in the backend (no app update
+required) is reflected on the next launch.
+
+ * @summary List supported delivery countries and cities
+ */
+export const GetDeliveryLocationsResponse = zod.object({
+  countries: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      code: zod.string().describe("ISO 3166-1 alpha-2 country code."),
+      flag: zod.string().describe("Flag emoji or icon for the country."),
+      currency: zod
+        .string()
+        .describe("ISO 4217 currency code used by default for this country."),
+      isActive: zod.boolean(),
+      cities: zod.array(
+        zod.object({
+          id: zod.string(),
+          name: zod.string(),
+          isActive: zod.boolean(),
+        }),
+      ),
+    }),
+  ),
+});
