@@ -21,6 +21,7 @@ import { DirhamSymbol } from "@/components/DirhamSymbol";
 import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
+import { SideMenu } from "@/components/SideMenu";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
@@ -51,9 +52,11 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 function HomeHeader({
   topPad,
   onOpenDelivery,
+  onOpenMenu,
 }: {
   topPad: number;
   onOpenDelivery: () => void;
+  onOpenMenu: () => void;
 }) {
   const colors = useColors();
   const router = useRouter();
@@ -199,10 +202,8 @@ function HomeHeader({
         >
           <Pressable
             hitSlop={10}
-            onPress={() => {
-              // Placeholder — a dedicated drawer menu will be wired in later.
-            }}
-            accessibilityLabel="Open menu"
+            onPress={onOpenMenu}
+            accessibilityLabel={t.menuOpen}
           >
             <Feather name="menu" size={28} color={colors.primary} />
           </Pressable>
@@ -271,6 +272,7 @@ export default function HomeScreen() {
   const bottomPad = isWeb ? 34 : 24;
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [deliverySheetOpen, setDeliverySheetOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { token: authToken, user } = useAuth();
 
   useEffect(() => {
@@ -324,7 +326,11 @@ export default function HomeScreen() {
       <View
         style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
       >
-        <HomeHeader topPad={topPad} onOpenDelivery={() => setDeliverySheetOpen(true)} />
+        <HomeHeader
+          topPad={topPad}
+          onOpenDelivery={() => setDeliverySheetOpen(true)}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
@@ -352,6 +358,11 @@ export default function HomeScreen() {
       <DeliveryLocationSheet
         visible={deliverySheetOpen}
         onClose={() => setDeliverySheetOpen(false)}
+      />
+      <SideMenu
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onOpenDelivery={() => setDeliverySheetOpen(true)}
       />
     </>
   );

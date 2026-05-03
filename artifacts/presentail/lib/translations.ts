@@ -801,6 +801,16 @@ const EN = {
   deliveryNoneAvailable: "No delivery locations available",
   deliveryUnableToLoad: "Unable to load delivery locations",
   deliveryRetry: "Retry",
+
+  // ── Side menu ──
+  menuTitle: "Menu",
+  menuShop: "Shop",
+  menuOccasions: "Occasions",
+  menuBrands: "Brands",
+  menuAccount: "Account",
+  menuHelp: "Help",
+  menuClose: "Close menu",
+  menuOpen: "Open menu",
 };
 
 const AR: typeof EN = {
@@ -1604,6 +1614,16 @@ const AR: typeof EN = {
   deliveryNoneAvailable: "لا توجد مواقع توصيل متاحة",
   deliveryUnableToLoad: "تعذّر تحميل مواقع التوصيل",
   deliveryRetry: "إعادة المحاولة",
+
+  // ── Side menu ──
+  menuTitle: "القائمة",
+  menuShop: "تسوّق",
+  menuOccasions: "المناسبات",
+  menuBrands: "العلامات التجارية",
+  menuAccount: "الحساب",
+  menuHelp: "المساعدة",
+  menuClose: "إغلاق القائمة",
+  menuOpen: "فتح القائمة",
 };
 
 const FR: typeof EN = {
@@ -2407,6 +2427,16 @@ const FR: typeof EN = {
   deliveryNoneAvailable: "Aucun lieu de livraison disponible",
   deliveryUnableToLoad: "Impossible de charger les lieux de livraison",
   deliveryRetry: "Réessayer",
+
+  // ── Side menu ──
+  menuTitle: "Menu",
+  menuShop: "Boutique",
+  menuOccasions: "Occasions",
+  menuBrands: "Marques",
+  menuAccount: "Compte",
+  menuHelp: "Aide",
+  menuClose: "Fermer le menu",
+  menuOpen: "Ouvrir le menu",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };
