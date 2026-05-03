@@ -108,12 +108,6 @@ export default function ProductDetail() {
     }
   };
 
-  const handleExpand = (uri: string) => {
-    if (uri && typeof window !== "undefined") {
-      window.open(uri, "_blank", "noopener,noreferrer");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 pt-12 pb-24">
@@ -173,7 +167,6 @@ export default function ProductDetail() {
             images={vm.galleryImages}
             productName={product.name}
             onShare={handleShare}
-            onExpand={handleExpand}
           />
 
           <div className="flex flex-col gap-7">

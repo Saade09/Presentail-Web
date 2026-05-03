@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { Maximize2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProductLightbox } from "./ProductLightbox";
 
 type Props = {
   images: { uri: string }[];
   productName: string;
   onShare?: () => void;
-  onExpand?: (uri: string) => void;
 };
 
-export function ProductGallery({ images, productName, onShare, onExpand }: Props) {
+export function ProductGallery({ images, productName, onShare }: Props) {
   const [active, setActive] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const list = images.length > 0 ? images : [{ uri: "" }];
   const current = list[Math.min(active, list.length - 1)];
   const handleExpand = () => {
-    if (current?.uri) onExpand?.(current.uri);
+    if (current?.uri) setLightboxOpen(true);
   };
 
   return (
@@ -51,7 +52,8 @@ export function ProductGallery({ images, productName, onShare, onExpand }: Props
           <img
             src={current.uri}
             alt={productName}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover cursor-zoom-in"
+            onClick={handleExpand}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground font-serif text-4xl">
@@ -79,6 +81,14 @@ export function ProductGallery({ images, productName, onShare, onExpand }: Props
           <Maximize2 className="w-4 h-4" />
         </button>
       </div>
+
+      <ProductLightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        images={list}
+        initialIndex={active}
+        productName={productName}
+      />
     </div>
   );
 }
