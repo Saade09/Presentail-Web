@@ -1,4 +1,9 @@
-import { useLocationSelection } from "@/contexts/LocationContext";
+import { useLocation } from "wouter";
+import {
+  countryCodeToSlug,
+  countrySlugToCode,
+  useLocationSelection,
+} from "@/contexts/LocationContext";
 import { LocationPicker } from "./LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -11,6 +16,20 @@ export function LocationPickerGate({ children }: Props) {
   const { isPickerOpen, openPicker, closePicker, countryCode } =
     useLocationSelection();
   const { t } = useLocale();
+  const [path, navigate] = useLocation();
+
+  const handleComplete = ({ countryCode: nextCode }: { countryCode: string; cityId: string }) => {
+    const segments = path.split("/").filter(Boolean);
+    const firstSlug = segments[0] ?? "";
+    const currentSlugCode = countrySlugToCode(firstSlug);
+    if (currentSlugCode && currentSlugCode !== nextCode) {
+      const nextSlug = countryCodeToSlug(nextCode);
+      const rest = segments.slice(1).join("/");
+      const nextPath = rest ? `/${nextSlug}/${rest}` : `/${nextSlug}`;
+      navigate(nextPath, { replace: true });
+    }
+    closePicker();
+  };
 
   return (
     <>
@@ -23,7 +42,7 @@ export function LocationPickerGate({ children }: Props) {
           </DialogDescription>
           <LocationPicker
             initialCountryCode={countryCode}
-            onComplete={closePicker}
+            onComplete={handleComplete}
           />
         </DialogContent>
       </Dialog>

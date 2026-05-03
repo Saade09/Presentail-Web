@@ -5,7 +5,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useI18n } from "@/contexts/I18nContext";
 
 type Props = {
-  onComplete?: () => void;
+  onComplete?: (selection: { countryCode: string; cityId: string }) => void;
   initialCountryCode?: string | null;
 };
 
@@ -44,7 +44,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
   const handleCitySelect = (cityId: string) => {
     if (!selectedCountry) return;
     setLocation(selectedCountry.code, cityId);
-    onComplete?.();
+    onComplete?.({ countryCode: selectedCountry.code, cityId });
   };
 
   return (
