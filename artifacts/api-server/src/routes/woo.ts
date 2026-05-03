@@ -20,6 +20,65 @@ type WcOrderResponse = {
   message?: string;
 };
 
+// Narrow subsets of the WooCommerce REST responses we actually read.
+// These intentionally model only the fields consumed by this route so a
+// schema drift on the WC side surfaces as a typecheck error rather than
+// a silent runtime mismatch.
+type WcErrorResponse = { message?: string };
+
+type WcMeta = {
+  key?: string;
+  // WC returns scalar or array values; keep it loose but explicit.
+  value?: string | number | boolean | null | Array<string | number>;
+};
+
+type WcImage = { src?: string };
+
+type WcProductCategory = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+type WcProduct = {
+  id: number;
+  slug: string;
+  name?: string;
+  price?: string;
+  short_description?: string;
+  stock_status?: string;
+  featured?: boolean;
+  images?: WcImage[];
+  categories?: WcProductCategory[];
+  meta_data?: WcMeta[];
+};
+
+type WcBrand = {
+  id: number;
+  name: string;
+  slug: string;
+  count?: number;
+  image?: WcImage | null;
+};
+
+type WcCategory = {
+  id: number;
+  name?: string;
+  slug: string;
+};
+
+type WcFeeLine = {
+  name: string;
+  total: string;
+  tax_status: string;
+};
+
+type WcShippingLine = {
+  method_id: string;
+  method_title: string;
+  total: string;
+};
+
 const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
 
 function wooAuth() {
@@ -87,7 +146,7 @@ function readDeliveryFilter(req: { query: any }): DeliveryFilter {
 //   _deliverable_cities    / deliverable_cities     → comma-separated city ids
 // A missing/empty value means the product is deliverable everywhere (the
 // safe default while OS metadata is still being backfilled).
-function readMetaList(meta: any[] | undefined, ...keys: string[]): string[] | null {
+function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] | null {
   if (!Array.isArray(meta)) return null;
   for (const key of keys) {
     const entry = meta.find((m) => m && m.key === key);
@@ -107,7 +166,7 @@ function readMetaList(meta: any[] | undefined, ...keys: string[]): string[] | nu
   return null;
 }
 
-function isDeliverable(p: any, filter: DeliveryFilter): boolean {
+function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
   const countries = readMetaList(p?.meta_data, "_deliverable_countries", "deliverable_countries");
   if (countries && filter.countryCode) {
     const wanted = filter.countryCode.toUpperCase();
@@ -120,8 +179,8 @@ function isDeliverable(p: any, filter: DeliveryFilter): boolean {
   return true;
 }
 
-function transformProduct(p: any) {
-  const price = parseFloat(p.price) || 0;
+function transformProduct(p: WcProduct) {
+  const price = parseFloat(p.price ?? "") || 0;
   const image =
     p.images?.[0]?.src ?? null;
   return {
@@ -148,10 +207,10 @@ router.get("/woo/brands", async (_req, res) => {
   try {
     const r = await wooFetch("/products/brands?per_page=100");
     if (!r.ok) {
-      const err = (await r.json()) as { message?: string };
+      const err = (await r.json()) as WcErrorResponse;
       return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
     }
-    const brands = (await r.json()) as any[];
+    const brands = (await r.json()) as WcBrand[];
     return res.json({
       ok: true,
       brands: brands.map((b) => ({
@@ -180,7 +239,7 @@ router.get("/woo/brand-products", async (req, res) => {
     if (!brandRes.ok) {
       return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
     }
-    const brandList = (await brandRes.json()) as any[];
+    const brandList = (await brandRes.json()) as WcBrand[];
     if (!brandList.length) {
       return res.json({ ok: true, products: [], count: 0 });
     }
@@ -193,7 +252,7 @@ router.get("/woo/brand-products", async (req, res) => {
     if (!r.ok) {
       return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
     }
-    const batch = (await r.json()) as any[];
+    const batch = (await r.json()) as WcProduct[];
     const filter = readDeliveryFilter(req);
     const products = batch.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
@@ -256,17 +315,17 @@ router.get("/woo/category-products", async (req, res) => {
     // Resolve category slug to ID
     const catRes = await wooFetch(`/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`);
     if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
-    const catList = (await catRes.json()) as any[];
+    const catList = (await catRes.json()) as WcCategory[];
     if (!catList.length) return res.json({ ok: true, products: [], count: 0 });
     const catId = catList[0].id;
     const catName: string = catList[0].name ?? slug;
 
-    const allProducts: any[] = [];
+    const allProducts: WcProduct[] = [];
     let page = 1;
     while (allProducts.length < 200) {
       const r = await wooFetch(`/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch = (await r.json()) as any[];
+      const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -291,12 +350,12 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 
   try {
-    const allProducts: any[] = [];
+    const allProducts: WcProduct[] = [];
     let page = 1;
     while (allProducts.length < 200) {
       const r = await wooFetch(`/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch = (await r.json()) as any[];
+      const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -307,13 +366,14 @@ router.get("/woo/occasion-products", async (req, res) => {
     const deliverable = allProducts.filter((p) => isDeliverable(p, filter));
 
     // Group products by type category (priority-ordered)
-    const groups = new Map<string, { label: string; products: any[] }>();
+    type TransformedProduct = ReturnType<typeof transformProduct>;
+    const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
     const assigned = new Set<number>();
 
     for (const typecat of OCCASION_TYPE_CATEGORIES) {
       for (const p of deliverable) {
         if (assigned.has(p.id)) continue;
-        const slugs = (p.categories ?? []).map((c: any) => c.slug as string);
+        const slugs = (p.categories ?? []).map((c) => c.slug);
         if (slugs.includes(typecat.slug)) {
           if (!groups.has(typecat.slug)) {
             groups.set(typecat.slug, { label: typecat.label, products: [] });
@@ -342,12 +402,12 @@ router.get("/woo/products", async (req, res) => {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
-    const allProducts: any[] = [];
+    const allProducts: WcProduct[] = [];
     let page = 1;
     while (true) {
       const r = await wooFetch(`/products?per_page=100&page=${page}&status=publish&stock_status=instock`);
       if (!r.ok) break;
-      const batch = (await r.json()) as any[];
+      const batch = (await r.json()) as WcProduct[];
       if (!batch.length) break;
       allProducts.push(...batch);
       if (batch.length < 100) break;
@@ -534,7 +594,7 @@ router.post("/woo/order", async (req, res) => {
       }),
   );
 
-  const feeLines: any[] = await Promise.all(
+  const feeLines: WcFeeLine[] = await Promise.all(
     body.items
       .filter((item) => !item.wcId)
       .map(async (item) => {
@@ -547,7 +607,7 @@ router.post("/woo/order", async (req, res) => {
       }),
   );
 
-  const shippingLines: any[] = [];
+  const shippingLines: WcShippingLine[] = [];
   const convertedDistrictFee = await conv(body.districtFee);
   if (convertedDistrictFee > 0) {
     shippingLines.push({
