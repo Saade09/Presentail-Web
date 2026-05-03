@@ -148,6 +148,20 @@ export const DELIVERY_COUNTRIES: DeliveryCountry[] = [
     ],
   },
   {
+    id: "cy",
+    name: "Cyprus",
+    code: "CY",
+    flag: "🇨🇾",
+    currency: "EUR",
+    isActive: true,
+    cities: [
+      { id: "cy-nicosia", name: "Nicosia", isActive: true },
+      { id: "cy-limassol", name: "Limassol", isActive: true },
+      { id: "cy-larnaca", name: "Larnaca", isActive: true },
+      { id: "cy-paphos", name: "Paphos", isActive: true },
+    ],
+  },
+  {
     id: "lb",
     name: "Lebanon",
     code: "LB",

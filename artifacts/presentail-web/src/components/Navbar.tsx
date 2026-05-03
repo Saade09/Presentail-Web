@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDeliveryLocations } from "@/lib/queries";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { ShoppingBag, User, Search, Menu, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -13,7 +13,7 @@ export function Navbar() {
   const { user } = useAuth();
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
-  const { data: locations } = useDeliveryLocations();
+  const { city, openPicker } = useLocationSelection();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,8 +23,7 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const defaultLocation =
-    locations?.countries.find((c) => c.code === "LB")?.cities[0]?.name || "Beirut";
+  const cityLabel = city?.name ?? "Select city";
 
   return (
     <header
@@ -63,10 +62,15 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-          <div className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-full">
+          <button
+            type="button"
+            onClick={openPicker}
+            className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors"
+            data-testid="button-open-location-picker"
+          >
             <MapPin className="w-4 h-4" />
-            <span>Delivering to <strong className="text-foreground font-medium">{defaultLocation}</strong></span>
-          </div>
+            <span>Delivering to <strong className="text-foreground font-medium">{cityLabel}</strong></span>
+          </button>
 
           <Button variant="ghost" size="icon" className="hidden sm:flex">
             <Search className="w-5 h-5" />

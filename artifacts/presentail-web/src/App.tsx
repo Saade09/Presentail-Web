@@ -4,9 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { LocationProvider } from "@/contexts/LocationContext";
 
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { LocationPickerGate } from "@/components/LocationPickerGate";
 
 import Home from "@/pages/Home";
 import Shop from "@/pages/Shop";
@@ -31,25 +33,27 @@ const queryClient = new QueryClient({
 
 function Router() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/shop" component={Shop} />
-          <Route path="/product/:slug" component={ProductDetail} />
-          <Route path="/brands" component={Brands} />
-          <Route path="/brand/:slug" component={BrandDetail} />
-          <Route path="/cart" component={Cart} />
-          <Route path="/checkout" component={Checkout} />
-          <Route path="/order-confirmed" component={OrderConfirmed} />
-          <Route path="/auth" component={Auth} />
-          <Route path="/account" component={Account} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-      <Footer />
-    </div>
+    <LocationPickerGate>
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1">
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/shop" component={Shop} />
+            <Route path="/product/:slug" component={ProductDetail} />
+            <Route path="/brands" component={Brands} />
+            <Route path="/brand/:slug" component={BrandDetail} />
+            <Route path="/cart" component={Cart} />
+            <Route path="/checkout" component={Checkout} />
+            <Route path="/order-confirmed" component={OrderConfirmed} />
+            <Route path="/auth" component={Auth} />
+            <Route path="/account" component={Account} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
+        <Footer />
+      </div>
+    </LocationPickerGate>
   );
 }
 
@@ -59,10 +63,12 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <CartProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-            <Toaster />
+            <LocationProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+              <Toaster />
+            </LocationProvider>
           </CartProvider>
         </AuthProvider>
       </TooltipProvider>
