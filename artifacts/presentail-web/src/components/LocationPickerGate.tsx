@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { LocationPicker } from "./LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useLocale } from "@/contexts/LocaleContext";
 
 const DESKTOP_BREAKPOINT = 768;
 
@@ -29,6 +30,7 @@ export function LocationPickerGate({ children }: Props) {
   const [firstTimeRendered, setFirstTimeRendered] = useState(
     () => getIsDesktop() && !(!!cityId && (isLoadingCountries || (!!country && !!city))),
   );
+  const { t } = useLocale();
 
   useEffect(() => {
     const mql = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
@@ -76,9 +78,9 @@ export function LocationPickerGate({ children }: Props) {
               onInteractOutside={(e) => e.preventDefault()}
               className="fixed left-[50%] top-[50%] z-50 w-full max-w-[600px] translate-x-[-50%] translate-y-[-50%] bg-secondary/30 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg"
             >
-              <DialogPrimitive.Title className="sr-only">Choose delivery location</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="sr-only">{t("locationPickerGate.dialogTitle")}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">
-                Select the country and city you want your gift delivered to.
+                {t("locationPickerGate.dialogDesc")}
               </DialogPrimitive.Description>
               <LocationPicker onComplete={handleFirstTimeComplete} />
             </DialogPrimitive.Content>
@@ -87,9 +89,9 @@ export function LocationPickerGate({ children }: Props) {
       )}
       <Dialog open={isPickerOpen} onOpenChange={(o) => (o ? openPicker() : closePicker())}>
         <DialogContent className="max-w-[600px] p-0 bg-secondary/30 border-0">
-          <DialogTitle className="sr-only">Choose delivery location</DialogTitle>
+          <DialogTitle className="sr-only">{t("locationPickerGate.dialogTitle")}</DialogTitle>
           <DialogDescription className="sr-only">
-            Select the country and city you want your gift delivered to.
+            {t("locationPickerGate.dialogDesc")}
           </DialogDescription>
           <LocationPicker
             initialCountryCode={countryCode}

@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { ShoppingBag, User, Search, Menu, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -14,6 +15,7 @@ export function Navbar() {
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const { city, openPicker } = useLocationSelection();
+  const { t } = useLocale();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,7 +25,7 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const cityLabel = city?.name ?? "Select city";
+  const cityLabel = city?.name ?? t("navbar.selectCity");
 
   return (
     <header
@@ -41,9 +43,10 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-[300px] sm:w-[400px]">
               <nav className="flex flex-col gap-4 mt-8">
-                <Link href="/shop" className="text-lg font-serif">Shop</Link>
-                <Link href="/shop?occasion=birthday" className="text-lg font-serif">Occasions</Link>
-                <Link href="/brands" className="text-lg font-serif">Brands</Link>
+                <Link href="/shop" className="text-lg font-serif">{t("nav.shop")}</Link>
+                <Link href="/shop?occasion=birthday" className="text-lg font-serif">{t("nav.occasions")}</Link>
+                <Link href="/brands" className="text-lg font-serif">{t("nav.brands")}</Link>
+                <Link href="/about" className="text-lg font-serif">{t("nav.about")}</Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -53,9 +56,10 @@ export function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">Shop</Link>
-            <Link href="/shop?occasion=birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">Occasions</Link>
-            <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">Brands</Link>
+            <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
+            <Link href="/shop?occasion=birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
+            <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.brands")}</Link>
+            <Link href="/about" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.about")}</Link>
           </nav>
         </div>
 
@@ -67,21 +71,21 @@ export function Navbar() {
             data-testid="button-open-location-picker"
           >
             <MapPin className="w-4 h-4" />
-            <span>Delivering to <strong className="text-foreground font-medium">{cityLabel}</strong></span>
+            <span>{t("utility.deliverTo")} <strong className="text-foreground font-medium">{cityLabel}</strong></span>
           </button>
 
-          <Button variant="ghost" size="icon" className="hidden sm:flex">
+          <Button variant="ghost" size="icon" className="hidden sm:flex" aria-label={t("nav.searchAria")}>
             <Search className="w-5 h-5" />
           </Button>
 
           <Link href={user ? "/account" : "/auth"}>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>
               <User className="w-5 h-5" />
             </Button>
           </Link>
 
           <Link href="/cart">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")}>
               <ShoppingBag className="w-5 h-5" />
               <AnimatePresence>
                 {itemCount > 0 && (

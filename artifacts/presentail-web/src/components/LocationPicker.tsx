@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocationSelection, type DeliveryCountry } from "@/contexts/LocationContext";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   onComplete?: () => void;
@@ -9,6 +10,7 @@ type Props = {
 
 export function LocationPicker({ onComplete, initialCountryCode = null }: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
+  const { t, language, setLanguage } = useLocale();
   const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(() => {
     if (!initialCountryCode) return null;
     return countries.find((c) => c.code === initialCountryCode) ?? null;
@@ -51,21 +53,22 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
           PRESENTAIL
         </div>
         <div className="flex-1 flex justify-end">
-          <a
-            href="?lang=ar"
+          <button
+            type="button"
+            onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             data-testid="link-arabic"
           >
-            العربية
-          </a>
+            {t("lang.toggle")}
+          </button>
         </div>
       </div>
 
       <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">
-        Send your gift to:
+        {t("locationPicker.sendGiftTo")}
       </h1>
       <p className="text-muted-foreground mb-8">
-        {selectedCountry ? "Select the recipient's city" : "Select the recipient's country"}
+        {selectedCountry ? t("locationPicker.selectCity") : t("locationPicker.selectCountry")}
       </p>
 
       {selectedCountry && (
@@ -80,7 +83,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
             className="text-sm text-primary hover:underline"
             data-testid="button-change-country"
           >
-            Change country
+            {t("locationPicker.changeCountry")}
           </button>
         </div>
       )}
@@ -106,7 +109,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
                 <span className="text-2xl leading-none">{country.flag}</span>
                 <span className="text-base font-medium">{country.name}</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
           ))
         ) : (
@@ -119,7 +122,7 @@ export function LocationPicker({ onComplete, initialCountryCode = null }: Props)
               data-testid={`button-city-${city.id}`}
             >
               <span className="text-base font-medium">{city.name}</span>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
             </button>
           ))
         )}

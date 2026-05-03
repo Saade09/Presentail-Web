@@ -7,27 +7,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useMemo } from "react";
 import { Filter, MapPin, SlidersHorizontal } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useLocale } from "@/contexts/LocaleContext";
 
 const CATEGORIES = [
-  { slug: "hand-bouquets", label: "Hand Bouquets" },
-  { slug: "flower-boxes", label: "Flower Boxes" },
-  { slug: "plants", label: "Plants" },
-  { slug: "cakes", label: "Cakes" },
-  { slug: "chocolate", label: "Chocolate" },
-  { slug: "bundles", label: "Bundles" },
+  { slug: "hand-bouquets", labelKey: "shop.cat.handBouquets" },
+  { slug: "flower-boxes", labelKey: "shop.cat.flowerBoxes" },
+  { slug: "plants", labelKey: "shop.cat.plants" },
+  { slug: "cakes", labelKey: "shop.cat.cakes" },
+  { slug: "chocolate", labelKey: "shop.cat.chocolate" },
+  { slug: "bundles", labelKey: "shop.cat.bundles" },
 ];
 
 const OCCASIONS = [
-  { slug: "birthday", label: "Birthday" },
-  { slug: "love-romance", label: "Love & Romance" },
-  { slug: "congratulations", label: "Congratulations" },
-  { slug: "thank-you", label: "Thank You" },
-  { slug: "condolences", label: "Condolences" },
+  { slug: "birthday", labelKey: "shop.occ.birthday" },
+  { slug: "love-romance", labelKey: "shop.occ.loveRomance" },
+  { slug: "congratulations", labelKey: "shop.occ.congratulations" },
+  { slug: "thank-you", labelKey: "shop.occ.thankYou" },
+  { slug: "condolences", labelKey: "shop.occ.condolences" },
 ];
 
 export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const { t } = useLocale();
 
   const category = searchParams.get("category") || "";
   const occasion = searchParams.get("occasion") || "";
@@ -35,10 +37,6 @@ export default function Shop() {
   const { countryCode, country, openPicker } = useLocationSelection();
   const countryParams = countryCode ? { countryCode } : {};
 
-  // Pick the right endpoint: category-products and occasion-products actually
-  // filter on the backend; the generic /woo/products endpoint ignores
-  // category/occasion params, so we route filtered views through the
-  // dedicated endpoints.
   const allProducts = useProducts(countryParams, !category && !occasion);
   const categoryProducts = useCategoryProducts(category, countryParams);
   const occasionProducts = useOccasionProducts(occasion, countryParams);
@@ -52,7 +50,6 @@ export default function Shop() {
   const sourceProducts: Product[] = useMemo(() => {
     if (category) return categoryProducts.data?.products ?? [];
     if (occasion) {
-      // occasion endpoint groups by sub-occasion slug; flatten and dedupe.
       const groups = occasionProducts.data?.groups ?? [];
       const seen = new Set<string>();
       const flat: Product[] = [];
@@ -78,10 +75,10 @@ export default function Shop() {
   }, [sourceProducts, sort]);
 
   const pageTitle = category
-    ? CATEGORIES.find((c) => c.slug === category)?.label ?? category
+    ? t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category)
     : occasion
-      ? OCCASIONS.find((o) => o.slug === occasion)?.label ?? occasion
-      : "All Collection";
+      ? t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion)
+      : t("shop.allCollection");
 
   return (
     <div className="min-h-screen pt-24 pb-24">
@@ -90,23 +87,23 @@ export default function Shop() {
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">{pageTitle}</h1>
             <p className="text-muted-foreground text-lg max-w-xl">
-              Browse our curated selection of luxury floral designs and premium gifts, thoughtfully crafted for delivery in Lebanon.
+              {t("shop.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
               <SelectTrigger className="w-[180px] bg-background" data-testid="select-sort">
                 <SlidersHorizontal className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Sort by" />
+                <SelectValue placeholder={t("shop.sortPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="featured">Featured</SelectItem>
-                <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                <SelectItem value="price-desc">Price: High to Low</SelectItem>
+                <SelectItem value="featured">{t("shop.sort.featured")}</SelectItem>
+                <SelectItem value="price-asc">{t("shop.sort.priceAsc")}</SelectItem>
+                <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" className="md:hidden" data-testid="button-mobile-filters">
-              <Filter className="w-4 h-4 mr-2" /> Filters
+              <Filter className="w-4 h-4 mr-2" /> {t("shop.filters")}
             </Button>
           </div>
         </div>
@@ -114,7 +111,7 @@ export default function Shop() {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="hidden md:block w-64 shrink-0 space-y-8">
             <div>
-              <h3 className="font-serif text-lg mb-4">Categories</h3>
+              <h3 className="font-serif text-lg mb-4">{t("shop.categoriesTitle")}</h3>
               <ul className="space-y-3">
                 {CATEGORIES.map((c) => (
                   <li key={c.slug}>
@@ -123,14 +120,14 @@ export default function Shop() {
                       className={`text-sm hover:text-primary transition-colors ${category === c.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
                       data-testid={`link-category-${c.slug}`}
                     >
-                      {c.label}
+                      {t(c.labelKey)}
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <h3 className="font-serif text-lg mb-4">Occasions</h3>
+              <h3 className="font-serif text-lg mb-4">{t("shop.occasionsTitle")}</h3>
               <ul className="space-y-3">
                 {OCCASIONS.map((o) => (
                   <li key={o.slug}>
@@ -139,7 +136,7 @@ export default function Shop() {
                       className={`text-sm hover:text-primary transition-colors ${occasion === o.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
                       data-testid={`link-occasion-${o.slug}`}
                     >
-                      {o.label}
+                      {t(o.labelKey)}
                     </Link>
                   </li>
                 ))}
@@ -147,7 +144,7 @@ export default function Shop() {
             </div>
             {(category || occasion) && (
               <Link href="/shop" className="text-sm font-medium text-primary hover:underline" data-testid="link-clear-filters">
-                Clear all filters
+                {t("shop.clearAll")}
               </Link>
             )}
           </div>
@@ -167,28 +164,27 @@ export default function Shop() {
                 {country ? (
                   <>
                     <MapPin className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="font-serif text-2xl mb-3">No products available in {country.name}</h3>
+                    <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleCountry", { country: country.name })}</h3>
                     <p className="text-muted-foreground mb-6">
-                      We couldn't find any products that can be delivered to {country.name} for your current filters.
-                      Try a different category or change your delivery country.
+                      {t("shop.empty.descCountry", { country: country.name })}
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-3">
                       <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
-                        Change delivery country
+                        {t("shop.empty.changeCountry")}
                       </Button>
                       {(category || occasion) && (
                         <Button asChild variant="ghost" data-testid="button-clear-filters">
-                          <Link href="/shop">Clear filters</Link>
+                          <Link href="/shop">{t("shop.clearFiltersBtn")}</Link>
                         </Button>
                       )}
                     </div>
                   </>
                 ) : (
                   <>
-                    <h3 className="font-serif text-2xl mb-3">No products found</h3>
-                    <p className="text-muted-foreground mb-6">We couldn't find any products matching your current filters.</p>
+                    <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleNoCountry")}</h3>
+                    <p className="text-muted-foreground mb-6">{t("shop.empty.descNoCountry")}</p>
                     <Button asChild variant="outline" data-testid="button-clear-filters">
-                      <Link href="/shop">Clear Filters</Link>
+                      <Link href="/shop">{t("shop.clearFiltersBtnCap")}</Link>
                     </Button>
                   </>
                 )}

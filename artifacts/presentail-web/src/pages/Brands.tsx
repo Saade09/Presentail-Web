@@ -2,16 +2,18 @@ import { useBrands } from "@/lib/queries";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export default function Brands() {
   const { data, isLoading } = useBrands();
+  const { t } = useLocale();
   
   return (
     <div className="min-h-screen pt-32 pb-24 bg-background">
       <div className="container mx-auto px-4">
-        <h1 className="text-4xl md:text-5xl font-serif mb-4">Our Partner Brands</h1>
+        <h1 className="text-4xl md:text-5xl font-serif mb-4">{t("brands.title")}</h1>
         <p className="text-muted-foreground text-lg max-w-xl mb-12">
-          Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium electronics.
+          {t("brands.desc")}
         </p>
 
         {isLoading ? (
@@ -38,7 +40,7 @@ export default function Brands() {
                     )}
                   </div>
                   <h3 className="font-serif text-center font-medium group-hover:text-primary transition-colors">{brand.name}</h3>
-                  <p className="text-center text-xs text-muted-foreground mt-1">{brand.count} products</p>
+                  <p className="text-center text-xs text-muted-foreground mt-1">{brand.count} {t("brands.products")}</p>
                 </Link>
               </motion.div>
             ))}

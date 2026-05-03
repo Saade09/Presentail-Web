@@ -3,9 +3,11 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
+  const { t, dir } = useLocale();
 
   if (itemCount === 0) {
     return (
@@ -13,12 +15,12 @@ export default function Cart() {
         <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
           <ShoppingBag className="w-10 h-10" />
         </div>
-        <h1 className="text-3xl font-serif mb-4">Your bag is empty</h1>
+        <h1 className="text-3xl font-serif mb-4">{t("cart.empty.title")}</h1>
         <p className="text-muted-foreground mb-8 max-w-md text-center">
-          Find the perfect floral arrangement or luxury gift for your next special occasion.
+          {t("cart.empty.desc")}
         </p>
         <Button asChild size="lg" className="rounded-full px-8">
-          <Link href="/shop">Start Shopping</Link>
+          <Link href="/shop">{t("cart.empty.cta")}</Link>
         </Button>
       </div>
     );
@@ -27,7 +29,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen pt-24 pb-24">
       <div className="container mx-auto px-4 max-w-5xl">
-        <h1 className="text-4xl font-serif mb-12">Your Bag ({itemCount})</h1>
+        <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
 
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Cart Items */}
@@ -54,6 +56,7 @@ export default function Cart() {
                     <button 
                       onClick={() => removeItem(item.product.id)}
                       className="text-muted-foreground hover:text-destructive transition-colors h-fit p-1"
+                      aria-label={t("cart.removeAria")}
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -64,6 +67,7 @@ export default function Cart() {
                       <button 
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)} 
                         className="px-3 py-1.5 hover:bg-secondary transition-colors"
+                        aria-label={t("cart.decreaseAria")}
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -71,6 +75,7 @@ export default function Cart() {
                       <button 
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)} 
                         className="px-3 py-1.5 hover:bg-secondary transition-colors"
+                        aria-label={t("cart.increaseAria")}
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -85,27 +90,27 @@ export default function Cart() {
           {/* Order Summary */}
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
-              <h2 className="text-2xl font-serif mb-6">Order Summary</h2>
+              <h2 className="text-2xl font-serif mb-6">{t("cart.summary")}</h2>
               
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-muted-foreground">{t("cart.subtotal")}</span>
                   <span className="font-medium">${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Delivery</span>
-                  <span className="text-muted-foreground">Calculated at checkout</span>
+                  <span className="text-muted-foreground">{t("cart.delivery")}</span>
+                  <span className="text-muted-foreground">{t("cart.calculatedAtCheckout")}</span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center mb-8">
-                <span className="font-medium">Total</span>
+                <span className="font-medium">{t("cart.total")}</span>
                 <span className="text-2xl font-serif">${subtotal.toFixed(2)}</span>
               </div>
               
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
                 <Link href="/checkout">
-                  Proceed to Checkout <ArrowRight className="w-4 h-4 ml-2" />
+                  {t("cart.proceed")} <ArrowRight className={`w-4 h-4 ml-2 ${dir === "rtl" ? "rotate-180" : ""}`} />
                 </Link>
               </Button>
             </div>

@@ -7,11 +7,13 @@ import { useState } from "react";
 import { Minus, Plus, ShoppingBag, ArrowLeft, ShieldCheck, Truck } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useToast } from "@/hooks/use-toast";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
   const slug = params?.slug;
   const { toast } = useToast();
+  const { t, dir } = useLocale();
   
   const { data: allData, isLoading } = useProducts();
   const product = allData?.products?.find(p => p.id === slug);
@@ -27,8 +29,8 @@ export default function ProductDetail() {
     if (product) {
       addItem(product, qty);
       toast({
-        title: "Added to cart",
-        description: `${qty}x ${product.name} added to your bag.`,
+        title: t("product.toast.addedTitle"),
+        description: t("product.toast.addedDescQty", { qty, name: product.name }),
       });
     }
   };
@@ -51,9 +53,9 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <div className="container mx-auto px-4 pt-32 pb-24 text-center">
-        <h1 className="font-serif text-3xl mb-4">Product Not Found</h1>
+        <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>
         <Button asChild variant="outline">
-          <Link href="/shop">Return to Shop</Link>
+          <Link href="/shop">{t("product.returnShop")}</Link>
         </Button>
       </div>
     );
@@ -63,7 +65,7 @@ export default function ProductDetail() {
     <div className="min-h-screen pt-24 pb-24 bg-background">
       <div className="container mx-auto px-4">
         <Link href="/shop" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Shop
+          <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("product.backToShop")}
         </Link>
 
         <div className="grid md:grid-cols-2 gap-12 lg:gap-24 mb-24">
@@ -96,7 +98,7 @@ export default function ProductDetail() {
 
             <div className="space-y-6 mb-10 border-t border-b py-8">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-medium w-24">Quantity</span>
+                <span className="text-sm font-medium w-24">{t("product.quantity")}</span>
                 <div className="flex items-center border rounded-full overflow-hidden bg-background">
                   <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-4 py-2 hover:bg-secondary transition-colors" disabled={qty <= 1}>
                     <Minus className="w-4 h-4" />
@@ -116,17 +118,17 @@ export default function ProductDetail() {
               disabled={!product.inStock}
             >
               <ShoppingBag className="w-5 h-5 mr-2" />
-              {product.inStock ? "Add to Cart" : "Out of Stock"}
+              {product.inStock ? t("product.addToCart") : t("product.outOfStock")}
             </Button>
 
             <div className="grid grid-cols-2 gap-4 mt-auto">
               <div className="flex items-center gap-3 p-4 bg-secondary/50 rounded-xl">
                 <Truck className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium">Same-day delivery in Lebanon</span>
+                <span className="text-sm font-medium">{t("product.sameDay")}</span>
               </div>
               <div className="flex items-center gap-3 p-4 bg-secondary/50 rounded-xl">
                 <ShieldCheck className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium">100% Secure Checkout</span>
+                <span className="text-sm font-medium">{t("product.secureCheckout")}</span>
               </div>
             </div>
           </div>
@@ -135,7 +137,7 @@ export default function ProductDetail() {
         {/* Similar Products */}
         {similar.length > 0 && (
           <div className="pt-16 border-t">
-            <h2 className="text-3xl font-serif mb-10">You May Also Like</h2>
+            <h2 className="text-3xl font-serif mb-10">{t("product.youMayLike")}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {similar.map((p, i) => (
                 <ProductCard key={p.id} product={p} index={i} />

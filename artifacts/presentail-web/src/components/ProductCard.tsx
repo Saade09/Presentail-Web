@@ -5,17 +5,19 @@ import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { t } = useLocale();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     addItem(product);
     toast({
-      title: "Added to cart",
-      description: `${product.name} added to your bag.`,
+      title: t("product.toast.addedTitle"),
+      description: t("product.toast.addedDesc", { name: product.name }),
     });
   };
 
@@ -48,7 +50,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           )}
           
           <div className="absolute bottom-4 right-4 translate-y-12 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-            <Button size="icon" className="rounded-full shadow-xl bg-background text-foreground hover:bg-gold hover:text-white" onClick={handleAddToCart}>
+            <Button size="icon" className="rounded-full shadow-xl bg-background text-foreground hover:bg-gold hover:text-white" onClick={handleAddToCart} aria-label={t("product.addToCart")}>
               <ShoppingBag className="w-4 h-4" />
             </Button>
           </div>
