@@ -159,6 +159,32 @@ export const useAppleOAuth = () => {
   });
 };
 
+// Customer's order history — combines guest checkouts (matched by email/phone)
+// with logged-in orders, since the server links every checkout to a canonical
+// customer row.
+export type MyOrder = {
+  appOrderId: string;
+  wcOrderId: number | null;
+  state: string;
+  recipientName: string | null;
+  deliveryDate: string | null;
+  deliverySlot: string | null;
+  createdAt: string;
+  status: string | null;
+  total: string | null;
+  currency: string | null;
+  itemsCount: number;
+  items: { name: string; quantity: number; image: string | null }[];
+};
+
+export const useMyOrders = (token: string | null) => {
+  return useQuery({
+    queryKey: ["my-orders"],
+    queryFn: () => apiFetch<{ ok: boolean; orders: MyOrder[] }>("/me/orders"),
+    enabled: !!token,
+  });
+};
+
 // Order Hooks
 export const useCreateOrder = () => {
   return useMutation({

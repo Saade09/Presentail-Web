@@ -9,6 +9,7 @@ import deliveryLocationsRouter from "./delivery-locations";
 import deliveryConfigRouter from "./delivery-config";
 import fxRouter from "./fx";
 import homepageRouter from "./homepage";
+import meRouter from "./me";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(deliveryLocationsRouter);
 router.use(deliveryConfigRouter);
 router.use(fxRouter);
 router.use(homepageRouter);
+router.use(meRouter);
 
 export default router;

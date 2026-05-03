@@ -455,7 +455,7 @@ export default function AccountTab() {
         </View>
 
         <Section colors={colors} title={t.accountOrdersHistory}>
-          <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/(tabs)")} />
+          <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/orders" as never)} />
         </Section>
 
         <Section colors={colors} title={t.accountPreferences}>

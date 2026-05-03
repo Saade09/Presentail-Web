@@ -503,6 +503,15 @@ const EN = {
   accountDeletedTitle: "Account deleted",
   accountDeletedMsg: "Your account has been removed.",
   accountFooterNote: "Deleting your account permanently removes your profile and personal data.",
+  ordersTitle: "My orders",
+  ordersEmpty: "You haven't placed any orders yet.",
+  ordersLoading: "Loading your orders…",
+  ordersError: "We couldn't load your orders right now.",
+  ordersOrderNumber: "Order",
+  ordersPlacedOn: "Placed on",
+  ordersDeliveryFor: "Delivery for",
+  ordersItem: "item",
+  ordersItems: "items",
 
   // ── Brand page ──
   brandTheBrand: "The Brand",
@@ -1296,6 +1305,15 @@ const AR: typeof EN = {
   accountDeletedTitle: "تم حذف الحساب",
   accountDeletedMsg: "تمت إزالة حسابك.",
   accountFooterNote: "حذف حسابك يزيل ملفك الشخصي وبياناتك بشكل دائم.",
+  ordersTitle: "طلباتي",
+  ordersEmpty: "لم تقم بأي طلبات بعد.",
+  ordersLoading: "جارٍ تحميل طلباتك…",
+  ordersError: "تعذّر تحميل طلباتك الآن.",
+  ordersOrderNumber: "طلب",
+  ordersPlacedOn: "تم الطلب في",
+  ordersDeliveryFor: "تسليم إلى",
+  ordersItem: "عنصر",
+  ordersItems: "عناصر",
 
   // ── Brand page ──
   brandTheBrand: "العلامة",
@@ -2089,6 +2107,15 @@ const FR: typeof EN = {
   accountDeletedTitle: "Compte supprimé",
   accountDeletedMsg: "Votre compte a été supprimé.",
   accountFooterNote: "La suppression de votre compte retire définitivement votre profil et vos données personnelles.",
+  ordersTitle: "Mes commandes",
+  ordersEmpty: "Vous n'avez pas encore passé de commande.",
+  ordersLoading: "Chargement de vos commandes…",
+  ordersError: "Impossible de charger vos commandes pour le moment.",
+  ordersOrderNumber: "Commande",
+  ordersPlacedOn: "Passée le",
+  ordersDeliveryFor: "Livraison à",
+  ordersItem: "article",
+  ordersItems: "articles",
 
   // ── Brand page ──
   brandTheBrand: "La marque",
