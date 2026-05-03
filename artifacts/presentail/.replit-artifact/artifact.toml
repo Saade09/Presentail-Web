@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/"
-title = "Presentail Lebanon"
+title = "Presentail Mobile"
 version = "1.0.0"
 id = "artifacts/presentail"
 router = "expo-domain"

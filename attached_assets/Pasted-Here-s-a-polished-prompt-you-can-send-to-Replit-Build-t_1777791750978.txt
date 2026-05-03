@@ -1,0 +1,260 @@
+Here’s a polished prompt you can send to Replit:
+
+---
+
+Build the **country-specific homepage top half** for Presentail so it visually matches the attached reference screenshot.
+
+The goal is to recreate the top portion of the Presentail country homepage, including:
+
+1. Top utility bar
+2. Main navigation/header
+3. Country/language selector area
+4. Hero banner carousel
+5. Start of the “Best Sellers” section
+
+The layout should feel clean, premium, spacious, and similar to the reference.
+
+## Visual Reference
+
+Use the screenshot as the design reference.
+
+Key visual characteristics:
+
+* White and very light gray background
+* Centered Presentail logo in the main navbar
+* Minimal navigation with dropdown-style menu items
+* Large hero banner centered on the page
+* Hero banner has left/right carousel arrows
+* Banner content can include image/video background, text, and CTA
+* “Best Sellers” section begins below the hero
+* Desktop layout should be wide and elegant
+* Mobile layout should be optimized separately, not just a compressed desktop version
+
+## Important Data Requirement
+
+The homepage banners must be **dynamic** and powered by data from **Presentail OS**.
+
+Banners should not be hardcoded into the frontend except as sample/mock data for now.
+
+Each country homepage should fetch or receive banner data from Presentail OS.
+
+## Banner Requirements
+
+Banners can be either:
+
+* Image banners
+* Video banners
+
+When a user clicks or taps a banner, it should navigate to a specific URL defined in Presentail OS.
+
+Each banner object should support:
+
+```ts
+type HomepageBanner = {
+  id: string;
+  countryCode: string;
+
+  title?: string;
+  subtitle?: string;
+  ctaText?: string;
+
+  desktopMediaType: "image" | "video";
+  desktopMediaUrl: string;
+  desktopLinkUrl: string;
+
+  mobileMediaType: "image" | "video";
+  mobileMediaUrl: string;
+  mobileLinkUrl: string;
+
+  sortOrder: number;
+  isActive: boolean;
+
+  startsAt?: string;
+  endsAt?: string;
+};
+```
+
+## Critical Responsive Requirement
+
+Desktop and mobile banners must be defined separately.
+
+Do not use the same banner asset for both desktop and mobile.
+
+Desktop banners and mobile banners have different:
+
+* Dimensions
+* Cropping
+* Composition
+* Text placement
+* Design treatment
+* CTA placement
+
+The frontend should choose the correct media based on viewport size.
+
+For example:
+
+* Desktop uses `desktopMediaUrl`, `desktopMediaType`, and `desktopLinkUrl`
+* Mobile uses `mobileMediaUrl`, `mobileMediaType`, and `mobileLinkUrl`
+
+## Desktop Hero Banner Design
+
+For desktop:
+
+* Banner should be centered inside the page
+* Max width should be approximately 1400px
+* Height should be large, similar to the screenshot
+* Use an aspect ratio close to a wide hero banner
+* Background can be image or video
+* Banner should support overlay text
+* Text should be large, elegant, and positioned based on banner data or default right-side placement
+* CTA button should be visible and styled like the screenshot
+* Left and right carousel arrows should sit on the sides of the banner
+* Arrows should be circular white buttons with subtle shadow
+* Banner should be clickable, but carousel arrows should not trigger navigation
+
+## Mobile Hero Banner Design
+
+For mobile:
+
+* Use separate mobile media assets
+* Banner should be full-width or nearly full-width
+* Height should be optimized for mobile, likely portrait or square-ish depending on data
+* Text should remain readable
+* CTA should not overlap important visual elements
+* Carousel controls should be touch-friendly
+* Avoid simply scaling down the desktop banner
+
+## Header Requirements
+
+Create a header similar to the screenshot:
+
+### Top utility bar
+
+* Light gray background
+* Left side: “No Hassle Details” or equivalent placeholder text
+* Right side: country selector and language toggle
+* Country selector should show flag + country name
+* Language button should support Arabic toggle placeholder
+
+### Main navbar
+
+* White background
+* Left navigation:
+
+  * Occasions
+  * Flowers & Plants
+  * Gifts
+  * Brands
+* Center:
+
+  * Presentail logo
+* Right navigation:
+
+  * About Us
+  * Search icon
+  * Account icon
+  * Bag/cart icon
+
+Use dropdown indicators where appropriate.
+
+## Best Sellers Preview
+
+Below the hero banner, start the Best Sellers section.
+
+Design requirements:
+
+* Section title: “Best Sellers”
+* “View All” link on the right
+* Product cards begin underneath
+* Use placeholder product data for now
+* Product grid should be responsive
+* Desktop should show 4 cards per row
+* Mobile should show 2 cards per row or horizontal scroll, whichever looks better
+
+## Behavior Requirements
+
+* Banner carousel should support multiple active banners
+* Auto-rotation is optional, but structure should support it
+* Manual navigation with left/right arrows is required
+* Clicking the banner navigates to the correct URL
+* Videos should autoplay muted, loop, and play inline
+* If video fails, gracefully show a fallback if available
+* Only show active banners
+* Respect `startsAt` and `endsAt` dates if provided
+* Sort banners by `sortOrder`
+
+## Implementation Notes
+
+Use clean, reusable components:
+
+* `CountryHomepage`
+* `HomepageHeader`
+* `HeroBannerCarousel`
+* `HeroBannerSlide`
+* `BestSellersPreview`
+* `ProductCard`
+
+Create mock data that simulates Presentail OS data, but structure the code so it can later be replaced with a real API call.
+
+Example mock banner:
+
+```ts
+const homepageBanners: HomepageBanner[] = [
+  {
+    id: "banner-1",
+    countryCode: "LB",
+    title: "Elevate Your Space With Elegant Flower Vases",
+    ctaText: "Shop Now",
+
+    desktopMediaType: "image",
+    desktopMediaUrl: "/mock/banners/lebanon-desktop-vases.jpg",
+    desktopLinkUrl: "/lebanon/product-category/flower-vases",
+
+    mobileMediaType: "image",
+    mobileMediaUrl: "/mock/banners/lebanon-mobile-vases.jpg",
+    mobileLinkUrl: "/lebanon/product-category/flower-vases",
+
+    sortOrder: 1,
+    isActive: true
+  }
+];
+```
+
+## Styling Direction
+
+The page should feel like a premium flower and gifting ecommerce brand.
+
+Use:
+
+* Elegant serif font for logo/headings where possible
+* Clean sans-serif for navigation and body text
+* Presentail dark teal for headings and icons
+* Generous white space
+* Soft shadows
+* Rounded buttons
+* Minimal borders
+* Smooth carousel transitions
+
+Suggested brand colors:
+
+```css
+--presentail-green: #004f59;
+--presentail-light-gray: #f3f3f3;
+--presentail-border: #e6e6e6;
+--presentail-text: #111111;
+--presentail-muted: #6f6f6f;
+```
+
+## Acceptance Criteria
+
+The final result should:
+
+* Closely resemble the top half of the provided screenshot
+* Support dynamic banner data from Presentail OS
+* Support both image and video banners
+* Use separate desktop and mobile banner definitions
+* Navigate to banner-specific URLs on click
+* Be responsive and polished on desktop and mobile
+* Have clean reusable code and mock data that can easily be replaced by the real API later
+
+Do not build a generic ecommerce homepage. Build this specifically as the Presentail country homepage top section.
