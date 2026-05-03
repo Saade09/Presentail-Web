@@ -1,0 +1,215 @@
+Here’s a prompt you can send to Replit:
+
+---
+
+**Prompt:**
+
+Update the website login page so it visually matches the attached reference screenshot as closely as possible.
+
+### Goal
+
+The desktop login page should have a clean, centered authentication card with Presentail’s premium branding and styling.
+
+### Reference design
+
+The page should look like the attached screenshot:
+
+* Off-white / light cream page background
+* Centered white login card
+* Thin light border around the card
+* Rounded card corners
+* Premium serif heading
+* Dark teal brand color for text and primary button
+* Clean spacing and large inputs/buttons
+
+---
+
+## Layout requirements
+
+### Page background
+
+* Full-page background color should be light off-white / cream.
+* Login card should be centered horizontally.
+* Card should sit near the vertical center/top-center of the page.
+* The page should work on desktop and remain responsive on mobile.
+
+### Login card
+
+Create a centered card with:
+
+* White or very light background
+* Thin subtle border
+* Border radius around `12px–16px`
+* Width around `560px` on desktop
+* Generous padding
+* No heavy shadow, or only a very subtle one
+
+---
+
+## Content requirements
+
+### Heading
+
+Main heading:
+
+`Login or Create Account`
+
+Style:
+
+* Center aligned
+* Serif font if available, matching Presentail brand style
+* Dark teal color
+* Large size, around `34–42px`
+* Normal or medium font weight
+
+### Subtitle
+
+Text:
+
+`Sign in with your email address`
+
+Style:
+
+* Center aligned
+* Dark teal
+* Medium font weight
+* Around `18–22px`
+
+---
+
+## Email field
+
+Label:
+
+`Email Address`
+
+Input placeholder:
+
+`Enter your email address`
+
+Requirements:
+
+* Full width inside card
+* Large height, around `58–64px`
+* Rounded corners
+* Light border
+* Comfortable horizontal padding
+* Placeholder should be muted grey/teal
+* Input text should use brand dark teal
+
+---
+
+## Primary button
+
+Button text:
+
+`Continue`
+
+Style:
+
+* Full width
+* Dark teal background
+* White text
+* Rounded pill shape
+* Height around `60–66px`
+* Bold text
+* Hover state should slightly darken or lighten
+* Disabled/loading state should be handled if already supported
+
+---
+
+## Divider
+
+Add divider below the Continue button:
+
+* Horizontal line on left
+* Text in center: `Or`
+* Horizontal line on right
+* Light grey line color
+* Proper spacing above and below
+
+---
+
+## Social login buttons
+
+Add two full-width outline buttons:
+
+1. `Continue with Apple`
+2. `Continue with Google`
+
+Style:
+
+* White background
+* Dark teal text
+* Thin teal border
+* Rounded pill shape
+* Height around `60–64px`
+* Centered text
+* Icon on the left side of the button content
+* Apple icon should be black/dark
+* Google icon should use Google colors if available
+
+Spacing should match the reference screenshot.
+
+---
+
+## Functionality requirements
+
+Do not break existing authentication behavior.
+
+Keep existing logic for:
+
+* Email login / create account flow
+* Apple login
+* Google login
+* Loading states
+* Error states
+* Redirect after login
+* Existing route guards
+
+This task is primarily a visual/UI update, but all auth actions must continue working.
+
+---
+
+## Responsive behavior
+
+On mobile:
+
+* Card should fit the viewport
+* Reduce horizontal margins
+* Preserve clean spacing
+* Buttons and inputs should remain large and tappable
+
+On desktop:
+
+* Card should stay centered and fixed-width
+* Do not stretch the form across the page
+
+---
+
+## Implementation instructions
+
+Please inspect the current auth/login page first and reuse existing components where possible.
+
+Specifically:
+
+1. Find the current login/auth page component.
+2. Update styling to match the reference.
+3. Reuse existing form handlers and auth actions.
+4. Do not duplicate auth logic.
+5. Do not introduce a second disconnected login page.
+6. Keep the design consistent with Presentail’s brand colors and typography.
+
+---
+
+## Deliverables
+
+Please provide:
+
+* Updated login page UI
+* Confirmation that email login/create account flow still works
+* Confirmation that Apple and Google buttons still call the existing auth logic
+* Summary of files changed
+* Any notes if a brand font or icon package was missing
+
+Important: match the attached screenshot closely in spacing, layout, typography, button shape, colors, and overall premium minimal feel.
