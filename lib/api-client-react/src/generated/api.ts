@@ -24,6 +24,7 @@ import type {
   GetHomepageBannersParams,
   HealthStatus,
   HomepageBannersResponse,
+  HomepageCollectionResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -487,6 +488,180 @@ export function useGetHomepageBanners<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHomepageBannersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the curated list of items for the homepage "Categories"
+carousel. The list is sourced from WooCommerce product categories
+whose parent has slug `home-categories`, mapped into the shared
+`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+If WooCommerce credentials are unset or the parent category does
+not yet exist in WP admin, a sensible hand-rolled default set is
+returned so the homepage is never blank during admin setup. On a
+WooCommerce network/HTTP failure the endpoint instead returns an
+empty `items` array (still 200) so the client hides the section
+rather than rendering stale defaults.
+
+ * @summary Get curated homepage Categories carousel items
+ */
+export const getGetHomepageCategoriesUrl = () => {
+  return `/api/homepage/categories`;
+};
+
+export const getHomepageCategories = async (
+  options?: RequestInit,
+): Promise<HomepageCollectionResponse> => {
+  return customFetch<HomepageCollectionResponse>(
+    getGetHomepageCategoriesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHomepageCategoriesQueryKey = () => {
+  return [`/api/homepage/categories`] as const;
+};
+
+export const getGetHomepageCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomepageCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHomepageCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomepageCategories>>
+  > = ({ signal }) => getHomepageCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageCategories>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomepageCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomepageCategories>>
+>;
+export type GetHomepageCategoriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get curated homepage Categories carousel items
+ */
+
+export function useGetHomepageCategories<
+  TData = Awaited<ReturnType<typeof getHomepageCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageCategories>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the curated list of items for the homepage "Occasions"
+carousel. The list is sourced from WooCommerce product categories
+whose parent has slug `home-occasions`, mapped into the shared
+`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+If WooCommerce credentials are unset or the parent category does
+not yet exist in WP admin, a sensible hand-rolled default set is
+returned. On a WooCommerce network/HTTP failure the endpoint
+instead returns an empty `items` array (still 200) so the client
+hides the section rather than rendering stale defaults.
+
+ * @summary Get curated homepage Occasions carousel items
+ */
+export const getGetHomepageOccasionsUrl = () => {
+  return `/api/homepage/occasions`;
+};
+
+export const getHomepageOccasions = async (
+  options?: RequestInit,
+): Promise<HomepageCollectionResponse> => {
+  return customFetch<HomepageCollectionResponse>(getGetHomepageOccasionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHomepageOccasionsQueryKey = () => {
+  return [`/api/homepage/occasions`] as const;
+};
+
+export const getGetHomepageOccasionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomepageOccasions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHomepageOccasionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomepageOccasions>>
+  > = ({ signal }) => getHomepageOccasions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageOccasions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomepageOccasionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomepageOccasions>>
+>;
+export type GetHomepageOccasionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get curated homepage Occasions carousel items
+ */
+
+export function useGetHomepageOccasions<
+  TData = Awaited<ReturnType<typeof getHomepageOccasions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageOccasionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

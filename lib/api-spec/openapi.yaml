@@ -152,6 +152,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HomepageBannersResponse"
+  /homepage/categories:
+    get:
+      operationId: getHomepageCategories
+      tags: [homepage]
+      summary: Get curated homepage Categories carousel items
+      description: |
+        Returns the curated list of items for the homepage "Categories"
+        carousel. The list is sourced from WooCommerce product categories
+        whose parent has slug `home-categories`, mapped into the shared
+        `HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+        If WooCommerce credentials are unset or the parent category does
+        not yet exist in WP admin, a sensible hand-rolled default set is
+        returned so the homepage is never blank during admin setup. On a
+        WooCommerce network/HTTP failure the endpoint instead returns an
+        empty `items` array (still 200) so the client hides the section
+        rather than rendering stale defaults.
+      responses:
+        "200":
+          description: Categories carousel items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageCollectionResponse"
+  /homepage/occasions:
+    get:
+      operationId: getHomepageOccasions
+      tags: [homepage]
+      summary: Get curated homepage Occasions carousel items
+      description: |
+        Returns the curated list of items for the homepage "Occasions"
+        carousel. The list is sourced from WooCommerce product categories
+        whose parent has slug `home-occasions`, mapped into the shared
+        `HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+        If WooCommerce credentials are unset or the parent category does
+        not yet exist in WP admin, a sensible hand-rolled default set is
+        returned. On a WooCommerce network/HTTP failure the endpoint
+        instead returns an empty `items` array (still 200) so the client
+        hides the section rather than rendering stale defaults.
+      responses:
+        "200":
+          description: Occasions carousel items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageCollectionResponse"
   /delivery-config:
     get:
       operationId: getDeliveryConfig
@@ -399,6 +444,48 @@ components:
             $ref: "#/components/schemas/HomepageBanner"
       required:
         - banners
+    HomepageCollectionItem:
+      type: object
+      description: |
+        A single item shown in a homepage circular-card carousel. The shape
+        is intentionally generic so it can back both the "Categories" and
+        "Occasions" rows, and a future DB-backed implementation without a
+        breaking change.
+      properties:
+        id:
+          type: string
+          description: Stable identifier (typically the WooCommerce category id as a string).
+        name:
+          type: string
+          description: Display label rendered under the circular image.
+        slug:
+          type: string
+          description: URL-safe slug used to build the destination link.
+        imageUrl:
+          type: string
+          description: Absolute URL of the image rendered inside the circular card. Empty string when no image is configured.
+        sortOrder:
+          type: integer
+          description: Lower values appear first in the carousel.
+        isActive:
+          type: boolean
+          description: Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.
+      required:
+        - id
+        - name
+        - slug
+        - imageUrl
+        - sortOrder
+        - isActive
+    HomepageCollectionResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HomepageCollectionItem"
+      required:
+        - items
     DeliveryConfigResponse:
       type: object
       properties:

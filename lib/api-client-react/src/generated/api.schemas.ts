@@ -122,6 +122,32 @@ export interface HomepageBannersResponse {
   banners: HomepageBanner[];
 }
 
+/**
+ * A single item shown in a homepage circular-card carousel. The shape
+is intentionally generic so it can back both the "Categories" and
+"Occasions" rows, and a future DB-backed implementation without a
+breaking change.
+
+ */
+export interface HomepageCollectionItem {
+  /** Stable identifier (typically the WooCommerce category id as a string). */
+  id: string;
+  /** Display label rendered under the circular image. */
+  name: string;
+  /** URL-safe slug used to build the destination link. */
+  slug: string;
+  /** Absolute URL of the image rendered inside the circular card. Empty string when no image is configured. */
+  imageUrl: string;
+  /** Lower values appear first in the carousel. */
+  sortOrder: number;
+  /** Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews. */
+  isActive: boolean;
+}
+
+export interface HomepageCollectionResponse {
+  items: HomepageCollectionItem[];
+}
+
 export interface DeliveryConfigResponse {
   /** Human-readable express delivery promise (e.g. "Arrives in 90 minutes"). */
   expressDeliveryTimeLabel: string;

@@ -17,6 +17,8 @@ export * from "./healthStatus";
 export * from "./homepageBanner";
 export * from "./homepageBannerMediaType";
 export * from "./homepageBannersResponse";
+export * from "./homepageCollectionItem";
+export * from "./homepageCollectionResponse";
 export * from "./orderEventState";
 export * from "./pushOrderEventRequest";
 export * from "./pushOrderEventResponse";

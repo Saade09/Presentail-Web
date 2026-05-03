@@ -143,6 +143,103 @@ export const GetHomepageBannersResponse = zod.object({
 });
 
 /**
+ * Returns the curated list of items for the homepage "Categories"
+carousel. The list is sourced from WooCommerce product categories
+whose parent has slug `home-categories`, mapped into the shared
+`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+If WooCommerce credentials are unset or the parent category does
+not yet exist in WP admin, a sensible hand-rolled default set is
+returned so the homepage is never blank during admin setup. On a
+WooCommerce network/HTTP failure the endpoint instead returns an
+empty `items` array (still 200) so the client hides the section
+rather than rendering stale defaults.
+
+ * @summary Get curated homepage Categories carousel items
+ */
+export const GetHomepageCategoriesResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod
+          .string()
+          .describe(
+            "Stable identifier (typically the WooCommerce category id as a string).",
+          ),
+        name: zod
+          .string()
+          .describe("Display label rendered under the circular image."),
+        slug: zod
+          .string()
+          .describe("URL-safe slug used to build the destination link."),
+        imageUrl: zod
+          .string()
+          .describe(
+            "Absolute URL of the image rendered inside the circular card. Empty string when no image is configured.",
+          ),
+        sortOrder: zod
+          .number()
+          .describe("Lower values appear first in the carousel."),
+        isActive: zod
+          .boolean()
+          .describe(
+            "Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.",
+          ),
+      })
+      .describe(
+        'A single item shown in a homepage circular-card carousel. The shape\nis intentionally generic so it can back both the \"Categories\" and\n\"Occasions\" rows, and a future DB-backed implementation without a\nbreaking change.\n',
+      ),
+  ),
+});
+
+/**
+ * Returns the curated list of items for the homepage "Occasions"
+carousel. The list is sourced from WooCommerce product categories
+whose parent has slug `home-occasions`, mapped into the shared
+`HomepageCollectionItem` shape, sorted by `sortOrder` ascending.
+If WooCommerce credentials are unset or the parent category does
+not yet exist in WP admin, a sensible hand-rolled default set is
+returned. On a WooCommerce network/HTTP failure the endpoint
+instead returns an empty `items` array (still 200) so the client
+hides the section rather than rendering stale defaults.
+
+ * @summary Get curated homepage Occasions carousel items
+ */
+export const GetHomepageOccasionsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod
+          .string()
+          .describe(
+            "Stable identifier (typically the WooCommerce category id as a string).",
+          ),
+        name: zod
+          .string()
+          .describe("Display label rendered under the circular image."),
+        slug: zod
+          .string()
+          .describe("URL-safe slug used to build the destination link."),
+        imageUrl: zod
+          .string()
+          .describe(
+            "Absolute URL of the image rendered inside the circular card. Empty string when no image is configured.",
+          ),
+        sortOrder: zod
+          .number()
+          .describe("Lower values appear first in the carousel."),
+        isActive: zod
+          .boolean()
+          .describe(
+            "Whether this item should be rendered. Inactive items are filtered out server-side but the field is exposed for clients that want to show admin previews.",
+          ),
+      })
+      .describe(
+        'A single item shown in a homepage circular-card carousel. The shape\nis intentionally generic so it can back both the \"Categories\" and\n\"Occasions\" rows, and a future DB-backed implementation without a\nbreaking change.\n',
+      ),
+  ),
+});
+
+/**
  * Returns the express-delivery time label, the free-delivery threshold
 copy and the currency code Presentail uses for the given country and
 (optionally) city. Values are sourced from a server-side config so
