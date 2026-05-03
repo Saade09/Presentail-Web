@@ -1,0 +1,200 @@
+Here’s a prompt you can send to Replit:
+
+---
+
+**Prompt:**
+
+Update the existing **Country module** in Presentail OS to support **country flag images**.
+
+### Goal
+
+Each country should have a proper **flag picture/image**, not just an icon or emoji. These flag images will be used across Presentail apps wherever countries are displayed.
+
+### Existing context
+
+The Country module already exists. Please inspect the current implementation first before making changes.
+
+Do not create a separate disconnected country system.
+
+---
+
+## Requirements
+
+### 1. Add flag image field to countries
+
+Add support for a flag image on each country.
+
+Suggested field names:
+
+* `flag_image_url`
+* or `flag_url`
+
+Use the naming convention that best matches the existing codebase.
+
+Each country should store a URL/path to the flag image.
+
+---
+
+### 2. Admin UI update
+
+In the existing Country module, add the ability for admins to:
+
+* View the current flag image
+* Upload or select a flag image
+* Replace an existing flag image
+* Remove a flag image if needed
+
+In the country list/table, show a small flag thumbnail next to the country name.
+
+In the country create/edit form, add a field:
+
+**Flag Image**
+
+Requirements:
+
+* Must accept image files only
+* Should preview the image before saving
+* Recommended formats: PNG, JPG, SVG, WebP
+* Keep display consistent in size, e.g. 24–32px wide in lists
+
+---
+
+### 3. Use real flag pictures, not emojis/icons
+
+Important:
+
+* Do not use emoji flags.
+* Do not use generic icon libraries.
+* Use actual image assets or uploaded images.
+* If the app has an existing media/upload system, reuse it.
+* If there is no upload system, add a clean way to store flag image URLs.
+
+---
+
+### 4. Seed/update existing countries
+
+For existing countries, add flag images for all currently supported countries.
+
+Known countries include, but may not be limited to:
+
+* Lebanon
+* United Arab Emirates
+* Cyprus
+
+Please inspect the existing country records and add flags for all of them.
+
+Use proper flag image files or stable asset URLs.
+
+Preferred approach:
+
+* Add flag image assets to the project, e.g.:
+
+  * `/public/flags/lb.png`
+  * `/public/flags/ae.png`
+  * `/public/flags/cy.png`
+
+Then map each country to its flag image URL.
+
+Example:
+
+```json
+{
+  "name": "United Arab Emirates",
+  "code": "AE",
+  "flag_image_url": "/flags/ae.png"
+}
+```
+
+---
+
+### 5. Public/customer-facing API updates
+
+If countries are returned from any public API, include the flag image URL.
+
+For example:
+
+```json
+{
+  "id": "uae",
+  "name": "United Arab Emirates",
+  "code": "AE",
+  "slug": "united-arab-emirates",
+  "flag_image_url": "/flags/ae.png"
+}
+```
+
+Make sure this is included anywhere the customer-facing app needs to display countries.
+
+---
+
+### 6. Internal UI usage
+
+Update existing country displays to use the new flag images where applicable, including:
+
+* Country selector
+* City/location selector
+* Country list/table
+* Any public location selection screen
+* Any API docs examples if relevant
+
+The flag image should be shown with consistent sizing and proper alt text.
+
+Example alt text:
+
+`United Arab Emirates flag`
+
+---
+
+### 7. Data validation
+
+Add validation to ensure:
+
+* Flag image URL is valid if provided
+* Uploaded file is an image
+* Country can still exist without a flag temporarily, but show a placeholder if missing
+* Existing countries do not break if the flag field is empty
+
+---
+
+### 8. Implementation quality
+
+Please follow existing patterns:
+
+* Existing database conventions
+* Existing country model/table
+* Existing admin form components
+* Existing upload/media handling
+* Existing API response format
+
+Do not hardcode flags in many UI components. Store the flag image URL in the country record and render it from there.
+
+---
+
+## Testing
+
+Please test:
+
+1. Country list shows flag thumbnails.
+2. Country edit page shows existing flag.
+3. Admin can update a country flag.
+4. Public country/location APIs include flag image URLs.
+5. Country selector renders flag pictures, not emoji/icons.
+6. Existing countries without flags do not crash.
+7. Mobile and desktop UI still look clean.
+
+---
+
+## Deliverables
+
+Please provide:
+
+* Updated country schema/model
+* Updated country admin UI
+* Flag image support
+* Flag assets for all existing countries
+* Updated public API responses
+* Updated country selector UI
+* Summary of files changed
+* Instructions on how to add/change a country flag later
+
+Important: this should integrate into the existing Country module, not create a new one.
