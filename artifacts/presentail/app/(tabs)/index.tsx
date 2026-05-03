@@ -1044,7 +1044,7 @@ function Footer() {
         gap: 18,
       }}
     >
-      <Wordmark size={28} color="#ffffff" />
+      <Wordmark size={28} inverse />
       <Text
         style={{
           fontFamily: "Inter_400Regular",

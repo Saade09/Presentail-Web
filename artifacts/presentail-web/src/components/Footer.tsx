@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="md:col-span-1">
             <div className="mb-6">
-              <Logo height={40} />
+              <Logo height={40} inverse />
             </div>
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6">
               {t("footer.tagline")}

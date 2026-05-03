@@ -6,6 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const LOGO_EN = require("@/assets/images/presentail-logo-en.png");
 const LOGO_AR = require("@/assets/images/presentail-logo-ar.png");
+const LOGO_EN_WHITE = require("@/assets/images/presentail-logo-en-white.png");
+const LOGO_AR_WHITE = require("@/assets/images/presentail-logo-ar-white.png");
 
 const LOGO_EN_RATIO = 4167 / 2383;
 const LOGO_AR_RATIO = 3250 / 792;
@@ -13,12 +15,16 @@ const LOGO_AR_RATIO = 3250 / 792;
 type WordmarkProps = {
   size?: number;
   color?: string;
+  inverse?: boolean;
 };
 
-export function Wordmark({ size = 28, color: _color }: WordmarkProps) {
+export function Wordmark({ size = 28, color, inverse }: WordmarkProps) {
   const { lang } = useLanguage();
   const isArabic = lang === "AR";
-  const source = isArabic ? LOGO_AR : LOGO_EN;
+  const useWhite = inverse ?? (color === "#ffffff" || color === "#fff");
+  const source = isArabic
+    ? useWhite ? LOGO_AR_WHITE : LOGO_AR
+    : useWhite ? LOGO_EN_WHITE : LOGO_EN;
   const ratio = isArabic ? LOGO_AR_RATIO : LOGO_EN_RATIO;
   const height = size;
   const width = height * ratio;
