@@ -2,6 +2,12 @@ import { Router, type IRouter } from "express";
 import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { sendOrderEventPush } from "../lib/orderEvents";
+import {
+  convertFromUsd,
+  normalizeCurrency,
+  roundForCurrency,
+  type SupportedCurrency,
+} from "../lib/fx";
 
 const router: IRouter = Router();
 
@@ -380,13 +386,17 @@ type WooOrderPayload = {
   qrLink?: string;
   qrLabel?: string;
   orderNotes?: string;
-  paymentMethod: "card" | "whish" | "western" | "mamo" | "paypal";
+  paymentMethod: "card" | "wallet" | "whish" | "western" | "mamo" | "paypal";
   identitySecret?: boolean;
   // App-side identifier used to route push notifications back to the
   // buyer's device. Not authenticated — used only as a routing hint.
   // The owning user is derived server-side from the JWT (if present),
   // never from the request body.
   appDeviceId?: string;
+  // ISO 4217 of the currency the shopper saw in-app. The server converts
+  // every monetary field below from USD into this currency so the
+  // WooCommerce order total matches what the customer was charged.
+  currencyCode?: string;
 };
 
 router.post("/woo/order", async (req, res) => {
@@ -464,30 +474,53 @@ router.post("/woo/order", async (req, res) => {
     { key: "Delivery Time", value: body.deliverySlot ?? "" },
   ];
 
+  // Resolve presented currency (sent by the app) and convert every monetary
+  // amount from USD into that currency before sending to WooCommerce, so the
+  // WC order total matches what Stripe / Mamo / PayPal actually charged the
+  // customer. We do not rely on WC to convert.
+  const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
+  const conv = async (usd: number) =>
+    roundForCurrency(await convertFromUsd(usd, presentedCurrency), presentedCurrency);
+  const fmt = (v: number) => v.toFixed(2);
+
   // Items with a WooCommerce product ID → proper line_items
   // Items without (static catalog only) → fee_lines so WC still captures them
-  const lineItems = body.items
-    .filter((item) => !!item.wcId)
-    .map((item) => ({
-      product_id: item.wcId,
-      quantity: item.quantity,
-      meta_data: lineItemDeliveryMeta,
-    }));
+  const lineItems = await Promise.all(
+    body.items
+      .filter((item) => !!item.wcId)
+      .map(async (item) => {
+        const unit = await conv(item.price);
+        const lineTotal = unit * item.quantity;
+        return {
+          product_id: item.wcId,
+          quantity: item.quantity,
+          subtotal: fmt(lineTotal),
+          total: fmt(lineTotal),
+          meta_data: lineItemDeliveryMeta,
+        };
+      }),
+  );
 
-  const feeLines: any[] = body.items
-    .filter((item) => !item.wcId)
-    .map((item) => ({
-      name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
-      total: (item.price * item.quantity).toFixed(2),
-      tax_status: "none",
-    }));
+  const feeLines: any[] = await Promise.all(
+    body.items
+      .filter((item) => !item.wcId)
+      .map(async (item) => {
+        const lineTotal = (await conv(item.price)) * item.quantity;
+        return {
+          name: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+          total: fmt(lineTotal),
+          tax_status: "none",
+        };
+      }),
+  );
 
   const shippingLines: any[] = [];
-  if (body.districtFee > 0) {
+  const convertedDistrictFee = await conv(body.districtFee);
+  if (convertedDistrictFee > 0) {
     shippingLines.push({
       method_id: "flat_rate",
       method_title: `Delivery – ${body.district}`,
-      total: body.districtFee.toFixed(2),
+      total: fmt(convertedDistrictFee),
     });
   } else {
     shippingLines.push({
@@ -500,12 +533,19 @@ router.post("/woo/order", async (req, res) => {
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
-      total: body.expressFee.toFixed(2),
+      total: fmt(await conv(body.expressFee)),
     });
   }
 
+  // Surface the presented currency in admin meta for ops staff & receipts.
+  metaData.push(
+    { key: "Presented Currency", value: presentedCurrency },
+    { key: "_presented_currency", value: presentedCurrency },
+  );
+
   const orderPayload = {
     status: "processing",
+    currency: presentedCurrency,
     payment_method: (body.paymentMethod === "card" || body.paymentMethod === "wallet") ? "stripe" : body.paymentMethod,
     payment_method_title: paymentTitles[body.paymentMethod] ?? body.paymentMethod,
     set_paid: body.paymentMethod === "card" || body.paymentMethod === "wallet",

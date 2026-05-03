@@ -141,6 +141,20 @@ export function getCurrency(code: CurrencyCode): Currency {
   return CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0];
 }
 
+/**
+ * Replace the in-memory FX rates with values from the server. The static
+ * `rate` values above act only as a cold-start fallback — actual conversion
+ * (both for display and for charging) is anchored on the same live rates the
+ * server uses, so what the customer sees in-app matches what they're charged
+ * by Stripe / Mamo / PayPal / WooCommerce.
+ */
+export function applyFxRates(rates: Partial<Record<CurrencyCode, number>>): void {
+  for (const c of CURRENCIES) {
+    const r = rates[c.code];
+    if (typeof r === "number" && r > 0) c.rate = r;
+  }
+}
+
 export function isSupportedCurrencyCode(value: unknown): value is CurrencyCode {
   return typeof value === "string" && CURRENCIES.some((c) => c.code === value);
 }

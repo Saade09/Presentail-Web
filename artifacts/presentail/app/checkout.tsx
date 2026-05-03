@@ -144,7 +144,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
-  const { formatPrice, currencyCode, convert } = useCurrency();
+  const { formatPrice, currencyCode } = useCurrency();
   const { token: authToken } = useAuth();
   const t = useT();
 
@@ -359,6 +359,8 @@ export default function CheckoutScreen() {
           amount: Math.round(product.priceValue * 100),
           quantity: qty,
         })),
+        // Forward the shopper's selected currency so Stripe charges in it.
+        currency: currencyCode,
         email: senderEmail,
         metadata: {
           orderId,
@@ -395,9 +397,11 @@ export default function CheckoutScreen() {
     }
 
     if (payMethod === "mamo") {
-      const aedAmount = Math.round(convert(fees.grand) * 100) / 100;
       const session = await createMamoPayment({
-        amount: aedAmount,
+        // Send the USD total — the server converts to AED with live FX so the
+        // amount Mamo charges matches what the customer was just shown.
+        amount: fees.grand,
+        currency: currencyCode,
         title: `Presentail — ${orderId}`,
         description: `${recipientFirst} ${recipientLast} · ${date}`,
         email: senderEmail || undefined,
@@ -427,8 +431,10 @@ export default function CheckoutScreen() {
 
     if (payMethod === "paypal") {
       const session = await createPayPalOrder({
+        // Send USD; the server converts into the shopper's selected
+        // currency (or falls back to USD when PayPal doesn't list it).
         amount: fees.grand,
-        currency: "USD",
+        currency: currencyCode,
         returnUrl: successUrl,
         cancelUrl,
         orderId,

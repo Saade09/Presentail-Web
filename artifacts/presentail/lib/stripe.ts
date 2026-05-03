@@ -34,6 +34,10 @@ export type CheckoutLineItem = {
 
 export async function createStripeCheckoutSession(payload: {
   items: CheckoutLineItem[];
+  // ISO 4217 of the currency the shopper saw in-app. The server converts USD
+  // line-item amounts into this currency using live FX rates so Stripe
+  // charges the same amount the customer agreed to.
+  currency?: string;
   email?: string;
   metadata?: Record<string, string>;
   successUrl: string;

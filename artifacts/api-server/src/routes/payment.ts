@@ -1,4 +1,10 @@
 import { Router, type IRouter } from "express";
+import {
+  convertFromUsd,
+  normalizeCurrency,
+  paypalCurrencyFor,
+  roundForCurrency,
+} from "../lib/fx";
 
 const router: IRouter = Router();
 
@@ -22,6 +28,10 @@ router.get("/payment/return", (req, res) => {
 });
 
 // ── Mamo Payment Link ──────────────────────────────────────────────────────
+// Mamo settles in AED only. The app sends `amount` as the USD total plus the
+// shopper's selected `currency`; the server converts to AED here so what the
+// user sees in-app matches what Mamo charges (and persists the presented
+// currency for receipts).
 router.post("/payment/mamo", async (req, res) => {
   const key = process.env.MAMO_SECRET_KEY;
   if (!key) {
@@ -32,21 +42,36 @@ router.post("/payment/mamo", async (req, res) => {
     });
   }
 
-  const { amount, title, description, email, firstName, lastName, returnUrl, failureReturnUrl } =
-    req.body as {
-      amount: number;
-      title?: string;
-      description?: string;
-      email?: string;
-      firstName?: string;
-      lastName?: string;
-      returnUrl: string;
-      failureReturnUrl: string;
-    };
+  const {
+    amount,
+    currency: rawCurrency,
+    title,
+    description,
+    email,
+    firstName,
+    lastName,
+    returnUrl,
+    failureReturnUrl,
+  } = req.body as {
+    amount: number;
+    currency?: string;
+    title?: string;
+    description?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    returnUrl: string;
+    failureReturnUrl: string;
+  };
 
   if (!returnUrl || !failureReturnUrl) {
     return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" });
   }
+
+  // The app sends the USD subtotal; Mamo only accepts AED so we convert here.
+  const presented = normalizeCurrency(rawCurrency ?? "USD");
+  const usdAmount = Number(amount) || 0;
+  const aedAmount = roundForCurrency(await convertFromUsd(usdAmount, "AED"), "AED");
 
   try {
     const r = await fetch("https://business.mamopay.com/manage_api/v1/links", {
@@ -57,7 +82,7 @@ router.post("/payment/mamo", async (req, res) => {
       },
       body: JSON.stringify({
         title: title ?? "Presentail Order",
-        amount,
+        amount: aedAmount,
         return_url: returnUrl,
         failure_return_url: failureReturnUrl,
         description: description ?? undefined,
@@ -75,7 +100,14 @@ router.post("/payment/mamo", async (req, res) => {
       return res.status(r.status).json({ ok: false, code: "mamo_error", message: msg });
     }
 
-    return res.json({ ok: true, url: data.payment_url, id: data.id });
+    return res.json({
+      ok: true,
+      url: data.payment_url,
+      id: data.id,
+      amount: aedAmount,
+      currency: "AED",
+      presentedCurrency: presented,
+    });
   } catch (e: any) {
     return res.status(500).json({ ok: false, code: "mamo_error", message: e?.message ?? "Mamo error" });
   }
@@ -122,7 +154,11 @@ router.post("/payment/paypal", async (req, res) => {
     });
   }
 
-  const { amount, currency = "USD", returnUrl, cancelUrl, orderId } = req.body as {
+  // The app sends `amount` as the USD total plus the shopper's selected
+  // `currency`. PayPal supports a fixed presentment-currency list; if the
+  // shopper picked something outside it (e.g. AED, KWD), we fall back to
+  // USD so the order can still be created.
+  const { amount, currency: rawCurrency, returnUrl, cancelUrl, orderId } = req.body as {
     amount: number;
     currency?: string;
     returnUrl: string;
@@ -133,6 +169,11 @@ router.post("/payment/paypal", async (req, res) => {
   if (!returnUrl || !cancelUrl || !orderId) {
     return res.status(400).json({ ok: false, message: "returnUrl, cancelUrl and orderId are required" });
   }
+
+  const presented = normalizeCurrency(rawCurrency ?? "USD");
+  const settle = paypalCurrencyFor(presented);
+  const usdAmount = Number(amount) || 0;
+  const settleAmount = roundForCurrency(await convertFromUsd(usdAmount, settle), settle);
 
   try {
     const token = await getPayPalToken();
@@ -150,8 +191,8 @@ router.post("/payment/paypal", async (req, res) => {
           {
             reference_id: orderId,
             amount: {
-              currency_code: currency.toUpperCase(),
-              value: Number(amount).toFixed(2),
+              currency_code: settle,
+              value: settleAmount.toFixed(2),
             },
           },
         ],
@@ -181,7 +222,14 @@ router.post("/payment/paypal", async (req, res) => {
       data.links?.find((l: any) => l.rel === "payer-action")?.href ??
       data.links?.find((l: any) => l.rel === "approve")?.href;
 
-    return res.json({ ok: true, url: approveLink, id: data.id });
+    return res.json({
+      ok: true,
+      url: approveLink,
+      id: data.id,
+      amount: settleAmount,
+      currency: settle,
+      presentedCurrency: presented,
+    });
   } catch (e: any) {
     return res
       .status(500)

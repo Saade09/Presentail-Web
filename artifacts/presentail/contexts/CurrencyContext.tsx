@@ -10,6 +10,7 @@ import {
   type CurrencyCode,
 } from "@/data/currencies";
 import { detectCurrencyFromLocation } from "@/services/locationCurrencyService";
+import { refreshFxRates } from "@/services/fxRatesService";
 
 const STORAGE_KEY = "@presentail/currency-v1";
 const SOURCE_KEY = "@presentail/currency-source-v1";
@@ -33,7 +34,18 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(FALLBACK_CURRENCY_CODE);
   const [source, setSource] = useState<CurrencySource>("auto");
+  // Bumped after live FX rates are applied so memoized convert/formatPrice
+  // recompute against the refreshed CURRENCIES table.
+  const [ratesVersion, setRatesVersion] = useState(0);
   const hydrated = useRef(false);
+
+  useEffect(() => {
+    // Pull the same live FX rates the server uses so display amounts match
+    // what we'll actually charge. Best-effort — failures keep static rates.
+    refreshFxRates().then((ok) => {
+      if (ok) setRatesVersion((v) => v + 1);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +103,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     ]).catch(() => {});
   }, []);
 
-  const currency = useMemo(() => getCurrency(currencyCode), [currencyCode]);
+  // Re-derive when live FX rates land so display amounts pick up the new rate.
+  const currency = useMemo(() => getCurrency(currencyCode), [currencyCode, ratesVersion]);
 
   const convert = useCallback(
     (usdValue: number) => {
