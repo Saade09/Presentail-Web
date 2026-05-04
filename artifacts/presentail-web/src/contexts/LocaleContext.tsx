@@ -91,14 +91,14 @@ const STRINGS: Dict = {
   "trust.care.desc": { en: "Real humans, ready to help 7 days.", ar: "فريق حقيقي لخدمتك ٧ أيام." },
 
   "editorial.eyebrow": { en: "The Atelier", ar: "الأتيليه" },
-  "editorial.title": { en: "Designed in Beirut, Delivered Across the Gulf", ar: "مصمَّم في بيروت، يُسلَّم في الخليج" },
+  "editorial.title": { en: "Designed with Love, Delivered with Care", ar: "مصمَّم بحب، يُسلَّم بعناية" },
   "editorial.body": {
     en: "Every Presentail arrangement begins in our Gemmayzeh studio — where seasonal blooms, hand-tied ribbons, and considered details come together. We believe a gift should feel like an event, not an errand.",
     ar: "تبدأ كل تنسيقات بريزانتيل في استوديو الجميزة لدينا — حيث تجتمع الأزهار الموسمية والأشرطة المنسوجة يدوياً والتفاصيل المدروسة. نؤمن بأن الهدية يجب أن تكون حدثاً، لا مهمّة.",
   },
   "editorial.cta": { en: "Our Story", ar: "قصّتنا" },
   "editorial.feature1.title": { en: "Seasonal Sourcing", ar: "مصادر موسمية" },
-  "editorial.feature1.desc": { en: "Direct from Dutch & Lebanese growers.", ar: "مباشرة من المزارعين الهولنديين واللبنانيين." },
+  "editorial.feature1.desc": { en: "Direct from the finest growers worldwide.", ar: "مباشرة من أفضل المزارعين حول العالم." },
   "editorial.feature2.title": { en: "Signature Wrapping", ar: "تغليف مميّز" },
   "editorial.feature2.desc": { en: "Our envelope-style boxes are made to keep.", ar: "علب على شكل مغلّف مصمّمة لتُحتفظ." },
   "editorial.badgeYears": { en: "12+", ar: "+12" },
@@ -129,7 +129,7 @@ const STRINGS: Dict = {
   "locationPickerGate.dialogDesc": { en: "Select the country and city you want your gift delivered to.", ar: "اختر البلد والمدينة التي تريد توصيل هديتك إليها." },
 
   // Shop page
-  "shop.subtitle": { en: "Browse our curated selection of luxury floral designs and premium gifts, thoughtfully crafted for delivery in Lebanon.", ar: "تصفّح مجموعتنا المنتقاة من تصاميم الزهور الفاخرة والهدايا المميزة، المُعدّة بعناية للتوصيل في لبنان." },
+  "shop.subtitle": { en: "Browse our curated selection of luxury floral designs and premium gifts, thoughtfully crafted for delivery in {country}.", ar: "تصفّح مجموعتنا المنتقاة من تصاميم الزهور الفاخرة والهدايا المميزة، المُعدّة بعناية للتوصيل في {country}." },
   "shop.sortPlaceholder": { en: "Sort by", ar: "ترتيب حسب" },
   "shop.sort.featured": { en: "Featured", ar: "المميزة" },
   "shop.sort.priceAsc": { en: "Price: Low to High", ar: "السعر: من الأقل إلى الأعلى" },
@@ -171,7 +171,7 @@ const STRINGS: Dict = {
   "product.quantity": { en: "Quantity", ar: "الكمية" },
   "product.addToCart": { en: "Add to Cart", ar: "أضف إلى الحقيبة" },
   "product.outOfStock": { en: "Out of Stock", ar: "غير متوفر" },
-  "product.sameDay": { en: "Same-day delivery in Lebanon", ar: "توصيل في نفس اليوم في لبنان" },
+  "product.sameDay": { en: "Same-day delivery in {country}", ar: "توصيل في نفس اليوم في {country}" },
   "product.secureCheckout": { en: "100% Secure Checkout", ar: "دفع آمن 100%" },
   "product.youMayLike": { en: "You May Also Like", ar: "قد يعجبك أيضاً" },
 
@@ -203,7 +203,7 @@ const STRINGS: Dict = {
   "checkout.lastName": { en: "Last Name", ar: "اسم العائلة" },
   "checkout.firstNamePh": { en: "Jane", ar: "جين" },
   "checkout.lastNamePh": { en: "Doe", ar: "دو" },
-  "checkout.phoneLB": { en: "Phone Number (Lebanon)", ar: "رقم الهاتف (لبنان)" },
+  "checkout.phoneLB": { en: "Phone Number ({country})", ar: "رقم الهاتف ({country})" },
   "checkout.phonePh": { en: "+961 70 123 456", ar: "+961 70 123 456" },
   "checkout.district": { en: "Delivery District", ar: "منطقة التوصيل" },
   "checkout.selectDistrict": { en: "Select a district", ar: "اختر منطقة" },
@@ -509,12 +509,12 @@ const STRINGS_FR: Record<string, string> = {
   "trust.care.desc": "Une équipe humaine, prête à aider 7j/7.",
 
   "editorial.eyebrow": "L'Atelier",
-  "editorial.title": "Conçu à Beyrouth, livré dans tout le Golfe",
+  "editorial.title": "Conçu avec amour, livré avec soin",
   "editorial.body":
     "Chaque composition Presentail commence dans notre atelier de Gemmayzeh — où fleurs de saison, rubans noués à la main et détails soignés se réunissent. Nous croyons qu'un cadeau doit être un événement, pas une corvée.",
   "editorial.cta": "Notre histoire",
   "editorial.feature1.title": "Approvisionnement saisonnier",
-  "editorial.feature1.desc": "Directement de producteurs néerlandais et libanais.",
+  "editorial.feature1.desc": "Directement des meilleurs producteurs du monde.",
   "editorial.feature2.title": "Emballage signature",
   "editorial.feature2.desc": "Nos boîtes en forme d'enveloppe sont faites pour durer.",
   "editorial.badgeYears": "12+",
@@ -543,7 +543,7 @@ const STRINGS_FR: Record<string, string> = {
     "Sélectionnez le pays et la ville où vous souhaitez livrer votre cadeau.",
 
   "shop.subtitle":
-    "Parcourez notre sélection de compositions florales de luxe et de cadeaux premium, conçus avec soin pour la livraison au Liban.",
+    "Parcourez notre sélection de compositions florales de luxe et de cadeaux premium, conçus avec soin pour la livraison en {country}.",
   "shop.sortPlaceholder": "Trier par",
   "shop.sort.featured": "À la une",
   "shop.sort.priceAsc": "Prix : croissant",
@@ -586,7 +586,7 @@ const STRINGS_FR: Record<string, string> = {
   "product.quantity": "Quantité",
   "product.addToCart": "Ajouter au panier",
   "product.outOfStock": "Rupture de stock",
-  "product.sameDay": "Livraison le jour même au Liban",
+  "product.sameDay": "Livraison le jour même en {country}",
   "product.secureCheckout": "Paiement 100% sécurisé",
   "product.youMayLike": "Vous aimerez aussi",
 
@@ -617,7 +617,7 @@ const STRINGS_FR: Record<string, string> = {
   "checkout.lastName": "Nom",
   "checkout.firstNamePh": "Jeanne",
   "checkout.lastNamePh": "Dupont",
-  "checkout.phoneLB": "Numéro de téléphone (Liban)",
+  "checkout.phoneLB": "Numéro de téléphone ({country})",
   "checkout.phonePh": "+961 70 123 456",
   "checkout.district": "District de livraison",
   "checkout.selectDistrict": "Sélectionner un district",

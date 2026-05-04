@@ -89,7 +89,7 @@ export default function Shop() {
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">{pageTitle}</h1>
             <p className="text-muted-foreground text-lg max-w-xl">
-              {t("shop.subtitle")}
+              {t("shop.subtitle", { country: country?.name ?? "Lebanon" })}
             </p>
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">

@@ -29,7 +29,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { t, dir } = useLocale();
-  const { countryCode } = useLocationSelection();
+  const { countryCode, country } = useLocationSelection();
   const fmt = (v: number) => formatStorePrice(v, countryCode);
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
@@ -273,7 +273,7 @@ export default function Checkout() {
                   </div>
 
                   <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.phoneLB")}</label>
+                    <label className="text-sm font-medium">{t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}</label>
                     <Input value={recipient.phone} onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })} placeholder={t("checkout.phonePh")} data-testid="input-recipient-phone" />
                   </div>
 
