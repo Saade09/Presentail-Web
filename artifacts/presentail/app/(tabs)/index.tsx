@@ -1,4 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/api-client-react";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
@@ -27,9 +28,7 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
   bestSellers,
   brands,
-  categories,
   collections,
-  occasions,
   reviews,
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -342,7 +341,7 @@ export default function HomeScreen() {
           <BestSellers />
           <FlowersSection />
           <CategoryRail />
-          <OccasionsGrid />
+          <OccasionsCarousel />
           <BundlesSection />
           <CollectionsSection />
           <BrandStorySection />
@@ -656,22 +655,11 @@ function CategoryRail() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL } = useLanguage();
-  const { products: wooProducts } = useWooProducts();
-  const CAT_KEYS: Record<string, string> = {
-    "hand-bouquets": "cat_hand_bouquets", "flower-boxes": "cat_flower_boxes",
-    "flower-vases": "cat_flower_vases", "lux-arrangements": "cat_lux_arrangements",
-    "dried-flowers": "cat_dried_flowers", "preserved-flowers": "cat_preserved_flowers",
-    plants: "cat_plants", balloons: "cat_balloons", "board-games": "cat_board_games",
-    cakes: "cat_cakes", chocolate: "cat_chocolate", "arabic-sweets": "cat_arabic_sweets",
-    electronics: "cat_electronics", "stuffed-animals": "cat_stuffed_animals",
-    bundles: "cat_bundles", baskets: "cat_baskets", beauty: "cat_beauty",
-  };
+  const { data, isLoading } = useGetHomepageCategories();
 
-  const populatedSlugs = new Set(wooProducts.map((p) => p.category));
-  const visibleCategories = categories.filter((c) => populatedSlugs.has(c.id));
+  const items = (data?.items ?? []).filter((i) => i.isActive);
 
-  if (visibleCategories.length === 0) return null;
+  if (!isLoading && items.length === 0) return null;
 
   return (
     <View style={{ marginTop: 44 }}>
@@ -683,39 +671,79 @@ function CategoryRail() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {visibleCategories.map((c) => (
-          <Pressable
-            key={c.id}
-            onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: c.id } })}
-            style={{ alignItems: "center", gap: 10, width: 88 }}
-          >
-            <View
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 999,
-                overflow: "hidden",
-                backgroundColor: colors.muted,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <Image source={c.image} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-            </View>
-            <Text
-              numberOfLines={2}
-              style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 11,
-                color: colors.primary,
-                textAlign: "center",
-                lineHeight: 14,
-              }}
-            >
-              {CAT_KEYS[c.id] ? (t[CAT_KEYS[c.id] as keyof typeof t] as string) : c.name}
-            </Text>
-          </Pressable>
-        ))}
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, idx) => (
+              <View key={idx} style={{ alignItems: "center", gap: 10, width: 88 }}>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 999,
+                    backgroundColor: colors.muted,
+                  }}
+                />
+                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+              </View>
+            ))
+          : items.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() =>
+                  router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })
+                }
+                style={{ alignItems: "center", gap: 10, width: 88 }}
+              >
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    backgroundColor: "#F3F3F3",
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        flex: 1,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 24,
+                          color: colors.primary,
+                        }}
+                      >
+                        {item.name.charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: colors.primary,
+                    textAlign: "center",
+                    lineHeight: 14,
+                  }}
+                >
+                  {item.name}
+                </Text>
+              </Pressable>
+            ))}
       </ScrollView>
     </View>
   );
@@ -834,78 +862,100 @@ function CollectionsSection() {
   );
 }
 
-const OCC_NAME_KEYS: Record<string, string> = {
-  housewarming: "occ_housewarming", birthday: "occ_birthday", "new-job": "occ_new_job",
-  promotion: "occ_promotion", "thank-you": "occ_thank_you", "love-romance": "occ_love_romance",
-  farewell: "occ_farewell", condolences: "occ_condolences",
-  anniversary: "occ_anniversary", wedding: "occ_wedding", graduation: "occ_graduation",
-  "get-well-soon": "occ_get_well_soon", newborn: "occ_newborn", eid: "occ_eid",
-  congratulations: "occ_congratulations", "thinking-of-you": "occ_thinking_of_you",
-};
-
-function OccasionsGrid() {
+function OccasionsCarousel() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL } = useLanguage();
-  const { products: wooProducts } = useWooProducts();
+  const { data, isLoading } = useGetHomepageOccasions();
 
-  const populatedOccasions = new Set(wooProducts.flatMap((p) => p.occasions ?? []));
-  const visibleOccasions = occasions.filter((o) => populatedOccasions.has(o.id));
+  const items = (data?.items ?? []).filter((i) => i.isActive);
 
-  if (visibleOccasions.length === 0) return null;
+  if (!isLoading && items.length === 0) return null;
 
   return (
-    <View style={{ marginTop: 44, paddingHorizontal: 24 }}>
-      <View style={{ marginBottom: 18 }}>
+    <View style={{ marginTop: 44 }}>
+      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
         <SectionTitle eyebrow={t.occasionsEyebrow} title={t.occasionsTitle} />
       </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        {visibleOccasions.map((o) => {
-          const nameKey = OCC_NAME_KEYS[o.id] as keyof typeof t;
-          const displayName = nameKey ? (t[nameKey] as string) : o.name;
-          return (
-            <Pressable
-              key={o.id}
-              onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
-              style={({ pressed }) => ({
-                flexBasis: "48%",
-                flexGrow: 1,
-                height: 76,
-                backgroundColor: "#fff",
-                borderRadius: 18,
-                paddingHorizontal: 14,
-                flexDirection: isRTL ? "row-reverse" : "row",
-                alignItems: "center",
-                gap: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Image
-                source={o.image}
-                style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: colors.muted, flexShrink: 0 }}
-                contentFit="cover"
-              />
-              <Text
-                numberOfLines={2}
-                style={{
-                  flex: 1,
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 13,
-                  lineHeight: 18,
-                  color: colors.primary,
-                  textAlign: isRTL ? "right" : "left",
-                }}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+      >
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, idx) => (
+              <View key={idx} style={{ alignItems: "center", gap: 10, width: 88 }}>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 999,
+                    backgroundColor: colors.muted,
+                  }}
+                />
+                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+              </View>
+            ))
+          : items.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() =>
+                  router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
+                }
+                style={{ alignItems: "center", gap: 10, width: 88 }}
               >
-                {displayName}
-              </Text>
-              <Feather name="arrow-up-right" size={16} color={colors.gold} style={{ flexShrink: 0 }} />
-            </Pressable>
-          );
-        })}
-      </View>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    backgroundColor: "#F3F3F3",
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        flex: 1,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 24,
+                          color: colors.primary,
+                        }}
+                      >
+                        {item.name.charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: colors.primary,
+                    textAlign: "center",
+                    lineHeight: 14,
+                  }}
+                >
+                  {item.name}
+                </Text>
+              </Pressable>
+            ))}
+      </ScrollView>
     </View>
   );
 }

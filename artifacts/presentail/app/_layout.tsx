@@ -21,6 +21,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { setBaseUrl } from "@workspace/api-client-react";
+
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnimatedSplash } from "@/components/SplashScreen";
@@ -31,7 +33,10 @@ import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
+import { API_BASE } from "@/lib/stripe";
 import { registerPushToken } from "@/services/notifications";
+
+setBaseUrl(API_BASE);
 
 SplashScreen.preventAutoHideAsync();
 
