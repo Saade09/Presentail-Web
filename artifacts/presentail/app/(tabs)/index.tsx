@@ -337,7 +337,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Hero />
-          <BrandStrip />
+          {selectedCountry?.code !== "AE" && <BrandStrip />}
           <BestSellers />
           <FlowersSection />
           <CategoryRail />
@@ -346,7 +346,7 @@ export default function HomeScreen() {
           <CollectionsSection />
           <BrandStorySection />
           <ReviewsSection />
-          <BrandsRow />
+          {selectedCountry?.code !== "AE" && <BrandsRow />}
           <Footer />
         </ScrollView>
       </View>

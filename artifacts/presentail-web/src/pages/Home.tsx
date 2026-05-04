@@ -11,6 +11,7 @@ import { NewsletterCTA } from "@/components/homepage/NewsletterCTA";
 export default function Home() {
   const { country } = useLocationSelection();
   const countryCode = country?.code ?? "*";
+  const isAE = countryCode === "AE";
   const { data: banners, isLoading } = useHomepageBanners(countryCode);
 
   return (
@@ -19,7 +20,7 @@ export default function Home() {
       <HomepageCollections />
       <BestSellersPreview />
       <TrustStrip />
-      <BrandSpotlight />
+      {!isAE && <BrandSpotlight />}
       <EditorialSection />
       <NewsletterCTA />
     </div>

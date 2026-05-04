@@ -18,8 +18,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Wordmark } from "@/components/Brand";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
 
@@ -39,6 +41,9 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
   const t = useT();
   const { isRTL, lang, setLang } = useLanguage();
   const { token: authToken } = useAuth();
+  const { selectedCountry } = useDeliveryLocation();
+  const { currencyCode } = useCurrency();
+  const isAE = selectedCountry?.code === "AE" || (!selectedCountry?.code && currencyCode === "AED");
 
   const anim = useRef(new Animated.Value(0)).current;
   const dragX = useRef(new Animated.Value(0)).current;
@@ -142,12 +147,12 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
       label: t.menuOccasions,
       onPress: () => navigate("/occasions"),
     },
-    {
+    ...(isAE ? [] : [{
       key: "brands",
-      icon: "award",
+      icon: "award" as keyof typeof Feather.glyphMap,
       label: t.menuBrands,
       onPress: () => navigate("/(tabs)/catalog"),
-    },
+    }]),
     {
       key: "account",
       icon: "user",

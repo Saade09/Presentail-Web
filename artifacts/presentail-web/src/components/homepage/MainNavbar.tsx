@@ -7,8 +7,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronDown, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
-const NAV_LINKS = [
+const ALL_NAV_LINKS = [
   { key: "nav.occasions", href: "/shop?occasion=birthday" },
   { key: "nav.flowersPlants", href: "/shop?category=hand-bouquets" },
   { key: "nav.gifts", href: "/shop?category=cakes" },
@@ -19,6 +20,8 @@ export function MainNavbar() {
   const { itemCount } = useCart();
   const { user } = useAuth();
   const { t } = useLocale();
+  const { countryCode } = useLocationSelection();
+  const NAV_LINKS = countryCode === "AE" ? ALL_NAV_LINKS.filter(l => l.key !== "nav.brands") : ALL_NAV_LINKS;
 
   return (
     <div className="bg-background border-b border-border/60">
