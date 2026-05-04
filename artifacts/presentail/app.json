@@ -30,6 +30,7 @@
       ]
     },
     "android": {
+      "label": "Presentail - Flowers & Gifts",
       "package": "com.presentail.lb",
       "versionCode": 1,
       "adaptiveIcon": {
