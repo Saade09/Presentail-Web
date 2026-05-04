@@ -165,6 +165,9 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
     updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
+    if (nextCountry && currencySource !== "manual" && nextCountry.currency !== currencyCode) {
+      setCurrencyCode(nextCountry.currency);
+    }
   }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity]);
 
   const selectCountry = useCallback(
