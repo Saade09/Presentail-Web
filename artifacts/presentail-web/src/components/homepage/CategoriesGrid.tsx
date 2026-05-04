@@ -1,6 +1,8 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { useProducts } from "@/lib/queries";
 import bouquets from "@/assets/category-bouquets.png";
 import boxes from "@/assets/category-boxes.png";
 import plants from "@/assets/category-plants.png";
@@ -9,14 +11,22 @@ import chocolate from "@/assets/category-chocolate.png";
 
 export function CategoriesGrid() {
   const { t } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+  const { data } = useProducts({ countryCode: countryCode ?? undefined, cityId: cityId ?? undefined });
 
-  const items = [
-    { key: "categories.bouquets", href: "/shop?category=hand-bouquets", img: bouquets, span: "md:col-span-2 md:row-span-2" },
-    { key: "categories.boxes", href: "/shop?category=flower-boxes", img: boxes, span: "" },
-    { key: "categories.plants", href: "/shop?category=plants", img: plants, span: "" },
-    { key: "categories.cakes", href: "/shop?category=cakes", img: cakes, span: "" },
-    { key: "categories.chocolate", href: "/shop?category=chocolate", img: chocolate, span: "" },
-  ] as const;
+  const populatedSlugs = new Set((data?.products ?? []).map((p) => p.category));
+
+  const allItems = [
+    { key: "categories.bouquets" as const, slug: "hand-bouquets", href: "/shop?category=hand-bouquets", img: bouquets, span: "md:col-span-2 md:row-span-2" },
+    { key: "categories.boxes" as const, slug: "flower-boxes", href: "/shop?category=flower-boxes", img: boxes, span: "" },
+    { key: "categories.plants" as const, slug: "plants", href: "/shop?category=plants", img: plants, span: "" },
+    { key: "categories.cakes" as const, slug: "cakes", href: "/shop?category=cakes", img: cakes, span: "" },
+    { key: "categories.chocolate" as const, slug: "chocolate", href: "/shop?category=chocolate", img: chocolate, span: "" },
+  ];
+
+  const items = data ? allItems.filter((it) => populatedSlugs.has(it.slug)) : allItems;
+
+  if (items.length === 0) return null;
 
   return (
     <section className="py-14 md:py-20 bg-secondary/40" data-testid="section-categories">

@@ -656,6 +656,7 @@ function CategoryRail() {
   const router = useRouter();
   const t = useT();
   const { isRTL } = useLanguage();
+  const { products: wooProducts } = useWooProducts();
   const CAT_KEYS: Record<string, string> = {
     "hand-bouquets": "cat_hand_bouquets", "flower-boxes": "cat_flower_boxes",
     "flower-vases": "cat_flower_vases", "lux-arrangements": "cat_lux_arrangements",
@@ -665,6 +666,12 @@ function CategoryRail() {
     electronics: "cat_electronics", "stuffed-animals": "cat_stuffed_animals",
     bundles: "cat_bundles", baskets: "cat_baskets", beauty: "cat_beauty",
   };
+
+  const populatedSlugs = new Set(wooProducts.map((p) => p.category));
+  const visibleCategories = categories.filter((c) => populatedSlugs.has(c.id));
+
+  if (visibleCategories.length === 0) return null;
+
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -675,7 +682,7 @@ function CategoryRail() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {categories.map((c) => (
+        {visibleCategories.map((c) => (
           <Pressable
             key={c.id}
             onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: c.id } })}
@@ -716,6 +723,14 @@ function CategoryRail() {
 function CollectionsSection() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
+  const { products: wooProducts } = useWooProducts();
+
+  const populatedSlugs = new Set(wooProducts.map((p) => p.category));
+  const visibleCollections = collections.filter((c) => !c.category || populatedSlugs.has(c.category));
+
+  if (visibleCollections.length === 0) return null;
+
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -732,7 +747,7 @@ function CollectionsSection() {
         decelerationRate="fast"
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {collections.map((c) => (
+        {visibleCollections.map((c) => (
           <Pressable
             key={c.id}
             onPress={() => c.category && router.push({ pathname: "/category/[slug]", params: { slug: c.category } })}
@@ -832,13 +847,20 @@ function OccasionsGrid() {
   const router = useRouter();
   const t = useT();
   const { isRTL } = useLanguage();
+  const { products: wooProducts } = useWooProducts();
+
+  const populatedOccasions = new Set(wooProducts.flatMap((p) => p.occasions ?? []));
+  const visibleOccasions = occasions.filter((o) => populatedOccasions.has(o.id));
+
+  if (visibleOccasions.length === 0) return null;
+
   return (
     <View style={{ marginTop: 44, paddingHorizontal: 24 }}>
       <View style={{ marginBottom: 18 }}>
         <SectionTitle eyebrow={t.occasionsEyebrow} title={t.occasionsTitle} />
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        {occasions.map((o) => {
+        {visibleOccasions.map((o) => {
           const nameKey = OCC_NAME_KEYS[o.id] as keyof typeof t;
           const displayName = nameKey ? (t[nameKey] as string) : o.name;
           return (
