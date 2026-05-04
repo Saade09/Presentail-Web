@@ -15,6 +15,8 @@ import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { formatStorePrice } from "@/lib/currency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
@@ -27,6 +29,8 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { t, dir } = useLocale();
+  const { countryCode } = useLocationSelection();
+  const fmt = (v: number) => formatStorePrice(v, countryCode);
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
   const mamoPayment = useMamoPayment();
@@ -393,7 +397,7 @@ export default function Checkout() {
                     <div className="flex-1">
                       <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
                       <p className="text-xs text-muted-foreground">{t("checkout.qty")}: {item.quantity}</p>
-                      <p className="text-sm font-medium mt-1">${(item.product.priceValue * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-medium mt-1">{fmt(item.product.priceValue * item.quantity)}</p>
                     </div>
                   </div>
                 ))}
@@ -401,15 +405,15 @@ export default function Checkout() {
               <div className="space-y-3 pt-6 border-t text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("cart.subtotal")}</span>
-                  <span data-testid="text-subtotal">${subtotal.toFixed(2)}</span>
+                  <span data-testid="text-subtotal">{fmt(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("checkout.deliveryEstimated")}</span>
-                  <span>$5.00</span>
+                  <span>{fmt(5)}</span>
                 </div>
                 <div className="flex justify-between font-medium text-lg pt-3 border-t">
                   <span>{t("cart.total")}</span>
-                  <span data-testid="text-total">${total.toFixed(2)}</span>
+                  <span data-testid="text-total">{fmt(total)}</span>
                 </div>
               </div>
             </div>

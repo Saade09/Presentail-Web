@@ -12,7 +12,7 @@ export default function OrderConfirmed() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { formatPrice } = useCurrency();
+  const { formatNative } = useCurrency();
   const t = useT();
   const { orderId, total, date, slot, recipient, status, paymentRef } =
     useLocalSearchParams<{
@@ -109,7 +109,7 @@ export default function OrderConfirmed() {
           ) : null}
           <Row colors={colors} icon="user" label={t.ocRecipient} value={String(recipient || "—")} />
           <Row colors={colors} icon="calendar" label={t.ocDelivery} value={`${date} · ${slot}`} />
-          <Row colors={colors} icon="dollar-sign" label={t.ocTotal} value={formatPrice(Number(total || 0))} highlight />
+          <Row colors={colors} icon="dollar-sign" label={t.ocTotal} value={formatNative(Number(total || 0))} highlight />
         </View>
 
         {!isFailed ? (

@@ -5,8 +5,10 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
 
 type Props = {
-  /** The USD-denominated amount. */
+  /** The amount to display. When `native` is true this is already in the active currency; otherwise it is USD. */
   value: number;
+  /** When true, skip FX conversion — the value is already in the active currency. */
+  native?: boolean;
   style?: TextStyle;
   containerStyle?: ViewStyle;
   symbolColor?: string;
@@ -18,10 +20,10 @@ type Props = {
  * drawn as an SVG inline (since its Unicode glyph is not yet widely supported
  * across system fonts).
  */
-export function Price({ value, style, containerStyle, symbolColor, symbolSize }: Props) {
+export function Price({ value, native, style, containerStyle, symbolColor, symbolSize }: Props) {
   const { currency, convert } = useCurrency();
 
-  const v = convert(value);
+  const v = native ? (Number(value) || 0) : convert(value);
   const fixed =
     currency.decimals > 0 ? v.toFixed(currency.decimals) : Math.round(v).toString();
   const [intPart, decPart] = fixed.split(".");

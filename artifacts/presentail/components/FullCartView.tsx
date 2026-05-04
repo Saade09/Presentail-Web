@@ -114,6 +114,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
                   </Text>
                   <Price
                     value={lineTotal}
+                    native
                     style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
                   />
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
@@ -158,6 +159,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
               </Text>
               <Price
                 value={total}
+                native
                 style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
               />
             </View>
@@ -175,6 +177,7 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
               </Text>
               <Price
                 value={total}
+                native
                 style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
               />
             </View>

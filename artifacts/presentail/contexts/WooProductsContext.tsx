@@ -146,7 +146,7 @@ function mergeProducts(
       result.push({
         ...sp,
         name: wp.name || sp.name,
-        price: wp.priceValue != null ? `$${wp.priceValue.toLocaleString()}` : sp.price,
+        price: wp.price ?? sp.price,
         priceValue: nextPriceValue,
         image: wp.image ?? sp.image,
         description: sp.description ?? wp.description,

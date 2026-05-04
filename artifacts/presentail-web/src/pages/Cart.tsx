@@ -4,11 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { formatStorePrice } from "@/lib/currency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
   const { t, dir } = useLocale();
+  const { countryCode } = useLocationSelection();
+  const fmt = (v: number) => formatStorePrice(v, countryCode);
 
   if (itemCount === 0) {
     return (
@@ -81,7 +85,7 @@ export default function Cart() {
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
-                    <p className="font-medium">${(item.product.priceValue * item.quantity).toFixed(2)}</p>
+                    <p className="font-medium">{fmt(item.product.priceValue * item.quantity)}</p>
                   </div>
                 </div>
               </motion.div>
@@ -98,7 +102,7 @@ export default function Cart() {
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>
-                  <span className="font-medium">${subtotal.toFixed(2)}</span>
+                  <span className="font-medium">{fmt(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.delivery")}</span>
@@ -108,7 +112,7 @@ export default function Cart() {
               
               <div className="flex justify-between items-center mb-8">
                 <span className="font-medium">{t("cart.total")}</span>
-                <span className="text-2xl font-serif">${subtotal.toFixed(2)}</span>
+                <span className="text-2xl font-serif">{fmt(subtotal)}</span>
               </div>
               
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">

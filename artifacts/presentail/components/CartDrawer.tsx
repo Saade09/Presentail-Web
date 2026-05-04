@@ -21,7 +21,7 @@ export function CartDrawer() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
-  const { formatPrice } = useCurrency();
+  const { formatNative } = useCurrency();
 
   return (
     <Modal
@@ -112,7 +112,7 @@ export function CartDrawer() {
                       {product.name}
                     </Text>
                     <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
-                      {formatPrice(lineTotal)}
+                      {formatNative(lineTotal)}
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Pressable
@@ -169,7 +169,7 @@ export function CartDrawer() {
                   Total
                 </Text>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-                  {formatPrice(total)}
+                  {formatNative(total)}
                 </Text>
               </View>
               <Pressable
@@ -186,7 +186,7 @@ export function CartDrawer() {
                 })}
               >
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                  CHECKOUT · {formatPrice(total)}
+                  CHECKOUT · {formatNative(total)}
                 </Text>
               </Pressable>
               <Pressable

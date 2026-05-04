@@ -30,7 +30,7 @@ export default function ProductDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { add, count } = useCart();
-  const { formatPrice } = useCurrency();
+  const { formatNative } = useCurrency();
   const [qty, setQty] = useState(1);
   const t = useT();
 
@@ -188,7 +188,7 @@ export default function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            {t.addLabel} — {formatPrice(product.priceValue * qty)}
+            {t.addLabel} — {formatNative(product.priceValue * qty)}
           </Text>
         </Pressable>
       </View>
@@ -199,7 +199,7 @@ export default function ProductDetail() {
 function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
-  const { formatPrice } = useCurrency();
+  const { formatNative } = useCurrency();
   const t = useT();
   const points = Math.max(1, Math.round(product.priceValue * 0.4));
 
@@ -265,6 +265,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
         <Price
           value={product.priceValue}
+          native
           style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
         />
         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
@@ -383,7 +384,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Trust badges — informational, intentionally non-button */}
       <View style={{ marginTop: 14 }}>
         {[
-          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatPrice(130)}.` },
+          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(130)}.` },
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
         ].map((b, i, arr) => (

@@ -24,6 +24,8 @@ type CurrencyContextValue = {
   setCurrencyCode: (code: CurrencyCode) => void;
   /** Convert a USD amount into the active currency, formatted with symbol/position. */
   formatPrice: (usdValue: number) => string;
+  /** Format an amount that is already in the active currency (no FX conversion). */
+  formatNative: (amount: number) => string;
   /** Convert a USD amount into the active currency as a number (no symbol). */
   convert: (usdValue: number) => number;
   list: Currency[];
@@ -125,9 +127,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     [currency.rate],
   );
 
-  const formatPrice = useCallback(
-    (usdValue: number) => {
-      const v = convert(usdValue);
+  const formatNative = useCallback(
+    (amount: number) => {
+      const v = Number(amount) || 0;
       const fixed = currency.decimals > 0 ? v.toFixed(currency.decimals) : Math.round(v).toString();
       const [intPart, decPart] = fixed.split(".");
       const withSep = Number(intPart).toLocaleString();
@@ -138,7 +140,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       }
       return `${numStr}${sep}${currency.symbol}`;
     },
-    [convert, currency],
+    [currency],
+  );
+
+  const formatPrice = useCallback(
+    (usdValue: number) => {
+      const v = convert(usdValue);
+      return formatNative(v);
+    },
+    [convert, formatNative],
   );
 
   const value = useMemo<CurrencyContextValue>(
@@ -148,10 +158,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       source,
       setCurrencyCode,
       formatPrice,
+      formatNative,
       convert,
       list: CURRENCIES,
     }),
-    [currency, currencyCode, source, setCurrencyCode, formatPrice, convert],
+    [currency, currencyCode, source, setCurrencyCode, formatPrice, formatNative, convert],
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
