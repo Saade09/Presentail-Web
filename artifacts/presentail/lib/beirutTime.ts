@@ -67,6 +67,35 @@ export function getBeirutHour(at: Date = new Date()): number {
 }
 
 /**
+ * Returns the current hour (0..23) in Asia/Dubai (UTC+4, no DST).
+ */
+export function getDubaiHour(at: Date = new Date()): number {
+  try {
+    const h = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dubai",
+      hour: "numeric",
+      hour12: false,
+    }).format(at);
+    const n = parseInt(h, 10);
+    if (Number.isFinite(n) && n >= 0 && n <= 23) return n;
+  } catch {
+    // Fall through to manual computation.
+  }
+  const dubaiMs = at.getTime() + 4 * 60 * 60 * 1000;
+  const hours = Math.floor(dubaiMs / (60 * 60 * 1000)) % 24;
+  return (hours + 24) % 24;
+}
+
+/**
+ * Returns the current hour for the given country code.
+ * LB → Beirut, AE → Dubai, CY → Beirut (close enough), default → Beirut.
+ */
+export function getCountryHour(countryCode?: string, at: Date = new Date()): number {
+  if (countryCode === "AE") return getDubaiHour(at);
+  return getBeirutHour(at);
+}
+
+/**
  * Quick self-checks (run at module import in __DEV__ only) so
  * regressions in the DST boundaries surface during development.
  *

@@ -10,14 +10,14 @@ export type DeliveryConfig = {
 
 const FALLBACK: DeliveryConfig = {
   expressDeliveryTimeLabel: "Arrives in 90 minutes",
-  freeDeliveryThreshold: "AED 480",
+  freeDeliveryThreshold: "AED 330",
   currency: "AED",
 };
 
 const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   AE: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
-    freeDeliveryThreshold: "AED 480",
+    freeDeliveryThreshold: "AED 330",
     currency: "AED",
   },
   LB: {

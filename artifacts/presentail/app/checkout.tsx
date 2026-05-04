@@ -27,7 +27,7 @@ import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { getBeirutHour } from "@/lib/beirutTime";
+import { getBeirutHour, getCountryHour } from "@/lib/beirutTime";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import {
   isPayMethodSupported,
@@ -83,7 +83,20 @@ async function runHostedCheckout(url: string, deeplinkBase: string): Promise<"su
 
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
-const EXPRESS_SURCHARGE = 15;
+const LB_EXPRESS_SURCHARGE = 15;
+const AE_EXPRESS_SURCHARGE = 4.90;
+const LB_FREE_DELIVERY_THRESHOLD = 130;
+const AE_FREE_DELIVERY_THRESHOLD = 89.84;
+
+function expressSurchargeForCountry(code?: string): number {
+  if (code === "AE") return AE_EXPRESS_SURCHARGE;
+  return LB_EXPRESS_SURCHARGE;
+}
+
+function freeDeliveryThresholdForCountry(code?: string): number {
+  if (code === "AE") return AE_FREE_DELIVERY_THRESHOLD;
+  return LB_FREE_DELIVERY_THRESHOLD;
+}
 
 type District = { name: string; fee: number };
 const LB_DISTRICTS: District[] = [
@@ -136,12 +149,22 @@ function districtsForCountry(code?: string): District[] {
 }
 
 type TimeSlot = { label: string; cutoffHour: number };
-const TIME_SLOTS: TimeSlot[] = [
+const LB_TIME_SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
   { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
   { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
   { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
 ];
+const AE_TIME_SLOTS: TimeSlot[] = [
+  { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
+  { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
+  { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
+  { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
+];
+function timeSlotsForCountry(code?: string): TimeSlot[] {
+  if (code === "AE") return AE_TIME_SLOTS;
+  return LB_TIME_SLOTS;
+}
 
 function dayLabels(todayLabel: string, tomLabel: string) {
   const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
@@ -242,14 +265,17 @@ export default function CheckoutScreen() {
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const expressAvailable = useMemo(() => {
-    const h = getBeirutHour();
+    const h = getCountryHour(selectedCountry?.code);
     return h >= 8 && h < 22;
-  }, []);
+  }, [selectedCountry?.code]);
+  const timeSlots = timeSlotsForCountry(selectedCountry?.code);
+  const expressSurcharge = expressSurchargeForCountry(selectedCountry?.code);
+  const freeDeliveryThreshold = freeDeliveryThresholdForCountry(selectedCountry?.code);
   const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("today_slot");
   const [date, setDate] = useState(days[0].iso);
   const [slot, setSlot] = useState<TimeSlot | null>(() => {
-    const bh = getBeirutHour();
-    return TIME_SLOTS.find(s => s.cutoffHour > bh) ?? null;
+    const bh = getCountryHour(selectedCountry?.code);
+    return timeSlots.find(s => s.cutoffHour > bh) ?? null;
   });
 
   // Step 3 — Payment
@@ -269,11 +295,11 @@ export default function CheckoutScreen() {
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const districtFee = subtotal >= 130 ? 0 : district.fee;
-    const expressFee = deliveryMode === "express" ? EXPRESS_SURCHARGE : 0;
+    const districtFee = subtotal >= freeDeliveryThreshold ? 0 : district.fee;
+    const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
     const grand = subtotal + districtFee + expressFee;
     return { subtotal, districtFee, expressFee, grand };
-  }, [total, deliveryMode, district]);
+  }, [total, deliveryMode, district, freeDeliveryThreshold, expressSurcharge]);
 
   const stepValid = (s: Step) => {
     if (s === 0) return true;
@@ -707,6 +733,9 @@ export default function CheckoutScreen() {
               deliveryMode={deliveryMode}
               setDeliveryMode={setDeliveryMode}
               expressAvailable={expressAvailable}
+              timeSlots={timeSlots}
+              expressSurcharge={expressSurcharge}
+              localHour={getCountryHour(selectedCountry?.code)}
             />
             <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
@@ -963,11 +992,10 @@ function DeliveryDetailsStep(props: any) {
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     days, date, setDate, slot, setSlot, deliveryMode, setDeliveryMode,
-    expressAvailable,
+    expressAvailable, timeSlots, expressSurcharge, localHour,
   } = props;
   const { formatNative } = useCurrency();
   const t = useT();
-  const beirutHour = getBeirutHour();
   const todayIso = days[0]?.iso;
   return (
     <View style={{ gap: 18 }}>
@@ -1168,7 +1196,7 @@ function DeliveryDetailsStep(props: any) {
               icon="zap"
               title={t.expressDelivery}
               subtitle={t.oneToThreeHrs}
-              footer={expressAvailable ? `+${formatNative(EXPRESS_SURCHARGE)}` : t.opensAt8AM}
+              footer={expressAvailable ? `+${formatNative(expressSurcharge)}` : t.opensAt8AM}
               active={deliveryMode === "express"}
               disabled={!expressAvailable}
               onPress={() => setDeliveryMode("express")}
@@ -1182,7 +1210,7 @@ function DeliveryDetailsStep(props: any) {
               onPress={() => {
                 setDeliveryMode("today_slot");
                 setDate(days[0].iso);
-                const firstAvail = TIME_SLOTS.find(s => s.cutoffHour > beirutHour) ?? null;
+                const firstAvail = timeSlots.find(s => s.cutoffHour > localHour) ?? null;
                 setSlot(firstAvail);
               }}
             />
@@ -1227,9 +1255,9 @@ function DeliveryDetailsStep(props: any) {
                 </ScrollView>
               )}
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {TIME_SLOTS.map((s) => {
+                {timeSlots.map((s) => {
                   const isToday = date === todayIso;
-                  const past = isToday && beirutHour >= s.cutoffHour;
+                  const past = isToday && localHour >= s.cutoffHour;
                   const active = slot?.label === s.label;
                   return (
                     <Pressable

@@ -18,6 +18,8 @@ import {
   fetchWcProductPrice,
   computeDistrictFeeUsd,
   EXPRESS_SURCHARGE_USD,
+  countryForDistrict,
+  expressSurchargeUsd,
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
@@ -271,10 +273,11 @@ export async function attemptCreateWcOrder(
   // express (body.expressFee > 0). We never use the client's numeric value.
   const clientSignalledExpress = body.expressFee > 0;
   if (clientSignalledExpress) {
+    const districtCountry = countryForDistrict(body.district);
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
-      total: fmt(await conv(EXPRESS_SURCHARGE_USD)),
+      total: fmt(await conv(expressSurchargeUsd(districtCountry))),
     });
   }
 

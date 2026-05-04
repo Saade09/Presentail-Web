@@ -9,6 +9,8 @@ import {
   resolveCartItems,
   computeDistrictFeeUsd,
   EXPRESS_SURCHARGE_USD,
+  countryForDistrict,
+  expressSurchargeUsd,
 } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
@@ -144,8 +146,9 @@ router.post("/payment/mamo", async (req, res) => {
   const resolvedDistrict = district ?? "Beirut";
   const isExpress = expressDelivery === true;
   const subtotalUsd = catalogResult.subtotalUsd;
+  const districtCountry = countryForDistrict(resolvedDistrict);
   const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
-  const expressFeeUsd = isExpress ? EXPRESS_SURCHARGE_USD : 0;
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
   const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
 
   // Mamo settles in AED only — convert the server-computed USD total.
@@ -293,8 +296,9 @@ router.post("/payment/paypal", async (req, res) => {
   const resolvedDistrict = district ?? "Beirut";
   const isExpress = expressDelivery === true;
   const subtotalUsd = catalogResult.subtotalUsd;
+  const districtCountryPP = countryForDistrict(resolvedDistrict);
   const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
-  const expressFeeUsd = isExpress ? EXPRESS_SURCHARGE_USD : 0;
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountryPP) : 0;
   const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
 
   const presented = normalizeCurrency(rawCurrency ?? "USD");

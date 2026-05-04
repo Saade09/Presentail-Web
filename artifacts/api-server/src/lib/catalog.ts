@@ -48,6 +48,27 @@ export const DISTRICT_FEES: Record<string, number> = {
 export const EXPRESS_SURCHARGE_USD = 15;
 export const FREE_DELIVERY_THRESHOLD_USD = 130;
 
+const UAE_DISTRICT_NAMES = new Set([
+  "Dubai", "Ras Al Khaimah", "Umm Al Quwain", "Fujairah", "Ajman", "Sharjah", "Abu Dhabi",
+]);
+const CY_DISTRICT_NAMES = new Set(["Larnaca", "Limassol", "Nicosia", "Paphos"]);
+
+export function countryForDistrict(district: string): string {
+  if (UAE_DISTRICT_NAMES.has(district)) return "AE";
+  if (CY_DISTRICT_NAMES.has(district)) return "CY";
+  return "LB";
+}
+
+export function expressSurchargeUsd(countryCode?: string): number {
+  if (countryCode === "AE") return 4.90;
+  return 15;
+}
+
+export function freeDeliveryThresholdUsd(countryCode?: string): number {
+  if (countryCode === "AE") return 89.84;
+  return 130;
+}
+
 // Returns the base district fee (before applying the free-delivery threshold).
 export function baseDistrictFeeUsd(district: string): number {
   // Unknown districts default to the highest tier so we never under-charge.
@@ -56,7 +77,9 @@ export function baseDistrictFeeUsd(district: string): number {
 
 // Returns the effective district fee after applying the free-delivery threshold.
 export function computeDistrictFeeUsd(district: string, subtotalUsd: number): number {
-  return subtotalUsd >= FREE_DELIVERY_THRESHOLD_USD ? 0 : baseDistrictFeeUsd(district);
+  const country = countryForDistrict(district);
+  const threshold = freeDeliveryThresholdUsd(country);
+  return subtotalUsd >= threshold ? 0 : baseDistrictFeeUsd(district);
 }
 
 type CatalogProduct = { price: number; name: string };
