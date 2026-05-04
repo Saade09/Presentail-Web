@@ -304,28 +304,44 @@ router.get("/woo/brand-products", async (req, res) => {
   }
 });
 
-const OCCASION_WC_CATEGORY: Record<string, number> = {
-  birthday: 135,
-  housewarming: 582,
-  "new-job": 580,
-  promotion: 581,
-  "thank-you": 176,
-  "love-romance": 137,
-  farewell: 583,
-  condolences: 405,
-  anniversary: 416,
-  wedding: 139,
-  graduation: 196,
-  newborn: 197,
-  "get-well-soon": 177,
-  congratulations: 138,
-  colleague: 246,
-  friend: 245,
-  "thinking-of-you": 153,
-  "im-sorry": 486,
-  eid: 141,
-  children: 247,
-};
+const OCCASION_SLUGS = [
+  "birthday", "housewarming", "new-job", "promotion", "thank-you",
+  "love-romance", "farewell", "condolences", "anniversary", "wedding",
+  "graduation", "newborn", "get-well-soon", "congratulations",
+  "colleague", "friend", "thinking-of-you", "im-sorry", "eid", "children",
+];
+
+const occasionIdCache = new Map<string, { fetchedAt: number; map: Map<string, number> }>();
+const OCCASION_ID_TTL = 5 * 60 * 1000;
+
+async function resolveOccasionId(
+  slug: string, lang: Lang, store: WooStoreConfig,
+): Promise<number | null> {
+  const cacheKey = store.baseUrl;
+  const now = Date.now();
+  const cached = occasionIdCache.get(cacheKey);
+  if (cached) {
+    const slugEntry = cached.map.get(slug);
+    if (slugEntry !== undefined && now - cached.fetchedAt < OCCASION_ID_TTL) {
+      return slugEntry;
+    }
+  }
+  const r = await wooFetch(
+    `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
+    {}, lang, store,
+  );
+  if (!r.ok) return null;
+  const cats = (await r.json()) as { id: number; slug: string }[];
+  const map = cached?.map ?? new Map<string, number>();
+  if (!cats.length) {
+    map.set(slug, 0);
+    occasionIdCache.set(cacheKey, { fetchedAt: now, map });
+    return null;
+  }
+  map.set(slug, cats[0].id);
+  occasionIdCache.set(cacheKey, { fetchedAt: now, map });
+  return cats[0].id;
+}
 
 const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "flowers", label: "Flowers & Bouquets" },
@@ -399,13 +415,16 @@ router.get("/woo/occasion-products", async (req, res) => {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const slug = String(req.query.slug ?? "");
-  const categoryId = OCCASION_WC_CATEGORY[slug];
-  if (!categoryId) {
+  if (!slug || !OCCASION_SLUGS.includes(slug)) {
     return res.json({ ok: true, groups: [] });
   }
   const lang = readLang(req);
 
   try {
+    const categoryId = await resolveOccasionId(slug, lang, store);
+    if (!categoryId) {
+      return res.json({ ok: true, groups: [], total: 0 });
+    }
     const allProducts: WcProduct[] = [];
     let page = 1;
     while (allProducts.length < 200) {

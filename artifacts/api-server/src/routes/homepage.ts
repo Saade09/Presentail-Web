@@ -56,6 +56,7 @@ type WcCategoryRaw = {
 };
 
 import { resolveStore, type WooStoreConfig } from "../lib/wooStore";
+import { logger } from "../lib/logger";
 
 async function wooGet<T>(path: string, store?: WooStoreConfig): Promise<T> {
   const s = store ?? resolveStore();
@@ -86,23 +87,58 @@ const collectionCache = new Map<
 // intentionally NOT used on a WC network/HTTP failure — that path
 // returns an empty array so the homepage hides the section rather
 // than risking stale curation.
-const DEFAULT_CATEGORIES: HomepageCollectionItem[] = [
-  { id: "cat-hand-bouquets", name: "Hand Bouquets", slug: "hand-bouquets", imageUrl: "", sortOrder: 1, isActive: true },
-  { id: "cat-flower-boxes", name: "Flower Boxes", slug: "flower-boxes", imageUrl: "", sortOrder: 2, isActive: true },
-  { id: "cat-flower-vases", name: "Flower Vases", slug: "flower-vases", imageUrl: "", sortOrder: 3, isActive: true },
-  { id: "cat-plants", name: "Plants", slug: "plants", imageUrl: "", sortOrder: 4, isActive: true },
-  { id: "cat-cakes", name: "Cakes", slug: "cakes", imageUrl: "", sortOrder: 5, isActive: true },
-  { id: "cat-chocolate", name: "Chocolates", slug: "chocolate", imageUrl: "", sortOrder: 6, isActive: true },
+const DEFAULT_OCCASION_SLUGS = [
+  "birthday", "anniversary", "love-romance", "congratulations", "thank-you", "newborn",
 ];
 
-const DEFAULT_OCCASIONS: HomepageCollectionItem[] = [
-  { id: "occ-birthday", name: "Birthday", slug: "birthday", imageUrl: "", sortOrder: 1, isActive: true },
-  { id: "occ-anniversary", name: "Anniversary", slug: "anniversary", imageUrl: "", sortOrder: 2, isActive: true },
-  { id: "occ-love-romance", name: "Love & Romance", slug: "love-romance", imageUrl: "", sortOrder: 3, isActive: true },
-  { id: "occ-congrats", name: "Congratulations", slug: "congratulations", imageUrl: "", sortOrder: 4, isActive: true },
-  { id: "occ-thank-you", name: "Thank You", slug: "thank-you", imageUrl: "", sortOrder: 5, isActive: true },
-  { id: "occ-newborn", name: "Newborn", slug: "newborn", imageUrl: "", sortOrder: 6, isActive: true },
-];
+async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {
+  if (!store.consumerKey) return [];
+  const cats = await wooGet<WcCategoryRaw[]>(
+    "/products/categories?parent=0&per_page=100&order=asc",
+    store,
+  );
+  return cats
+    .filter((c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized")
+    .map((c, i) => ({
+      id: String(c.id),
+      name: c.name,
+      slug: c.slug,
+      imageUrl: c.image?.src ?? "",
+      sortOrder: typeof c.menu_order === "number" ? c.menu_order : i,
+      isActive: true,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+async function fetchOccasionCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {
+  if (!store.consumerKey) return [];
+  const items: HomepageCollectionItem[] = [];
+  for (let i = 0; i < DEFAULT_OCCASION_SLUGS.length; i++) {
+    const slug = DEFAULT_OCCASION_SLUGS[i];
+    try {
+      const cats = await wooGet<WcCategoryRaw[]>(
+        `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
+        store,
+      );
+      if (cats.length && (cats[0].count ?? 0) > 0) {
+        items.push({
+          id: String(cats[0].id),
+          name: cats[0].name,
+          slug: cats[0].slug,
+          imageUrl: cats[0].image?.src ?? "",
+          sortOrder: i,
+          isActive: true,
+        });
+      }
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), slug },
+        "fetchOccasionCategories: slug fetch failed",
+      );
+    }
+  }
+  return items;
+}
 
 // Result type that distinguishes "WC said there is no curated parent
 // (or WC is unconfigured) — use defaults" from "WC returned a curated
@@ -156,7 +192,7 @@ async function fetchCollection(parentSlug: string, store?: WooStoreConfig): Prom
 async function getCollection(
   cacheKey: string,
   parentSlug: string,
-  fallback: HomepageCollectionItem[],
+  dynamicFallback: (store: WooStoreConfig) => Promise<HomepageCollectionItem[]>,
   log: { warn: (obj: unknown, msg?: string) => void },
   store?: WooStoreConfig,
 ): Promise<HomepageCollectionItem[]> {
@@ -165,12 +201,15 @@ async function getCollection(
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
     return cached.items;
   }
+  const s = store ?? resolveStore();
   try {
-    const result = await fetchCollection(parentSlug, store);
-    // Curated result wins, even when empty — that's the curator's
-    // explicit choice. Only fall back to defaults if WC has no opinion
-    // (creds missing or parent slug not yet created in WP admin).
-    const items = result.kind === "curated" ? result.items : fallback;
+    const result = await fetchCollection(parentSlug, s);
+    let items: HomepageCollectionItem[];
+    if (result.kind === "curated") {
+      items = result.items;
+    } else {
+      items = await dynamicFallback(s);
+    }
     collectionCache.set(cacheKey, { fetchedAt: now, items });
     return items;
   } catch (err) {
@@ -178,9 +217,6 @@ async function getCollection(
       { err: err instanceof Error ? err.message : String(err), parentSlug },
       "homepage collection fetch failed; returning empty so the section hides",
     );
-    // On a real WC network/HTTP error we deliberately return empty
-    // (cached briefly to avoid hammering WC) so the web client hides
-    // the carousel rather than rendering potentially stale defaults.
     collectionCache.set(cacheKey, { fetchedAt: now, items: [] });
     return [];
   }
@@ -191,7 +227,7 @@ router.get("/homepage/categories", async (req, res) => {
   const items = await getCollection(
     `categories::${store.baseUrl}`,
     "home-categories",
-    DEFAULT_CATEGORIES,
+    fetchTopLevelCategories,
     req.log,
     store,
   );
@@ -204,7 +240,7 @@ router.get("/homepage/occasions", async (req, res) => {
   const items = await getCollection(
     `occasions::${store.baseUrl}`,
     "home-occasions",
-    DEFAULT_OCCASIONS,
+    fetchOccasionCategories,
     req.log,
     store,
   );

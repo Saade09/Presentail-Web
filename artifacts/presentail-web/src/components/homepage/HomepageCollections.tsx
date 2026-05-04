@@ -1,27 +1,41 @@
-import {
-  useGetHomepageCategories,
-  useGetHomepageOccasions,
-} from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import {
   CircularCollectionCarousel,
   type CircularCarouselItem,
 } from "./CircularCollectionCarousel";
 
-// Wires the generic CircularCollectionCarousel to the
-// `/api/homepage/categories` and `/api/homepage/occasions` endpoints. Each
-// row is hidden if the query errors or returns zero items so the homepage
-// degrades gracefully when WooCommerce is unavailable.
+type CollectionItem = {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+function useHomepageCollection(endpoint: "categories" | "occasions") {
+  const { countryCode, cityId } = useLocationSelection();
+  return useQuery({
+    queryKey: ["homepage", endpoint, countryCode, cityId],
+    queryFn: () =>
+      apiFetch<{ items: CollectionItem[] }>(`/homepage/${endpoint}`),
+  });
+}
 
 function CategoriesRow({ title }: { title: string }) {
-  const { data, isLoading, isError } = useGetHomepageCategories();
+  const { data, isLoading, isError } = useHomepageCollection("categories");
   const items: CircularCarouselItem[] =
-    data?.items.filter((i) => i.isActive).map((i) => ({
-      id: i.id,
-      label: i.name,
-      imageUrl: i.imageUrl,
-      href: `/shop?category=${encodeURIComponent(i.slug)}`,
-    })) ?? [];
+    data?.items
+      .filter((i: CollectionItem) => i.isActive)
+      .map((i: CollectionItem) => ({
+        id: i.id,
+        label: i.name,
+        imageUrl: i.imageUrl,
+        href: `/shop?category=${encodeURIComponent(i.slug)}`,
+      })) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
     <CircularCollectionCarousel
@@ -34,14 +48,16 @@ function CategoriesRow({ title }: { title: string }) {
 }
 
 function OccasionsRow({ title }: { title: string }) {
-  const { data, isLoading, isError } = useGetHomepageOccasions();
+  const { data, isLoading, isError } = useHomepageCollection("occasions");
   const items: CircularCarouselItem[] =
-    data?.items.filter((i) => i.isActive).map((i) => ({
-      id: i.id,
-      label: i.name,
-      imageUrl: i.imageUrl,
-      href: `/shop?occasion=${encodeURIComponent(i.slug)}`,
-    })) ?? [];
+    data?.items
+      .filter((i: CollectionItem) => i.isActive)
+      .map((i: CollectionItem) => ({
+        id: i.id,
+        label: i.name,
+        imageUrl: i.imageUrl,
+        href: `/shop?occasion=${encodeURIComponent(i.slug)}`,
+      })) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
     <CircularCollectionCarousel

@@ -20,9 +20,10 @@ Luxury flower & gift delivery app for Lebanon. Built with Expo Router (iOS/Andro
   - Abu Dhabi (`ae-abu-dhabi`, `ae-al-ain`): `https://presentail.com/abudhabi/wp-json/wc/v3` — `WC_ABUDHABI_CONSUMER_KEY` / `WC_ABUDHABI_CONSUMER_SECRET`
   - Cyprus (`cy-*`): `https://presentail.com/cyprus/wp-json/wc/v3` — `WC_CYPRUS_CONSUMER_KEY` / `WC_CYPRUS_CONSUMER_SECRET`
 - **Store context**: Server reads `countryCode`/`cityId` from query params or `x-store-country`/`x-store-city` headers. Falls back to Lebanon when unset.
-- **Cache isolation**: Product/homepage caches are keyed by `${store.baseUrl}::${lang}` to prevent cross-store cache hits.
+- **Cache isolation**: Product/homepage caches are keyed by `${store.baseUrl}::${lang}` to prevent cross-store cache hits. Client-side React Query keys include `countryCode`/`cityId` so store switches invalidate caches.
+- **Dynamic categories/occasions**: Homepage categories (`/api/homepage/categories`) and occasions (`/api/homepage/occasions`) are fetched dynamically per store from WooCommerce. No hardcoded category IDs — the occasion-products endpoint uses `resolveOccasionId()` which looks up WC category IDs by slug per store with TTL caching. `BestSellersPreview` falls back to all products when `hand-bouquets` category is empty (e.g. Cyprus).
 - **Countries**: Lebanon (25 districts), UAE (Dubai, Sharjah, Abu Dhabi, Al Ain), Cyprus (Limassol, Nicosia, Larnaca, Paphos)
-- **GET /api/woo/products** — Fetches all published/in-stock products (paginated, 100/page), merges with static catalog. Returns ~345 products with categories mapped to app slugs.
+- **GET /api/woo/products** — Fetches all published/in-stock products (paginated, 100/page), merges with static catalog. Product counts vary by store (LB ~336, Dubai ~195, CY ~26).
 - **POST /api/woo/order** — Creates a WooCommerce order on every checkout. Items with `wcId` → `line_items`; static-only items → `fee_lines`. All delivery/card meta stored as order metadata.
 - **WooProductsContext** — fetches WC products on app startup, merges with static catalog (WC data wins on price/image/name). Static catalog provides occasion tags, fallback images.
 
