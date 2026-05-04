@@ -9,6 +9,9 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 const WC_BASE =
   process.env.WC_BASE_URL ?? "https://presentail.com/lebanon/wp-json/wc/v3";
+// Note: this script operates on a single store at a time. To backfill
+// customers from other stores, set WC_BASE_URL plus the matching
+// WC_CONSUMER_KEY / WC_CONSUMER_SECRET before running.
 const WC_KEY = process.env.WC_CONSUMER_KEY ?? "";
 const WC_SECRET = process.env.WC_CONSUMER_SECRET ?? "";
 

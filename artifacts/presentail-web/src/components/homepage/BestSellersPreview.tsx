@@ -3,10 +3,15 @@ import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCategoryProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 export function BestSellersPreview() {
   const { t, language } = useLocale();
-  const { data, isLoading } = useCategoryProducts("hand-bouquets", { lang: language });
+  const { countryCode, cityId } = useLocationSelection();
+  const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
+  if (countryCode) locParams.countryCode = countryCode;
+  if (cityId) locParams.cityId = cityId;
+  const { data, isLoading } = useCategoryProducts("hand-bouquets", locParams);
   const products = data?.products.slice(0, 4) ?? [];
 
   return (

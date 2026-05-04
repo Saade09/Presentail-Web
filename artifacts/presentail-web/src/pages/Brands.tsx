@@ -3,10 +3,15 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 export default function Brands() {
   const { t, language } = useLocale();
-  const { data, isLoading } = useBrands({ lang: language });
+  const { countryCode, cityId } = useLocationSelection();
+  const brandParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
+  if (countryCode) brandParams.countryCode = countryCode;
+  if (cityId) brandParams.cityId = cityId;
+  const { data, isLoading } = useBrands(brandParams);
   
   return (
     <div className="min-h-screen pt-32 pb-24 bg-background">

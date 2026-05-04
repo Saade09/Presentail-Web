@@ -34,9 +34,10 @@ export default function Shop() {
   const category = searchParams.get("category") || "";
   const occasion = searchParams.get("occasion") || "";
 
-  const { countryCode, country, openPicker } = useLocationSelection();
-  const queryParams: { countryCode?: string; lang?: string } = { lang: language };
+  const { countryCode, cityId, country, openPicker } = useLocationSelection();
+  const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) queryParams.countryCode = countryCode;
+  if (cityId) queryParams.cityId = cityId;
 
   const allProducts = useProducts(queryParams, !category && !occasion);
   const categoryProducts = useCategoryProducts(category, queryParams);

@@ -15,6 +15,7 @@ import {
 } from "@/constants/deliveryLocations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { fetchDeliveryLocations } from "@/services/deliveryLocationService";
+import { updateCachedStoreLocation } from "@/lib/storeHeaders";
 
 const STORAGE_KEY = "@presentail/delivery-location-v1";
 
@@ -163,15 +164,15 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
 
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
+    updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
   }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity]);
 
   const selectCountry = useCallback(
     (country: DeliveryCountry) => {
       setSelectedCountry(country);
-      // When the country changes, default the city to the first active one.
       const nextCity = firstActiveCity(country);
       setSelectedCity(nextCity);
-      // If the user has not manually picked a currency, follow the country's default.
+      updateCachedStoreLocation(country.code, nextCity?.id ?? null);
       if (currencySource !== "manual" && country.currency !== currencyCode) {
         setCurrencyCode(country.currency);
       }
@@ -190,6 +191,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
   const selectCity = useCallback(
     (city: DeliveryCity) => {
       setSelectedCity(city);
+      updateCachedStoreLocation(selectedCountry?.code ?? null, city.id);
       const country = selectedCountry;
       persist({
         selectedDeliveryCountryId: country?.id,

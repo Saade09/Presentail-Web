@@ -18,21 +18,14 @@ import {
 
 const router: IRouter = Router();
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
-const WP_BASE = "https://presentail.com/lebanon/wp-json";
-const WP_LOGIN = "https://presentail.com/lebanon/wp-login.php";
+import { resolveStoreFromRequest, wooAuthHeader, resolveStore } from "../lib/wooStore";
 
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
-
-async function wcFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WC_BASE}${path}`, {
+async function wcFetch(path: string, options: RequestInit = {}, req?: { query: any; headers: any }) {
+  const store = req ? resolveStoreFromRequest(req) : resolveStore();
+  return fetch(`${store.baseUrl}${path}`, {
     ...options,
     headers: {
-      Authorization: wooAuth(),
+      Authorization: wooAuthHeader(store),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -41,8 +34,9 @@ async function wcFetch(path: string, options: RequestInit = {}) {
   });
 }
 
-async function wpFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WP_BASE}${path}`, {
+async function wpFetch(path: string, options: RequestInit = {}, req?: { query: any; headers: any }) {
+  const store = req ? resolveStoreFromRequest(req) : resolveStore();
+  return fetch(`${store.wpBaseUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -147,7 +141,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     return;
   }
   try {
-    const r = await wcFetch(`/customers?email=${encodeURIComponent(raw)}&per_page=1`);
+    const r = await wcFetch(`/customers?email=${encodeURIComponent(raw)}&per_page=1`, {}, req);
     if (!r.ok) {
       req.log?.warn?.({ status: r.status }, "auth.exists: WC upstream non-ok");
       res.json({ ok: true, exists: false, code: "lookup_failed" });
@@ -185,7 +179,7 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
     const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
       method: "POST",
       body: JSON.stringify({ username: email, password }),
-    });
+    }, req);
 
     const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
 
@@ -198,8 +192,6 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
     }
 
     if (!tokenRes.ok || !tokenData?.token) {
-      // Record the failure against this email's cap so repeated wrong-password
-      // attempts on the same account are throttled even across IP rotations.
       loginEmailLimiter.record(email);
       return res.status(401).json({
         ok: false,
@@ -207,10 +199,9 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       });
     }
 
-    // Try to look up the WC customer record so we have id/firstName/etc.
     let customer: ReturnType<typeof mapCustomer> | null = null;
     try {
-      const cRes = await wcFetch(`/customers?email=${encodeURIComponent(email)}`);
+      const cRes = await wcFetch(`/customers?email=${encodeURIComponent(email)}`, {}, req);
       const cList = (await cRes.json().catch(() => [])) as any[];
       if (Array.isArray(cList) && cList[0]) customer = mapCustomer(cList[0]);
     } catch {
@@ -287,7 +278,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
         last_name: lastName ?? "",
         billing: phone ? { phone } : undefined,
       }),
-    });
+    }, req);
 
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
@@ -297,13 +288,12 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
       });
     }
 
-    // Try to issue a JWT immediately (best-effort)
     let token: string | null = null;
     try {
       const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
         method: "POST",
         body: JSON.stringify({ username: email, password }),
-      });
+      }, req);
       const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
       if (tokenRes.ok && tokenData?.token) token = tokenData.token;
     } catch {
@@ -332,7 +322,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 
 // ── Get current user (auth via Bearer JWT, validated against WP) ─────────────
 router.get("/auth/me", async (req, res) => {
-  const auth = await authenticate(req.header("authorization"));
+  const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
@@ -355,14 +345,13 @@ router.get("/auth/me", async (req, res) => {
       });
       return;
     }
-    const r = await wcFetch(`/customers/${auth.customerId}`);
+    const r = await wcFetch(`/customers/${auth.customerId}`, {}, req);
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
       res.status(r.status).json({ ok: false, message: data?.message ?? "Not found" });
       return;
     }
     const mapped = mapCustomer(data);
-    // Seed the local row so subsequent reads use the canonical store.
     void mirrorWcCustomerLocally(
       mapped.id,
       {
@@ -381,7 +370,7 @@ router.get("/auth/me", async (req, res) => {
 
 // ── Update current user profile ──────────────────────────────────────────────
 router.put("/auth/me", async (req, res) => {
-  const auth = await authenticate(req.header("authorization"));
+  const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
@@ -399,7 +388,7 @@ router.put("/auth/me", async (req, res) => {
         last_name: lastName,
         billing: phone !== undefined ? { phone } : undefined,
       }),
-    });
+    }, req);
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
       res.status(r.status).json({ ok: false, message: data?.message ?? "Update failed" });
@@ -432,7 +421,7 @@ router.put("/auth/me", async (req, res) => {
 //   3. Issue the WC REST DELETE so the row is dropped from the customer
 //      index. The wp_users row may persist but contains no PII.
 router.delete("/auth/me", async (req, res) => {
-  const auth = await authenticate(req.header("authorization"));
+  const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
@@ -472,7 +461,6 @@ router.delete("/auth/me", async (req, res) => {
     phone: "",
   };
   try {
-    // Step 1 — anonymise the customer record.
     const updateRes = await wcFetch(`/customers/${id}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -483,14 +471,13 @@ router.delete("/auth/me", async (req, res) => {
         billing: blankBilling,
         shipping: blankShipping,
       }),
-    });
+    }, req);
     if (!updateRes.ok) {
       const errBody = (await updateRes.text().catch(() => "")) || "";
       req.log?.warn?.({ status: updateRes.status, body: errBody.slice(0, 300) }, "auth.delete: anonymise failed");
     }
 
-    // Step 2 — drop the customer from the WC index. force=true means no trash.
-    const delRes = await wcFetch(`/customers/${id}?force=true`, { method: "DELETE" });
+    const delRes = await wcFetch(`/customers/${id}?force=true`, { method: "DELETE" }, req);
     if (!delRes.ok) {
       const data = (await delRes.json().catch(() => ({}))) as any;
       // Even if the DELETE call fails, we've already wiped PII above, so
@@ -559,8 +546,8 @@ function randomPassword(): string {
   );
 }
 
-async function findCustomerByEmail(email: string) {
-  const r = await wcFetch(`/customers?email=${encodeURIComponent(email)}&per_page=1`);
+async function findCustomerByEmail(email: string, req?: { query: any; headers: any }) {
+  const r = await wcFetch(`/customers?email=${encodeURIComponent(email)}&per_page=1`, {}, req);
   if (!r.ok) return null;
   const list = (await r.json().catch(() => [])) as any[];
   return Array.isArray(list) && list[0] ? list[0] : null;
@@ -570,9 +557,7 @@ async function createCustomer(input: {
   email: string;
   firstName: string;
   lastName: string;
-}) {
-  // Username must be unique. Derive from local part + short random suffix
-  // so concurrent social sign-ups don't collide.
+}, req?: { query: any; headers: any }) {
   const localPart = input.email.split("@")[0]?.replace(/[^a-zA-Z0-9_.-]/g, "") || "user";
   const username = `${localPart}-${randomBytes(3).toString("hex")}`;
   const r = await wcFetch("/customers", {
@@ -584,7 +569,7 @@ async function createCustomer(input: {
       first_name: input.firstName,
       last_name: input.lastName,
     }),
-  });
+  }, req);
   const data = (await r.json().catch(() => ({}))) as any;
   if (!r.ok) {
     const msg = data?.message?.replace(/<[^>]*>/g, "") ?? "Could not create account";
@@ -597,10 +582,10 @@ async function ensureCustomerForSocial(input: {
   email: string;
   firstName: string;
   lastName: string;
-}) {
-  const existing = await findCustomerByEmail(input.email);
+}, req?: { query: any; headers: any }) {
+  const existing = await findCustomerByEmail(input.email, req);
   if (existing) return existing;
-  return createCustomer(input);
+  return createCustomer(input, req);
 }
 
 async function issueSocialSession(
@@ -609,13 +594,14 @@ async function issueSocialSession(
   provider: "apple" | "google",
   profile: { email: string; firstName: string; lastName: string },
 ) {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res
       .status(503)
       .json({ ok: false, message: "Sign-in is not available right now." });
   }
   try {
-    const customer = await ensureCustomerForSocial(profile);
+    const customer = await ensureCustomerForSocial(profile, req);
     const mapped = mapCustomer(customer);
     void mirrorWcCustomerLocally(
       mapped.id,
@@ -632,6 +618,7 @@ async function issueSocialSession(
       customerId: mapped.id,
       email: mapped.email,
       provider,
+      storeBaseUrl: store.baseUrl,
     });
     return res.json({ ok: true, token, user: mapped });
   } catch (e: any) {
@@ -684,7 +671,9 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
       redirect_to: "",
       wp_lang: "",
     });
-    const r = await fetch(`${WP_LOGIN}?action=lostpassword`, {
+    const resetStore = resolveStoreFromRequest(req);
+    const wpLogin = resetStore.wpBaseUrl.replace(/\/wp-json$/, "") + "/wp-login.php";
+    const r = await fetch(`${wpLogin}?action=lostpassword`, {
       method: "POST",
       redirect: "manual",
       headers: {
@@ -770,8 +759,10 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
     // Step 1: hit `?action=rp` so WP sets the resetpass cookie that authorises
     // the resetpass POST. On an invalid/expired key WP redirects to
     // `?action=lostpassword&error=...` and does not set the cookie.
+    const confirmStore = resolveStoreFromRequest(req);
+    const wpLogin = confirmStore.wpBaseUrl.replace(/\/wp-json$/, "") + "/wp-login.php";
     const rpRes = await fetch(
-      `${WP_LOGIN}?action=rp&key=${encodeURIComponent(key)}&login=${encodeURIComponent(login)}`,
+      `${wpLogin}?action=rp&key=${encodeURIComponent(key)}&login=${encodeURIComponent(login)}`,
       {
         method: "GET",
         redirect: "manual",
@@ -797,7 +788,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       "pass1-text": password,
       wp_lang: "",
     });
-    const resetRes = await fetch(`${WP_LOGIN}?action=resetpass`, {
+    const resetRes = await fetch(`${wpLogin}?action=resetpass`, {
       method: "POST",
       redirect: "manual",
       headers: {

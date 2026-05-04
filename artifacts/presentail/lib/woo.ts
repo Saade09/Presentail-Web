@@ -27,14 +27,16 @@ export type DeliveryFilter = {
 };
 
 function appendDeliveryParams(params: URLSearchParams, filter?: DeliveryFilter) {
-  // The API server reads these and filters out any product whose
-  // `_deliverable_countries` / `_deliverable_cities` meta excludes the
-  // selected location. Products without that meta are treated as
-  // deliverable everywhere, so the catalogue is unaffected for items
-  // that haven't been tagged yet.
   if (!filter) return;
   if (filter.countryCode) params.set("countryCode", filter.countryCode);
   if (filter.cityId) params.set("cityId", filter.cityId);
+}
+
+function storeHeaders(filter?: DeliveryFilter): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (filter?.countryCode) h["x-store-country"] = filter.countryCode;
+  if (filter?.cityId) h["x-store-city"] = filter.cityId;
+  return h;
 }
 
 export async function fetchCategoryProducts(
@@ -46,7 +48,7 @@ export async function fetchCategoryProducts(
     appendDeliveryParams(params, filter);
     const res = await fetch(
       `${API_BASE}/api/woo/category-products?${params.toString()}`,
-      { headers: { "Content-Type": "application/json" } }
+      { headers: storeHeaders(filter) }
     );
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
@@ -67,7 +69,7 @@ export async function fetchOccasionProducts(
     appendDeliveryParams(params, filter);
     const res = await fetch(
       `${API_BASE}/api/woo/occasion-products?${params.toString()}`,
-      { headers: { "Content-Type": "application/json" } }
+      { headers: storeHeaders(filter) }
     );
     const json = await res.json();
     if (json.ok && Array.isArray(json.groups)) return json.groups;
@@ -86,7 +88,7 @@ export async function fetchBrandProducts(
     appendDeliveryParams(params, filter);
     const res = await fetch(
       `${API_BASE}/api/woo/brand-products?${params.toString()}`,
-      { headers: { "Content-Type": "application/json" } }
+      { headers: storeHeaders(filter) }
     );
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) return json.products;
@@ -109,7 +111,7 @@ export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProd
       ? `${API_BASE}/api/woo/products?${qs}`
       : `${API_BASE}/api/woo/products`;
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
+      headers: storeHeaders(filter),
     });
     if (!res.ok) return { ok: false };
     const json = await res.json();
@@ -166,10 +168,13 @@ export type WcBrand = {
   image: string | null;
 };
 
-export async function fetchWcBrands(): Promise<WcBrand[]> {
+export async function fetchWcBrands(filter?: DeliveryFilter): Promise<WcBrand[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/woo/brands`, {
-      headers: { "Content-Type": "application/json" },
+    const params = new URLSearchParams();
+    appendDeliveryParams(params, filter);
+    const qs = params.toString();
+    const res = await fetch(`${API_BASE}/api/woo/brands${qs ? `?${qs}` : ""}`, {
+      headers: storeHeaders(filter),
     });
     const json = await res.json();
     if (json.ok && Array.isArray(json.brands)) return json.brands;
@@ -181,15 +186,10 @@ export async function fetchWcBrands(): Promise<WcBrand[]> {
 
 export async function createWooOrder(
   payload: WooOrderPayload,
-  opts: { authToken?: string | null } = {},
+  opts: { authToken?: string | null; filter?: DeliveryFilter } = {},
 ): Promise<{ ok: true; wcOrderId: number } | { ok: false; message: string }> {
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    // When the buyer is signed in, send their JWT so the server can
-    // associate the order with their user id (and route push
-    // notifications back to all their devices).
+    const headers: Record<string, string> = storeHeaders(opts.filter);
     if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
 
     const res = await fetch(`${API_BASE}/api/woo/order`, {

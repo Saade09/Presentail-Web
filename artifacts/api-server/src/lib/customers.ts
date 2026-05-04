@@ -234,19 +234,14 @@ export async function getCustomerByWcId(
 // Keeping the WC sync layer in one module is what makes WooCommerce removable
 // later. The order route does not call WC customer endpoints directly.
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
+import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
-
-async function wcFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WC_BASE}${path}`, {
+async function wcFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
+  const s = store ?? resolveStore();
+  return fetch(`${s.baseUrl}${path}`, {
     ...options,
     headers: {
-      Authorization: wooAuth(),
+      Authorization: wooAuthHeader(s),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -270,18 +265,18 @@ function randomPassword(): string {
 // null when WooCommerce is not configured (dev mode).
 export async function syncCustomerToWoo(
   customerId: number,
+  store?: WooStoreConfig,
 ): Promise<number | null> {
-  if (!process.env.WC_CONSUMER_KEY) return null;
+  const s = store ?? resolveStore();
+  if (!s.consumerKey) return null;
 
   const customer = await getCustomerById(customerId);
   if (!customer) {
     throw new Error(`syncCustomerToWoo: customer ${customerId} not found`);
   }
   if (customer.wcCustomerId) {
-    // Best-effort patch of any blanks on the WC side. Failures here are not
-    // fatal — the order can still be linked to the existing mirror.
     try {
-      await patchWcCustomerBlanks(customer.wcCustomerId, customer);
+      await patchWcCustomerBlanks(customer.wcCustomerId, customer, s);
     } catch (err: any) {
       logger.warn(
         { err: err?.message, customerId, wcCustomerId: customer.wcCustomerId },
@@ -296,6 +291,8 @@ export async function syncCustomerToWoo(
   try {
     const lookup = await wcFetch(
       `/customers?email=${encodeURIComponent(customer.email)}&per_page=1`,
+      {},
+      s,
     );
     if (lookup.ok) {
       const list = (await lookup.json().catch(() => [])) as any[];
@@ -332,13 +329,14 @@ export async function syncCustomerToWoo(
           city: customer.city ?? "",
         },
       }),
-    });
+    }, s);
     const data = (await createRes.json().catch(() => ({}))) as any;
     if (!createRes.ok) {
-      // If WC reports the email already exists (race), try lookup once more.
       if (createRes.status === 400 && /exists/i.test(String(data?.code ?? ""))) {
         const retry = await wcFetch(
           `/customers?email=${encodeURIComponent(customer.email)}&per_page=1`,
+          {},
+          s,
         );
         if (retry.ok) {
           const list = (await retry.json().catch(() => [])) as any[];
@@ -383,9 +381,9 @@ export async function syncCustomerToWoo(
 async function patchWcCustomerBlanks(
   wcCustomerId: number,
   customer: Customer,
+  store?: WooStoreConfig,
 ): Promise<void> {
-  // Read current WC fields and only fill blanks.
-  const r = await wcFetch(`/customers/${wcCustomerId}`);
+  const r = await wcFetch(`/customers/${wcCustomerId}`, {}, store);
   if (!r.ok) return;
   const data = (await r.json().catch(() => ({}))) as any;
   const patch: Record<string, unknown> = {};
@@ -400,6 +398,6 @@ async function patchWcCustomerBlanks(
   await wcFetch(`/customers/${wcCustomerId}`, {
     method: "PUT",
     body: JSON.stringify(patch),
-  });
+  }, store);
 }
 

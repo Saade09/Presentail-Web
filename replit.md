@@ -12,9 +12,16 @@ Luxury flower & gift delivery app for Lebanon. Built with Expo Router (iOS/Andro
 - **artifacts/presentail** — Expo mobile app (React Native + Expo Router)
 - **artifacts/api-server** — Express API server (port 8080)
 
-### WooCommerce Integration
-- **Store**: `https://presentail.com/lebanon/wp-json/wc/v3`
-- **Secrets**: `WC_CONSUMER_KEY` (ck_…), `WC_CONSUMER_SECRET` (cs_…)
+### WooCommerce Integration (Multi-Store)
+- **Store resolver**: `artifacts/api-server/src/lib/wooStore.ts` maps city→store URL+credentials
+- **Stores**:
+  - Lebanon (`lb-*`): `https://presentail.com/lebanon/wp-json/wc/v3` — `WC_CONSUMER_KEY` / `WC_CONSUMER_SECRET`
+  - Dubai (`ae-dubai`, `ae-sharjah`): `https://presentail.com/dubai/wp-json/wc/v3` — `WC_DUBAI_CONSUMER_KEY` / `WC_DUBAI_CONSUMER_SECRET`
+  - Abu Dhabi (`ae-abu-dhabi`, `ae-al-ain`): `https://presentail.com/abudhabi/wp-json/wc/v3` — `WC_ABUDHABI_CONSUMER_KEY` / `WC_ABUDHABI_CONSUMER_SECRET`
+  - Cyprus (`cy-*`): `https://presentail.com/cyprus/wp-json/wc/v3` — `WC_CYPRUS_CONSUMER_KEY` / `WC_CYPRUS_CONSUMER_SECRET`
+- **Store context**: Server reads `countryCode`/`cityId` from query params or `x-store-country`/`x-store-city` headers. Falls back to Lebanon when unset.
+- **Cache isolation**: Product/homepage caches are keyed by `${store.baseUrl}::${lang}` to prevent cross-store cache hits.
+- **Countries**: Lebanon (25 districts), UAE (Dubai, Sharjah, Abu Dhabi, Al Ain), Cyprus (Limassol, Nicosia, Larnaca, Paphos)
 - **GET /api/woo/products** — Fetches all published/in-stock products (paginated, 100/page), merges with static catalog. Returns ~345 products with categories mapped to app slugs.
 - **POST /api/woo/order** — Creates a WooCommerce order on every checkout. Items with `wcId` → `line_items`; static-only items → `fee_lines`. All delivery/card meta stored as order metadata.
 - **WooProductsContext** — fetches WC products on app startup, merges with static catalog (WC data wins on price/image/name). Static catalog provides occasion tags, fallback images.

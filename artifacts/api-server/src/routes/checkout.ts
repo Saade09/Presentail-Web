@@ -7,6 +7,7 @@ import {
 } from "../lib/fx";
 import { resolveCartItems } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
+import { resolveStoreFromRequest } from "../lib/wooStore";
 
 const router: IRouter = Router();
 
@@ -67,7 +68,8 @@ router.post("/checkout/session", async (req, res) => {
   }
 
   // Resolve catalog prices server-side. Client-supplied amounts are ignored.
-  const catalogResult = await resolveCartItems(items);
+  const store = resolveStoreFromRequest(req);
+  const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }

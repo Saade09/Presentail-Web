@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { applyFxRates, type CurrencyCode } from "@/data/currencies";
 import { API_BASE } from "@/lib/stripe";
+import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 
 type FxRatesResponse = {
   ok: boolean;
@@ -58,7 +59,7 @@ async function fetchLiveRates(): Promise<CachedFxRates | null> {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_BASE}/api/fx/rates`, {
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json", ...getStoredStoreHeaders() },
       signal: controller.signal,
     });
     if (!res.ok) return null;

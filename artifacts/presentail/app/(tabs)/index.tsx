@@ -1003,15 +1003,18 @@ function BrandsRow() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const [wcBrands, setWcBrands] = useState<WcBrand[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchWcBrands().then((list) => {
-      if (list.length > 0) setWcBrands(list.filter((b) => b.count > 0));
+    setLoaded(false);
+    const filter = selectedCountry ? { countryCode: selectedCountry.code, cityId: selectedCity?.id } : undefined;
+    fetchWcBrands(filter).then((list) => {
+      setWcBrands(list.length > 0 ? list.filter((b) => b.count > 0) : []);
       setLoaded(true);
     });
-  }, []);
+  }, [selectedCountry?.code, selectedCity?.id]);
 
   type DisplayBrand = { id: number | string; name: string; slug: string; count: number; image: string | null };
   const displayBrands: DisplayBrand[] = wcBrands.length > 0

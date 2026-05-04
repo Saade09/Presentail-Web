@@ -9,6 +9,7 @@ import {
 
 import { API_BASE } from "@/lib/stripe";
 import type { AuthUser } from "@/contexts/AuthContext";
+import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 
 export type AuthErrorCode =
   | "email_required"
@@ -41,7 +42,7 @@ export async function checkEmailExists(
     const url = `${API_BASE}/api/auth/exists?email=${encodeURIComponent(trimmed)}`;
     const res = await fetch(url, {
       method: "GET",
-      headers: { "Cache-Control": "no-cache" },
+      headers: { "Cache-Control": "no-cache", ...getStoredStoreHeaders() },
     });
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
@@ -112,7 +113,7 @@ export async function requestPasswordReset(
   try {
     const res = await fetch(`${API_BASE}/api/auth/reset/request`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
       body: JSON.stringify({ email: trimmed }),
     });
     const data = (await res.json().catch(() => ({}))) as {
@@ -141,7 +142,7 @@ export async function completePasswordReset(input: {
   try {
     const res = await fetch(`${API_BASE}/api/auth/reset/confirm`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
       body: JSON.stringify(input),
     });
     const data = (await res.json().catch(() => ({}))) as {
@@ -186,7 +187,7 @@ async function exchangeSocialToken(
   try {
     const res = await fetch(`${API_BASE}/api/auth/social/${provider}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
       body: JSON.stringify(body),
     });
     const data = (await res.json().catch(() => ({}))) as {

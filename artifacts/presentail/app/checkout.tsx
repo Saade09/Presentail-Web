@@ -25,6 +25,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { getBeirutHour } from "@/lib/beirutTime";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
@@ -146,6 +147,7 @@ export default function CheckoutScreen() {
   const { detailed, total, clear, setQty, remove } = useCart();
   const { formatPrice, currencyCode } = useCurrency();
   const { token: authToken } = useAuth();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
 
   // Resolved lazily inside placeOrder to avoid hitting AsyncStorage on
@@ -178,9 +180,28 @@ export default function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
+  const cityDistrictMatch = selectedCountry?.code === "LB" && selectedCity
+    ? DISTRICTS.find((d) => d.name === selectedCity.name)
+    : null;
   const [district, setDistrict] = useState<District>(
-    DISTRICTS.find((d) => d.name === "Beirut") ?? DISTRICTS[0],
+    cityDistrictMatch ?? DISTRICTS.find((d) => d.name === "Beirut") ?? DISTRICTS[0],
   );
+  const districtManuallyEdited = React.useRef(false);
+  const prevCityRef = React.useRef(selectedCity?.id);
+  React.useEffect(() => {
+    const cityChanged = selectedCity?.id !== prevCityRef.current;
+    prevCityRef.current = selectedCity?.id;
+    if (cityChanged) {
+      districtManuallyEdited.current = false;
+    }
+    if (districtManuallyEdited.current) return;
+    if (selectedCountry?.code === "LB" && selectedCity) {
+      const match = DISTRICTS.find((d) => d.name === selectedCity.name);
+      if (match) {
+        setDistrict(match);
+      }
+    }
+  }, [selectedCountry, selectedCity]);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
@@ -330,7 +351,7 @@ export default function CheckoutScreen() {
       createWooOrder: () =>
         createWooOrder(
           { ...buildWooPayload(orderId), paymentRef },
-          { authToken },
+          { authToken, filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id } },
         ),
       warn: (msg, meta) =>
         console.warn(`[checkout] ${msg}`, { orderId, ...(meta ?? {}) }),
@@ -375,16 +396,14 @@ export default function CheckoutScreen() {
 
     if (payMethod === "card" || payMethod === "wallet") {
       const session = await createStripeCheckoutSession({
-        // Send wcId + quantity only; the server resolves prices from the
-        // WooCommerce catalog so the client cannot manipulate the charge.
-        items: detailed.map(({ product, qty }) => ({
-          wcId: product.wcId,
-          quantity: qty,
-          name: product.name,
-          description: product.description ?? undefined,
-        })),
-        // orderId is sent as a top-level field so the server can bind this
-        // payment intent to the specific order and prevent replay attacks.
+        items: detailed
+          .filter(({ product }) => product.wcId != null)
+          .map(({ product, qty }) => ({
+            wcId: product.wcId!,
+            quantity: qty,
+            name: product.name,
+            description: product.description ?? undefined,
+          })),
         orderId,
         currency: currencyCode,
         email: senderEmail,
@@ -396,6 +415,7 @@ export default function CheckoutScreen() {
         },
         successUrl,
         cancelUrl,
+        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
@@ -422,11 +442,9 @@ export default function CheckoutScreen() {
 
     if (payMethod === "mamo") {
       const session = await createMamoPayment({
-        // Send cart items with wcIds so the server can compute the true
-        // total from the catalog; never send client-controlled amounts.
-        items: detailed.map(({ product, qty }) => ({ wcId: product.wcId, quantity: qty })),
-        // orderId binds this payment intent to the order so the server can
-        // reject any attempt to reuse this session for a different order.
+        items: detailed
+          .filter(({ product }) => product.wcId != null)
+          .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
         orderId,
         district: district.name,
         expressDelivery: deliveryMode === "express",
@@ -438,6 +456,7 @@ export default function CheckoutScreen() {
         lastName: senderLast || undefined,
         returnUrl: successUrl,
         failureReturnUrl: cancelUrl,
+        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
@@ -458,15 +477,16 @@ export default function CheckoutScreen() {
 
     if (payMethod === "paypal") {
       const session = await createPayPalOrder({
-        // Send cart items with wcIds so the server can compute the true
-        // total from the catalog; never send client-controlled amounts.
-        items: detailed.map(({ product, qty }) => ({ wcId: product.wcId, quantity: qty })),
+        items: detailed
+          .filter(({ product }) => product.wcId != null)
+          .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
         district: district.name,
         expressDelivery: deliveryMode === "express",
         currency: currencyCode,
         returnUrl: successUrl,
         cancelUrl,
         orderId,
+        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
@@ -630,6 +650,7 @@ export default function CheckoutScreen() {
               setRecipientCountry={setRecipientCountry}
               district={district}
               setDistrict={setDistrict}
+              districtManuallyEdited={districtManuallyEdited}
               districtOpen={districtOpen}
               setDistrictOpen={setDistrictOpen}
               noAddress={noAddress}
@@ -906,7 +927,7 @@ function DeliveryDetailsStep(props: any) {
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
-    district, setDistrict, districtOpen, setDistrictOpen,
+    district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
@@ -1016,7 +1037,7 @@ function DeliveryDetailsStep(props: any) {
                   const selected = item.name === district.name;
                   return (
                     <TouchableOpacity
-                      onPress={() => { setDistrict(item); setDistrictOpen(false); }}
+                      onPress={() => { districtManuallyEdited.current = true; setDistrict(item); setDistrictOpen(false); }}
                       style={{
                         flexDirection: "row",
                         alignItems: "center",

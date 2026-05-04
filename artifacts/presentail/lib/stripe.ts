@@ -35,26 +35,37 @@ export type CheckoutLineItem = {
   image?: string;
 };
 
+export type StoreContext = {
+  countryCode?: string | null;
+  cityId?: string | null;
+};
+
+function storeHeadersFromCtx(ctx?: StoreContext): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (ctx?.countryCode) h["x-store-country"] = ctx.countryCode;
+  if (ctx?.cityId) h["x-store-city"] = ctx.cityId;
+  return h;
+}
+
 export async function createStripeCheckoutSession(payload: {
   items: CheckoutLineItem[];
-  // orderId is REQUIRED so the server can bind the payment intent to this
-  // specific order and prevent replay attacks (paid session reused for a
-  // different, higher-value order).
   orderId: string;
   currency?: string;
   email?: string;
   metadata?: Record<string, string>;
   successUrl: string;
   cancelUrl: string;
+  storeContext?: StoreContext;
 }): Promise<
   | { ok: true; url: string; id: string }
   | { ok: false; code?: string; message: string }
 > {
   try {
+    const { storeContext, ...body } = payload;
     const res = await fetch(`${API_BASE}/api/checkout/session`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: storeHeadersFromCtx(storeContext),
+      body: JSON.stringify(body),
     });
     const json = await res.json();
     return json;

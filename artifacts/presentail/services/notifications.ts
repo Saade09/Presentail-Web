@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Linking, Platform } from "react-native";
 
 import { API_BASE } from "@/lib/stripe";
+import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 
 export type NotificationStatus =
   | "not_determined"
@@ -219,6 +220,7 @@ export async function registerPushToken(opts: {
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      ...getStoredStoreHeaders(),
     };
     if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
 
@@ -255,6 +257,7 @@ export async function unregisterPushToken(opts: {
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      ...getStoredStoreHeaders(),
     };
     if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
     await fetch(`${API_BASE}/api/push/unregister`, {

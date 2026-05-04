@@ -6,19 +6,14 @@ import { getCustomerByWcId } from "../lib/customers";
 
 const router: IRouter = Router();
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
+import { resolveStoreFromRequest, wooAuthHeader } from "../lib/wooStore";
 
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
-
-async function wcFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WC_BASE}${path}`, {
+async function wcFetch(path: string, options: RequestInit = {}, req?: { query: any; headers: any }) {
+  const store = req ? resolveStoreFromRequest(req) : resolveStoreFromRequest({ query: {}, headers: {} });
+  return fetch(`${store.baseUrl}${path}`, {
     ...options,
     headers: {
-      Authorization: wooAuth(),
+      Authorization: wooAuthHeader(store),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -51,7 +46,7 @@ type WcOrder = {
 // email and phone — orders placed before the customer signed up are stitched
 // onto the same canonical row and surface here automatically.
 router.get("/me/orders", async (req, res) => {
-  const auth = await authenticate(req.header("authorization"));
+  const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
@@ -73,7 +68,8 @@ router.get("/me/orders", async (req, res) => {
   // total and item summaries. WC failures are swallowed per-row — the local
   // app_orders data is still returned.
   const wcMap = new Map<number, WcOrder>();
-  if (process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (store.consumerKey) {
     const wcIds = Array.from(
       new Set(
         rows
@@ -84,7 +80,7 @@ router.get("/me/orders", async (req, res) => {
     await Promise.all(
       wcIds.map(async (id) => {
         try {
-          const r = await wcFetch(`/orders/${id}`);
+          const r = await wcFetch(`/orders/${id}`, {}, req);
           if (!r.ok) return;
           const data = (await r.json().catch(() => null)) as WcOrder | null;
           if (data) wcMap.set(id, data);

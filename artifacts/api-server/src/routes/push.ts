@@ -28,7 +28,7 @@ router.post("/push/register", async (req, res): Promise<void> => {
   let userId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
-    const auth = await authenticate(authHeader);
+    const auth = await authenticate(authHeader, req);
     if (auth.ok) {
       userId = auth.customerId;
     } else {
@@ -103,7 +103,7 @@ router.post("/push/unregister", async (req, res): Promise<void> => {
   let authedUserId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
-    const auth = await authenticate(authHeader);
+    const auth = await authenticate(authHeader, req);
     if (!auth.ok) {
       res.status(auth.status).json({ ok: false, message: auth.message });
       return;

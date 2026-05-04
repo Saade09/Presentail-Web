@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const WP_BASE = "https://presentail.com/lebanon/wp-json";
+import { resolveStore, resolveStoreFromRequest } from "./wooStore";
+
 const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
 
@@ -21,7 +22,9 @@ export function decodeJwtPayload(token: string): any | null {
   }
 }
 
-async function wpFetch(path: string, options: RequestInit = {}) {
+async function wpFetch(path: string, options: RequestInit = {}, req?: { query: any; headers: any }) {
+  const store = req ? resolveStoreFromRequest(req) : resolveStore();
+  const WP_BASE = store.wpBaseUrl;
   return fetch(`${WP_BASE}${path}`, {
     ...options,
     headers: {
@@ -47,6 +50,7 @@ export async function signServerToken(input: {
   customerId: number;
   email: string;
   provider: "apple" | "google";
+  storeBaseUrl: string;
 }): Promise<string> {
   const key = getServerJwtSecret();
   if (!key) {
@@ -58,6 +62,7 @@ export async function signServerToken(input: {
     email: input.email,
     provider: input.provider,
     customer_id: input.customerId,
+    store_base_url: input.storeBaseUrl,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(SERVER_JWT_ISSUER)
@@ -68,7 +73,7 @@ export async function signServerToken(input: {
     .sign(key);
 }
 
-async function verifyServerToken(token: string): Promise<AuthResult> {
+async function verifyServerToken(token: string, req?: { query: any; headers: any }): Promise<AuthResult> {
   const key = getServerJwtSecret();
   if (!key) {
     return { ok: false, status: 503, message: "Social auth not configured" };
@@ -81,6 +86,16 @@ async function verifyServerToken(token: string): Promise<AuthResult> {
     const id = Number(payload.customer_id ?? payload.sub);
     if (!Number.isFinite(id) || id <= 0) {
       return { ok: false, status: 401, message: "Token missing user id" };
+    }
+    if (req) {
+      const requestStore = resolveStoreFromRequest(req);
+      if (typeof payload.store_base_url === "string") {
+        if (payload.store_base_url !== requestStore.baseUrl) {
+          return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." };
+        }
+      } else {
+        return { ok: false, status: 401, message: "Session is outdated. Please sign in again." };
+      }
     }
     return { ok: true, customerId: id, token };
   } catch {
@@ -95,6 +110,7 @@ async function verifyServerToken(token: string): Promise<AuthResult> {
 // without an extra WP round-trip for social tokens.
 export async function authenticate(
   authHeader: string | undefined,
+  req?: { query: any; headers: any },
 ): Promise<AuthResult> {
   if (!authHeader || !/^Bearer\s+/i.test(authHeader)) {
     return {
@@ -108,15 +124,14 @@ export async function authenticate(
 
   const payload = decodeJwtPayload(token);
   if (payload?.iss === SERVER_JWT_ISSUER) {
-    return verifyServerToken(token);
+    return verifyServerToken(token, req);
   }
 
-  // Validate WP-issued token with WordPress.
   try {
     const v = await wpFetch(`/jwt-auth/v1/token/validate`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
-    });
+    }, req);
     if (v.status === 404) {
       return { ok: false, status: 503, message: "Auth not configured on server" };
     }

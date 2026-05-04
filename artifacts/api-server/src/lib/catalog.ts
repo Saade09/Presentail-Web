@@ -1,13 +1,7 @@
 // Authoritative server-side pricing data.
 // The client is never trusted as the source of truth for prices or fees.
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
-
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
+import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -58,12 +52,13 @@ type CatalogProduct = { price: number; name: string };
 
 // Fetch the WooCommerce catalog price (USD) for a single product by WC ID.
 // Returns null if the product is not found or WC is unreachable.
-export async function fetchWcProductPrice(wcId: number): Promise<CatalogProduct | null> {
-  if (!process.env.WC_CONSUMER_KEY) return null;
+export async function fetchWcProductPrice(wcId: number, store?: WooStoreConfig): Promise<CatalogProduct | null> {
+  const s = store ?? resolveStore();
+  if (!s.consumerKey) return null;
   try {
-    const r = await fetch(`${WC_BASE}/products/${wcId}`, {
+    const r = await fetch(`${s.baseUrl}/products/${wcId}`, {
       headers: {
-        Authorization: wooAuth(),
+        Authorization: wooAuthHeader(s),
         "Content-Type": "application/json",
         "User-Agent": "PresentailApp/1.0",
       },
@@ -94,8 +89,10 @@ export type ResolvedCartItem = {
 // Returns an error if any wcId cannot be found in the WC catalog.
 export async function resolveCartItems(
   items: { wcId: number; quantity: number; name?: string; description?: string; image?: string }[],
+  store?: WooStoreConfig,
 ): Promise<{ ok: true; items: ResolvedCartItem[]; subtotalUsd: number } | { ok: false; message: string }> {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const s = store ?? resolveStore();
+  if (!s.consumerKey) {
     return { ok: false, message: "Product catalog unavailable — WooCommerce is not configured" };
   }
   if (!Array.isArray(items) || items.length === 0) {
@@ -111,7 +108,7 @@ export async function resolveCartItems(
   }
   const resolved: ResolvedCartItem[] = [];
   for (const item of items) {
-    const catalog = await fetchWcProductPrice(item.wcId);
+    const catalog = await fetchWcProductPrice(item.wcId, s);
     if (!catalog) {
       return { ok: false, message: `Product ${item.wcId} not found in catalog` };
     }

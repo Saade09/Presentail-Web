@@ -1,3 +1,19 @@
+const LOCATION_STORAGE_KEY = "presentail_delivery_location_v1";
+
+function getStoredLocation(): { countryCode?: string; cityId?: string } {
+  try {
+    const raw = localStorage.getItem(LOCATION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return {
+      countryCode: parsed?.countryCode ?? undefined,
+      cityId: parsed?.cityId ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -8,6 +24,10 @@ export async function apiFetch<T>(
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+
+  const loc = getStoredLocation();
+  if (loc.countryCode) headers.set("x-store-country", loc.countryCode);
+  if (loc.cityId) headers.set("x-store-city", loc.cityId);
 
   const res = await fetch(`/api${path}`, { ...options, headers });
   

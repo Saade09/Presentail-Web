@@ -23,7 +23,7 @@ export type DeliveryLocationsResponse = {
   countries: { id: string; name: string; code: string; flag: string; cities: { id: string; name: string }[] }[] 
 };
 
-type LocalizedParams = { countryCode?: string; lang?: string };
+type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
 // Query Hooks
 export const useProducts = (
@@ -32,6 +32,7 @@ export const useProducts = (
 ) => {
   const q = new URLSearchParams();
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.cityId) q.set("cityId", params.cityId);
   if (params.lang) q.set("lang", params.lang);
   const qs = q.toString();
 
@@ -49,6 +50,7 @@ export const useCategoryProducts = (
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.cityId) q.set("cityId", params.cityId);
   if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["category", slug, params],
@@ -64,6 +66,7 @@ export const useOccasionProducts = (
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.cityId) q.set("cityId", params.cityId);
   if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["occasion", slug, params],
@@ -86,8 +89,10 @@ export const useFxRates = () => {
   });
 };
 
-export const useBrands = (params: { lang?: string } = {}) => {
+export const useBrands = (params: LocalizedParams = {}) => {
   const q = new URLSearchParams();
+  if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.cityId) q.set("cityId", params.cityId);
   if (params.lang) q.set("lang", params.lang);
   const qs = q.toString();
   return useQuery({
@@ -267,6 +272,7 @@ export const useBrandProducts = (
   const q = new URLSearchParams();
   q.set("slug", slug);
   if (params.countryCode) q.set("countryCode", params.countryCode);
+  if (params.cityId) q.set("cityId", params.cityId);
   if (params.lang) q.set("lang", params.lang);
   return useQuery({
     queryKey: ["brand-products", slug, params],

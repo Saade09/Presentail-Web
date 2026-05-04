@@ -14,6 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { useProducts, useCategoryProducts } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -61,10 +62,14 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const delivery = useDeliveryConfig();
 
-  const { data: allData, isLoading } = useProducts({ lang: language });
+  const { countryCode, cityId } = useLocationSelection();
+  const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
+  if (countryCode) locParams.countryCode = countryCode;
+  if (cityId) locParams.cityId = cityId;
+  const { data: allData, isLoading } = useProducts(locParams);
   const product = allData?.products?.find((p) => p.id === slug);
 
-  const { data: categoryData } = useCategoryProducts(product?.category || "", { lang: language });
+  const { data: categoryData } = useCategoryProducts(product?.category || "", locParams);
   const similar = (categoryData?.products ?? [])
     .filter((p) => p.id !== slug)
     .slice(0, 4);

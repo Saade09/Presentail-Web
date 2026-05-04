@@ -11,13 +11,13 @@ export default function BrandDetail() {
   const [, params] = useRoute("/brand/:slug");
   const slug = params?.slug;
   const { t, dir, language } = useLocale();
+  const { countryCode, cityId, country, openPicker } = useLocationSelection();
 
-  const { data: brandsData } = useBrands({ lang: language });
+  const { data: brandsData } = useBrands({ lang: language, countryCode: countryCode ?? undefined, cityId: cityId ?? undefined });
   const brand = brandsData?.brands.find(b => b.slug === slug);
-
-  const { countryCode, country, openPicker } = useLocationSelection();
-  const brandQueryParams: { countryCode?: string; lang?: string } = { lang: language };
+  const brandQueryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) brandQueryParams.countryCode = countryCode;
+  if (cityId) brandQueryParams.cityId = cityId;
   const { data, isLoading } = useBrandProducts(slug ?? "", brandQueryParams);
 
   const brandName = brand?.name || slug || "";

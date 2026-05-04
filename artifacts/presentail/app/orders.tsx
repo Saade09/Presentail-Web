@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
 
@@ -53,7 +54,7 @@ export default function OrdersScreen() {
     setState({ kind: "loading" });
     try {
       const res = await fetch(`${API_BASE}/api/me/orders`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, ...getStoredStoreHeaders() },
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

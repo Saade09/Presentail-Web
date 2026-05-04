@@ -20,19 +20,14 @@ import {
   EXPRESS_SURCHARGE_USD,
 } from "./catalog";
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
+import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
-
-async function wooFetch(path: string, options: RequestInit = {}) {
-  return fetch(`${WC_BASE}${path}`, {
+async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
+  const s = store ?? resolveStore();
+  return fetch(`${s.baseUrl}${path}`, {
     ...options,
     headers: {
-      Authorization: wooAuth(),
+      Authorization: wooAuthHeader(s),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -138,7 +133,7 @@ const PAYMENT_TITLES: Record<string, string> = {
 // The reconciliation worker passes the stored verified flag.
 export async function attemptCreateWcOrder(
   body: WooOrderPayload,
-  opts: { paymentVerified?: boolean; wcCustomerId?: number | null } = {},
+  opts: { paymentVerified?: boolean; wcCustomerId?: number | null; store?: WooStoreConfig } = {},
 ): Promise<WcOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
   const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
@@ -201,9 +196,9 @@ export async function attemptCreateWcOrder(
   const lineItemData: { wcId: number | undefined; quantity: number; priceUsd: number }[] = [];
 
   for (const item of catalogItemInputs) {
-    const catalog = await fetchWcProductPrice(item.wcId!);
+    const catalog = await fetchWcProductPrice(item.wcId!, opts.store);
     if (!catalog) {
-      if (process.env.WC_CONSUMER_KEY) {
+      if (opts.store?.consumerKey || process.env.WC_CONSUMER_KEY) {
         // WC is configured but the product wasn't found — fail hard rather
         // than falling back to the client-supplied price which is untrusted.
         return {
@@ -344,7 +339,7 @@ export async function attemptCreateWcOrder(
     const r = await wooFetch("/orders", {
       method: "POST",
       body: JSON.stringify(orderPayload),
-    });
+    }, opts.store);
     const data = (await r.json()) as WcOrderResponse;
     if (!r.ok) {
       return {
@@ -471,6 +466,8 @@ export async function enqueuePendingWcOrder(input: {
   wcCustomerId?: number | null;
   errorMessage: string;
   paymentVerified: boolean;
+  storeCountryCode?: string | null;
+  storeCityId?: string | null;
   log?: { warn?: (...args: any[]) => void };
 }) {
   const {
@@ -481,6 +478,8 @@ export async function enqueuePendingWcOrder(input: {
     wcCustomerId,
     errorMessage,
     paymentVerified,
+    storeCountryCode,
+    storeCityId,
     log,
   } = input;
   const deviceId =
@@ -495,6 +494,8 @@ export async function enqueuePendingWcOrder(input: {
     _paymentVerified: paymentVerified,
     _customerId: customerId ?? null,
     _wcCustomerId: wcCustomerId ?? null,
+    _storeCountryCode: storeCountryCode ?? null,
+    _storeCityId: storeCityId ?? null,
   };
 
   try {
@@ -583,10 +584,16 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
     typeof rawPayload?._wcCustomerId === "number"
       ? rawPayload._wcCustomerId
       : null;
+  const storedCountryCode =
+    typeof rawPayload?._storeCountryCode === "string" ? rawPayload._storeCountryCode : null;
+  const storedCityId =
+    typeof rawPayload?._storeCityId === "string" ? rawPayload._storeCityId : null;
+  const store = resolveStore(storedCountryCode, storedCityId);
 
   const result = await attemptCreateWcOrder(body, {
     paymentVerified,
     wcCustomerId: storedWcCustomerId,
+    store,
   });
   const nextAttempts = row.attempts + 1;
 
@@ -664,9 +671,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
 export async function runReconcileTick(): Promise<{
   claimed: number;
 }> {
-  if (!process.env.WC_CONSUMER_KEY) {
-    return { claimed: 0 };
-  }
+  
   let claimed: PendingWooOrder[] = [];
   try {
     claimed = await claimDueRows();

@@ -11,6 +11,7 @@ import {
   EXPRESS_SURCHARGE_USD,
 } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
+import { resolveStoreFromRequest } from "../lib/wooStore";
 
 const router: IRouter = Router();
 
@@ -134,7 +135,8 @@ router.post("/payment/mamo", async (req, res) => {
   }
 
   // Resolve catalog prices server-side.
-  const catalogResult = await resolveCartItems(items);
+  const store = resolveStoreFromRequest(req);
+  const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
@@ -282,7 +284,8 @@ router.post("/payment/paypal", async (req, res) => {
   }
 
   // Resolve catalog prices server-side.
-  const catalogResult = await resolveCartItems(items);
+  const ppStore = resolveStoreFromRequest(req);
+  const catalogResult = await resolveCartItems(items, ppStore);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }

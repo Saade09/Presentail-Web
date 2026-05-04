@@ -3,10 +3,15 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 
 export function BrandSpotlight() {
   const { t, language } = useLocale();
-  const { data, isLoading } = useBrands({ lang: language });
+  const { countryCode, cityId } = useLocationSelection();
+  const brandParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
+  if (countryCode) brandParams.countryCode = countryCode;
+  if (cityId) brandParams.cityId = cityId;
+  const { data, isLoading } = useBrands(brandParams);
   const brands = (data?.brands ?? []).slice(0, 6);
 
   return (

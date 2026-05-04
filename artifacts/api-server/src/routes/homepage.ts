@@ -42,7 +42,7 @@ router.get("/homepage/banners", (req, res) => {
 // WooCommerce is unavailable we fall back to a hand-rolled default set so the
 // homepage never breaks.
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
+import { resolveStoreFromRequest, wooAuthHeader } from "../lib/wooStore";
 
 type WcCategoryRaw = {
   id: number;
@@ -55,16 +55,13 @@ type WcCategoryRaw = {
   image?: { src?: string } | null;
 };
 
-function wooAuthHeader(): string {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
+import { resolveStore, type WooStoreConfig } from "../lib/wooStore";
 
-async function wooGet<T>(path: string): Promise<T> {
-  const r = await fetch(`${WC_BASE}${path}`, {
+async function wooGet<T>(path: string, store?: WooStoreConfig): Promise<T> {
+  const s = store ?? resolveStore();
+  const r = await fetch(`${s.baseUrl}${path}`, {
     headers: {
-      Authorization: wooAuthHeader(),
+      Authorization: wooAuthHeader(s),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -121,17 +118,20 @@ type CollectionResult =
 // mapped items when the parent exists — including an empty array if
 // the curator deliberately removed all children. Throws on WC
 // network/HTTP errors so the caller can return an empty 200.
-async function fetchCollection(parentSlug: string): Promise<CollectionResult> {
-  if (!process.env.WC_CONSUMER_KEY) return { kind: "unconfigured" };
+async function fetchCollection(parentSlug: string, store?: WooStoreConfig): Promise<CollectionResult> {
+  const s = store ?? resolveStore();
+  if (!s.consumerKey) return { kind: "unconfigured" };
 
   const parents = await wooGet<WcCategoryRaw[]>(
     `/products/categories?slug=${encodeURIComponent(parentSlug)}&per_page=5`,
+    s,
   );
   if (!parents.length) return { kind: "unconfigured" };
   const parentId = parents[0].id;
 
   const children = await wooGet<WcCategoryRaw[]>(
     `/products/categories?parent=${parentId}&per_page=100&orderby=menu_order&order=asc`,
+    s,
   );
 
   const items = children
@@ -158,6 +158,7 @@ async function getCollection(
   parentSlug: string,
   fallback: HomepageCollectionItem[],
   log: { warn: (obj: unknown, msg?: string) => void },
+  store?: WooStoreConfig,
 ): Promise<HomepageCollectionItem[]> {
   const now = Date.now();
   const cached = collectionCache.get(cacheKey);
@@ -165,7 +166,7 @@ async function getCollection(
     return cached.items;
   }
   try {
-    const result = await fetchCollection(parentSlug);
+    const result = await fetchCollection(parentSlug, store);
     // Curated result wins, even when empty — that's the curator's
     // explicit choice. Only fall back to defaults if WC has no opinion
     // (creds missing or parent slug not yet created in WP admin).
@@ -186,22 +187,26 @@ async function getCollection(
 }
 
 router.get("/homepage/categories", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
   const items = await getCollection(
-    "categories",
+    `categories::${store.baseUrl}`,
     "home-categories",
     DEFAULT_CATEGORIES,
     req.log,
+    store,
   );
   const data = GetHomepageCategoriesResponse.parse({ items });
   res.json(data);
 });
 
 router.get("/homepage/occasions", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
   const items = await getCollection(
-    "occasions",
+    `occasions::${store.baseUrl}`,
     "home-occasions",
     DEFAULT_OCCASIONS,
     req.log,
+    store,
   );
   const data = GetHomepageOccasionsResponse.parse({ items });
   res.json(data);

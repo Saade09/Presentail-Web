@@ -18,6 +18,12 @@ import {
   syncCustomerToWoo,
   getCustomerByWcId,
 } from "../lib/customers";
+import {
+  readStoreContext,
+  resolveStoreFromRequest,
+  wooAuthHeader,
+  type WooStoreConfig,
+} from "../lib/wooStore";
 
 const router: IRouter = Router();
 
@@ -68,8 +74,6 @@ type WcCategory = {
   slug: string;
 };
 
-const WC_BASE = "https://presentail.com/lebanon/wp-json/wc/v3";
-
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
 
@@ -78,28 +82,18 @@ function readLang(req: { query: any }): Lang {
   return (SUPPORTED_LANGS as readonly string[]).includes(raw) ? (raw as Lang) : "en";
 }
 
-function wooAuth() {
-  const key = process.env.WC_CONSUMER_KEY ?? "";
-  const secret = process.env.WC_CONSUMER_SECRET ?? "";
-  return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-}
-
-// Append a `lang` query param to a Woo REST path. This is the convention used
-// by WPML and Polylang to request translated content. If the WooCommerce site
-// does not have a multilingual plugin installed, the parameter is harmlessly
-// ignored and the response is the default-language (English) content — which
-// is the desired English fallback behaviour.
 function withLang(path: string, lang: Lang): string {
   if (lang === "en") return path;
   const sep = path.includes("?") ? "&" : "?";
   return `${path}${sep}lang=${lang}`;
 }
 
-async function wooFetch(path: string, options: RequestInit = {}, lang: Lang = "en") {
-  return fetch(`${WC_BASE}${withLang(path, lang)}`, {
+async function wooFetch(path: string, options: RequestInit = {}, lang: Lang = "en", store?: WooStoreConfig) {
+  const s = store ?? resolveStoreFromRequest({ query: {}, headers: {} });
+  return fetch(`${s.baseUrl}${withLang(path, lang)}`, {
     ...options,
     headers: {
-      Authorization: wooAuth(),
+      Authorization: wooAuthHeader(s),
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": "PresentailApp/1.0",
@@ -239,12 +233,13 @@ function transformProduct(p: WcProduct) {
 }
 
 router.get("/woo/brands", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
     const lang = readLang(req);
-    const r = await wooFetch("/products/brands?per_page=100", {}, lang);
+    const r = await wooFetch("/products/brands?per_page=100", {}, lang, store);
     if (!r.ok) {
       const err = (await r.json()) as WcErrorResponse;
       return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
@@ -266,7 +261,8 @@ router.get("/woo/brands", async (req, res) => {
 });
 
 router.get("/woo/brand-products", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const brandSlug = String(req.query.slug ?? "");
@@ -278,6 +274,7 @@ router.get("/woo/brand-products", async (req, res) => {
       `/products/brands?slug=${encodeURIComponent(brandSlug)}&per_page=5`,
       {},
       lang,
+      store,
     );
     if (!brandRes.ok) {
       return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
@@ -293,6 +290,7 @@ router.get("/woo/brand-products", async (req, res) => {
       `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`,
       {},
       lang,
+      store,
     );
     if (!r.ok) {
       return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
@@ -351,7 +349,8 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
 ];
 
 router.get("/woo/category-products", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const slug = String(req.query.slug ?? "");
@@ -362,6 +361,7 @@ router.get("/woo/category-products", async (req, res) => {
       `/products/categories?slug=${encodeURIComponent(slug)}&per_page=5`,
       {},
       lang,
+      store,
     );
     if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
     const catList = (await catRes.json()) as WcCategory[];
@@ -376,6 +376,7 @@ router.get("/woo/category-products", async (req, res) => {
         `/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`,
         {},
         lang,
+        store,
       );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
@@ -393,7 +394,8 @@ router.get("/woo/category-products", async (req, res) => {
 });
 
 router.get("/woo/occasion-products", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const slug = String(req.query.slug ?? "");
@@ -411,6 +413,7 @@ router.get("/woo/occasion-products", async (req, res) => {
         `/products?category=${categoryId}&per_page=100&page=${page}&status=publish&stock_status=instock`,
         {},
         lang,
+        store,
       );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
@@ -456,16 +459,17 @@ router.get("/woo/occasion-products", async (req, res) => {
 });
 
 const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
-const allProductsCache: Map<Lang, { fetchedAt: number; products: WcProduct[] }> = new Map();
-const allProductsInflight: Map<Lang, Promise<WcProduct[]>> = new Map();
+const allProductsCache: Map<string, { fetchedAt: number; products: WcProduct[] }> = new Map();
+const allProductsInflight: Map<string, Promise<WcProduct[]>> = new Map();
 
-async function fetchAllProducts(lang: Lang): Promise<WcProduct[]> {
+async function fetchAllProducts(lang: Lang, store: WooStoreConfig): Promise<WcProduct[]> {
+  const cacheKey = `${store.baseUrl}::${lang}`;
   const now = Date.now();
-  const cached = allProductsCache.get(lang);
+  const cached = allProductsCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) {
     return cached.products;
   }
-  const existing = allProductsInflight.get(lang);
+  const existing = allProductsInflight.get(cacheKey);
   if (existing) return existing;
   const promise = (async () => {
     const collected: WcProduct[] = [];
@@ -475,6 +479,7 @@ async function fetchAllProducts(lang: Lang): Promise<WcProduct[]> {
         `/products?per_page=100&page=${page}&status=publish&stock_status=instock`,
         {},
         lang,
+        store,
       );
       if (!r.ok) break;
       const batch = (await r.json()) as WcProduct[];
@@ -483,22 +488,23 @@ async function fetchAllProducts(lang: Lang): Promise<WcProduct[]> {
       if (batch.length < 100) break;
       page++;
     }
-    allProductsCache.set(lang, { fetchedAt: Date.now(), products: collected });
+    allProductsCache.set(cacheKey, { fetchedAt: Date.now(), products: collected });
     return collected;
   })().finally(() => {
-    allProductsInflight.delete(lang);
+    allProductsInflight.delete(cacheKey);
   });
-  allProductsInflight.set(lang, promise);
+  allProductsInflight.set(cacheKey, promise);
   return promise;
 }
 
 router.get("/woo/products", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
     const lang = readLang(req);
-    const allProducts = await fetchAllProducts(lang);
+    const allProducts = await fetchAllProducts(lang, store);
     const filter = readDeliveryFilter(req);
     const products = allProducts.filter((p) => isDeliverable(p, filter)).map(transformProduct);
     return res.json({ ok: true, products, count: products.length });
@@ -529,7 +535,8 @@ router.get("/woo/products", async (req, res) => {
 //    server-side table; client-supplied districtFee/expressFee are ignored.
 // ---------------------------------------------------------------------------
 router.post("/woo/order", async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const parsed = WooOrderSchema.safeParse(req.body);
@@ -551,7 +558,7 @@ router.post("/woo/order", async (req, res) => {
   let resolvedUserId: number | null = null;
   const authHeader = req.header("authorization");
   if (authHeader) {
-    const auth = await authenticate(authHeader);
+    const auth = await authenticate(authHeader, req);
     if (auth.ok) {
       resolvedUserId = auth.customerId;
     }
@@ -588,7 +595,7 @@ router.post("/woo/order", async (req, res) => {
     // Mirror to WooCommerce so the WC order is properly attached to a
     // customer record (rather than being stored as billing text only).
     try {
-      wcCustomerId = await syncCustomerToWoo(resolvedCustomerId);
+      wcCustomerId = await syncCustomerToWoo(resolvedCustomerId, store);
     } catch (syncErr: any) {
       // While WooCommerce is still the order system, this is a hard
       // failure. The local customer row is already saved, so when WC is
@@ -832,11 +839,13 @@ router.post("/woo/order", async (req, res) => {
   const result = await attemptCreateWcOrder(body, {
     paymentVerified,
     wcCustomerId,
+    store,
   });
 
   if (!result.ok) {
     // Payment already succeeded but WC order creation failed. Persist the
     // payload to the reconciliation queue so the worker can keep retrying.
+    const storeCtx = readStoreContext(req);
     await enqueuePendingWcOrder({
       body,
       paymentRef: body.paymentRef ?? null,
@@ -845,6 +854,8 @@ router.post("/woo/order", async (req, res) => {
       wcCustomerId,
       errorMessage: result.message,
       paymentVerified,
+      storeCountryCode: storeCtx.countryCode,
+      storeCityId: storeCtx.cityId,
       log: req.log,
     });
     req.log?.warn?.(

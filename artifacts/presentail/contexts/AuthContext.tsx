@@ -17,6 +17,7 @@ import {
   registerPushToken,
   unregisterPushToken,
 } from "@/services/notifications";
+import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 
 export type AuthUser = {
   id: number;
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "Content-Type": "application/json",
           "Cache-Control": "no-cache, no-store",
           Pragma: "no-cache",
+          ...getStoredStoreHeaders(),
         },
         cache: "no-store" as RequestCache,
         body: JSON.stringify({ email, password }),
@@ -126,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
         body: JSON.stringify(input),
       });
       const data = await res.json().catch(() => ({}));
@@ -178,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${API_BASE}/api/auth/me`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, ...getStoredStoreHeaders() },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -203,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...getStoredStoreHeaders(),
         },
         body: JSON.stringify(input),
       });
