@@ -91,6 +91,15 @@ const DEFAULT_OCCASION_SLUGS = [
   "birthday", "anniversary", "love-romance", "congratulations", "thank-you", "newborn",
 ];
 
+const PRODUCT_TYPE_SLUGS = new Set([
+  "hand-bouquets", "flower-boxes", "flower-vases", "flower-baskets",
+  "flowers", "plants", "balloons", "cakes", "chocolate", "bundles",
+  "stuffed-animals", "electronics", "preserved-flowers", "dried-flowers",
+  "lux-arrangements", "orchids", "roses", "roses-lebanon",
+  "arabic-sweets", "board-games", "personal-gifts", "beauty",
+  "gift-bundles", "baskets", "spirits", "gaming",
+]);
+
 async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {
   if (!store.consumerKey) return [];
   const cats = await wooGet<WcCategoryRaw[]>(
@@ -98,7 +107,7 @@ async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageC
     store,
   );
   return cats
-    .filter((c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized")
+    .filter((c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized" && PRODUCT_TYPE_SLUGS.has(c.slug))
     .map((c, i) => ({
       id: String(c.id),
       name: c.name,

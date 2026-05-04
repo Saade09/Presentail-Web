@@ -207,18 +207,21 @@ function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
   return true;
 }
 
-function transformProduct(p: WcProduct) {
+function transformProduct(p: WcProduct, currencySymbol = "$") {
   const price = parseFloat(p.price ?? "") || 0;
   const imageList = (p.images ?? [])
     .map((img) => img?.src)
     .filter((src): src is string => typeof src === "string" && src.length > 0)
     .map((src) => ({ uri: src }));
   const image = imageList[0] ?? null;
+  const formattedPrice = currencySymbol.length > 1
+    ? `${price.toLocaleString()} ${currencySymbol}`
+    : `${currencySymbol}${price.toLocaleString()}`;
   return {
     id: p.slug,
     wcId: p.id,
     name: p.name?.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'") ?? "",
-    price: `$${price.toLocaleString()}`,
+    price: formattedPrice,
     priceValue: price,
     image,
     images: imageList,
@@ -297,7 +300,7 @@ router.get("/woo/brand-products", async (req, res) => {
     }
     const batch = (await r.json()) as WcProduct[];
     const filter = readDeliveryFilter(req);
-    const products = batch.filter((p) => isDeliverable(p, filter)).map(transformProduct);
+    const products = batch.filter((p) => isDeliverable(p, filter)).map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length, brandName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
@@ -403,7 +406,7 @@ router.get("/woo/category-products", async (req, res) => {
     }
     const filter = readDeliveryFilter(req);
     const filtered = allProducts.filter((p) => isDeliverable(p, filter));
-    return res.json({ ok: true, products: filtered.map(transformProduct), count: filtered.length, categoryName: catName });
+    return res.json({ ok: true, products: filtered.map((p) => transformProduct(p, store.currencySymbol)), count: filtered.length, categoryName: catName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" });
   }
@@ -458,7 +461,7 @@ router.get("/woo/occasion-products", async (req, res) => {
             const label = translateOccasionLabel(typecat.slug, typecat.label, lang);
             groups.set(typecat.slug, { label, products: [] });
           }
-          groups.get(typecat.slug)!.products.push(transformProduct(p));
+          groups.get(typecat.slug)!.products.push(transformProduct(p, store.currencySymbol));
           assigned.add(p.id);
         }
       }
@@ -525,7 +528,7 @@ router.get("/woo/products", async (req, res) => {
     const lang = readLang(req);
     const allProducts = await fetchAllProducts(lang, store);
     const filter = readDeliveryFilter(req);
-    const products = allProducts.filter((p) => isDeliverable(p, filter)).map(transformProduct);
+    const products = allProducts.filter((p) => isDeliverable(p, filter)).map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch products" });

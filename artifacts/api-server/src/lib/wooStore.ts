@@ -3,6 +3,8 @@ export type WooStoreConfig = {
   wpBaseUrl: string;
   consumerKey: string;
   consumerSecret: string;
+  currencySymbol: string;
+  currencyCode: string;
 };
 
 const STORE_LEBANON: () => WooStoreConfig = () => ({
@@ -10,6 +12,8 @@ const STORE_LEBANON: () => WooStoreConfig = () => ({
   wpBaseUrl: "https://presentail.com/lebanon/wp-json",
   consumerKey: process.env.WC_CONSUMER_KEY ?? "",
   consumerSecret: process.env.WC_CONSUMER_SECRET ?? "",
+  currencySymbol: "$",
+  currencyCode: "USD",
 });
 
 const STORE_DUBAI: () => WooStoreConfig = () => ({
@@ -17,6 +21,8 @@ const STORE_DUBAI: () => WooStoreConfig = () => ({
   wpBaseUrl: "https://presentail.com/dubai/wp-json",
   consumerKey: process.env.WC_DUBAI_CONSUMER_KEY ?? "",
   consumerSecret: process.env.WC_DUBAI_CONSUMER_SECRET ?? "",
+  currencySymbol: "AED",
+  currencyCode: "AED",
 });
 
 const STORE_ABUDHABI: () => WooStoreConfig = () => ({
@@ -24,6 +30,8 @@ const STORE_ABUDHABI: () => WooStoreConfig = () => ({
   wpBaseUrl: "https://presentail.com/abudhabi/wp-json",
   consumerKey: process.env.WC_ABUDHABI_CONSUMER_KEY ?? "",
   consumerSecret: process.env.WC_ABUDHABI_CONSUMER_SECRET ?? "",
+  currencySymbol: "AED",
+  currencyCode: "AED",
 });
 
 const STORE_CYPRUS: () => WooStoreConfig = () => ({
@@ -31,6 +39,8 @@ const STORE_CYPRUS: () => WooStoreConfig = () => ({
   wpBaseUrl: "https://presentail.com/cyprus/wp-json",
   consumerKey: process.env.WC_CYPRUS_CONSUMER_KEY ?? "",
   consumerSecret: process.env.WC_CYPRUS_CONSUMER_SECRET ?? "",
+  currencySymbol: "€",
+  currencyCode: "EUR",
 });
 
 const CITY_TO_STORE: Record<string, () => WooStoreConfig> = {
