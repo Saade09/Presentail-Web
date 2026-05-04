@@ -84,3 +84,21 @@ id = "cc37P6NpW-LeOeItF_J6L"
 uri = "file://artifacts/presentail-web/src/assets/category-chocolate.png"
 type = "image"
 title = "Chocolate category"
+
+[[generated]]
+id = "7t7xd098g-e_eHTf7ljMy"
+uri = "file://artifacts/presentail/assets/images/hero-slide1.png"
+type = "image"
+title = "teal bg pink bouquet"
+
+[[generated]]
+id = "ALup9kADuaWKg6I0xWU-w"
+uri = "file://artifacts/presentail/assets/images/hero-slide2.png"
+type = "image"
+title = "teal bg roses hatbox v3"
+
+[[generated]]
+id = "l1Ynim1_iJybUivOukgwM"
+uri = "file://artifacts/presentail/assets/images/hero-slide3.png"
+type = "image"
+title = "teal bg red roses craft"

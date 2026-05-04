@@ -10,6 +10,10 @@ const EN = {
   heroTitle: "Send a feeling, wrapped in petals.",
   heroSubtitle: "Hand-arranged in {city}. Delivered the same day across {country}, with quiet care for every occasion.",
   heroCta: "SHOP THE COLLECTION",
+  heroSlide2Title: "A Success Story We All Share",
+  heroSlide2Cta: "GIFT NOW",
+  heroSlide3Title: "Blooms That Speak Louder",
+  heroSlide3Cta: "GIFT NOW",
 
   // Trust badges
   trustSameDay: "Same-day",
@@ -823,6 +827,10 @@ const AR: typeof EN = {
   heroTitle: "أهدِ شعوراً، ملفوفاً بالبتلات.",
   heroSubtitle: "مرتبة يدوياً في {city}. توصيل في نفس اليوم عبر {country}، باهتمام هادئ لكل مناسبة.",
   heroCta: "تسوق المجموعة",
+  heroSlide2Title: "قصة نجاح نتشاركها جميعاً",
+  heroSlide2Cta: "أهدِ الآن",
+  heroSlide3Title: "أزهار تتحدث بصوت أعلى",
+  heroSlide3Cta: "أهدِ الآن",
 
   // Trust badges
   trustSameDay: "في نفس اليوم",
@@ -1636,6 +1644,10 @@ const FR: typeof EN = {
   heroTitle: "Offrez une émotion, enveloppée de pétales.",
   heroSubtitle: "Composé à la main à {city}. Livré le jour même partout au {country}, avec soin pour chaque occasion.",
   heroCta: "DÉCOUVRIR LA COLLECTION",
+  heroSlide2Title: "Une réussite que nous partageons tous",
+  heroSlide2Cta: "OFFRIR",
+  heroSlide3Title: "Des fleurs qui parlent fort",
+  heroSlide3Cta: "OFFRIR",
 
   // Trust badges
   trustSameDay: "Jour même",

@@ -3,8 +3,9 @@ import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/ap
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Linking,
@@ -45,17 +46,23 @@ import {
   saveNotificationStatus,
 } from "@/services/notifications";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
+const HERO_HEIGHT = Math.round(SCREEN_H * 0.88);
+const AUTO_ADVANCE_MS = 4500;
 
 function HomeHeader({
   topPad,
   onOpenDelivery,
   onOpenMenu,
+  headerOpacity,
+  scrollY,
 }: {
   topPad: number;
   onOpenDelivery: () => void;
   onOpenMenu: () => void;
+  headerOpacity: Animated.AnimatedInterpolation<number>;
+  scrollY: Animated.Value;
 }) {
   const colors = useColors();
   const router = useRouter();
@@ -66,8 +73,6 @@ function HomeHeader({
 
   const countryName = selectedCountry?.name ?? "Lebanon";
   const countryFlag = selectedCountry?.flag ?? "🇱🇧";
-  const utilityBg = "#f1f1f1";
-  const pillBg = "#e6e6e6";
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
 
@@ -82,180 +87,271 @@ function HomeHeader({
     router.push(authToken ? "/(tabs)/account" : "/auth");
   };
 
-  return (
-    <View style={{ backgroundColor: "#fff", paddingTop: topPad }}>
-      {/* Slim utility bar */}
-      <View
-        style={{
-          backgroundColor: utilityBg,
-          flexDirection: sideRowDir,
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          minHeight: 48,
-          gap: 8,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: sideRowDir,
-            alignItems: "center",
-            gap: 6,
-            flexShrink: 1,
-          }}
-        >
-          <Feather name="map-pin" size={13} color={colors.primary} />
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 12,
-              color: colors.primary,
-            }}
-            numberOfLines={1}
-          >
-            {t.noHassleDetails}
-          </Text>
-        </View>
+  const pillBg = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
+    outputRange: ["rgba(255,255,255,0.25)", "rgba(255,255,255,0.25)", "#e6e6e6"],
+    extrapolate: "clamp",
+  });
 
-        <View
+  const pillTextColor = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
+    outputRange: ["#ffffff", "#ffffff", colors.primary],
+    extrapolate: "clamp",
+  });
+
+  const utilityBarBg = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
+    outputRange: ["transparent", "transparent", "#f1f1f1"],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }} pointerEvents="box-none">
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "#fff",
+          opacity: headerOpacity,
+        }}
+      />
+
+      <View style={{ paddingTop: topPad }} pointerEvents="box-none">
+        <Animated.View
           style={{
             flexDirection: sideRowDir,
             alignItems: "center",
-            gap: 6,
+            justifyContent: "space-between",
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            minHeight: 48,
+            gap: 8,
+            backgroundColor: utilityBarBg,
           }}
+          pointerEvents="auto"
         >
-          <Pressable
-            hitSlop={6}
-            onPress={onOpenDelivery}
-            accessibilityLabel={t.deliveryChooseLocation}
-            style={({ pressed }) => ({
+          <View
+            style={{
               flexDirection: sideRowDir,
               alignItems: "center",
               gap: 6,
-              backgroundColor: pillBg,
-              borderRadius: 999,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              opacity: pressed ? 0.7 : 1,
-            })}
+              flexShrink: 1,
+            }}
           >
-            <Text style={{ fontSize: 13 }}>{countryFlag}</Text>
-            <Text
+            <Animated.View>
+              <Feather name="map-pin" size={13} color="#fff" />
+              <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                <Feather name="map-pin" size={13} color={colors.primary} />
+              </Animated.View>
+            </Animated.View>
+            <Animated.Text
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 12,
-                color: colors.primary,
-                maxWidth: 80,
+                color: pillTextColor,
               }}
               numberOfLines={1}
             >
-              {countryName}
-            </Text>
-            <Feather name="chevron-down" size={13} color={colors.primary} />
-          </Pressable>
+              {t.noHassleDetails}
+            </Animated.Text>
+          </View>
 
-          <Pressable
-            hitSlop={6}
-            onPress={toggleLanguage}
-            accessibilityLabel={t.languageLabel}
-            style={({ pressed }) => ({
-              backgroundColor: pillBg,
-              borderRadius: 999,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              opacity: pressed ? 0.7 : 1,
-            })}
+          <View
+            style={{
+              flexDirection: sideRowDir,
+              alignItems: "center",
+              gap: 6,
+            }}
           >
-            <Text
-              style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 12,
-                color: colors.primary,
-              }}
-              numberOfLines={1}
+            <Pressable
+              hitSlop={6}
+              onPress={onOpenDelivery}
+              accessibilityLabel={t.deliveryChooseLocation}
+              style={({ pressed }) => ({
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                gap: 6,
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              {languagePillLabel}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+              <Animated.View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: pillBg,
+                  borderRadius: 999,
+                }}
+              />
+              <Text style={{ fontSize: 13 }}>{countryFlag}</Text>
+              <Animated.Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: pillTextColor,
+                  maxWidth: 80,
+                }}
+                numberOfLines={1}
+              >
+                {countryName}
+              </Animated.Text>
+              <Animated.View>
+                <Feather name="chevron-down" size={13} color="#fff" />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                  <Feather name="chevron-down" size={13} color={colors.primary} />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
 
-      {/* Main header row */}
-      <View
-        style={{
-          height: 96,
-          flexDirection: sideRowDir,
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 18,
-        }}
-      >
+            <Pressable
+              hitSlop={6}
+              onPress={toggleLanguage}
+              accessibilityLabel={t.languageLabel}
+              style={({ pressed }) => ({
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Animated.View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: pillBg,
+                  borderRadius: 999,
+                }}
+              />
+              <Animated.Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: pillTextColor,
+                }}
+                numberOfLines={1}
+              >
+                {languagePillLabel}
+              </Animated.Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+
         <View
           style={{
+            height: 56,
             flexDirection: sideRowDir,
             alignItems: "center",
-            gap: 18,
-            zIndex: 1,
+            justifyContent: "space-between",
+            paddingHorizontal: 18,
           }}
+          pointerEvents="box-none"
         >
-          <Pressable
-            hitSlop={10}
-            onPress={onOpenMenu}
-            accessibilityLabel={t.menuOpen}
+          <View
+            style={{
+              flexDirection: sideRowDir,
+              alignItems: "center",
+              gap: 18,
+              zIndex: 1,
+            }}
           >
-            <Feather name="menu" size={28} color={colors.primary} />
-          </Pressable>
-          <Pressable
-            hitSlop={10}
-            onPress={() => router.push("/(tabs)/catalog")}
-            accessibilityLabel="Search"
-          >
-            <Feather name="search" size={26} color={colors.primary} />
-          </Pressable>
-        </View>
+            <Pressable
+              hitSlop={10}
+              onPress={onOpenMenu}
+              accessibilityLabel={t.menuOpen}
+            >
+              <Animated.View>
+                <Feather name="menu" size={28} color="#fff" />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                  <Feather name="menu" size={28} color={colors.primary} />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+            <Pressable
+              hitSlop={10}
+              onPress={() => router.push("/(tabs)/catalog")}
+              accessibilityLabel="Search"
+            >
+              <Animated.View>
+                <Feather name="search" size={26} color="#fff" />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                  <Feather name="search" size={26} color={colors.primary} />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+          </View>
 
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Wordmark size={28} />
-        </View>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Animated.View>
+              <Wordmark size={64} inverse />
+              <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                <Wordmark size={64} />
+              </Animated.View>
+            </Animated.View>
+          </View>
 
-        <View
-          style={{
-            flexDirection: sideRowDir,
-            alignItems: "center",
-            gap: 18,
-            zIndex: 1,
-          }}
-        >
-          <Pressable
-            hitSlop={10}
-            onPress={goAccount}
-            accessibilityLabel="Account"
+          <View
+            style={{
+              flexDirection: sideRowDir,
+              alignItems: "center",
+              gap: 18,
+              zIndex: 1,
+            }}
           >
-            <Feather name="user" size={26} color={colors.primary} />
-          </Pressable>
-          <Pressable
-            hitSlop={10}
-            onPress={() => router.push("/(tabs)/cart")}
-            accessibilityLabel="Cart"
-          >
-            <MaterialCommunityIcons
-              name="shopping-outline"
-              size={28}
-              color={colors.primary}
-            />
-          </Pressable>
+            <Pressable
+              hitSlop={10}
+              onPress={goAccount}
+              accessibilityLabel="Account"
+            >
+              <Animated.View>
+                <Feather name="user" size={26} color="#fff" />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                  <Feather name="user" size={26} color={colors.primary} />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+            <Pressable
+              hitSlop={10}
+              onPress={() => router.push("/(tabs)/cart")}
+              accessibilityLabel="Cart"
+            >
+              <Animated.View>
+                <MaterialCommunityIcons
+                  name="shopping-outline"
+                  size={28}
+                  color="#fff"
+                />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                  <MaterialCommunityIcons
+                    name="shopping-outline"
+                    size={28}
+                    color={colors.primary}
+                  />
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -275,6 +371,14 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { token: authToken, user } = useAuth();
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
+    outputRange: [0, 0, 1],
+    extrapolate: "clamp",
+  });
+
   useEffect(() => {
     if (Platform.OS === "web") return;
     let cancelled = false;
@@ -286,8 +390,6 @@ export default function HomeScreen() {
         if (!cancelled) setNotifModalOpen(true);
         return;
       }
-      // If the user previously granted at the OS level, make sure the
-      // server still has our current Expo push token (it can rotate).
       if (status === "granted") {
         const native = await getNativePermissionStatus();
         if (cancelled) return;
@@ -326,15 +428,15 @@ export default function HomeScreen() {
       <View
         style={[{ flex: 1, backgroundColor: colors.background }, isRTL ? ({ direction: "rtl" } as any) : null]}
       >
-        <HomeHeader
-          topPad={topPad}
-          onOpenDelivery={() => setDeliverySheetOpen(true)}
-          onOpenMenu={() => setMenuOpen(true)}
-        />
-        <ScrollView
+        <Animated.ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
         >
           <Hero />
           {selectedCountry?.code !== "AE" && <BrandStrip />}
@@ -348,7 +450,15 @@ export default function HomeScreen() {
           <ReviewsSection />
           {selectedCountry?.code !== "AE" && <BrandsRow />}
           <Footer />
-        </ScrollView>
+        </Animated.ScrollView>
+
+        <HomeHeader
+          topPad={topPad}
+          onOpenDelivery={() => setDeliverySheetOpen(true)}
+          onOpenMenu={() => setMenuOpen(true)}
+          headerOpacity={headerOpacity}
+          scrollY={scrollY}
+        />
       </View>
       <NotificationPermissionModal
         visible={notifModalOpen}
@@ -374,90 +484,169 @@ function Hero() {
   const t = useT();
   const { isRTL } = useLanguage();
   const ta = isRTL ? "right" : "left";
-  return (
-    <View style={{ paddingHorizontal: 24, marginTop: 0 }}>
+  const alignSelf = isRTL ? "flex-end" : "flex-start";
+
+  const slides = [
+    {
+      key: "1",
+      image: require("@/assets/images/hero-slide1.png"),
+      title: t.heroTitle,
+      cta: t.heroCta,
+      route: "/category/lux-arrangements" as Href,
+    },
+    {
+      key: "2",
+      image: require("@/assets/images/hero-slide2.png"),
+      title: t.heroSlide2Title,
+      cta: t.heroSlide2Cta,
+      route: "/category/lux-arrangements" as Href,
+    },
+    {
+      key: "3",
+      image: require("@/assets/images/hero-slide3.png"),
+      title: t.heroSlide3Title,
+      cta: t.heroSlide3Cta,
+      route: "/category/lux-arrangements" as Href,
+    },
+  ];
+
+  const displaySlides = isRTL ? [...slides].reverse() : slides;
+
+  const flatListRef = useRef<FlatList>(null);
+  const currentIndex = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRTLRef = useRef(isRTL);
+  isRTLRef.current = isRTL;
+
+  const restartTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      const logicalNext = (currentIndex.current + 1) % slides.length;
+      currentIndex.current = logicalNext;
+      setActiveIndex(logicalNext);
+      const physIdx = isRTLRef.current
+        ? slides.length - 1 - logicalNext
+        : logicalNext;
+      flatListRef.current?.scrollToIndex({ index: physIdx, animated: true });
+    }, AUTO_ADVANCE_MS);
+  }, [slides.length]);
+
+  useEffect(() => {
+    restartTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [restartTimer]);
+
+  const restartTimerRef = useRef(restartTimer);
+  restartTimerRef.current = restartTimer;
+
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        const physIdx = viewableItems[0].index;
+        const logIdx = isRTLRef.current
+          ? slides.length - 1 - physIdx
+          : physIdx;
+        currentIndex.current = logIdx;
+        setActiveIndex(logIdx);
+        restartTimerRef.current();
+      }
+    },
+  ).current;
+
+  const renderSlide = useCallback(
+    ({ item }: { item: (typeof slides)[0] }) => (
       <Pressable
-        onPress={() => router.push("/category/lux-arrangements")}
-        style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
+        onPress={() => router.push(item.route)}
+        style={{ width: SCREEN_W, height: HERO_HEIGHT }}
       >
-        <View
-          style={{
-            borderRadius: 28,
-            overflow: "hidden",
-            backgroundColor: colors.primary,
-            height: 460,
-          }}
-        >
-          <Image
-            source={require("@/assets/images/hero-flowers.png")}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
-          <LinearGradient
-            colors={["rgba(0,65,78,0.05)", "rgba(0,65,78,0.85)"]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.heroContent}>
+        <Image
+          source={item.image}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.65)"]}
+          locations={[0.35, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.heroContent}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_400Regular",
+              fontSize: 38,
+              lineHeight: 44,
+              color: "#ffffff",
+              textAlign: ta,
+              letterSpacing: 0.2,
+            }}
+          >
+            {item.title}
+          </Text>
+          <View
+            style={[
+              styles.heroCta,
+              {
+                backgroundColor: "#ffffff",
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignSelf,
+              },
+            ]}
+          >
             <Text
               style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 11,
-                color: colors.goldSoft,
-                letterSpacing: 3.5,
-                textTransform: "uppercase",
-                textAlign: ta,
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 13,
+                color: colors.primary,
+                letterSpacing: 1,
               }}
             >
-              {t.heroEyebrow}
+              {item.cta}
             </Text>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_400Regular",
-                fontSize: 40,
-                lineHeight: 46,
-                color: "#ffffff",
-                marginTop: 14,
-                letterSpacing: 0.2,
-                textAlign: ta,
-              }}
-            >
-              {t.heroTitle}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Inter_400Regular",
-                fontSize: 14,
-                lineHeight: 22,
-                color: "rgba(255,255,255,0.85)",
-                marginTop: 14,
-                maxWidth: 320,
-                textAlign: ta,
-              }}
-            >
-              {t.heroSubtitle}
-            </Text>
-            <View
-              style={[
-                styles.heroCta,
-                { backgroundColor: colors.gold, flexDirection: isRTL ? "row-reverse" : "row" },
-              ]}
-            >
-              <Text
-                style={{
-                  fontFamily: "Inter_600SemiBold",
-                  fontSize: 13,
-                  color: colors.primary,
-                  letterSpacing: 1.5,
-                  textTransform: "uppercase",
-                }}
-              >
-                {t.heroCta}
-              </Text>
-              <Feather name="arrow-up-right" size={16} color={colors.primary} />
-            </View>
           </View>
         </View>
       </Pressable>
+    ),
+    [ta, isRTL, alignSelf, colors.primary, router],
+  );
+
+  return (
+    <View style={{ height: HERO_HEIGHT, overflow: "hidden" }}>
+      <FlatList
+        ref={flatListRef}
+        data={displaySlides}
+        keyExtractor={(item) => item.key}
+        renderItem={renderSlide}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_W,
+          offset: SCREEN_W * index,
+          index,
+        })}
+        bounces={false}
+      />
+      <View style={styles.heroDots}>
+        {slides.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.heroDot,
+              {
+                backgroundColor: i === activeIndex ? "#ffffff" : "rgba(255,255,255,0.45)",
+                width: i === activeIndex ? 24 : 8,
+              },
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -1599,15 +1788,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     padding: 28,
+    paddingBottom: 60,
   },
   heroCta: {
-    marginTop: 24,
+    marginTop: 20,
     alignSelf: "flex-start",
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
     borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  heroDots: {
+    position: "absolute",
+    bottom: 24,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  heroDot: {
+    height: 8,
+    borderRadius: 4,
   },
 });
