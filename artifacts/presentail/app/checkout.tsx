@@ -88,6 +88,17 @@ const AE_EXPRESS_SURCHARGE = 4.90;
 const LB_FREE_DELIVERY_THRESHOLD = 130;
 const AE_FREE_DELIVERY_THRESHOLD = 89.84;
 
+function countryFromCurrency(currencyCode?: string): string | undefined {
+  if (currencyCode === "AED") return "AE";
+  if (currencyCode === "EUR") return "CY";
+  if (currencyCode === "USD") return "LB";
+  return undefined;
+}
+
+function resolveCountryCode(selectedCountryCode?: string, currencyCode?: string): string | undefined {
+  return selectedCountryCode || countryFromCurrency(currencyCode);
+}
+
 function expressSurchargeForCountry(code?: string): number {
   if (code === "AE") return AE_EXPRESS_SURCHARGE;
   return LB_EXPRESS_SURCHARGE;
@@ -192,6 +203,7 @@ export default function CheckoutScreen() {
   const { token: authToken } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
+  const effectiveCountry = resolveCountryCode(selectedCountry?.code, currencyCode);
 
   // Resolved lazily inside placeOrder to avoid hitting AsyncStorage on
   // every checkout render.
@@ -223,7 +235,7 @@ export default function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
-  const districts = districtsForCountry(selectedCountry?.code);
+  const districts = districtsForCountry(effectiveCountry);
   const cityDistrictMatch = selectedCity
     ? districts.find((d) => d.name === selectedCity.name)
     : null;
@@ -242,12 +254,13 @@ export default function CheckoutScreen() {
       districtManuallyEdited.current = false;
     }
     if (countryChanged) {
-      const newSlots = timeSlotsForCountry(selectedCountry?.code);
-      const h = getCountryHour(selectedCountry?.code);
+      const cc = resolveCountryCode(selectedCountry?.code, currencyCode);
+      const newSlots = timeSlotsForCountry(cc);
+      const h = getCountryHour(cc);
       setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
     }
     if (districtManuallyEdited.current) return;
-    const list = districtsForCountry(selectedCountry?.code);
+    const list = districtsForCountry(resolveCountryCode(selectedCountry?.code, currencyCode));
     if (selectedCity) {
       const match = list.find((d) => d.name === selectedCity.name);
       if (match) {
@@ -270,16 +283,16 @@ export default function CheckoutScreen() {
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const expressAvailable = useMemo(() => {
-    const h = getCountryHour(selectedCountry?.code);
+    const h = getCountryHour(effectiveCountry);
     return h >= 8 && h < 22;
-  }, [selectedCountry?.code]);
-  const timeSlots = timeSlotsForCountry(selectedCountry?.code);
-  const expressSurcharge = expressSurchargeForCountry(selectedCountry?.code);
-  const freeDeliveryThreshold = freeDeliveryThresholdForCountry(selectedCountry?.code);
+  }, [effectiveCountry]);
+  const timeSlots = timeSlotsForCountry(effectiveCountry);
+  const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
+  const freeDeliveryThreshold = freeDeliveryThresholdForCountry(effectiveCountry);
   const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("today_slot");
   const [date, setDate] = useState(days[0].iso);
   const [slot, setSlot] = useState<TimeSlot | null>(() => {
-    const bh = getCountryHour(selectedCountry?.code);
+    const bh = getCountryHour(effectiveCountry);
     return timeSlots.find(s => s.cutoffHour > bh) ?? null;
   });
 
@@ -740,7 +753,7 @@ export default function CheckoutScreen() {
               expressAvailable={expressAvailable}
               timeSlots={timeSlots}
               expressSurcharge={expressSurcharge}
-              localHour={getCountryHour(selectedCountry?.code)}
+              localHour={getCountryHour(effectiveCountry)}
             />
             <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>

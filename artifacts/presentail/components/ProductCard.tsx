@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -26,8 +27,10 @@ export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
   const router = useRouter();
   const { add } = useCart();
+  const { currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
-  const threshold = freeDeliveryThresholdNative(selectedCountry?.code);
+  const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
+  const threshold = freeDeliveryThresholdNative(cc);
 
   const handlePress = () => {
     if (onPress) return onPress();

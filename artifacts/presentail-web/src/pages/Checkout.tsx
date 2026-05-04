@@ -111,7 +111,7 @@ export default function Checkout() {
     Fujairah: 13.61, Ajman: 13.61, Sharjah: 13.61, "Abu Dhabi": 13.61,
     Larnaca: 11, Limassol: 11, Nicosia: 11, Paphos: 11,
   };
-  const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : 130;
+  const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : countryCode === "CY" ? 120 : 130;
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
   const baseFee = WEB_DISTRICT_FEES[selectedDistrict] ?? 0;
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;

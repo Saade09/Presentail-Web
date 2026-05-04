@@ -200,8 +200,9 @@ export default function ProductDetail() {
 function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
-  const { formatNative } = useCurrency();
+  const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const cityName = selectedCity?.name ?? "Beirut";
   const t = useT();
   const points = Math.max(1, Math.round(product.priceValue * 0.4));
@@ -387,7 +388,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
       {/* Trust badges — informational, intentionally non-button */}
       <View style={{ marginTop: 14 }}>
         {[
-          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(selectedCountry?.code === "AE" ? 330 : selectedCountry?.code === "CY" ? 120 : 130)}.` },
+          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(cc === "AE" ? 330 : cc === "CY" ? 120 : 130)}.` },
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
         ].map((b, i, arr) => (
