@@ -267,6 +267,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isRTL } = useLanguage();
+  const { selectedCountry } = useDeliveryLocation();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : 24;
