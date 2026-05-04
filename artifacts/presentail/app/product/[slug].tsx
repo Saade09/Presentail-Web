@@ -221,20 +221,31 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
     }
     return out;
   }, []);
-  const PROD_SLOTS = [
+  const LB_SLOTS = [
     { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
     { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
     { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
     { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
   ];
-  function getBeirutHourLocal() {
+  const AE_SLOTS = [
+    { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
+    { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
+    { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
+    { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
+  ];
+  const PROD_SLOTS = cc === "AE" ? AE_SLOTS : LB_SLOTS;
+  function getCountryHourLocal() {
+    const tz = cc === "AE" ? "Asia/Dubai" : "Asia/Beirut";
     try {
-      const h = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Beirut", hour: "numeric", hour12: false }).format(new Date());
+      const h = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hour12: false }).format(new Date());
       return parseInt(h, 10);
-    } catch { return (new Date().getUTCHours() + 2) % 24; }
+    } catch {
+      const offset = cc === "AE" ? 4 : 2;
+      return (new Date().getUTCHours() + offset) % 24;
+    }
   }
-  const beirutH = getBeirutHourLocal();
-  const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > beirutH);
+  const localH = getCountryHourLocal();
+  const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > localH);
   const [date, setDate] = useState(nextSlot ? days[0].iso : days[1].iso);
   const [slot, setSlot] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
 
@@ -366,7 +377,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {PROD_SLOTS.map((s) => {
                 const isToday = date === days[0].iso;
-                const past = isToday && beirutH >= s.cutoffHour;
+                const past = isToday && localH >= s.cutoffHour;
                 const a = s.label === slot;
                 return (
                   <Pressable
