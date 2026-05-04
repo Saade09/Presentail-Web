@@ -10,8 +10,9 @@ import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 
-function freeDeliveryThresholdForCountry(code?: string | null): number {
-  if (code === "AE") return 89.84;
+function freeDeliveryThresholdNative(code?: string | null): number {
+  if (code === "AE") return 330;
+  if (code === "CY") return 120;
   return 130;
 }
 
@@ -26,7 +27,7 @@ export function ProductCard({ product, width, onPress }: Props) {
   const router = useRouter();
   const { add } = useCart();
   const { selectedCountry } = useDeliveryLocation();
-  const threshold = freeDeliveryThresholdForCountry(selectedCountry?.code);
+  const threshold = freeDeliveryThresholdNative(selectedCountry?.code);
 
   const handlePress = () => {
     if (onPress) return onPress();
