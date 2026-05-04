@@ -45,10 +45,13 @@ export const DELIVERY_COUNTRIES: DeliveryCountry[] = [
     currency: "AED",
     isActive: true,
     cities: [
-      { id: "ae-abu-dhabi", name: "Abu Dhabi", isActive: true },
-      { id: "ae-al-ain", name: "Al Ain", isActive: true },
       { id: "ae-dubai", name: "Dubai", isActive: true },
+      { id: "ae-ras-al-khaimah", name: "Ras Al Khaimah", isActive: true },
+      { id: "ae-umm-al-quwain", name: "Umm Al Quwain", isActive: true },
+      { id: "ae-fujairah", name: "Fujairah", isActive: true },
+      { id: "ae-ajman", name: "Ajman", isActive: true },
       { id: "ae-sharjah", name: "Sharjah", isActive: true },
+      { id: "ae-abu-dhabi", name: "Abu Dhabi", isActive: true },
     ],
   },
   {

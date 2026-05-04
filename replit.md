@@ -16,14 +16,14 @@ Luxury flower & gift delivery app for Lebanon. Built with Expo Router (iOS/Andro
 - **Store resolver**: `artifacts/api-server/src/lib/wooStore.ts` maps city→store URL+credentials
 - **Stores**:
   - Lebanon (`lb-*`): `https://presentail.com/lebanon/wp-json/wc/v3` — `WC_CONSUMER_KEY` / `WC_CONSUMER_SECRET`
-  - Dubai (`ae-dubai`, `ae-sharjah`): `https://presentail.com/dubai/wp-json/wc/v3` — `WC_DUBAI_CONSUMER_KEY` / `WC_DUBAI_CONSUMER_SECRET`
-  - Abu Dhabi (`ae-abu-dhabi`, `ae-al-ain`): `https://presentail.com/abudhabi/wp-json/wc/v3` — `WC_ABUDHABI_CONSUMER_KEY` / `WC_ABUDHABI_CONSUMER_SECRET`
+  - Dubai (`ae-dubai`, `ae-ras-al-khaimah`, `ae-umm-al-quwain`, `ae-fujairah`, `ae-ajman`, `ae-sharjah`): `https://presentail.com/dubai/wp-json/wc/v3` — `WC_DUBAI_CONSUMER_KEY` / `WC_DUBAI_CONSUMER_SECRET`
+  - Abu Dhabi (`ae-abu-dhabi`): `https://presentail.com/abudhabi/wp-json/wc/v3` — `WC_ABUDHABI_CONSUMER_KEY` / `WC_ABUDHABI_CONSUMER_SECRET`
   - Cyprus (`cy-*`): `https://presentail.com/cyprus/wp-json/wc/v3` — `WC_CYPRUS_CONSUMER_KEY` / `WC_CYPRUS_CONSUMER_SECRET`
 - **Store context**: Server reads `countryCode`/`cityId` from query params or `x-store-country`/`x-store-city` headers. Falls back to Lebanon when unset.
 - **Cache isolation**: Product/homepage caches are keyed by `${store.baseUrl}::${lang}` to prevent cross-store cache hits. Client-side React Query keys include `countryCode`/`cityId` so store switches invalidate caches.
 - **Dynamic categories/occasions**: Homepage categories (`/api/homepage/categories`) and occasions (`/api/homepage/occasions`) are fetched dynamically per store from WooCommerce. Categories are filtered by `PRODUCT_TYPE_SLUGS` allowlist (hand-bouquets, flower-boxes, plants, balloons, etc.) to exclude occasions, colors, recipients, and delivery-type categories. No hardcoded category IDs — the occasion-products endpoint uses `resolveOccasionId()` which looks up WC category IDs by slug per store with TTL caching. `BestSellersPreview` falls back to all products when `hand-bouquets` category is empty (e.g. Cyprus).
 - **Currency per store**: Each `WooStoreConfig` has `currencySymbol` and `currencyCode`. Lebanon = `$` (USD), UAE = `AED`, Cyprus = `€` (EUR). `transformProduct()` formats prices accordingly (symbol-first for single-char like `$130`, number-first for multi-char like `660 AED`).
-- **Countries**: Lebanon (25 districts), UAE (Dubai, Sharjah, Abu Dhabi, Al Ain), Cyprus (Limassol, Nicosia, Larnaca, Paphos)
+- **Countries**: Lebanon (25 districts), UAE (Dubai, Ras Al Khaimah, Umm Al Quwain, Fujairah, Ajman, Sharjah, Abu Dhabi — all 50 AED flat rate ≈ 13.61 USD), Cyprus (Larnaca, Limassol, Nicosia, Paphos — free delivery)
 - **GET /api/woo/products** — Fetches all published/in-stock products (paginated, 100/page), merges with static catalog. Product counts vary by store (LB ~336, Dubai ~195, CY ~26).
 - **POST /api/woo/order** — Creates a WooCommerce order on every checkout. Items with `wcId` → `line_items`; static-only items → `fee_lines`. All delivery/card meta stored as order metadata.
 - **WooProductsContext** — fetches WC products on app startup, merges with static catalog (WC data wins on price/image/name). Static catalog provides occasion tags, fallback images.
@@ -33,7 +33,7 @@ hand-bouquets, flower-boxes, flower-vases, lux-arrangements, dried-flowers, pres
 
 ### Checkout Flow
 1. Step 0 — Card message + QR link (live preview from `api.qrserver.com` when URL typed), recipient name, quantity
-2. Step 1 — District (26 Lebanese districts with fees), delivery date/slot, sender details
+2. Step 1 — District (country-aware: 26 LB districts with variable fees, 7 UAE emirates at 50 AED flat, 4 CY cities free delivery), delivery date/slot, sender details. Free delivery threshold: $130 USD subtotal.
 3. Step 2 — Payment method (Card via Stripe, Whish Money, Western Union, Mamo, PayPal)
 - On confirm: WooCommerce order created immediately (fire-and-forget)
 - Hosted-checkout payments (Stripe / Mamo / PayPal): opened with `WebBrowser.openAuthSessionAsync` so the in-app browser blocks until the user is redirected back via the `presentail://payment-return` deep link. The success screen is **only** shown when the return URL contains `status=success` — cancel/dismiss returns to checkout with an alert.

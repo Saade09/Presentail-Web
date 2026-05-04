@@ -86,7 +86,7 @@ const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 const EXPRESS_SURCHARGE = 15;
 
 type District = { name: string; fee: number };
-const DISTRICTS: District[] = [
+const LB_DISTRICTS: District[] = [
   { name: "Akkar", fee: 39 },
   { name: "Aley", fee: 19 },
   { name: "Baabda", fee: 11 },
@@ -114,6 +114,26 @@ const DISTRICTS: District[] = [
   { name: "Zahle", fee: 29 },
   { name: "Zghorta", fee: 39 },
 ];
+const AE_DISTRICTS: District[] = [
+  { name: "Dubai", fee: 13.61 },
+  { name: "Ras Al Khaimah", fee: 13.61 },
+  { name: "Umm Al Quwain", fee: 13.61 },
+  { name: "Fujairah", fee: 13.61 },
+  { name: "Ajman", fee: 13.61 },
+  { name: "Sharjah", fee: 13.61 },
+  { name: "Abu Dhabi", fee: 13.61 },
+];
+const CY_DISTRICTS: District[] = [
+  { name: "Larnaca", fee: 0 },
+  { name: "Limassol", fee: 0 },
+  { name: "Nicosia", fee: 0 },
+  { name: "Paphos", fee: 0 },
+];
+function districtsForCountry(code?: string): District[] {
+  if (code === "AE") return AE_DISTRICTS;
+  if (code === "CY") return CY_DISTRICTS;
+  return LB_DISTRICTS;
+}
 
 type TimeSlot = { label: string; cutoffHour: number };
 const TIME_SLOTS: TimeSlot[] = [
@@ -180,26 +200,35 @@ export default function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
-  const cityDistrictMatch = selectedCountry?.code === "LB" && selectedCity
-    ? DISTRICTS.find((d) => d.name === selectedCity.name)
+  const districts = districtsForCountry(selectedCountry?.code);
+  const cityDistrictMatch = selectedCity
+    ? districts.find((d) => d.name === selectedCity.name)
     : null;
   const [district, setDistrict] = useState<District>(
-    cityDistrictMatch ?? DISTRICTS.find((d) => d.name === "Beirut") ?? DISTRICTS[0],
+    cityDistrictMatch ?? districts[0],
   );
   const districtManuallyEdited = React.useRef(false);
   const prevCityRef = React.useRef(selectedCity?.id);
+  const prevCountryRef = React.useRef(selectedCountry?.code);
   React.useEffect(() => {
     const cityChanged = selectedCity?.id !== prevCityRef.current;
+    const countryChanged = selectedCountry?.code !== prevCountryRef.current;
     prevCityRef.current = selectedCity?.id;
-    if (cityChanged) {
+    prevCountryRef.current = selectedCountry?.code;
+    if (cityChanged || countryChanged) {
       districtManuallyEdited.current = false;
     }
     if (districtManuallyEdited.current) return;
-    if (selectedCountry?.code === "LB" && selectedCity) {
-      const match = DISTRICTS.find((d) => d.name === selectedCity.name);
+    const list = districtsForCountry(selectedCountry?.code);
+    if (selectedCity) {
+      const match = list.find((d) => d.name === selectedCity.name);
       if (match) {
         setDistrict(match);
+        return;
       }
+    }
+    if (countryChanged) {
+      setDistrict(list[0]);
     }
   }, [selectedCountry, selectedCity]);
   const [districtOpen, setDistrictOpen] = useState(false);
@@ -648,6 +677,7 @@ export default function CheckoutScreen() {
               setRecipientPhone={setRecipientPhone}
               recipientCountry={recipientCountry}
               setRecipientCountry={setRecipientCountry}
+              districts={districts}
               district={district}
               setDistrict={setDistrict}
               districtManuallyEdited={districtManuallyEdited}
@@ -927,7 +957,7 @@ function DeliveryDetailsStep(props: any) {
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
-    district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
+    districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
@@ -1031,7 +1061,7 @@ function DeliveryDetailsStep(props: any) {
                 </Pressable>
               </View>
               <FlatList
-                data={DISTRICTS}
+                data={districts}
                 keyExtractor={(item) => item.name}
                 renderItem={({ item }) => {
                   const selected = item.name === district.name;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
@@ -58,6 +58,14 @@ export default function Checkout() {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
 
+  const prevCountryRef = useRef(countryCode);
+  useEffect(() => {
+    if (countryCode !== prevCountryRef.current) {
+      prevCountryRef.current = countryCode;
+      setRecipient((r) => ({ ...r, district: "" }));
+    }
+  }, [countryCode]);
+
   if (itemCount === 0) {
     return (
       <div className="min-h-screen pt-32 pb-24 text-center">
@@ -67,7 +75,22 @@ export default function Checkout() {
     );
   }
 
-  const total = subtotal + 5;
+  const currentCountryCities = locations?.countries.find((c) => c.code === countryCode)?.cities || [];
+  const WEB_DISTRICT_FEES: Record<string, number> = {
+    Akkar: 39, Aley: 19, Baabda: 11, Baalbeck: 39, Batroun: 19, Bcharee: 39,
+    Beirut: 8, "Bent Jbeil": 39, Chouf: 29, Hasbaya: 39, Hermel: 39, Jbail: 19,
+    Jezzine: 29, Kasserwan: 11, Koura: 29, Marjayoun: 39, Metn: 11,
+    "Minnieh-Dennaya": 39, Nabatieh: 39, Rechaya: 39, Saida: 29, Tripoli: 29,
+    Tyre: 39, "West Bekaa": 39, Zahle: 29, Zghorta: 39,
+    Dubai: 13.61, "Ras Al Khaimah": 13.61, "Umm Al Quwain": 13.61,
+    Fujairah: 13.61, Ajman: 13.61, Sharjah: 13.61, "Abu Dhabi": 13.61,
+    Larnaca: 0, Limassol: 0, Nicosia: 0, Paphos: 0,
+  };
+  const FREE_DELIVERY_THRESHOLD = 130;
+  const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
+  const baseFee = WEB_DISTRICT_FEES[selectedDistrict] ?? 0;
+  const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
+  const total = subtotal + districtFee;
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
@@ -96,8 +119,8 @@ export default function Checkout() {
       lastName: recipient.lastName,
       phone: recipient.phone,
     },
-    district: recipient.district || "Beirut",
-    districtFee: 5,
+    district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+    districtFee: districtFee,
     expressFee: 0,
     deliveryDetails: recipient.address,
     deliveryDate: recipient.deliveryDate,
@@ -177,7 +200,7 @@ export default function Checkout() {
       if (paymentMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
-          district: recipient.district || "Beirut",
+          district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
           currency: "USD",
           returnUrl,
           cancelUrl: failureUrl,
@@ -199,7 +222,7 @@ export default function Checkout() {
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
-          district: recipient.district || "Beirut",
+          district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
           currency: "USD",
           title: t("checkout.payment.orderTitle"),
           description: t("checkout.payment.orderDesc", { name: `${sender.firstName} ${sender.lastName}`.trim() }),
@@ -226,8 +249,6 @@ export default function Checkout() {
       toast({ title: t("checkout.toast.errorTitle"), description: e.message, variant: "destructive" });
     }
   };
-
-  const lbCities = locations?.countries.find((c) => c.code === "LB")?.cities || [];
 
   const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
     { id: "card", labelKey: "checkout.pay.card" },
@@ -284,10 +305,10 @@ export default function Checkout() {
                         <SelectValue placeholder={t("checkout.selectDistrict")} />
                       </SelectTrigger>
                       <SelectContent>
-                        {lbCities.map((city) => (
+                        {currentCountryCities.map((city) => (
                           <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
                         ))}
-                        {lbCities.length === 0 && <SelectItem value="Beirut">Beirut</SelectItem>}
+                        {currentCountryCities.length === 0 && <SelectItem value="Beirut">Beirut</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -409,7 +430,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("checkout.deliveryEstimated")}</span>
-                  <span>{fmt(5)}</span>
+                  <span>{fmt(districtFee)}</span>
                 </div>
                 <div className="flex justify-between font-medium text-lg pt-3 border-t">
                   <span>{t("cart.total")}</span>

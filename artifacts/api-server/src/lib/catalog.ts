@@ -32,6 +32,17 @@ export const DISTRICT_FEES: Record<string, number> = {
   "West Bekaa": 39,
   Zahle: 29,
   Zghorta: 39,
+  Dubai: 13.61,
+  "Ras Al Khaimah": 13.61,
+  "Umm Al Quwain": 13.61,
+  Fujairah: 13.61,
+  Ajman: 13.61,
+  Sharjah: 13.61,
+  "Abu Dhabi": 13.61,
+  Larnaca: 0,
+  Limassol: 0,
+  Nicosia: 0,
+  Paphos: 0,
 };
 
 export const EXPRESS_SURCHARGE_USD = 15;

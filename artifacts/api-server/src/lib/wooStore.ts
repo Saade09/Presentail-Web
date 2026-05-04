@@ -45,9 +45,12 @@ const STORE_CYPRUS: () => WooStoreConfig = () => ({
 
 const CITY_TO_STORE: Record<string, () => WooStoreConfig> = {
   "ae-dubai": STORE_DUBAI,
+  "ae-ras-al-khaimah": STORE_DUBAI,
+  "ae-umm-al-quwain": STORE_DUBAI,
+  "ae-fujairah": STORE_DUBAI,
+  "ae-ajman": STORE_DUBAI,
   "ae-sharjah": STORE_DUBAI,
   "ae-abu-dhabi": STORE_ABUDHABI,
-  "ae-al-ain": STORE_ABUDHABI,
   "cy-nicosia": STORE_CYPRUS,
   "cy-limassol": STORE_CYPRUS,
   "cy-larnaca": STORE_CYPRUS,
