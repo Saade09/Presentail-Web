@@ -1057,7 +1057,9 @@ function BrandsRow() {
   type DisplayBrand = { id: number | string; name: string; slug: string; count: number; image: string | null };
   const displayBrands: DisplayBrand[] = wcBrands.length > 0
     ? wcBrands
-    : brands.map((b) => ({ id: b.slug, name: b.name, slug: b.slug, count: 1, image: null }));
+    : loaded ? [] : brands.map((b) => ({ id: b.slug, name: b.name, slug: b.slug, count: 1, image: null }));
+
+  if (loaded && displayBrands.length === 0) return null;
 
   return (
     <View style={{ marginTop: 56 }}>

@@ -14,6 +14,8 @@ export function BrandSpotlight() {
   const { data, isLoading } = useBrands(brandParams);
   const brands = (data?.brands ?? []).slice(0, 6);
 
+  if (!isLoading && brands.length === 0) return null;
+
   return (
     <section className="py-14 md:py-20 bg-secondary/40" data-testid="section-brands">
       <div className="container mx-auto px-4">
