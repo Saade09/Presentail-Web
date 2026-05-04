@@ -340,9 +340,7 @@ const STRINGS: Dict = {
   "order.fail.failed": { en: "Order finalization failed.", ar: "فشل إتمام الطلب." },
 
   // Footer
-  "footer.tagline": { en: "Beirut's premium florist and gifting house. Confident, generous, unhurried.", ar: "بيت الزهور والهدايا الفاخرة في بيروت. ثقة وكرم وأناقة هادئة." },
-  "footer.address1": { en: "Rue Gouraud, Gemmayzeh", ar: "شارع غورو، الجميزة" },
-  "footer.address2": { en: "Beirut, Lebanon", ar: "بيروت، لبنان" },
+  "footer.tagline": { en: "Premium florist and gifting house. Confident, generous, unhurried.", ar: "بيت الزهور والهدايا الفاخرة. ثقة وكرم وأناقة هادئة." },
   "footer.shop": { en: "Shop", ar: "المتجر" },
   "footer.help": { en: "Help", ar: "المساعدة" },
   "footer.contact": { en: "Contact Us", ar: "تواصل معنا" },
@@ -350,7 +348,7 @@ const STRINGS: Dict = {
   "footer.faq": { en: "FAQ", ar: "الأسئلة الشائعة" },
   "footer.terms": { en: "Terms & Conditions", ar: "الشروط والأحكام" },
   "footer.comingSoon": { en: "coming soon", ar: "قريباً" },
-  "footer.copyright": { en: "© {year} Presentail Lebanon. All rights reserved.", ar: "© {year} Presentail لبنان. جميع الحقوق محفوظة." },
+  "footer.copyright": { en: "© {year} Presentail. All rights reserved.", ar: "© {year} Presentail. جميع الحقوق محفوظة." },
   "footer.payments": { en: "Secure payments by Stripe & Mamo", ar: "دفع آمن عبر Stripe وMamo" },
 
   // 404
@@ -746,9 +744,7 @@ const STRINGS_FR: Record<string, string> = {
   "order.fail.failed": "Échec de la finalisation de la commande.",
 
   "footer.tagline":
-    "Le fleuriste et maison de cadeaux premium de Beyrouth. Confiance, générosité, élégance.",
-  "footer.address1": "Rue Gouraud, Gemmayzeh",
-  "footer.address2": "Beyrouth, Liban",
+    "Fleuriste et maison de cadeaux premium. Confiance, générosité, élégance.",
   "footer.shop": "Boutique",
   "footer.help": "Aide",
   "footer.contact": "Nous contacter",
@@ -756,7 +752,7 @@ const STRINGS_FR: Record<string, string> = {
   "footer.faq": "FAQ",
   "footer.terms": "Conditions générales",
   "footer.comingSoon": "bientôt disponible",
-  "footer.copyright": "© {year} Presentail Liban. Tous droits réservés.",
+  "footer.copyright": "© {year} Presentail. Tous droits réservés.",
   "footer.payments": "Paiements sécurisés par Stripe et Mamo",
 
   "notFound.title": "404 Page introuvable",

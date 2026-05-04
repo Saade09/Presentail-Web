@@ -508,6 +508,20 @@ function BrandStrip() {
 function BestSellers() {
   const router = useRouter();
   const colors = useColors();
+  const t = useT();
+  const { selectedCountry } = useDeliveryLocation();
+  const { products: wooProducts } = useWooProducts();
+  const countryName = selectedCountry?.name ?? "Lebanon";
+
+  const displayProducts = wooProducts.length > 0
+    ? wooProducts.slice(0, 4)
+    : bestSellers;
+
+  if (displayProducts.length === 0) return null;
+
+  const title = t.bestSellersTitleHome.replace("{country}", countryName);
+  const description = t.bestSellersDescHome;
+
   return (
     <View style={{ marginTop: 36 }}>
       <View
@@ -521,14 +535,14 @@ function BestSellers() {
       >
         <View style={{ flex: 1 }}>
           <SectionTitle
-            eyebrow="Best Sellers"
-            title="The pieces Lebanon loves"
-            description="A rotating shortlist chosen by our atelier — the bouquets and gifts that arrive most often at the front door."
+            eyebrow={t.bestSellers}
+            title={title}
+            description={description}
           />
         </View>
         <Pressable onPress={() => router.push("/(tabs)/catalog")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
-            VIEW ALL
+            {t.viewAll}
           </Text>
         </Pressable>
       </View>
@@ -541,7 +555,7 @@ function BestSellers() {
           rowGap: 24,
         }}
       >
-        {bestSellers.map((p) => (
+        {displayProducts.map((p) => (
           <ProductCard key={p.id} product={p} width={CARD_W} />
         ))}
       </View>
@@ -554,6 +568,7 @@ const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "lux-arrangements"
 function FlowersSection() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
   const { products: wooProducts } = useWooProducts();
   const flowerProducts = wooProducts.filter((p) => FLOWER_CATS.has(p.category)).slice(0, 10);
 
@@ -571,14 +586,14 @@ function FlowersSection() {
       >
         <View style={{ flex: 1 }}>
           <SectionTitle
-            eyebrow="Flowers"
-            title="Fresh from our atelier"
-            description="Hand-tied bouquets, artisan boxes, and statement arrangements crafted daily in Beirut."
+            eyebrow={t.flowersEyebrowHome}
+            title={t.flowersTitleHome}
+            description={t.flowersDescHome}
           />
         </View>
         <Pressable onPress={() => router.push("/category/hand-bouquets")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
-            VIEW ALL
+            {t.viewAll}
           </Text>
         </Pressable>
       </View>
@@ -598,6 +613,7 @@ function FlowersSection() {
 function BundlesSection() {
   const colors = useColors();
   const router = useRouter();
+  const t = useT();
   const { products: wooProducts } = useWooProducts();
   const bundleProducts = wooProducts.filter((p) => p.category === "bundles").slice(0, 6);
 
@@ -615,14 +631,14 @@ function BundlesSection() {
       >
         <View style={{ flex: 1 }}>
           <SectionTitle
-            eyebrow="Gift Bundles"
-            title="More than flowers"
-            description="Curated sets pairing our finest blooms with sweets, wines and keepsakes."
+            eyebrow={t.bundlesEyebrowHome}
+            title={t.bundlesTitleHome}
+            description={t.bundlesDescHome}
           />
         </View>
         <Pressable onPress={() => router.push("/category/bundles")}>
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
-            VIEW ALL
+            {t.viewAll}
           </Text>
         </Pressable>
       </View>
@@ -1106,6 +1122,11 @@ function Footer() {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const { lang: language, setLang: setLanguage } = useLanguage();
   const t = useT();
+  const { selectedCountry } = useDeliveryLocation();
+
+  const countrySlugMap: Record<string, string> = { LB: "lebanon", AE: "uae", CY: "cyprus" };
+  const countrySlug = countrySlugMap[selectedCountry?.code ?? "LB"] ?? "lebanon";
+  const baseUrl = `https://presentail.com/${countrySlug}`;
 
   const sections: { id: string; title: string; links: FooterLink[] }[] = [
     {
@@ -1143,12 +1164,12 @@ function Footer() {
       id: "know",
       title: t.getToKnowUs,
       links: [
-        { label: t.partnerWithUs, href: "https://presentail.com/lebanon/partner" },
-        { label: t.deliveryRates, href: "https://presentail.com/lebanon/delivery-rates" },
-        { label: t.weddingsEvents, href: "https://presentail.com/lebanon/weddings-events" },
-        { label: t.corporateGifts, href: "https://presentail.com/lebanon/corporate-gifts" },
-        { label: t.careers, href: "https://presentail.com/lebanon/careers" },
-        { label: t.blogs, href: "https://presentail.com/lebanon/blog" },
+        { label: t.partnerWithUs, href: `${baseUrl}/partner` },
+        { label: t.deliveryRates, href: `${baseUrl}/delivery-rates` },
+        { label: t.weddingsEvents, href: `${baseUrl}/weddings-events` },
+        { label: t.corporateGifts, href: `${baseUrl}/corporate-gifts` },
+        { label: t.careers, href: `${baseUrl}/careers` },
+        { label: t.blogs, href: `${baseUrl}/blog` },
       ],
     },
   ];
@@ -1190,8 +1211,7 @@ function Footer() {
           maxWidth: 320,
         }}
       >
-        Presentail is the online gift ordering and delivery platform of Lebanon.
-        Send love one gift at a time, anywhere across the country.
+        {t.footerTagline}
       </Text>
 
       <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", marginTop: 6 }} />
@@ -1425,9 +1445,9 @@ function Footer() {
               borderColor: "rgba(255,255,255,0.25)",
             }}
           >
-            <Text style={{ fontSize: 14 }}>🇱🇧</Text>
+            <Text style={{ fontSize: 14 }}>{selectedCountry?.flag ?? "🇱🇧"}</Text>
             <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#fff", letterSpacing: 1 }}>
-              Lebanon
+              {selectedCountry?.name ?? t.countryLebanon}
             </Text>
           </View>
         </View>
@@ -1464,21 +1484,21 @@ function Footer() {
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 4 }}>
-        <Pressable onPress={() => Linking.openURL("https://presentail.com/lebanon/terms-of-use")}>
+        <Pressable onPress={() => Linking.openURL(`${baseUrl}/terms-of-use`)}>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.62)" }}>
-            Terms of Use
+            {t.termsOfUse}
           </Text>
         </Pressable>
-        <Pressable onPress={() => Linking.openURL("https://presentail.com/lebanon/privacy-policy")}>
+        <Pressable onPress={() => Linking.openURL(`${baseUrl}/privacy-policy`)}>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.62)" }}>
-            Privacy Policy
+            {t.privacyPolicy}
           </Text>
         </Pressable>
       </View>
 
       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 18 }}>
         All rights reserved © 2026 Presentail SAL{"\n"}
-        3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon
+        {t.copyrightAddress}
       </Text>
     </View>
   );

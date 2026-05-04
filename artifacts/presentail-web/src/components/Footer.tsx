@@ -1,9 +1,12 @@
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { Logo } from "@/components/Logo";
 
 export function Footer() {
-  const { t } = useLocale();
+  const { t, countryName } = useLocale();
+  const { country } = useLocationSelection();
+  const displayCountry = country ? countryName(country.code, country.name) : "";
   return (
     <footer className="bg-primary text-primary-foreground pt-20 pb-10">
       <div className="container mx-auto px-4">
@@ -15,10 +18,6 @@ export function Footer() {
             <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6">
               {t("footer.tagline")}
             </p>
-            <div className="text-sm text-primary-foreground/70">
-              <p>{t("footer.address1")}</p>
-              <p>{t("footer.address2")}</p>
-            </div>
           </div>
 
           <div>

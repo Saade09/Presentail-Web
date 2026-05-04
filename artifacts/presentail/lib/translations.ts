@@ -391,12 +391,12 @@ const EN = {
   drawerAddress: "Achrafieh, Beirut",
 
   // ── Home sections ──
-  bestSellersTitleHome: "The pieces Lebanon loves",
+  bestSellersTitleHome: "The pieces {country} loves",
   bestSellersDescHome: "A rotating shortlist chosen by our atelier — the bouquets and gifts that arrive most often at the front door.",
   viewAll: "VIEW ALL",
   flowersEyebrowHome: "Flowers",
   flowersTitleHome: "Fresh from our atelier",
-  flowersDescHome: "Hand-tied bouquets, artisan boxes, and statement arrangements crafted daily in Beirut.",
+  flowersDescHome: "Hand-tied bouquets, artisan boxes, and statement arrangements crafted with care.",
   bundlesEyebrowHome: "Gift Bundles",
   bundlesTitleHome: "More than flowers",
   bundlesDescHome: "Curated sets pairing our finest blooms with sweets, wines and keepsakes.",
@@ -407,7 +407,7 @@ const EN = {
   reviewsTitleHome: "Rated 4.6 over 837 reviews",
 
   // ── Footer ──
-  footerTagline: "Presentail is the online gift ordering and delivery platform of Lebanon. Send love one gift at a time, anywhere across the country.",
+  footerTagline: "Presentail is the online gift ordering and delivery platform. Send love one gift at a time, anywhere across the country.",
   countryLebanon: "Lebanon",
   termsOfUse: "Terms of Use",
   privacyPolicy: "Privacy Policy",
@@ -1204,12 +1204,12 @@ const AR: typeof EN = {
   drawerAddress: "الأشرفية، بيروت",
 
   // ── Home sections ──
-  bestSellersTitleHome: "القطع التي يحبها لبنان",
+  bestSellersTitleHome: "القطع التي يحبها {country}",
   bestSellersDescHome: "قائمة مختارة تتجدد باستمرار من ورشتنا — الباقات والهدايا الأكثر وصولاً إلى الأبواب.",
   viewAll: "عرض الكل",
   flowersEyebrowHome: "الزهور",
   flowersTitleHome: "طازجة من ورشتنا",
-  flowersDescHome: "باقات مصنوعة يدوياً، صناديق حرفية، وتنسيقات مميزة تُصنع يومياً في بيروت.",
+  flowersDescHome: "باقات مصنوعة يدوياً، صناديق حرفية، وتنسيقات مميزة تُصنع بعناية.",
   bundlesEyebrowHome: "حزم الهدايا",
   bundlesTitleHome: "أكثر من مجرد زهور",
   bundlesDescHome: "مجموعات منتقاة تجمع بين أجمل الزهور والحلويات والنبيذ والتذكارات.",
@@ -1220,7 +1220,7 @@ const AR: typeof EN = {
   reviewsTitleHome: "تقييم 4.6 من أصل 837 تقييم",
 
   // ── Footer ──
-  footerTagline: "Presentail هي منصة طلب وتوصيل الهدايا عبر الإنترنت في لبنان. أرسل المحبة هدية تلو الأخرى في جميع أنحاء البلاد.",
+  footerTagline: "Presentail هي منصة طلب وتوصيل الهدايا عبر الإنترنت. أرسل المحبة هدية تلو الأخرى في جميع أنحاء البلاد.",
   countryLebanon: "لبنان",
   termsOfUse: "شروط الاستخدام",
   privacyPolicy: "سياسة الخصوصية",
@@ -2017,12 +2017,12 @@ const FR: typeof EN = {
   drawerAddress: "Achrafieh, Beyrouth",
 
   // ── Home sections ──
-  bestSellersTitleHome: "Les pièces que le Liban adore",
+  bestSellersTitleHome: "Les pièces que {country} adore",
   bestSellersDescHome: "Une sélection renouvelée par notre atelier — les bouquets et cadeaux qui arrivent le plus souvent à la porte.",
   viewAll: "TOUT VOIR",
   flowersEyebrowHome: "Fleurs",
   flowersTitleHome: "Fraîches de notre atelier",
-  flowersDescHome: "Bouquets noués à la main, écrins d'artisan et compositions de caractère, créés chaque jour à Beyrouth.",
+  flowersDescHome: "Bouquets noués à la main, écrins d'artisan et compositions de caractère, créés avec soin.",
   bundlesEyebrowHome: "Coffrets cadeaux",
   bundlesTitleHome: "Plus que des fleurs",
   bundlesDescHome: "Des coffrets soigneusement composés mariant nos plus belles fleurs à des douceurs, vins et souvenirs.",
@@ -2033,7 +2033,7 @@ const FR: typeof EN = {
   reviewsTitleHome: "Noté 4,6 sur 837 avis",
 
   // ── Footer ──
-  footerTagline: "Presentail est la plateforme libanaise de commande et livraison de cadeaux en ligne. Envoyez de l'amour, un cadeau à la fois, partout au pays.",
+  footerTagline: "Presentail est la plateforme de commande et livraison de cadeaux en ligne. Envoyez de l'amour, un cadeau à la fois, partout au pays.",
   countryLebanon: "Liban",
   termsOfUse: "Conditions d'utilisation",
   privacyPolicy: "Politique de confidentialité",
