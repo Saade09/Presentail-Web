@@ -67,7 +67,7 @@ function firstActiveCity(country: DeliveryCountry | null): DeliveryCity | null {
 }
 
 export function DeliveryLocationProvider({ children }: { children: React.ReactNode }) {
-  const { currencyCode, source: currencySource, setCurrencyCode } = useCurrency();
+  const { setCurrencyCode } = useCurrency();
   const [deliveryLocations, setDeliveryLocations] = useState<DeliveryCountry[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(null);
   const [selectedCity, setSelectedCity] = useState<DeliveryCity | null>(null);
@@ -165,10 +165,10 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
     updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
-    if (nextCountry && currencySource !== "manual" && nextCountry.currency !== currencyCode) {
+    if (nextCountry) {
       setCurrencyCode(nextCountry.currency);
     }
-  }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity]);
+  }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity, setCurrencyCode]);
 
   const selectCountry = useCallback(
     (country: DeliveryCountry) => {
@@ -176,9 +176,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       const nextCity = firstActiveCity(country);
       setSelectedCity(nextCity);
       updateCachedStoreLocation(country.code, nextCity?.id ?? null);
-      if (currencySource !== "manual" && country.currency !== currencyCode) {
-        setCurrencyCode(country.currency);
-      }
+      setCurrencyCode(country.currency);
       persist({
         selectedDeliveryCountryId: country.id,
         selectedDeliveryCountryCode: country.code,
@@ -188,7 +186,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
         manuallySelected: true,
       });
     },
-    [currencyCode, currencySource, persist, setCurrencyCode],
+    [persist, setCurrencyCode],
   );
 
   const selectCity = useCallback(

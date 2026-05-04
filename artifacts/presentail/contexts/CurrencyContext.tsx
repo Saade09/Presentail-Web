@@ -36,6 +36,7 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(FALLBACK_CURRENCY_CODE);
   const [source, setSource] = useState<CurrencySource>("auto");
+  const sourceRef = useRef<CurrencySource>("auto");
   // Bumped after live FX rates are applied so memoized convert/formatPrice
   // recompute against the refreshed CURRENCIES table.
   const [ratesVersion, setRatesVersion] = useState(0);
@@ -72,7 +73,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
         if (cancelled) return;
 
-        // Manual selection always wins — never overwrite with auto-detection.
+        // Manual / delivery-location selection always wins — never overwrite
+        // with auto-detection.
         if (savedSource === "manual" && isSupportedCurrencyCode(savedCode)) {
           setCurrencyCodeState(savedCode);
           setSource("manual");
@@ -80,14 +82,18 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Otherwise: detect from IP. Use the previously detected value as a
-        // fast first paint while detection runs (avoids flicker on cold start).
+        // Use the previously detected value as a fast first paint while
+        // detection runs (avoids flicker on cold start).
         if (isSupportedCurrencyCode(savedCode)) {
           setCurrencyCodeState(savedCode);
         }
 
         const detected = await detectCurrencyFromLocation();
         if (cancelled) return;
+
+        // If another caller (e.g. DeliveryLocationProvider) set the currency
+        // while detection was in-flight, don't overwrite it.
+        if (sourceRef.current === "manual") return;
 
         setCurrencyCodeState(detected);
         setSource("auto");
@@ -110,6 +116,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const setCurrencyCode = useCallback((code: CurrencyCode) => {
     setCurrencyCodeState(code);
     setSource("manual");
+    sourceRef.current = "manual";
     Promise.all([
       AsyncStorage.setItem(STORAGE_KEY, code),
       AsyncStorage.setItem(SOURCE_KEY, "manual"),
