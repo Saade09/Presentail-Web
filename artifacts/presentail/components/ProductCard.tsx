@@ -8,6 +8,12 @@ import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
+
+function freeDeliveryThresholdForCountry(code?: string | null): number {
+  if (code === "AE") return 89.84;
+  return 130;
+}
 
 type Props = {
   product: Product;
@@ -19,6 +25,8 @@ export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
   const router = useRouter();
   const { add } = useCart();
+  const { selectedCountry } = useDeliveryLocation();
+  const threshold = freeDeliveryThresholdForCountry(selectedCountry?.code);
 
   const handlePress = () => {
     if (onPress) return onPress();
@@ -70,7 +78,7 @@ export function ProductCard({ product, width, onPress }: Props) {
             native
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
           />
-          {product.priceValue >= 130 ? (
+          {product.priceValue >= threshold ? (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               FREE DELIVERY
             </Text>
