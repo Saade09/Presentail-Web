@@ -218,7 +218,7 @@ export default function CheckoutScreen() {
     };
   }, []);
 
-  const LB = COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
+  const defaultDialCode = COUNTRY_DIAL_CODES.find((c) => c.code === (effectiveCountry ?? "LB")) ?? COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
   const [step, setStep] = useState<Step>(0);
 
@@ -226,7 +226,7 @@ export default function CheckoutScreen() {
   const [recipientFirst, setRecipientFirst] = useState("");
   const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
-  const [recipientCountry, setRecipientCountry] = useState<CountryDialCode>(LB);
+  const [recipientCountry, setRecipientCountry] = useState<CountryDialCode>(defaultDialCode);
   const [cardTo, setCardTo] = useState("");
   const [cardMessage, setCardMessage] = useState("");
   const [cardFrom, setCardFrom] = useState("");
@@ -258,6 +258,9 @@ export default function CheckoutScreen() {
       const newSlots = timeSlotsForCountry(cc);
       const h = getCountryHour(cc);
       setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
+      const newDial = COUNTRY_DIAL_CODES.find((d) => d.code === (cc ?? "LB")) ?? COUNTRY_DIAL_CODES[0];
+      setRecipientCountry(newDial);
+      setSenderCountry(newDial);
     }
     if (districtManuallyEdited.current) return;
     const list = districtsForCountry(resolveCountryCode(selectedCountry?.code, currencyCode));
@@ -278,7 +281,7 @@ export default function CheckoutScreen() {
   const [senderFirst, setSenderFirst] = useState("");
   const [senderLast, setSenderLast] = useState("");
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
-  const [senderCountry, setSenderCountry] = useState<CountryDialCode>(LB);
+  const [senderCountry, setSenderCountry] = useState<CountryDialCode>(defaultDialCode);
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
