@@ -21,6 +21,27 @@ import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
 
+type TimeSlot = { label: string; cutoffHour: number };
+const LB_TIME_SLOTS: TimeSlot[] = [
+  { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
+  { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
+  { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
+  { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
+];
+const AE_TIME_SLOTS: TimeSlot[] = [
+  { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
+  { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
+  { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
+  { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
+];
+const CY_TIME_SLOTS: TimeSlot[] = LB_TIME_SLOTS;
+
+function timeSlotsForCountry(code: string | null): TimeSlot[] {
+  if (code === "AE") return AE_TIME_SLOTS;
+  if (code === "CY") return CY_TIME_SLOTS;
+  return LB_TIME_SLOTS;
+}
+
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
 export default function Checkout() {
@@ -56,6 +77,8 @@ export default function Checkout() {
     phone: user?.phone || "",
   });
 
+  const timeSlots = timeSlotsForCountry(countryCode);
+  const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
 
   const prevCountryRef = useRef(countryCode);
@@ -63,6 +86,8 @@ export default function Checkout() {
     if (countryCode !== prevCountryRef.current) {
       prevCountryRef.current = countryCode;
       setRecipient((r) => ({ ...r, district: "" }));
+      const newSlots = timeSlotsForCountry(countryCode);
+      setDeliverySlot(newSlots[0]?.label ?? "");
     }
   }, [countryCode]);
 
@@ -124,6 +149,7 @@ export default function Checkout() {
     expressFee: 0,
     deliveryDetails: recipient.address,
     deliveryDate: recipient.deliveryDate,
+    deliverySlot,
     cardMessage: recipient.cardMessage,
     paymentMethod,
     currencyCode: "USD",
@@ -321,6 +347,27 @@ export default function Checkout() {
                   <div className="space-y-2 mb-4">
                     <label className="text-sm font-medium">{t("checkout.deliveryDate")}</label>
                     <Input type="date" value={recipient.deliveryDate} onChange={(e) => setRecipient({ ...recipient, deliveryDate: e.target.value })} min={new Date().toISOString().split("T")[0]} data-testid="input-delivery-date" />
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <label className="text-sm font-medium">Delivery Time</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {timeSlots.map((s) => (
+                        <button
+                          key={s.label}
+                          type="button"
+                          onClick={() => setDeliverySlot(s.label)}
+                          className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                            deliverySlot === s.label
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-foreground hover:border-foreground/20"
+                          }`}
+                          data-testid={`slot-${s.cutoffHour}`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2 mb-8">

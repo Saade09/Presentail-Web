@@ -9,7 +9,7 @@ type CountryEntry = {
 
 export const GLOBAL_DEFAULT: DeliveryConfigResponse = {
   expressDeliveryTimeLabel: "Arrives in 90 minutes",
-  freeDeliveryThreshold: "AED 480",
+  freeDeliveryThreshold: "AED 330",
   currency: "AED",
 };
 
@@ -17,7 +17,7 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
   AE: {
     default: {
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
-      freeDeliveryThreshold: "AED 480",
+      freeDeliveryThreshold: "AED 330",
       currency: "AED",
     },
     cities: {
