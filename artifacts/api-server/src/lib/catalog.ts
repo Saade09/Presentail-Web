@@ -39,10 +39,10 @@ export const DISTRICT_FEES: Record<string, number> = {
   Ajman: 13.61,
   Sharjah: 13.61,
   "Abu Dhabi": 13.61,
-  Larnaca: 0,
-  Limassol: 0,
-  Nicosia: 0,
-  Paphos: 0,
+  Larnaca: 11,
+  Limassol: 11,
+  Nicosia: 11,
+  Paphos: 11,
 };
 
 export const EXPRESS_SURCHARGE_USD = 15;

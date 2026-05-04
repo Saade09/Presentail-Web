@@ -84,7 +84,7 @@ export default function Checkout() {
     Tyre: 39, "West Bekaa": 39, Zahle: 29, Zghorta: 39,
     Dubai: 13.61, "Ras Al Khaimah": 13.61, "Umm Al Quwain": 13.61,
     Fujairah: 13.61, Ajman: 13.61, Sharjah: 13.61, "Abu Dhabi": 13.61,
-    Larnaca: 0, Limassol: 0, Nicosia: 0, Paphos: 0,
+    Larnaca: 11, Limassol: 11, Nicosia: 11, Paphos: 11,
   };
   const FREE_DELIVERY_THRESHOLD = 130;
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";

@@ -124,10 +124,10 @@ const AE_DISTRICTS: District[] = [
   { name: "Abu Dhabi", fee: 13.61 },
 ];
 const CY_DISTRICTS: District[] = [
-  { name: "Larnaca", fee: 0 },
-  { name: "Limassol", fee: 0 },
-  { name: "Nicosia", fee: 0 },
-  { name: "Paphos", fee: 0 },
+  { name: "Larnaca", fee: 11 },
+  { name: "Limassol", fee: 11 },
+  { name: "Nicosia", fee: 11 },
+  { name: "Paphos", fee: 11 },
 ];
 function districtsForCountry(code?: string): District[] {
   if (code === "AE") return AE_DISTRICTS;
