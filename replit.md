@@ -64,6 +64,17 @@ Optional sign-in / sign-up / delete, fully native — no web redirect (replaces 
   - `contexts/AuthContext.tsx` — login/register call `registerPushToken({ authToken, userId })` to claim the token; logout/deleteAccount call `unregisterPushToken()`.
   - `app/checkout.tsx` + `lib/woo.ts` — checkout payload now sends `appUserId` and `appDeviceId` so the server-side `confirmed` push routes back to the buyer's tokens.
 
+### CI/CD — Automated TestFlight Submissions
+- **GitHub Actions workflow**: `.github/workflows/ios-testflight.yml`
+- Triggers on push to `main` when `artifacts/presentail/**`, `lib/**`, or `pnpm-lock.yaml` change (also supports manual `workflow_dispatch`)
+- Runs `eas build --platform ios --profile production --auto-submit --non-interactive`
+- Build numbers auto-increment via `autoIncrement: true` in `eas.json` production profile
+- **Required GitHub Secrets**:
+  - `EXPO_TOKEN` — EAS access token (from expo.dev account settings)
+  - `ASC_API_KEY_ID` — App Store Connect API Key ID
+  - `ASC_API_KEY_ISSUER_ID` — App Store Connect API Key Issuer ID
+  - `ASC_API_KEY_P8` — Contents of the `.p8` private key file from App Store Connect
+
 ### OTA Updates (`expo-updates`)
 - `app.json`: `updates.url`, `runtimeVersion: { policy: "appVersion" }`, `expo-updates` plugin.
 - `app/_layout.tsx` `useAutoUpdate()` runs on cold start in production builds: `checkForUpdateAsync` → `fetchUpdateAsync` → `reloadAsync`. Result: a single cold start applies the latest OTA (no more "open twice to see changes").
