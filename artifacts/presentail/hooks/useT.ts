@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useDeliveryLocation } from "@/contexts/DeliveryLocationProvider";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { translations } from "@/lib/translations";
 
 export function useT() {

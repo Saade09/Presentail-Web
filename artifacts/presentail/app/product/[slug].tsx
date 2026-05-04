@@ -17,7 +17,7 @@ import { Price } from "@/components/Price";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { useDeliveryLocation } from "@/contexts/DeliveryLocationProvider";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
