@@ -241,6 +241,11 @@ export default function CheckoutScreen() {
     if (cityChanged || countryChanged) {
       districtManuallyEdited.current = false;
     }
+    if (countryChanged) {
+      const newSlots = timeSlotsForCountry(selectedCountry?.code);
+      const h = getCountryHour(selectedCountry?.code);
+      setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
+    }
     if (districtManuallyEdited.current) return;
     const list = districtsForCountry(selectedCountry?.code);
     if (selectedCity) {
@@ -252,9 +257,6 @@ export default function CheckoutScreen() {
     }
     if (countryChanged) {
       setDistrict(list[0]);
-      const newSlots = timeSlotsForCountry(selectedCountry?.code);
-      const h = getCountryHour(selectedCountry?.code);
-      setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
     }
   }, [selectedCountry, selectedCity]);
   const [districtOpen, setDistrictOpen] = useState(false);
