@@ -1,10 +1,52 @@
 import { useRef } from "react";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Gift,
+  Cake,
+  Heart,
+  Trophy,
+  Baby,
+  Flower,
+  PartyPopper,
+  Candy,
+  ShoppingBasket,
+  Tv,
+  Gamepad2,
+  Wine,
+  Leaf,
+  Sparkles,
+  HandHeart,
+  type LucideIcon,
+} from "lucide-react";
+import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-icons";
+
+const ICON_FOR_NAME: Record<HomepageIconName, LucideIcon> = {
+  gift: Gift,
+  cake: Cake,
+  heart: Heart,
+  trophy: Trophy,
+  baby: Baby,
+  flower: Flower,
+  // lucide has no balloon icon; party-popper conveys the same celebratory feel.
+  balloon: PartyPopper,
+  candy: Candy,
+  basket: ShoppingBasket,
+  // lucide has no teddy-bear icon; fall back to the generic gift glyph.
+  "teddy-bear": Gift,
+  tv: Tv,
+  gamepad: Gamepad2,
+  wine: Wine,
+  leaf: Leaf,
+  sparkles: Sparkles,
+  "hand-heart": HandHeart,
+};
 
 export type CircularCarouselItem = {
   id: string;
   label: string;
+  slug?: string;
   imageUrl: string;
   href: string;
 };
@@ -97,9 +139,10 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <span className="font-serif text-2xl text-primary/40">
-                        {item.label.charAt(0)}
-                      </span>
+                      (() => {
+                        const Icon = ICON_FOR_NAME[getHomepageIconName(item.slug, item.label)];
+                        return <Icon className="w-7 h-7 md:w-8 md:h-8 text-primary/40" strokeWidth={1.5} />;
+                      })()
                     )}
                   </div>
                   <span className="font-serif text-sm md:text-base text-primary text-center max-w-[8rem] line-clamp-1">

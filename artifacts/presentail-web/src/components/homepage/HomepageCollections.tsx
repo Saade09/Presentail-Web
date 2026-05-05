@@ -33,6 +33,7 @@ function CategoriesRow({ title }: { title: string }) {
       .map((i: CollectionItem) => ({
         id: i.id,
         label: i.name,
+        slug: i.slug,
         imageUrl: i.imageUrl,
         href: `/shop?category=${encodeURIComponent(i.slug)}`,
       })) ?? [];
@@ -55,6 +56,7 @@ function OccasionsRow({ title }: { title: string }) {
       .map((i: CollectionItem) => ({
         id: i.id,
         label: i.name,
+        slug: i.slug,
         imageUrl: i.imageUrl,
         href: `/shop?occasion=${encodeURIComponent(i.slug)}`,
       })) ?? [];

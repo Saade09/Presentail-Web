@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/api-client-react";
+import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
@@ -50,6 +51,30 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 const HERO_HEIGHT = Math.round(SCREEN_H * 0.88);
 const AUTO_ADVANCE_MS = 4500;
+
+// Map the shared generic icon names to MaterialCommunityIcons glyphs so
+// the mobile carousel fallbacks stay visually in sync with the web build.
+const MOBILE_ICON_GLYPH: Record<
+  HomepageIconName,
+  React.ComponentProps<typeof MaterialCommunityIcons>["name"]
+> = {
+  gift: "gift-outline",
+  cake: "cake-variant",
+  heart: "heart",
+  trophy: "trophy",
+  baby: "baby-carriage",
+  flower: "flower",
+  balloon: "balloon",
+  candy: "candy",
+  basket: "basket",
+  "teddy-bear": "teddy-bear",
+  tv: "television",
+  gamepad: "gamepad-variant",
+  wine: "glass-wine",
+  leaf: "leaf",
+  sparkles: "star-four-points",
+  "hand-heart": "hand-heart",
+};
 
 function HomeHeader({
   topPad,
@@ -907,15 +932,11 @@ function CategoryRail() {
                         justifyContent: "center",
                       }}
                     >
-                      <Text
-                        style={{
-                          fontFamily: "Inter_600SemiBold",
-                          fontSize: 24,
-                          color: colors.primary,
-                        }}
-                      >
-                        {item.name.charAt(0)}
-                      </Text>
+                      <MaterialCommunityIcons
+                        name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
+                        size={24}
+                        color={colors.primary}
+                      />
                     </View>
                   )}
                 </View>
@@ -1118,15 +1139,11 @@ function OccasionsCarousel() {
                         justifyContent: "center",
                       }}
                     >
-                      <Text
-                        style={{
-                          fontFamily: "Inter_600SemiBold",
-                          fontSize: 24,
-                          color: colors.primary,
-                        }}
-                      >
-                        {item.name.charAt(0)}
-                      </Text>
+                      <MaterialCommunityIcons
+                        name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
+                        size={24}
+                        color={colors.primary}
+                      />
                     </View>
                   )}
                 </View>
