@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
 import { Price } from "@/components/Price";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
@@ -428,14 +429,13 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
           {t.waysToPayLabel}
         </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {["MC", "VISA", "G Pay", "Apple", "AMEX", "Whish"].map((p) => (
-            <View key={p} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff" }}>
-              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.6, color: colors.primary }}>
-                {p}
-              </Text>
-            </View>
-          ))}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <MastercardBadge />
+          <VisaBadge />
+          <GooglePayBadge />
+          <ApplePayBadge />
+          <AmexBadge />
+          <WhishBadge />
         </View>
       </View>
 

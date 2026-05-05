@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CardIcons, WalletIcons } from "@/components/PaymentBadges";
 import { PhoneField } from "@/components/PhoneField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -1571,38 +1572,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   );
 }
 
-function CardIcons() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
-        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#006FCF", letterSpacing: 0.4 }}>AMEX</Text>
-      </View>
-      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row" }}>
-        <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#EB001B" }} />
-        <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -5 }} />
-      </View>
-      <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
-        <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#1A1F71" }}>VISA</Text>
-      </View>
-    </View>
-  );
-}
-
-function WalletIcons() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-      <View style={{ backgroundColor: "#000", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4 }}>
-        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.3 }}> Pay</Text>
-      </View>
-      <View style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row", alignItems: "center", gap: 2 }}>
-        <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 6, color: "#fff" }}>G</Text>
-        </View>
-        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#555" }}>Pay</Text>
-      </View>
-    </View>
-  );
-}
+// CardIcons and WalletIcons moved to @/components/PaymentBadges
 
 function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children, disabled, disabledReason }: any) {
   // When disabled we render the option in a dimmed state with a short
