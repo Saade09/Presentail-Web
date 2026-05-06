@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "aQWaGAvLzz0O-GA-SQqgl"
@@ -108,3 +107,117 @@ id = "T9eTzV8rQFVfZ35cXupWU"
 uri = "file://artifacts/presentail/assets/images/hero-summer-collection.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "ESkRQOaNp9kwZdue0Hwv9"
+uri = "file://attached_assets/play-store/feature-graphic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Ks2lts8nb7kLrXOeT1au-"
+uri = "file://attached_assets/play-store/screenshot-1-home.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "WOGd2njMeJeauxpfQaaxB"
+uri = "file://attached_assets/play-store/screenshot-2-product.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "qGrdiFi7uLLGFHp6Xwl8v"
+uri = "file://attached_assets/play-store/screenshot-3-checkout.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "aAOtzP0PF-XLjuj8tfWfH"
+uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"
+type = "image"
+title = "Feature graphic (1024×500) — required"
+
+[[outputs]]
+id = "IXU3L2Q-VYroleMa2PRMZ"
+uri = "file://attached_assets/play-store/screenshot-1-home.png"
+type = "image"
+title = "Screenshot 1 — Home"
+
+[[outputs]]
+id = "r29wFVGx59058oqmy9rPP"
+uri = "file://attached_assets/play-store/screenshot-2-product.png"
+type = "image"
+title = "Screenshot 2 — Product detail"
+
+[[outputs]]
+id = "dQHfM3GXCNJM_Kb-gQeMI"
+uri = "file://attached_assets/play-store/screenshot-3-checkout.png"
+type = "image"
+title = "Screenshot 3 — Card message & checkout"
+
+[[outputs]]
+id = "uFGmC9jHtLGOpha4F6Iz_"
+uri = "file://attached_assets/play-store/v2/feature-graphic-1024x500.png"
+type = "image"
+title = "Feature graphic (1024×500)"
+
+[[outputs]]
+id = "02S6HuTvWYmKhV6_cDX_H"
+uri = "file://attached_assets/play-store/v2/tablet7-1.png"
+type = "image"
+title = "7-inch tablet 1 — Home"
+
+[[outputs]]
+id = "QA0R9QKqECSbfFgABEg6g"
+uri = "file://attached_assets/play-store/v2/tablet7-2.png"
+type = "image"
+title = "7-inch tablet 2 — Bestsellers"
+
+[[outputs]]
+id = "EIaUQnHGk0A0KmRoygD-S"
+uri = "file://attached_assets/play-store/v2/tablet7-3.png"
+type = "image"
+title = "7-inch tablet 3 — Collections"
+
+[[outputs]]
+id = "-mvi6QhpYsKtEHmUNWUOb"
+uri = "file://attached_assets/play-store/v2/tablet10-1.png"
+type = "image"
+title = "10-inch tablet 1 — Home"
+
+[[outputs]]
+id = "Z7KntO9-bijO6sNm9sgdm"
+uri = "file://attached_assets/play-store/v2/tablet10-2.png"
+type = "image"
+title = "10-inch tablet 2 — Bestsellers"
+
+[[outputs]]
+id = "6OwSZ99d1hr0L_--fGblj"
+uri = "file://attached_assets/play-store/v2/tablet10-3.png"
+type = "image"
+title = "10-inch tablet 3 — Collections"
+
+[[outputs]]
+id = "BaLTkNDjb90gmOR30YFMQ"
+uri = "file://attached_assets/play-store/v2/tablet7-4.png"
+type = "image"
+title = "7-inch tablet 4 — Product detail"
+
+[[outputs]]
+id = "4LrAutm57Jo6uffPt6wAt"
+uri = "file://attached_assets/play-store/v2/tablet7-5.png"
+type = "image"
+title = "7-inch tablet 5 — Card message"
+
+[[outputs]]
+id = "mlnujmCwcTLQoVEXdXOFJ"
+uri = "file://attached_assets/play-store/v2/tablet10-4.png"
+type = "image"
+title = "10-inch tablet 4 — Product detail"
+
+[[outputs]]
+id = "iPcXfM2x2VUULwh_SVR19"
+uri = "file://attached_assets/play-store/v2/tablet10-5.png"
+type = "image"
+title = "10-inch tablet 5 — Card message"
