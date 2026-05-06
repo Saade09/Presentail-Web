@@ -1,3 +1,4 @@
+import type { Request } from "express";
 import { Router, type IRouter } from "express";
 import {
   GetHomepageBannersQueryParams,
@@ -232,16 +233,135 @@ async function getCollection(
   }
 }
 
+// Slug + display defaults for the Summer Collection entry that we always
+// pin to the end of the Categories rail when the active store has products
+// in the WC `summer-collection` category. Mirrored on the client routes
+// (`/category/summer-collection` on mobile, `/shop?category=summer-collection`
+// on web) so taps land on the existing listing.
+const SUMMER_COLLECTION_SLUG = "summer-collection";
+const SUMMER_COLLECTION_FALLBACK_NAME = "Summer Collection";
+const SUMMER_COLLECTION_FALLBACK_ASSET_PATH =
+  "/api/assets/hero-summer-collection.png";
+
+type SummerEntry = { id: string; name: string; imageUrl: string };
+
+// Per-store cache of the Summer Collection WC category lookup. Kept
+// separate from `collectionCache` so we can refresh it independently and
+// so we never hand a request-scoped absolute URL into a cache that is
+// reused across origins.
+const summerCollectionCache = new Map<
+  string,
+  { fetchedAt: number; entry: SummerEntry | null }
+>();
+
+async function getSummerCollectionEntry(
+  store: WooStoreConfig,
+  log: { warn: (obj: unknown, msg?: string) => void },
+): Promise<SummerEntry | null> {
+  const now = Date.now();
+  const cached = summerCollectionCache.get(store.baseUrl);
+  if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
+    return cached.entry;
+  }
+  if (!store.consumerKey) {
+    summerCollectionCache.set(store.baseUrl, { fetchedAt: now, entry: null });
+    return null;
+  }
+  try {
+    const cats = await wooGet<WcCategoryRaw[]>(
+      `/products/categories?slug=${encodeURIComponent(SUMMER_COLLECTION_SLUG)}&per_page=1`,
+      store,
+    );
+    if (!cats.length || (cats[0].count ?? 0) === 0 || cats[0].display === "hidden") {
+      summerCollectionCache.set(store.baseUrl, { fetchedAt: now, entry: null });
+      return null;
+    }
+    const c = cats[0];
+    const entry: SummerEntry = {
+      id: String(c.id),
+      name: c.name || SUMMER_COLLECTION_FALLBACK_NAME,
+      imageUrl: c.image?.src ?? "",
+    };
+    summerCollectionCache.set(store.baseUrl, { fetchedAt: now, entry });
+    return entry;
+  } catch (err) {
+    log.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "summer-collection lookup failed; omitting entry",
+    );
+    return null;
+  }
+}
+
+// Build the absolute URL the clients should use to load the bundled
+// fallback hero image. We honor x-forwarded-proto so the URL is https in
+// production behind the shared proxy.
+function resolveAssetUrl(req: Request, assetPath: string): string {
+  const forwardedProto =
+    typeof req.headers["x-forwarded-proto"] === "string"
+      ? req.headers["x-forwarded-proto"].split(",")[0]?.trim()
+      : "";
+  const proto = forwardedProto || req.protocol;
+  const host = req.get("host") ?? "";
+  return `${proto}://${host}${assetPath}`;
+}
+
+// Ensure the Summer Collection entry is present (pinned to the end of the
+// rail) and has a usable image. If the curated/dynamic feed already
+// contains a `summer-collection` slug we keep its position but enrich its
+// `imageUrl` with the WC category image (or the bundled fallback) when the
+// existing entry has none, so the rail shows a photo instead of a letter
+// placeholder.
+function mergeSummerCollection(
+  items: HomepageCollectionItem[],
+  entry: SummerEntry | null,
+  fallbackImageUrl: string,
+): HomepageCollectionItem[] {
+  if (!entry) return items;
+  const resolvedImage = entry.imageUrl || fallbackImageUrl;
+  const existingIdx = items.findIndex((i) => i.slug === SUMMER_COLLECTION_SLUG);
+  if (existingIdx !== -1) {
+    const existing = items[existingIdx];
+    if (existing.imageUrl) return items;
+    const enriched = { ...existing, imageUrl: resolvedImage };
+    const next = items.slice();
+    next[existingIdx] = enriched;
+    return next;
+  }
+  const sortOrder = items.length
+    ? Math.max(...items.map((i) => i.sortOrder)) + 1
+    : 0;
+  return [
+    ...items,
+    {
+      id: entry.id,
+      name: entry.name,
+      slug: SUMMER_COLLECTION_SLUG,
+      imageUrl: resolvedImage,
+      sortOrder,
+      isActive: true,
+    },
+  ];
+}
+
 router.get("/homepage/categories", async (req, res) => {
   const store = resolveStoreFromRequest(req);
-  const items = await getCollection(
-    `categories::${store.baseUrl}`,
-    "home-categories",
-    fetchTopLevelCategories,
-    req.log,
-    store,
+  const [items, summer] = await Promise.all([
+    getCollection(
+      `categories::${store.baseUrl}`,
+      "home-categories",
+      fetchTopLevelCategories,
+      req.log,
+      store,
+    ),
+    getSummerCollectionEntry(store, req.log),
+  ]);
+  const fallbackImageUrl = resolveAssetUrl(
+    req,
+    SUMMER_COLLECTION_FALLBACK_ASSET_PATH,
   );
-  const data = GetHomepageCategoriesResponse.parse({ items });
+  const merged = mergeSummerCollection(items, summer, fallbackImageUrl);
+  const data = GetHomepageCategoriesResponse.parse({ items: merged });
   res.json(data);
 });
 
@@ -271,10 +391,19 @@ export async function refreshHomepageCollectionsForStore(
   const occKey = `occasions::${store.baseUrl}`;
   collectionCache.delete(catKey);
   collectionCache.delete(occKey);
-  const [categories, occasions] = await Promise.all([
+  summerCollectionCache.delete(store.baseUrl);
+  const [categoriesBase, occasions, summer] = await Promise.all([
     getCollection(catKey, "home-categories", fetchTopLevelCategories, logger, store),
     getCollection(occKey, "home-occasions", fetchOccasionCategories, logger, store),
+    getSummerCollectionEntry(store, logger),
   ]);
+  // Include the merged Summer Collection entry in the returned snapshot so
+  // wooSync's category-id diff detects WC summer-collection
+  // additions/removals and triggers the silent data_refresh push. The
+  // image URL stays empty here because the snapshot is request-agnostic;
+  // the per-request handler injects the absolute fallback URL when
+  // serving clients.
+  const categories = mergeSummerCollection(categoriesBase, summer, "");
   return { categories, occasions };
 }
 

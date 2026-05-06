@@ -1,3 +1,4 @@
+import path from "node:path";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -50,6 +51,19 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Static assets used by the homepage rails (e.g. fallback category
+// images). Resolved relative to the bundled server's __dirname so the
+// `dist/public/` directory copied by build.mjs is found in production,
+// and the development build path resolves the same way.
+app.use(
+  "/api/assets",
+  express.static(path.join(__dirname, "public"), {
+    maxAge: "7d",
+    immutable: false,
+    fallthrough: false,
+  }),
+);
 
 app.use("/api", router);
 
