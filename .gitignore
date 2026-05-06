@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Google Play service account key (never commit)
+artifacts/presentail/google-service-account.json
