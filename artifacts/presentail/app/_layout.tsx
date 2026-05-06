@@ -10,7 +10,7 @@ import {
   PlayfairDisplay_500Medium,
   PlayfairDisplay_600SemiBold,
 } from "@expo-google-fonts/playfair-display";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -45,18 +45,55 @@ SplashScreen.preventAutoHideAsync();
 // expo-notifications.
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
+    handleNotification: async (notification) => {
+      // Silent data_refresh pushes from the server's scheduled WooCommerce
+      // sync should never display UI — they only signal the app to
+      // invalidate its caches. Suppress banner / sound / badge.
+      const data = notification?.request?.content?.data ?? {};
+      if ((data as { type?: string }).type === "data_refresh") {
+        return {
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+      return {
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      };
+    },
   });
 }
 
 // Re-register the push token when expo-notifications rotates it (this can
 // happen when APNs/FCM expires the underlying device token). Lives at the
 // module level because the listener API isn't tied to React lifecycle.
+// Listen for silent `data_refresh` pushes from the server's scheduled
+// WooCommerce sync and invalidate the React Query keys that back the
+// homepage so the next render re-fetches the latest content. Foreground
+// only — when the app is backgrounded, the existing AppState listener
+// already triggers a product re-sync on resume.
+function DataRefreshPushListener() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = Notifications.addNotificationReceivedListener((notif) => {
+      const data = notif?.request?.content?.data ?? {};
+      if ((data as { type?: string }).type !== "data_refresh") return;
+      qc.invalidateQueries({ queryKey: ["/api/homepage/categories"] });
+      qc.invalidateQueries({ queryKey: ["/api/homepage/occasions"] });
+      qc.invalidateQueries({ queryKey: ["/api/homepage/banners"] });
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [qc]);
+  return null;
+}
+
 function PushTokenRotationListener() {
   const { token: authToken, user } = useAuth();
   useEffect(() => {
@@ -137,6 +174,7 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
   return (
     <>
       <PushTokenRotationListener />
+      <DataRefreshPushListener />
       <RootLayoutNav />
       <CartDrawer />
       {!splashGone && <AnimatedSplash fadingOut={ready} onFadeOutEnd={handleFadeOutEnd} />}

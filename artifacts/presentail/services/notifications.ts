@@ -218,9 +218,10 @@ export async function registerPushToken(opts: {
   const deviceId = await getDeviceId();
 
   try {
+    const storeHeaders = getStoredStoreHeaders();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...getStoredStoreHeaders(),
+      ...storeHeaders,
     };
     if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
 
@@ -232,6 +233,13 @@ export async function registerPushToken(opts: {
         platform: Platform.OS === "ios" ? "ios" : "android",
         deviceId,
         userId: opts.userId ?? undefined,
+        // Mirror the same store headers in the body so the server can
+        // persist the user's currently-selected store on the push token
+        // row. The scheduled sync uses these to scope silent
+        // data_refresh pushes per store (Lebanon vs UAE Dubai vs UAE
+        // Abu Dhabi).
+        countryCode: storeHeaders["x-store-country"] ?? undefined,
+        cityId: storeHeaders["x-store-city"] ?? undefined,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean };

@@ -15,4 +15,8 @@ export interface PushRegisterRequest {
   deviceId?: string;
   /** Optional client-provided WC customer id; ignored when an Authorization header is present. */
   userId?: number;
+  /** ISO 3166-1 alpha-2 country code of the device's currently selected store. Used to scope silent data-refresh pushes per store. */
+  countryCode?: string;
+  /** Optional city id of the device's currently selected store (e.g. ae-abu-dhabi). */
+  cityId?: string;
 }

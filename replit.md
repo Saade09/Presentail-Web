@@ -19,6 +19,10 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8` (for CI/CD, EAS access, and TestFlight submissions)
 - `EXPO_PUBLIC_API_BASE_URL` (for OTA updates and `lib/stripe.ts` API base)
 - `EXPO_PUBLIC_DOMAIN` (for Stripe API_BASE)
+- `WOO_SYNC_ENABLED` (`1`/`true` to enable the scheduled WooCommerce sync worker; default off)
+- `WOO_SYNC_INTERVAL_MS` (poll interval for the sync worker; default 900000 = 15 min, minimum 60000)
+- `WOO_SYNC_PUSH_ON_CHANGE` (`0`/`false` to suppress silent `data_refresh` pushes when the sync detects content changes; default on)
+- `BANNERS_REMOTE_URL` (optional JSON URL re-loaded by the sync worker; falls back to `HOMEPAGE_BANNERS` when unset or unreachable)
 
 ## Stack
 
@@ -62,6 +66,7 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - **Robust Push Notification System**: Utilizes Expo Push Notifications, with server-side logic to register/unregister tokens (securely linking to user IDs), track order states, and trigger notifications for key events (confirmed, out for delivery, delivered) via an admin-only webhook.
 - **Client-side Currency Conversion**: All product `priceValue` is stored in USD (WooCommerce base currency) and converted only at the point of display in the UI, using exchange rates and symbols defined in `data/currencies.ts`. This simplifies backend currency management and ensures consistent pricing logic.
 - **Dynamic Content per Store**: Categories and occasions are fetched dynamically from WooCommerce per store, ensuring localized and relevant product offerings without hardcoding.
+- **Scheduled WooCommerce Sync (Lebanon, Dubai, Abu Dhabi)**: `lib/wooSync.ts` polls each configured store on `WOO_SYNC_INTERVAL_MS`, force-refreshes the `allProductsCache` / `occasionIdCache` / homepage `collectionCache` per store, reloads banners from `BANNERS_REMOTE_URL` (with the static fallback), reconciles WooCommerce customers into local rows (and backfills `app_orders.user_id`), then sends a silent Expo `data_refresh` push (`_contentAvailable: true`, `priority: high`, `sound: null`) to tokens whose persisted `countryCode`/`cityId` map to that store. The mobile app's foreground listener invalidates the matching React Query keys. A `POST /api/woo/sync/run` admin endpoint (gated by `PUSH_ADMIN_TOKEN`) triggers a run on demand.
 
 ## Product
 

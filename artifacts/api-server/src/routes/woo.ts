@@ -317,6 +317,30 @@ const OCCASION_SLUGS = [
 const occasionIdCache = new Map<string, { fetchedAt: number; map: Map<string, number> }>();
 const OCCASION_ID_TTL = 5 * 60 * 1000;
 
+export { OCCASION_SLUGS };
+export type SupportedLang = Lang;
+export const SUPPORTED_LANGS_LIST = SUPPORTED_LANGS;
+
+// Force-refresh the occasion id cache for the given store. Each slug is
+// resolved against WooCommerce; failures are swallowed so a single bad
+// slug doesn't block the rest. Returns the count of slugs successfully
+// (re)cached.
+export async function refreshOccasionIdsForStore(
+  store: WooStoreConfig,
+): Promise<number> {
+  occasionIdCache.delete(store.baseUrl);
+  let resolved = 0;
+  for (const slug of OCCASION_SLUGS) {
+    try {
+      const id = await resolveOccasionId(slug, "en", store);
+      if (id != null) resolved += 1;
+    } catch {
+      // ignore — best effort
+    }
+  }
+  return resolved;
+}
+
 async function resolveOccasionId(
   slug: string, lang: Lang, store: WooStoreConfig,
 ): Promise<number | null> {
@@ -484,12 +508,18 @@ const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
 const allProductsCache: Map<string, { fetchedAt: number; products: WcProduct[] }> = new Map();
 const allProductsInflight: Map<string, Promise<WcProduct[]>> = new Map();
 
-async function fetchAllProducts(lang: Lang, store: WooStoreConfig): Promise<WcProduct[]> {
+export async function fetchAllProducts(
+  lang: Lang,
+  store: WooStoreConfig,
+  opts: { force?: boolean } = {},
+): Promise<WcProduct[]> {
   const cacheKey = `${store.baseUrl}::${lang}`;
   const now = Date.now();
-  const cached = allProductsCache.get(cacheKey);
-  if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) {
-    return cached.products;
+  if (!opts.force) {
+    const cached = allProductsCache.get(cacheKey);
+    if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) {
+      return cached.products;
+    }
   }
   const existing = allProductsInflight.get(cacheKey);
   if (existing) return existing;

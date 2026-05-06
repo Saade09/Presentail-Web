@@ -23,7 +23,13 @@ router.post("/push/register", async (req, res): Promise<void> => {
       .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid body" });
     return;
   }
-  const { token, platform, deviceId } = parsed.data;
+  const { token, platform, deviceId, countryCode, cityId } = parsed.data;
+  const normalizedCountry =
+    typeof countryCode === "string" && countryCode.trim()
+      ? countryCode.trim().toUpperCase()
+      : null;
+  const normalizedCity =
+    typeof cityId === "string" && cityId.trim() ? cityId.trim() : null;
 
   let userId: number | null = null;
   const authHeader = req.header("authorization");
@@ -45,6 +51,8 @@ router.post("/push/register", async (req, res): Promise<void> => {
         platform,
         userId,
         deviceId: deviceId ?? null,
+        countryCode: normalizedCountry,
+        cityId: normalizedCity,
       })
       .onConflictDoUpdate({
         target: pushTokensTable.token,
@@ -52,6 +60,8 @@ router.post("/push/register", async (req, res): Promise<void> => {
           platform,
           userId,
           deviceId: deviceId ?? null,
+          countryCode: normalizedCountry,
+          cityId: normalizedCity,
           updatedAt: new Date(),
         },
       });

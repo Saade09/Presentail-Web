@@ -16,6 +16,8 @@ export const pushTokensTable = pgTable(
     platform: text("platform").notNull(),
     userId: integer("user_id"),
     deviceId: text("device_id"),
+    countryCode: text("country_code"),
+    cityId: text("city_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

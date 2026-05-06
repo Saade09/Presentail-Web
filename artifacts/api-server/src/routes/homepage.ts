@@ -6,7 +6,7 @@ import {
   GetHomepageOccasionsResponse,
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
-import { HOMEPAGE_BANNERS } from "../data/homepageBanners";
+import { getActiveBanners } from "../data/homepageBanners";
 
 const router: IRouter = Router();
 
@@ -19,7 +19,7 @@ router.get("/homepage/banners", (req, res) => {
   const code = (countryCode ?? "*").toUpperCase();
   const now = Date.now();
 
-  const banners = HOMEPAGE_BANNERS.filter((b) => {
+  const banners = getActiveBanners().filter((b) => {
     if (!b.isActive) return false;
     if (b.countryCode !== "*" && b.countryCode.toUpperCase() !== code) return false;
     if (b.startsAt && new Date(b.startsAt).getTime() > now) return false;
@@ -257,5 +257,25 @@ router.get("/homepage/occasions", async (req, res) => {
   const data = GetHomepageOccasionsResponse.parse({ items });
   res.json(data);
 });
+
+// Force-refresh the homepage Categories + Occasions caches for a given
+// store. Used by the scheduled WooCommerce sync (lib/wooSync.ts) so the
+// next request hits warm caches and a content delta can be computed.
+export async function refreshHomepageCollectionsForStore(
+  store: WooStoreConfig,
+): Promise<{
+  categories: HomepageCollectionItem[];
+  occasions: HomepageCollectionItem[];
+}> {
+  const catKey = `categories::${store.baseUrl}`;
+  const occKey = `occasions::${store.baseUrl}`;
+  collectionCache.delete(catKey);
+  collectionCache.delete(occKey);
+  const [categories, occasions] = await Promise.all([
+    getCollection(catKey, "home-categories", fetchTopLevelCategories, logger, store),
+    getCollection(occKey, "home-occasions", fetchOccasionCategories, logger, store),
+  ]);
+  return { categories, occasions };
+}
 
 export default router;

@@ -302,6 +302,12 @@ components:
         userId:
           type: integer
           description: Optional client-provided WC customer id; ignored when an Authorization header is present.
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of the device's currently selected store. Used to scope silent data-refresh pushes per store.
+        cityId:
+          type: string
+          description: Optional city id of the device's currently selected store (e.g. ae-abu-dhabi).
       required:
         - token
         - platform
