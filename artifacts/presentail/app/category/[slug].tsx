@@ -16,15 +16,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
-import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
   categories,
   getCategory,
+  products as STATIC_CATALOG,
+  type Product,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchCategoryProducts } from "@/lib/woo";
+import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -50,44 +51,47 @@ export default function CategoryScreen() {
     { key: "priceDown", label: t.sortPriceDown },
     { key: "name", label: t.sortName },
   ];
-  const [wcProducts, setWcProducts] = useState<any[]>([]);
+  const [wcProducts, setWcProducts] = useState<Product[]>([]);
   const [wcCategoryName, setWcCategoryName] = useState<string>("");
-  const [wcLoading, setWcLoading] = useState(false);
+  const [wcLoading, setWcLoading] = useState(true);
 
-  const { products: allProducts, loading: catalogLoading } = useWooProducts();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
   const category = getCategory(String(slug));
-  const mergedProducts = useMemo(
-    () => allProducts.filter((p) => p.category === String(slug)),
-    [slug, allProducts]
-  );
 
-  // When catalog is done loading and has no products for this slug,
-  // fall back to fetching directly from WooCommerce by category slug.
-  // Use a stable signature of the merged products (ids) so the effect
-  // re-runs when the actual product set changes, not just its length.
-  const mergedSig = useMemo(
-    () => mergedProducts.map((p) => p.id).join("|"),
-    [mergedProducts],
-  );
+  // Always fetch the live category list from WooCommerce so the screen
+  // reflects exactly what is in stock and deliverable for the selected
+  // store. The static catalog is only used to enrich items with richer
+  // metadata (descriptions, occasion tags, fallback image, tag) — it
+  // never gates which items are shown.
+  const staticById = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of STATIC_CATALOG) {
+      if (!map.has(p.id)) map.set(p.id, p);
+    }
+    return map;
+  }, []);
+
   useEffect(() => {
-    if (catalogLoading) return;
-    if (mergedProducts.length > 0) { setWcProducts([]); return; }
     let cancelled = false;
     setWcLoading(true);
     fetchCategoryProducts(String(slug), { countryCode, cityId }).then(({ products, categoryName }) => {
       if (cancelled) return;
-      setWcProducts(products.filter((p) => p.image));
+      // Merge first so static metadata (including fallback image) can
+      // rescue live items whose Woo payload is missing an image. Only
+      // drop items that still have no usable image after the merge.
+      const merged = products
+        .map((wp) => mergeWithStatic(wp, staticById.get(wp.id)))
+        .filter((p) => p.image);
+      setWcProducts(merged);
       setWcCategoryName(categoryName);
       setWcLoading(false);
     });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, catalogLoading, mergedSig, countryCode, cityId]);
+  }, [slug, countryCode, cityId, staticById]);
 
-  const sourceProducts = mergedProducts.length > 0 ? mergedProducts : wcProducts;
+  const sourceProducts = wcProducts;
   const products = useMemo(() => {
     if (sort === "priceUp") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "priceDown") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
@@ -278,6 +282,33 @@ export default function CategoryScreen() {
       </ScrollView>
     </View>
   );
+}
+
+function mergeWithStatic(wp: WooProduct, sp: Product | undefined): Product {
+  if (!sp) {
+    return {
+      id: wp.id,
+      wcId: wp.wcId,
+      name: wp.name,
+      price: wp.price,
+      priceValue: wp.priceValue,
+      image: wp.image,
+      category: wp.category,
+      description: wp.description,
+      tag: wp.tag,
+      occasions: [],
+    };
+  }
+  return {
+    ...sp,
+    name: wp.name || sp.name,
+    price: wp.price ?? sp.price,
+    priceValue: wp.priceValue ?? sp.priceValue,
+    image: wp.image ?? sp.image,
+    description: sp.description ?? wp.description,
+    tag: sp.tag ?? wp.tag,
+    wcId: wp.wcId,
+  };
 }
 
 const styles = StyleSheet.create({

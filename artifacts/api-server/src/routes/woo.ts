@@ -414,7 +414,11 @@ router.get("/woo/category-products", async (req, res) => {
 
     const allProducts: WcProduct[] = [];
     let page = 1;
-    while (allProducts.length < 200) {
+    // Paginate through every in-stock published product in this category.
+    // Previously this was capped at 200 items, which silently truncated
+    // larger categories (e.g. Cakes in some stores). WooCommerce returns
+    // up to 100 per page; stop when a short page is returned.
+    while (true) {
       const r = await wooFetch(
         `/products?category=${catId}&per_page=100&page=${page}&status=publish&stock_status=instock`,
         {},
@@ -427,6 +431,8 @@ router.get("/woo/category-products", async (req, res) => {
       allProducts.push(...batch);
       if (batch.length < 100) break;
       page++;
+      // Hard ceiling to avoid runaway loops on unexpected upstream behavior.
+      if (page > 50) break;
     }
     const filter = readDeliveryFilter(req);
     const filtered = allProducts.filter((p) => isDeliverable(p, filter));
