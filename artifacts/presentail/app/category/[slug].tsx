@@ -32,7 +32,12 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 type SortKey = "featured" | "priceUp" | "priceDown" | "name";
 
 export default function CategoryScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug: routeSlug } = useLocalSearchParams<{ slug: string }>();
+  const [activeSlug, setActiveSlug] = useState<string>(String(routeSlug));
+  useEffect(() => {
+    if (routeSlug) setActiveSlug(String(routeSlug));
+  }, [routeSlug]);
+  const slug = activeSlug;
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -179,7 +184,7 @@ export default function CategoryScreen() {
             return (
               <Pressable
                 key={c.id}
-                onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: c.id } })}
+                onPress={() => setActiveSlug(c.id)}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 10,
