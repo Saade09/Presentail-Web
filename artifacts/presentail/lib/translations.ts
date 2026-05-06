@@ -428,6 +428,7 @@ const EN = {
   catalogAll: "All",
   catalogFeaturedEyebrow: "Featured · Lux Arrangements",
   catalogFeaturedTitle: "Sculpted Roses & Statement Stems",
+  catalogSortLabel: "Sort",
   noMatches: "No matches",
   noMatchesDesc: "Try a different category or search term.",
 
@@ -668,9 +669,9 @@ const EN = {
 
   // ── Sort labels ──
   sortFeatured: "Featured",
-  sortPriceUp: "Price ↑",
-  sortPriceDown: "Price ↓",
-  sortName: "Name",
+  sortPriceUp: "Price: Low to High",
+  sortPriceDown: "Price: High to Low",
+  sortName: "Name: A–Z",
 
   // ── Occasion page ──
   occasionForTheOccasion: "For the occasion",
@@ -1249,6 +1250,7 @@ const AR: typeof EN = {
   catalogAll: "الكل",
   catalogFeaturedEyebrow: "مميّز · تنسيقات فاخرة",
   catalogFeaturedTitle: "ورود منحوتة وأزهار مميّزة",
+  catalogSortLabel: "ترتيب",
   noMatches: "لا توجد نتائج",
   noMatchesDesc: "جرّب فئة مختلفة أو كلمة بحث أخرى.",
 
@@ -1488,10 +1490,10 @@ const AR: typeof EN = {
   occasionFallback: "المناسبة",
 
   // ── Sort labels ──
-  sortFeatured: "مميز",
-  sortPriceUp: "السعر ↑",
-  sortPriceDown: "السعر ↓",
-  sortName: "الاسم",
+  sortFeatured: "مميّز",
+  sortPriceUp: "السعر: من الأقل إلى الأعلى",
+  sortPriceDown: "السعر: من الأعلى إلى الأقل",
+  sortName: "الاسم: أ–ي",
 
   // ── Occasion page ──
   occasionForTheOccasion: "للمناسبة",
@@ -2070,6 +2072,7 @@ const FR: typeof EN = {
   catalogAll: "Tout",
   catalogFeaturedEyebrow: "À l'honneur · Compositions Lux",
   catalogFeaturedTitle: "Roses sculptées & tiges d'exception",
+  catalogSortLabel: "Trier",
   noMatches: "Aucun résultat",
   noMatchesDesc: "Essayez une autre catégorie ou un autre terme.",
 
@@ -2309,10 +2312,10 @@ const FR: typeof EN = {
   occasionFallback: "Occasion",
 
   // ── Sort labels ──
-  sortFeatured: "À la une",
-  sortPriceUp: "Prix ↑",
-  sortPriceDown: "Prix ↓",
-  sortName: "Nom",
+  sortFeatured: "À l'honneur",
+  sortPriceUp: "Prix : croissant",
+  sortPriceDown: "Prix : décroissant",
+  sortName: "Nom : A–Z",
 
   // ── Occasion page ──
   occasionForTheOccasion: "Pour l'occasion",

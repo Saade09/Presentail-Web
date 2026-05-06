@@ -25,6 +25,8 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
 const ALL = "all";
 
+type SortKey = "featured" | "priceUp" | "priceDown" | "name";
+
 export default function CatalogScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -38,6 +40,14 @@ export default function CatalogScreen() {
   const { products } = useWooProducts();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
   const [query, setQuery] = useState<string>(params.q ?? "");
+  const [sort, setSort] = useState<SortKey>("featured");
+
+  const sortOptions: { id: SortKey; label: string }[] = [
+    { id: "featured", label: t.sortFeatured },
+    { id: "priceUp", label: t.sortPriceUp },
+    { id: "priceDown", label: t.sortPriceDown },
+    { id: "name", label: t.sortName },
+  ];
 
   const filtered = useMemo(() => {
     let list = products;
@@ -46,8 +56,19 @@ export default function CatalogScreen() {
       const q = query.toLowerCase();
       list = list.filter((p) => p.name.toLowerCase().includes(q));
     }
+    if (sort !== "featured") {
+      const sorted = [...list];
+      if (sort === "priceUp") {
+        sorted.sort((a, b) => (a.priceValue ?? 0) - (b.priceValue ?? 0));
+      } else if (sort === "priceDown") {
+        sorted.sort((a, b) => (b.priceValue ?? 0) - (a.priceValue ?? 0));
+      } else if (sort === "name") {
+        sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+      }
+      list = sorted;
+    }
     return list;
-  }, [activeCat, query]);
+  }, [products, activeCat, query, sort]);
 
   return (
     <ScrollView
@@ -168,6 +189,55 @@ export default function CatalogScreen() {
           },
         )}
       </ScrollView>
+
+      <View style={{ paddingHorizontal: 24, paddingTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Text
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 10,
+            color: colors.gold,
+            letterSpacing: 2,
+            textTransform: "uppercase",
+          }}
+        >
+          {t.catalogSortLabel}
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+          style={{ flex: 1 }}
+        >
+          {sortOptions.map((opt) => {
+            const active = opt.id === sort;
+            return (
+              <Pressable
+                key={opt.id}
+                onPress={() => setSort(opt.id)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: active ? colors.gold : colors.border,
+                  backgroundColor: active ? colors.gold : "#fff",
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: active ? "#fff" : colors.primary,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {filtered.length === 0 ? (
         <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
