@@ -11,6 +11,7 @@ const LOGO_AR_WHITE = require("@/assets/images/presentail-logo-ar-white.png");
 
 const LOGO_EN_RATIO = 4167 / 2383;
 const LOGO_AR_RATIO = 3250 / 792;
+const LOGO_AR_HEIGHT_SCALE = LOGO_EN_RATIO / LOGO_AR_RATIO;
 
 type WordmarkProps = {
   size?: number;
@@ -26,7 +27,7 @@ export function Wordmark({ size = 28, color, inverse }: WordmarkProps) {
     ? useWhite ? LOGO_AR_WHITE : LOGO_AR
     : useWhite ? LOGO_EN_WHITE : LOGO_EN;
   const ratio = isArabic ? LOGO_AR_RATIO : LOGO_EN_RATIO;
-  const height = size;
+  const height = isArabic ? size * LOGO_AR_HEIGHT_SCALE : size;
   const width = height * ratio;
   return (
     <View style={styles.wordmarkRow}>
