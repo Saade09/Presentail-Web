@@ -1,6 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -8,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -171,44 +168,6 @@ export default function CatalogScreen() {
           },
         )}
       </ScrollView>
-
-      <Pressable
-        onPress={() => router.push("/category/lux-arrangements")}
-        style={{ marginTop: 24, marginHorizontal: 24, borderRadius: 22, overflow: "hidden" }}
-      >
-        <Image
-          source={require("@/assets/products/sweet-scarlet-affair.avif")}
-          style={{ width: "100%", height: 160 }}
-          contentFit="cover"
-        />
-        <LinearGradient
-          colors={["rgba(0,65,78,0.15)", "rgba(0,65,78,0.7)"]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={{ position: "absolute", bottom: 18, left: 18, right: 18 }}>
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 10,
-              letterSpacing: 2,
-              color: colors.goldSoft,
-              textTransform: "uppercase",
-            }}
-          >
-            {t.catalogFeaturedEyebrow}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "PlayfairDisplay_500Medium",
-              color: "#fff",
-              fontSize: 22,
-              marginTop: 6,
-            }}
-          >
-            {t.catalogFeaturedTitle}
-          </Text>
-        </View>
-      </Pressable>
 
       {filtered.length === 0 ? (
         <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
