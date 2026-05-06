@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "presentail-play-submissions",
+  "private_key_id": "ac8428a5981568697fa27b949c11bed9573eab10",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCi8/51eTo8210H\nCiYA7bMNE+gfx1U4QWd3lGpmpu3gkO/vtaDqUZY94FjjDQRX32QPUWIsTI2a7f27\n6sP+W/0VtCTBgGE7fe7rSz5DpiE7hRjkHYU6j02VfWMwNllwyL0V2Y/YbgN3VToM\n1J41hiS4j6OVAk8x5UzMkKVRMryc+rmKk2AVTJFvpxspMyJo0uRhixXUgGszVYYk\nLVr+Ys/cNiTI1L/5OkaUuvYHpJMTw91cExXD8Gi7mjZe3tcBn/TyzJOrEQFMLa7a\nsWGCMeuIttl7/zav6VbD18QUqghAaBPYZBykgy//AnPEQ7Pr6xK9Bt16Mq11s0/j\nG6gMB2XhAgMBAAECggEAUOb1oyo0TUmVtqyFsLlSx3/mI3zqJPtn3LktWFixSmh7\nD1ZsFVm7T24mg1ePm/b3bRl5NcguF8jnzBfjBdJy5QcipoVQAOLlryEUwS5mWnAa\nqwqy/h9uo/T0PVgGcNXg9sukvI3mH6WLJBqdj7JRYeZCj3Ttj7apufhoc1dOyFpx\noKHbXhMvskxnwL0/y4tGXIBxT9/jy0rsYElXuHN8l/jpjwO87i21OLPLqMn4ATYO\nGP4G7425+qbisFt50UISzsLJ/i0h5jru3LJKCInfJQB07JA1uf0RzqLhC77Sd1aK\neCSpOXoxPy6Zgt1l46XYBD4VZF9cqAK/k+0fO2HavwKBgQDWPQiACf4xBziz5+0c\n2bvWwPMNnbdqH6j31hbUxj3GPFYSK8YSFqrjzBGzDNBoujNsKY3oCq26Q6exgJqt\n2D0VBqEkfGBa29QJBSXQhZSo3TJL/vTRlhsNkr3JmlyqtAHavPNQs7OMeudCd2+o\n+/8NNYlkylRQTIOBjNWBY9eiwwKBgQDCt7YX3vlv6F+YfKPslolSlzqPQ1g3oo5r\ns1pxg0Tn7ESgoPEUsd1rgYwq3TudDMEBB29Xi2jKBtEQ8gdrbkEb/KnxfWoqXC+s\nD3+gBglrEobYxI/r+Ukh0cn4CKb4fBXUuU3QNTf9/EXkzyfqd1tx2WC7qpJRKNRa\neUfKStmCiwKBgQCgPdhsxIyvKUKdNd0hli4sS/e/+Ham1vVwIl7DWV/9NUX/o2Qs\nRW4eopWegfgkTRmHTnGI3OvihRYZ6yJG45WUc3f2LV14uDIZaRNGq5Ns1r33H8UI\nOqkTdu2jrGShfbBhZrDrbO3gJlFxYppPH+U+gQu6Kqfzw7cdIDTV6dLxNwKBgGpF\nSaSNlSV2dXYL0It3PUtOLi+yWZtDpOcy49HACwNo96uTKwBYcrgR5CYgyEBWjZ+6\nJxJoi7B3N/M/pL0FV5OmujmKcT7dQUduzgDQSqOdYOs9nC71xuwmS0yLrFVBo8iN\nueJAqWZ9IMhYJzjYG5hvQ1QpK+IPnpYiSwQlBcExAoGBAIT+QDG8CuTTY8P4SBrR\nvFuXBGmtostMB2DBsbzc+enIi2yQtT12GchArYkfWfKhEGn9Iud4kc54iKv4MECX\nLSTu/oEpsq71DadU9hHohCKy+Wix8SQvQqJFYImyHzqQbqN6A0GfibC4w99wsw+6\nqOnl994eNNWLTqw8CgGw/ajJ\n-----END PRIVATE KEY-----\n",
+  "client_email": "presentail-eas-submit@presentail-play-submissions.iam.gserviceaccount.com",
+  "client_id": "103536676692356469233",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/presentail-eas-submit%40presentail-play-submissions.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
