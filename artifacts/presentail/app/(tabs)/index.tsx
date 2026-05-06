@@ -30,7 +30,6 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
   bestSellers,
   brands,
-  collections,
   reviews,
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -472,7 +471,6 @@ export default function HomeScreen() {
           <CategoryRail />
           <OccasionsCarousel />
           <BundlesSection />
-          <CollectionsSection />
           <BrandStorySection />
           <ReviewsSection />
           {selectedCountry?.code !== "AE" && <BrandsRow />}
@@ -1072,119 +1070,6 @@ function CategoryRail() {
                 </Text>
               </Pressable>
             ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-function CollectionsSection() {
-  const colors = useColors();
-  const router = useRouter();
-  const t = useT();
-  const { products: wooProducts } = useWooProducts();
-
-  const populatedSlugs = new Set(wooProducts.map((p) => p.category));
-  const visibleCollections = collections.filter((c) => !c.category || populatedSlugs.has(c.category));
-
-  if (visibleCollections.length === 0) return null;
-
-  return (
-    <View style={{ marginTop: 44 }}>
-      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
-        <SectionTitle
-          eyebrow="Collections"
-          title="Curated for the season"
-          description="Limited drops, designed by our atelier and changed with the calendar."
-        />
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={SCREEN_W * 0.78 + 14}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
-      >
-        {visibleCollections.map((c) => (
-          <Pressable
-            key={c.id}
-            onPress={() => c.category && router.push({ pathname: "/category/[slug]", params: { slug: c.category } })}
-            style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
-          >
-            <View
-              style={{
-                width: SCREEN_W * 0.78,
-                borderRadius: 22,
-                overflow: "hidden",
-                backgroundColor: colors.muted,
-                aspectRatio: 1,
-              }}
-            >
-              <Image
-                source={c.image}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-              />
-              <LinearGradient
-                colors={["transparent", "rgba(0,65,78,0.75)"]}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={{ flex: 1, justifyContent: "flex-end", padding: 22 }}>
-                <Text
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 10,
-                    color: colors.goldSoft,
-                    letterSpacing: 2.5,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {c.count}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "PlayfairDisplay_500Medium",
-                    fontSize: 24,
-                    color: "#fff",
-                    marginTop: 6,
-                  }}
-                >
-                  {c.title}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 13,
-                    color: "rgba(255,255,255,0.85)",
-                    marginTop: 6,
-                    lineHeight: 20,
-                  }}
-                >
-                  {c.subtitle}
-                </Text>
-                <View
-                  style={{
-                    marginTop: 14,
-                    alignSelf: "flex-start",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 999,
-                    backgroundColor: "rgba(255,255,255,0.18)",
-                    borderWidth: 1,
-                    borderColor: "rgba(255,255,255,0.3)",
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase" }}>
-                    Shop
-                  </Text>
-                  <Feather name="arrow-up-right" size={14} color="#fff" />
-                </View>
-              </View>
-            </View>
-          </Pressable>
-        ))}
       </ScrollView>
     </View>
   );

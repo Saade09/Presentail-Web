@@ -11,15 +11,6 @@ export type Product = {
   wcId?: number;
 };
 
-export type Collection = {
-  id: string;
-  title: string;
-  subtitle: string;
-  count: string;
-  image: any;
-  category?: string;
-};
-
 export type Category = {
   id: string;
   name: string;
@@ -282,33 +273,6 @@ export const categories: Category[] = [
   { id: "gift-cards", name: "Gift Cards", icon: "card-giftcard", image: cat["gift-cards"] },
   { id: "electronics", name: "Electronics", icon: "cellphone", image: cat["electronics"] },
   { id: "board-games", name: "Board Games", icon: "chess-knight", image: cat["board-games"] },
-];
-
-export const collections: Collection[] = [
-  {
-    id: "lux-arrangements",
-    title: "Lux Arrangements",
-    subtitle: "Sculptural roses for the most important moments",
-    count: `${products.filter((p) => p.category === "lux-arrangements").length} pieces`,
-    image: img.sweetScarlet,
-    category: "lux-arrangements",
-  },
-  {
-    id: "bundles",
-    title: "Curated Bundles",
-    subtitle: "Flowers paired with chocolate, cakes & boutique gifts",
-    count: `${products.filter((p) => p.category === "bundles").length} pieces`,
-    image: img.thrivingHeart,
-    category: "bundles",
-  },
-  {
-    id: "tulip-season",
-    title: "Tulip Season",
-    subtitle: "A limited spring edition direct from Holland",
-    count: "4 pieces",
-    image: img.snowfallTulip,
-    category: "flower-vases",
-  },
 ];
 
 export const occasions: Occasion[] = [
