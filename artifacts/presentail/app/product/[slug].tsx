@@ -202,9 +202,8 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
   const { formatNative, currencyCode } = useCurrency();
-  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const { selectedCountry } = useDeliveryLocation();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
-  const cityName = selectedCity?.name ?? "Beirut";
   const t = useT();
   const points = Math.max(1, Math.round(product.priceValue * 0.4));
 
@@ -461,7 +460,7 @@ function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
           <View style={{ paddingTop: 16, gap: 10 }}>
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 22, color: colors.mutedForeground }}>
               {product.description ??
-                `The "${product.name}" is a captivating Presentail piece — hand-arranged in our ${cityName} atelier with the freshest seasonal blooms, finished with our boutique wrapping and a personal note card.`}
+                `The "${product.name}" is a captivating Presentail piece — hand-arranged in our Beirut atelier with the freshest seasonal blooms, finished with our boutique wrapping and a personal note card.`}
             </Text>
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: colors.primary, marginTop: 4 }}>
               {t.thisArrangementIncludes}
