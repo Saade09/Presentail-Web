@@ -22,8 +22,7 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://lebanon-luxury-showcase.replit.app",
-        "EXPO_PUBLIC_DELIVERY_LOCATIONS_URL": "https://lebanon-luxury-showcase.replit.app/api/delivery-locations"
+        "EXPO_PUBLIC_API_BASE_URL": "https://lebanon-luxury-showcase.replit.app"
       }
     }
   },

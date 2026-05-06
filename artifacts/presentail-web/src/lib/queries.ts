@@ -75,10 +75,77 @@ export const useOccasionProducts = (
   });
 };
 
+// Hard allowlist (mirrors the mobile app): the storefront only delivers to
+// Lebanon, UAE, and Cyprus. Any country returned by the API outside this set
+// MUST be filtered out before reaching the country/city picker so a stale
+// upstream or future regression cannot reintroduce unsupported destinations.
+// We also reconcile per-country city lists against canonical fallbacks so
+// Lebanon always shows the full 26-district set even if the backend drifts.
+const ALLOWED_DELIVERY_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
+
+const FALLBACK_DELIVERY_CITIES: Record<string, { id: string; name: string }[]> = {
+  LB: [
+    { id: "lb-akkar", name: "Akkar" },
+    { id: "lb-aley", name: "Aley" },
+    { id: "lb-baabda", name: "Baabda" },
+    { id: "lb-baalbeck", name: "Baalbeck" },
+    { id: "lb-batroun", name: "Batroun" },
+    { id: "lb-bcharee", name: "Bcharee" },
+    { id: "lb-beirut", name: "Beirut" },
+    { id: "lb-bent-jbeil", name: "Bent Jbeil" },
+    { id: "lb-chouf", name: "Chouf" },
+    { id: "lb-hasbaya", name: "Hasbaya" },
+    { id: "lb-hermel", name: "Hermel" },
+    { id: "lb-jbail", name: "Jbail" },
+    { id: "lb-jezzine", name: "Jezzine" },
+    { id: "lb-kasserwan", name: "Kasserwan" },
+    { id: "lb-koura", name: "Koura" },
+    { id: "lb-marjayoun", name: "Marjayoun" },
+    { id: "lb-metn", name: "Metn" },
+    { id: "lb-minnieh-dennaya", name: "Minnieh-Dennaya" },
+    { id: "lb-nabatieh", name: "Nabatieh" },
+    { id: "lb-rechaya", name: "Rechaya" },
+    { id: "lb-saida", name: "Saida" },
+    { id: "lb-tripoli", name: "Tripoli" },
+    { id: "lb-tyre", name: "Tyre" },
+    { id: "lb-west-bekaa", name: "West Bekaa" },
+    { id: "lb-zahle", name: "Zahle" },
+    { id: "lb-zghorta", name: "Zghorta" },
+  ],
+  AE: [
+    { id: "ae-dubai", name: "Dubai" },
+    { id: "ae-ras-al-khaimah", name: "Ras Al Khaimah" },
+    { id: "ae-umm-al-quwain", name: "Umm Al Quwain" },
+    { id: "ae-fujairah", name: "Fujairah" },
+    { id: "ae-ajman", name: "Ajman" },
+    { id: "ae-sharjah", name: "Sharjah" },
+    { id: "ae-abu-dhabi", name: "Abu Dhabi" },
+  ],
+  CY: [
+    { id: "cy-larnaca", name: "Larnaca" },
+    { id: "cy-limassol", name: "Limassol" },
+    { id: "cy-nicosia", name: "Nicosia" },
+    { id: "cy-paphos", name: "Paphos" },
+  ],
+};
+
 export const useDeliveryLocations = () => {
   return useQuery({
     queryKey: ["delivery-locations"],
-    queryFn: () => apiFetch<DeliveryLocationsResponse>("/delivery-locations")
+    queryFn: async () => {
+      const data = await apiFetch<DeliveryLocationsResponse>("/delivery-locations");
+      const filtered = (data.countries ?? [])
+        .filter((c) => ALLOWED_DELIVERY_COUNTRY_CODES.has(c.code?.toUpperCase()))
+        .map((c) => {
+          const code = c.code.toUpperCase();
+          const fallbackCities = FALLBACK_DELIVERY_CITIES[code];
+          if (!fallbackCities) return c;
+          // Use the canonical fallback district list as the source of truth
+          // for ids/names, regardless of what the backend returned.
+          return { ...c, code, cities: fallbackCities };
+        });
+      return { ...data, countries: filtered };
+    },
   });
 };
 

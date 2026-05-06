@@ -37,6 +37,15 @@ import { isSupportedCurrencyCode } from "@/data/currencies";
 
 const TIMEOUT_MS = 4000;
 
+// Hard allowlist: this app only delivers to Lebanon, UAE, and Cyprus.
+// Any remote feed that returns extra countries (e.g. an unrelated upstream
+// like the legacy `lebanon-luxury-showcase` deployment) MUST be filtered
+// down to these codes so the country picker can never display unsupported
+// destinations. Reconcile each remote country's `cities` against the
+// fallback district list so the proper delivery districts are always used
+// even if the upstream returns wrong/legacy city names.
+const ALLOWED_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
+
 function getEndpoint(): string | null {
   const override = process.env.EXPO_PUBLIC_DELIVERY_LOCATIONS_URL;
   if (typeof override === "string" && override.trim().length > 0) {
@@ -61,8 +70,11 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
     const isActive = obj.isActive !== false;
     const citiesRaw = Array.isArray(obj.cities) ? obj.cities : [];
     if (!id || !name || !code) continue;
+    // Drop any country outside our supported delivery footprint.
+    const upperCode = code.trim().toUpperCase();
+    if (!ALLOWED_COUNTRY_CODES.has(upperCode)) continue;
     const currency = isSupportedCurrencyCode(currencyRaw) ? currencyRaw : "USD";
-    const cities = citiesRaw
+    const remoteCities = citiesRaw
       .map((cc) => {
         if (!cc || typeof cc !== "object") return null;
         const cobj = cc as Record<string, unknown>;
@@ -76,7 +88,26 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
         };
       })
       .filter(Boolean) as DeliveryCountry["cities"];
-    out.push({ id, name, code, flag, currency, isActive, cities });
+    // Reconcile cities against the fallback district list. The fallback is
+    // the source of truth for delivery districts (the upstream feed has
+    // historically returned legacy city names like Beirut/Jounieh/Tripoli
+    // for Lebanon instead of our 26 districts). If the remote returned a
+    // matching city (by id or name) we keep its `isActive`; otherwise we
+    // default to active.
+    const fallback = FALLBACK_DELIVERY_COUNTRIES.find(
+      (fc) => fc.code.toUpperCase() === upperCode,
+    );
+    const cities = fallback
+      ? fallback.cities.map((fc) => {
+          const match = remoteCities.find(
+            (rc) =>
+              rc.id === fc.id ||
+              rc.name.trim().toLowerCase() === fc.name.trim().toLowerCase(),
+          );
+          return { id: fc.id, name: fc.name, isActive: match ? match.isActive : true };
+        })
+      : remoteCities;
+    out.push({ id, name, code: upperCode, flag, currency, isActive, cities });
   }
   return out.length > 0 ? out : null;
 }
