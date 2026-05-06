@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { resolveStoreLogContext } from "./lib/wooStore";
 
 const app: Express = express();
 
@@ -17,6 +18,19 @@ app.set("trust proxy", 1);
 app.use(
   pinoHttp({
     logger,
+    // Add the resolved WooCommerce store routing context to every
+    // auto-emitted request completion log line. `country` reflects the
+    // regional WooCommerce instance the resolver actually picked (after
+    // applying fallback rules), and `city` is the recognized routing city
+    // id when one was supplied. Using `customProps` ensures the field
+    // lands on the line pino-http itself emits (independent of whether
+    // handlers ever touch `req.log`), so QA/support can confirm which
+    // regional store served any request without re-deriving it from
+    // headers. Only routing context is added — no PII, secrets, or
+    // credentials.
+    customProps: (req) => ({
+      store: resolveStoreLogContext(req),
+    }),
     serializers: {
       req(req) {
         return {

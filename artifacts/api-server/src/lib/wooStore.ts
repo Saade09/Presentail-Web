@@ -1,3 +1,5 @@
+export type StoreCountry = "LB" | "AE" | "CY";
+
 export type WooStoreConfig = {
   baseUrl: string;
   wpBaseUrl: string;
@@ -5,6 +7,9 @@ export type WooStoreConfig = {
   consumerSecret: string;
   currencySymbol: string;
   currencyCode: string;
+  // ISO country code of the regional WooCommerce instance this config points
+  // at. Used for structured logging of the resolved store routing context.
+  country: StoreCountry;
 };
 
 const STORE_LEBANON: () => WooStoreConfig = () => ({
@@ -14,6 +19,7 @@ const STORE_LEBANON: () => WooStoreConfig = () => ({
   consumerSecret: process.env.WC_CONSUMER_SECRET ?? "",
   currencySymbol: "$",
   currencyCode: "USD",
+  country: "LB",
 });
 
 const STORE_DUBAI: () => WooStoreConfig = () => ({
@@ -23,6 +29,7 @@ const STORE_DUBAI: () => WooStoreConfig = () => ({
   consumerSecret: process.env.WC_DUBAI_CONSUMER_SECRET ?? "",
   currencySymbol: "AED",
   currencyCode: "AED",
+  country: "AE",
 });
 
 const STORE_ABUDHABI: () => WooStoreConfig = () => ({
@@ -32,6 +39,7 @@ const STORE_ABUDHABI: () => WooStoreConfig = () => ({
   consumerSecret: process.env.WC_ABUDHABI_CONSUMER_SECRET ?? "",
   currencySymbol: "AED",
   currencyCode: "AED",
+  country: "AE",
 });
 
 const STORE_CYPRUS: () => WooStoreConfig = () => ({
@@ -41,6 +49,7 @@ const STORE_CYPRUS: () => WooStoreConfig = () => ({
   consumerSecret: process.env.WC_CYPRUS_CONSUMER_SECRET ?? "",
   currencySymbol: "€",
   currencyCode: "EUR",
+  country: "CY",
 });
 
 const CITY_TO_STORE: Record<string, () => WooStoreConfig> = {
@@ -100,4 +109,33 @@ export function readStoreContext(req: { query: any; headers: any }): StoreContex
 export function resolveStoreFromRequest(req: { query: any; headers: any }): WooStoreConfig {
   const ctx = readStoreContext(req);
   return resolveStore(ctx.countryCode, ctx.cityId);
+}
+
+// Structured representation of the store the resolver actually picked, for
+// logging. `country` is the regional WooCommerce instance the request was
+// routed to (after applying fallback rules), NOT the raw client-supplied
+// `x-store-country`. `city` is the recognized routing city id when one was
+// supplied and matched a known city; otherwise null. No PII or secrets.
+export type ResolvedStoreLogContext = {
+  country: StoreCountry;
+  city: string | null;
+};
+
+// pino-http hands `customProps` an `IncomingMessage`. Express decorates it at
+// runtime with `query`, but the Node typing doesn't model that. We accept the
+// minimal structural shape we actually read so callers don't need casts at the
+// call site.
+type RequestLike = {
+  query?: unknown;
+  headers?: unknown;
+};
+
+export function resolveStoreLogContext(req: RequestLike): ResolvedStoreLogContext {
+  const ctx = readStoreContext({
+    query: req.query ?? {},
+    headers: req.headers ?? {},
+  });
+  const recognizedCity = ctx.cityId && CITY_TO_STORE[ctx.cityId] ? ctx.cityId : null;
+  const store = resolveStore(ctx.countryCode, ctx.cityId);
+  return { country: store.country, city: recognizedCity };
 }
