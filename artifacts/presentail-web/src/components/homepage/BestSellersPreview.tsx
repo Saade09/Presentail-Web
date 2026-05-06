@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useCategoryProducts, useProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 
 export function BestSellersPreview() {
   const { t, language } = useLocale();
@@ -15,7 +17,12 @@ export function BestSellersPreview() {
   const allQuery = useProducts(locParams, catQuery.isSuccess && (catQuery.data?.products?.length ?? 0) === 0);
   const isLoading = catQuery.isLoading || allQuery.isLoading;
   const catProducts = catQuery.data?.products ?? [];
-  const products = (catProducts.length > 0 ? catProducts : allQuery.data?.products ?? []).slice(0, 4);
+  // Reshuffle the candidate pool once per UTC day per store so the four
+  // featured items rotate over time without changing the source data.
+  const products = useMemo(() => {
+    const pool = catProducts.length > 0 ? catProducts : allQuery.data?.products ?? [];
+    return seededShuffle(pool, homepageShuffleSeed("best-sellers", countryCode, cityId)).slice(0, 4);
+  }, [catProducts, allQuery.data?.products, countryCode, cityId]);
 
   return (
     <section className="py-14 md:py-20" data-testid="section-best-sellers">

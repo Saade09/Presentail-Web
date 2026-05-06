@@ -4,7 +4,7 @@ import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -38,6 +38,7 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { fetchCategoryProducts, fetchWcBrands, type WcBrand, type WooProduct } from "@/lib/woo";
+import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getNativePermissionStatus,
@@ -739,12 +740,18 @@ function BestSellers() {
   const router = useRouter();
   const colors = useColors();
   const t = useT();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts } = useWooProducts();
   const countryName = selectedCountry?.name ?? "Lebanon";
 
-  const displayProducts = wooProducts.length > 0
-    ? wooProducts.slice(0, 4)
+  // Reshuffle the candidate pool once per UTC day per store so repeat visitors
+  // see a fresh order without items jumping around mid-session.
+  const shuffledWooProducts = useMemo(
+    () => seededShuffle(wooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
+    [wooProducts, selectedCountry?.code, selectedCity?.id],
+  );
+  const displayProducts = shuffledWooProducts.length > 0
+    ? shuffledWooProducts.slice(0, 4)
     : bestSellers;
 
   if (displayProducts.length === 0) return null;
@@ -799,8 +806,12 @@ function FlowersSection() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts } = useWooProducts();
-  const flowerProducts = wooProducts.filter((p) => FLOWER_CATS.has(p.category)).slice(0, 10);
+  const flowerProducts = useMemo(() => {
+    const pool = wooProducts.filter((p) => FLOWER_CATS.has(p.category));
+    return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id)).slice(0, 10);
+  }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
 
   if (!flowerProducts.length) return null;
   return (
@@ -856,7 +867,9 @@ function SummerCollectionSection() {
     fetchCategoryProducts("summer-collection", { countryCode, cityId })
       .then(({ products }) => {
         if (cancelled) return;
-        setProducts(products.filter((p) => p.image).slice(0, 10));
+        const pool = products.filter((p) => p.image);
+        const shuffled = seededShuffle(pool, homepageShuffleSeed("summer-collection", countryCode, cityId));
+        setProducts(shuffled.slice(0, 10));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -909,8 +922,12 @@ function BundlesSection() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts } = useWooProducts();
-  const bundleProducts = wooProducts.filter((p) => p.category === "bundles").slice(0, 6);
+  const bundleProducts = useMemo(() => {
+    const pool = wooProducts.filter((p) => p.category === "bundles");
+    return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, 6);
+  }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
 
   if (!bundleProducts.length) return null;
   return (
