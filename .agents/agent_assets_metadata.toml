@@ -102,3 +102,9 @@ id = "l1Ynim1_iJybUivOukgwM"
 uri = "file://artifacts/presentail/assets/images/hero-slide3.png"
 type = "image"
 title = "teal bg red roses craft"
+
+[[generated]]
+id = "T9eTzV8rQFVfZ35cXupWU"
+uri = "file://artifacts/presentail/assets/images/hero-summer-collection.png"
+type = "image"
+title = "generated_image"

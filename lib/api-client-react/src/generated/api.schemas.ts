@@ -171,6 +171,23 @@ the global ("*") banners.
   countryCode?: string;
 };
 
+export type GetHomepageCategoriesParams = {
+  /**
+ * ISO 3166-1 alpha-2 country code (case-insensitive) used to
+resolve which WooCommerce store the categories are sourced
+from. When omitted, the server falls back to Lebanon.
+
+ */
+  countryCode?: string;
+  /**
+ * City identifier (e.g. "ae-dubai", "ae-abu-dhabi") used to
+resolve a city-specific WooCommerce store when the country
+alone is ambiguous.
+
+ */
+  cityId?: string;
+};
+
 export type GetDeliveryConfigParams = {
   /**
    * ISO 3166-1 alpha-2 country code (case-insensitive).

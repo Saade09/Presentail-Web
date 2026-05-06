@@ -13,6 +13,7 @@ export * from "./deliveryLocationsResponse";
 export * from "./errorResponse";
 export * from "./getDeliveryConfigParams";
 export * from "./getHomepageBannersParams";
+export * from "./getHomepageCategoriesParams";
 export * from "./healthStatus";
 export * from "./homepageBanner";
 export * from "./homepageBannerMediaType";

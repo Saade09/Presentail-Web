@@ -37,7 +37,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { fetchWcBrands, type WcBrand } from "@/lib/woo";
+import { fetchCategoryProducts, fetchWcBrands, type WcBrand, type WooProduct } from "@/lib/woo";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getNativePermissionStatus,
@@ -466,6 +466,7 @@ export default function HomeScreen() {
           <Hero />
           {selectedCountry?.code !== "AE" && <BrandStrip />}
           <BestSellers />
+          <SummerCollectionSection />
           <FlowersSection />
           <CategoryRail />
           <OccasionsCarousel />
@@ -521,10 +522,11 @@ function Hero() {
     },
     {
       key: "2",
-      image: require("@/assets/images/hero-slide2.png"),
+      image: require("@/assets/images/hero-summer-collection.png"),
       title: t.heroSlide2Title,
+      subtitle: t.heroSlide2Subtitle,
       cta: t.heroSlide2Cta,
-      route: "/category/lux-arrangements" as Href,
+      route: "/category/summer-collection" as Href,
     },
     {
       key: "3",
@@ -612,6 +614,20 @@ function Hero() {
           >
             {item.title}
           </Text>
+          {"subtitle" in item && item.subtitle ? (
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 15,
+                lineHeight: 22,
+                color: "rgba(255,255,255,0.92)",
+                textAlign: ta,
+                marginTop: 10,
+              }}
+            >
+              {item.subtitle}
+            </Text>
+          ) : null}
           <View
             style={[
               styles.heroCta,
@@ -824,6 +840,71 @@ function FlowersSection() {
   );
 }
 
+function SummerCollectionSection() {
+  const colors = useColors();
+  const router = useRouter();
+  const t = useT();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
+  const [products, setProducts] = useState<WooProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchCategoryProducts("summer-collection", { countryCode, cityId })
+      .then(({ products }) => {
+        if (cancelled) return;
+        setProducts(products.filter((p) => p.image).slice(0, 10));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode, cityId]);
+
+  if (loading || products.length === 0) return null;
+
+  return (
+    <View style={{ marginTop: 44 }}>
+      <View
+        style={{
+          paddingHorizontal: 24,
+          marginBottom: 18,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <SectionTitle
+            eyebrow={t.summerEyebrowHome}
+            title={t.summerTitleHome}
+            description={t.summerDescHome}
+          />
+        </View>
+        <Pressable onPress={() => router.push("/category/summer-collection")}>
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+            {t.viewAll}
+          </Text>
+        </Pressable>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+      >
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p as any} width={CARD_W} />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 function BundlesSection() {
   const colors = useColors();
   const router = useRouter();
@@ -869,7 +950,27 @@ function CategoryRail() {
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { data, isLoading } = useGetHomepageCategories();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? undefined;
+  const cityId = selectedCity?.id ?? undefined;
+  // Use the same x-store-country / x-store-city headers that
+  // `fetchCategoryProducts` uses, so the rail consults the right
+  // WooCommerce store. Include the country/city in the React Query
+  // key so switching country invalidates the cached rail.
+  const { data, isLoading } = useGetHomepageCategories(undefined, {
+    request: {
+      headers: {
+        ...(countryCode ? { "x-store-country": countryCode } : {}),
+        ...(cityId ? { "x-store-city": cityId } : {}),
+      },
+    },
+    query: {
+      queryKey: [
+        "/api/homepage/categories",
+        { countryCode: countryCode ?? null, cityId: cityId ?? null },
+      ],
+    },
+  });
 
   const items = (data?.items ?? []).filter((i) => i.isActive);
 

@@ -98,6 +98,7 @@ const PRODUCT_TYPE_SLUGS = new Set([
   "lux-arrangements", "orchids", "roses", "roses-lebanon",
   "arabic-sweets", "board-games", "personal-gifts", "beauty",
   "gift-bundles", "baskets", "spirits", "gaming",
+  "summer-collection",
 ]);
 
 async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {

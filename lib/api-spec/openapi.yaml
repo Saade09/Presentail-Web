@@ -168,6 +168,25 @@ paths:
         WooCommerce network/HTTP failure the endpoint instead returns an
         empty `items` array (still 200) so the client hides the section
         rather than rendering stale defaults.
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          description: |
+            ISO 3166-1 alpha-2 country code (case-insensitive) used to
+            resolve which WooCommerce store the categories are sourced
+            from. When omitted, the server falls back to Lebanon.
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          description: |
+            City identifier (e.g. "ae-dubai", "ae-abu-dhabi") used to
+            resolve a city-specific WooCommerce store when the country
+            alone is ambiguous.
+          schema:
+            type: string
       responses:
         "200":
           description: Categories carousel items

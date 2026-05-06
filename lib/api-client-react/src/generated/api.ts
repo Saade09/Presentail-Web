@@ -22,6 +22,7 @@ import type {
   ErrorResponse,
   GetDeliveryConfigParams,
   GetHomepageBannersParams,
+  GetHomepageCategoriesParams,
   HealthStatus,
   HomepageBannersResponse,
   HomepageCollectionResponse,
@@ -510,15 +511,30 @@ rather than rendering stale defaults.
 
  * @summary Get curated homepage Categories carousel items
  */
-export const getGetHomepageCategoriesUrl = () => {
-  return `/api/homepage/categories`;
+export const getGetHomepageCategoriesUrl = (
+  params?: GetHomepageCategoriesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/homepage/categories?${stringifiedParams}`
+    : `/api/homepage/categories`;
 };
 
 export const getHomepageCategories = async (
+  params?: GetHomepageCategoriesParams,
   options?: RequestInit,
 ): Promise<HomepageCollectionResponse> => {
   return customFetch<HomepageCollectionResponse>(
-    getGetHomepageCategoriesUrl(),
+    getGetHomepageCategoriesUrl(params),
     {
       ...options,
       method: "GET",
@@ -526,28 +542,35 @@ export const getHomepageCategories = async (
   );
 };
 
-export const getGetHomepageCategoriesQueryKey = () => {
-  return [`/api/homepage/categories`] as const;
+export const getGetHomepageCategoriesQueryKey = (
+  params?: GetHomepageCategoriesParams,
+) => {
+  return [`/api/homepage/categories`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetHomepageCategoriesQueryOptions = <
   TData = Awaited<ReturnType<typeof getHomepageCategories>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getHomepageCategories>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetHomepageCategoriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageCategories>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetHomepageCategoriesQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHomepageCategoriesQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getHomepageCategories>>
-  > = ({ signal }) => getHomepageCategories({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getHomepageCategories(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getHomepageCategories>>,
@@ -568,15 +591,18 @@ export type GetHomepageCategoriesQueryError = ErrorType<unknown>;
 export function useGetHomepageCategories<
   TData = Awaited<ReturnType<typeof getHomepageCategories>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getHomepageCategories>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetHomepageCategoriesQueryOptions(options);
+>(
+  params?: GetHomepageCategoriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageCategories>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageCategoriesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

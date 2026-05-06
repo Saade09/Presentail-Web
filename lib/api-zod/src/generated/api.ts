@@ -156,6 +156,21 @@ rather than rendering stale defaults.
 
  * @summary Get curated homepage Categories carousel items
  */
+export const GetHomepageCategoriesQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "ISO 3166-1 alpha-2 country code (case-insensitive) used to\nresolve which WooCommerce store the categories are sourced\nfrom. When omitted, the server falls back to Lebanon.\n",
+    ),
+  cityId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'City identifier (e.g. \"ae-dubai\", \"ae-abu-dhabi\") used to\nresolve a city-specific WooCommerce store when the country\nalone is ambiguous.\n',
+    ),
+});
+
 export const GetHomepageCategoriesResponse = zod.object({
   items: zod.array(
     zod
