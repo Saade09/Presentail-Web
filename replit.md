@@ -1,96 +1,24 @@
-# Workspace
+# Presentail Lebanon — Expo Mobile App
 
-## Overview
+A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a seamless shopping experience for users to send gifts.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## Run & Operate
 
-## Presentail Lebanon — Expo Mobile App
+- `pnpm run typecheck`: Full typecheck across all packages.
+- `pnpm run build`: Typecheck and build all packages.
+- `pnpm --filter @workspace/api-spec run codegen`: Regenerate API hooks and Zod schemas from OpenAPI spec.
+- `pnpm --filter @workspace/db run push`: Push DB schema changes (development only).
+- `pnpm --filter @workspace/api-server run dev`: Run API server locally.
 
-Luxury flower & gift delivery app for Lebanon. Built with Expo Router (iOS/Android/Web).
-
-### Architecture
-- **artifacts/presentail** — Expo mobile app (React Native + Expo Router)
-- **artifacts/api-server** — Express API server (port 8080)
-
-### WooCommerce Integration (Multi-Store)
-- **Store resolver**: `artifacts/api-server/src/lib/wooStore.ts` maps city→store URL+credentials
-- **Stores**:
-  - Lebanon (`lb-*`): `https://presentail.com/lebanon/wp-json/wc/v3` — `WC_CONSUMER_KEY` / `WC_CONSUMER_SECRET`
-  - Dubai (`ae-dubai`, `ae-ras-al-khaimah`, `ae-umm-al-quwain`, `ae-fujairah`, `ae-ajman`, `ae-sharjah`): `https://presentail.com/dubai/wp-json/wc/v3` — `WC_DUBAI_CONSUMER_KEY` / `WC_DUBAI_CONSUMER_SECRET`
-  - Abu Dhabi (`ae-abu-dhabi`): `https://presentail.com/abudhabi/wp-json/wc/v3` — `WC_ABUDHABI_CONSUMER_KEY` / `WC_ABUDHABI_CONSUMER_SECRET`
-  - Cyprus (`cy-*`): `https://presentail.com/cyprus/wp-json/wc/v3` — `WC_CYPRUS_CONSUMER_KEY` / `WC_CYPRUS_CONSUMER_SECRET`
-- **Store context**: Server reads `countryCode`/`cityId` from query params or `x-store-country`/`x-store-city` headers. Falls back to Lebanon when unset.
-- **Cache isolation**: Product/homepage caches are keyed by `${store.baseUrl}::${lang}` to prevent cross-store cache hits. Client-side React Query keys include `countryCode`/`cityId` so store switches invalidate caches.
-- **Dynamic categories/occasions**: Homepage categories (`/api/homepage/categories`) and occasions (`/api/homepage/occasions`) are fetched dynamically per store from WooCommerce. Categories are filtered by `PRODUCT_TYPE_SLUGS` allowlist (hand-bouquets, flower-boxes, plants, balloons, etc.) to exclude occasions, colors, recipients, and delivery-type categories. No hardcoded category IDs — the occasion-products endpoint uses `resolveOccasionId()` which looks up WC category IDs by slug per store with TTL caching. `BestSellersPreview` falls back to all products when `hand-bouquets` category is empty (e.g. Cyprus).
-- **Currency per store**: Each `WooStoreConfig` has `currencySymbol` and `currencyCode`. Lebanon = `$` (USD), UAE = `AED`, Cyprus = `€` (EUR). `transformProduct()` formats prices accordingly (symbol-first for single-char like `$130`, number-first for multi-char like `660 AED`).
-- **Countries**: Lebanon (25 districts), UAE (Dubai, Ras Al Khaimah, Umm Al Quwain, Fujairah, Ajman, Sharjah, Abu Dhabi — all 50 AED flat rate ≈ 13.61 USD), Cyprus (Larnaca, Limassol, Nicosia, Paphos — 11 EUR flat rate)
-- **GET /api/woo/products** — Fetches all published/in-stock products (paginated, 100/page), merges with static catalog. Product counts vary by store (LB ~336, Dubai ~195, CY ~26).
-- **POST /api/woo/order** — Creates a WooCommerce order on every checkout. Items with `wcId` → `line_items`; static-only items → `fee_lines`. All delivery/card meta stored as order metadata.
-- **WooProductsContext** — fetches WC products on app startup, merges with static catalog (WC data wins on price/image/name). Static catalog provides occasion tags, fallback images.
-
-### Product Categories (WC slug → app slug)
-hand-bouquets, flower-boxes, flower-vases, lux-arrangements, dried-flowers, preserved-flowers, plants, balloons, board-games, cakes, chocolate, bundles, electronics, arabic-sweets, stuffed-animals
-
-### Checkout Flow
-1. Step 0 — Card message + QR link (live preview from `api.qrserver.com` when URL typed), recipient name, quantity
-2. Step 1 — District (country-aware: 26 LB districts with variable fees, 7 UAE emirates at 50 AED flat, 4 CY cities at 11 EUR flat), delivery date/slot (UAE uses Dubai timezone cutoffs), sender details. Free delivery threshold: $130 USD (LB/CY), 330 AED (AE). Express surcharge: $15 USD (LB), 18 AED (AE).
-3. Step 2 — Payment method (Card via Stripe, Whish Money, Western Union, Mamo, PayPal)
-- On confirm: WooCommerce order created immediately (fire-and-forget)
-- Hosted-checkout payments (Stripe / Mamo / PayPal): opened with `WebBrowser.openAuthSessionAsync` so the in-app browser blocks until the user is redirected back via the `presentail://payment-return` deep link. The success screen is **only** shown when the return URL contains `status=success` — cancel/dismiss returns to checkout with an alert.
-- Return URL bridge: `GET /api/payment/return?deeplink=presentail://payment-return?...&status=...` → 302/HTML-redirect to the deep link. Necessary because Mamo/PayPal require HTTPS return URLs.
-- Order metadata uses WFACP custom field IDs: `card_message`, `wfacp_card_message`, `to_text`, `from`, `delivery`, `secret_id`, `qr-code`, `qr-label` + visible delivery fields for ops.
-
-### In-App Account (Apple Guideline 2.1.0 / 5.1.1)
-Optional sign-in / sign-up / delete, fully native — no web redirect (replaces the old `WebBrowser.openBrowserAsync` to `/lebanon/login`).
-- **Server**: `routes/auth.ts`
-  - `POST /api/auth/login` → WordPress JWT Auth plugin's `/jwt-auth/v1/token`
-  - `POST /api/auth/register` → WC REST `/customers` (then auto-issues JWT)
-  - `GET / PUT / DELETE /api/auth/me` → require `Authorization: Bearer <jwt>`. Token is validated against WP's `/jwt-auth/v1/token/validate`, then the customer id is read from the validated JWT payload (never trust client-supplied id).
-- **Client**: `contexts/AuthContext.tsx` stores `{ token, user }` in `expo-secure-store` (Keychain/Keystore). Screens: `app/login.tsx`, `app/register.tsx`, `app/(tabs)/account.tsx` (signed-out and signed-in views with profile + delete).
-- **WordPress requirement**: install **JWT Authentication for WP REST API** plugin on `presentail.com`. While the plugin is missing, login responds `503 jwt_not_installed` with a friendly message; registration still works (uses WC REST keys), but the new account can't sign in until the plugin is enabled.
-
-### Push Notifications (real Expo pushes on order events)
-- **DB**: `lib/db/src/schema/pushTokens.ts` (token unique, platform, userId, deviceId) and `appOrders.ts` (appOrderId unique, wcOrderId, userId, deviceId, recipientName, deliveryDate/slot, state).
-- **API**:
-  - `POST /api/push/register` — upserts the Expo token; if `Authorization: Bearer <jwt>` is present, the userId comes from the validated JWT (never the client). Also claims any guest tokens previously stored against the same `deviceId`.
-  - `POST /api/push/unregister` — deletes by token and/or deviceId. Called on sign-out and account deletion.
-  - `POST /api/push/order-event` — admin-only (header `x-push-admin-token: $PUSH_ADMIN_TOKEN`), looks up the app order and pushes a copy-mapped notification for state `confirmed | out_for_delivery | delivered`. Persists the new state on the order row. Use this from a Woo/CRM webhook to trigger pushes when ops change order status.
-  - On `POST /api/woo/order` success the server inserts the app↔WC mapping (`appOrders`) and fire-and-forgets a `confirmed` push, both wrapped in try/catch so checkout never fails on push errors.
-- **Push delivery**: `lib/expoPush.ts` posts to `https://exp.host/--/api/v2/push/send` and prunes any token returned with `DeviceNotRegistered`.
-- **Mobile**:
-  - `services/notifications.ts` — `getDeviceId` (stable per-install id in AsyncStorage), `registerPushToken` / `unregisterPushToken`, sets up the Android default channel, fetches the Expo token via `Notifications.getExpoPushTokenAsync({ projectId })`. No-ops on web.
-  - `app/_layout.tsx` — global `Notifications.setNotificationHandler` (banner/sound/badge in foreground) plus `PushTokenRotationListener` re-registering on `addPushTokenListener`.
-  - `app/(tabs)/index.tsx` — registers after `requestPermission()` returns `granted`, and re-syncs on cold start when status is already `granted`.
-  - `contexts/AuthContext.tsx` — login/register call `registerPushToken({ authToken, userId })` to claim the token; logout/deleteAccount call `unregisterPushToken()`.
-  - `app/checkout.tsx` + `lib/woo.ts` — checkout payload now sends `appUserId` and `appDeviceId` so the server-side `confirmed` push routes back to the buyer's tokens.
-
-### CI/CD — Automated TestFlight Submissions
-- **GitHub Actions workflow**: `.github/workflows/ios-testflight.yml`
-- Triggers on push to `main` when `artifacts/presentail/**`, `lib/**`, or `pnpm-lock.yaml` change (also supports manual `workflow_dispatch`)
-- Runs `eas build --platform ios --profile production --auto-submit --non-interactive`
-- Build numbers auto-increment via `autoIncrement: true` in `eas.json` production profile
-- **Required GitHub Secrets**:
-  - `EXPO_TOKEN` — EAS access token (from expo.dev account settings)
-  - `ASC_API_KEY_ID` — App Store Connect API Key ID
-  - `ASC_API_KEY_ISSUER_ID` — App Store Connect API Key Issuer ID
-  - `ASC_API_KEY_P8` — Contents of the `.p8` private key file from App Store Connect
-
-### OTA Updates (`expo-updates`)
-- `app.json`: `updates.url`, `runtimeVersion: { policy: "appVersion" }`, `expo-updates` plugin.
-- `app/_layout.tsx` `useAutoUpdate()` runs on cold start in production builds: `checkForUpdateAsync` → `fetchUpdateAsync` → `reloadAsync`. Result: a single cold start applies the latest OTA (no more "open twice to see changes").
-- Push: `cd artifacts/presentail && EXPO_PUBLIC_API_BASE_URL=<api-base> eas update --branch production --message "…"`. Requires being logged into EAS (`eas login`) or `EXPO_TOKEN` env var.
-
-### Delivery Fee Logic
-- `districtFee = subtotal >= $130 ? FREE : district.fee` ($8–$39)
-- `expressFee = deliveryMode === "express" ? $15 : 0`
-
-### Frontend State
-- **CartContext** persists `items[]` to `AsyncStorage` under key `@presentail/cart-v1` (web → localStorage, native → SQLite). Hydration is gated by an `isHydrated` ref and merges with any in-flight items so adds during initial load are not lost.
-- **WooProductsContext** keeps `INITIAL_CATALOG` (deduped by id, since the static catalog has 8 duplicate slugs). After WC sync, `mergeProducts` overrides price/name/image when WC matches and preserves static `occasions`, `tag`, `description` when present.
-- **Dynamic country/city text**: Translation strings use `{country}` and `{city}` placeholders instead of hardcoded Lebanon/Beirut. Mobile app's `useT()` hook (Proxy-based) auto-replaces placeholders using `useDeliveryLocation()`. Web app's `t(key, params)` uses `format(template, params)` where callers pass `{ country: country?.name }` explicitly. Factual content (FAQ, terms, privacy, copyright address, share messages) intentionally keeps specific country names.
-- **CurrencyContext** (`@presentail/currency-v1` AsyncStorage) holds the active display currency. All product `priceValue` is stored in USD (the WC base currency). Conversion happens only at display via `formatPrice(usd)` / `<Price usd={…} />`. The WC payload still sends USD `priceValue` to keep WC books in base currency. Rates and symbols live in `data/currencies.ts` (USD/AED/EUR/GBP/CAD/AUD/QAR/SAR/KWD/OMR/CHF/SEK/DKK; KWD & OMR use 2 decimals). AED renders with a custom inline SVG dirham glyph (`components/DirhamSymbol.tsx`) since Unicode coverage is unreliable. The `total` URL param sent to `/order-confirmed` stays USD-base; the page re-formats with the active currency.
-- **PhoneField** (`components/PhoneField.tsx`) — reusable country-code selector for recipient phone & sender WhatsApp (default Lebanon). Bottom-sheet modal with search; `data/countryCodes.ts` is the source list and **excludes Israel**. The WC payload sends `${country.dial} ${phone}` for both billing & recipient.
-- **API_BASE** in `lib/stripe.ts`: `https://${EXPO_PUBLIC_DOMAIN}` so `/api/...` hits the api-server proxied at the same origin. No `/api-server` path suffix.
+**Required Environment Variables**:
+- `WC_CONSUMER_KEY`, `WC_CONSUMER_SECRET` (for Lebanon WooCommerce)
+- `WC_DUBAI_CONSUMER_KEY`, `WC_DUBAI_CONSUMER_SECRET` (for UAE Dubai WooCommerce)
+- `WC_ABUDHABI_CONSUMER_KEY`, `WC_ABUDHABI_CONSUMER_SECRET` (for UAE Abu Dhabi WooCommerce)
+- `WC_CYPRUS_CONSUMER_KEY`, `WC_CYPRUS_CONSUMER_SECRET` (for Cyprus WooCommerce)
+- `PUSH_ADMIN_TOKEN` (for `POST /api/push/order-event`)
+- `EXPO_TOKEN` (for EAS access token in CI/CD and OTA updates)
+- `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8` (for TestFlight submissions)
+- `EXPO_PUBLIC_API_BASE_URL` (for OTA updates and `lib/stripe.ts` API base)
 
 ## Stack
 
@@ -103,45 +31,61 @@ Optional sign-in / sign-up / delete, fully native — no web redirect (replaces 
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Mobile Framework**: Expo Router (React Native)
+- **Web Framework**: React + Vite
 
-## Presentail Web (`artifacts/presentail-web`)
+## Where things live
 
-React + Vite SPA. Companion site to the Expo app; talks to the same API server.
+- **Mobile App**: `artifacts/presentail`
+- **API Server**: `artifacts/api-server`
+- **Web App**: `artifacts/presentail-web`
+- **DB Schema**: `lib/db/src/schema/`
+- **WooCommerce Store Resolver**: `artifacts/api-server/src/lib/wooStore.ts`
+- **Authentication Routes**: `artifacts/api-server/src/routes/auth.ts`
+- **Push Notification Schema**: `lib/db/src/schema/pushTokens.ts`, `lib/db/src/schema/appOrders.ts`
+- **CI/CD Workflow (iOS)**: `.github/workflows/ios-testflight.yml`
+- **Product Categories (WC slug → app slug)**: _Implicitly defined in various places by usage (e.g., `PRODUCT_TYPE_SLUGS` allowlist)_
+- **Stripe API Base URL Configuration**: `lib/stripe.ts`
+- **Country Codes for Phone Fields**: `data/countryCodes.ts`
+- **Currency Definitions**: `data/currencies.ts`
 
-### Locale-aware URL routing
-URL pattern: `/{lang}-{country}/{city}/...` (e.g. `/en-ae/dubai`, `/fr-lb/beirut/product/x`).
+## Architecture decisions
 
-- Languages: `en`, `ar`, `fr` (RTL only for `ar`). French is an overlay map in
-  `LocaleContext`; missing keys fall back to English.
-- Country slugs: `ae`, `lb`, `cy`. City slugs are `cityId` minus the `"{country}-"`
-  prefix (`ae-dubai` → `dubai`).
-- Source of truth is the URL: `LocaleContext` and `LocationContext` derive
-  `language`, `countryCode`, `cityId` from the path via `useLocation()` and
-  persist them to `localStorage` for cold reloads from `/`.
-- `setLanguage(lang)` calls `switchLanguage(currentUrl, lang)` from
-  `lib/locale-route.ts` — only the language segment changes; country, city,
-  rest of the path, query string and hash are preserved.
-- `setLocation(country, cityId)` navigates to a new locale-aware URL keeping
-  the language and remaining path.
-- `App.tsx` mounts a nested `<WouterRouter base="/{lang}-{country}/{city}">`
-  inside `RootRouter`, so all internal `<Link href="/shop">` and
-  `setLocation("/checkout")` calls auto-prefix correctly.
-- Routing rules:
-  - `/` → if a saved location exists, redirect to `/{lang}-{country}/{city}`;
-    else show `Landing`.
-  - `/{lang}-{country}` → resolve a city (saved or first) and redirect.
-  - `/{lang}-{country}/{city}/...` → mount the shop shell at that base.
-  - Unsupported lang/country or any other path → redirect to the saved location
-    (or `/`).
-- `LanguageSwitcher` is a 3-button toggle used by the landing page,
-  `LocationPicker`, and the top utility bar.
+- **Multi-Store WooCommerce Integration**: The API server dynamically resolves WooCommerce store configurations (URL, credentials, currency) based on `countryCode`/`cityId` from query parameters or headers, with Lebanon as a fallback. This supports distinct product catalogs, pricing, and delivery logistics per region.
+- **Cache Isolation**: Product and homepage caches are isolated per store and language (`${store.baseUrl}::${lang}`) on the server, and client-side React Query keys include `countryCode`/`cityId` to ensure cache invalidation upon store switching.
+- **Hybrid Product Catalog Management**: WooCommerce is the primary source of truth for product price, name, and images. A static local catalog supplements with occasion tags, detailed descriptions, and fallback images, allowing for richer product data while maintaining WC for core commerce.
+- **In-App Account System**: Implemented a fully native sign-in/sign-up/delete flow using `expo-secure-store` for token management and direct WordPress JWT/WC REST API calls, avoiding web redirects for a smoother user experience and Apple guideline compliance.
+- **Robust Push Notification System**: Utilizes Expo Push Notifications, with server-side logic to register/unregister tokens (securely linking to user IDs), track order states, and trigger notifications for key events (confirmed, out for delivery, delivered) via an admin-only webhook.
 
-## Key Commands
+## Product
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- **Luxury Flower & Gift Delivery**: Core service for ordering and delivering gifts.
+- **Multi-Country Support**: Services available in Lebanon, UAE (Dubai, Abu Dhabi, etc.), and Cyprus, each with localized pricing and delivery options.
+- **Dynamic Product Catalog**: Categories and occasions are fetched dynamically from WooCommerce, with intelligent filtering to present relevant product types.
+- **Comprehensive Checkout Flow**: Multi-step checkout including card message, recipient details, delivery date/slot selection, and various payment methods (Stripe, Whish Money, Western Union, Mamo, PayPal).
+- **Order Tracking & Notifications**: Users receive push notifications for key order status updates (confirmed, out for delivery, delivered).
+- **User Accounts**: Optional in-app account creation, login, and management (profile view, account deletion).
+- **Over-the-Air (OTA) Updates**: Seamless updates for the mobile app without requiring a new app store download.
+- **Locale-Aware Web Experience**: The web application supports `/{lang}-{country}/{city}/...` URL routing, allowing users to browse and shop in their preferred language and location.
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## User preferences
+
+- _Populate as you build_
+
+## Gotchas
+
+- **WooCommerce JWT Plugin**: The "JWT Authentication for WP REST API" plugin is *required* on `presentail.com` for user login to function. Without it, login will return a `503 jwt_not_installed` error. Registration works, but signing in will fail.
+- **Payment Return URLs**: Mamo/PayPal require HTTPS return URLs. The API server provides a `GET /api/payment/return` endpoint that bridges the external payment gateway's HTTPS redirect to the app's deep link (`presentail://payment-return`).
+- **Currency Handling**: All product `priceValue` is stored in USD internally, with conversion happening only at display time based on the active display currency (`CurrencyContext`). The WooCommerce payload for orders also sends USD `priceValue`.
+- **Category Filtering**: Homepage categories are filtered by a `PRODUCT_TYPE_SLUGS` allowlist to exclude non-product categories (occasions, colors, recipients). `BestSellersPreview` has a fallback for empty categories.
+- **Expo Push Token Rotation**: The app includes `PushTokenRotationListener` to re-register push tokens, ensuring notifications continue to be delivered even if tokens change.
+
+## Pointers
+
+- **pnpm workspaces**: Refer to pnpm documentation for monorepo management.
+- **Drizzle ORM**: Consult Drizzle ORM documentation for database interactions and schema management.
+- **Zod**: See Zod documentation for schema validation.
+- **Orval**: Check Orval documentation for API client generation from OpenAPI specifications.
+- **Expo Documentation**: For mobile app development, push notifications, and OTA updates.
+- **WooCommerce REST API Documentation**: For details on product fetching, order creation, and customer management.
+- **Stripe/Mamo/PayPal API Documentation**: For details on payment gateway integrations.
