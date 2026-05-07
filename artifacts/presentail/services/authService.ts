@@ -167,10 +167,22 @@ export async function completePasswordReset(input: {
 // hand it to the API which verifies it (JWKS) and returns our session token.
 
 let googleConfigured = false;
+let googleConfigWarned = false;
 function ensureGoogleConfigured() {
   if (googleConfigured) return;
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  if (__DEV__ && !googleConfigWarned) {
+    googleConfigWarned = true;
+    if (!iosClientId || !webClientId) {
+      console.warn(
+        "[auth] Google sign-in is missing client IDs at runtime. " +
+          "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID " +
+          "must be set as EAS build-time secrets so they get inlined into the binary. " +
+          `iosClientId set: ${Boolean(iosClientId)}, webClientId set: ${Boolean(webClientId)}.`,
+      );
+    }
+  }
   GoogleSignin.configure({
     iosClientId,
     webClientId,
@@ -272,14 +284,31 @@ export async function signInWithGoogle(
     ) {
       return { ok: false, code: "canceled" };
     }
-    return { ok: false, code: "google_failed" };
+    const nativeCode =
+      (isErrorWithCode(e) && typeof e.code === "string" ? e.code : null) ||
+      (typeof e?.code === "number" ? String(e.code) : null) ||
+      e?.name ||
+      null;
+    const nativeMessage = typeof e?.message === "string" ? e.message : null;
+    if (__DEV__) {
+      console.warn("[auth] Google sign-in native error", {
+        code: nativeCode,
+        message: nativeMessage,
+      });
+    }
+    const tag = nativeCode || nativeMessage || "unknown";
+    return { ok: false, code: "google_failed", serverMessage: String(tag) };
   }
   if (!isSuccessResponse(response)) {
     return { ok: false, code: "canceled" };
   }
   const idToken = response.data?.idToken;
   if (!idToken) {
-    return { ok: false, code: "google_failed" };
+    return {
+      ok: false,
+      code: "google_failed",
+      serverMessage: "no_id_token",
+    };
   }
   return exchangeSocialToken("google", { idToken }, applySession);
 }

@@ -88,7 +88,9 @@ export default function AuthScreen() {
       case "apple_failed":
         return t.authAppleFailed;
       case "google_failed":
-        return t.authGoogleFailed;
+        return err.serverMessage
+          ? `${t.authGoogleFailed} (${err.serverMessage})`
+          : t.authGoogleFailed;
       case "canceled":
         return "";
       case "expired_link":
