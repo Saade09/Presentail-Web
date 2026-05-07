@@ -1,11 +1,9 @@
-import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
-import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
@@ -26,7 +24,6 @@ type Props = {
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
   const router = useRouter();
-  const { add } = useCart();
   const { currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
@@ -58,16 +55,6 @@ export function ProductCard({ product, width, onPress }: Props) {
             <Text style={styles.tagText}>{product.tag}</Text>
           </View>
         ) : null}
-        <Pressable
-          style={[styles.heart, { backgroundColor: colors.gold }]}
-          hitSlop={8}
-          onPress={(e) => {
-            e.stopPropagation();
-            add(product.id, 1);
-          }}
-        >
-          <Feather name="plus" size={16} color="#fff" />
-        </Pressable>
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
         <Text
@@ -116,15 +103,5 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     letterSpacing: 1,
     textTransform: "uppercase",
-  },
-  heart: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
