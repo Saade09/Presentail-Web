@@ -1,3 +1,4 @@
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -18,12 +19,26 @@ import { useT } from "@/hooks/useT";
 
 type FullCartViewProps = {
   showBackButton?: boolean;
+  /**
+   * Bottom offset (in px) the pinned footer must clear, e.g. the height of a
+   * floating bottom tab bar that overlays this screen. When omitted we fall
+   * back to BottomTabBarHeightContext (set by @react-navigation/bottom-tabs
+   * when this view is mounted inside the tab navigator) and ultimately to the
+   * safe-area inset for the standalone (back-button) variant.
+   */
+  bottomOffset?: number;
 };
 
-export function FullCartView({ showBackButton = true }: FullCartViewProps) {
+export function FullCartView({ showBackButton = true, bottomOffset }: FullCartViewProps) {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const ctxTabBarHeight = React.useContext(BottomTabBarHeightContext) ?? 0;
+  // Height of any overlay sitting above this screen's content (e.g. the
+  // floating bottom tab bar). Prefer an explicit value passed in, otherwise
+  // fall back to the navigator context, otherwise the bare safe-area inset.
+  const overlay = Math.max(bottomOffset ?? ctxTabBarHeight, insets.bottom);
+  const [footerHeight, setFooterHeight] = React.useState(0);
   const { detailed, total, setQty, remove, clear } = useCart();
   const t = useT();
 
@@ -87,7 +102,14 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
         </View>
       ) : (
         <>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 220, gap: 14 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingBottom: footerHeight + overlay + 24,
+              gap: 14,
+            }}
+          >
             {detailed.map(({ product, qty, lineTotal }) => (
               <View
                 key={product.id}
@@ -139,17 +161,18 @@ export function FullCartView({ showBackButton = true }: FullCartViewProps) {
           </ScrollView>
 
           <View
+            onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
             style={{
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: 0,
+              bottom: overlay,
               backgroundColor: "#fff",
               borderTopWidth: 1,
               borderColor: colors.border,
               paddingHorizontal: 24,
               paddingTop: 16,
-              paddingBottom: insets.bottom + 16,
+              paddingBottom: 16,
               gap: 12,
             }}
           >

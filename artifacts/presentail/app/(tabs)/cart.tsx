@@ -1,6 +1,7 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FullCartView } from "@/components/FullCartView";
@@ -14,12 +15,22 @@ export default function CartTab() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Guard against environments where useBottomTabBarHeight() resolves to 0
+  // (e.g. some web layouts) — the proceed button must always clear the tab
+  // bar, so fall back to a sensible per-platform minimum that matches the
+  // configured tabBarStyle in (tabs)/_layout.tsx. On native we add the
+  // safe-area inset so iPhones with a home indicator don't end up clipped.
+  const rawTabBarHeight = useBottomTabBarHeight();
+  const baseTabHeight = Platform.OS === "ios" ? 49 : Platform.OS === "android" ? 56 : 84;
+  const minTabBarHeight =
+    Platform.OS === "web" ? baseTabHeight : baseTabHeight + insets.bottom;
+  const tabBarHeight = Math.max(rawTabBarHeight, minTabBarHeight);
   const t = useT();
   const { isRTL } = useLanguage();
   const { detailed } = useCart();
 
   if (detailed.length > 0) {
-    return <FullCartView showBackButton={false} />;
+    return <FullCartView showBackButton={false} bottomOffset={tabBarHeight} />;
   }
 
   return (
