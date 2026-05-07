@@ -27,7 +27,6 @@ import {
 } from "@/lib/locale-route";
 
 import { HomepageHeader } from "@/components/homepage/HomepageHeader";
-import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
 
@@ -73,7 +72,6 @@ function ShopShell() {
             <Route component={NotFound} />
           </Switch>
         </main>
-        <Footer />
       </div>
     </LocationPickerGate>
   );

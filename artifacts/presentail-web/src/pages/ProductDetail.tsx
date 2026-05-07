@@ -26,6 +26,13 @@ import { ProductTabs } from "@/components/product/ProductTabs";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const CATEGORY_LABELS: Record<string, string> = {
   "hand-bouquets": "Hand Bouquets",
@@ -62,7 +69,12 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const { addItem } = useCart();
   const delivery = useDeliveryConfig();
-  const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
+  const {
+    currencyCode,
+    setCurrencyCode,
+    formatPrice: formatDisplayPrice,
+    supportedCurrencies,
+  } = useDisplayCurrency();
 
   const { countryCode, cityId } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
@@ -245,6 +257,44 @@ export default function ProductDetail() {
           bouquetIncludes={vm.bouquetIncludes}
           careTips={vm.careTips}
         />
+
+        <div
+          className="mt-16 border-t border-border pt-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          data-testid="product-currency-switcher"
+        >
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Preview price in
+            </p>
+            <p className="text-sm text-foreground mt-1">
+              Choose a currency to see how this product is priced for you.
+            </p>
+          </div>
+          <div className="w-full sm:w-64">
+            <Select
+              value={currencyCode}
+              onValueChange={(v) => setCurrencyCode(v)}
+            >
+              <SelectTrigger
+                className="h-12 rounded-xl"
+                data-testid="select-display-currency"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {supportedCurrencies.map((c) => (
+                  <SelectItem
+                    key={c.code}
+                    value={c.code}
+                    data-testid={`option-currency-${c.code}`}
+                  >
+                    {c.code} — {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {similar.length > 0 && (
           <div className="pt-20 mt-20 border-t border-border">

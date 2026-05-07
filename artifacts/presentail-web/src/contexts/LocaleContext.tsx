@@ -339,17 +339,6 @@ const STRINGS: Dict = {
   "order.fail.couldntCreate": { en: "Order could not be created.", ar: "تعذّر إنشاء الطلب." },
   "order.fail.failed": { en: "Order finalization failed.", ar: "فشل إتمام الطلب." },
 
-  // Footer
-  "footer.tagline": { en: "Premium florist and gifting house. Confident, generous, unhurried.", ar: "بيت الزهور والهدايا الفاخرة. ثقة وكرم وأناقة هادئة." },
-  "footer.shop": { en: "Shop", ar: "المتجر" },
-  "footer.help": { en: "Help", ar: "المساعدة" },
-  "footer.contact": { en: "Contact Us", ar: "تواصل معنا" },
-  "footer.deliveryInfo": { en: "Delivery Info", ar: "معلومات التوصيل" },
-  "footer.faq": { en: "FAQ", ar: "الأسئلة الشائعة" },
-  "footer.terms": { en: "Terms & Conditions", ar: "الشروط والأحكام" },
-  "footer.comingSoon": { en: "coming soon", ar: "قريباً" },
-  "footer.copyright": { en: "© {year} Presentail. All rights reserved.", ar: "© {year} Presentail. جميع الحقوق محفوظة." },
-  "footer.payments": { en: "Secure payments by Stripe & Mamo", ar: "دفع آمن عبر Stripe وMamo" },
   "payments.waysToPay": { en: "Ways to Pay", ar: "طرق الدفع" },
 
   // 404
@@ -744,17 +733,6 @@ const STRINGS_FR: Record<string, string> = {
   "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
   "order.fail.failed": "Échec de la finalisation de la commande.",
 
-  "footer.tagline":
-    "Fleuriste et maison de cadeaux premium. Confiance, générosité, élégance.",
-  "footer.shop": "Boutique",
-  "footer.help": "Aide",
-  "footer.contact": "Nous contacter",
-  "footer.deliveryInfo": "Infos de livraison",
-  "footer.faq": "FAQ",
-  "footer.terms": "Conditions générales",
-  "footer.comingSoon": "bientôt disponible",
-  "footer.copyright": "© {year} Presentail. Tous droits réservés.",
-  "footer.payments": "Paiements sécurisés par Stripe et Mamo",
   "payments.waysToPay": "Moyens de paiement",
 
   "notFound.title": "404 Page introuvable",
