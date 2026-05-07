@@ -22,7 +22,7 @@ const EN = {
   trustHandTied: "Hand-tied",
   trustHandTiedSub: "by florists",
   trustGuaranteed: "Guaranteed",
-  trustGuaranteedSub: "or remade free",
+  trustGuaranteedSub: "Always fresh",
 
   // Section titles
   bestSellers: "Best Sellers",
@@ -841,7 +841,7 @@ const AR: typeof EN = {
   trustHandTied: "مربوطة يدوياً",
   trustHandTiedSub: "من قِبل الزهوريين",
   trustGuaranteed: "مضمون",
-  trustGuaranteedSub: "أو إعادة الصنع مجاناً",
+  trustGuaranteedSub: "دائماً طازجة",
 
   // Section titles
   bestSellers: "الأكثر مبيعاً",
@@ -1660,7 +1660,7 @@ const FR: typeof EN = {
   trustHandTied: "Composé à la main",
   trustHandTiedSub: "par nos fleuristes",
   trustGuaranteed: "Garanti",
-  trustGuaranteedSub: "ou refait gratuitement",
+  trustGuaranteedSub: "Toujours frais",
 
   // Section titles
   bestSellers: "Meilleures ventes",
