@@ -1,5 +1,4 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -50,6 +49,7 @@ export default function ProductDetail() {
   const { formatNative } = useCurrency();
   const t = useT();
   const [copiedVisible, setCopiedVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,11 +59,16 @@ export default function ProductDetail() {
     };
   }, []);
 
-  const showCopiedToast = () => {
+  const showToast = (message: string) => {
     if (Platform.OS === "android") {
-      ToastAndroid.show(t.shareLinkCopied, ToastAndroid.SHORT);
+      try {
+        ToastAndroid.show(message, ToastAndroid.SHORT);
+      } catch {
+        // ToastAndroid is part of react-native core; this is just defensive.
+      }
       return;
     }
+    setToastMessage(message);
     setCopiedVisible(true);
     Animated.timing(copiedOpacity, {
       toValue: 1,
@@ -82,11 +87,15 @@ export default function ProductDetail() {
 
   const handleShareProduct = async (productSlug: string) => {
     const url = `${WEB_BASE_URL}/product/${encodeURIComponent(productSlug)}`;
+    // Lazy-load expo-clipboard so older app binaries (built before the
+    // native module was added) don't crash on screen mount with a
+    // "native module not found" error.
     try {
+      const Clipboard = await import("expo-clipboard");
       await Clipboard.setStringAsync(url);
-      showCopiedToast();
+      showToast(t.shareLinkCopied);
     } catch {
-      // ignore clipboard errors
+      showToast(t.shareUnavailable);
     }
   };
 
@@ -227,7 +236,7 @@ export default function ProductDetail() {
                 fontSize: 13,
               }}
             >
-              {t.shareLinkCopied}
+              {toastMessage}
             </Text>
           </View>
         </Animated.View>
