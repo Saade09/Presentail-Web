@@ -103,6 +103,7 @@ router.post("/payment/mamo", async (req, res) => {
     orderId,
     district,
     expressDelivery,
+    noAddress,
     currency: rawCurrency,
     title,
     description,
@@ -116,6 +117,7 @@ router.post("/payment/mamo", async (req, res) => {
     orderId: string;
     district?: string;
     expressDelivery?: boolean;
+    noAddress?: boolean;
     currency?: string;
     title?: string;
     description?: string;
@@ -145,9 +147,10 @@ router.post("/payment/mamo", async (req, res) => {
 
   const resolvedDistrict = district ?? "Beirut";
   const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
   const districtCountry = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
   const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
   const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
 
@@ -282,6 +285,7 @@ router.post("/payment/mamo", async (req, res) => {
         })),
         district: resolvedDistrict,
         expressDelivery: isExpress,
+        noAddress: isNoAddress,
       },
     });
 
@@ -347,6 +351,7 @@ router.post("/payment/paypal", async (req, res) => {
     orderId,
     district,
     expressDelivery,
+    noAddress,
     currency: rawCurrency,
     returnUrl,
     cancelUrl,
@@ -355,6 +360,7 @@ router.post("/payment/paypal", async (req, res) => {
     orderId: string;
     district?: string;
     expressDelivery?: boolean;
+    noAddress?: boolean;
     currency?: string;
     returnUrl: string;
     cancelUrl: string;
@@ -379,9 +385,10 @@ router.post("/payment/paypal", async (req, res) => {
 
   const resolvedDistrict = district ?? "Beirut";
   const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
   const subtotalUsd = catalogResult.subtotalUsd;
   const districtCountryPP = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
   const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountryPP) : 0;
   const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
 
@@ -452,6 +459,7 @@ router.post("/payment/paypal", async (req, res) => {
         })),
         district: resolvedDistrict,
         expressDelivery: isExpress,
+        noAddress: isNoAddress,
       },
     });
 

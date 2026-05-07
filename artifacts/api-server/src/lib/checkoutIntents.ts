@@ -29,6 +29,11 @@ export type CartSnapshot = {
   // subtotals; district/expressDelivery are still stored for audit purposes.
   district: string;
   expressDelivery: boolean;
+  // True when the customer ticked the "I don't know the address" checkbox at
+  // checkout. The charged delivery fee is the flat NO_ADDRESS_DELIVERY_FEE_USD
+  // instead of the per-district fee. Stored so the WC order route can verify
+  // the submitted order doesn't switch this flag after paying.
+  noAddress?: boolean;
 };
 
 export type PaymentIntent = {
@@ -114,6 +119,7 @@ export type SnapshotVerifyOptions = {
   checkDelivery?: boolean;
   submittedDistrict?: string;
   submittedExpressDelivery?: boolean; // derived from body.expressFee > 0
+  submittedNoAddress?: boolean;
 };
 
 // Verify that a submitted cart (from the /woo/order body) matches the cart
@@ -173,6 +179,12 @@ export function verifyCartMatchesSnapshot(
       opts.submittedExpressDelivery !== snapshot.expressDelivery
     ) {
       return `Express delivery mismatch: submitted ${opts.submittedExpressDelivery}, paid for ${snapshot.expressDelivery}`;
+    }
+    if (
+      opts.submittedNoAddress !== undefined &&
+      opts.submittedNoAddress !== (snapshot.noAddress === true)
+    ) {
+      return `No-address flag mismatch: submitted ${opts.submittedNoAddress}, paid for ${snapshot.noAddress === true}`;
     }
   }
 

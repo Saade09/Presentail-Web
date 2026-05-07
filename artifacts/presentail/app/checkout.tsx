@@ -319,11 +319,12 @@ export default function CheckoutScreen() {
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const districtFee = subtotal >= freeDeliveryThreshold ? 0 : district.fee;
+    const baseDeliveryFee = noAddress ? 35 : district.fee;
+    const districtFee = subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee;
     const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
     const grand = subtotal + districtFee + expressFee;
     return { subtotal, districtFee, expressFee, grand };
-  }, [total, deliveryMode, district, freeDeliveryThreshold, expressSurcharge]);
+  }, [total, deliveryMode, district, freeDeliveryThreshold, expressSurcharge, noAddress]);
 
   const stepValid = (s: Step) => {
     if (s === 0) return true;
@@ -394,6 +395,7 @@ export default function CheckoutScreen() {
     district: district.name,
     districtFee: fees.districtFee,
     expressFee: fees.expressFee,
+    noAddress,
     // ISO-3166 alpha-2 country codes from the customer's selected
     // country dialer. The API persists these on the WC order so tax
     // and shipping records reflect the actual destination (e.g. AE)
@@ -527,6 +529,7 @@ export default function CheckoutScreen() {
         orderId,
         district: district.name,
         expressDelivery: deliveryMode === "express",
+        noAddress,
         currency: currencyCode,
         title: `Presentail — ${orderId}`,
         description: `${recipientFirst} ${recipientLast} · ${date}`,
@@ -561,6 +564,7 @@ export default function CheckoutScreen() {
           .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
         district: district.name,
         expressDelivery: deliveryMode === "express",
+        noAddress,
         currency: currencyCode,
         returnUrl: successUrl,
         cancelUrl,
@@ -1065,6 +1069,7 @@ function DeliveryDetailsStep(props: any) {
           </Text>
         </Pressable>
 
+        {!noAddress ? (
         <View>
           <Label colors={colors} required>{t.districtLabel}</Label>
           <Pressable
@@ -1146,16 +1151,19 @@ function DeliveryDetailsStep(props: any) {
             </View>
           </Modal>
         </View>
+        ) : null}
 
+        {!noAddress ? (
         <Field
           colors={colors}
           label={t.deliveryDetailsField}
           value={deliveryDetails}
           onChangeText={setDeliveryDetails}
-          placeholder={noAddress ? t.iDontKnowAddress : t.buildingFloorStreet}
-          required={!noAddress}
+          placeholder={t.buildingFloorStreet}
+          required
           multiline
         />
+        ) : null}
       </Card>
 
       <Card colors={colors} title={t.senderDetailsTitle}>

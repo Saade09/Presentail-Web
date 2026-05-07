@@ -16,6 +16,7 @@ export async function createMamoPayment(payload: {
   orderId: string;
   district?: string;
   expressDelivery?: boolean;
+  noAddress?: boolean;
   currency?: string;
   title?: string;
   description?: string;
@@ -44,6 +45,7 @@ export async function createPayPalOrder(payload: {
   orderId: string;
   district?: string;
   expressDelivery?: boolean;
+  noAddress?: boolean;
   currency: string;
   returnUrl: string;
   cancelUrl: string;

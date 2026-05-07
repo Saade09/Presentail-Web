@@ -77,6 +77,10 @@ export const WooOrderSchema = z.object({
   // for all financial calculations.
   districtFee: z.number().nonnegative(),
   expressFee: z.number().nonnegative(),
+  // True when the customer ticked "I don't know the address" at checkout.
+  // Causes the server to use the flat NO_ADDRESS_DELIVERY_FEE_USD instead of
+  // the per-district fee (still subject to the free-delivery threshold).
+  noAddress: z.boolean().optional(),
   billingCountry: Iso2.optional(),
   shippingCountry: Iso2.optional(),
   paymentRef: z.string().optional(),
@@ -253,18 +257,24 @@ export async function attemptCreateWcOrder(
   const shippingLines: any[] = [];
   // Compute the district fee from the server-side authoritative table using
   // the catalog-resolved subtotal. The client-supplied districtFee is ignored.
-  const serverDistrictFeeUsd = computeDistrictFeeUsd(body.district, catalogSubtotalUsd);
+  const isNoAddress = body.noAddress === true;
+  const serverDistrictFeeUsd = computeDistrictFeeUsd(
+    body.district,
+    catalogSubtotalUsd,
+    isNoAddress,
+  );
   const convertedDistrictFee = await conv(serverDistrictFeeUsd);
+  const deliveryLabel = isNoAddress ? "Contact Recipient" : body.district;
   if (convertedDistrictFee > 0) {
     shippingLines.push({
       method_id: "flat_rate",
-      method_title: `Delivery – ${body.district}`,
+      method_title: `Delivery – ${deliveryLabel}`,
       total: fmt(convertedDistrictFee),
     });
   } else {
     shippingLines.push({
       method_id: "free_shipping",
-      method_title: `Free Delivery – ${body.district}`,
+      method_title: `Free Delivery – ${deliveryLabel}`,
       total: "0.00",
     });
   }

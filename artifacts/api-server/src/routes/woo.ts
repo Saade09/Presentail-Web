@@ -794,6 +794,7 @@ router.post("/woo/order", async (req, res) => {
       checkDelivery: true,
       submittedDistrict: body.district,
       submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
     });
     if (cartMismatch) {
       req.log?.warn?.(
@@ -857,6 +858,7 @@ router.post("/woo/order", async (req, res) => {
       checkDelivery: true,
       submittedDistrict: body.district,
       submittedExpressDelivery: body.expressFee > 0,
+      submittedNoAddress: body.noAddress === true,
     });
     if (cartMismatch) {
       req.log?.warn?.(

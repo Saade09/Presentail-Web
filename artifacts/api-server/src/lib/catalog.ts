@@ -75,11 +75,23 @@ export function baseDistrictFeeUsd(district: string): number {
   return DISTRICT_FEES[district] ?? 39;
 }
 
+// Flat "contact the recipient" delivery fee (USD) used when the customer
+// ticks the "I don't know the address" checkbox at checkout. The free-delivery
+// threshold still applies — same behaviour as a regular district fee.
+export const NO_ADDRESS_DELIVERY_FEE_USD = 35;
+
 // Returns the effective district fee after applying the free-delivery threshold.
-export function computeDistrictFeeUsd(district: string, subtotalUsd: number): number {
+// When `noAddress` is true, the flat NO_ADDRESS_DELIVERY_FEE_USD is used instead
+// of the per-district fee (still subject to the free-delivery threshold).
+export function computeDistrictFeeUsd(
+  district: string,
+  subtotalUsd: number,
+  noAddress = false,
+): number {
   const country = countryForDistrict(district);
   const threshold = freeDeliveryThresholdUsd(country);
-  return subtotalUsd >= threshold ? 0 : baseDistrictFeeUsd(district);
+  if (subtotalUsd >= threshold) return 0;
+  return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : baseDistrictFeeUsd(district);
 }
 
 type CatalogProduct = { price: number; name: string };

@@ -132,6 +132,10 @@ export type WooOrderPayload = {
   district: string;
   districtFee: number;
   expressFee: number;
+  // True when the customer ticked "I don't know the address" at checkout.
+  // The API uses this to apply a flat $35 USD delivery fee instead of the
+  // per-district fee (still subject to the free-delivery threshold).
+  noAddress?: boolean;
   // ISO-3166 alpha-2 country codes derived from the customer's selected
   // billing/shipping country. The API persists these on the WC order so
   // tax and shipping records reflect the actual destination instead of
