@@ -138,6 +138,7 @@ const CATEGORY_MAP: Record<string, string> = {
   "flower-boxes": "flower-boxes",
   "flower-vases": "flower-vases",
   bundles: "bundles",
+  baskets: "baskets",
   "lux-arrangements": "lux-arrangements",
   "dried-flowers": "dried-flowers",
   "preserved-flowers": "preserved-flowers",
@@ -147,6 +148,8 @@ const CATEGORY_MAP: Record<string, string> = {
   cakes: "cakes",
   chocolate: "chocolate",
   "arabic-sweets": "arabic-sweets",
+  coffee: "coffee",
+  "gift-cards": "gift-cards",
   electronics: "electronics",
   "stuffed-animals": "stuffed-animals",
 };
