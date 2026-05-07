@@ -755,7 +755,7 @@ function BestSellers() {
   if (displayProducts.length === 0) return null;
 
   const title = t.bestSellersTitleHome.replace("{country}", countryName);
-  const description = t.bestSellersDescHome;
+  const description: string | undefined = undefined;
 
   return (
     <View style={{ marginTop: 36 }}>
@@ -827,7 +827,6 @@ function FlowersSection() {
           <SectionTitle
             eyebrow={t.flowersEyebrowHome}
             title={t.flowersTitleHome}
-            description={t.flowersDescHome}
           />
         </View>
         <Pressable onPress={() => router.push("/category/hand-bouquets")}>
@@ -894,7 +893,6 @@ function SummerCollectionSection() {
           <SectionTitle
             eyebrow={t.summerEyebrowHome}
             title={t.summerTitleHome}
-            description={t.summerDescHome}
           />
         </View>
         <Pressable onPress={() => router.push("/category/summer-collection")}>
