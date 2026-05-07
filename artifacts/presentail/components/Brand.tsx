@@ -20,7 +20,7 @@ type WordmarkProps = {
 };
 
 export function Wordmark({ size = 28, color, inverse }: WordmarkProps) {
-  const { lang } = useLanguage();
+  const { lang, isReady } = useLanguage();
   const isArabic = lang === "AR";
   const useWhite = inverse ?? (color === "#ffffff" || color === "#fff");
   const source = isArabic
@@ -29,14 +29,19 @@ export function Wordmark({ size = 28, color, inverse }: WordmarkProps) {
   const ratio = isArabic ? LOGO_AR_RATIO : LOGO_EN_RATIO;
   const height = isArabic ? size * LOGO_AR_HEIGHT_SCALE : size;
   const width = height * ratio;
+  const placeholderWidth = size * LOGO_EN_RATIO;
   return (
     <View style={styles.wordmarkRow}>
-      <Image
-        source={source}
-        accessibilityLabel="Presentail"
-        resizeMode="contain"
-        style={{ width, height }}
-      />
+      {isReady ? (
+        <Image
+          source={source}
+          accessibilityLabel="Presentail"
+          resizeMode="contain"
+          style={{ width, height }}
+        />
+      ) : (
+        <View style={{ width: placeholderWidth, height: size }} />
+      )}
     </View>
   );
 }
