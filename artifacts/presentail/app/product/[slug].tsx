@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
+import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -380,13 +380,27 @@ function ProductBody({ product, cat, colors, router }: any) {
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
           {t.waysToPayLabel}
         </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <MastercardBadge />
-          <VisaBadge />
-          <GooglePayBadge />
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 14,
+            rowGap: 8,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 16,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+          }}
+        >
           <ApplePayBadge />
+          <GooglePayBadge />
+          <VisaBadge />
+          <MastercardBadge />
           <AmexBadge />
-          <WhishBadge />
+          {cc.toUpperCase() === "LB" ? <WhishBadge /> : <PayPalBadge />}
         </View>
       </View>
 

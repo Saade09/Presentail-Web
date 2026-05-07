@@ -2,68 +2,74 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { Text, View } from "react-native";
 
+const BADGE_HEIGHT = 22;
+
 export function MastercardBadge() {
   return (
-    <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row" }}>
-      <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#EB001B" }} />
-      <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -5 }} />
+    <View style={{ height: BADGE_HEIGHT, width: 32, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
+      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
+      <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
     </View>
   );
 }
 
 export function VisaBadge() {
   return (
-    <View style={{ backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb" }}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#1A1F71" }}>VISA</Text>
+    <View style={{ height: BADGE_HEIGHT, width: 38, borderRadius: 3, backgroundColor: "#1A1F71", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, color: "#fff", letterSpacing: 0.4 }}>VISA</Text>
     </View>
   );
 }
 
 export function AmexBadge() {
   return (
-    <View style={{ backgroundColor: "#006FCF", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#006FCF" }}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.4 }}>AMEX</Text>
+    <View style={{ height: BADGE_HEIGHT, width: 38, borderRadius: 3, backgroundColor: "#2E77BC", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 5, color: "#fff", letterSpacing: 0.3, lineHeight: 6 }}>AMERICAN</Text>
+      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 5.4, color: "#fff", letterSpacing: 0.3, lineHeight: 7, marginTop: 1 }}>EXPRESS</Text>
     </View>
   );
 }
 
 export function ApplePayBadge() {
   return (
-    <View style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row", alignItems: "center", gap: 2 }}>
-      <MaterialCommunityIcons name="apple" size={11} color="#000" />
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#000" }}>Pay</Text>
+    <View style={{ height: BADGE_HEIGHT, width: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 }}>
+      <MaterialCommunityIcons name="apple" size={14} color="#000" />
+      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#000", letterSpacing: -0.2 }}>Pay</Text>
     </View>
   );
 }
 
 export function GooglePayBadge() {
   return (
-    <View style={{ backgroundColor: "#fff", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row", alignItems: "center", gap: 3 }}>
-      <View
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: 6,
-          borderWidth: 1.5,
-          borderTopColor: "#4285F4",
-          borderRightColor: "#EA4335",
-          borderBottomColor: "#FBBC05",
-          borderLeftColor: "#34A853",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 7, color: "#4285F4", lineHeight: 8 }}>G</Text>
-      </View>
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#555" }}>Pay</Text>
+    <View style={{ height: BADGE_HEIGHT, width: 56, flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+        <Text style={{ color: "#4285F4" }}>G</Text>
+        <Text style={{ color: "#EA4335" }}>o</Text>
+        <Text style={{ color: "#FBBC04" }}>o</Text>
+        <Text style={{ color: "#4285F4" }}>g</Text>
+        <Text style={{ color: "#34A853" }}>l</Text>
+        <Text style={{ color: "#EA4335" }}>e</Text>
+      </Text>
+      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#5F6368", marginLeft: 3 }}>Pay</Text>
     </View>
   );
 }
 
 export function WhishBadge() {
   return (
-    <View style={{ backgroundColor: "#E2231A", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: "#E2231A" }}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.4 }}>whish</Text>
+    <View style={{ height: BADGE_HEIGHT, width: 48, borderRadius: 4, backgroundColor: "#E6007E", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#fff", letterSpacing: -0.3 }}>whish</Text>
+    </View>
+  );
+}
+
+export function PayPalBadge() {
+  return (
+    <View style={{ height: BADGE_HEIGHT, width: 50, flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 13, letterSpacing: -0.4 }}>
+        <Text style={{ color: "#003087" }}>Pay</Text>
+        <Text style={{ color: "#009CDE" }}>Pal</Text>
+      </Text>
     </View>
   );
 }
