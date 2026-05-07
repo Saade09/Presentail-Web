@@ -6,7 +6,9 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { translations } from "@/lib/translations";
 
 function TabLayout() {
   const colors = useColors();
@@ -15,6 +17,8 @@ function TabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
   const { count } = useCart();
+  const { lang } = useLanguage();
+  const t = translations[lang];
 
   return (
     <Tabs
@@ -56,7 +60,7 @@ function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t.home,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="house" tintColor={color} size={22} />
@@ -68,7 +72,7 @@ function TabLayout() {
       <Tabs.Screen
         name="catalog"
         options={{
-          title: "Boutique",
+          title: t.boutique,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="square.grid.2x2" tintColor={color} size={22} />
@@ -80,7 +84,7 @@ function TabLayout() {
       <Tabs.Screen
         name="cart"
         options={{
-          title: "Cart",
+          title: t.cart,
           tabBarBadge: count > 0 ? count : undefined,
           tabBarBadgeStyle: {
             backgroundColor: colors.gold,
@@ -106,7 +110,7 @@ function TabLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: "Account",
+          title: t.account,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person" tintColor={color} size={22} />

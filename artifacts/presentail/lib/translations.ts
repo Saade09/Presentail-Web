@@ -4,6 +4,8 @@ const EN = {
   // Navigation
   home: "Home",
   boutique: "Boutique",
+  cart: "Cart",
+  account: "Account",
 
   // Hero
   heroEyebrow: "THE MODERN FLOWER ATELIER",
@@ -823,6 +825,8 @@ const AR: typeof EN = {
   // Navigation
   home: "الرئيسية",
   boutique: "البوتيك",
+  cart: "السلة",
+  account: "الحساب",
 
   // Hero
   heroEyebrow: "بيت الزهور العصري",
@@ -1642,6 +1646,8 @@ const FR: typeof EN = {
   // Navigation
   home: "Accueil",
   boutique: "Boutique",
+  cart: "Panier",
+  account: "Compte",
 
   // Hero
   heroEyebrow: "L'ATELIER FLORAL MODERNE",
