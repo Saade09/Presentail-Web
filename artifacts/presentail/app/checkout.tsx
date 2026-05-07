@@ -1459,18 +1459,20 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           {t.secureAndEncrypted}
         </Text>
 
-        <PayOption
-          colors={colors}
-          active={payMethod === "mamo"}
-          onPress={() => tap("mamo")}
-          disabled={!supports("mamo")}
-          disabledReason={reason("mamo")}
-          title="Mamo — UAE Wallets & Cards"
-          badge="AED"
-          badgeColor="#007C5B"
-        >
-          {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
-        </PayOption>
+        {country === "LB" && currencyCode !== "AED" ? null : (
+          <PayOption
+            colors={colors}
+            active={payMethod === "mamo"}
+            onPress={() => tap("mamo")}
+            disabled={!supports("mamo")}
+            disabledReason={reason("mamo")}
+            title="Mamo — UAE Wallets & Cards"
+            badge="AED"
+            badgeColor="#007C5B"
+          >
+            {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+          </PayOption>
+        )}
         <PayOption
           colors={colors}
           active={payMethod === "card"}

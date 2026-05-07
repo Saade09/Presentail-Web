@@ -276,25 +276,36 @@ export default function Checkout() {
     }
   };
 
+  // Mamo only settles in AED. For the Lebanon storefront we hide it
+  // whenever the active display currency is not AED (in practice always,
+  // since LB displays in USD), but the rule is written in full so that if
+  // a customer ever switches the LB display currency to AED, Mamo would
+  // reappear — matching the mobile behaviour. UAE/Cyprus keep showing it.
+  const activeCurrency =
+    countryCode === "AE" ? "AED" : countryCode === "CY" ? "EUR" : "USD";
+  const mamoHidden = countryCode === "LB" && activeCurrency !== "AED";
   // Whish Money is a Lebanon-only local transfer flow — only show it when
   // the active country is Lebanon, so a UAE/Cyprus shopper browsing in USD
   // doesn't see a payment option that doesn't apply to their region.
   const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
     { id: "card", labelKey: "checkout.pay.card" },
     { id: "paypal", labelKey: "checkout.pay.paypal" },
-    { id: "mamo", labelKey: "checkout.pay.mamo" },
+    ...(mamoHidden ? [] : [{ id: "mamo" as const, labelKey: "checkout.pay.mamo" }]),
     ...(countryCode === "LB"
       ? [{ id: "whish" as const, labelKey: "checkout.pay.whish" }]
       : []),
   ];
 
-  // If the shopper had Whish selected and then switches to a non-LB country,
-  // fall back to a default so checkout never sits in a broken state.
+  // If the currently selected payment method becomes unavailable (Whish on
+  // a non-LB country, or Mamo when hidden), fall back to a default so the
+  // pay button stays valid.
   useEffect(() => {
     if (paymentMethod === "whish" && countryCode !== "LB") {
       setPaymentMethod("card");
+    } else if (paymentMethod === "mamo" && mamoHidden) {
+      setPaymentMethod("card");
     }
-  }, [countryCode, paymentMethod]);
+  }, [countryCode, paymentMethod, mamoHidden]);
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">
