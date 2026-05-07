@@ -92,6 +92,7 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - **Expo Push Token Rotation**: The app includes `PushTokenRotationListener` to re-register push tokens, ensuring notifications continue to be delivered even if tokens change.
 - **API_BASE for Stripe**: The `API_BASE` in `lib/stripe.ts` must point to `https://${EXPO_PUBLIC_DOMAIN}` to correctly proxy `/api/...` calls to the API server from the same origin.
 - **No hardcoded category IDs**: All category lookups for occasions are done by slug and cached, ensuring flexibility with WooCommerce category changes.
+- **Google Sign-In needs a real iOS build**: `@react-native-google-signin/google-signin` is a native module, so "Continue with Google" only works in an EAS dev build, TestFlight build, or App Store build. It will not work in Expo Go or in the Expo web preview. After changing any of `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, or `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID`, a fresh dev build is required so the iOS `Info.plist` URL types pick up the new reversed client id. `app.config.js` auto-derives the reversed iOS client id from `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` if `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` is missing or in the wrong format. The API server's `GOOGLE_CLIENT_IDS` must be a comma-separated list that contains BOTH the iOS client id and the Web client id, since either may appear as `aud` on the returned `idToken`.
 
 ## Pointers
 
