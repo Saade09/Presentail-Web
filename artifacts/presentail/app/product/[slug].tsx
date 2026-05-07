@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
 import { Price } from "@/components/Price";
-import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -52,9 +51,6 @@ export default function ProductDetail() {
   }
 
   const cat = getCategory(product.category);
-  const related = allProducts
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -106,34 +102,6 @@ export default function ProductDetail() {
           qty={qty}
           setQty={setQty}
         />
-
-
-        {related.length > 0 ? (
-          <View style={{ marginTop: 24 }}>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 20,
-                color: colors.primary,
-                paddingHorizontal: 24,
-                marginBottom: 16,
-              }}
-            >
-              {t.youMayAlsoLove}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
-            >
-              {related.map((p) => (
-                <View key={p.id} style={{ width: 180 }}>
-                  <ProductCard product={p} width={180} />
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
       </ScrollView>
 
       <View
