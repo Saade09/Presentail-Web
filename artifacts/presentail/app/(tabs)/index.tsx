@@ -1750,6 +1750,15 @@ function Footer() {
           <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#3c4043", marginLeft: 2 }}>Pay</Text>
         </PayIcon>
         <PayIcon>
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, color: "#1A1F71", letterSpacing: 0.5 }}>VISA</Text>
+        </PayIcon>
+        <PayIcon>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#EB001B" }} />
+            <View style={{ width: 11, height: 11, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -4 }} />
+          </View>
+        </PayIcon>
+        <PayIcon>
           <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#006FCF", letterSpacing: 0.5 }}>AMEX</Text>
         </PayIcon>
         <PayIcon>

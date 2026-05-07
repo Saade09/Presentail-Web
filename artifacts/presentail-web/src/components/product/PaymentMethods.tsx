@@ -9,6 +9,8 @@ type Logo = {
 const BASE_LOGOS: Logo[] = [
   { name: "Apple Pay", width: 44, Mark: ApplePayMark },
   { name: "Google Pay", width: 56, Mark: GooglePayMark },
+  { name: "Visa", width: 38, Mark: VisaMark },
+  { name: "Mastercard", width: 32, Mark: MastercardMark },
   { name: "American Express", width: 38, Mark: AmexMark },
   { name: "PayPal", width: 50, Mark: PayPalMark },
 ];
@@ -62,6 +64,52 @@ export function PaymentMethods({
         ))}
       </div>
     </div>
+  );
+}
+
+function VisaMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 38 22"
+      width="100%"
+      height="100%"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="38" height="22" rx="3" fill="#1A1F71" />
+      <text
+        x="19"
+        y="15.5"
+        textAnchor="middle"
+        fontFamily="'Helvetica Neue', Arial, sans-serif"
+        fontWeight="900"
+        fontStyle="italic"
+        fontSize="11"
+        letterSpacing="0.4"
+        fill="#FFFFFF"
+      >
+        VISA
+      </text>
+    </svg>
+  );
+}
+
+function MastercardMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 32 22"
+      width="100%"
+      height="100%"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <circle cx="13" cy="11" r="7" fill="#EB001B" />
+      <circle cx="19" cy="11" r="7" fill="#F79E1B" />
+      <path
+        d="M16 5.7a7 7 0 0 0 0 10.6 7 7 0 0 0 0-10.6z"
+        fill="#FF5F00"
+      />
+    </svg>
   );
 }
 
