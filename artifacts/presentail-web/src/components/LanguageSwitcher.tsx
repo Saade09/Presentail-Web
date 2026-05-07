@@ -19,7 +19,8 @@ type Props = {
 };
 
 export function LanguageSwitcher({ className = "" }: Props) {
-  const { language, setLanguage, t } = useLocale();
+  const { language, setLanguage, t, dir } = useLocale();
+  const align = dir === "rtl" ? "start" : "end";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -31,7 +32,7 @@ export function LanguageSwitcher({ className = "" }: Props) {
         <span className="font-medium text-foreground">{LABELS[language]}</span>
         <ChevronDown className="w-3 h-3" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[8rem]">
+      <DropdownMenuContent align={align} className="min-w-[8rem]">
         {SUPPORTED_LANGS.map((lang) => {
           const active = language === lang;
           return (
