@@ -32,7 +32,6 @@ export default function ProductDetail() {
   const insets = useSafeAreaInsets();
   const { add, count } = useCart();
   const { formatNative } = useCurrency();
-  const [qty, setQty] = useState(1);
   const t = useT();
 
   const { products: allProducts } = useWooProducts();
@@ -99,8 +98,6 @@ export default function ProductDetail() {
           cat={cat}
           colors={colors}
           router={router}
-          qty={qty}
-          setQty={setQty}
         />
       </ScrollView>
 
@@ -116,27 +113,14 @@ export default function ProductDetail() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderColor: colors.border,
-          flexDirection: "row",
-          gap: 12,
           alignItems: "center",
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999, overflow: "hidden" }}>
-          <Pressable onPress={() => setQty(Math.max(1, qty - 1))} style={styles.qtyBtn}>
-            <Feather name="minus" size={14} color={colors.primary} />
-          </Pressable>
-          <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 10, fontSize: 14 }}>
-            {qty}
-          </Text>
-          <Pressable onPress={() => setQty(qty + 1)} style={styles.qtyBtn}>
-            <Feather name="plus" size={14} color={colors.primary} />
-          </Pressable>
-        </View>
         <Pressable
-          onPress={() => add(product.id, qty)}
+          onPress={() => add(product.id, 1)}
           style={({ pressed }) => [
             {
-              flex: 1,
+              alignSelf: "stretch",
               backgroundColor: colors.primary,
               paddingVertical: 16,
               borderRadius: 999,
@@ -158,7 +142,7 @@ export default function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            {t.addLabel} — {formatNative(product.priceValue * qty)}
+            {t.addLabel} — {formatNative(product.priceValue)}
           </Text>
         </Pressable>
       </View>
@@ -166,7 +150,7 @@ export default function ProductDetail() {
   );
 }
 
-function ProductBody({ product, cat, colors, router, qty, setQty }: any) {
+function ProductBody({ product, cat, colors, router }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
   const { formatNative, currencyCode } = useCurrency();
@@ -529,11 +513,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: "Inter_600SemiBold",
     fontSize: 10,
-  },
-  qtyBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
