@@ -93,11 +93,12 @@ function HomeHeader({
   const router = useRouter();
   const t = useT();
   const { isRTL, lang, setLang } = useLanguage();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { token: authToken } = useAuth();
 
   const countryName = selectedCountry?.name ?? "Lebanon";
   const countryFlag = selectedCountry?.flag ?? "🇱🇧";
+  const deliveryPlaceName = selectedCity?.name ?? countryName;
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
 
@@ -217,17 +218,39 @@ function HomeHeader({
                 }}
               />
               <Text style={{ fontSize: 13 }}>{countryFlag}</Text>
-              <Animated.Text
+              <View
                 style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 12,
-                  color: pillTextColor,
-                  maxWidth: 80,
+                  flexDirection: "column",
+                  alignItems: isRTL ? "flex-end" : "flex-start",
+                  maxWidth: 96,
                 }}
-                numberOfLines={1}
               >
-                {countryName}
-              </Animated.Text>
+                <Animated.Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 9,
+                    lineHeight: 11,
+                    letterSpacing: 0.6,
+                    textTransform: "uppercase",
+                    color: pillTextColor,
+                    opacity: 0.8,
+                  }}
+                  numberOfLines={1}
+                >
+                  {t.deliveryHeading}
+                </Animated.Text>
+                <Animated.Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                    lineHeight: 14,
+                    color: pillTextColor,
+                  }}
+                  numberOfLines={1}
+                >
+                  {deliveryPlaceName}
+                </Animated.Text>
+              </View>
               <Animated.View>
                 <Feather name="chevron-down" size={13} color="#fff" />
                 <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
