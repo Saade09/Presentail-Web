@@ -1064,10 +1064,25 @@ function DeliveryDetailsStep(props: any) {
           >
             {noAddress ? <Feather name="check" size={12} color="#fff" /> : null}
           </View>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary }}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1 }}>
             {t.dontKnowAddressCheck}
           </Text>
         </Pressable>
+
+        {noAddress ? (
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 12,
+              lineHeight: 17,
+              color: colors.mutedForeground,
+              marginTop: 6,
+              marginLeft: 26,
+            }}
+          >
+            {t.dontKnowAddressNote}
+          </Text>
+        ) : null}
 
         {!noAddress ? (
         <View>
