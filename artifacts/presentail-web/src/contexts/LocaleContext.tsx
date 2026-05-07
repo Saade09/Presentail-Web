@@ -350,6 +350,7 @@ const STRINGS: Dict = {
   "footer.comingSoon": { en: "coming soon", ar: "قريباً" },
   "footer.copyright": { en: "© {year} Presentail. All rights reserved.", ar: "© {year} Presentail. جميع الحقوق محفوظة." },
   "footer.payments": { en: "Secure payments by Stripe & Mamo", ar: "دفع آمن عبر Stripe وMamo" },
+  "payments.waysToPay": { en: "Ways to Pay", ar: "طرق الدفع" },
 
   // 404
   "notFound.title": { en: "404 Page Not Found", ar: "404 الصفحة غير موجودة" },
@@ -754,6 +755,7 @@ const STRINGS_FR: Record<string, string> = {
   "footer.comingSoon": "bientôt disponible",
   "footer.copyright": "© {year} Presentail. Tous droits réservés.",
   "footer.payments": "Paiements sécurisés par Stripe et Mamo",
+  "payments.waysToPay": "Moyens de paiement",
 
   "notFound.title": "404 Page introuvable",
   "notFound.desc": "Avez-vous oublié d'ajouter la page au routeur ?",

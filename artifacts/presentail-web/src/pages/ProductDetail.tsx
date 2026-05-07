@@ -234,7 +234,7 @@ export default function ProductDetail() {
 
             <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
 
-            <PaymentMethods />
+            <PaymentMethods label={t("payments.waysToPay")} countryCode={countryCode} />
           </div>
         </div>
 

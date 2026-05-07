@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { Logo } from "@/components/Logo";
+import { PaymentMethods } from "@/components/product/PaymentMethods";
 
 export function Footer() {
   const { t, countryName } = useLocale();
@@ -59,9 +60,12 @@ export function Footer() {
           <p className="text-xs text-primary-foreground/50">
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
-          <div className="flex items-center gap-4 opacity-50 grayscale mix-blend-luminosity">
-            <span className="text-xs">{t("footer.payments")}</span>
-          </div>
+          <PaymentMethods
+            label={t("payments.waysToPay")}
+            className="flex flex-col sm:flex-row sm:items-center gap-3"
+            labelClassName="text-[11px] uppercase tracking-[0.18em] text-primary-foreground/60 sm:shrink-0"
+            countryCode={country?.code}
+          />
         </div>
       </div>
     </footer>

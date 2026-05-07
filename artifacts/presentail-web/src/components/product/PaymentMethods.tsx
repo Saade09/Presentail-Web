@@ -6,26 +6,51 @@ type Logo = {
   Mark: (props: SVGProps<SVGSVGElement>) => ReactElement;
 };
 
-const LOGOS: Logo[] = [
-  { name: "Mastercard", width: 36, Mark: MastercardMark },
-  { name: "Visa", width: 44, Mark: VisaMark },
-  { name: "Google Pay", width: 56, Mark: GooglePayMark },
+const BASE_LOGOS: Logo[] = [
   { name: "Apple Pay", width: 44, Mark: ApplePayMark },
+  { name: "Google Pay", width: 56, Mark: GooglePayMark },
   { name: "American Express", width: 38, Mark: AmexMark },
   { name: "PayPal", width: 50, Mark: PayPalMark },
 ];
 
-export function PaymentMethods() {
+const WHISH_LOGO: Logo = { name: "whish", width: 48, Mark: WhishMark };
+
+type PaymentMethodsProps = {
+  label?: string | null;
+  labelClassName?: string;
+  className?: string;
+  countryCode?: string | null;
+};
+
+export function PaymentMethods({
+  label = "Ways to Pay",
+  labelClassName,
+  className,
+  countryCode,
+}: PaymentMethodsProps = {}) {
+  const logos: Logo[] =
+    countryCode?.toUpperCase() === "LB"
+      ? [...BASE_LOGOS, WHISH_LOGO]
+      : BASE_LOGOS;
   return (
     <div
-      className="flex flex-col sm:flex-row sm:items-center gap-3"
+      className={
+        className ?? "flex flex-col sm:flex-row sm:items-center gap-3"
+      }
       data-testid="payment-methods"
     >
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:shrink-0">
-        Ways to Pay
-      </p>
+      {label ? (
+        <p
+          className={
+            labelClassName ??
+            "text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:shrink-0"
+          }
+        >
+          {label}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-border bg-card px-4 py-2.5">
-        {LOGOS.map(({ name, width, Mark }) => (
+        {logos.map(({ name, width, Mark }) => (
           <span
             key={name}
             title={name}
@@ -40,47 +65,28 @@ export function PaymentMethods() {
   );
 }
 
-function VisaMark(props: SVGProps<SVGSVGElement>) {
+function WhishMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      viewBox="0 0 48 16"
+      viewBox="0 0 48 20"
       width="100%"
       height="100%"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
+      <rect width="48" height="20" rx="4" fill="#E6007E" />
       <text
         x="24"
-        y="13"
+        y="14.2"
         textAnchor="middle"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
-        fontWeight="900"
-        fontStyle="italic"
-        fontSize="14"
-        letterSpacing="0.5"
-        fill="#1A1F71"
+        fontWeight="800"
+        fontSize="11"
+        letterSpacing="-0.3"
+        fill="#FFFFFF"
       >
-        VISA
+        whish
       </text>
-    </svg>
-  );
-}
-
-function MastercardMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 36 22"
-      width="100%"
-      height="100%"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <circle cx="13" cy="11" r="9" fill="#EB001B" />
-      <circle cx="23" cy="11" r="9" fill="#F79E1B" />
-      <path
-        d="M18 4.6a9 9 0 0 1 0 12.8 9 9 0 0 1 0-12.8z"
-        fill="#FF5F00"
-      />
     </svg>
   );
 }

@@ -1742,29 +1742,27 @@ function Footer() {
       {/* Payment methods */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         <PayIcon>
-          <View style={{ flexDirection: "row" }}>
-            <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
-            <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
-          </View>
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#444", letterSpacing: 0.3, marginLeft: 4 }}>MC</Text>
-        </PayIcon>
-        <PayIcon>
-          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 13, color: "#1A1F71" }}>VISA</Text>
+          <MaterialCommunityIcons name="apple" size={13} color="#000" />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#000", marginLeft: 2 }}>Pay</Text>
         </PayIcon>
         <PayIcon>
           <MaterialCommunityIcons name="google" size={11} color="#4285F4" />
           <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#3c4043", marginLeft: 2 }}>Pay</Text>
         </PayIcon>
         <PayIcon>
-          <MaterialCommunityIcons name="apple" size={13} color="#000" />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#000", marginLeft: 2 }}>Pay</Text>
-        </PayIcon>
-        <PayIcon>
           <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#006FCF", letterSpacing: 0.5 }}>AMEX</Text>
         </PayIcon>
         <PayIcon>
-          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#E5302E" }}>whish</Text>
+          <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, letterSpacing: -0.3 }}>
+            <Text style={{ color: "#003087" }}>Pay</Text>
+            <Text style={{ color: "#009CDE" }}>Pal</Text>
+          </Text>
         </PayIcon>
+        {selectedCountry?.code === "LB" ? (
+          <PayIcon>
+            <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 10, color: "#E5302E" }}>whish</Text>
+          </PayIcon>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 4 }}>
