@@ -941,7 +941,6 @@ function BundlesSection() {
           <SectionTitle
             eyebrow={t.bundlesEyebrowHome}
             title={t.bundlesTitleHome}
-            description={t.bundlesDescHome}
           />
         </View>
         <Pressable onPress={() => router.push("/category/bundles")}>
