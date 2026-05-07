@@ -39,6 +39,10 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Check for unsafe new native modules
+        run: pnpm --filter @workspace/scripts run check-presentail-native-modules
+        working-directory: .
+
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
