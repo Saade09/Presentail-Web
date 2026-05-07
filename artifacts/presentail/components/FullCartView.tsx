@@ -14,8 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 
 type FullCartViewProps = {
   showBackButton?: boolean;
@@ -40,7 +43,17 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const overlay = Math.max(bottomOffset ?? ctxTabBarHeight, insets.bottom);
   const [footerHeight, setFooterHeight] = React.useState(0);
   const { detailed, total, setQty, remove, clear } = useCart();
+  const { selectedCountry } = useDeliveryLocation();
+  const { currencyCode, convert } = useCurrency();
   const t = useT();
+
+  const countryCode =
+    selectedCountry?.code ||
+    (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
+  const thresholdUsd = freeDeliveryThresholdUsd(countryCode);
+  const remainingUsd = Math.max(thresholdUsd - total, 0);
+  const unlocked = total >= thresholdUsd;
+  const progress = thresholdUsd > 0 ? Math.min(total / thresholdUsd, 1) : 1;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -176,6 +189,114 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               gap: 12,
             }}
           >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                backgroundColor: colors.secondary,
+                borderRadius: 16,
+                padding: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="truck" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 6 }}>
+                {unlocked ? (
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 12,
+                      color: colors.primary,
+                    }}
+                  >
+                    {t.cartFreeDeliveryUnlocked}
+                  </Text>
+                ) : (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                    >
+                      {t.cartFreeDeliveryRemainingPrefix}{" "}
+                    </Text>
+                    <Price
+                      value={convert(remainingUsd)}
+                      native
+                      style={{
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                      symbolSize={11}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                    >
+                      {" "}{t.cartFreeDeliveryRemainingSuffix}
+                    </Text>
+                  </View>
+                )}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 6,
+                      borderRadius: 999,
+                      backgroundColor: "#fff",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${Math.round(progress * 100)}%`,
+                        height: "100%",
+                        backgroundColor: colors.gold,
+                      }}
+                    />
+                  </View>
+                  <Price
+                    value={total}
+                    native
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 11,
+                      color: colors.primary,
+                    }}
+                    symbolSize={10}
+                  />
+                </View>
+              </View>
+            </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                 {t.subtotal}

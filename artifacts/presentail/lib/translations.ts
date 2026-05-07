@@ -440,6 +440,9 @@ const EN = {
   cartFree: "Free",
   cartTotal: "Total",
   cartProceed: "Proceed to Checkout",
+  cartFreeDeliveryRemainingPrefix: "Only",
+  cartFreeDeliveryRemainingSuffix: "left to unlock Free Standard Delivery",
+  cartFreeDeliveryUnlocked: "You've unlocked Free Standard Delivery",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1261,6 +1264,9 @@ const AR: typeof EN = {
   cartFree: "مجاني",
   cartTotal: "الإجمالي",
   cartProceed: "المتابعة إلى الدفع",
+  cartFreeDeliveryRemainingPrefix: "تبقّى فقط",
+  cartFreeDeliveryRemainingSuffix: "للحصول على توصيل قياسي مجاني",
+  cartFreeDeliveryUnlocked: "لقد حصلت على توصيل قياسي مجاني",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -2082,6 +2088,9 @@ const FR: typeof EN = {
   cartFree: "Offerte",
   cartTotal: "Total",
   cartProceed: "Passer au paiement",
+  cartFreeDeliveryRemainingPrefix: "Plus que",
+  cartFreeDeliveryRemainingSuffix: "pour bénéficier de la livraison standard offerte",
+  cartFreeDeliveryUnlocked: "Vous bénéficiez de la livraison standard offerte",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

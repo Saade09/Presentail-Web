@@ -29,6 +29,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { getBeirutHour, getCountryHour } from "@/lib/beirutTime";
+import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import {
   isPayMethodSupported,
@@ -86,9 +87,6 @@ type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 const LB_EXPRESS_SURCHARGE = 15;
 const AE_EXPRESS_SURCHARGE = 4.90;
-const LB_FREE_DELIVERY_THRESHOLD = 130;
-const AE_FREE_DELIVERY_THRESHOLD = 89.84;
-
 function countryFromCurrency(currencyCode?: string): string | undefined {
   if (currencyCode === "AED") return "AE";
   if (currencyCode === "EUR") return "CY";
@@ -106,8 +104,7 @@ function expressSurchargeForCountry(code?: string): number {
 }
 
 function freeDeliveryThresholdForCountry(code?: string): number {
-  if (code === "AE") return AE_FREE_DELIVERY_THRESHOLD;
-  return LB_FREE_DELIVERY_THRESHOLD;
+  return freeDeliveryThresholdUsd(code);
 }
 
 type District = { name: string; fee: number };

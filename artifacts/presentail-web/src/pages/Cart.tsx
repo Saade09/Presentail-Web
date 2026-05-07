@@ -96,7 +96,7 @@ export default function Cart() {
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               <h2 className="text-2xl font-serif mb-6">{t("cart.summary")}</h2>
 
-              <FreeDeliveryBanner className="mb-6" />
+              <FreeDeliveryBanner className="mb-6" subtotal={subtotal} />
 
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
