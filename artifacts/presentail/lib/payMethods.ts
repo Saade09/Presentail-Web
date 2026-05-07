@@ -1,5 +1,5 @@
 /**
- * Payment-method ↔ currency compatibility table.
+ * Payment-method ↔ currency/country compatibility table.
  *
  * Lives in its own module (rather than co-located in checkout.tsx) so the
  * pure helpers can be imported by unit tests without pulling in the whole
@@ -31,29 +31,59 @@ export const PAY_METHOD_CURRENCIES: Record<
   western: ["USD"],
 };
 
+/**
+ * ISO-3166 alpha-2 country codes a payment method is restricted to. Methods
+ * not listed are available in any country (subject to the currency table).
+ *
+ * Whish Money and Western Union are local Lebanon-only flows: even when the
+ * shopper is browsing in USD from UAE/Cyprus they should not see them.
+ */
+export const PAY_METHOD_COUNTRIES: Partial<Record<PayMethodId, readonly string[]>> = {
+  whish: ["LB"],
+  western: ["LB"],
+};
+
+export type PayMethodContext = {
+  /** Active country code (ISO-3166 alpha-2), e.g. "LB", "AE", "CY". */
+  country?: string;
+};
+
 export function isPayMethodSupported(
   method: PayMethodId,
   currency: string,
+  ctx: PayMethodContext = {},
 ): boolean {
-  const allowed = PAY_METHOD_CURRENCIES[method];
-  return allowed === "all" || allowed.includes(currency);
+  const allowedCurrencies = PAY_METHOD_CURRENCIES[method];
+  const currencyOk =
+    allowedCurrencies === "all" || allowedCurrencies.includes(currency);
+  if (!currencyOk) return false;
+  const allowedCountries = PAY_METHOD_COUNTRIES[method];
+  if (allowedCountries) {
+    if (!ctx.country) return false;
+    if (!allowedCountries.includes(ctx.country)) return false;
+  }
+  return true;
 }
 
-export function defaultPayMethodFor(currency: string): PayMethodId {
-  if (isPayMethodSupported("card", currency)) return "card";
-  if (isPayMethodSupported("mamo", currency)) return "mamo";
-  if (isPayMethodSupported("paypal", currency)) return "paypal";
+export function defaultPayMethodFor(
+  currency: string,
+  ctx: PayMethodContext = {},
+): PayMethodId {
+  if (isPayMethodSupported("card", currency, ctx)) return "card";
+  if (isPayMethodSupported("mamo", currency, ctx)) return "mamo";
+  if (isPayMethodSupported("paypal", currency, ctx)) return "paypal";
   return "card";
 }
 
 /**
  * Decide what the selected payment method should be after the shopper
- * switches the in-app currency.
+ * switches the in-app currency or country.
  *
  * Behaviour (matches the checkout `useEffect`):
- *   - If the customer's existing selection still works in the new currency
- *     it is preserved (a USD shopper who picked PayPal stays on PayPal).
- *   - Otherwise we fall back to the default for the new currency.
+ *   - If the customer's existing selection still works in the new
+ *     currency/country it is preserved (a USD shopper who picked PayPal
+ *     stays on PayPal).
+ *   - Otherwise we fall back to the default for the new currency/country.
  *
  * Returning a single value (rather than mutating state directly) keeps
  * the rule pure and unit-testable.
@@ -61,9 +91,10 @@ export function defaultPayMethodFor(currency: string): PayMethodId {
 export function nextPayMethodForCurrency(
   current: PayMethodId,
   newCurrency: string,
+  ctx: PayMethodContext = {},
 ): PayMethodId {
-  if (isPayMethodSupported(current, newCurrency)) return current;
-  return defaultPayMethodFor(newCurrency);
+  if (isPayMethodSupported(current, newCurrency, ctx)) return current;
+  return defaultPayMethodFor(newCurrency, ctx);
 }
 
 /**
@@ -74,6 +105,7 @@ export function nextPayMethodForCurrency(
  */
 export function payMethodAvailability(
   currency: string,
+  ctx: PayMethodContext = {},
 ): Record<PayMethodId, { enabled: boolean }> {
   const ids: PayMethodId[] = [
     "card",
@@ -85,7 +117,7 @@ export function payMethodAvailability(
   ];
   const out = {} as Record<PayMethodId, { enabled: boolean }>;
   for (const id of ids) {
-    out[id] = { enabled: isPayMethodSupported(id, currency) };
+    out[id] = { enabled: isPayMethodSupported(id, currency, ctx) };
   }
   return out;
 }

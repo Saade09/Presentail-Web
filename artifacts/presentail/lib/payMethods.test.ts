@@ -17,22 +17,49 @@ describe("isPayMethodSupported", () => {
     expect(isPayMethodSupported("western", "AED")).toBe(false);
   });
 
-  it("USD supports card, wallet, paypal, whish, western — but not mamo", () => {
-    expect(isPayMethodSupported("card", "USD")).toBe(true);
-    expect(isPayMethodSupported("wallet", "USD")).toBe(true);
-    expect(isPayMethodSupported("paypal", "USD")).toBe(true);
-    expect(isPayMethodSupported("whish", "USD")).toBe(true);
-    expect(isPayMethodSupported("western", "USD")).toBe(true);
-    expect(isPayMethodSupported("mamo", "USD")).toBe(false);
+  it("USD + LB supports card, wallet, paypal, whish, western — but not mamo", () => {
+    const ctx = { country: "LB" };
+    expect(isPayMethodSupported("card", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("wallet", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("paypal", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("whish", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("western", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("mamo", "USD", ctx)).toBe(false);
+  });
+
+  it("USD + AE keeps card/wallet/paypal but disables Whish & Western (LB-only)", () => {
+    const ctx = { country: "AE" };
+    expect(isPayMethodSupported("card", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("wallet", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("paypal", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("whish", "USD", ctx)).toBe(false);
+    expect(isPayMethodSupported("western", "USD", ctx)).toBe(false);
+  });
+
+  it("USD + CY also disables Whish & Western (LB-only)", () => {
+    const ctx = { country: "CY" };
+    expect(isPayMethodSupported("whish", "USD", ctx)).toBe(false);
+    expect(isPayMethodSupported("western", "USD", ctx)).toBe(false);
+    expect(isPayMethodSupported("card", "USD", ctx)).toBe(true);
+    expect(isPayMethodSupported("paypal", "USD", ctx)).toBe(true);
+  });
+
+  it("Whish & Western require an explicit country (no LB by default)", () => {
+    // Without ctx.country we cannot prove the shopper is in Lebanon, so the
+    // safe default is to disable the LB-only methods. This matches the
+    // checkout call site, which always passes the active country.
+    expect(isPayMethodSupported("whish", "USD")).toBe(false);
+    expect(isPayMethodSupported("western", "USD")).toBe(false);
   });
 
   it("GBP supports card/wallet only — disables PayPal and the manual flows", () => {
-    expect(isPayMethodSupported("card", "GBP")).toBe(true);
-    expect(isPayMethodSupported("wallet", "GBP")).toBe(true);
-    expect(isPayMethodSupported("paypal", "GBP")).toBe(false);
-    expect(isPayMethodSupported("whish", "GBP")).toBe(false);
-    expect(isPayMethodSupported("western", "GBP")).toBe(false);
-    expect(isPayMethodSupported("mamo", "GBP")).toBe(false);
+    const ctx = { country: "LB" };
+    expect(isPayMethodSupported("card", "GBP", ctx)).toBe(true);
+    expect(isPayMethodSupported("wallet", "GBP", ctx)).toBe(true);
+    expect(isPayMethodSupported("paypal", "GBP", ctx)).toBe(false);
+    expect(isPayMethodSupported("whish", "GBP", ctx)).toBe(false);
+    expect(isPayMethodSupported("western", "GBP", ctx)).toBe(false);
+    expect(isPayMethodSupported("mamo", "GBP", ctx)).toBe(false);
   });
 
   it("returns false for an unknown currency across the board", () => {
@@ -54,45 +81,48 @@ describe("defaultPayMethodFor", () => {
   });
 
   it("returns card as a final safe default for unsupported currencies", () => {
-    // No method supports ZZZ, but the helper must still return *something*
-    // valid so the UI doesn't render with a null selection.
     expect(defaultPayMethodFor("ZZZ")).toBe("card");
   });
 });
 
-describe("nextPayMethodForCurrency — currency-switch state transition", () => {
+describe("nextPayMethodForCurrency — currency/country switch transition", () => {
   it("preserves the user's selection when it remains compatible", () => {
-    // USD shopper on PayPal switches to USD again (no-op): keep PayPal.
     expect(nextPayMethodForCurrency("paypal", "USD")).toBe("paypal");
-    // USD shopper on Whish stays on Whish.
-    expect(nextPayMethodForCurrency("whish", "USD")).toBe("whish");
-    // GBP shopper on card stays on card.
+    expect(nextPayMethodForCurrency("whish", "USD", { country: "LB" })).toBe("whish");
     expect(nextPayMethodForCurrency("card", "GBP")).toBe("card");
   });
 
   it("preserves card/wallet across compatible currency swaps", () => {
-    // Card works in EUR/GBP/USD/etc, so swapping among them keeps card.
     expect(nextPayMethodForCurrency("card", "EUR")).toBe("card");
     expect(nextPayMethodForCurrency("wallet", "CHF")).toBe("wallet");
   });
 
   it("falls back to default when the selection becomes incompatible", () => {
-    // PayPal is USD-only — switch to GBP and we must move off PayPal.
     expect(nextPayMethodForCurrency("paypal", "GBP")).toBe("card");
-    // Card is unavailable in AED — must fall back to Mamo.
     expect(nextPayMethodForCurrency("card", "AED")).toBe("mamo");
-    // Mamo is unavailable in USD — must fall back to card.
     expect(nextPayMethodForCurrency("mamo", "USD")).toBe("card");
-    // Whish is USD-only — switching to AED moves to Mamo.
     expect(nextPayMethodForCurrency("whish", "AED")).toBe("mamo");
   });
 
-  it("never returns an unsupported method for the target currency", () => {
+  it("moves Whish/Western off when the country flips away from LB", () => {
+    // A shopper in Lebanon picked Whish, then switched the country selector
+    // to UAE while still browsing in USD. We must not leave them on Whish.
+    expect(nextPayMethodForCurrency("whish", "USD", { country: "AE" })).toBe("card");
+    expect(nextPayMethodForCurrency("western", "USD", { country: "CY" })).toBe("card");
+    // And it stays put if they're still in Lebanon.
+    expect(nextPayMethodForCurrency("whish", "USD", { country: "LB" })).toBe("whish");
+    expect(nextPayMethodForCurrency("western", "USD", { country: "LB" })).toBe("western");
+  });
+
+  it("never returns an unsupported method for the target currency/country", () => {
     const ids = ["card", "wallet", "whish", "western", "mamo", "paypal"] as const;
     for (const id of ids) {
       for (const cur of ["USD", "AED", "GBP", "EUR"]) {
-        const next = nextPayMethodForCurrency(id, cur);
-        expect(isPayMethodSupported(next, cur)).toBe(true);
+        for (const country of ["LB", "AE", "CY", undefined] as const) {
+          const ctx = country ? { country } : undefined;
+          const next = nextPayMethodForCurrency(id, cur, ctx);
+          expect(isPayMethodSupported(next, cur, ctx)).toBe(true);
+        }
       }
     }
   });
@@ -116,8 +146,8 @@ describe("payMethodAvailability — disabled (not hidden) for incompatible", () 
     expect(av.western.enabled).toBe(false);
   });
 
-  it("USD enables card/wallet/paypal/whish/western, disables Mamo", () => {
-    const av = payMethodAvailability("USD");
+  it("USD + LB enables card/wallet/paypal/whish/western, disables Mamo", () => {
+    const av = payMethodAvailability("USD", { country: "LB" });
     expect(av.card.enabled).toBe(true);
     expect(av.wallet.enabled).toBe(true);
     expect(av.paypal.enabled).toBe(true);
@@ -126,8 +156,25 @@ describe("payMethodAvailability — disabled (not hidden) for incompatible", () 
     expect(av.mamo.enabled).toBe(false);
   });
 
+  it("USD + AE disables Whish/Western (LB-only) but keeps card/wallet/paypal", () => {
+    const av = payMethodAvailability("USD", { country: "AE" });
+    expect(av.card.enabled).toBe(true);
+    expect(av.wallet.enabled).toBe(true);
+    expect(av.paypal.enabled).toBe(true);
+    expect(av.whish.enabled).toBe(false);
+    expect(av.western.enabled).toBe(false);
+    expect(av.mamo.enabled).toBe(false);
+  });
+
+  it("USD + CY disables Whish/Western (LB-only)", () => {
+    const av = payMethodAvailability("USD", { country: "CY" });
+    expect(av.whish.enabled).toBe(false);
+    expect(av.western.enabled).toBe(false);
+    expect(av.card.enabled).toBe(true);
+  });
+
   it("GBP enables card/wallet, disables PayPal/Whish/Western/Mamo", () => {
-    const av = payMethodAvailability("GBP");
+    const av = payMethodAvailability("GBP", { country: "LB" });
     expect(av.card.enabled).toBe(true);
     expect(av.wallet.enabled).toBe(true);
     expect(av.paypal.enabled).toBe(false);

@@ -276,12 +276,25 @@ export default function Checkout() {
     }
   };
 
+  // Whish Money is a Lebanon-only local transfer flow — only show it when
+  // the active country is Lebanon, so a UAE/Cyprus shopper browsing in USD
+  // doesn't see a payment option that doesn't apply to their region.
   const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
     { id: "card", labelKey: "checkout.pay.card" },
     { id: "paypal", labelKey: "checkout.pay.paypal" },
     { id: "mamo", labelKey: "checkout.pay.mamo" },
-    { id: "whish", labelKey: "checkout.pay.whish" },
+    ...(countryCode === "LB"
+      ? [{ id: "whish" as const, labelKey: "checkout.pay.whish" }]
+      : []),
   ];
+
+  // If the shopper had Whish selected and then switches to a non-LB country,
+  // fall back to a default so checkout never sits in a broken state.
+  useEffect(() => {
+    if (paymentMethod === "whish" && countryCode !== "LB") {
+      setPaymentMethod("card");
+    }
+  }, [countryCode, paymentMethod]);
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">

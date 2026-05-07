@@ -309,9 +309,11 @@ export default function CheckoutScreen() {
   // a USD shopper who picked PayPal isn't silently forced onto card.
   // (See `nextPayMethodForCurrency` for the unit-tested rule.)
   useEffect(() => {
-    const next = nextPayMethodForCurrency(payMethod, currencyCode);
+    const next = nextPayMethodForCurrency(payMethod, currencyCode, {
+      country: effectiveCountry,
+    });
     if (next !== payMethod) setPayMethod(next);
-  }, [currencyCode, payMethod]);
+  }, [currencyCode, payMethod, effectiveCountry]);
 
   const [paying, setPaying] = useState(false);
 
@@ -772,6 +774,7 @@ export default function CheckoutScreen() {
               setPayMethod={setPayMethod}
               email={senderEmail}
               setEmail={setSenderEmail}
+              country={effectiveCountry}
             />
             <OrderSummary
               colors={colors}
@@ -1407,7 +1410,7 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country }: any) {
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCVC, setCardCVC] = useState("");
@@ -1419,10 +1422,13 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   // list. Incompatible methods are shown disabled with a short reason
   // so customers understand why they cannot pick them — rather than
   // having the option silently disappear or override their selection.
-  const supports = (m: PayMethodId) => isPayMethodSupported(m, currencyCode);
+  const supports = (m: PayMethodId) =>
+    isPayMethodSupported(m, currencyCode, { country });
   const reason = (m: PayMethodId): string | undefined => {
     if (supports(m)) return undefined;
     if (m === "mamo") return t.checkoutPayDisabledMamo;
+    if ((m === "whish" || m === "western") && country !== "LB")
+      return t.checkoutPayDisabledLebanonOnly ?? t.checkoutPayDisabledUsdOnly;
     if (m === "paypal" || m === "whish" || m === "western") return t.checkoutPayDisabledUsdOnly;
     return t.checkoutPayDisabledGeneric;
   };
