@@ -302,6 +302,33 @@ export const GetDeliveryConfigResponse = zod.object({
 });
 
 /**
+ * Resolves the caller's country from their IP address and maps it to a
+display currency. Used by the storefront and mobile app to seed the
+initial display currency on first visit so visitors see prices in
+their local currency without changing any setting. The endpoint is
+cached in-memory for a short TTL per IP and degrades gracefully to
+`{ countryCode: null, currencyCode: "USD" }` on lookup failure or
+timeout. Currency selection here is display-only and does not change
+which WooCommerce store, payment provider currency, or delivery
+country is used.
+
+ * @summary Detect display currency from the caller's IP
+ */
+export const GetGeoCurrencyResponse = zod.object({
+  countryCode: zod
+    .string()
+    .nullable()
+    .describe(
+      "ISO 3166-1 alpha-2 country code derived from the caller's IP, or null when detection failed.",
+    ),
+  currencyCode: zod
+    .string()
+    .describe(
+      'ISO 4217 currency code suitable for display. Falls back to \"USD\" when the country has no first-class currency mapping or detection failed.',
+    ),
+});
+
+/**
  * Returns the canonical list of countries and cities Presentail can
 deliver to, including their isActive flags, currency, flag emoji
 and display ordering. Consumed by the mobile app on launch so

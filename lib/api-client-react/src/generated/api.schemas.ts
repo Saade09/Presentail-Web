@@ -161,6 +161,13 @@ export interface DeliveryConfigResponse {
   currency: string;
 }
 
+export interface GeoCurrencyResponse {
+  /** ISO 3166-1 alpha-2 country code derived from the caller's IP, or null when detection failed. */
+  countryCode: string | null;
+  /** ISO 4217 currency code suitable for display. Falls back to "USD" when the country has no first-class currency mapping or detection failed. */
+  currencyCode: string;
+}
+
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
 }

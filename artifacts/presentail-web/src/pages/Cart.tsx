@@ -4,15 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useLocationSelection } from "@/contexts/LocationContext";
-import { formatStorePrice } from "@/lib/currency";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
   const { t, dir } = useLocale();
-  const { countryCode } = useLocationSelection();
-  const fmt = (v: number) => formatStorePrice(v, countryCode);
+  const { formatPrice } = useDisplayCurrency();
+  const fmt = (v: number) => formatPrice(v);
 
   if (itemCount === 0) {
     return (
@@ -56,7 +55,7 @@ export default function Cart() {
                   <div className="flex justify-between gap-4">
                     <div>
                       <h3 className="font-serif text-lg leading-tight mb-1">{item.product.name}</h3>
-                      <p className="text-sm text-muted-foreground">{item.product.price}</p>
+                      <p className="text-sm text-muted-foreground">{fmt(item.product.priceValue)}</p>
                     </div>
                     <button 
                       onClick={() => removeItem(item.product.id)}

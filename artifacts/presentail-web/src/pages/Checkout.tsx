@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { formatStorePrice } from "@/lib/currency";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
@@ -51,7 +51,8 @@ export default function Checkout() {
   const { toast } = useToast();
   const { t, dir } = useLocale();
   const { countryCode, country } = useLocationSelection();
-  const fmt = (v: number) => formatStorePrice(v, countryCode);
+  const { formatPrice } = useDisplayCurrency();
+  const fmt = (v: number) => formatPrice(v);
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
   const mamoPayment = useMamoPayment();

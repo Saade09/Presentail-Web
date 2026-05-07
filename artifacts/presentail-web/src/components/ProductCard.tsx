@@ -1,8 +1,10 @@
 import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+  const { formatPrice } = useDisplayCurrency();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -33,7 +35,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
         </div>
         <div className="space-y-1">
           <h3 className="font-serif text-lg line-clamp-1">{product.name}</h3>
-          <p className="text-muted-foreground text-sm font-medium">{product.price}</p>
+          <p className="text-muted-foreground text-sm font-medium">{formatPrice(product.priceValue)}</p>
         </div>
       </Link>
     </motion.div>

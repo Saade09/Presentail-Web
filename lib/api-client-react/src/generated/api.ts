@@ -20,6 +20,7 @@ import type {
   DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
+  GeoCurrencyResponse,
   GetDeliveryConfigParams,
   GetHomepageBannersParams,
   GetHomepageCategoriesParams,
@@ -792,6 +793,91 @@ export function useGetDeliveryConfig<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDeliveryConfigQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Resolves the caller's country from their IP address and maps it to a
+display currency. Used by the storefront and mobile app to seed the
+initial display currency on first visit so visitors see prices in
+their local currency without changing any setting. The endpoint is
+cached in-memory for a short TTL per IP and degrades gracefully to
+`{ countryCode: null, currencyCode: "USD" }` on lookup failure or
+timeout. Currency selection here is display-only and does not change
+which WooCommerce store, payment provider currency, or delivery
+country is used.
+
+ * @summary Detect display currency from the caller's IP
+ */
+export const getGetGeoCurrencyUrl = () => {
+  return `/api/geo/currency`;
+};
+
+export const getGeoCurrency = async (
+  options?: RequestInit,
+): Promise<GeoCurrencyResponse> => {
+  return customFetch<GeoCurrencyResponse>(getGetGeoCurrencyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGeoCurrencyQueryKey = () => {
+  return [`/api/geo/currency`] as const;
+};
+
+export const getGetGeoCurrencyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGeoCurrency>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGeoCurrency>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGeoCurrencyQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getGeoCurrency>>> = ({
+    signal,
+  }) => getGeoCurrency({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGeoCurrency>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGeoCurrencyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGeoCurrency>>
+>;
+export type GetGeoCurrencyQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Detect display currency from the caller's IP
+ */
+
+export function useGetGeoCurrency<
+  TData = Awaited<ReturnType<typeof getGeoCurrency>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGeoCurrency>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGeoCurrencyQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

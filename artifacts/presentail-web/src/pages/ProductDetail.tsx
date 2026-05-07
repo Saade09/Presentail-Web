@@ -25,6 +25,7 @@ import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { ProductTabs } from "@/components/product/ProductTabs";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 const CATEGORY_LABELS: Record<string, string> = {
   "hand-bouquets": "Hand Bouquets",
@@ -61,6 +62,7 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const { addItem } = useCart();
   const delivery = useDeliveryConfig();
+  const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
 
   const { countryCode, cityId } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
@@ -177,7 +179,7 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-7">
             <ProductInfo
               name={product.name}
-              price={product.price}
+              price={formatDisplayPrice(product.priceValue)}
               taxLabel="TAX Inclusive"
               rewardPoints={vm.rewardPoints}
             />

@@ -18,6 +18,8 @@ tags:
     description: Homepage feed content (banners, etc.)
   - name: deliveryConfig
     description: Per-city express delivery time and free-delivery threshold copy
+  - name: geo
+    description: IP-based geolocation helpers (display currency hints)
 paths:
   /healthz:
     get:
@@ -248,6 +250,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeliveryConfigResponse"
+  /geo/currency:
+    get:
+      operationId: getGeoCurrency
+      tags: [geo]
+      summary: Detect display currency from the caller's IP
+      description: |
+        Resolves the caller's country from their IP address and maps it to a
+        display currency. Used by the storefront and mobile app to seed the
+        initial display currency on first visit so visitors see prices in
+        their local currency without changing any setting. The endpoint is
+        cached in-memory for a short TTL per IP and degrades gracefully to
+        `{ countryCode: null, currencyCode: "USD" }` on lookup failure or
+        timeout. Currency selection here is display-only and does not change
+        which WooCommerce store, payment provider currency, or delivery
+        country is used.
+      responses:
+        "200":
+          description: Detected display currency for the caller's IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoCurrencyResponse"
   /delivery-locations:
     get:
       operationId: getDeliveryLocations
@@ -527,6 +551,19 @@ components:
         - expressDeliveryTimeLabel
         - freeDeliveryThreshold
         - currency
+    GeoCurrencyResponse:
+      type: object
+      properties:
+        countryCode:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code derived from the caller's IP, or null when detection failed.
+        currencyCode:
+          type: string
+          description: ISO 4217 currency code suitable for display. Falls back to "USD" when the country has no first-class currency mapping or detection failed.
+      required:
+        - countryCode
+        - currencyCode
     DeliveryLocationsResponse:
       type: object
       properties:

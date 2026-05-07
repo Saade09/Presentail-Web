@@ -165,7 +165,13 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
     updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
-    if (nextCountry) {
+    // Only force the currency to the country's native currency when the user
+    // actually picked this country in a previous session. The default
+    // fallback (Lebanon) on a brand-new install must not mark currency as
+    // "manual" — that would suppress the IP-based auto-detection that runs
+    // in CurrencyContext and pin first-time visitors to USD even if they
+    // are in the UAE/Canada/etc.
+    if (nextCountry && persisted?.manuallySelected) {
       setCurrencyCode(nextCountry.currency);
     }
   }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity, setCurrencyCode]);

@@ -9,6 +9,7 @@ import pushRouter from "./push";
 import deliveryLocationsRouter from "./delivery-locations";
 import deliveryConfigRouter from "./delivery-config";
 import fxRouter from "./fx";
+import geoRouter from "./geo";
 import homepageRouter from "./homepage";
 import meRouter from "./me";
 
@@ -24,6 +25,7 @@ router.use(pushRouter);
 router.use(deliveryLocationsRouter);
 router.use(deliveryConfigRouter);
 router.use(fxRouter);
+router.use(geoRouter);
 router.use(homepageRouter);
 router.use(meRouter);
 
