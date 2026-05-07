@@ -657,7 +657,7 @@ const EN = {
   // ── Category page ──
   categoryBoutiqueLebanon: "Boutique · {country}",
   categorySameDay: "Same-day delivery",
-  categoryPiecesLabel: "pieces",
+  categoryPiecesLabel: "products",
   categoryLoadingProducts: "Loading products…",
   categoryFallback: "Category",
   occasionFallback: "Occasion",
@@ -1474,7 +1474,7 @@ const AR: typeof EN = {
   // ── Category page ──
   categoryBoutiqueLebanon: "البوتيك · {country}",
   categorySameDay: "توصيل في اليوم نفسه",
-  categoryPiecesLabel: "قطعة",
+  categoryPiecesLabel: "منتجات",
   categoryLoadingProducts: "جارٍ تحميل المنتجات…",
   categoryFallback: "الفئة",
   occasionFallback: "المناسبة",
@@ -2291,7 +2291,7 @@ const FR: typeof EN = {
   // ── Category page ──
   categoryBoutiqueLebanon: "Boutique · {country}",
   categorySameDay: "Livraison le jour même",
-  categoryPiecesLabel: "pièces",
+  categoryPiecesLabel: "produits",
   categoryLoadingProducts: "Chargement des produits…",
   categoryFallback: "Catégorie",
   occasionFallback: "Occasion",
