@@ -190,6 +190,8 @@ const EN = {
   // ── Product page ──
   productNotFound: "Product not found",
   goBack: "Go back",
+  shareProductAria: "Share product link",
+  shareLinkCopied: "Link copied to clipboard",
   youMayAlsoLove: "You may also love",
   taxInclusive: "Tax inclusive",
   earnPointsPrefix: "Earn",
@@ -1014,6 +1016,8 @@ const AR: typeof EN = {
   // ── Product page ──
   productNotFound: "المنتج غير موجود",
   goBack: "رجوع",
+  shareProductAria: "مشاركة رابط المنتج",
+  shareLinkCopied: "تم نسخ الرابط",
   youMayAlsoLove: "قد يعجبك أيضاً",
   taxInclusive: "شامل الضريبة",
   earnPointsPrefix: "اكسب",
@@ -1838,6 +1842,8 @@ const FR: typeof EN = {
   // ── Product page ──
   productNotFound: "Produit introuvable",
   goBack: "Retour",
+  shareProductAria: "Partager le lien du produit",
+  shareLinkCopied: "Lien copié dans le presse-papiers",
   youMayAlsoLove: "Vous aimerez aussi",
   taxInclusive: "Taxes incluses",
   earnPointsPrefix: "Gagnez",

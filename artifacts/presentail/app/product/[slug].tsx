@@ -1,16 +1,21 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  ToastAndroid,
   View,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
@@ -25,14 +30,65 @@ import { useT } from "@/hooks/useT";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
+// Public web storefront origin used to build shareable product links.
+// Mirrors the source used elsewhere for customer-facing links (see
+// `brandShareMessage` in lib/translations.ts and the EXPO_PUBLIC_DOMAIN
+// gotcha in replit.md). Falls back to the production marketing domain
+// so OTA bundles without env vars still produce a valid public URL.
+const WEB_BASE_URL = (() => {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  return "https://presentail.com";
+})();
+
 export default function ProductDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { add, count } = useCart();
+  const { add } = useCart();
   const { formatNative } = useCurrency();
   const t = useT();
+  const [copiedVisible, setCopiedVisible] = useState(false);
+  const copiedOpacity = useRef(new Animated.Value(0)).current;
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  const showCopiedToast = () => {
+    if (Platform.OS === "android") {
+      ToastAndroid.show(t.shareLinkCopied, ToastAndroid.SHORT);
+      return;
+    }
+    setCopiedVisible(true);
+    Animated.timing(copiedOpacity, {
+      toValue: 1,
+      duration: 160,
+      useNativeDriver: true,
+    }).start();
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      Animated.timing(copiedOpacity, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(() => setCopiedVisible(false));
+    }, 1600);
+  };
+
+  const handleShareProduct = async (productSlug: string) => {
+    const url = `${WEB_BASE_URL}/product/${encodeURIComponent(productSlug)}`;
+    try {
+      await Clipboard.setStringAsync(url);
+      showCopiedToast();
+    } catch {
+      // ignore clipboard errors
+    }
+  };
 
   const { products: allProducts } = useWooProducts();
   const product = allProducts.find((p) => p.id === String(slug)) ?? null;
@@ -80,15 +136,12 @@ export default function ProductDetail() {
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/cart")}
+              onPress={() => handleShareProduct(String(slug || product.id))}
+              accessibilityRole="button"
+              accessibilityLabel={t.shareProductAria}
               style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
             >
-              <Feather name="shopping-bag" size={18} color={colors.primary} />
-              {count > 0 ? (
-                <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                  <Text style={styles.badgeText}>{count}</Text>
-                </View>
-              ) : null}
+              <Feather name="share-2" size={18} color={colors.primary} />
             </Pressable>
           </View>
         </View>
@@ -146,6 +199,39 @@ export default function ProductDetail() {
           </Text>
         </Pressable>
       </View>
+
+      {Platform.OS !== "android" && copiedVisible ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: insets.top + 64,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            opacity: copiedOpacity,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "rgba(20,20,20,0.92)",
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 999,
+            }}
+          >
+            <Text
+              style={{
+                color: "#fff",
+                fontFamily: "Inter_500Medium",
+                fontSize: 13,
+              }}
+            >
+              {t.shareLinkCopied}
+            </Text>
+          </View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -511,21 +597,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 999,
-    paddingHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeText: {
-    color: "#fff",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
   },
 });
