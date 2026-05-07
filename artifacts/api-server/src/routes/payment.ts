@@ -155,6 +155,29 @@ router.post("/payment/mamo", async (req, res) => {
   const presented = normalizeCurrency(rawCurrency ?? "USD");
   const aedAmount = roundForCurrency(await convertFromUsd(totalUsd, "AED"), "AED");
 
+  // Mamo rejects amounts below 2.00 AED with a generic VALIDATION_ERROR. Catch
+  // it early so the customer sees an actionable message instead of a hosted
+  // page that never opens.
+  const MAMO_MIN_AED = 2;
+  if (aedAmount < MAMO_MIN_AED) {
+    return res.status(422).json({
+      ok: false,
+      code: "mamo_amount_too_small",
+      message: `Mamo requires a minimum of ${MAMO_MIN_AED.toFixed(2)} AED. Your order total is ${aedAmount.toFixed(2)} AED.`,
+    });
+  }
+
+  const outgoingPayload = {
+    title: title ?? "Presentail Order",
+    amount: aedAmount,
+    return_url: returnUrl,
+    failure_return_url: failureReturnUrl,
+    description: description ?? undefined,
+    email: email ?? undefined,
+    first_name: firstName ?? undefined,
+    last_name: lastName ?? undefined,
+  };
+
   try {
     const r = await fetch("https://business.mamopay.com/manage_api/v1/links", {
       method: "POST",
@@ -162,24 +185,85 @@ router.post("/payment/mamo", async (req, res) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({
-        title: title ?? "Presentail Order",
-        amount: aedAmount,
-        return_url: returnUrl,
-        failure_return_url: failureReturnUrl,
-        description: description ?? undefined,
-        email: email ?? undefined,
-        first_name: firstName ?? undefined,
-        last_name: lastName ?? undefined,
-      }),
+      body: JSON.stringify(outgoingPayload),
     });
 
-    const data = (await r.json()) as any;
+    const rawBody = await r.text();
+    let data: any = null;
+    try {
+      data = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      data = null;
+    }
 
     if (!r.ok) {
+      // Mamo's actual error shape is:
+      //   { messages: ["See errors"], error_code: "VALIDATION_ERROR",
+      //     errors: ["Amount must be greater than 2.00"] }
+      // `errors[0]` is a plain string, not an object — the previous parser
+      // (`errors[0].message`) always fell through to the literal "Mamo error".
+      const errorsField = data?.errors;
+      const messagesField = data?.messages;
+      const pickFirstString = (v: unknown): string | undefined => {
+        if (typeof v === "string" && v.trim()) return v.trim();
+        if (Array.isArray(v)) {
+          for (const entry of v) {
+            if (typeof entry === "string" && entry.trim()) return entry.trim();
+            if (entry && typeof entry === "object") {
+              const m = (entry as any).message ?? (entry as any).detail;
+              if (typeof m === "string" && m.trim()) return m.trim();
+            }
+          }
+        }
+        return undefined;
+      };
       const msg =
-        data?.errors?.[0]?.message ?? data?.message ?? data?.error ?? "Mamo error";
+        pickFirstString(errorsField) ??
+        pickFirstString(messagesField) ??
+        (typeof data?.message === "string" && data.message.trim()
+          ? data.message.trim()
+          : undefined) ??
+        (typeof data?.error === "string" && data.error.trim()
+          ? data.error.trim()
+          : undefined) ??
+        (typeof data?.error_code === "string" && data.error_code.trim()
+          ? `Mamo rejected the request (${data.error_code.trim()}).`
+          : undefined) ??
+        `Mamo rejected the request (HTTP ${r.status}).`;
+
+      req.log.warn(
+        {
+          mamoStatus: r.status,
+          mamoBody: rawBody.slice(0, 1000),
+          outgoing: {
+            amount: outgoingPayload.amount,
+            currency: "AED",
+            hasReturnUrl: !!outgoingPayload.return_url,
+            hasFailureReturnUrl: !!outgoingPayload.failure_return_url,
+            hasEmail: !!outgoingPayload.email,
+            hasFirstName: !!outgoingPayload.first_name,
+            hasLastName: !!outgoingPayload.last_name,
+            titleLength: outgoingPayload.title?.length ?? 0,
+          },
+        },
+        "Mamo link creation failed",
+      );
       return res.status(r.status).json({ ok: false, code: "mamo_error", message: msg });
+    }
+
+    // Defensive guard: Mamo returned 2xx but the body is missing the fields we
+    // need to drive the hosted checkout. Surface this as a server error rather
+    // than handing the client `ok:true` with undefined url/id.
+    if (!data || typeof data.payment_url !== "string" || data.id == null) {
+      req.log.warn(
+        { mamoStatus: r.status, mamoBody: rawBody.slice(0, 1000) },
+        "Mamo returned success but response is missing payment_url or id",
+      );
+      return res.status(502).json({
+        ok: false,
+        code: "mamo_error",
+        message: "Mamo returned an unexpected response. Please try again or choose another payment method.",
+      });
     }
 
     // Store the intent with the full cart snapshot so /woo/order can verify:
