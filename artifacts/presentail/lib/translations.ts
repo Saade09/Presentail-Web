@@ -150,26 +150,8 @@ const EN = {
   cat_baskets: "Baskets",
   cat_beauty: "Beauty",
 
-  // Footer
-  socialMedia: "Social Media",
-  getInTouch: "Get in Touch",
-  popularCategories: "Popular Categories",
-  getToKnowUs: "Get to Know Us",
   contactUs: "Contact Us",
   faqs: "FAQs",
-  flowers: "Flowers",
-  plants: "Plants",
-  giftBundles: "Gift Bundles",
-  cakesSweets: "Cakes & Sweets",
-  baskets: "Baskets",
-  bearsAndBalloons: "Bears & Balloons",
-  occasions: "Occasions",
-  partnerWithUs: "Partner With Us",
-  deliveryRates: "Delivery Rates",
-  weddingsEvents: "Weddings & Events",
-  corporateGifts: "Corporate Gifts",
-  careers: "Careers",
-  blogs: "Blogs",
   language: "Language",
   currency: "Currency",
   selectCurrency: "Select Currency",
@@ -185,7 +167,6 @@ const EN = {
   cur_OMR: "Omani rial",
   cur_CHF: "Swiss franc",
   country: "Country",
-  allRightsReserved: "All rights reserved",
 
   // ── Product page ──
   productNotFound: "Product not found",
@@ -414,13 +395,6 @@ const EN = {
   reviewsEyebrowHome: "From our clients",
   reviewsTitleHome: "Rated 4.6 over 837 reviews",
 
-  // ── Footer ──
-  footerTagline: "Presentail is the online gift ordering and delivery platform. Send love one gift at a time, anywhere across {country}.",
-  countryLebanon: "{country}",
-  termsOfUse: "Terms of Use",
-  privacyPolicy: "Privacy Policy",
-  copyrightLine: "All rights reserved © 2026 Presentail SAL",
-  copyrightAddress: "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
 
   // ── Catalog ──
   catalogFullTitle: "The full catalogue",
@@ -976,26 +950,8 @@ const AR: typeof EN = {
   cat_baskets: "سلال",
   cat_beauty: "جمال وعناية",
 
-  // Footer
-  socialMedia: "التواصل الاجتماعي",
-  getInTouch: "تواصل معنا",
-  popularCategories: "الفئات الشائعة",
-  getToKnowUs: "تعرف علينا",
   contactUs: "اتصل بنا",
   faqs: "الأسئلة الشائعة",
-  flowers: "الزهور",
-  plants: "النباتات",
-  giftBundles: "حزم الهدايا",
-  cakesSweets: "الكعك والحلويات",
-  baskets: "السلال",
-  bearsAndBalloons: "الدمى والبالونات",
-  occasions: "المناسبات",
-  partnerWithUs: "شاركنا",
-  deliveryRates: "أسعار التوصيل",
-  weddingsEvents: "الأعراس والفعاليات",
-  corporateGifts: "هدايا الشركات",
-  careers: "وظائف",
-  blogs: "مدونة",
   language: "اللغة",
   currency: "العملة",
   selectCurrency: "اختر العملة",
@@ -1011,7 +967,6 @@ const AR: typeof EN = {
   cur_OMR: "الريال العماني",
   cur_CHF: "الفرنك السويسري",
   country: "البلد",
-  allRightsReserved: "جميع الحقوق محفوظة",
 
   // ── Product page ──
   productNotFound: "المنتج غير موجود",
@@ -1240,13 +1195,6 @@ const AR: typeof EN = {
   reviewsEyebrowHome: "من زبائننا",
   reviewsTitleHome: "تقييم 4.6 من أصل 837 تقييم",
 
-  // ── Footer ──
-  footerTagline: "Presentail هي منصة طلب وتوصيل الهدايا عبر الإنترنت. أرسل المحبة هدية تلو الأخرى في جميع أنحاء {country}.",
-  countryLebanon: "{country}",
-  termsOfUse: "شروط الاستخدام",
-  privacyPolicy: "سياسة الخصوصية",
-  copyrightLine: "جميع الحقوق محفوظة © 2026 Presentail SAL",
-  copyrightAddress: "الطابق الثالث، بناية كرم ومونس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
 
   // ── Catalog ──
   catalogFullTitle: "الكتالوج الكامل",
@@ -1802,26 +1750,8 @@ const FR: typeof EN = {
   cat_baskets: "Paniers",
   cat_beauty: "Beauté",
 
-  // Footer
-  socialMedia: "Réseaux sociaux",
-  getInTouch: "Nous contacter",
-  popularCategories: "Catégories populaires",
-  getToKnowUs: "Faites notre connaissance",
   contactUs: "Contactez-nous",
   faqs: "FAQ",
-  flowers: "Fleurs",
-  plants: "Plantes",
-  giftBundles: "Coffrets cadeaux",
-  cakesSweets: "Gâteaux & douceurs",
-  baskets: "Paniers",
-  bearsAndBalloons: "Peluches & ballons",
-  occasions: "Occasions",
-  partnerWithUs: "Partenariat",
-  deliveryRates: "Tarifs de livraison",
-  weddingsEvents: "Mariages & événements",
-  corporateGifts: "Cadeaux d'entreprise",
-  careers: "Carrières",
-  blogs: "Blog",
   language: "Langue",
   currency: "Devise",
   selectCurrency: "Choisir la devise",
@@ -1837,7 +1767,6 @@ const FR: typeof EN = {
   cur_OMR: "Rial omanais",
   cur_CHF: "Franc suisse",
   country: "Pays",
-  allRightsReserved: "Tous droits réservés",
 
   // ── Product page ──
   productNotFound: "Produit introuvable",
@@ -2066,13 +1995,6 @@ const FR: typeof EN = {
   reviewsEyebrowHome: "De nos clients",
   reviewsTitleHome: "Noté 4,6 sur 837 avis",
 
-  // ── Footer ──
-  footerTagline: "Presentail est la plateforme de commande et livraison de cadeaux en ligne. Envoyez de l'amour, un cadeau à la fois, partout au {country}.",
-  countryLebanon: "{country}",
-  termsOfUse: "Conditions d'utilisation",
-  privacyPolicy: "Politique de confidentialité",
-  copyrightLine: "Tous droits réservés © 2026 Presentail SAL",
-  copyrightAddress: "3e étage, immeuble Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
 
   // ── Catalog ──
   catalogFullTitle: "Le catalogue complet",
