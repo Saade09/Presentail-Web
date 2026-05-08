@@ -22,7 +22,6 @@ import { SectionTitle, Wordmark } from "@/components/Brand";
 import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
-import { SideMenu } from "@/components/SideMenu";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
@@ -77,13 +76,11 @@ const MOBILE_ICON_GLYPH: Record<
 function HomeHeader({
   topPad,
   onOpenDelivery,
-  onOpenMenu,
   headerOpacity,
   scrollY,
 }: {
   topPad: number;
   onOpenDelivery: () => void;
-  onOpenMenu: () => void;
   headerOpacity: Animated.AnimatedInterpolation<number>;
   scrollY: Animated.Value;
 }) {
@@ -92,17 +89,12 @@ function HomeHeader({
   const t = useT();
   const { isRTL } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const { token: authToken } = useAuth();
 
   const countryName = selectedCountry?.name ?? "Lebanon";
   const countryFlag = selectedCountry?.flag ?? "🇱🇧";
   const deliveryPlaceName = selectedCity?.name ?? countryName;
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
-
-  const goAccount = () => {
-    router.push(authToken ? "/(tabs)/account" : "/auth");
-  };
 
   const pillBg = scrollY.interpolate({
     inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
@@ -113,12 +105,6 @@ function HomeHeader({
   const pillTextColor = scrollY.interpolate({
     inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
     outputRange: ["#ffffff", "#ffffff", colors.primary],
-    extrapolate: "clamp",
-  });
-
-  const utilityBarBg = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
-    outputRange: ["transparent", "transparent", "#f1f1f1"],
     extrapolate: "clamp",
   });
 
@@ -137,24 +123,21 @@ function HomeHeader({
       />
 
       <View style={{ paddingTop: topPad }} pointerEvents="box-none">
-        <Animated.View
+        <View
           style={{
+            height: 56,
             flexDirection: sideRowDir,
             alignItems: "center",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
             paddingHorizontal: 14,
-            paddingVertical: 10,
-            minHeight: 48,
-            gap: 8,
-            backgroundColor: utilityBarBg,
           }}
-          pointerEvents="auto"
+          pointerEvents="box-none"
         >
           <View
             style={{
               flexDirection: sideRowDir,
               alignItems: "center",
-              gap: 6,
+              zIndex: 1,
             }}
           >
             <Pressable
@@ -187,7 +170,7 @@ function HomeHeader({
                 style={{
                   flexDirection: "column",
                   alignItems: isRTL ? "flex-end" : "flex-start",
-                  maxWidth: 96,
+                  maxWidth: 120,
                 }}
               >
                 <Animated.Text
@@ -224,51 +207,6 @@ function HomeHeader({
               </Animated.View>
             </Pressable>
           </View>
-        </Animated.View>
-
-        <View
-          style={{
-            height: 56,
-            flexDirection: sideRowDir,
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 18,
-          }}
-          pointerEvents="box-none"
-        >
-          <View
-            style={{
-              flexDirection: sideRowDir,
-              alignItems: "center",
-              gap: 18,
-              zIndex: 1,
-            }}
-          >
-            <Pressable
-              hitSlop={10}
-              onPress={onOpenMenu}
-              accessibilityLabel={t.menuOpen}
-            >
-              <Animated.View>
-                <Feather name="menu" size={28} color="#fff" />
-                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="menu" size={28} color={colors.primary} />
-                </Animated.View>
-              </Animated.View>
-            </Pressable>
-            <Pressable
-              hitSlop={10}
-              onPress={() => router.push("/(tabs)/catalog")}
-              accessibilityLabel="Search"
-            >
-              <Animated.View>
-                <Feather name="search" size={26} color="#fff" />
-                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="search" size={26} color={colors.primary} />
-                </Animated.View>
-              </Animated.View>
-            </Pressable>
-          </View>
 
           <View
             pointerEvents="none"
@@ -294,39 +232,19 @@ function HomeHeader({
             style={{
               flexDirection: sideRowDir,
               alignItems: "center",
-              gap: 18,
+              paddingHorizontal: 4,
               zIndex: 1,
             }}
           >
             <Pressable
               hitSlop={10}
-              onPress={goAccount}
-              accessibilityLabel="Account"
+              onPress={() => router.push("/(tabs)/catalog")}
+              accessibilityLabel="Search"
             >
               <Animated.View>
-                <Feather name="user" size={26} color="#fff" />
+                <Feather name="search" size={26} color="#fff" />
                 <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="user" size={26} color={colors.primary} />
-                </Animated.View>
-              </Animated.View>
-            </Pressable>
-            <Pressable
-              hitSlop={10}
-              onPress={() => router.push("/(tabs)/cart")}
-              accessibilityLabel="Cart"
-            >
-              <Animated.View>
-                <MaterialCommunityIcons
-                  name="shopping-outline"
-                  size={28}
-                  color="#fff"
-                />
-                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <MaterialCommunityIcons
-                    name="shopping-outline"
-                    size={28}
-                    color={colors.primary}
-                  />
+                  <Feather name="search" size={26} color={colors.primary} />
                 </Animated.View>
               </Animated.View>
             </Pressable>
@@ -347,7 +265,6 @@ export default function HomeScreen() {
   const bottomPad = isWeb ? 34 : 24;
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [deliverySheetOpen, setDeliverySheetOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const { token: authToken, user } = useAuth();
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -433,7 +350,6 @@ export default function HomeScreen() {
         <HomeHeader
           topPad={topPad}
           onOpenDelivery={() => setDeliverySheetOpen(true)}
-          onOpenMenu={() => setMenuOpen(true)}
           headerOpacity={headerOpacity}
           scrollY={scrollY}
         />
@@ -446,11 +362,6 @@ export default function HomeScreen() {
       <DeliveryLocationSheet
         visible={deliverySheetOpen}
         onClose={() => setDeliverySheetOpen(false)}
-      />
-      <SideMenu
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        onOpenDelivery={() => setDeliverySheetOpen(true)}
       />
     </>
   );
