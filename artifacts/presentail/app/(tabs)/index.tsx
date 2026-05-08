@@ -171,7 +171,7 @@ function HomeHeader({
           style={{
             flexDirection: sideRowDir,
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             paddingHorizontal: 14,
             paddingVertical: 10,
             minHeight: 48,
@@ -180,32 +180,6 @@ function HomeHeader({
           }}
           pointerEvents="auto"
         >
-          <View
-            style={{
-              flexDirection: sideRowDir,
-              alignItems: "center",
-              gap: 6,
-              flexShrink: 1,
-            }}
-          >
-            <Animated.View>
-              <Feather name="map-pin" size={13} color="#fff" />
-              <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                <Feather name="map-pin" size={13} color={colors.primary} />
-              </Animated.View>
-            </Animated.View>
-            <Animated.Text
-              style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 12,
-                color: pillTextColor,
-              }}
-              numberOfLines={1}
-            >
-              {t.noHassleDetails}
-            </Animated.Text>
-          </View>
-
           <View
             style={{
               flexDirection: sideRowDir,
