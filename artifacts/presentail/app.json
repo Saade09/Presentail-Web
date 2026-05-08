@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Presentail - Flowers & Gifts",
+    "name": "Presentail",
     "slug": "presentail",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
@@ -32,7 +32,7 @@
     "android": {
       "label": "Presentail",
       "package": "com.presentail.lb",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#00414E"
