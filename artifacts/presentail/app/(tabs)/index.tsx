@@ -941,6 +941,95 @@ function CategoryRail() {
 
   if (!isLoading && items.length === 0) return null;
 
+  const TILE_WIDTH = 88;
+  const TILE_IMAGE_SIZE = 80;
+  const TILE_IMAGE_TO_LABEL_GAP = 10;
+  const TILE_LABEL_HEIGHT = 14 * 2; // lineHeight 14 * 2 lines
+  const TILE_TOTAL_HEIGHT = TILE_IMAGE_SIZE + TILE_IMAGE_TO_LABEL_GAP + TILE_LABEL_HEIGHT;
+  const ROW_GAP = 18;
+  const COL_GAP = 14;
+
+  const renderTile = (item: (typeof items)[number]) => (
+    <Pressable
+      key={item.id}
+      onPress={() =>
+        router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })
+      }
+      style={{ alignItems: "center", gap: TILE_IMAGE_TO_LABEL_GAP, width: TILE_WIDTH }}
+    >
+      <View
+        style={{
+          width: TILE_IMAGE_SIZE,
+          height: TILE_IMAGE_SIZE,
+          borderRadius: 999,
+          overflow: "hidden",
+          backgroundColor: "#F3F3F3",
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <MaterialCommunityIcons
+              name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+        )}
+      </View>
+      <Text
+        numberOfLines={2}
+        style={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 11,
+          color: colors.primary,
+          textAlign: "center",
+          lineHeight: 14,
+        }}
+      >
+        {item.name}
+      </Text>
+    </Pressable>
+  );
+
+  const renderSkeletonTile = (key: string | number) => (
+    <View key={key} style={{ alignItems: "center", gap: TILE_IMAGE_TO_LABEL_GAP, width: TILE_WIDTH }}>
+      <View
+        style={{
+          width: TILE_IMAGE_SIZE,
+          height: TILE_IMAGE_SIZE,
+          borderRadius: 999,
+          backgroundColor: colors.muted,
+        }}
+      />
+      <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+    </View>
+  );
+
+  // Column-major fill: items [0,1] -> col 0, [2,3] -> col 1, etc.
+  const columns: Array<Array<(typeof items)[number]>> = [];
+  if (!isLoading) {
+    for (let i = 0; i < items.length; i += 2) {
+      columns.push(items.slice(i, i + 2));
+    }
+  }
+
+  const skeletonColumnCount = 4;
+  const hasTwoRows = isLoading || items.length > 1;
+
   return (
     <View style={{ marginTop: 44 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -949,76 +1038,24 @@ function CategoryRail() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: COL_GAP }}
       >
         {isLoading
-          ? Array.from({ length: 6 }).map((_, idx) => (
-              <View key={idx} style={{ alignItems: "center", gap: 10, width: 88 }}>
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 999,
-                    backgroundColor: colors.muted,
-                  }}
-                />
-                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+          ? Array.from({ length: skeletonColumnCount }).map((_, colIdx) => (
+              <View key={colIdx} style={{ gap: ROW_GAP }}>
+                {renderSkeletonTile(`${colIdx}-0`)}
+                {renderSkeletonTile(`${colIdx}-1`)}
               </View>
             ))
-          : items.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() =>
-                  router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })
-                }
-                style={{ alignItems: "center", gap: 10, width: 88 }}
-              >
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 999,
-                    overflow: "hidden",
-                    backgroundColor: "#F3F3F3",
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={{ width: "100%", height: "100%" }}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        flex: 1,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  numberOfLines={2}
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 11,
-                    color: colors.primary,
-                    textAlign: "center",
-                    lineHeight: 14,
-                  }}
-                >
-                  {item.name}
-                </Text>
-              </Pressable>
+          : columns.map((col, colIdx) => (
+              <View key={colIdx} style={{ gap: ROW_GAP }}>
+                {col[0] ? renderTile(col[0]) : null}
+                {hasTwoRows
+                  ? col[1]
+                    ? renderTile(col[1])
+                    : <View style={{ width: TILE_WIDTH, height: TILE_TOTAL_HEIGHT }} />
+                  : null}
+              </View>
             ))}
       </ScrollView>
     </View>
