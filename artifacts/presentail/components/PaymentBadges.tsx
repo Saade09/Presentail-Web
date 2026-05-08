@@ -1,6 +1,14 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Text, View, ViewStyle } from "react-native";
+import { View, ViewStyle } from "react-native";
+import { SvgXml } from "react-native-svg";
+
+import { amexXml } from "./paymentLogos/amex";
+import { applepayXml } from "./paymentLogos/applepay";
+import { googlepayXml } from "./paymentLogos/googlepay";
+import { mastercardXml } from "./paymentLogos/mastercard";
+import { paypalXml } from "./paymentLogos/paypal";
+import { visaXml } from "./paymentLogos/visa";
+import { whishXml } from "./paymentLogos/whish";
 
 const BADGE_HEIGHT = 26;
 const BADGE_WIDTH = 44;
@@ -22,29 +30,41 @@ const lightChip: ViewStyle = {
   borderColor: "#E5E5E5",
 };
 
+// Inner logo dimensions tuned per brand to respect each brand's
+// natural aspect ratio while leaving the clear-space margin required
+// by their press kits inside the 44 x 26 chip frame.
+function Logo({
+  xml,
+  width,
+  height,
+}: {
+  xml: string;
+  width: number;
+  height: number;
+}) {
+  return <SvgXml xml={xml} width={width} height={height} />;
+}
+
 export function MastercardBadge() {
   return (
     <View style={lightChip}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#EB001B" }} />
-        <View style={{ width: 14, height: 14, borderRadius: 999, backgroundColor: "#F79E1B", marginLeft: -6 }} />
-      </View>
+      <Logo xml={mastercardXml} width={28} height={18} />
     </View>
   );
 }
 
 export function VisaBadge() {
   return (
-    <View style={[chipBase, { backgroundColor: "#1A1F71" }]}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 12, color: "#fff", letterSpacing: 0.5 }}>VISA</Text>
+    <View style={lightChip}>
+      <Logo xml={visaXml} width={32} height={11} />
     </View>
   );
 }
 
 export function AmexBadge() {
   return (
-    <View style={[chipBase, { backgroundColor: "#2E77BC" }]}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.5, lineHeight: 10 }}>AMEX</Text>
+    <View style={[chipBase, { backgroundColor: "#006FCF" }]}>
+      <Logo xml={amexXml} width={20} height={20} />
     </View>
   );
 }
@@ -52,10 +72,7 @@ export function AmexBadge() {
 export function ApplePayBadge() {
   return (
     <View style={lightChip}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-        <MaterialCommunityIcons name="apple" size={14} color="#000" style={{ marginTop: -1 }} />
-        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#000", letterSpacing: -0.2, marginLeft: 1 }}>Pay</Text>
-      </View>
+      <Logo xml={applepayXml} width={34} height={14} />
     </View>
   );
 }
@@ -63,25 +80,15 @@ export function ApplePayBadge() {
 export function GooglePayBadge() {
   return (
     <View style={lightChip}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10 }}>
-          <Text style={{ color: "#4285F4" }}>G</Text>
-          <Text style={{ color: "#EA4335" }}>o</Text>
-          <Text style={{ color: "#FBBC04" }}>o</Text>
-          <Text style={{ color: "#4285F4" }}>g</Text>
-          <Text style={{ color: "#34A853" }}>l</Text>
-          <Text style={{ color: "#EA4335" }}>e</Text>
-        </Text>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: "#5F6368", marginLeft: 2 }}>Pay</Text>
-      </View>
+      <Logo xml={googlepayXml} width={34} height={16} />
     </View>
   );
 }
 
 export function WhishBadge() {
   return (
-    <View style={[chipBase, { backgroundColor: "#E6007E" }]}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#fff", letterSpacing: -0.3 }}>whish</Text>
+    <View style={[chipBase, { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E5E5" }]}>
+      <Logo xml={whishXml} width={36} height={8} />
     </View>
   );
 }
@@ -89,10 +96,7 @@ export function WhishBadge() {
 export function PayPalBadge() {
   return (
     <View style={lightChip}>
-      <Text style={{ fontFamily: "Inter_700Bold", fontStyle: "italic", fontSize: 11, letterSpacing: -0.3 }}>
-        <Text style={{ color: "#003087" }}>Pay</Text>
-        <Text style={{ color: "#009CDE" }}>Pal</Text>
-      </Text>
+      <Logo xml={paypalXml} width={34} height={9} />
     </View>
   );
 }
