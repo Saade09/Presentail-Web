@@ -1,11 +1,5 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Platform } from "react-native";
-import {
-  GoogleSignin,
-  statusCodes,
-  isErrorWithCode,
-  isSuccessResponse,
-} from "@react-native-google-signin/google-signin";
 
 import { API_BASE } from "@/lib/stripe";
 import type { AuthUser } from "@/contexts/AuthContext";
@@ -166,10 +160,34 @@ export async function completePasswordReset(input: {
 // Both providers fetch a verified identity token from the native sheet, then
 // hand it to the API which verifies it (JWKS) and returns our session token.
 
+// The native Google sign-in module is loaded lazily so that binaries that were
+// built without it (or where the native module fails to link) do not crash the
+// auth screen on mount. Any failure here is converted into a
+// `google_unavailable` result downstream.
+type GoogleSignInModule = typeof import("@react-native-google-signin/google-signin");
+let googleModule: GoogleSignInModule | null = null;
+let googleModuleLoadFailed = false;
+
+function loadGoogleModule(): GoogleSignInModule | null {
+  if (googleModule) return googleModule;
+  if (googleModuleLoadFailed) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    googleModule = require("@react-native-google-signin/google-signin") as GoogleSignInModule;
+    return googleModule;
+  } catch (e) {
+    googleModuleLoadFailed = true;
+    if (__DEV__) {
+      console.warn("[auth] Failed to load @react-native-google-signin/google-signin", e);
+    }
+    return null;
+  }
+}
+
 let googleConfigured = false;
 let googleConfigWarned = false;
-function ensureGoogleConfigured() {
-  if (googleConfigured) return;
+function ensureGoogleConfigured(mod: GoogleSignInModule): boolean {
+  if (googleConfigured) return true;
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   if (__DEV__ && !googleConfigWarned) {
@@ -183,12 +201,20 @@ function ensureGoogleConfigured() {
       );
     }
   }
-  GoogleSignin.configure({
-    iosClientId,
-    webClientId,
-    offlineAccess: false,
-  });
-  googleConfigured = true;
+  try {
+    mod.GoogleSignin.configure({
+      iosClientId,
+      webClientId,
+      offlineAccess: false,
+    });
+    googleConfigured = true;
+    return true;
+  } catch (e) {
+    if (__DEV__) {
+      console.warn("[auth] GoogleSignin.configure threw", e);
+    }
+    return false;
+  }
 }
 
 async function exchangeSocialToken(
@@ -265,50 +291,72 @@ export async function signInWithApple(
 export async function signInWithGoogle(
   applySession: ApplySessionFn,
 ): Promise<AuthResult> {
-  ensureGoogleConfigured();
+  // Wrap the entire body so any synchronous throw from the native module
+  // (missing native binding, unconfigured client IDs, missing reversed iOS URL
+  // scheme, etc.) is surfaced as a structured result instead of propagating
+  // up through the React render tree and crashing the app.
   try {
-    if (Platform.OS === "android") {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const mod = loadGoogleModule();
+    if (!mod) {
+      return { ok: false, code: "google_unavailable" };
     }
-  } catch {
-    return { ok: false, code: "google_unavailable" };
-  }
-  let response;
-  try {
-    response = await GoogleSignin.signIn();
-  } catch (e: any) {
-    if (
-      isErrorWithCode(e) &&
-      (e.code === statusCodes.SIGN_IN_CANCELLED ||
-        e.code === statusCodes.IN_PROGRESS)
-    ) {
+    if (!ensureGoogleConfigured(mod)) {
+      return { ok: false, code: "google_unavailable" };
+    }
+    const { GoogleSignin, statusCodes, isErrorWithCode, isSuccessResponse } = mod;
+    try {
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+    } catch {
+      return { ok: false, code: "google_unavailable" };
+    }
+    let response;
+    try {
+      response = await GoogleSignin.signIn();
+    } catch (e: any) {
+      if (
+        isErrorWithCode(e) &&
+        (e.code === statusCodes.SIGN_IN_CANCELLED ||
+          e.code === statusCodes.IN_PROGRESS)
+      ) {
+        return { ok: false, code: "canceled" };
+      }
+      const nativeCode =
+        (isErrorWithCode(e) && typeof e.code === "string" ? e.code : null) ||
+        (typeof e?.code === "number" ? String(e.code) : null) ||
+        e?.name ||
+        null;
+      const nativeMessage = typeof e?.message === "string" ? e.message : null;
+      if (__DEV__) {
+        console.warn("[auth] Google sign-in native error", {
+          code: nativeCode,
+          message: nativeMessage,
+        });
+      }
+      const tag = nativeCode || nativeMessage || "unknown";
+      return { ok: false, code: "google_failed", serverMessage: String(tag) };
+    }
+    if (!isSuccessResponse(response)) {
       return { ok: false, code: "canceled" };
     }
-    const nativeCode =
-      (isErrorWithCode(e) && typeof e.code === "string" ? e.code : null) ||
-      (typeof e?.code === "number" ? String(e.code) : null) ||
-      e?.name ||
-      null;
-    const nativeMessage = typeof e?.message === "string" ? e.message : null;
-    if (__DEV__) {
-      console.warn("[auth] Google sign-in native error", {
-        code: nativeCode,
-        message: nativeMessage,
-      });
+    const idToken = response.data?.idToken;
+    if (!idToken) {
+      return {
+        ok: false,
+        code: "google_failed",
+        serverMessage: "no_id_token",
+      };
     }
-    const tag = nativeCode || nativeMessage || "unknown";
+    return exchangeSocialToken("google", { idToken }, applySession);
+  } catch (e: any) {
+    if (__DEV__) {
+      console.warn("[auth] signInWithGoogle threw", e);
+    }
+    const tag =
+      (typeof e?.code === "string" && e.code) ||
+      (typeof e?.message === "string" && e.message) ||
+      "unknown";
     return { ok: false, code: "google_failed", serverMessage: String(tag) };
   }
-  if (!isSuccessResponse(response)) {
-    return { ok: false, code: "canceled" };
-  }
-  const idToken = response.data?.idToken;
-  if (!idToken) {
-    return {
-      ok: false,
-      code: "google_failed",
-      serverMessage: "no_id_token",
-    };
-  }
-  return exchangeSocialToken("google", { idToken }, applySession);
 }

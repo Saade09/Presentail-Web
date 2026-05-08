@@ -100,29 +100,32 @@ export default function ProductDetail() {
       }
       return;
     }
-    setToastMessage(message);
-    setCopiedVisible(true);
-    Animated.timing(copiedOpacity, {
-      toValue: 1,
-      duration: 160,
-      useNativeDriver: true,
-    }).start();
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
+    try {
+      setToastMessage(message);
+      setCopiedVisible(true);
       Animated.timing(copiedOpacity, {
-        toValue: 0,
-        duration: 220,
+        toValue: 1,
+        duration: 160,
         useNativeDriver: true,
-      }).start(() => setCopiedVisible(false));
-    }, 1600);
+      }).start();
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = setTimeout(() => {
+        Animated.timing(copiedOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }).start(() => setCopiedVisible(false));
+      }, 1600);
+    } catch {
+      // Animated/setState path is best-effort; never crash the screen.
+    }
   };
 
   const handleShareProduct = async (productSlug: string) => {
-    const url = `${WEB_BASE_URL}/product/${encodeURIComponent(productSlug)}`;
-    // Lazy-load expo-clipboard so older app binaries (built before the
-    // native module was added) don't crash on screen mount with a
-    // "native module not found" error.
+    // Wrap the share handler so a missing/failing expo-clipboard native
+    // module (older binaries, simulator quirks) cannot escape onPress.
     try {
+      const url = `${WEB_BASE_URL}/product/${encodeURIComponent(String(productSlug ?? ""))}`;
       const Clipboard = await import("expo-clipboard");
       await Clipboard.setStringAsync(url);
       showToast(t.shareLinkCopied);
