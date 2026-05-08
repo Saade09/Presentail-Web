@@ -12,14 +12,14 @@ type Props = {
   onGoogle: () => void;
 };
 
-// "Continue with Google" is hidden until a fresh native build ships with
-// the reversed iOS Google client ID URL scheme baked into Info.plist.
-// On the current TestFlight binary, tapping the button triggers a native
-// Objective-C exception inside the Google Sign-In SDK that crashes the
-// app before any JS error handler can catch it. JS-side defensiveness
-// cannot fix this — only a new EAS build can. Re-enable by flipping
-// this flag to true once Build 14+ is in TestFlight / the App Store.
-const GOOGLE_SIGN_IN_ENABLED = false;
+// "Continue with Google" is gated by this flag because it requires the
+// reversed iOS Google client ID URL scheme to be baked into Info.plist
+// at native build time (i.e. it cannot be enabled via OTA against an
+// older binary). It is enabled here for app version 1.0.2+ which is
+// the first build that ships with the URL scheme registered. The OTA
+// channel for that runtime version is isolated, so flipping this on
+// will not reach the older build 13 (runtime 1.0.1) clients.
+const GOOGLE_SIGN_IN_ENABLED = true;
 
 export function SocialAuthButtons({ busyProvider, disabled, onApple, onGoogle }: Props) {
   const colors = useColors();
