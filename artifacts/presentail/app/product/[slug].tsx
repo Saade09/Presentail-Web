@@ -40,8 +40,40 @@ const WEB_BASE_URL = (() => {
   return "https://presentail.com";
 })();
 
+type ImageSource = number | { uri: string };
+
+/**
+ * Normalises the product image into a value `<Image>` can safely consume.
+ * `Product.image` is loosely typed (`any`) because it may be either an
+ * `Asset`-style require number or a remote `{ uri }` object. A stale cart
+ * row, deleted WC media, or an empty-string uri can otherwise reach the
+ * native image loader and synchronously throw on iOS, hard-closing the
+ * app before any error boundary can catch it.
+ */
+function toSafeImageSource(source: unknown): ImageSource | null {
+  if (typeof source === "number") return source;
+  if (
+    source !== null &&
+    typeof source === "object" &&
+    "uri" in source &&
+    typeof (source as { uri: unknown }).uri === "string" &&
+    (source as { uri: string }).uri.length > 0
+  ) {
+    return { uri: (source as { uri: string }).uri };
+  }
+  return null;
+}
+
 export default function ProductDetail() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  // `useLocalSearchParams` can return a string, an array of strings, or
+  // undefined depending on how the route was reached (deep links and
+  // some navigations can pass arrays). Coerce defensively so downstream
+  // `find(p => p.id === String(slug))` doesn't compare against
+  // "foo,bar" or undefined and synchronously throw on TestFlight.
+  const rawParams = useLocalSearchParams<{ slug: string | string[] }>();
+  const slug = Array.isArray(rawParams.slug)
+    ? rawParams.slug[0] ?? ""
+    : rawParams.slug ?? "";
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -100,7 +132,7 @@ export default function ProductDetail() {
   };
 
   const { products: allProducts } = useWooProducts();
-  const product = allProducts.find((p) => p.id === String(slug)) ?? null;
+  const product = allProducts.find((p) => p.id === slug) ?? null;
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
@@ -115,6 +147,12 @@ export default function ProductDetail() {
   }
 
   const cat = getCategory(product.category);
+  const safeImageSource = toSafeImageSource(product.image);
+  // Guard the price against NaN / non-finite values so anything we feed to
+  // `Math.round` / `formatNative` / `<Price>` is always a real number.
+  const safePriceValue = Number.isFinite(Number(product.priceValue))
+    ? Number(product.priceValue)
+    : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -123,7 +161,9 @@ export default function ProductDetail() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ height: SCREEN_W, backgroundColor: colors.muted }}>
-          <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+          {safeImageSource ? (
+            <Image source={safeImageSource} style={StyleSheet.absoluteFill} contentFit="cover" />
+          ) : null}
           <LinearGradient
             colors={["rgba(0,0,0,0.25)", "transparent", "rgba(0,0,0,0.05)"]}
             style={StyleSheet.absoluteFill}
@@ -157,6 +197,7 @@ export default function ProductDetail() {
 
         <ProductBody
           product={product}
+          safePriceValue={safePriceValue}
           cat={cat}
           colors={colors}
           router={router}
@@ -204,7 +245,7 @@ export default function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            {t.addLabel} — {formatNative(product.priceValue)}
+            {t.addLabel} — {formatNative(safePriceValue)}
           </Text>
         </Pressable>
       </View>
@@ -245,14 +286,21 @@ export default function ProductDetail() {
   );
 }
 
-function ProductBody({ product, cat, colors, router }: any) {
+function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
   const [tab, setTab] = useState<"description" | "care">("description");
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
-  const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
+  // Coerce to a string before `.toUpperCase()` / fallback comparisons so
+  // a malformed delivery payload (e.g. `code: null`) can't synchronously
+  // throw during render on the product detail screen.
+  const rawCc = selectedCountry?.code;
+  const cc = (typeof rawCc === "string" && rawCc.length > 0
+    ? rawCc
+    : currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB").toUpperCase();
   const t = useT();
-  const points = Math.max(1, Math.round(product.priceValue * 0.4));
+  const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
+  const points = Math.max(1, Math.round(priceValue * 0.4));
 
   const days = useMemo(() => {
     const out: { iso: string; label: string; date: string }[] = [];
@@ -293,7 +341,11 @@ function ProductBody({ product, cat, colors, router }: any) {
   }
   const localH = getCountryHourLocal();
   const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > localH);
-  const [date, setDate] = useState(nextSlot ? days[0].iso : days[1].iso);
+  // `days` is the source of truth for date chips; fall back to today's ISO
+  // so accessing `days[0]`/`days[1]` cannot throw on first render.
+  const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
+  const tomorrowIso = days[1]?.iso ?? todayIso;
+  const [date, setDate] = useState(nextSlot ? todayIso : tomorrowIso);
   const [slot, setSlot] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
 
   const careTips: string[] = [
@@ -326,7 +378,7 @@ function ProductBody({ product, cat, colors, router }: any) {
 
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
         <Price
-          value={product.priceValue}
+          value={priceValue}
           native
           style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
         />
@@ -423,7 +475,7 @@ function ProductBody({ product, cat, colors, router }: any) {
             </ScrollView>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {PROD_SLOTS.map((s) => {
-                const isToday = date === days[0].iso;
+                const isToday = date === todayIso;
                 const past = isToday && localH >= s.cutoffHour;
                 const a = s.label === slot;
                 return (
