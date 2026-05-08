@@ -73,6 +73,76 @@ async function wooGet<T>(path: string, store?: WooStoreConfig): Promise<T> {
   return (await r.json()) as T;
 }
 
+// Probe a single WC category to confirm it actually contains at least one
+// buyable product (published, in stock, and catalog-visible). This is
+// stricter than the bare `count` field on the category response, which
+// also includes drafts, hidden, and out-of-stock products and so leaves
+// empty rails like "Gift Cards" / "Coffee" visible. Returns:
+//  - true  : at least one buyable product exists
+//  - false : confirmed empty
+//  - null  : probe failed (caller should fall back to today's behavior so
+//            a single transient WC error doesn't drop a real category)
+async function categoryHasBuyableProduct(
+  store: WooStoreConfig,
+  categoryId: number,
+  log: { warn: (obj: unknown, msg?: string) => void },
+): Promise<boolean | null> {
+  // WC REST does not expose a documented server-side `catalog_visibility`
+  // filter, so we pull pages of in-stock published products and check the
+  // field client-side. We paginate (bounded) so a category whose first
+  // few rows happen to be `hidden` / `search`-only isn't mis-classified
+  // as empty when later rows are buyable. `_fields` keeps each row tiny.
+  const PER_PAGE = 50;
+  const MAX_PAGES = 3; // up to 150 in-stock published rows scanned
+  try {
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const products = await wooGet<Array<{ id: number; catalog_visibility?: string }>>(
+        `/products?category=${categoryId}&per_page=${PER_PAGE}&page=${page}&status=publish&stock_status=instock&_fields=id,catalog_visibility`,
+        store,
+      );
+      if (products.length === 0) return false;
+      const hit = products.some((p) => {
+        const v = p.catalog_visibility;
+        // Default WC visibility is "visible" — when the field is absent
+        // (older WC versions or `_fields` stripping), treat as buyable.
+        return !v || v === "visible" || v === "catalog";
+      });
+      if (hit) return true;
+      if (products.length < PER_PAGE) return false;
+    }
+    // Scanned the full bounded window and found only hidden/search rows.
+    return false;
+  } catch (err) {
+    log.warn(
+      {
+        err: err instanceof Error ? err.message : String(err),
+        categoryId,
+      },
+      "categoryHasBuyableProduct: probe failed; falling back to count",
+    );
+    return null;
+  }
+}
+
+// Filter a list of WC category rows down to those that have at least one
+// buyable product. Probes run in parallel. On a per-category probe error
+// we fall back to the existing `count > 0` check for that one category
+// rather than dropping it from the rail.
+async function filterBuyableCategories(
+  cats: WcCategoryRaw[],
+  store: WooStoreConfig,
+  log: { warn: (obj: unknown, msg?: string) => void },
+): Promise<WcCategoryRaw[]> {
+  const checks = await Promise.all(
+    cats.map((c) => categoryHasBuyableProduct(store, c.id, log)),
+  );
+  return cats.filter((c, i) => {
+    const ok = checks[i];
+    if (ok === null) return (c.count ?? 0) > 0;
+    return ok;
+  });
+}
+
 // In-memory cache (consistent with the short-TTL pattern used in woo.ts).
 const COLLECTION_TTL_MS = 5 * 60 * 1000;
 const collectionCache = new Map<
@@ -108,8 +178,11 @@ async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageC
     "/products/categories?parent=0&per_page=100&order=asc",
     store,
   );
-  return cats
-    .filter((c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized" && PRODUCT_TYPE_SLUGS.has(c.slug))
+  const candidates = cats.filter(
+    (c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized" && PRODUCT_TYPE_SLUGS.has(c.slug),
+  );
+  const buyable = await filterBuyableCategories(candidates, store, logger);
+  return buyable
     .map((c, i) => ({
       id: String(c.id),
       name: c.name,
@@ -123,32 +196,44 @@ async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageC
 
 async function fetchOccasionCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {
   if (!store.consumerKey) return [];
-  const items: HomepageCollectionItem[] = [];
-  for (let i = 0; i < DEFAULT_OCCASION_SLUGS.length; i++) {
-    const slug = DEFAULT_OCCASION_SLUGS[i];
-    try {
-      const cats = await wooGet<WcCategoryRaw[]>(
-        `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
-        store,
-      );
-      if (cats.length && (cats[0].count ?? 0) > 0) {
-        items.push({
-          id: String(cats[0].id),
-          name: cats[0].name,
-          slug: cats[0].slug,
-          imageUrl: cats[0].image?.src ?? "",
-          sortOrder: i,
-          isActive: true,
-        });
+  // Resolve each slug in parallel, then filter by the buyable-product
+  // probe so empty occasions don't appear on the rail.
+  const resolved = await Promise.all(
+    DEFAULT_OCCASION_SLUGS.map(async (slug, i) => {
+      try {
+        const cats = await wooGet<WcCategoryRaw[]>(
+          `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
+          store,
+        );
+        if (!cats.length || (cats[0].count ?? 0) === 0) return null;
+        return { raw: cats[0], sortOrder: i };
+      } catch (err) {
+        logger.warn(
+          { err: err instanceof Error ? err.message : String(err), slug },
+          "fetchOccasionCategories: slug fetch failed",
+        );
+        return null;
       }
-    } catch (err) {
-      logger.warn(
-        { err: err instanceof Error ? err.message : String(err), slug },
-        "fetchOccasionCategories: slug fetch failed",
-      );
-    }
-  }
-  return items;
+    }),
+  );
+  const candidates = resolved.filter((r): r is { raw: WcCategoryRaw; sortOrder: number } => r !== null);
+  const checks = await Promise.all(
+    candidates.map((c) => categoryHasBuyableProduct(store, c.raw.id, logger)),
+  );
+  return candidates
+    .filter((c, idx) => {
+      const ok = checks[idx];
+      if (ok === null) return (c.raw.count ?? 0) > 0;
+      return ok;
+    })
+    .map((c) => ({
+      id: String(c.raw.id),
+      name: c.raw.name,
+      slug: c.raw.slug,
+      imageUrl: c.raw.image?.src ?? "",
+      sortOrder: c.sortOrder,
+      isActive: true,
+    }));
 }
 
 // Result type that distinguishes "WC said there is no curated parent
@@ -181,12 +266,16 @@ async function fetchCollection(parentSlug: string, store?: WooStoreConfig): Prom
     s,
   );
 
-  const items = children
+  const visible = children
     .filter((c) => (c.count ?? 0) > 0)
     // Honor WC's category visibility: skip anything explicitly hidden
     // in the storefront (display === "hidden"). Other display values
     // ("default", "products", "subcategories", "both") all render.
-    .filter((c) => c.display !== "hidden")
+    .filter((c) => c.display !== "hidden");
+  // Probe each child for a buyable product so curators don't have to
+  // manually unpin "Gift Cards" / "Coffee" once they've sold out.
+  const buyable = await filterBuyableCategories(visible, s, logger);
+  const items = buyable
     .map((c, i) => ({
       id: String(c.id),
       name: c.name,
@@ -277,6 +366,14 @@ async function getSummerCollectionEntry(
       return null;
     }
     const c = cats[0];
+    // Confirm there's at least one buyable product before pinning the
+    // entry. On a probe failure (null), fall back to today's behavior so
+    // a transient WC blip doesn't drop the rail entry.
+    const buyable = await categoryHasBuyableProduct(store, c.id, log);
+    if (buyable === false) {
+      summerCollectionCache.set(store.baseUrl, { fetchedAt: now, entry: null });
+      return null;
+    }
     const entry: SummerEntry = {
       id: String(c.id),
       name: c.name || SUMMER_COLLECTION_FALLBACK_NAME,
