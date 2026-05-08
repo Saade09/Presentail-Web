@@ -12,6 +12,15 @@ type Props = {
   onGoogle: () => void;
 };
 
+// "Continue with Google" is hidden until a fresh native build ships with
+// the reversed iOS Google client ID URL scheme baked into Info.plist.
+// On the current TestFlight binary, tapping the button triggers a native
+// Objective-C exception inside the Google Sign-In SDK that crashes the
+// app before any JS error handler can catch it. JS-side defensiveness
+// cannot fix this — only a new EAS build can. Re-enable by flipping
+// this flag to true once Build 14+ is in TestFlight / the App Store.
+const GOOGLE_SIGN_IN_ENABLED = false;
+
 export function SocialAuthButtons({ busyProvider, disabled, onApple, onGoogle }: Props) {
   const colors = useColors();
   const t = useT();
@@ -24,15 +33,17 @@ export function SocialAuthButtons({ busyProvider, disabled, onApple, onGoogle }:
         disabled={disabled}
         onPress={onApple}
       />
-      <SocialButton
-        icon={
-          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.primary }}>G</Text>
-        }
-        label={t.authContinueGoogle}
-        loading={busyProvider === "google"}
-        disabled={disabled}
-        onPress={onGoogle}
-      />
+      {GOOGLE_SIGN_IN_ENABLED ? (
+        <SocialButton
+          icon={
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.primary }}>G</Text>
+          }
+          label={t.authContinueGoogle}
+          loading={busyProvider === "google"}
+          disabled={disabled}
+          onPress={onGoogle}
+        />
+      ) : null}
     </View>
   );
 }

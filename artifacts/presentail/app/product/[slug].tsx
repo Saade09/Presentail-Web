@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   ToastAndroid,
@@ -122,13 +123,14 @@ export default function ProductDetail() {
   };
 
   const handleShareProduct = async (productSlug: string) => {
-    // Wrap the share handler so a missing/failing expo-clipboard native
-    // module (older binaries, simulator quirks) cannot escape onPress.
+    // Use React Native's built-in Share API (native iOS/Android share sheet).
+    // It is part of react-native core, so no extra native module is required —
+    // this works on every shipped binary, unlike expo-clipboard which was
+    // added after TestFlight build 13 was compiled and previously crashed
+    // the app at the native layer when invoked.
     try {
       const url = `${WEB_BASE_URL}/product/${encodeURIComponent(String(productSlug ?? ""))}`;
-      const Clipboard = await import("expo-clipboard");
-      await Clipboard.setStringAsync(url);
-      showToast(t.shareLinkCopied);
+      await Share.share({ message: url, url });
     } catch {
       showToast(t.shareUnavailable);
     }
