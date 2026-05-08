@@ -43,8 +43,6 @@ const EN = {
   pillar3Text: "Climate-controlled vans and a no-compromise freshness promise.",
   reviewsEyebrow: "Reviews",
   reviewsTitle: "What our customers say",
-  brandsEyebrow: "Gift by Brand",
-  brandsTitle: "Brands",
 
   // Common UI
   seeAll: "See All",
@@ -844,8 +842,6 @@ const AR: typeof EN = {
   pillar3Text: "شاحنات بتحكم مناخي ووعد لا تنازل عنه بالنضارة.",
   reviewsEyebrow: "آراء العملاء",
   reviewsTitle: "ماذا يقول عملاؤنا",
-  brandsEyebrow: "الهدايا بحسب العلامة",
-  brandsTitle: "العلامات التجارية",
 
   // Common UI
   seeAll: "عرض الكل",
@@ -1645,8 +1641,6 @@ const FR: typeof EN = {
   pillar3Text: "Camionnettes climatisées et une promesse de fraîcheur sans compromis.",
   reviewsEyebrow: "Avis",
   reviewsTitle: "Ce que disent nos clients",
-  brandsEyebrow: "Cadeaux par marque",
-  brandsTitle: "Marques",
 
   // Common UI
   seeAll: "Voir tout",

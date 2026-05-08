@@ -26,14 +26,13 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
   bestSellers,
-  brands,
   reviews,
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { fetchCategoryProducts, fetchWcBrands, type WcBrand, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -344,7 +343,6 @@ export default function HomeScreen() {
           <BundlesSection />
           <BrandStorySection />
           <ReviewsSection />
-          {selectedCountry?.code !== "AE" && <BrandsRow />}
         </Animated.ScrollView>
 
         <HomeHeader
@@ -1189,105 +1187,6 @@ function ReviewsSection() {
               {item.name}
             </Text>
           </View>
-        )}
-      />
-    </View>
-  );
-}
-
-function BrandsRow() {
-  const colors = useColors();
-  const router = useRouter();
-  const t = useT();
-  const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const [wcBrands, setWcBrands] = useState<WcBrand[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setLoaded(false);
-    const filter = selectedCountry ? { countryCode: selectedCountry.code, cityId: selectedCity?.id } : undefined;
-    fetchWcBrands(filter).then((list) => {
-      setWcBrands(list.length > 0 ? list.filter((b) => b.count > 0) : []);
-      setLoaded(true);
-    });
-  }, [selectedCountry?.code, selectedCity?.id]);
-
-  type DisplayBrand = { id: number | string; name: string; slug: string; count: number; image: string | null };
-  const displayBrands: DisplayBrand[] = wcBrands.length > 0
-    ? wcBrands
-    : loaded ? [] : brands.map((b) => ({ id: b.slug, name: b.name, slug: b.slug, count: 1, image: null }));
-
-  if (loaded && displayBrands.length === 0) return null;
-
-  return (
-    <View style={{ marginTop: 56 }}>
-      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
-        <SectionTitle eyebrow={t.brandsEyebrow} title={t.brandsTitle} />
-      </View>
-      <FlatList
-        data={displayBrands}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(b) => String(b.id ?? b.slug)}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
-        renderItem={({ item: b }) => (
-          <Pressable
-            onPress={() => router.push({ pathname: "/brand/[slug]", params: { slug: b.slug } })}
-            style={({ pressed }) => ({
-              width: 116,
-              borderRadius: 16,
-              overflow: "hidden",
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: "#fff",
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            {b.image ? (
-              <Image
-                source={{ uri: b.image }}
-                style={{ width: 116, height: 80 }}
-                contentFit="contain"
-              />
-            ) : (
-              <View
-                style={{
-                  width: 116,
-                  height: 80,
-                  backgroundColor: colors.primary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: "Inter_700Bold",
-                    fontSize: b.name.length > 10 ? 9 : 11,
-                    color: "#fff",
-                    textAlign: "center",
-                    letterSpacing: 0.3,
-                    lineHeight: 15,
-                  }}
-                >
-                  {b.name}
-                </Text>
-              </View>
-            )}
-            <View style={{ paddingHorizontal: 10, paddingVertical: 8 }}>
-              <Text
-                style={{
-                  fontFamily: "Inter_600SemiBold",
-                  fontSize: 11,
-                  color: colors.primary,
-                  letterSpacing: 0.3,
-                }}
-                numberOfLines={1}
-              >
-                {b.name}
-              </Text>
-            </View>
-          </Pressable>
         )}
       />
     </View>
