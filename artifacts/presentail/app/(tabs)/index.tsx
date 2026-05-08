@@ -9,7 +9,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -32,7 +31,6 @@ import {
   reviews,
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { Lang } from "@/lib/translations";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
@@ -92,7 +90,7 @@ function HomeHeader({
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL, lang, setLang } = useLanguage();
+  const { isRTL } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { token: authToken } = useAuth();
 
@@ -101,34 +99,6 @@ function HomeHeader({
   const deliveryPlaceName = selectedCity?.name ?? countryName;
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
-
-  const LANG_LABELS: Record<Lang, string> = {
-    EN: t.langEnglish,
-    AR: t.langArabic,
-    FR: t.langFrench,
-  };
-  const currentLanguagePillLabel = LANG_LABELS[lang];
-  const langPillRef = useRef<View>(null);
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
-  const [langMenuAnchor, setLangMenuAnchor] = useState<{
-    top: number;
-    right: number;
-  } | null>(null);
-  const openLangMenu = () => {
-    if (!langPillRef.current) {
-      setLangMenuOpen(true);
-      return;
-    }
-    langPillRef.current.measureInWindow((x, y, width, height) => {
-      const right = Math.max(8, SCREEN_W - (x + width));
-      setLangMenuAnchor({ top: y + height + 6, right });
-      setLangMenuOpen(true);
-    });
-  };
-  const chooseLang = (next: Lang) => {
-    setLangMenuOpen(false);
-    if (next !== lang) setLang(next);
-  };
 
   const goAccount = () => {
     router.push(authToken ? "/(tabs)/account" : "/auth");
@@ -253,117 +223,8 @@ function HomeHeader({
                 </Animated.View>
               </Animated.View>
             </Pressable>
-
-            <Pressable
-              ref={langPillRef}
-              hitSlop={6}
-              onPress={openLangMenu}
-              accessibilityLabel={t.languageLabel}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: langMenuOpen }}
-              style={({ pressed }) => ({
-                flexDirection: sideRowDir,
-                alignItems: "center",
-                gap: 4,
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: pillBg,
-                  borderRadius: 999,
-                }}
-              />
-              <Animated.Text
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 12,
-                  color: pillTextColor,
-                }}
-                numberOfLines={1}
-              >
-                {currentLanguagePillLabel}
-              </Animated.Text>
-              <Animated.View>
-                <Feather name="chevron-down" size={13} color="#fff" />
-                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="chevron-down" size={13} color={colors.primary} />
-                </Animated.View>
-              </Animated.View>
-            </Pressable>
           </View>
         </Animated.View>
-        <Modal
-          visible={langMenuOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setLangMenuOpen(false)}
-        >
-          <Pressable
-            style={{ flex: 1 }}
-            onPress={() => setLangMenuOpen(false)}
-            accessibilityLabel={t.languageLabel}
-          >
-            <View
-              style={{
-                position: "absolute",
-                top: langMenuAnchor?.top ?? 80,
-                right: langMenuAnchor?.right ?? 12,
-                minWidth: 140,
-                backgroundColor: "#fff",
-                borderRadius: 12,
-                paddingVertical: 6,
-                shadowColor: "#000",
-                shadowOpacity: 0.15,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 6 },
-                elevation: 8,
-              }}
-            >
-              {(["EN", "AR", "FR"] as Lang[]).map((option) => {
-                const active = option === lang;
-                return (
-                  <Pressable
-                    key={option}
-                    onPress={() => chooseLang(option)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={LANG_LABELS[option]}
-                    style={({ pressed }) => ({
-                      flexDirection: sideRowDir,
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      backgroundColor: pressed ? "#f3f3f3" : "transparent",
-                    })}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
-                        fontSize: 13,
-                        color: colors.primary,
-                      }}
-                    >
-                      {LANG_LABELS[option]}
-                    </Text>
-                    {active ? (
-                      <Feather name="check" size={14} color={colors.primary} />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Modal>
 
         <View
           style={{
