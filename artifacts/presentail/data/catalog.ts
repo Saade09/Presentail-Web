@@ -51,11 +51,6 @@ const img = {
   yellowRosesBox: require("@/assets/products/yellow-roses-box.webp"),
   thrivingHeart: require("@/assets/products/the-thriving-heart-bundle.avif"),
   tributeToHer: require("@/assets/products/a-tribute-to-her.avif"),
-  s26Ultra: require("@/assets/products/samsung-galaxy-s26-ultra.avif"),
-  zFold: require("@/assets/products/samsung-galaxy-z-fold-blue.avif"),
-  galaxyWatch8: require("@/assets/products/samsung-galaxy-watch-8.avif"),
-  galaxyRing: require("@/assets/products/samsung-galaxy-ring-in-gold.avif"),
-  appleWatch11: require("@/assets/products/apple-watch-series-11-rose-gold.avif"),
   mixedTulipVase: require("@/assets/products/mixed-tulip-vase-arrangement.avif"),
   timelessTulip: require("@/assets/products/timeless-tulip-charm.avif"),
   snowfallTulip: require("@/assets/products/snowfall-tulip-bouquet.avif"),
@@ -80,7 +75,6 @@ const cat = {
   "plants": require("@/assets/categories/plants.webp"),
   "bundles": require("@/assets/categories/bundles.webp"),
   "gift-cards": require("@/assets/categories/gift-cards.webp"),
-  "electronics": require("@/assets/categories/electronics.webp"),
   "board-games": require("@/assets/categories/board-games.webp"),
 };
 
@@ -131,11 +125,6 @@ export const products: Product[] = [
   { id: "yellow-roses-box", name: "Yellow Roses Box", price: "$85", priceValue: 85, image: img.yellowRosesBox, category: "flower-boxes", occasions: ["new-job", "thank-you"] },
   { id: "the-thriving-heart-bundle", name: "The Thriving Heart Bundle", price: "$106", priceValue: 106, image: img.thrivingHeart, category: "bundles", occasions: ["love-romance", "birthday"] },
   { id: "a-tribute-to-her", name: "A Tribute to Her", price: "$130", priceValue: 130, image: img.tributeToHer, category: "flower-vases", occasions: ["thank-you", "love-romance"] },
-  { id: "samsung-galaxy-s26-ultra", name: "Samsung Galaxy S26 Ultra", price: "$1,750", priceValue: 1750, image: img.s26Ultra, category: "electronics", occasions: ["birthday", "promotion"] },
-  { id: "samsung-galaxy-z-fold-blue", name: "Samsung Galaxy Z Fold Blue", price: "$1,800", priceValue: 1800, image: img.zFold, category: "electronics", occasions: ["promotion"] },
-  { id: "samsung-galaxy-watch-8", name: "Samsung Galaxy Watch 8", price: "$350", priceValue: 350, image: img.galaxyWatch8, category: "electronics", occasions: ["birthday", "new-job"] },
-  { id: "samsung-galaxy-ring-in-gold", name: "Samsung Galaxy Ring in Gold", price: "$570", priceValue: 570, image: img.galaxyRing, category: "electronics", occasions: ["promotion"] },
-  { id: "apple-watch-series-11-rose-gold", name: "Apple Watch Series 11 Rose Gold 42mm", price: "$584", priceValue: 584, image: img.appleWatch11, category: "electronics", occasions: ["birthday", "love-romance"] },
   { id: "mixed-tulip-vase-arrangement", name: "Mixed Tulip Vase Arrangement", price: "$117", priceValue: 117, image: img.mixedTulipVase, category: "flower-vases", tag: "Tulips", occasions: ["housewarming", "thank-you"] },
   { id: "timeless-tulip-charm", name: "Timeless Tulip Charm", price: "$117", priceValue: 117, image: img.timelessTulip, category: "flower-vases", occasions: ["housewarming"] },
   { id: "snowfall-tulip-bouquet", name: "Snowfall Tulip Bouquet", price: "$117", priceValue: 117, image: img.snowfallTulip, category: "hand-bouquets", occasions: ["condolences", "thank-you"] },
@@ -271,7 +260,6 @@ export const categories: Category[] = [
   { id: "plants", name: "Plants", icon: "leaf", image: cat["plants"] },
   { id: "bundles", name: "Bundles", icon: "gift", image: cat["bundles"] },
   { id: "gift-cards", name: "Gift Cards", icon: "card-giftcard", image: cat["gift-cards"] },
-  { id: "electronics", name: "Electronics", icon: "cellphone", image: cat["electronics"] },
   { id: "board-games", name: "Board Games", icon: "chess-knight", image: cat["board-games"] },
 ];
 

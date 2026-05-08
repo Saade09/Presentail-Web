@@ -48,7 +48,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   cakes: "Cakes",
   chocolate: "Chocolate",
   "arabic-sweets": "Arabic Sweets",
-  electronics: "Electronics",
   "stuffed-animals": "Stuffed Animals",
 };
 

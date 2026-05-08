@@ -162,10 +162,16 @@ const DEFAULT_OCCASION_SLUGS = [
   "birthday", "anniversary", "love-romance", "congratulations", "thank-you", "newborn",
 ];
 
+// Categories that must never surface in homepage rails or all-categories
+// view, even when curated under a WC parent. Mirrors the server-side
+// product filter in `routes/woo.ts` so the category disappears without
+// requiring a WooCommerce-side curation change.
+const HIDDEN_CATEGORY_SLUGS = new Set(["electronics"]);
+
 const PRODUCT_TYPE_SLUGS = new Set([
   "hand-bouquets", "flower-boxes", "flower-vases", "flower-baskets",
   "flowers", "plants", "balloons", "cakes", "chocolate", "bundles",
-  "stuffed-animals", "electronics", "preserved-flowers", "dried-flowers",
+  "stuffed-animals", "preserved-flowers", "dried-flowers",
   "lux-arrangements", "orchids", "roses", "roses-lebanon",
   "arabic-sweets", "board-games", "personal-gifts", "beauty",
   "gift-bundles", "baskets", "spirits", "gaming",
@@ -179,7 +185,12 @@ async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageC
     store,
   );
   const candidates = cats.filter(
-    (c) => (c.count ?? 0) > 0 && c.display !== "hidden" && c.slug !== "uncategorized" && PRODUCT_TYPE_SLUGS.has(c.slug),
+    (c) =>
+      (c.count ?? 0) > 0 &&
+      c.display !== "hidden" &&
+      c.slug !== "uncategorized" &&
+      !HIDDEN_CATEGORY_SLUGS.has(c.slug) &&
+      PRODUCT_TYPE_SLUGS.has(c.slug),
   );
   const buyable = await filterBuyableCategories(candidates, store, logger);
   return buyable
@@ -271,7 +282,11 @@ async function fetchCollection(parentSlug: string, store?: WooStoreConfig): Prom
     // Honor WC's category visibility: skip anything explicitly hidden
     // in the storefront (display === "hidden"). Other display values
     // ("default", "products", "subcategories", "both") all render.
-    .filter((c) => c.display !== "hidden");
+    .filter((c) => c.display !== "hidden")
+    // Drop categories the app has hidden globally (e.g. electronics) so
+    // they cannot surface even when a curator put them under the
+    // home-categories / home-occasions parent in WC.
+    .filter((c) => !HIDDEN_CATEGORY_SLUGS.has(c.slug));
   // Probe each child for a buyable product so curators don't have to
   // manually unpin "Gift Cards" / "Coffee" once they've sold out.
   const buyable = await filterBuyableCategories(visible, s, logger);

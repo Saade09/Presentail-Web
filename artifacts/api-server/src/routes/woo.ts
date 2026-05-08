@@ -118,7 +118,6 @@ const OCCASION_GROUP_LABELS: Record<string, Record<Lang, string>> = {
   cakes: { en: "Cakes & Sweets", ar: "الكعك والحلويات", fr: "Gâteaux et douceurs" },
   "arabic-sweets": { en: "Arabic Sweets", ar: "حلويات عربية", fr: "Pâtisseries orientales" },
   balloons: { en: "Balloons", ar: "البالونات", fr: "Ballons" },
-  electronics: { en: "Electronics & Tech", ar: "إلكترونيات وتقنية", fr: "Électronique et tech" },
   "stuffed-animals": { en: "Stuffed Animals", ar: "الدمى المحشوة", fr: "Peluches" },
   "board-games": { en: "Board Games", ar: "ألعاب الطاولة", fr: "Jeux de société" },
   plants: { en: "Plants", ar: "النباتات", fr: "Plantes" },
@@ -150,7 +149,6 @@ const CATEGORY_MAP: Record<string, string> = {
   "arabic-sweets": "arabic-sweets",
   coffee: "coffee",
   "gift-cards": "gift-cards",
-  electronics: "electronics",
   "stuffed-animals": "stuffed-animals",
 };
 
@@ -195,6 +193,20 @@ function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] |
     return list.length ? list : null;
   }
   return null;
+}
+
+// Slugs of WooCommerce categories that should never surface to clients.
+// Products belonging to any of these categories are dropped from every
+// product-listing response, even if they live in another category too.
+const HIDDEN_CATEGORY_SLUGS = new Set(["electronics"]);
+
+function isHiddenCategory(slug: string): boolean {
+  return HIDDEN_CATEGORY_SLUGS.has(slug);
+}
+
+function isVisibleProduct(p: WcProduct): boolean {
+  const slugs = (p.categories ?? []).map((c) => c.slug);
+  return !slugs.some((s) => HIDDEN_CATEGORY_SLUGS.has(s));
 }
 
 function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
@@ -303,7 +315,10 @@ router.get("/woo/brand-products", async (req, res) => {
     }
     const batch = (await r.json()) as WcProduct[];
     const filter = readDeliveryFilter(req);
-    const products = batch.filter((p) => isDeliverable(p, filter)).map((p) => transformProduct(p, store.currencySymbol));
+    const products = batch
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter))
+      .map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length, brandName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
@@ -385,7 +400,6 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "cakes", label: "Cakes & Sweets" },
   { slug: "arabic-sweets", label: "Arabic Sweets" },
   { slug: "balloons", label: "Balloons" },
-  { slug: "electronics", label: "Electronics & Tech" },
   { slug: "stuffed-animals", label: "Stuffed Animals" },
   { slug: "board-games", label: "Board Games" },
   { slug: "plants", label: "Plants" },
@@ -401,6 +415,9 @@ router.get("/woo/category-products", async (req, res) => {
   }
   const slug = String(req.query.slug ?? "");
   if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  if (isHiddenCategory(slug)) {
+    return res.json({ ok: true, products: [], count: 0 });
+  }
   const lang = readLang(req);
   try {
     const catRes = await wooFetch(
@@ -438,7 +455,9 @@ router.get("/woo/category-products", async (req, res) => {
       if (page > 50) break;
     }
     const filter = readDeliveryFilter(req);
-    const filtered = allProducts.filter((p) => isDeliverable(p, filter));
+    const filtered = allProducts
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter));
     return res.json({ ok: true, products: filtered.map((p) => transformProduct(p, store.currencySymbol)), count: filtered.length, categoryName: catName });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" });
@@ -479,7 +498,9 @@ router.get("/woo/occasion-products", async (req, res) => {
     }
 
     const filter = readDeliveryFilter(req);
-    const deliverable = allProducts.filter((p) => isDeliverable(p, filter));
+    const deliverable = allProducts
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter));
 
     type TransformedProduct = ReturnType<typeof transformProduct>;
     const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
@@ -567,7 +588,10 @@ router.get("/woo/products", async (req, res) => {
     const lang = readLang(req);
     const allProducts = await fetchAllProducts(lang, store);
     const filter = readDeliveryFilter(req);
-    const products = allProducts.filter((p) => isDeliverable(p, filter)).map((p) => transformProduct(p, store.currencySymbol));
+    const products = allProducts
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter))
+      .map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch products" });
