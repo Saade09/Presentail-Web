@@ -537,7 +537,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
             flexDirection: "row",
             flexWrap: "wrap",
             alignItems: "center",
-            gap: 14,
+            gap: 8,
             rowGap: 8,
             backgroundColor: colors.card,
             borderWidth: 1,
