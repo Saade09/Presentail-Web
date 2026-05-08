@@ -3,7 +3,7 @@ import { useGetHomepageCategories, useGetHomepageOccasions } from "@workspace/ap
 import { getHomepageIconName, type HomepageIconName } from "@workspace/homepage-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, type Href } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -330,7 +330,7 @@ export default function HomeScreen() {
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false },
+            { useNativeDriver: true },
           )}
         >
           <Hero />
@@ -420,12 +420,17 @@ function Hero() {
     }, AUTO_ADVANCE_MS);
   }, [slides.length]);
 
-  useEffect(() => {
-    restartTimer();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [restartTimer]);
+  useFocusEffect(
+    useCallback(() => {
+      restartTimer();
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    }, [restartTimer]),
+  );
 
   const restartTimerRef = useRef(restartTimer);
   restartTimerRef.current = restartTimer;
