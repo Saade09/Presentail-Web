@@ -64,7 +64,7 @@ export function VisaBadge() {
 export function AmexBadge() {
   return (
     <View style={[chipBase, { backgroundColor: "#006FCF" }]}>
-      <Logo xml={amexXml} width={20} height={20} />
+      <Logo xml={amexXml} width={BADGE_WIDTH} height={BADGE_HEIGHT} />
     </View>
   );
 }

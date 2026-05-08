@@ -151,24 +151,24 @@ function AmexMark(props: SVGProps<SVGSVGElement>) {
       <rect width="38" height="22" rx="3" fill="#2E77BC" />
       <text
         x="19"
-        y="9.4"
+        y="10"
         textAnchor="middle"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
         fontWeight="800"
-        fontSize="5"
-        letterSpacing="0.3"
+        fontSize="6"
+        letterSpacing="0.4"
         fill="#FFFFFF"
       >
         AMERICAN
       </text>
       <text
         x="19"
-        y="16.5"
+        y="17"
         textAnchor="middle"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
         fontWeight="800"
-        fontSize="5.4"
-        letterSpacing="0.3"
+        fontSize="6.4"
+        letterSpacing="0.4"
         fill="#FFFFFF"
       >
         EXPRESS
