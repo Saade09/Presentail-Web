@@ -9,6 +9,7 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - `pnpm --filter @workspace/api-spec run codegen`: Regenerate API hooks and Zod schemas from OpenAPI spec.
 - `pnpm --filter @workspace/db run push`: Push DB schema changes (development only).
 - `pnpm --filter @workspace/api-server run dev`: Run API server locally.
+- **Promote a TestFlight build to the App Store**: GitHub → Actions → "iOS – Promote TestFlight build to App Store" → Run workflow. Inputs: `build_number` (the TestFlight build number to promote, or `latest` for the most recent VALID iOS build) and `release_notes` (the "What's New" text shown on the App Store; replace the `TODO:` default before triggering). The workflow creates/updates the App Store version matching `expo.version` in `artifacts/presentail/app.json`, attaches the chosen build, mirrors the previous release's release type (defaults to `AFTER_APPROVAL` if there is no prior release), writes the release notes to every existing localization, declares export compliance (`usesNonExemptEncryption=false`), and submits for App Review. The job logs (and writes a step summary with) the resulting version, build number, review state, and a link to App Store Connect.
 
 **Required Environment Variables**:
 - `WC_CONSUMER_KEY`, `WC_CONSUMER_SECRET` (for Lebanon WooCommerce)
@@ -49,7 +50,8 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - **Authentication Routes**: `artifacts/api-server/src/routes/auth.ts`
 - **Auth Context (Client)**: `artifacts/presentail/src/contexts/AuthContext.tsx`
 - **Push Notification Schema**: `lib/db/src/schema/pushTokens.ts`, `lib/db/src/schema/appOrders.ts`
-- **CI/CD Workflow (iOS)**: `.github/workflows/ios-testflight.yml`
+- **CI/CD Workflow (iOS – TestFlight build & submit)**: `.github/workflows/ios-testflight.yml`
+- **CI/CD Workflow (iOS – Promote to App Store)**: `.github/workflows/ios-app-store.yml` (uses `scripts/src/promoteToAppStore.ts`)
 - **Product Categories (WC slug → app slug)**: _Implicitly defined in various places by usage (e.g., `PRODUCT_TYPE_SLUGS` allowlist)_
 - **Stripe API Base URL Configuration**: `lib/stripe.ts`
 - **Country Codes for Phone Fields**: `data/countryCodes.ts`

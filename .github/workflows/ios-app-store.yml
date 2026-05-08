@@ -1,0 +1,71 @@
+name: iOS – Promote TestFlight build to App Store
+
+# Manually-triggered workflow that promotes a TestFlight build to the public
+# App Store and submits it for App Review. We deliberately keep promotion
+# manual so a human stays in the loop after TestFlight QA.
+#
+# Mechanism: a small Node script (`scripts/src/promoteToAppStore.ts`) that
+# talks to the App Store Connect API directly. We chose this over `eas submit`
+# (which targets TestFlight, not App Store version creation + review) and
+# `fastlane deliver` (extra Ruby toolchain) because it adds zero new
+# dependencies and produces clear, line-by-line failure messages.
+#
+# Inputs:
+#   build_number   – ASC build number to promote, or "latest" for the most
+#                    recent VALID iOS build uploaded to TestFlight.
+#   release_notes  – "What's New" text written to every existing localization
+#                    on the new App Store version.
+#
+# Required secrets (already in use by ios-testflight.yml):
+#   ASC_API_KEY_ID, ASC_API_KEY_ISSUER_ID, ASC_API_KEY_P8.
+#   EXPO_TOKEN is unused here but kept available for parity with the
+#   TestFlight workflow.
+#
+# To trigger: GitHub → Actions → "iOS – Promote TestFlight build to App Store"
+# → Run workflow → fill inputs → Run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'TestFlight build number to promote (or "latest")'
+        required: true
+        default: "latest"
+      release_notes:
+        description: "What's New release notes (shown on the App Store)"
+        required: true
+        default: "TODO: replace with real release notes before submitting."
+
+concurrency:
+  group: ios-app-store
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote build to App Store review
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Promote build to App Store
+        run: pnpm --filter @workspace/scripts run promote-ios-to-app-store
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          PROMOTE_BUILD_NUMBER: ${{ inputs.build_number }}
+          PROMOTE_RELEASE_NOTES: ${{ inputs.release_notes }}
