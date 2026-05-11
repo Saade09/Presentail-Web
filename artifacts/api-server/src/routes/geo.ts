@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import type { GeoCurrencyResponse } from "@workspace/api-zod";
 import {
   FALLBACK_DISPLAY_CURRENCY,
@@ -23,7 +23,11 @@ const router: IRouter = Router();
 // their key by appending an `X-Forwarded-For` value.
 function clientIpKey(req: Request): string {
   const ip = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString());
-  return ip || "unknown";
+  if (!ip) return "unknown";
+  // express-rate-limit v8 requires IPv6 addresses to be normalized through
+  // ipKeyGenerator (default /64 subnet) so a single visitor with a /64 of
+  // addresses can't bypass the limit by rotating the suffix.
+  return ipKeyGenerator(ip);
 }
 
 // Public, unauthenticated endpoint. Cap each IP at a generous-but-bounded
