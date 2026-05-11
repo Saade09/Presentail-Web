@@ -1,93 +1,55 @@
 # Presentail Lebanon — Expo Mobile App
 
-A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a seamless shopping experience for users to send gifts, with an accompanying web application.
+A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, with an accompanying web storefront. Mobile (Expo) + Web (React/Vite) + API server (Express) in a pnpm monorepo.
 
 ## Run & Operate
 
-- `pnpm run typecheck`: Full typecheck across all packages.
-- `pnpm run build`: Typecheck and build all packages.
-- `pnpm --filter @workspace/api-spec run codegen`: Regenerate API hooks and Zod schemas from OpenAPI spec.
-- `pnpm --filter @workspace/db run push`: Push DB schema changes (development only).
-- `pnpm --filter @workspace/api-server run dev`: Run API server locally.
-- `pnpm --filter @workspace/scripts run import-customers-to-clerk`: Import existing local customer rows (originally backfilled from WordPress by `backfill-customers`) into Clerk so returning shoppers signing in via the new Clerk web flow are matched to their existing customer row by email instead of creating a duplicate. Requires `CLERK_SECRET_KEY` and `DATABASE_URL`. Flags: `--dry-run` (log without creating), `--only-wp` (only rows with a `wcCustomerId`, i.e. WP-originated), `--limit=N`, `--concurrency=N` (default 4). Idempotent — Clerk's "email already exists" responses are treated as a successful no-op, and rows already linked (`authProvider="clerk"`) are skipped. Imported users have no password (we don't migrate WP password hashes); they sign in via Clerk's email code / forgot-password / social flow on first login, and `authenticate()` then upserts the local row by email and stamps `(authProvider="clerk", authUserId=<clerk id>)` on it.
-- **Promote a TestFlight build to the App Store**: GitHub → Actions → "iOS – Promote TestFlight build to App Store" → Run workflow. Inputs: `mode` (`dry-run` prepares the version and previews release notes and subtitle without sending for App Review; `submit` actually sends for App Review), `build_number` (the TestFlight build number to promote, or `latest` for the most recent VALID iOS build) and `release_notes` (the "What's New" text shown on the App Store; replace the `TODO:` default before triggering). The workflow creates/updates the App Store version matching `expo.version` in `artifacts/presentail/app.json`, attaches the chosen build, mirrors the previous release's release type (defaults to `AFTER_APPROVAL` if there is no prior release), writes the release notes AND the App Store **subtitle** (the line shown under the app name on the store) to every existing localization, declares export compliance (`usesNonExemptEncryption=false`), and — only in `submit` mode — submits for App Review. The subtitle is **not** a workflow input; it lives in the repo at `artifacts/presentail/app-store-metadata.json` (`subtitle` field, currently `Same Day Gift Delivery`) so changes go through normal PR review and a subsequent promote run is what actually ships them to the store. The script enforces the App Store hard limit of 30 characters at load time, so a too-long or empty value fails fast both locally and in CI; if App Store Connect rejects the subtitle for any reason (length, disallowed characters, unknown locale) the run fails with a message naming the offending locale and the underlying ASC error instead of silently shipping a bad value. The job logs the rendered release notes and subtitle per locale and writes a step summary (with collapsible per-locale notes previews and a per-locale subtitle table) including the resulting version, build number, subtitle, review state, submission id, and a link to App Store Connect. **Recommended two-step flow**: (1) run with `mode=dry-run` and inspect the per-locale rendered notes and subtitle in the job summary; (2) re-run with the same `build_number` / `release_notes` and `mode=submit` to send the version for App Review. After a successful `submit`-mode promotion (skipped on dry-run), the workflow automatically runs `pnpm --filter @workspace/scripts run bump-app-version` (which bumps the patch component of `expo.version` in `artifacts/presentail/app.json`) and opens a PR titled `chore(ios): bump expo.version to <next>` for the team to review and merge before the next TestFlight build — without that bump, the next promotion would collide with the version that's already in App Review or Ready For Sale. You can also run the bump locally (`pnpm --filter @workspace/scripts run bump-app-version`) if you ever need to do it by hand.
+- `pnpm run typecheck` / `pnpm run build`: full workspace typecheck / build.
+- `pnpm run typecheck:libs`: rebuild composite lib `.d.ts` files. Run this if `tsc -p artifacts/<x>` reports phantom errors about missing properties on schema/lib types — it almost always means the cached `lib/*/dist/*.d.ts` is stale.
+- `pnpm --filter @workspace/api-spec run codegen`: regenerate API hooks and Zod schemas from the OpenAPI spec.
+- `pnpm --filter @workspace/db run push`: push DB schema changes (development only).
+- `pnpm --filter @workspace/api-server run dev`: run API server locally.
+- `pnpm --filter @workspace/scripts run import-customers-to-clerk`: import existing local customer rows into Clerk so returning shoppers signing in via Clerk are matched to their existing customer row by email. See script header for flags. Idempotent. Requires `CLERK_SECRET_KEY`, `DATABASE_URL`.
+- **Promote a TestFlight build to the App Store**: GitHub → Actions → "iOS – Promote TestFlight build to App Store". Two-step flow recommended (`mode=dry-run` to preview the per-locale notes & subtitle in the job summary, then re-run with `mode=submit`). Subtitle lives in `artifacts/presentail/app-store-metadata.json` (≤30 chars). On successful `submit` the workflow auto-bumps `expo.version` via `pnpm --filter @workspace/scripts run bump-app-version` and opens a PR. Full behaviour and inputs documented in `.github/workflows/ios-app-store.yml` and `scripts/src/promoteToAppStore.ts`.
 
 **Required Environment Variables**:
-- `WC_CONSUMER_KEY`, `WC_CONSUMER_SECRET` (for Lebanon WooCommerce)
-- `WC_DUBAI_CONSUMER_KEY`, `WC_DUBAI_CONSUMER_SECRET` (for UAE Dubai WooCommerce)
-- `WC_ABUDHABI_CONSUMER_KEY`, `WC_ABUDHABI_CONSUMER_SECRET` (for UAE Abu Dhabi WooCommerce)
-- `WC_CYPRUS_CONSUMER_KEY`, `WC_CYPRUS_CONSUMER_SECRET` (for Cyprus WooCommerce)
-- `PUSH_ADMIN_TOKEN` (for `POST /api/push/order-event`)
-- `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8` (for CI/CD, EAS access, and TestFlight submissions)
-- `EXPO_PUBLIC_API_BASE_URL` (for OTA updates and `lib/stripe.ts` API base)
-- `EXPO_PUBLIC_DOMAIN` (for Stripe API_BASE)
-- `WOO_SYNC_ENABLED` (`1`/`true` to enable the scheduled WooCommerce sync worker; default off)
-- `WOO_SYNC_INTERVAL_MS` (poll interval for the sync worker; default 900000 = 15 min, minimum 60000)
-- `WOO_SYNC_PUSH_ON_CHANGE` (`0`/`false` to suppress silent `data_refresh` pushes when the sync detects content changes; default on)
-- `BANNERS_REMOTE_URL` (optional JSON URL re-loaded by the sync worker; falls back to `HOMEPAGE_BANNERS` when unset or unreachable)
-- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Google "Web application" OAuth client id; required on both iOS and Android Expo builds — must be an EAS secret so it is inlined into the binary)
-- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (Google "iOS" OAuth client id; iOS builds only)
-- `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` (reversed form of the iOS client id, e.g. `com.googleusercontent.apps.123-abc`; iOS builds only — derived automatically from `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` if unset)
-- `GOOGLE_CLIENT_IDS` (API server only; comma-separated list of every Google OAuth client id whose `idToken` should be accepted by `POST /api/auth/social/google` — must include the iOS client id, the Android client id, AND the Web client id)
-- `CLERK_SECRET_KEY` (API server only; Clerk backend secret used by `@clerk/express` middleware and by the webhook handler at `POST /api/clerk/webhook` to call `clerk.users.updateUserMetadata`)
-- `CLERK_WEBHOOK_SECRET` (API server only; svix signing secret for the Clerk webhook configured in the Clerk dashboard at Configure → Webhooks → endpoint `https://<domain>/api/clerk/webhook`, subscribed to at least `user.created`. Without it, `POST /api/clerk/webhook` returns 503 and new sign-ups only get `publicMetadata.userType="customer"` lazily on their first authenticated API call via `authenticate()` in `artifacts/api-server/src/lib/auth.ts`. Each Clerk instance — development and production — has its own `whsec_…` value, so set the production secret in production and, if you also want the dev Clerk instance to fire webhooks at the Replit dev URL, add a separate dev endpoint and value)
+- WooCommerce: `WC_CONSUMER_KEY`/`WC_CONSUMER_SECRET` (LB), `WC_DUBAI_*`, `WC_ABUDHABI_*`, `WC_CYPRUS_*`.
+- Push & sync: `PUSH_ADMIN_TOKEN`; optional `WOO_SYNC_ENABLED`, `WOO_SYNC_INTERVAL_MS` (default 900000, min 60000), `WOO_SYNC_PUSH_ON_CHANGE`, `BANNERS_REMOTE_URL`.
+- CI/CD: `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8`.
+- Mobile: `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_DOMAIN`.
+- Google Sign-In (mobile, EAS-secret only — see Gotchas): `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` (auto-derived from the iOS id).
+- API server auth: `GOOGLE_CLIENT_IDS` (comma-separated, must include iOS + Android + Web client ids), `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET` (svix `whsec_…`, separate value per Clerk instance).
+- Web (Vite): `VITE_CLERK_PUBLISHABLE_KEY`, optional `VITE_CLERK_PROXY_URL`.
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **Mobile App**: React Native (Expo Router)
-- **Web App**: React, Vite
-- **API framework**: Express 5
-- **Database**: PostgreSQL
-- **ORM**: Drizzle ORM
-- **Validation**: Zod, `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build tool**: esbuild (CJS bundle)
+pnpm workspaces · Node 24 · TypeScript 5.9 · Expo Router (mobile) · React + Vite (web) · Express 5 · PostgreSQL + Drizzle ORM · Zod / drizzle-zod · Orval (OpenAPI) · esbuild.
 
 ## Where things live
 
-- **Mobile App**: `artifacts/presentail`
-- **API Server**: `artifacts/api-server`
-- **Web App**: `artifacts/presentail-web`
-- **DB Schema**: `lib/db/src/schema/`
-- **WooCommerce Store Resolver**: `artifacts/api-server/src/lib/wooStore.ts`
-- **Authentication Routes**: `artifacts/api-server/src/routes/auth.ts`
-- **Auth Context (Client)**: `artifacts/presentail/src/contexts/AuthContext.tsx`
-- **Push Notification Schema**: `lib/db/src/schema/pushTokens.ts`, `lib/db/src/schema/appOrders.ts`
-- **CI/CD Workflow (iOS – TestFlight build & submit)**: `.github/workflows/ios-testflight.yml`
-- **CI/CD Workflow (iOS – Promote to App Store)**: `.github/workflows/ios-app-store.yml` (uses `scripts/src/promoteToAppStore.ts`)
-- **Product Categories (WC slug → app slug)**: _Implicitly defined in various places by usage (e.g., `PRODUCT_TYPE_SLUGS` allowlist)_
-- **Stripe API Base URL Configuration**: `lib/stripe.ts`
-- **Country Codes for Phone Fields**: `data/countryCodes.ts`
-- **Currency Definitions**: `data/currencies.ts`
-- **API Contracts (OpenAPI spec)**: _Populate as you build_
-- **Theme/Styling**: _Populate as you build_
+- Mobile: `artifacts/presentail` · Web: `artifacts/presentail-web` · API: `artifacts/api-server`
+- DB schema: `lib/db/src/schema/` (push tokens & app orders in `pushTokens.ts`, `appOrders.ts`)
+- Shared delivery rules (express surcharge, slot tables, recipient-country windows): `lib/delivery`
+- Display currency rules: `lib/display-currency`
+- WooCommerce store resolver: `artifacts/api-server/src/lib/wooStore.ts`
+- Auth: `artifacts/api-server/src/routes/auth.ts`, `artifacts/api-server/src/lib/auth.ts`, mobile `artifacts/presentail/contexts/AuthContext.tsx`
+- iOS CI/CD: `.github/workflows/ios-testflight.yml`, `.github/workflows/ios-app-store.yml`
+- Stripe API base: `artifacts/presentail/lib/stripe.ts` · Country codes: `artifacts/presentail/data/countryCodes.ts` · Currencies: `artifacts/presentail/data/currencies.ts`
 
 ## Architecture decisions
 
-- **Multi-Store WooCommerce Integration**: The API server dynamically resolves WooCommerce store configurations (URL, credentials, currency, country) based on `countryCode`/`cityId` from query parameters or headers, with Lebanon as a fallback. This supports distinct product catalogs, pricing, and delivery logistics per region.
-- **Cache Isolation**: Product and homepage caches are isolated per store and language (`${store.baseUrl}::${lang}`) on the server, and client-side React Query keys include `countryCode`/`cityId` to ensure cache invalidation upon store switching.
-- **Hybrid Product Catalog Management**: WooCommerce is the primary source of truth for product price, name, and images. A static local catalog supplements with occasion tags, detailed descriptions, and fallback images, allowing for richer product data while maintaining WC for core commerce.
-- **In-App Account System**: Implemented a fully native sign-in/sign-up/delete flow using `expo-secure-store` for token management and direct WordPress JWT/WC REST API calls, avoiding web redirects for a smoother user experience and Apple guideline compliance.
-- **Robust Push Notification System**: Utilizes Expo Push Notifications, with server-side logic to register/unregister tokens (securely linking to user IDs), track order states, and trigger notifications for key events (confirmed, out for delivery, delivered) via an admin-only webhook.
-- **Client-side Currency Conversion**: All product `priceValue` is stored in USD (WooCommerce base currency) and converted only at the point of display in the UI, using exchange rates and symbols defined in `data/currencies.ts`. This simplifies backend currency management and ensures consistent pricing logic.
-- **Dynamic Content per Store**: Categories and occasions are fetched dynamically from WooCommerce per store, ensuring localized and relevant product offerings without hardcoding.
-- **Display Currency Auto-Detection (mobile)**: The Expo app picks the user's display currency with a fixed precedence — manual selection (persisted) → device GPS country → IP-geolocated country → USD. The device-GPS path is implemented in `artifacts/presentail/services/locationCurrencyService.ts` (`detectGeoFromDeviceLocation`) using `expo-location` with `Accuracy.Lowest` and a 4-second timeout, then resolves coords to a country/currency via `GET /api/geo/currency-by-coords` (BigDataCloud reverse-geocode, keyless, 0.1° rounded cache, 1 h TTL, 60 req / 15 min rate limit). The foreground-location prompt is shown only on the first run (tracked by AsyncStorage key `@presentail/location-permission-asked-v1`) so denial is sticky and silent; users can re-trigger detection any time from the **Currency** sheet in Account → "Detect from my location" (passes `force: true`). The IP-based path (`/api/geo/currency`) remains the silent fallback for declined / unavailable / web cases. Requires `NSLocationWhenInUseUsageDescription` (iOS) and `ACCESS_COARSE_LOCATION` (Android), already declared in `artifacts/presentail/app.json`; a fresh EAS build is required to pick up the new permission strings.
-- **Scheduled WooCommerce Sync (Lebanon, Dubai, Abu Dhabi)**: `lib/wooSync.ts` polls each configured store on `WOO_SYNC_INTERVAL_MS`, force-refreshes the `allProductsCache` / `occasionIdCache` / homepage `collectionCache` per store, reloads banners from `BANNERS_REMOTE_URL` (with the static fallback), reconciles WooCommerce customers into local rows (and backfills `app_orders.user_id`), then sends a silent Expo `data_refresh` push (`_contentAvailable: true`, `priority: high`, `sound: null`) to tokens whose persisted `countryCode`/`cityId` map to that store. The mobile app's foreground listener invalidates the matching React Query keys. A `POST /api/woo/sync/run` admin endpoint (gated by `PUSH_ADMIN_TOKEN`) triggers a run on demand.
+- **Multi-store WooCommerce**: API server resolves store config (URL, credentials, currency, country) per request from `countryCode`/`cityId`, with Lebanon as fallback. Server caches are keyed `${baseUrl}::${lang}`; client React Query keys include `countryCode`/`cityId`.
+- **Hybrid catalog**: WooCommerce is source of truth for price / name / images. A static local catalog supplements with occasion tags, descriptions, and fallback images.
+- **In-app accounts**: Native sign-in / sign-up / delete using `expo-secure-store` + WordPress JWT / WC REST. Avoids web redirects (smoother UX, Apple-compliant). Clerk handles web auth and is being migrated to mobile.
+- **Push notifications**: Expo Push, server registers/unregisters tokens scoped to user id, an admin-only webhook triggers order-state pushes.
+- **Currency**: All `priceValue` is stored in USD (WC base) and converted only at display time via `CurrencyContext` and `data/currencies.ts`.
+- **Display currency auto-detection (mobile)**: precedence is manual pick → device GPS → IP → USD. GPS path uses `expo-location` (Lowest accuracy, 4 s timeout) → `GET /api/geo/currency-by-coords` (BigDataCloud, keyless, 0.1° rounded cache, 1 h TTL, 60 req / 15 min). Permission prompt is shown only on the first run (AsyncStorage `@presentail/location-permission-asked-v1`); re-triggerable from the Currency sheet. IP-based `/api/geo/currency` is the silent fallback.
+- **Scheduled WC sync**: `lib/wooSync.ts` polls each store on `WOO_SYNC_INTERVAL_MS`, force-refreshes product / occasion / homepage caches, reloads banners, reconciles WC customers into local rows, then sends a silent Expo `data_refresh` push to tokens whose persisted `countryCode`/`cityId` map to that store. The mobile foreground listener invalidates the matching React Query keys. `POST /api/woo/sync/run` triggers on demand (gated by `PUSH_ADMIN_TOKEN`).
+- **Locale-aware web URLs**: `/{lang}-{country}/{city}/...` for browse and shop. SEO-injected per-entity OG tags (product / brand / category / occasion) are rendered server-side so WhatsApp / iMessage / Slack get rich previews; see `artifacts/presentail-web/seo-inject.mjs`.
 
 ## Product
 
-- **Luxury Flower & Gift Delivery**: Core service for ordering and delivering gifts across Lebanon, UAE, and Cyprus.
-- **Multi-Country Support**: Services available in Lebanon, UAE (Dubai, Abu Dhabi, etc.), and Cyprus, each with localized pricing and delivery options.
-- **Dynamic Product Catalog**: Categories and occasions are fetched dynamically from WooCommerce, with intelligent filtering to present relevant product types.
-- **Comprehensive Checkout Flow**: Multi-step checkout including card message, recipient details, country-aware district/city selection, delivery date/slot selection, and various payment methods (Stripe, Whish Money, Western Union, Mamo, PayPal).
-- **Order Tracking & Notifications**: Users receive push notifications for key order status updates (confirmed, out for delivery, delivered).
-- **User Accounts**: Optional in-app account creation, login, and management (profile view, account deletion) integrated with WordPress.
-- **Over-the-Air (OTA) Updates**: Seamless updates for the mobile app without requiring a new app store download.
-- **Locale-Aware Web Experience**: The web application supports `/{lang}-{country}/{city}/...` URL routing, allowing users to browse and shop in their preferred language and location.
+Luxury flower & gift delivery across Lebanon, UAE, and Cyprus. Multi-step checkout (card message, recipient details, country-aware district/city, date/slot or Express, multiple payment methods: Stripe, Whish, Western Union, Mamo, PayPal). Push notifications for order state. Optional accounts. OTA updates.
 
 ## User preferences
 
@@ -95,29 +57,20 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 
 ## Gotchas
 
-- **WooCommerce JWT Plugin**: The "JWT Authentication for WP REST API" plugin is *required* on `presentail.com` for user login to function. Without it, login will return a `503 jwt_not_installed` error. Registration works, but signing in will fail.
-- **Payment Return URLs**: Mamo/PayPal require HTTPS return URLs. The API server provides a `GET /api/payment/return` endpoint that bridges the external payment gateway's HTTPS redirect to the app's deep link (`presentail://payment-return`).
-- **Currency Handling**: All product `priceValue` is stored in USD internally, with conversion happening only at display time based on the active display currency (`CurrencyContext`). The WooCommerce payload for orders also sends USD `priceValue`.
-- **Category Filtering**: Homepage categories are filtered by a `PRODUCT_TYPE_SLUGS` allowlist to exclude non-product categories (occasions, colors, recipients). `BestSellersPreview` has a fallback for empty categories.
-- **Expo Push Token Rotation**: The app includes `PushTokenRotationListener` to re-register push tokens, ensuring notifications continue to be delivered even if tokens change.
-- **API_BASE for Stripe**: The `API_BASE` in `lib/stripe.ts` must point to `https://${EXPO_PUBLIC_DOMAIN}` to correctly proxy `/api/...` calls to the API server from the same origin.
-- **No hardcoded category IDs**: All category lookups for occasions are done by slug and cached, ensuring flexibility with WooCommerce category changes.
-- **Product detail screen must stay defensive against malformed data**: The product route (`artifacts/presentail/app/product/[slug].tsx`) is on the critical purchase path and is reached from the home screen, categories, occasions, brands, and the cart. A synchronous throw during its render closes the app on iOS before any JS error boundary can catch it (see Task #180). Three fragile spots have already bitten us: (1) `useLocalSearchParams` returning `slug` as an array on certain navigations — always coerce before string compare; (2) `product.image` being `null`/`{ uri: "" }` — only render `<Image>` when the source is a real require'd asset or a non-empty `{ uri }`; (3) `product.priceValue` arriving as `NaN`/`undefined` from a stale cart row — coerce with `Number.isFinite` before passing to `Math.round` / `formatNative` / `<Price>`. Any further assumption added to this screen (delivery country, time zone, day list) must have a safe fallback so first render cannot crash.
-- **Google Sign-In needs a real iOS build**: `@react-native-google-signin/google-signin` is a native module, so "Continue with Google" only works in an EAS dev build, TestFlight build, or App Store build. It will not work in Expo Go or in the Expo web preview. After changing any of `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, or `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID`, a fresh dev build is required so the iOS `Info.plist` URL types pick up the new reversed client id. `app.config.js` auto-derives the reversed iOS client id from `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` if `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` is missing or in the wrong format. The API server's `GOOGLE_CLIENT_IDS` must be a comma-separated list that contains the iOS client id, the Android client id, AND the Web client id, since any of them may appear as `aud` on the returned `idToken` depending on platform.
-- **Google Sign-In on Android requires an Android OAuth client + signing SHA-1**: Unlike iOS, Android does NOT pass a client id at runtime — `GoogleSignin.configure({ webClientId })` is enough on the JS side. Instead, Google's Android SDK matches the installed APK against an **Android-type** OAuth client in Google Cloud by `(package name, signing SHA-1)`. The package name must be `com.presentail.lb` (matches `expo.android.package` in `artifacts/presentail/app.json`) and the SHA-1 must come from the actual signing key the build is signed with — for every signing key the binary may be signed with: the local debug keystore (for `eas build --profile development`), the EAS internal/preview upload keystore (`eas credentials -p android` → "Keystore: Download" → run `keytool -list -v -keystore <file>`), and the Play Store **app signing** key (Play Console → Setup → App integrity → App signing key certificate). After adding/rotating the Android client, no env vars need to change — `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is still what gets exchanged for the `idToken` — but the API server's `GOOGLE_CLIENT_IDS` must include the new Android client id so `aud` verification accepts tokens minted on Android. A symptom of "Android OAuth client missing or SHA-1 mismatch" is `signIn()` resolving with `DEVELOPER_ERROR` (status code 10) immediately after the account picker; the `serverMessage` surfaced by `signInWithGoogle` will contain `DEVELOPER_ERROR` in that case. No changes to `app.json`/`app.config.js` are needed beyond having the `@react-native-google-signin/google-signin` plugin (already present), and a fresh EAS build is still required after adding the Android OAuth client so the new SHA-1 binding takes effect.
-- **`EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is iOS-only**: do not set it as a hard requirement on Android builds. `app.config.js` only fails the build when the reversed iOS scheme placeholder would ship; Android builds without an iOS client id still work as long as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is present.
-- **iOS bundle localizations must mirror App Store Connect**: The list of locales declared in `expo.ios.infoPlist.CFBundleLocalizations` in `artifacts/presentail/app.json` (currently `en`, `ar`, `fr`) must match the localizations enabled for the app in App Store Connect. Adding a localization on App Store Connect alone is not enough — the next EAS build must also declare it here, otherwise App Review will flag a mismatch between the store page's advertised languages and the binary's `Info.plist`. This only declares the languages on the bundle; it does not translate any in-app strings.
-- **IP-based currency detection client IP & provider fallback**: `/api/geo/currency` cannot trust `req.ip` alone. Replit's published deployment puts requests through more than one proxy hop, so even with `app.set("trust proxy", 1)` in `artifacts/api-server/src/app.ts`, `req.ip` ends up being an internal Replit address that `isPrivateOrLoopback()` rejects — pinning every visitor to the USD fallback. The route in `artifacts/api-server/src/routes/geo.ts` instead derives the real client IP by walking `x-forwarded-for` and taking the leftmost publicly routable address (`pickClientIp` in `artifacts/api-server/src/lib/geoCurrency.ts`), and prefers Cloudflare's `cf-ipcountry` header when present (free, instant, no outbound call). The upstream country lookup uses ipapi.co as the primary provider and ipwho.is as a keyless fallback when ipapi.co is rate-limited or returns an `{"error": true, ...}` JSON body — without that fallback, ipapi.co's 1000/day shared cloud-egress quota silently turns into "everyone sees USD". Negative results are cached for only 60s (positive results for 1h) so a single transient blip can't pin an IP to USD for an hour. Each lookup logs `provider`, `reason`, `country`, `currency`, and a truncated SHA-256 fingerprint of the client IP via `req.log` (never the raw IP) so future regressions are debuggable without violating the threat model's information-disclosure guidance. Do not change `app.set("trust proxy", 1)` casually: rate-limit keys still use `req.ip`, so widening the trust setting without a custom keyer would let a single internal proxy hop trip the per-IP cap for everyone.
-- **`EXPO_PUBLIC_GOOGLE_*` must be EAS build-time secrets, not just Replit secrets**: any value prefixed with `EXPO_PUBLIC_` is inlined into the JS bundle when EAS builds the binary, so setting `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, and `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` only on Replit means the TestFlight/App Store binary ships with `undefined` and Google sign-in fails instantly without ever opening the native sheet. Add all three via `eas secret:create` (or the EAS dashboard, project-level) and trigger a fresh build whenever any of them change. `app.config.js` will throw during a non-development EAS build if the reversed iOS client id falls back to the `com.googleusercontent.apps.unconfigured` placeholder, so a misconfigured build fails loudly instead of silently shipping. The iOS OAuth client in Google Cloud must also be created against the app's actual `expo.ios.bundleIdentifier` (currently `presentail`) — a bundle-id mismatch causes Google's iOS SDK to refuse to open the picker with no usable error to the JS layer.
+- **Stale lib `.d.ts`**: composite project references read each lib's emitted `.d.ts`, not its source. After editing `lib/db/src/schema/*` (or any other lib), run `pnpm run typecheck:libs` before trusting `pnpm --filter @workspace/<artifact> run typecheck` — phantom "Property does not exist on type X" errors against schema/lib types are almost always stale dist files.
+- **WordPress JWT plugin required**: "JWT Authentication for WP REST API" must be installed on `presentail.com` for login. Without it, login returns `503 jwt_not_installed` (registration still works).
+- **Payment return URLs**: Mamo / PayPal need HTTPS, so `GET /api/payment/return` bridges the gateway redirect to the app's deep link `presentail://payment-return`.
+- **Currency on the wire**: Order payloads sent to WC also use USD `priceValue`; conversion is display-only.
+- **Category filtering**: Homepage categories are filtered by the `PRODUCT_TYPE_SLUGS` allowlist to exclude occasion / colour / recipient categories. `BestSellersPreview` falls back gracefully on empty categories.
+- **Stripe `API_BASE`**: `lib/stripe.ts`'s `API_BASE` must be `https://${EXPO_PUBLIC_DOMAIN}` so `/api/...` calls proxy through the same origin.
+- **Product detail screen must stay defensive**: `artifacts/presentail/app/product/[slug].tsx` is on the critical purchase path. A synchronous throw during render closes the iOS app before any error boundary catches it (Task #180). Three known fragile spots: (1) `useLocalSearchParams` may return `slug` as an array — coerce before string compare; (2) `product.image` may be `null` / `{ uri: "" }` — only render `<Image>` for a real require'd asset or non-empty `{ uri }`; (3) `product.priceValue` may arrive `NaN` / `undefined` from a stale cart row — gate with `Number.isFinite` before `Math.round` / `formatNative` / `<Price>`. Any new assumption (delivery country, time zone, day list) must have a safe fallback so first render cannot crash.
+- **Google Sign-In needs an EAS build, not Expo Go**: `@react-native-google-signin/google-signin` is a native module. Required env values must be EAS build-time secrets (`EXPO_PUBLIC_*` are inlined into the binary at build time), not just Replit secrets. After changing any Google client id, trigger a fresh build. `app.config.js` auto-derives the reversed iOS scheme and fails the build if the placeholder would ship.
+- **Google Sign-In on Android needs an Android OAuth client + signing SHA-1**: Google's Android SDK matches `(package name = com.presentail.lb, signing SHA-1)` against an Android-type OAuth client. Add SHA-1s for every signing key the binary may carry: local debug keystore, EAS upload keystore, Play Store app-signing key. Add the Android client id to the API server's `GOOGLE_CLIENT_IDS` so `aud` verification accepts those tokens. Symptom of mismatch: `signIn()` resolves with `DEVELOPER_ERROR` (status code 10) immediately after the account picker.
+- **iOS bundle localizations must mirror App Store Connect**: `expo.ios.infoPlist.CFBundleLocalizations` in `artifacts/presentail/app.json` (currently `en`, `ar`, `fr`) must equal the localizations enabled on App Store Connect, otherwise App Review flags a mismatch. Adding a locale on ASC alone is not enough — the next EAS build must also declare it.
+- **IP-based currency detection**: Replit puts requests through multiple proxy hops, so `req.ip` ≠ the real client IP. `routes/geo.ts` walks `x-forwarded-for` for the leftmost public address (`pickClientIp`) and prefers `cf-ipcountry` when present. Upstream lookup is ipapi.co with ipwho.is as a keyless fallback (without it, ipapi.co's 1000/day quota silently pins everyone to USD). Negative cache is 60 s, positive 1 h. The rate-limiter's `keyGenerator` must wrap the resolved IP through `ipKeyGenerator` (express-rate-limit v8) or IPv6 visitors silently bypass the limit. Don't widen `app.set("trust proxy", 1)` casually — other limiters key off `req.ip`.
+- **Clerk dev vs prod keys**: production Clerk keys (`pk_live_…`/`sk_live_…`) are domain-locked to `presentail.com` and won't work on Replit dev preview URLs. Use the development Clerk instance keys (`pk_test_…`) for local/dev, prod keys only for the deployed app. Each Clerk instance also has its own `whsec_…` webhook secret.
 
 ## Pointers
 
-- [pnpm-workspace skill](https://www.google.com/search?q=pnpm+workspace+documentation)
-- [Expo Router documentation](https://docs.expo.dev/router/overview/)
-- [Drizzle ORM documentation](https://orm.drizzle.team/)
-- [Zod documentation](https://zod.dev/)
-- [Orval documentation](https://orval.dev/)
-- [WooCommerce REST API documentation](https://woocommerce.github.io/woocommerce-rest-api-docs/)
-- [Stripe documentation](https://stripe.com/docs)
-- [Expo Push Notifications documentation](https://docs.expo.dev/push-notifications/overview/)
-- [Mamo/PayPal API Documentation](https://www.google.com/search?q=mamo+paypal+api+documentation)
+- [Expo Router](https://docs.expo.dev/router/overview/) · [Drizzle ORM](https://orm.drizzle.team/) · [Zod](https://zod.dev/) · [Orval](https://orval.dev/)
+- [WooCommerce REST API](https://woocommerce.github.io/woocommerce-rest-api-docs/) · [Stripe](https://stripe.com/docs) · [Expo Push Notifications](https://docs.expo.dev/push-notifications/overview/)
