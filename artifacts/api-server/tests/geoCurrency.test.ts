@@ -7,6 +7,7 @@ import {
   lookupCountryFromIp,
   pickClientIp,
   resolveGeoCurrency,
+  resolveGeoCurrencyByCoords,
 } from "../src/lib/geoCurrency";
 
 // ─── pickClientIp ────────────────────────────────────────────────────────────
@@ -307,6 +308,199 @@ describe("GET /api/geo/currency — cf-ipcountry shortcut", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ countryCode: "AE", currencyCode: "AED" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ─── resolveGeoCurrencyByCoords ──────────────────────────────────────────────
+
+describe("resolveGeoCurrencyByCoords", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    __resetGeoCurrencyCacheForTests();
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("short-circuits to USD without fetching when coords are NaN", async () => {
+    fetchSpy = mockFetch(() => {
+      throw new Error("must not call fetch for invalid coords");
+    });
+    const out = await resolveGeoCurrencyByCoords(Number.NaN, 0);
+    expect(out).toEqual({ countryCode: null, currencyCode: "USD" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits to USD without fetching when coords are out of range", async () => {
+    fetchSpy = mockFetch(() => {
+      throw new Error("must not call fetch for out-of-range coords");
+    });
+    const cases: Array<[number, number]> = [
+      [91, 0],
+      [-91, 0],
+      [0, 181],
+      [0, -181],
+    ];
+    for (const [lat, lng] of cases) {
+      const out = await resolveGeoCurrencyByCoords(lat, lng);
+      expect(out).toEqual({ countryCode: null, currencyCode: "USD" });
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("caches positive results keyed by 0.1° rounding (nearby coords share one fetch)", async () => {
+    fetchSpy = mockFetch((url) => {
+      expect(url).toContain("bigdatacloud.net");
+      return new Response(
+        JSON.stringify({ countryCode: "AE" }),
+        { status: 200 },
+      );
+    });
+
+    // 25.20 and 25.23 both round to 25.2 at 0.1° precision, so the second
+    // call must hit the cache rather than issue a new fetch.
+    const first = await resolveGeoCurrencyByCoords(25.2, 55.27);
+    expect(first).toEqual({ countryCode: "AE", currencyCode: "AED" });
+
+    const second = await resolveGeoCurrencyByCoords(25.23, 55.29);
+    expect(second).toEqual({ countryCode: "AE", currencyCode: "AED" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    // A coord that rounds differently must trigger a new fetch.
+    const third = await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(third).toEqual({ countryCode: "AE", currencyCode: "AED" });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches positive results for ~1h and re-fetches after expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    fetchSpy = mockFetch(
+      () => new Response(JSON.stringify({ countryCode: "FR" }), { status: 200 }),
+    );
+
+    await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date("2026-01-01T00:30:00Z"));
+    await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date("2026-01-01T01:01:00Z"));
+    await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches negative results only briefly (~60s, not 1h)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    fetchSpy = mockFetch(
+      () => new Response(JSON.stringify({ countryCode: null }), { status: 200 }),
+    );
+
+    const first = await resolveGeoCurrencyByCoords(0, 0);
+    expect(first).toEqual({ countryCode: null, currencyCode: "USD" });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:30Z"));
+    await resolveGeoCurrencyByCoords(0, 0);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    // 90s in — negative TTL elapsed, must re-fetch rather than pinning USD.
+    vi.setSystemTime(new Date("2026-01-01T00:01:30Z"));
+    await resolveGeoCurrencyByCoords(0, 0);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to USD on a non-2xx response from BigDataCloud", async () => {
+    fetchSpy = mockFetch(
+      () => new Response("Service Unavailable", { status: 503 }),
+    );
+    const out = await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(out).toEqual({ countryCode: null, currencyCode: "USD" });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to USD on a malformed JSON body", async () => {
+    fetchSpy = mockFetch(() => new Response("<html>nope</html>", { status: 200 }));
+    const out = await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(out).toEqual({ countryCode: null, currencyCode: "USD" });
+  });
+
+  it("falls back to USD when countryCode is missing or not a 2-letter code", async () => {
+    fetchSpy = mockFetch(
+      () =>
+        new Response(JSON.stringify({ countryCode: "XYZ" }), { status: 200 }),
+    );
+    const out = await resolveGeoCurrencyByCoords(48.85, 2.35);
+    expect(out).toEqual({ countryCode: null, currencyCode: "USD" });
+  });
+});
+
+// ─── Route: GET /api/geo/currency-by-coords ──────────────────────────────────
+
+describe("GET /api/geo/currency-by-coords", () => {
+  let app: Express;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    __resetGeoCurrencyCacheForTests();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    const mod = await import("../src/routes/geo");
+    app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as { log: { info: () => void } }).log = {
+        info: () => {},
+      };
+      next();
+    });
+    app.use("/api", mod.default);
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    vi.resetModules();
+  });
+
+  it("returns the same {countryCode, currencyCode} shape as /geo/currency for valid coords", async () => {
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ countryCode: "AE" }), { status: 200 }),
+    );
+    const res = await request(app)
+      .get("/api/geo/currency-by-coords")
+      .query({ lat: "25.2048", lng: "55.2708" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ countryCode: "AE", currencyCode: "AED" });
+    expect(Object.keys(res.body).sort()).toEqual(["countryCode", "currencyCode"]);
+  });
+
+  it("returns the safe USD shape (no 4xx) when coords are missing or invalid", async () => {
+    fetchSpy.mockImplementation(async () => {
+      throw new Error("must not call fetch for invalid coords");
+    });
+    const missing = await request(app).get("/api/geo/currency-by-coords");
+    expect(missing.status).toBe(200);
+    expect(missing.body).toEqual({ countryCode: null, currencyCode: "USD" });
+
+    const nan = await request(app)
+      .get("/api/geo/currency-by-coords")
+      .query({ lat: "not-a-number", lng: "0" });
+    expect(nan.status).toBe(200);
+    expect(nan.body).toEqual({ countryCode: null, currencyCode: "USD" });
+
+    const oob = await request(app)
+      .get("/api/geo/currency-by-coords")
+      .query({ lat: "200", lng: "0" });
+    expect(oob.status).toBe(200);
+    expect(oob.body).toEqual({ countryCode: null, currencyCode: "USD" });
+
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
