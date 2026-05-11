@@ -348,6 +348,10 @@ export function buildSeoHead(pathname, { origin = "", basePath = "" } = {}) {
  */
 export function injectSeoTags(html, pathname, opts = {}) {
   const { lang, dir, headSnippet, titleTag } = buildSeoHead(pathname, opts);
+  return assembleHtml(html, { lang, dir, headSnippet, titleTag });
+}
+
+function assembleHtml(html, { lang, dir, headSnippet, titleTag }) {
   let out = html;
   out = out.replace(
     /<html[^>]*>/i,
@@ -360,4 +364,173 @@ export function injectSeoTags(html, pathname, opts = {}) {
   }
   out = out.replace(/<\/head>/i, `    ${headSnippet}\n  </head>`);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Per-product Open Graph / Twitter Card injection
+//
+// WhatsApp, iMessage, Slack, Facebook, X, etc. only honour static meta tags in
+// the initial HTML response — they do not execute the JS bundle. The generic
+// SEO injector above produces site-wide previews; for `/product/<slug>` paths
+// we additionally fetch the matching product server-side and override
+// og:title / og:description / og:image / og:url / twitter:* with real product
+// data so shared product links render with the product's name, blurb, and
+// primary image. Any failure (404, network error, slow upstream) falls back
+// silently to the generic locale-aware preview.
+// ---------------------------------------------------------------------------
+
+const PRODUCT_FETCH_TIMEOUT_MS = 2500;
+
+function extractProductSlug(rest) {
+  if (!rest || !rest.startsWith("/product")) return null;
+  const m = rest.match(/^\/product\/([^/?#]+)/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
+async function fetchProductForSeo({
+  slug,
+  lang,
+  countryCode,
+  cityId,
+  apiBaseUrl,
+}) {
+  if (!slug) return null;
+  const params = new URLSearchParams({ slug });
+  if (lang) params.set("lang", lang);
+  if (countryCode) params.set("countryCode", countryCode);
+  if (cityId) params.set("cityId", cityId);
+  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/woo/product?${params.toString()}`;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), PRODUCT_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body || body.ok !== true || !body.product) return null;
+    return body.product;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildProductHead({
+  product,
+  lang,
+  basePath,
+  origin,
+  pathname,
+}) {
+  const cleanBase = basePath.replace(/\/$/, "");
+  const canonicalHref = origin + cleanBase + pathname;
+  const rawName = typeof product.name === "string" ? product.name.trim() : "";
+  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const rawDesc =
+    typeof product.description === "string" ? product.description.trim() : "";
+  const description = rawDesc.length > 0
+    ? rawDesc.length > 300
+      ? `${rawDesc.slice(0, 297).trimEnd()}…`
+      : rawDesc
+    : (DESCRIPTIONS[lang]?.product ?? DESCRIPTIONS.en.product).replace(
+        /\{(?:city|country)\}/g,
+        "",
+      );
+  const imageUrl =
+    (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+    (Array.isArray(product.images) &&
+      product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+    null;
+
+  const lines = [];
+  lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
+  lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
+  lines.push(`<meta property="og:title" content="${escapeAttr(title)}" />`);
+  lines.push(
+    `<meta property="og:description" content="${escapeAttr(description)}" />`,
+  );
+  lines.push(`<meta property="og:type" content="product" />`);
+  lines.push(`<meta property="og:site_name" content="Presentail" />`);
+  lines.push(
+    `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[lang] ?? "en_US")}" />`,
+  );
+  lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
+  if (imageUrl) {
+    lines.push(`<meta property="og:image" content="${escapeAttr(imageUrl)}" />`);
+    lines.push(
+      `<meta property="og:image:alt" content="${escapeAttr(rawName || "Presentail product")}" />`,
+    );
+    lines.push(`<meta name="twitter:image" content="${escapeAttr(imageUrl)}" />`);
+  }
+  lines.push(
+    `<meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}" />`,
+  );
+  lines.push(`<meta name="twitter:title" content="${escapeAttr(title)}" />`);
+  lines.push(
+    `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
+  );
+  if (
+    typeof product.priceValue === "number" &&
+    Number.isFinite(product.priceValue) &&
+    product.priceValue > 0
+  ) {
+    lines.push(
+      `<meta property="product:price:amount" content="${escapeAttr(product.priceValue.toFixed(2))}" />`,
+    );
+    lines.push(`<meta property="product:price:currency" content="USD" />`);
+  }
+  return { title, headSnippet: lines.join("\n    ") };
+}
+
+/**
+ * Async variant of injectSeoTags that, for `/product/<slug>` routes, fetches
+ * the product from the API and emits product-specific OG/Twitter Card meta so
+ * shared links show a rich preview. Falls back to the generic locale-aware
+ * injector on any failure.
+ */
+export async function injectSeoTagsAsync(html, pathname, opts = {}) {
+  const { apiBaseUrl, ...rest } = opts;
+  const generic = buildSeoHead(pathname, rest);
+  const parsed = parseLocalePath(pathname);
+  if (!apiBaseUrl || !parsed.hasLocalePrefix) {
+    return assembleHtml(html, generic);
+  }
+  const slug = extractProductSlug(parsed.rest);
+  if (!slug) {
+    return assembleHtml(html, generic);
+  }
+  const countryCode = parsed.country ? parsed.country.toUpperCase() : undefined;
+  const cityId = parsed.city
+    ? parsed.city.startsWith(`${parsed.country}-`)
+      ? parsed.city
+      : `${parsed.country}-${parsed.city}`
+    : undefined;
+  const product = await fetchProductForSeo({
+    slug,
+    lang: generic.lang,
+    countryCode,
+    cityId,
+    apiBaseUrl,
+  });
+  if (!product) {
+    return assembleHtml(html, generic);
+  }
+  const { title, headSnippet } = buildProductHead({
+    product,
+    lang: generic.lang,
+    basePath: rest.basePath ?? "",
+    origin: rest.origin ?? "",
+    pathname,
+  });
+  return assembleHtml(html, {
+    lang: generic.lang,
+    dir: generic.dir,
+    headSnippet,
+    titleTag: `<title>${escapeHtml(title)}</title>`,
+  });
 }

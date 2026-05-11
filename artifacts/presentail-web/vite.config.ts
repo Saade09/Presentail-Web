@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 // @ts-expect-error - plain ESM module (no types).
-import { injectSeoTags } from "./seo-inject.mjs";
+import { injectSeoTagsAsync } from "./seo-inject.mjs";
 
 /**
  * Inject locale-aware SEO tags (title, meta description, OG, hreflang,
@@ -12,11 +12,15 @@ import { injectSeoTags } from "./seo-inject.mjs";
  * HTML for crawlers viewing source on /{lang}-{country}/{city}/... URLs.
  */
 function seoInjectPlugin(basePath: string): Plugin {
+  // In dev, fetch per-product OG data through the shared Replit proxy. The API
+  // server is mounted on /api so the same localhost:80 base works for both.
+  const apiBaseUrl =
+    process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
   return {
     name: "presentail-seo-inject",
     transformIndexHtml: {
       order: "post",
-      handler(html, ctx) {
+      async handler(html, ctx) {
         // ctx.originalUrl is the full request URL including the base prefix.
         const reqUrl = ctx.originalUrl ?? ctx.path ?? "/";
         const cleanBase = basePath.replace(/\/$/, "");
@@ -24,7 +28,10 @@ function seoInjectPlugin(basePath: string): Plugin {
         if (cleanBase && pathname.startsWith(cleanBase)) {
           pathname = pathname.slice(cleanBase.length) || "/";
         }
-        return injectSeoTags(html, pathname, { basePath: cleanBase });
+        return injectSeoTagsAsync(html, pathname, {
+          basePath: cleanBase,
+          apiBaseUrl,
+        });
       },
     },
   };

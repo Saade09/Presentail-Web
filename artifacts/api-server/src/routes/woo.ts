@@ -600,6 +600,41 @@ router.get("/woo/products", async (req, res) => {
   }
 });
 
+// GET /api/woo/product?slug=...
+//
+// Single-product lookup by slug, used primarily by the web app's server-side
+// SEO injector to render per-product Open Graph / Twitter Card meta tags so
+// that links pasted into WhatsApp, iMessage, Slack, etc. show a rich preview
+// (product name, description, image) instead of the generic site-wide one.
+// Reuses the cached `fetchAllProducts` result so this is cheap on a warm cache.
+router.get("/woo/product", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slugRaw = req.query.slug;
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
+  if (!slug) {
+    return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+  try {
+    const lang = readLang(req);
+    const allProducts = await fetchAllProducts(lang, store);
+    const match = allProducts.find((p) => p.slug === slug);
+    if (!match || !isVisibleProduct(match)) {
+      return res.status(404).json({ ok: false, message: "Product not found" });
+    }
+    return res.json({
+      ok: true,
+      product: transformProduct(match, store.currencySymbol),
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message ?? "Failed to fetch product" });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/woo/order
 //

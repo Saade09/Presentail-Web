@@ -7,12 +7,18 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { injectSeoTags } from "./seo-inject.mjs";
+import { injectSeoTagsAsync } from "./seo-inject.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, "dist/public");
 const PORT = Number(process.env.PORT ?? 24188);
 const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
+// Internal base URL used to fetch per-product data for server-rendered OG /
+// Twitter Card meta tags on `/product/<slug>` pages. Defaults to the shared
+// Replit proxy at localhost:80 so the API and web artifact can talk locally
+// without an external HTTPS round-trip; can be overridden in unusual deploys.
+const INTERNAL_API_BASE_URL =
+  process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -42,7 +48,7 @@ function safeJoin(root, urlPath) {
 
 const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   try {
     const proto =
       (req.headers["x-forwarded-proto"]?.toString().split(",")[0] ?? "http").trim();
@@ -65,7 +71,11 @@ const server = http.createServer((req, res) => {
       // index.html gets locale-aware SEO injection.
       if (ext === ".html") {
         const html = fs.readFileSync(filePath, "utf8");
-        const out = injectSeoTags(html, pathname, { basePath: BASE_PATH, origin });
+        const out = await injectSeoTagsAsync(html, pathname, {
+          basePath: BASE_PATH,
+          origin,
+          apiBaseUrl: INTERNAL_API_BASE_URL,
+        });
         res.writeHead(200, { "content-type": MIME[".html"] });
         res.end(out);
         return;
@@ -90,7 +100,11 @@ const server = http.createServer((req, res) => {
     }
 
     // SPA fallback: rewrite to index.html with locale-aware SEO.
-    const out = injectSeoTags(indexHtml, pathname, { basePath: BASE_PATH, origin });
+    const out = await injectSeoTagsAsync(indexHtml, pathname, {
+      basePath: BASE_PATH,
+      origin,
+      apiBaseUrl: INTERNAL_API_BASE_URL,
+    });
     res.writeHead(200, { "content-type": MIME[".html"] });
     res.end(out);
   } catch (err) {
