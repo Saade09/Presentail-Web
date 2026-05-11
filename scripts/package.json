@@ -8,6 +8,7 @@
     "backfill-customers": "tsx ./src/backfillCustomers.ts",
     "check-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts",
     "promote-ios-to-app-store": "tsx ./src/promoteToAppStore.ts",
+    "bump-app-version": "tsx ./src/bumpAppVersion.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
