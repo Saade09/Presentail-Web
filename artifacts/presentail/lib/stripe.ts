@@ -3,8 +3,7 @@ import Constants from "expo-constants";
 // Production API base — used by all native (TestFlight / App Store) builds.
 // Hardcoded so OTA updates never end up with an empty URL even when
 // EXPO_PUBLIC_API_BASE_URL isn't passed during `eas update` bundling.
-const PRODUCTION_API_BASE =
-  "https://ecc66d74-6d2e-48a6-9649-831b70a47b53-00-2a2fua6i2o0no.riker.replit.dev";
+const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
 
 const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
