@@ -28,6 +28,8 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, offering a s
 - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (Google "iOS" OAuth client id; iOS builds only)
 - `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` (reversed form of the iOS client id, e.g. `com.googleusercontent.apps.123-abc`; iOS builds only — derived automatically from `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` if unset)
 - `GOOGLE_CLIENT_IDS` (API server only; comma-separated list of every Google OAuth client id whose `idToken` should be accepted by `POST /api/auth/social/google` — must include the iOS client id, the Android client id, AND the Web client id)
+- `CLERK_SECRET_KEY` (API server only; Clerk backend secret used by `@clerk/express` middleware and by the webhook handler at `POST /api/clerk/webhook` to call `clerk.users.updateUserMetadata`)
+- `CLERK_WEBHOOK_SECRET` (API server only; svix signing secret for the Clerk webhook configured in the Clerk dashboard at Configure → Webhooks → endpoint `https://<domain>/api/clerk/webhook`, subscribed to at least `user.created`. Without it, `POST /api/clerk/webhook` returns 503 and new sign-ups only get `publicMetadata.userType="customer"` lazily on their first authenticated API call via `authenticate()` in `artifacts/api-server/src/lib/auth.ts`. Each Clerk instance — development and production — has its own `whsec_…` value, so set the production secret in production and, if you also want the dev Clerk instance to fire webhooks at the Replit dev URL, add a separate dev endpoint and value)
 
 ## Stack
 
