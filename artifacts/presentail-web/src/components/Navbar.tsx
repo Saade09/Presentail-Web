@@ -15,7 +15,7 @@ export function Navbar() {
   const { user } = useAuth();
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
-  const { city, openPicker } = useLocationSelection();
+  const { city, countryCode, openPicker } = useLocationSelection();
   const { t } = useLocale();
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function Navbar() {
               <nav className="flex flex-col gap-4 mt-8">
                 <Link href="/shop" className="text-lg font-serif">{t("nav.shop")}</Link>
                 <Link href="/shop?occasion=birthday" className="text-lg font-serif">{t("nav.occasions")}</Link>
-                {city?.split("-")[0] !== "ae" && <Link href="/brands" className="text-lg font-serif">{t("nav.brands")}</Link>}
+                {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-lg font-serif">{t("nav.brands")}</Link>}
                 <Link href="/about" className="text-lg font-serif">{t("nav.about")}</Link>
               </nav>
             </SheetContent>
@@ -59,7 +59,7 @@ export function Navbar() {
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
             <Link href="/shop?occasion=birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
-            {city?.split("-")[0] !== "ae" && <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.brands")}</Link>}
+            {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.brands")}</Link>}
             <Link href="/about" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.about")}</Link>
           </nav>
         </div>
