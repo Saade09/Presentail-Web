@@ -400,21 +400,6 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 14 }}>
-      {/* Breadcrumb */}
-      {cat ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Pressable onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: cat.id } })}>
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 2.2, textTransform: "uppercase" }}>
-              {cat.name}
-            </Text>
-          </Pressable>
-          <Feather name="chevron-right" size={12} color={colors.mutedForeground} />
-          <Text numberOfLines={1} style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.2, textTransform: "uppercase", flex: 1 }}>
-            {product.name}
-          </Text>
-        </View>
-      ) : null}
-
       <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 28, color: colors.primary, lineHeight: 34 }}>
         {product.name}
       </Text>
