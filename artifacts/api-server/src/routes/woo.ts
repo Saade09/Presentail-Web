@@ -740,6 +740,71 @@ router.get("/woo/category", async (req, res) => {
   }
 });
 
+// GET /api/woo/occasion?slug=...
+//
+// Single-occasion lookup by slug, used by the web app's server-side SEO
+// injector to render occasion-specific Open Graph / Twitter Card meta tags
+// so that links to occasion landing pages (e.g. `/shop?occasion=<slug>`)
+// pasted into WhatsApp, iMessage, Slack, etc. show a rich preview
+// (occasion name, blurb, image) instead of the generic site-wide one.
+// Restricted to the `OCCASION_SLUGS` allowlist so this can't be turned
+// into an arbitrary WooCommerce category enumerator. Warms the shared
+// `occasionIdCache` as a side effect so subsequent
+// `/api/woo/occasion-products` calls for the same slug are cheaper.
+router.get("/woo/occasion", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slugRaw = req.query.slug;
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
+  if (!slug) {
+    return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+  if (!OCCASION_SLUGS.includes(slug)) {
+    return res.status(404).json({ ok: false, message: "Occasion not found" });
+  }
+  try {
+    const lang = readLang(req);
+    const r = await wooFetch(
+      `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
+      {},
+      lang,
+      store,
+    );
+    if (!r.ok) {
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup occasion" });
+    }
+    const list = (await r.json()) as WcCategory[];
+    if (!list.length) {
+      return res.status(404).json({ ok: false, message: "Occasion not found" });
+    }
+    const c = list[0];
+    // Warm the occasion id cache so a subsequent /occasion-products call
+    // doesn't have to re-resolve the slug → id mapping.
+    const cacheKey = store.baseUrl;
+    const now = Date.now();
+    const cached = occasionIdCache.get(cacheKey);
+    const map = cached?.map ?? new Map<string, number>();
+    map.set(slug, c.id);
+    occasionIdCache.set(cacheKey, { fetchedAt: now, map });
+    return res.json({
+      ok: true,
+      occasion: {
+        id: c.id,
+        name: c.name ?? c.slug,
+        slug: c.slug,
+        description: typeof c.description === "string" ? c.description : "",
+        image: c.image?.src ?? null,
+      },
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message ?? "Failed to fetch occasion" });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/woo/order
 //

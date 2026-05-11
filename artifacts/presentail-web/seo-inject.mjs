@@ -470,6 +470,17 @@ function extractCategorySlugFromSearch(search) {
   return trimmed || null;
 }
 
+function extractOccasionSlugFromSearch(search) {
+  if (!search) return null;
+  const s = search.startsWith("?") ? search.slice(1) : search;
+  if (!s) return null;
+  const params = new URLSearchParams(s);
+  const raw = params.get("occasion");
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
+}
+
 async function fetchEntityForSeo({
   endpoint,
   responseKey,
@@ -520,6 +531,14 @@ function fetchCategoryForSeo(opts) {
   return fetchEntityForSeo({
     endpoint: "/api/woo/category",
     responseKey: "category",
+    ...opts,
+  });
+}
+
+function fetchOccasionForSeo(opts) {
+  return fetchEntityForSeo({
+    endpoint: "/api/woo/occasion",
+    responseKey: "occasion",
     ...opts,
   });
 }
@@ -672,19 +691,58 @@ function buildCategoryHead({
   pathname,
   search,
 }) {
-  const rawName = typeof category.name === "string" ? category.name.trim() : "";
+  return buildShopEntityHead({
+    entity: category,
+    altText: "Presentail category",
+    lang,
+    basePath,
+    origin,
+    pathname,
+    search,
+  });
+}
+
+function buildOccasionHead({
+  occasion,
+  lang,
+  basePath,
+  origin,
+  pathname,
+  search,
+}) {
+  return buildShopEntityHead({
+    entity: occasion,
+    altText: "Presentail occasion",
+    lang,
+    basePath,
+    origin,
+    pathname,
+    search,
+  });
+}
+
+function buildShopEntityHead({
+  entity,
+  altText,
+  lang,
+  basePath,
+  origin,
+  pathname,
+  search,
+}) {
+  const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
-  const rawDesc = category.description ? stripHtml(category.description) : "";
+  const rawDesc = entity.description ? stripHtml(entity.description) : "";
   const description =
     clampDescription(rawDesc) || genericFallbackDescription(lang, "shop");
   const imageUrl =
-    typeof category.image === "string" && category.image ? category.image : null;
+    typeof entity.image === "string" && entity.image ? entity.image : null;
   return buildEntityHead({
     ogType: "website",
     title,
     description,
     imageUrl,
-    imageAlt: rawName || "Presentail category",
+    imageAlt: rawName || altText,
     basePath,
     origin,
     pathname,
@@ -695,9 +753,10 @@ function buildCategoryHead({
 
 /**
  * Async variant of injectSeoTags that, for `/product/<slug>`, `/brand/<slug>`,
- * and `/shop?n=<slug>` routes, fetches the matching record from the API and
- * emits entity-specific OG/Twitter Card meta so shared links show a rich
- * preview. Falls back to the generic locale-aware injector on any failure.
+ * `/shop?category=<slug>`, and `/shop?occasion=<slug>` routes, fetches the
+ * matching record from the API and emits entity-specific OG/Twitter Card
+ * meta so shared links show a rich preview. Falls back to the generic
+ * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const { apiBaseUrl, search, ...rest } = opts;
@@ -711,8 +770,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const brandSlug = extractBrandSlug(parsed.rest);
   const categorySlug =
     parsed.rest === "/shop" ? extractCategorySlugFromSearch(search) : null;
+  const occasionSlug =
+    parsed.rest === "/shop" && !categorySlug
+      ? extractOccasionSlugFromSearch(search)
+      : null;
 
-  if (!productSlug && !brandSlug && !categorySlug) {
+  if (!productSlug && !brandSlug && !categorySlug && !occasionSlug) {
     return assembleHtml(html, generic);
   }
 
@@ -756,6 +819,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     );
     if (category)
       result = buildCategoryHead({ category, search, ...headOpts });
+  } else if (occasionSlug) {
+    const occasion = await fetchOccasionForSeo({
+      slug: occasionSlug,
+      ...fetchOpts,
+    });
+    if (occasion)
+      result = buildOccasionHead({ occasion, search, ...headOpts });
   }
 
   if (!result) {
