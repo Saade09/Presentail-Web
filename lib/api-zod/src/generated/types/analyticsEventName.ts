@@ -10,6 +10,12 @@
  * Allowlisted analytics event name. Adding a new event requires a
 spec change so we never log unbounded user-controlled strings.
 
+The four `cart_viewed` / `checkout_started` /
+`payment_method_selected` / `order_placed` events form the
+broader purchase funnel that the server-side
+`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we
+notice when any single step collapses.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -17,4 +23,8 @@ export type AnalyticsEventName =
 export const AnalyticsEventName = {
   checkout_login_prompt_viewed: "checkout_login_prompt_viewed",
   checkout_login_prompt_action: "checkout_login_prompt_action",
+  cart_viewed: "cart_viewed",
+  checkout_started: "checkout_started",
+  payment_method_selected: "payment_method_selected",
+  order_placed: "order_placed",
 } as const;

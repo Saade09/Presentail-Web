@@ -31,6 +31,7 @@ import {
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
+import { trackEvent } from "@/lib/analytics";
 
 export function CartDrawer() {
   const colors = useColors();
@@ -39,6 +40,16 @@ export function CartDrawer() {
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
+  // Emit one cart_viewed funnel event each time the drawer opens. Using
+  // a wasOpen ref so quick re-renders while the drawer is already open
+  // don't duplicate the entry-point event.
+  const wasOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isCartOpen && !wasOpenRef.current) {
+      trackEvent({ name: "cart_viewed", surface: "cart" });
+    }
+    wasOpenRef.current = isCartOpen;
+  }, [isCartOpen]);
   const { formatNative, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { trackEvent } from "@/lib/analytics";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
@@ -63,11 +64,26 @@ export default function OrderConfirmed() {
 
     const payload = { ...parsed.payload, ...(paymentRef ? { paymentRef } : {}) };
 
+    const chosenMethod = payload?.paymentMethod as
+      | "card"
+      | "paypal"
+      | "whish"
+      | "mamo"
+      | undefined;
+
     createOrder.mutate(payload, {
       onSuccess: (res) => {
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         if (res.ok) {
           clearCart();
+          // Funnel terminal: shoppers who completed a redirect-based
+          // payment (Stripe / Mamo / PayPal) only land on order_placed
+          // here, since the Checkout page emits it for the inline path.
+          trackEvent({
+            name: "order_placed",
+            surface: "checkout",
+            ...(chosenMethod ? { action: chosenMethod } : {}),
+          });
           setState({ kind: "success", ref: String(res.wcOrderId || payload.orderId) });
         } else {
           setState({ kind: "failed", message: res.message || t("order.fail.couldntCreate") });

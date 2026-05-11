@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
+import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
@@ -29,6 +30,13 @@ export default function Cart() {
     setLoginOpen(true);
   };
   const goToCheckout = () => setLocation("/checkout?guest=1");
+
+  // Emit one cart_viewed event when the standalone cart page mounts.
+  // This is the entry point of the purchase funnel evaluated by the
+  // server-side checkoutPurchaseFunnelMonitor.
+  useEffect(() => {
+    trackEvent({ name: "cart_viewed", surface: "cart-screen" });
+  }, []);
 
   if (itemCount === 0) {
     return (

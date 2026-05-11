@@ -20,6 +20,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { trackEvent } from "@/lib/analytics";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -84,7 +85,23 @@ export default function Checkout() {
   const timeSlots = timeSlotsForCountry(countryCode);
   const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">("schedule");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
+  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("card");
+  // Wrap the setter so user-driven payment-method picks emit a funnel
+  // event. We deliberately do NOT instrument the auto-fallback effect
+  // below (e.g. AE customers being switched off whish) so the funnel
+  // reflects shopper intent, not server-driven correction.
+  const setPaymentMethod = (m: PaymentMethodId) => {
+    setPaymentMethodState((prev) => {
+      if (prev !== m) {
+        trackEvent({
+          name: "payment_method_selected",
+          surface: "checkout",
+          action: m,
+        });
+      }
+      return m;
+    });
+  };
   const [noAddress, setNoAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
 
@@ -102,6 +119,24 @@ export default function Checkout() {
       setDeliveryMode("schedule");
     }
   }, [deliveryMode, expressAvailable]);
+
+  // Emit exactly one checkout_started event per checkout mount, but only
+  // after auth has resolved AND the shopper is allowed past the login
+  // gate (signed in or explicitly continuing as guest). Without the
+  // `authLoading` guard the effect would fire during the brief loading
+  // window — when `showLoginGate` is still false because `user` hasn't
+  // hydrated yet — and double-count signed-out shoppers who then bounce
+  // off the prompt, corrupting the cart→checkout ratio. The ref makes
+  // the emission idempotent across the auth-loading → resolved
+  // transition.
+  const checkoutStartedRef = useRef(false);
+  useEffect(() => {
+    if (authLoading) return;
+    if (showLoginGate) return;
+    if (checkoutStartedRef.current) return;
+    checkoutStartedRef.current = true;
+    trackEvent({ name: "checkout_started", surface: "checkout" });
+  }, [authLoading, showLoginGate]);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -214,6 +249,11 @@ export default function Checkout() {
     const res = await createOrder.mutateAsync(payload);
     if (res.ok) {
       clearCart();
+      trackEvent({
+        name: "order_placed",
+        surface: "checkout",
+        action: paymentMethod,
+      });
       setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
     } else {
       toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
@@ -361,11 +401,11 @@ export default function Checkout() {
   // default so the pay button stays valid.
   useEffect(() => {
     if (paymentMethod === "whish" && countryCode !== "LB") {
-      setPaymentMethod("card");
+      setPaymentMethodState("card");
     } else if (paymentMethod === "mamo" && mamoHidden) {
-      setPaymentMethod("card");
+      setPaymentMethodState("card");
     } else if (paymentMethod === "paypal" && paypalHidden) {
-      setPaymentMethod("card");
+      setPaymentMethodState("card");
     }
   }, [countryCode, paymentMethod, mamoHidden, paypalHidden]);
 

@@ -1,10 +1,25 @@
 type AnalyticsEventName =
   | "checkout_login_prompt_viewed"
-  | "checkout_login_prompt_action";
+  | "checkout_login_prompt_action"
+  | "cart_viewed"
+  | "checkout_started"
+  | "payment_method_selected"
+  | "order_placed";
 
-type AnalyticsSurface = "cart" | "checkout-direct";
+type AnalyticsSurface = "cart" | "checkout-direct" | "cart-screen" | "checkout";
 
-type AnalyticsAction = "continue" | "google" | "apple" | "guest" | "dismissed";
+type AnalyticsAction =
+  | "continue"
+  | "google"
+  | "apple"
+  | "guest"
+  | "dismissed"
+  | "card"
+  | "wallet"
+  | "paypal"
+  | "mamo"
+  | "whish"
+  | "western";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

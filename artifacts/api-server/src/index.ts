@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startReconcileWorker } from "./lib/wooOrders";
 import { startWooSyncWorker } from "./lib/wooSync";
 import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonitor";
+import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnelMonitor";
 
 const rawPort = process.env["PORT"];
 
@@ -28,4 +29,5 @@ app.listen(port, (err) => {
   startReconcileWorker();
   startWooSyncWorker();
   startCheckoutLoginFunnelMonitor();
+  startCheckoutPurchaseFunnelMonitor();
 });

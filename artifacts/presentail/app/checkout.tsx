@@ -48,6 +48,7 @@ import {
 } from "@/lib/payMethods";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+import { trackEvent } from "@/lib/analytics";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { getDeviceId } from "@/services/notifications";
 
@@ -200,6 +201,13 @@ function CheckoutScreen() {
     return 0;
   }, [params.step]);
   const [step, setStep] = useState<Step>(initialStep);
+
+  // Funnel: emit one checkout_started per checkout mount. The cart →
+  // checkout transition is the riskiest drop-off in the purchase path,
+  // so we measure it directly rather than inferring it from cart_viewed.
+  useEffect(() => {
+    trackEvent({ name: "checkout_started", surface: "checkout" });
+  }, []);
 
   // Step 1 — Customize / Card Message
   const [recipientFirst, setRecipientFirst] = useState("");
@@ -491,6 +499,13 @@ function CheckoutScreen() {
         // via the onClear listener registered in DeliverySelectionContext, so
         // we don't need to call deliverySelection.clear() explicitly here.
         clear();
+        // Funnel terminal step: only emit once the WC order has actually
+        // been created, never just because a payment session resolved.
+        trackEvent({
+          name: "order_placed",
+          surface: "checkout",
+          action: payMethod,
+        });
         router.replace(buildResultPath("success", paymentRef));
       } else {
         // Keep cart intact so the customer can retry without rebuilding it.
@@ -800,7 +815,16 @@ function CheckoutScreen() {
               orderNotes={orderNotes}
               setOrderNotes={setOrderNotes}
               payMethod={payMethod}
-              setPayMethod={setPayMethod}
+              setPayMethod={(m: PayMethodId) => {
+                if (m !== payMethod) {
+                  trackEvent({
+                    name: "payment_method_selected",
+                    surface: "checkout",
+                    action: m,
+                  });
+                }
+                setPayMethod(m);
+              }}
               email={senderEmail}
               setEmail={setSenderEmail}
               country={effectiveCountry}

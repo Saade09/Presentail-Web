@@ -102,6 +102,12 @@ export interface ClientErrorReportResponse {
  * Allowlisted analytics event name. Adding a new event requires a
 spec change so we never log unbounded user-controlled strings.
 
+The four `cart_viewed` / `checkout_started` /
+`payment_method_selected` / `order_placed` events form the
+broader purchase funnel that the server-side
+`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we
+notice when any single step collapses.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -109,12 +115,20 @@ export type AnalyticsEventName =
 export const AnalyticsEventName = {
   checkout_login_prompt_viewed: "checkout_login_prompt_viewed",
   checkout_login_prompt_action: "checkout_login_prompt_action",
+  cart_viewed: "cart_viewed",
+  checkout_started: "checkout_started",
+  payment_method_selected: "payment_method_selected",
+  order_placed: "order_placed",
 } as const;
 
 /**
  * Where the event was emitted from. For the checkout login
 prompt this is "cart" (cart's Proceed to Checkout button) or
 "checkout-direct" (a signed-out shopper hitting /checkout).
+For purchase-funnel events, "cart" is the cart drawer,
+"cart-screen" is the standalone cart tab/page, and
+"checkout" covers checkout_started, payment_method_selected
+and order_placed.
 
  */
 export type AnalyticsEventRequestSurface =
@@ -123,10 +137,14 @@ export type AnalyticsEventRequestSurface =
 export const AnalyticsEventRequestSurface = {
   cart: "cart",
   "checkout-direct": "checkout-direct",
+  "cart-screen": "cart-screen",
+  checkout: "checkout",
 } as const;
 
 /**
- * For action events, which choice the shopper picked.
+ * For checkout-login-prompt action events, which choice the
+shopper picked. For payment_method_selected and order_placed,
+the chosen payment method id.
 
  */
 export type AnalyticsEventRequestAction =
@@ -138,6 +156,12 @@ export const AnalyticsEventRequestAction = {
   apple: "apple",
   guest: "guest",
   dismissed: "dismissed",
+  card: "card",
+  wallet: "wallet",
+  paypal: "paypal",
+  mamo: "mamo",
+  whish: "whish",
+  western: "western",
 } as const;
 
 /**
@@ -157,10 +181,16 @@ export interface AnalyticsEventRequest {
   /** Where the event was emitted from. For the checkout login
 prompt this is "cart" (cart's Proceed to Checkout button) or
 "checkout-direct" (a signed-out shopper hitting /checkout).
+For purchase-funnel events, "cart" is the cart drawer,
+"cart-screen" is the standalone cart tab/page, and
+"checkout" covers checkout_started, payment_method_selected
+and order_placed.
  */
   surface?: AnalyticsEventRequestSurface;
-  /** For action events, which choice the shopper picked.
-   */
+  /** For checkout-login-prompt action events, which choice the
+shopper picked. For payment_method_selected and order_placed,
+the chosen payment method id.
+ */
   action?: AnalyticsEventRequestAction;
   /** The client platform that produced the event. */
   platform?: AnalyticsEventRequestPlatform;

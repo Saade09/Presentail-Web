@@ -7,7 +7,9 @@
  */
 
 /**
- * For action events, which choice the shopper picked.
+ * For checkout-login-prompt action events, which choice the
+shopper picked. For payment_method_selected and order_placed,
+the chosen payment method id.
 
  */
 export type AnalyticsEventRequestAction =
@@ -19,4 +21,10 @@ export const AnalyticsEventRequestAction = {
   apple: "apple",
   guest: "guest",
   dismissed: "dismissed",
+  card: "card",
+  wallet: "wallet",
+  paypal: "paypal",
+  mamo: "mamo",
+  whish: "whish",
+  western: "western",
 } as const;

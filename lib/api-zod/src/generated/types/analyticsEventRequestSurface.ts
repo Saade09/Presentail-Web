@@ -10,6 +10,10 @@
  * Where the event was emitted from. For the checkout login
 prompt this is "cart" (cart's Proceed to Checkout button) or
 "checkout-direct" (a signed-out shopper hitting /checkout).
+For purchase-funnel events, "cart" is the cart drawer,
+"cart-screen" is the standalone cart tab/page, and
+"checkout" covers checkout_started, payment_method_selected
+and order_placed.
 
  */
 export type AnalyticsEventRequestSurface =
@@ -18,4 +22,6 @@ export type AnalyticsEventRequestSurface =
 export const AnalyticsEventRequestSurface = {
   cart: "cart",
   "checkout-direct": "checkout-direct",
+  "cart-screen": "cart-screen",
+  checkout: "checkout",
 } as const;

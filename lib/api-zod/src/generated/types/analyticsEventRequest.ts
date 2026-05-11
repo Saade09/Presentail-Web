@@ -15,10 +15,16 @@ export interface AnalyticsEventRequest {
   /** Where the event was emitted from. For the checkout login
 prompt this is "cart" (cart's Proceed to Checkout button) or
 "checkout-direct" (a signed-out shopper hitting /checkout).
+For purchase-funnel events, "cart" is the cart drawer,
+"cart-screen" is the standalone cart tab/page, and
+"checkout" covers checkout_started, payment_method_selected
+and order_placed.
  */
   surface?: AnalyticsEventRequestSurface;
-  /** For action events, which choice the shopper picked.
-   */
+  /** For checkout-login-prompt action events, which choice the
+shopper picked. For payment_method_selected and order_placed,
+the chosen payment method id.
+ */
   action?: AnalyticsEventRequestAction;
   /** The client platform that produced the event. */
   platform?: AnalyticsEventRequestPlatform;

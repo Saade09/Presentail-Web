@@ -190,20 +190,41 @@ signed-in user (if any) is read from the session cookie instead.
  */
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
-    .enum(["checkout_login_prompt_viewed", "checkout_login_prompt_action"])
+    .enum([
+      "checkout_login_prompt_viewed",
+      "checkout_login_prompt_action",
+      "cart_viewed",
+      "checkout_started",
+      "payment_method_selected",
+      "order_placed",
+    ])
     .describe(
-      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n",
+      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
     ),
   surface: zod
-    .enum(["cart", "checkout-direct"])
+    .enum(["cart", "checkout-direct", "cart-screen", "checkout"])
     .optional()
     .describe(
-      'Where the event was emitted from. For the checkout login\nprompt this is \"cart\" (cart\'s Proceed to Checkout button) or\n\"checkout-direct\" (a signed-out shopper hitting \/checkout).\n',
+      'Where the event was emitted from. For the checkout login\nprompt this is \"cart\" (cart\'s Proceed to Checkout button) or\n\"checkout-direct\" (a signed-out shopper hitting \/checkout).\nFor purchase-funnel events, \"cart\" is the cart drawer,\n\"cart-screen\" is the standalone cart tab\/page, and\n\"checkout\" covers checkout_started, payment_method_selected\nand order_placed.\n',
     ),
   action: zod
-    .enum(["continue", "google", "apple", "guest", "dismissed"])
+    .enum([
+      "continue",
+      "google",
+      "apple",
+      "guest",
+      "dismissed",
+      "card",
+      "wallet",
+      "paypal",
+      "mamo",
+      "whish",
+      "western",
+    ])
     .optional()
-    .describe("For action events, which choice the shopper picked.\n"),
+    .describe(
+      "For checkout-login-prompt action events, which choice the\nshopper picked. For payment_method_selected and order_placed,\nthe chosen payment method id.\n",
+    ),
   platform: zod
     .enum(["ios", "android", "web"])
     .optional()

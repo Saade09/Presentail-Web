@@ -31,6 +31,7 @@ import {
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
+import { trackEvent } from "@/lib/analytics";
 
 type FullCartViewProps = {
   showBackButton?: boolean;
@@ -45,6 +46,12 @@ type FullCartViewProps = {
 };
 
 export function FullCartView({ showBackButton = true, bottomOffset }: FullCartViewProps) {
+  // Funnel entry: shoppers landing on the cart tab/screen. Counted once
+  // per mount so navigating away and returning correctly registers a
+  // fresh cart_viewed.
+  React.useEffect(() => {
+    trackEvent({ name: "cart_viewed", surface: "cart-screen" });
+  }, []);
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
