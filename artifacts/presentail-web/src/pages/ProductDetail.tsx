@@ -25,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -38,6 +40,10 @@ export default function ProductDetail() {
     setCurrencyCode,
     formatPrice: formatDisplayPrice,
     supportedCurrencies,
+    isManual,
+    isManualPersistent,
+    setManualPersistent,
+    clearManualCurrency,
   } = useDisplayCurrency();
 
   const { countryCode, cityId } = useLocationSelection();
@@ -200,7 +206,7 @@ export default function ProductDetail() {
         />
 
         <div
-          className="mt-16 border-t border-border pt-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          className="mt-16 border-t border-border pt-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6"
           data-testid="product-currency-switcher"
         >
           <div>
@@ -211,7 +217,7 @@ export default function ProductDetail() {
               Choose a currency to see how this product is priced for you.
             </p>
           </div>
-          <div className="w-full sm:w-64">
+          <div className="w-full sm:w-72 flex flex-col gap-3">
             <Select
               value={currencyCode}
               onValueChange={(v) => setCurrencyCode(v)}
@@ -234,6 +240,33 @@ export default function ProductDetail() {
                 ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="remember-currency"
+                  checked={isManualPersistent}
+                  disabled={!isManual}
+                  onCheckedChange={(checked) => setManualPersistent(!!checked)}
+                  data-testid="switch-remember-currency"
+                />
+                <Label
+                  htmlFor="remember-currency"
+                  className="text-xs text-muted-foreground cursor-pointer"
+                >
+                  Remember this choice
+                </Label>
+              </div>
+              {isManual && (
+                <button
+                  type="button"
+                  onClick={clearManualCurrency}
+                  className="text-xs uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                  data-testid="button-reset-currency"
+                >
+                  Reset to auto
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

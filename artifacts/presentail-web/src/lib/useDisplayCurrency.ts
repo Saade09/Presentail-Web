@@ -17,7 +17,14 @@ import {
 // hook mount we proactively clear any leftover value so existing visitors
 // stop seeing a stale currency from a previous visit / location.
 const LEGACY_DETECTED_CURRENCY_KEY = "presentail_display_currency_v1";
+// Tab-scoped manual override (the default — auto-detection wins on the
+// next visit).
 const MANUAL_CURRENCY_KEY = "presentail_display_currency_manual_v1";
+// Cross-session manual override (set when the visitor ticks "remember
+// this choice" in the product-page picker). When present, this beats
+// auto-detection on every load until the visitor clears it.
+const MANUAL_CURRENCY_PERSISTENT_KEY =
+  "presentail_display_currency_manual_persistent_v1";
 
 /**
  * Currencies the product-page switcher offers. Kept to a small, on-brand
@@ -117,21 +124,45 @@ type GeoCurrencyResponse = {
   currencyCode: string;
 };
 
-function readManualCurrency(): string | null {
+type ManualState = { code: string; persistent: boolean } | null;
+
+function readManualCurrency(): ManualState {
   if (typeof window === "undefined") return null;
   try {
-    const v = window.sessionStorage.getItem(MANUAL_CURRENCY_KEY);
-    return v && SUPPORTED_CODES.has(v) ? v : null;
+    const persisted = window.localStorage.getItem(
+      MANUAL_CURRENCY_PERSISTENT_KEY,
+    );
+    if (persisted && SUPPORTED_CODES.has(persisted)) {
+      return { code: persisted, persistent: true };
+    }
   } catch {
-    return null;
+    // ignore — fall through to session-scoped read
   }
+  try {
+    const session = window.sessionStorage.getItem(MANUAL_CURRENCY_KEY);
+    if (session && SUPPORTED_CODES.has(session)) {
+      return { code: session, persistent: false };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
-function writeManualCurrency(code: string | null): void {
+function writeManualCurrency(state: ManualState): void {
   if (typeof window === "undefined") return;
   try {
-    if (code) {
-      window.sessionStorage.setItem(MANUAL_CURRENCY_KEY, code);
+    if (state?.persistent) {
+      window.localStorage.setItem(MANUAL_CURRENCY_PERSISTENT_KEY, state.code);
+    } else {
+      window.localStorage.removeItem(MANUAL_CURRENCY_PERSISTENT_KEY);
+    }
+  } catch {
+    // best-effort persistence
+  }
+  try {
+    if (state && !state.persistent) {
+      window.sessionStorage.setItem(MANUAL_CURRENCY_KEY, state.code);
     } else {
       window.sessionStorage.removeItem(MANUAL_CURRENCY_KEY);
     }
@@ -181,7 +212,10 @@ export function useDisplayCurrency(): {
   currencyCode: string;
   isDetected: boolean;
   isManual: boolean;
-  setCurrencyCode: (code: string) => void;
+  isManualPersistent: boolean;
+  setCurrencyCode: (code: string, options?: { persist?: boolean }) => void;
+  setManualPersistent: (persistent: boolean) => void;
+  clearManualCurrency: () => void;
   supportedCurrencies: { code: string; name: string }[];
   formatPrice: (storeCurrencyValue: number) => string;
 } {
@@ -189,7 +223,7 @@ export function useDisplayCurrency(): {
   const hasSelectedCountry = !!countryCode;
   const storeCurrency = currencyForStoreCountry(countryCode);
 
-  const [manual, setManual] = useState<string | null>(() => readManualCurrency());
+  const [manual, setManual] = useState<ManualState>(() => readManualCurrency());
 
   // One-shot cleanup of the legacy persisted value so existing visitors
   // don't keep seeing a stale auto-detected currency from a previous visit.
@@ -215,10 +249,11 @@ export function useDisplayCurrency(): {
 
   const localeCountry = useMemo(() => readBrowserLocaleCountry(), []);
 
+  const manualCode = manual?.code ?? null;
   const resolved = useMemo(
     () =>
       resolveDisplayCurrency({
-        manualOverride: manual,
+        manualOverride: manualCode,
         savedCountry: hasSelectedCountry ? countryCode : null,
         gpsCountry: null,
         ipCountry: data?.countryCode ?? null,
@@ -227,7 +262,7 @@ export function useDisplayCurrency(): {
         isSupported: isFormattable,
         fallback: "USD",
       }),
-    [manual, hasSelectedCountry, countryCode, data?.countryCode, localeCountry],
+    [manualCode, hasSelectedCountry, countryCode, data?.countryCode, localeCountry],
   );
 
   const currencyCode = resolved.finalCurrency;
@@ -258,10 +293,35 @@ export function useDisplayCurrency(): {
     resolved.finalCurrency,
   ]);
 
-  const setCurrencyCode = useCallback((code: string) => {
-    if (!SUPPORTED_CODES.has(code)) return;
-    setManual(code);
-    writeManualCurrency(code);
+  const setCurrencyCode = useCallback(
+    (code: string, options?: { persist?: boolean }) => {
+      if (!SUPPORTED_CODES.has(code)) return;
+      setManual((prev) => {
+        const persistent =
+          typeof options?.persist === "boolean"
+            ? options.persist
+            : prev?.persistent ?? false;
+        const next: ManualState = { code, persistent };
+        writeManualCurrency(next);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setManualPersistent = useCallback((persistent: boolean) => {
+    setManual((prev) => {
+      if (!prev) return prev;
+      if (prev.persistent === persistent) return prev;
+      const next: ManualState = { code: prev.code, persistent };
+      writeManualCurrency(next);
+      return next;
+    });
+  }, []);
+
+  const clearManualCurrency = useCallback(() => {
+    setManual(null);
+    writeManualCurrency(null);
   }, []);
 
   const formatPrice = useCallback(
@@ -297,7 +357,10 @@ export function useDisplayCurrency(): {
     currencyCode,
     isDetected: !hasSelectedCountry && manual === null,
     isManual: manual !== null,
+    isManualPersistent: manual?.persistent === true,
     setCurrencyCode,
+    setManualPersistent,
+    clearManualCurrency,
     supportedCurrencies: SUPPORTED_DISPLAY_CURRENCIES,
     formatPrice,
   };
