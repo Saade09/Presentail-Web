@@ -322,9 +322,15 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   // a malformed delivery payload (e.g. `code: null`) can't synchronously
   // throw during render on the product detail screen.
   const rawCc = selectedCountry?.code;
+  // Derive the active store country from the explicit delivery selection
+  // first; only fall back to a *non-LB* currency-based hint so a USD shopper
+  // outside our delivery zone (e.g. CA, GB) does NOT incorrectly default to
+  // Lebanon and see the Lebanon-only Whish badge / Beirut delivery slots.
+  // When nothing is known, default to "" (treated as non-LB everywhere
+  // below) so the safer PayPal badge is shown.
   const cc = (typeof rawCc === "string" && rawCc.length > 0
     ? rawCc
-    : currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB").toUpperCase();
+    : currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "").toUpperCase();
   const t = useT();
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const points = Math.max(1, Math.round(priceValue * 0.4));
