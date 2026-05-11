@@ -131,7 +131,11 @@ function ProductDetail() {
     // the app at the native layer when invoked.
     try {
       const url = `${WEB_BASE_URL}/product/${encodeURIComponent(String(productSlug ?? ""))}`;
-      await Share.share({ message: url, url });
+      // iOS treats `message` and `url` as two separate shareable items, which
+      // makes the share sheet preview "2 Links" and pastes the URL twice.
+      // Pass only the field each platform actually uses: `url` on iOS,
+      // `message` on Android (Android's Share API ignores `url`).
+      await Share.share(Platform.OS === "ios" ? { url } : { message: url });
     } catch {
       showToast(t.shareUnavailable);
     }
