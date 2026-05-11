@@ -190,22 +190,21 @@ function ensureGoogleConfigured(mod: GoogleSignInModule): boolean {
   if (googleConfigured) return true;
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  // On Android, the native module only needs `webClientId` — Google's Android
+  // SDK matches the app's package name + signing SHA-1 against an Android
+  // OAuth client in Google Cloud (no client id is passed at runtime), and uses
+  // the Web client id solely to request an `idToken`. iOS additionally needs
+  // `iosClientId` (and the reversed iOS URL scheme wired up via app.config.js).
   if (__DEV__ && !googleConfigWarned) {
     googleConfigWarned = true;
-    // webClientId is required on BOTH iOS and Android (the returned idToken's
-    // `aud` is always the web client id). iosClientId is only required on iOS.
-    // Android doesn't need a client id passed to configure(); the Android
-    // OAuth client just needs to exist in Google Cloud with the right
-    // package name + SHA-1 fingerprints so Google's native sheet trusts the
-    // app — see the Gotcha in replit.md.
-    const iosMissing = Platform.OS === "ios" && !iosClientId;
-    if (iosMissing || !webClientId) {
+    const needsIos = Platform.OS === "ios";
+    if (!webClientId || (needsIos && !iosClientId)) {
       console.warn(
         "[auth] Google sign-in is missing client IDs at runtime. " +
-          "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (and on iOS also " +
-          "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) must be set as EAS build-time " +
-          "secrets so they get inlined into the binary. " +
-          `iosClientId set: ${Boolean(iosClientId)}, webClientId set: ${Boolean(webClientId)}, platform: ${Platform.OS}.`,
+          "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is required on every platform, and " +
+          "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is additionally required on iOS. " +
+          "Both must be set as EAS build-time secrets so they get inlined into the binary. " +
+          `platform: ${Platform.OS}, iosClientId set: ${Boolean(iosClientId)}, webClientId set: ${Boolean(webClientId)}.`,
       );
     }
   }

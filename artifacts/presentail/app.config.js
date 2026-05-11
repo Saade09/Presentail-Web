@@ -46,19 +46,45 @@ module.exports = ({ config: _config }) => {
   // sign-in sheet and sign-in will appear to fail instantly. Allow the
   // placeholder during local `expo start` / `expo doctor` (when EAS_BUILD
   // is unset) so day-to-day dev still works without the secret set.
+  const isNonDevEasBuild =
+    process.env.EAS_BUILD === "true" &&
+    process.env.EAS_BUILD_PROFILE !== "development";
+  const easBuildPlatform = process.env.EAS_BUILD_PLATFORM; // "ios" | "android" | undefined
+
+  // iOS-only guard: the reversed iOS URL scheme must be present in the
+  // generated Info.plist or iOS will refuse to open the Google account picker.
+  // Android does NOT use this scheme, so don't fail Android builds for it.
   if (
     reversedIosClientId === PLACEHOLDER_REVERSED &&
-    process.env.EAS_BUILD === "true" &&
-    process.env.EAS_BUILD_PROFILE !== "development"
+    isNonDevEasBuild &&
+    easBuildPlatform !== "android"
   ) {
     throw new Error(
-      "Google sign-in is misconfigured for this EAS build: neither " +
+      "Google sign-in is misconfigured for this iOS EAS build: neither " +
         "EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID nor a derivable " +
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is set as an EAS secret. " +
         "Add both EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and " +
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID via `eas secret:create` and " +
         "trigger a fresh build, otherwise iOS will refuse to open the " +
         "Google account picker.",
+    );
+  }
+
+  // Cross-platform guard: the Web client id is required at runtime on every
+  // platform (iOS passes it alongside iosClientId; Android exchanges it for
+  // an idToken). If a non-development EAS build would ship without it,
+  // "Continue with Google" is guaranteed to fail instantly without ever
+  // opening the native sheet — fail loudly here so the build doesn't ship.
+  if (
+    isNonDevEasBuild &&
+    !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  ) {
+    throw new Error(
+      "Google sign-in is misconfigured for this EAS build: " +
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set as an EAS secret. " +
+        "It is required on both iOS and Android (the Android SDK uses the " +
+        "Web client id to mint the idToken). Add it via `eas secret:create` " +
+        "and trigger a fresh build.",
     );
   }
 
