@@ -192,12 +192,20 @@ function ensureGoogleConfigured(mod: GoogleSignInModule): boolean {
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   if (__DEV__ && !googleConfigWarned) {
     googleConfigWarned = true;
-    if (!iosClientId || !webClientId) {
+    // webClientId is required on BOTH iOS and Android (the returned idToken's
+    // `aud` is always the web client id). iosClientId is only required on iOS.
+    // Android doesn't need a client id passed to configure(); the Android
+    // OAuth client just needs to exist in Google Cloud with the right
+    // package name + SHA-1 fingerprints so Google's native sheet trusts the
+    // app — see the Gotcha in replit.md.
+    const iosMissing = Platform.OS === "ios" && !iosClientId;
+    if (iosMissing || !webClientId) {
       console.warn(
         "[auth] Google sign-in is missing client IDs at runtime. " +
-          "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID " +
-          "must be set as EAS build-time secrets so they get inlined into the binary. " +
-          `iosClientId set: ${Boolean(iosClientId)}, webClientId set: ${Boolean(webClientId)}.`,
+          "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (and on iOS also " +
+          "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) must be set as EAS build-time " +
+          "secrets so they get inlined into the binary. " +
+          `iosClientId set: ${Boolean(iosClientId)}, webClientId set: ${Boolean(webClientId)}, platform: ${Platform.OS}.`,
       );
     }
   }
