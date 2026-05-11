@@ -78,23 +78,40 @@ export default function ProductDetail() {
   };
 
   const handleShare = async () => {
-    if (typeof window === "undefined" || !product) return;
-    const url = window.location.href;
+    if (typeof window === "undefined" || !product || !slug) return;
+    // Mirror the mobile URL shape (`${origin}/product/<slug>`) so links
+    // shared from web and mobile look identical and have no tracking params.
+    const url = `${window.location.origin}/product/${encodeURIComponent(String(slug))}`;
+    const nav = typeof navigator !== "undefined"
+      ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> })
+      : null;
+    if (nav?.share) {
+      try {
+        await nav.share({ title: product.name, url });
+        return;
+      } catch (err) {
+        // AbortError = user cancelled — silently no-op, don't fall back.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Other errors (NotAllowedError on insecure contexts, etc.) → fall through to clipboard.
+      }
+    }
     try {
-      if (typeof navigator !== "undefined" && (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }).share) {
-        await (navigator as Navigator & { share: (data: ShareData) => Promise<void> }).share({
-          title: product.name,
-          url,
+      if (nav && "clipboard" in nav && nav.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
+        toast({
+          title: t("product.share.copied.title"),
+          description: t("product.share.copied.desc"),
         });
         return;
       }
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied", description: "Product link copied to clipboard." });
-      }
     } catch {
-      // user cancelled — no-op
+      // fall through to unavailable toast
     }
+    toast({
+      title: t("product.share.unavailable.title"),
+      description: t("product.share.unavailable.desc"),
+      variant: "destructive",
+    });
   };
 
   if (isLoading) {

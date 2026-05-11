@@ -178,6 +178,11 @@ const STRINGS: Dict = {
   "product.sameDay": { en: "Same-day delivery in {country}", ar: "توصيل في نفس اليوم في {country}" },
   "product.secureCheckout": { en: "100% Secure Checkout", ar: "دفع آمن 100%" },
   "product.youMayLike": { en: "You May Also Like", ar: "قد يعجبك أيضاً" },
+  "product.share.aria": { en: "Share product", ar: "مشاركة المنتج" },
+  "product.share.copied.title": { en: "Link copied", ar: "تم نسخ الرابط" },
+  "product.share.copied.desc": { en: "Product link copied to clipboard.", ar: "تم نسخ رابط المنتج إلى الحافظة." },
+  "product.share.unavailable.title": { en: "Sharing unavailable", ar: "المشاركة غير متاحة" },
+  "product.share.unavailable.desc": { en: "Couldn't share or copy the product link.", ar: "تعذرت مشاركة رابط المنتج أو نسخه." },
 
   // Cart
   "cart.empty.title": { en: "Your bag is empty", ar: "حقيبتك فارغة" },
@@ -600,6 +605,11 @@ const STRINGS_FR: Record<string, string> = {
   "product.sameDay": "Livraison le jour même en {country}",
   "product.secureCheckout": "Paiement 100% sécurisé",
   "product.youMayLike": "Vous aimerez aussi",
+  "product.share.aria": "Partager le produit",
+  "product.share.copied.title": "Lien copié",
+  "product.share.copied.desc": "Lien du produit copié dans le presse-papiers.",
+  "product.share.unavailable.title": "Partage indisponible",
+  "product.share.unavailable.desc": "Impossible de partager ou de copier le lien du produit.",
 
   "cart.empty.title": "Votre panier est vide",
   "cart.empty.desc":

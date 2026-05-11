@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Maximize2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 import { ProductLightbox } from "./ProductLightbox";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function ProductGallery({ images, productName, onShare }: Props) {
+  const { t } = useLocale();
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const list = images.length > 0 ? images : [{ uri: "" }];
@@ -65,7 +67,7 @@ export function ProductGallery({ images, productName, onShare }: Props) {
           type="button"
           onClick={onShare}
           className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/90 backdrop-blur flex items-center justify-center text-foreground shadow-sm hover:bg-background transition-colors"
-          aria-label="Share product"
+          aria-label={t("product.share.aria")}
           data-testid="button-product-share"
         >
           <Share2 className="w-4 h-4" />
