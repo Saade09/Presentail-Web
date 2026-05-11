@@ -1,15 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { resolveDisplayCurrency } from "@workspace/display-currency";
+
 import {
   CURRENCIES,
+  COUNTRY_TO_CURRENCY_MAP,
   FALLBACK_CURRENCY_CODE,
   getCurrency,
+  isSupportedCurrencyCode,
   type Currency,
   type CurrencyCode,
 } from "@/data/currencies";
 import {
-  detectCurrencyFromLocation,
   detectGeoFromDeviceLocation,
+  detectGeoFromLocation,
 } from "@/services/locationCurrencyService";
 import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
 
@@ -59,16 +63,56 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        let detected: CurrencyCode = FALLBACK_CURRENCY_CODE;
+        // Gather every signal independently so the shared resolver — not
+        // this hook — owns the precedence rule. We read GPS first (it
+        // prompts the user once on first launch and is the most accurate),
+        // then fall back to IP, then to the device locale's region.
         const deviceResult = await detectGeoFromDeviceLocation();
         if (cancelled) return;
-        if (deviceResult) {
-          detected = deviceResult.currencyCode;
-        } else {
-          detected = await detectCurrencyFromLocation();
-          if (cancelled) return;
+        const ipResult = await detectGeoFromLocation();
+        if (cancelled) return;
+
+        let localeCountry: string | null = null;
+        try {
+          const Localization = await import("expo-localization");
+          const region =
+            typeof Localization.getLocales === "function"
+              ? Localization.getLocales()[0]?.regionCode
+              : null;
+          if (typeof region === "string") localeCountry = region;
+        } catch {
+          // expo-localization may be missing in some test contexts; ignore.
         }
-        setCurrencyCodeState(detected);
+
+        const resolved = resolveDisplayCurrency({
+          manualOverride: null,
+          savedCountry: null,
+          gpsCountry: deviceResult?.countryCode ?? null,
+          ipCountry: ipResult?.countryCode ?? null,
+          localeCountry,
+          countryToCurrency: (c) => COUNTRY_TO_CURRENCY_MAP[c] ?? null,
+          isSupported: (c) => isSupportedCurrencyCode(c),
+          fallback: FALLBACK_CURRENCY_CODE,
+        });
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log("[display-currency:mobile]", {
+            savedCountry: null,
+            gpsCountry: deviceResult?.countryCode ?? null,
+            ipCountry: ipResult?.countryCode ?? null,
+            localeCountry,
+            chosenSource: resolved.chosenSource,
+            chosenCountry: resolved.chosenCountry,
+            mappedCurrency: resolved.mappedCurrency,
+            finalCurrency: resolved.finalCurrency,
+          });
+        }
+
+        const next = isSupportedCurrencyCode(resolved.finalCurrency)
+          ? (resolved.finalCurrency as CurrencyCode)
+          : FALLBACK_CURRENCY_CODE;
+        setCurrencyCodeState(next);
       } catch {
         // Already initialized to USD fallback.
       }

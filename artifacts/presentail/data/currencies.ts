@@ -159,7 +159,7 @@ export function isSupportedCurrencyCode(value: unknown): value is CurrencyCode {
   return typeof value === "string" && CURRENCIES.some((c) => c.code === value);
 }
 
-const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
+export const COUNTRY_TO_CURRENCY_MAP: Record<string, CurrencyCode> = {
   AE: "AED",
   US: "USD",
   GB: "GBP",
@@ -206,5 +206,5 @@ const COUNTRY_TO_CURRENCY: Record<string, CurrencyCode> = {
 export function currencyForCountry(countryCode: string | null | undefined): CurrencyCode {
   if (!countryCode) return FALLBACK_CURRENCY_CODE;
   const upper = countryCode.trim().toUpperCase();
-  return COUNTRY_TO_CURRENCY[upper] ?? FALLBACK_CURRENCY_CODE;
+  return COUNTRY_TO_CURRENCY_MAP[upper] ?? FALLBACK_CURRENCY_CODE;
 }

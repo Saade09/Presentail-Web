@@ -17,6 +17,9 @@
     },
     {
       "path": "./lib/clerk-types"
+    },
+    {
+      "path": "./lib/display-currency"
     }
   ]
 }
