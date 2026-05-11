@@ -1,13 +1,30 @@
-import { Router, type IRouter } from "express";
+import { createHash } from "node:crypto";
+import { Router, type IRouter, type Request } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { GeoCurrencyResponse } from "@workspace/api-zod";
 import {
   FALLBACK_DISPLAY_CURRENCY,
+  geoCurrencyForCountry,
+  isPrivateOrLoopback,
+  pickClientIp,
   resolveGeoCurrency,
   resolveGeoCurrencyByCoords,
 } from "../lib/geoCurrency";
 
 const router: IRouter = Router();
+
+// Key the rate limiter on the same client IP we use for geolocation. With
+// `trust proxy: 1` and Replit's multi-hop proxy chain, `req.ip` (the
+// express-rate-limit default) is an internal proxy hop shared by every
+// visitor, so without an explicit keyGenerator a single bucket would cap
+// the entire fleet at 60 / 15 min. We deliberately don't widen
+// `trust proxy` itself because other limiters (auth, etc.) still rely on
+// `req.ip` and changing the global trust setting would let anyone spoof
+// their key by appending an `X-Forwarded-For` value.
+function clientIpKey(req: Request): string {
+  const ip = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString());
+  return ip || "unknown";
+}
 
 // Public, unauthenticated endpoint. Cap each IP at a generous-but-bounded
 // number of lookups so a buggy client can't keep hammering it (and so we
@@ -18,6 +35,7 @@ const geoCurrencyLimiter = rateLimit({
   limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   handler: (_req, res) => {
     // On rate-limit, still return a usable shape so the client doesn't fail
     // its first paint — they just get the safe USD fallback.
@@ -29,13 +47,83 @@ const geoCurrencyLimiter = rateLimit({
   },
 });
 
+// Hash an IP for log correlation without storing the raw address. Truncated
+// SHA-256 is a one-way mapping, so logs can be diffed/grouped per visitor
+// during debugging without exposing the IP itself (per threat-model
+// information-disclosure guidance).
+function ipFingerprint(ip: string): string {
+  if (!ip) return "";
+  return createHash("sha256").update(ip).digest("hex").slice(0, 12);
+}
+
+function readCfIpCountry(req: Request): string | null {
+  // Cloudflare (and some other edges) put a 2-letter ISO country in this
+  // header. When present, it's already authoritative — skip the outbound
+  // lookup entirely. `XX` and `T1` are Cloudflare's "unknown" / "Tor"
+  // sentinel values and should be treated as missing.
+  const raw = req.headers["cf-ipcountry"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(trimmed)) return null;
+  if (trimmed === "XX" || trimmed === "T1") return null;
+  return trimmed;
+}
+
 router.get("/geo/currency", geoCurrencyLimiter, async (req, res) => {
-  // `req.ip` reflects the real client IP because `app.set("trust proxy", 1)`
-  // is configured upstream. Falls back to "" for safety; resolveGeoCurrency()
-  // treats empty / private ranges as the USD fallback without an outbound
-  // call, which keeps local development snappy.
-  const ip = (req.ip ?? "").toString();
-  const result = await resolveGeoCurrency(ip);
+  // Replit puts requests through more than one proxy hop, so
+  // `app.set("trust proxy", 1)` alone leaves `req.ip` pointing at an
+  // internal hop — and `isPrivateOrLoopback` would short-circuit every
+  // visitor to USD. Walk the x-forwarded-for chain and take the leftmost
+  // publicly routable address as the real client IP.
+  const reqIp = (req.ip ?? "").toString();
+  const xff = req.headers["x-forwarded-for"];
+  const clientIp = pickClientIp(xff, reqIp);
+  const reqIpPrivate = isPrivateOrLoopback(reqIp);
+  const clientIpPrivate = isPrivateOrLoopback(clientIp);
+
+  const cfCountry = readCfIpCountry(req);
+  if (cfCountry) {
+    const result = geoCurrencyForCountry(cfCountry);
+    req.log.info(
+      {
+        geo: {
+          provider: "cf-ipcountry",
+          country: result.countryCode,
+          currency: result.currencyCode,
+          reqIpPrivate,
+          clientIpPrivate,
+          clientIpFp: ipFingerprint(clientIp),
+        },
+      },
+      "geo currency lookup",
+    );
+    const body: GeoCurrencyResponse = {
+      countryCode: result.countryCode,
+      currencyCode: result.currencyCode,
+    };
+    res.json(body);
+    return;
+  }
+
+  const result = await resolveGeoCurrency(clientIp);
+  req.log.info(
+    {
+      geo: {
+        source: result.source,
+        provider: result.lookup?.provider ?? null,
+        reason: result.lookup?.reason ?? null,
+        country: result.countryCode,
+        currency: result.currencyCode,
+        reqIpPrivate,
+        clientIpPrivate,
+        // Hashed, not raw — enough to group entries from the same visitor
+        // during debugging without retaining a personally-identifiable IP.
+        clientIpFp: ipFingerprint(clientIp),
+      },
+    },
+    "geo currency lookup",
+  );
   const body: GeoCurrencyResponse = {
     countryCode: result.countryCode,
     currencyCode: result.currencyCode,
@@ -53,6 +141,7 @@ const geoCurrencyByCoordsLimiter = rateLimit({
   limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   handler: (_req, res) => {
     const body: GeoCurrencyResponse = {
       countryCode: null,
