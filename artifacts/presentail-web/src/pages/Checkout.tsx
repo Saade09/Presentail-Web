@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
@@ -43,6 +43,38 @@ function timeSlotsForCountry(code: string | null): TimeSlot[] {
   return LB_TIME_SLOTS;
 }
 
+// Mirror mobile: $15 in Lebanon (and Cyprus), $4.90 in UAE.
+const LB_EXPRESS_SURCHARGE = 15;
+const AE_EXPRESS_SURCHARGE = 4.9;
+function expressSurchargeForCountry(code: string | null): number {
+  if (code === "AE") return AE_EXPRESS_SURCHARGE;
+  return LB_EXPRESS_SURCHARGE;
+}
+
+// Country-local hour, used to decide if Express Delivery (1–3 hrs) is
+// available — mobile shows the option only between 8 AM and 10 PM in the
+// recipient country's time zone.
+function getCountryHour(countryCode: string | null | undefined): number {
+  const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
+  try {
+    const h = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date());
+    const n = parseInt(h, 10);
+    if (Number.isFinite(n) && n >= 0 && n <= 23) return n;
+  } catch {
+    // fall through
+  }
+  const offset = countryCode === "AE" ? 4 : 3;
+  return (new Date().getUTCHours() + offset + 24) % 24;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
 export default function Checkout() {
@@ -81,9 +113,25 @@ export default function Checkout() {
 
   const timeSlots = timeSlotsForCountry(countryCode);
   const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
+  const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">("schedule");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
   const [noAddress, setNoAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
+
+  // Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
+  // the recipient country's local time, mirroring the mobile rule. When
+  // it's no longer available we silently fall back to the scheduled flow
+  // so the order can still be placed.
+  const expressAvailable = useMemo(() => {
+    const h = getCountryHour(countryCode);
+    return h >= 8 && h < 22;
+  }, [countryCode]);
+  const expressSurcharge = expressSurchargeForCountry(countryCode);
+  useEffect(() => {
+    if (deliveryMode === "express" && !expressAvailable) {
+      setDeliveryMode("schedule");
+    }
+  }, [deliveryMode, expressAvailable]);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -119,7 +167,8 @@ export default function Checkout() {
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
   const baseFee = noAddress ? 35 : (WEB_DISTRICT_FEES[selectedDistrict] ?? 0);
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
-  const total = subtotal + districtFee;
+  const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
+  const total = subtotal + districtFee + expressFee;
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
@@ -150,11 +199,11 @@ export default function Checkout() {
     },
     district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
     districtFee: districtFee,
-    expressFee: 0,
+    expressFee,
     noAddress,
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
-    deliveryDate: recipient.deliveryDate,
-    deliverySlot,
+    deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
+    deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
     cardMessage: recipient.cardMessage,
     paymentMethod,
     identitySecret,
@@ -233,6 +282,7 @@ export default function Checkout() {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
           returnUrl,
@@ -256,6 +306,7 @@ export default function Checkout() {
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
           district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
           title: t("checkout.payment.orderTitle"),
@@ -401,30 +452,71 @@ export default function Checkout() {
                   )}
 
                   <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.deliveryDate")}</label>
-                    <Input type="date" value={recipient.deliveryDate} onChange={(e) => setRecipient({ ...recipient, deliveryDate: e.target.value })} min={new Date().toISOString().split("T")[0]} data-testid="input-delivery-date" />
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">Delivery Time</label>
+                    <label className="text-sm font-medium">{t("checkout.deliveryWhen")}</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {timeSlots.map((s) => (
-                        <button
-                          key={s.label}
-                          type="button"
-                          onClick={() => setDeliverySlot(s.label)}
-                          className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                            deliverySlot === s.label
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-foreground hover:border-foreground/20"
-                          }`}
-                          data-testid={`slot-${s.cutoffHour}`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                      <button
+                        type="button"
+                        onClick={() => expressAvailable && setDeliveryMode("express")}
+                        disabled={!expressAvailable}
+                        className={`px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                          deliveryMode === "express"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-foreground hover:border-foreground/20"
+                        } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
+                        data-testid="delivery-mode-express"
+                      >
+                        <div className="font-semibold">{t("checkout.expressDelivery")}</div>
+                        <div className="text-xs opacity-80 mt-0.5">
+                          {expressAvailable
+                            ? `+${fmt(expressSurcharge)}`
+                            : t("checkout.expressUnavailable")}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryMode("schedule")}
+                        className={`px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                          deliveryMode === "schedule"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-foreground hover:border-foreground/20"
+                        }`}
+                        data-testid="delivery-mode-schedule"
+                      >
+                        <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
+                        <div className="text-xs opacity-80 mt-0.5">{t("checkout.scheduleDeliveryDesc")}</div>
+                      </button>
                     </div>
                   </div>
+
+                  {deliveryMode === "schedule" && (
+                    <>
+                      <div className="space-y-2 mb-4">
+                        <label className="text-sm font-medium">{t("checkout.deliveryDate")}</label>
+                        <Input type="date" value={recipient.deliveryDate} onChange={(e) => setRecipient({ ...recipient, deliveryDate: e.target.value })} min={new Date().toISOString().split("T")[0]} data-testid="input-delivery-date" />
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <label className="text-sm font-medium">{t("checkout.deliveryTime")}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {timeSlots.map((s) => (
+                            <button
+                              key={s.label}
+                              type="button"
+                              onClick={() => setDeliverySlot(s.label)}
+                              className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                                deliverySlot === s.label
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-card text-foreground hover:border-foreground/20"
+                              }`}
+                              data-testid={`slot-${s.cutoffHour}`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2 mb-8">
                     <label className="text-sm font-medium">{t("checkout.cardMessage")}</label>
@@ -552,6 +644,12 @@ export default function Checkout() {
                   <span>{t("checkout.deliveryEstimated")}</span>
                   <span>{fmt(districtFee)}</span>
                 </div>
+                {expressFee > 0 && (
+                  <div className="flex justify-between text-muted-foreground" data-testid="row-express-fee">
+                    <span>{t("checkout.expressDeliveryLabel")}</span>
+                    <span>{fmt(expressFee)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-medium text-lg pt-3 border-t">
                   <span>{t("cart.total")}</span>
                   <span data-testid="text-total">{fmt(total)}</span>
