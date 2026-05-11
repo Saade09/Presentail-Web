@@ -81,6 +81,7 @@ export default function Checkout() {
   const timeSlots = timeSlotsForCountry(countryCode);
   const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
+  const [noAddress, setNoAddress] = useState(false);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -114,7 +115,7 @@ export default function Checkout() {
   };
   const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : countryCode === "CY" ? 120 : 130;
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
-  const baseFee = WEB_DISTRICT_FEES[selectedDistrict] ?? 0;
+  const baseFee = noAddress ? 35 : (WEB_DISTRICT_FEES[selectedDistrict] ?? 0);
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
   const total = subtotal + districtFee;
   const isProcessing =
@@ -148,7 +149,8 @@ export default function Checkout() {
     district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
     districtFee: districtFee,
     expressFee: 0,
-    deliveryDetails: recipient.address,
+    noAddress,
+    deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: recipient.deliveryDate,
     deliverySlot,
     cardMessage: recipient.cardMessage,
@@ -228,6 +230,7 @@ export default function Checkout() {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          noAddress,
           currency: "USD",
           returnUrl,
           cancelUrl: failureUrl,
@@ -250,6 +253,7 @@ export default function Checkout() {
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
           district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          noAddress,
           currency: "USD",
           title: t("checkout.payment.orderTitle"),
           description: t("checkout.payment.orderDesc", { name: `${sender.firstName} ${sender.lastName}`.trim() }),
@@ -349,25 +353,44 @@ export default function Checkout() {
                     <Input value={recipient.phone} onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })} placeholder={t("checkout.phonePh")} data-testid="input-recipient-phone" />
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.district")}</label>
-                    <Select value={recipient.district} onValueChange={(v) => setRecipient({ ...recipient, district: v })}>
-                      <SelectTrigger data-testid="select-district">
-                        <SelectValue placeholder={t("checkout.selectDistrict")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currentCountryCities.map((city) => (
-                          <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
-                        ))}
-                        {currentCountryCities.length === 0 && <SelectItem value="Beirut">Beirut</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <label className="flex items-start gap-3 mb-4 cursor-pointer select-none" data-testid="check-no-address-label">
+                    <input
+                      type="checkbox"
+                      checked={noAddress}
+                      onChange={(e) => setNoAddress(e.target.checked)}
+                      className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                      data-testid="check-no-address"
+                    />
+                    <span className="text-sm">{t("checkout.dontKnowAddress")}</span>
+                  </label>
 
-                  <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.address")}</label>
-                    <Input value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
-                  </div>
+                  {noAddress ? (
+                    <p className="text-xs text-muted-foreground mb-4" data-testid="text-no-address-note">
+                      {t("checkout.dontKnowAddressNote")}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="space-y-2 mb-4">
+                        <label className="text-sm font-medium">{t("checkout.district")}</label>
+                        <Select value={recipient.district} onValueChange={(v) => setRecipient({ ...recipient, district: v })}>
+                          <SelectTrigger data-testid="select-district">
+                            <SelectValue placeholder={t("checkout.selectDistrict")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentCountryCities.map((city) => (
+                              <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
+                            ))}
+                            {currentCountryCities.length === 0 && <SelectItem value="Beirut">Beirut</SelectItem>}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <label className="text-sm font-medium">{t("checkout.address")}</label>
+                        <Input value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2 mb-4">
                     <label className="text-sm font-medium">{t("checkout.deliveryDate")}</label>
@@ -400,7 +423,7 @@ export default function Checkout() {
                     <Input value={recipient.cardMessage} onChange={(e) => setRecipient({ ...recipient, cardMessage: e.target.value })} placeholder={t("checkout.cardMessagePh")} data-testid="input-card-message" />
                   </div>
 
-                  <Button size="lg" className="w-full h-14 rounded-xl" onClick={() => setStep(2)} disabled={!recipient.firstName || !recipient.phone || !recipient.address} data-testid="button-continue-to-sender">
+                  <Button size="lg" className="w-full h-14 rounded-xl" onClick={() => setStep(2)} disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address)} data-testid="button-continue-to-sender">
                     {t("checkout.continueSender")}
                   </Button>
                 </div>

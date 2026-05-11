@@ -300,6 +300,7 @@ export const useMamoPayment = () => {
       orderId: string;
       district?: string;
       expressDelivery?: boolean;
+      noAddress?: boolean;
       currency?: string;
       title?: string;
       description?: string;
@@ -321,6 +322,7 @@ export const usePaypalPayment = () => {
       items: PayCartItem[];
       district?: string;
       expressDelivery?: boolean;
+      noAddress?: boolean;
       currency?: string;
       returnUrl: string;
       cancelUrl: string;
