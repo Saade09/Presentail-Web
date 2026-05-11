@@ -15,6 +15,7 @@ import {
 } from "@/constants/deliveryLocations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { fetchDeliveryLocations } from "@/services/deliveryLocationService";
+import { detectGeoFromLocation } from "@/services/locationCurrencyService";
 import { updateCachedStoreLocation } from "@/lib/storeHeaders";
 
 const STORAGE_KEY = "@presentail/delivery-location-v1";
@@ -75,6 +76,8 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
   const [error, setError] = useState<Error | null>(null);
   const [persisted, setPersisted] = useState<PersistedShape | null>(null);
   const [persistedHydrated, setPersistedHydrated] = useState(false);
+  const [autoDetectedCountryCode, setAutoDetectedCountryCode] = useState<string | null>(null);
+  const [autoDetectionDone, setAutoDetectionDone] = useState(false);
 
   // Hydrate persisted selection eagerly so the header doesn't flash on cold launch.
   useEffect(() => {
@@ -128,14 +131,41 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     loadLocations();
   }, [loadLocations]);
 
-  // Resolve initial selection once both persisted state and locations are loaded.
+  // Kick off IP-based country detection in parallel with the locations fetch
+  // so the first paint can pick the right delivery store (and therefore the
+  // right currency / payment methods) without the user opening the country
+  // sheet. Cached after the first call by the geo service.
+  useEffect(() => {
+    let cancelled = false;
+    detectGeoFromLocation()
+      .then((geo) => {
+        if (cancelled) return;
+        setAutoDetectedCountryCode(geo.countryCode);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setAutoDetectionDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Resolve initial selection once persisted state, locations and (when no
+  // persisted country exists) IP detection have all settled.
   useEffect(() => {
     if (!persistedHydrated) return;
     if (deliveryLocations.length === 0) return;
     if (selectedCountry && selectedCity) return;
 
+    const hasPersistedCountry =
+      !!(persisted?.selectedDeliveryCountryId || persisted?.selectedDeliveryCountryCode);
+    // Only wait on geo detection when we actually need it (no persisted pick).
+    if (!hasPersistedCountry && !autoDetectionDone) return;
+
     let nextCountry: DeliveryCountry | null = null;
     let nextCity: DeliveryCity | null = null;
+    let autoDetected = false;
 
     // 1. Persisted selection wins.
     if (persisted) {
@@ -149,11 +179,19 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       }
     }
 
-    // 2. Fallback to Lebanon (default), then first active country.
-    //    Real IP-based country detection is not available in the app today, so
-    //    we deliberately do not derive country from currency (which is just a
-    //    display setting and would map e.g. USD to a wrong country). Once true
-    //    country detection ships, slot it in here before the fallback.
+    // 2. IP-based country detection (LB / AE / CY today). When the caller's
+    //    IP maps to one of our active delivery countries, pick it so the
+    //    header, prices, currency and payment methods match their region on
+    //    first launch without forcing them to open the country sheet.
+    if (!nextCountry) {
+      const detected = findCountryByCode(deliveryLocations, autoDetectedCountryCode);
+      if (detected) {
+        nextCountry = detected;
+        autoDetected = true;
+      }
+    }
+
+    // 3. Fallback to Lebanon (default), then first active country.
     if (!nextCountry) {
       nextCountry = pickFallbackCountry(deliveryLocations);
     }
@@ -165,16 +203,41 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
     updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
-    // Only force the currency to the country's native currency when the user
-    // actually picked this country in a previous session. The default
-    // fallback (Lebanon) on a brand-new install must not mark currency as
-    // "manual" — that would suppress the IP-based auto-detection that runs
-    // in CurrencyContext and pin first-time visitors to USD even if they
-    // are in the UAE/Canada/etc.
-    if (nextCountry && persisted?.manuallySelected) {
+    // Force the currency to the country's native currency when the user
+    // actually picked this country in a previous session OR when we just
+    // auto-detected a supported delivery country from their IP — both cases
+    // should align prices and payment methods with the active store. The
+    // generic Lebanon fallback (no persisted pick AND no IP match) must
+    // still leave currency in "auto" mode so CurrencyContext's IP-based
+    // detection can pick e.g. CAD for a visitor outside our delivery zone.
+    if (nextCountry && (persisted?.manuallySelected || autoDetected)) {
       setCurrencyCode(nextCountry.currency);
     }
-  }, [deliveryLocations, persisted, persistedHydrated, selectedCountry, selectedCity, setCurrencyCode]);
+    // Persist the auto-detected pick so subsequent launches skip the geo
+    // round-trip but keep `manuallySelected: false` — the country sheet UI
+    // can still treat the selection as a soft default and the user override
+    // path remains unchanged.
+    if (autoDetected && nextCountry) {
+      persist({
+        selectedDeliveryCountryId: nextCountry.id,
+        selectedDeliveryCountryCode: nextCountry.code,
+        selectedDeliveryCountryName: nextCountry.name,
+        selectedDeliveryCityId: nextCity?.id,
+        selectedDeliveryCityName: nextCity?.name,
+        manuallySelected: false,
+      });
+    }
+  }, [
+    deliveryLocations,
+    persisted,
+    persistedHydrated,
+    autoDetectedCountryCode,
+    autoDetectionDone,
+    selectedCountry,
+    selectedCity,
+    setCurrencyCode,
+    persist,
+  ]);
 
   const selectCountry = useCallback(
     (country: DeliveryCountry) => {
