@@ -83,6 +83,7 @@ export default function Checkout() {
   const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("card");
   const [noAddress, setNoAddress] = useState(false);
+  const [identitySecret, setIdentitySecret] = useState(false);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {
@@ -156,6 +157,7 @@ export default function Checkout() {
     deliverySlot,
     cardMessage: recipient.cardMessage,
     paymentMethod,
+    identitySecret,
     currencyCode: "USD",
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
   });
@@ -458,10 +460,21 @@ export default function Checkout() {
                     <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
                   </div>
 
-                  <div className="space-y-2 mb-8">
+                  <div className="space-y-2 mb-4">
                     <label className="text-sm font-medium">{t("checkout.phoneNumber")}</label>
                     <Input value={sender.phone} onChange={(e) => setSender({ ...sender, phone: e.target.value })} data-testid="input-sender-phone" />
                   </div>
+
+                  <label className="flex items-start gap-3 mb-8 cursor-pointer select-none" data-testid="check-identity-secret-label">
+                    <input
+                      type="checkbox"
+                      checked={identitySecret}
+                      onChange={(e) => setIdentitySecret(e.target.checked)}
+                      className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                      data-testid="check-identity-secret"
+                    />
+                    <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
+                  </label>
 
                   <div className="flex gap-4">
                     <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-recipient">{t("checkout.back")}</Button>
