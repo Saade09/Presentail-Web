@@ -30,6 +30,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationProvider";
+import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
@@ -222,7 +223,9 @@ export default function RootLayout() {
                     <AuthProvider>
                       <WooProductsProvider>
                         <CartProvider>
-                          <AppShell fontsLoaded={fontsReady} />
+                          <DeliverySelectionProvider>
+                            <AppShell fontsLoaded={fontsReady} />
+                          </DeliverySelectionProvider>
                         </CartProvider>
                       </WooProductsProvider>
                     </AuthProvider>

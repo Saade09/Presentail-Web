@@ -16,6 +16,14 @@ type CartContextValue = {
   remove: (productId: string) => void;
   setQty: (productId: string, qty: number) => void;
   clear: () => void;
+  /**
+   * Subscribe to cart-clear events. Used by sibling contexts (e.g.
+   * DeliverySelectionContext) so that anything tied to the cart
+   * — like the persisted delivery date/slot — is reset whenever the
+   * cart itself is cleared, no matter which screen calls clear().
+   * Returns an unsubscribe function.
+   */
+  onClear: (cb: () => void) => () => void;
   detailed: { product: Product; qty: number; lineTotal: number }[];
   isCartOpen: boolean;
   openCart: () => void;
@@ -52,7 +60,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const hydrated = useRef(false);
   const pending = useRef<PendingMutation[]>([]);
+  const clearListeners = useRef<Set<() => void>>(new Set());
   const { products: wooProducts } = useWooProducts();
+
+  const onClear = useCallback((cb: () => void) => {
+    clearListeners.current.add(cb);
+    return () => {
+      clearListeners.current.delete(cb);
+    };
+  }, []);
+
+  const fireClearListeners = useCallback(() => {
+    for (const cb of Array.from(clearListeners.current)) {
+      try {
+        cb();
+      } catch {
+        // listeners must not block cart clear
+      }
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,10 +151,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clear = useCallback(() => {
     if (!hydrated.current) {
       pending.current.push({ type: "clear" });
-      return;
+    } else {
+      setItems([]);
     }
-    setItems([]);
-  }, []);
+    fireClearListeners();
+  }, [fireClearListeners]);
 
   const detailed = useMemo(
     () =>
@@ -151,8 +178,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, setQty, clear, detailed, isCartOpen, openCart, closeCart }),
-    [items, count, total, add, remove, setQty, clear, detailed, isCartOpen, openCart, closeCart],
+    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart }),
+    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

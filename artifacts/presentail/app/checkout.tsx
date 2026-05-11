@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -24,11 +24,21 @@ import { PhoneField } from "@/components/PhoneField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { getBeirutHour, getCountryHour } from "@/lib/beirutTime";
+import { getCountryHour } from "@/lib/beirutTime";
+import {
+  AE_EXPRESS_SURCHARGE,
+  LB_EXPRESS_SURCHARGE,
+  dayLabels,
+  expressSurchargeForCountry,
+  resolveSlotLabel,
+  timeSlotsForCountry,
+  type TimeSlot,
+} from "@/lib/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import {
@@ -86,8 +96,11 @@ async function runHostedCheckout(url: string, deeplinkBase: string): Promise<"su
 
 type Step = 0 | 1 | 2;
 const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
-const LB_EXPRESS_SURCHARGE = 15;
-const AE_EXPRESS_SURCHARGE = 4.90;
+
+// Re-exported for tests and any module that imports the legacy names from
+// here. The canonical source is `lib/delivery.ts`.
+export { LB_EXPRESS_SURCHARGE, AE_EXPRESS_SURCHARGE };
+
 function countryFromCurrency(currencyCode?: string): string | undefined {
   if (currencyCode === "AED") return "AE";
   if (currencyCode === "EUR") return "CY";
@@ -97,11 +110,6 @@ function countryFromCurrency(currencyCode?: string): string | undefined {
 
 function resolveCountryCode(selectedCountryCode?: string, currencyCode?: string): string | undefined {
   return selectedCountryCode || countryFromCurrency(currencyCode);
-}
-
-function expressSurchargeForCountry(code?: string): number {
-  if (code === "AE") return AE_EXPRESS_SURCHARGE;
-  return LB_EXPRESS_SURCHARGE;
 }
 
 function freeDeliveryThresholdForCountry(code?: string): number {
@@ -158,41 +166,6 @@ function districtsForCountry(code?: string): District[] {
   return LB_DISTRICTS;
 }
 
-type TimeSlot = { label: string; cutoffHour: number };
-const LB_TIME_SLOTS: TimeSlot[] = [
-  { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
-  { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
-  { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
-  { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
-];
-const AE_TIME_SLOTS: TimeSlot[] = [
-  { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
-  { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
-  { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
-  { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
-];
-function timeSlotsForCountry(code?: string): TimeSlot[] {
-  if (code === "AE") return AE_TIME_SLOTS;
-  return LB_TIME_SLOTS;
-}
-
-function dayLabels(todayLabel: string, tomLabel: string) {
-  const out: { iso: string; label: string; day: string; date: string; full: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < 10; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    out.push({
-      iso: d.toISOString().slice(0, 10),
-      label: i === 0 ? todayLabel : i === 1 ? tomLabel : d.toLocaleDateString(undefined, { weekday: "short" }),
-      day: d.toLocaleDateString(undefined, { weekday: "short" }),
-      date: String(d.getDate()),
-      full: d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
-    });
-  }
-  return out;
-}
-
 function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -219,7 +192,14 @@ function CheckoutScreen() {
 
   const defaultDialCode = COUNTRY_DIAL_CODES.find((c) => c.code === (effectiveCountry ?? "LB")) ?? COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0];
 
-  const [step, setStep] = useState<Step>(0);
+  const params = useLocalSearchParams<{ step?: string | string[] }>();
+  const initialStep = React.useMemo<Step>(() => {
+    const raw = Array.isArray(params.step) ? params.step[0] : params.step;
+    const parsed = Number(raw);
+    if (parsed === 1 || parsed === 2) return parsed as Step;
+    return 0;
+  }, [params.step]);
+  const [step, setStep] = useState<Step>(initialStep);
 
   // Step 1 — Customize / Card Message
   const [recipientFirst, setRecipientFirst] = useState("");
@@ -291,12 +271,56 @@ function CheckoutScreen() {
   const timeSlots = timeSlotsForCountry(effectiveCountry);
   const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
   const freeDeliveryThreshold = freeDeliveryThresholdForCountry(effectiveCountry);
-  const [deliveryMode, setDeliveryMode] = useState<"express" | "today_slot" | "schedule">("today_slot");
-  const [date, setDate] = useState(days[0].iso);
-  const [slot, setSlot] = useState<TimeSlot | null>(() => {
-    const bh = getCountryHour(effectiveCountry);
-    return timeSlots.find(s => s.cutoffHour > bh) ?? null;
-  });
+  const deliverySelection = useDeliverySelection();
+  const todayIso = days[0].iso;
+  const defaultSlotForToday = useMemo<TimeSlot | null>(() => {
+    const h = getCountryHour(effectiveCountry);
+    return timeSlots.find((s) => s.cutoffHour > h) ?? null;
+  }, [timeSlots, effectiveCountry]);
+
+  const deliveryMode: "express" | "today_slot" | "schedule" =
+    deliverySelection.mode ?? "today_slot";
+  const date = deliverySelection.date ?? todayIso;
+  const slot = useMemo<TimeSlot | null>(() => {
+    if (deliverySelection.slotLabel) {
+      const found = timeSlots.find((s) => s.label === deliverySelection.slotLabel);
+      if (found) return found;
+    }
+    return defaultSlotForToday;
+  }, [deliverySelection.slotLabel, timeSlots, defaultSlotForToday]);
+
+  // Initialise the persisted selection on first mount if the user has never
+  // visited checkout before, and re-validate any stored slot label against
+  // the current country's slot list AND the current country-local hour
+  // (so a stored same-day slot whose cutoff has already passed gets bumped
+  // to the next available one). Keep it defensive: never throw.
+  useEffect(() => {
+    if (deliverySelection.mode == null) {
+      deliverySelection.setSelection({
+        mode: "today_slot",
+        date: todayIso,
+        slotLabel: defaultSlotForToday?.label ?? null,
+      });
+      return;
+    }
+    if (deliverySelection.mode === "today_slot") {
+      const isToday = (deliverySelection.date ?? todayIso) === todayIso;
+      const fixed = resolveSlotLabel(
+        deliverySelection.slotLabel,
+        timeSlots,
+        isToday,
+        getCountryHour(effectiveCountry),
+      );
+      if (fixed !== deliverySelection.slotLabel) {
+        deliverySelection.setSlotLabel(fixed);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeSlots, effectiveCountry]);
+
+  const setDeliveryMode = deliverySelection.setMode;
+  const setDate = deliverySelection.setDate;
+  const setSlot = deliverySelection.setSlot;
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
@@ -463,6 +487,9 @@ function CheckoutScreen() {
     const finishAfterPayment = async (paymentRef?: string) => {
       const ok = await submitWooOrder(orderId, paymentRef);
       if (ok) {
+        // CartContext.clear() also clears the persisted delivery selection
+        // via the onClear listener registered in DeliverySelectionContext, so
+        // we don't need to call deliverySelection.clear() explicitly here.
         clear();
         router.replace(buildResultPath("success", paymentRef));
       } else {

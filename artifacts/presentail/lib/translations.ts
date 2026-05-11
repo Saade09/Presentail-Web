@@ -416,6 +416,8 @@ const EN = {
   cartFreeDeliveryRemainingPrefix: "Only",
   cartFreeDeliveryRemainingSuffix: "left to unlock Free Standard Delivery",
   cartFreeDeliveryUnlocked: "You've unlocked Free Standard Delivery",
+  cartDeliveryWhenLabel: "Delivery time",
+  cartSelectDateTimePrompt: "Select date & time at checkout",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1219,6 +1221,8 @@ const AR: typeof EN = {
   cartFreeDeliveryRemainingPrefix: "تبقّى فقط",
   cartFreeDeliveryRemainingSuffix: "للحصول على توصيل قياسي مجاني",
   cartFreeDeliveryUnlocked: "لقد حصلت على توصيل قياسي مجاني",
+  cartDeliveryWhenLabel: "وقت التوصيل",
+  cartSelectDateTimePrompt: "اختر التاريخ والوقت عند الدفع",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -2022,6 +2026,8 @@ const FR: typeof EN = {
   cartFreeDeliveryRemainingPrefix: "Plus que",
   cartFreeDeliveryRemainingSuffix: "pour bénéficier de la livraison standard offerte",
   cartFreeDeliveryUnlocked: "Vous bénéficiez de la livraison standard offerte",
+  cartDeliveryWhenLabel: "Heure de livraison",
+  cartSelectDateTimePrompt: "Choisir la date et l'heure au paiement",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

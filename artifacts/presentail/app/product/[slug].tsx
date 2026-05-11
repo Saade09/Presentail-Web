@@ -22,6 +22,7 @@ import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge,
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
@@ -296,7 +297,24 @@ function ProductDetail() {
 }
 
 function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
-  const [delivery, setDelivery] = useState<"express" | "scheduled">("express");
+  const deliverySelection = useDeliverySelection();
+  const initialDelivery: "express" | "scheduled" =
+    deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
+      ? "scheduled"
+      : "express";
+  const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
+  const setDelivery = (next: "express" | "scheduled") => {
+    setDeliveryLocal(next);
+    if (next === "express") {
+      deliverySelection.setMode("express");
+    } else {
+      deliverySelection.setSelection({
+        mode: "schedule",
+        date: dateRef.current,
+        slotLabel: slotRef.current,
+      });
+    }
+  };
   const [tab, setTab] = useState<"description" | "care">("description");
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
@@ -354,8 +372,24 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   // so accessing `days[0]`/`days[1]` cannot throw on first render.
   const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
   const tomorrowIso = days[1]?.iso ?? todayIso;
-  const [date, setDate] = useState(nextSlot ? todayIso : tomorrowIso);
-  const [slot, setSlot] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
+  const [date, setDateLocal] = useState(nextSlot ? todayIso : tomorrowIso);
+  const [slot, setSlotLocal] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
+  const dateRef = useRef(date);
+  const slotRef = useRef(slot);
+  useEffect(() => { dateRef.current = date; }, [date]);
+  useEffect(() => { slotRef.current = slot; }, [slot]);
+  const setDate = (next: string) => {
+    setDateLocal(next);
+    if (delivery === "scheduled") {
+      deliverySelection.setSelection({ mode: "schedule", date: next, slotLabel: slotRef.current });
+    }
+  };
+  const setSlot = (next: string) => {
+    setSlotLocal(next);
+    if (delivery === "scheduled") {
+      deliverySelection.setSelection({ mode: "schedule", date: dateRef.current, slotLabel: next });
+    }
+  };
 
   const careTips: string[] = [
     "Trim 2cm off stems at a 45° angle every 2–3 days.",

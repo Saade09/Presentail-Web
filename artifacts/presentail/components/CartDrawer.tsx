@@ -15,9 +15,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { getCountryHour } from "@/lib/beirutTime";
+import {
+  dayLabels,
+  expressSurchargeForCountry,
+  formatDeliveryRow,
+  resolveSlotLabel,
+  timeSlotsForCountry,
+} from "@/lib/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 
 export function CartDrawer() {
@@ -28,6 +37,7 @@ export function CartDrawer() {
   const { formatNative, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();
+  const deliverySelection = useDeliverySelection();
 
   const countryCode =
     selectedCountry?.code ||
@@ -36,6 +46,40 @@ export function CartDrawer() {
   const remainingUsd = Math.max(thresholdUsd - total, 0);
   const unlocked = total >= thresholdUsd;
   const progress = thresholdUsd > 0 ? Math.min(total / thresholdUsd, 1) : 1;
+
+  const days = React.useMemo(
+    () => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow),
+    [t.checkoutDayToday, t.checkoutDayTomorrow],
+  );
+  const isExpress = deliverySelection.mode === "express";
+  const expressFeeUsd = isExpress ? expressSurchargeForCountry(countryCode) : 0;
+  const grandTotalUsd = total + expressFeeUsd;
+  // Resolve persisted slot against current country + country-local hour for
+  // display; see FullCartView for the rationale (do not rewrite persisted
+  // state here — checkout's mount effect repairs it).
+  const displaySlotLabel = React.useMemo(() => {
+    if (deliverySelection.mode !== "today_slot") return deliverySelection.slotLabel;
+    const slots = timeSlotsForCountry(countryCode);
+    const isToday = deliverySelection.date === days[0]?.iso;
+    return resolveSlotLabel(
+      deliverySelection.slotLabel,
+      slots,
+      isToday,
+      getCountryHour(countryCode),
+    );
+  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days]);
+  const deliveryRowValue = formatDeliveryRow({
+    mode: deliverySelection.mode,
+    date: deliverySelection.date,
+    slotLabel: displaySlotLabel,
+    days,
+    expressLabel: t.expressDelivery,
+  });
+
+  const goPickDeliveryTime = React.useCallback(() => {
+    closeCart();
+    router.push({ pathname: "/checkout", params: { step: "1" } });
+  }, [closeCart, router]);
 
   return (
     <Modal
@@ -286,12 +330,75 @@ export function CartDrawer() {
                   </View>
                 </View>
               </View>
+              <Pressable
+                onPress={goPickDeliveryTime}
+                accessibilityRole="button"
+                accessibilityLabel={deliveryRowValue ?? t.cartSelectDateTimePrompt}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  backgroundColor: colors.secondary,
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 999,
+                    backgroundColor: "#fff",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="calendar" size={12} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 10,
+                      color: colors.mutedForeground,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                    }}
+                  >
+                    {t.cartDeliveryWhenLabel}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
+                      fontSize: 12,
+                      color: deliveryRowValue ? colors.primary : colors.mutedForeground,
+                    }}
+                  >
+                    {deliveryRowValue ?? t.cartSelectDateTimePrompt}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+              </Pressable>
+              {isExpress ? (
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                    {t.expressDelivery}
+                  </Text>
+                  <Price
+                    value={expressFeeUsd}
+                    native
+                    style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary }}
+                  />
+                </View>
+              ) : null}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.mutedForeground }}>
                   Total
                 </Text>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-                  {formatNative(total)}
+                  {formatNative(grandTotalUsd)}
                 </Text>
               </View>
               <Pressable
@@ -308,7 +415,7 @@ export function CartDrawer() {
                 })}
               >
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                  CHECKOUT · {formatNative(total)}
+                  CHECKOUT · {formatNative(grandTotalUsd)}
                 </Text>
               </Pressable>
               <Pressable

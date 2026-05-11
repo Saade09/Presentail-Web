@@ -15,9 +15,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { getCountryHour } from "@/lib/beirutTime";
+import {
+  dayLabels,
+  expressSurchargeForCountry,
+  formatDeliveryRow,
+  resolveSlotLabel,
+  timeSlotsForCountry,
+} from "@/lib/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 
 type FullCartViewProps = {
@@ -46,6 +55,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const { selectedCountry } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
   const t = useT();
+  const deliverySelection = useDeliverySelection();
 
   const countryCode =
     selectedCountry?.code ||
@@ -54,6 +64,43 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const remainingUsd = Math.max(thresholdUsd - total, 0);
   const unlocked = total >= thresholdUsd;
   const progress = thresholdUsd > 0 ? Math.min(total / thresholdUsd, 1) : 1;
+
+  const days = React.useMemo(
+    () => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow),
+    [t.checkoutDayToday, t.checkoutDayTomorrow],
+  );
+  const expressSurchargeUsd = expressSurchargeForCountry(countryCode);
+  const isExpress = deliverySelection.mode === "express";
+  const expressFeeUsd = isExpress ? expressSurchargeUsd : 0;
+  const grandTotalUsd = total + expressFeeUsd;
+  // Resolve the persisted slot label against the current country's slot list
+  // and country-local hour so a previously-picked AE slot stays AE (not
+  // rewritten to LB) and a today-slot whose cutoff has already passed
+  // displays as the next available slot instead of one that can no longer
+  // be booked. The persisted state itself is left untouched here — checkout's
+  // mount effect repairs it when the user opens checkout.
+  const displaySlotLabel = React.useMemo(() => {
+    if (deliverySelection.mode !== "today_slot") return deliverySelection.slotLabel;
+    const slots = timeSlotsForCountry(countryCode);
+    const isToday = deliverySelection.date === days[0]?.iso;
+    return resolveSlotLabel(
+      deliverySelection.slotLabel,
+      slots,
+      isToday,
+      getCountryHour(countryCode),
+    );
+  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days]);
+  const deliveryRowValue = formatDeliveryRow({
+    mode: deliverySelection.mode,
+    date: deliverySelection.date,
+    slotLabel: displaySlotLabel,
+    days,
+    expressLabel: t.expressDelivery,
+  });
+
+  const goPickDeliveryTime = React.useCallback(() => {
+    router.push({ pathname: "/checkout", params: { step: "1" } });
+  }, [router]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -297,6 +344,57 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 </View>
               </View>
             </View>
+            <Pressable
+              onPress={goPickDeliveryTime}
+              accessibilityRole="button"
+              accessibilityLabel={deliveryRowValue ?? t.cartSelectDateTimePrompt}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                backgroundColor: colors.secondary,
+                borderRadius: 14,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="calendar" size={14} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: colors.mutedForeground,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {t.cartDeliveryWhenLabel}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontSize: 13,
+                    color: deliveryRowValue ? colors.primary : colors.mutedForeground,
+                  }}
+                >
+                  {deliveryRowValue ?? t.cartSelectDateTimePrompt}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </Pressable>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                 {t.subtotal}
@@ -315,12 +413,24 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 {t.cartFree}
               </Text>
             </View>
+            {isExpress ? (
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+                  {t.expressDelivery}
+                </Text>
+                <Price
+                  value={expressFeeUsd}
+                  native
+                  style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
+                />
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
                 {t.cartTotal}
               </Text>
               <Price
-                value={total}
+                value={grandTotalUsd}
                 native
                 style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
               />
