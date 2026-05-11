@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CartUpsells } from "@/components/CartUpsells";
 import { Price } from "@/components/Price";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -211,6 +212,10 @@ export function CartDrawer() {
                   </View>
                 </View>
               ))}
+
+              <View style={{ marginTop: 8 }}>
+                <CartUpsells />
+              </View>
             </ScrollView>
 
             <View

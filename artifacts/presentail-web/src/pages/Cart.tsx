@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { CartUpsells } from "@/components/cart/CartUpsells";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
@@ -37,7 +38,7 @@ export default function Cart() {
 
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Cart Items */}
-          <div className="flex-1 space-y-8">
+          <div className="flex-1 space-y-8 min-w-0">
             {items.map((item, index) => (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -89,6 +90,8 @@ export default function Cart() {
                 </div>
               </motion.div>
             ))}
+
+            <CartUpsells />
           </div>
 
           {/* Order Summary */}

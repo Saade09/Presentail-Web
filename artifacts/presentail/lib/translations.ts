@@ -803,6 +803,19 @@ const EN = {
   menuHelp: "Help",
   menuClose: "Close menu",
   menuOpen: "Open menu",
+
+  // ── Cart upsells ──
+  cartUpsellsTitle: "Make it perfect",
+  cartUpsellsAdd: "Add",
+  cartUpsellsExpress: "Express",
+  cartUpsellsTabRecommended: "Recommended",
+  cartUpsellsTabSingleBalloons: "Single Balloons",
+  cartUpsellsTabBalloonBundles: "Balloon Bundles",
+  cartUpsellsTabChocolate: "Chocolate",
+  cartUpsellsTabPlants: "Plants",
+  cartUpsellsTabBears: "Bears",
+  cartUpsellsTabCandles: "Candles",
+  cartUpsellsAddedToast: "Added to your bag",
 };
 
 const AR: typeof EN = {
@@ -1608,6 +1621,19 @@ const AR: typeof EN = {
   menuHelp: "المساعدة",
   menuClose: "إغلاق القائمة",
   menuOpen: "فتح القائمة",
+
+  // ── Cart upsells ──
+  cartUpsellsTitle: "اجعلها مثالية",
+  cartUpsellsAdd: "إضافة",
+  cartUpsellsExpress: "سريع",
+  cartUpsellsTabRecommended: "موصى به",
+  cartUpsellsTabSingleBalloons: "بالونات فردية",
+  cartUpsellsTabBalloonBundles: "حزم بالونات",
+  cartUpsellsTabChocolate: "شوكولاتة",
+  cartUpsellsTabPlants: "نباتات",
+  cartUpsellsTabBears: "دببة",
+  cartUpsellsTabCandles: "شموع",
+  cartUpsellsAddedToast: "تمت الإضافة إلى الحقيبة",
 };
 
 const FR: typeof EN = {
@@ -2413,6 +2439,19 @@ const FR: typeof EN = {
   menuHelp: "Aide",
   menuClose: "Fermer le menu",
   menuOpen: "Ouvrir le menu",
+
+  // ── Cart upsells ──
+  cartUpsellsTitle: "Rendez-le parfait",
+  cartUpsellsAdd: "Ajouter",
+  cartUpsellsExpress: "Express",
+  cartUpsellsTabRecommended: "Recommandés",
+  cartUpsellsTabSingleBalloons: "Ballons à l'unité",
+  cartUpsellsTabBalloonBundles: "Bouquets de ballons",
+  cartUpsellsTabChocolate: "Chocolat",
+  cartUpsellsTabPlants: "Plantes",
+  cartUpsellsTabBears: "Ours",
+  cartUpsellsTabCandles: "Bougies",
+  cartUpsellsAddedToast: "Ajouté à votre sac",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };
