@@ -12,6 +12,7 @@ export type WooProduct = {
   description?: string;
   tag?: string;
   occasions: string[];
+  popularity?: number;
 };
 
 export type OccasionGroup = {

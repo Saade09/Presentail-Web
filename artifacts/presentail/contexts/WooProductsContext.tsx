@@ -4,7 +4,7 @@ import { products as CATALOG } from "@/data/catalog";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
-type AnyProduct = (typeof CATALOG)[number] & { wcId?: number };
+type AnyProduct = (typeof CATALOG)[number] & { wcId?: number; popularity?: number };
 
 const SYNC_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
@@ -152,6 +152,7 @@ function mergeProducts(
         description: sp.description ?? wp.description,
         tag: sp.tag ?? wp.tag,
         wcId: wp.wcId,
+        popularity: wp.popularity ?? 0,
       });
     } else {
       result.push(sp);
@@ -173,6 +174,7 @@ function mergeProducts(
       description: wp.description,
       tag: wp.tag,
       occasions: [],
+      popularity: wp.popularity ?? 0,
     });
   }
 

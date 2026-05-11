@@ -146,6 +146,10 @@ const STRINGS: Dict = {
   "shop.empty.changeCountry": { en: "Change delivery country", ar: "تغيير بلد التوصيل" },
   "shop.empty.titleNoCountry": { en: "No products found", ar: "لم يتم العثور على منتجات" },
   "shop.empty.descNoCountry": { en: "We couldn't find any products matching your current filters.", ar: "لم نتمكن من العثور على منتجات تطابق تصفيتك الحالية." },
+  "shop.empty.titleSoldOut": { en: "Everything here is currently sold out", ar: "نفدت كل المنتجات هنا حالياً" },
+  "shop.empty.descSoldOut": { en: "New pieces are on the way. In the meantime, here are a few popular picks our customers love.", ar: "قطع جديدة في الطريق. في هذه الأثناء، إليك بعض الاختيارات الشهيرة التي يحبها زبائننا." },
+  "shop.popularPicks": { en: "Popular picks", ar: "اختيارات شائعة" },
+  "shop.browseAll": { en: "Browse all collections", ar: "تصفح كل المجموعات" },
 
   "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
   "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
@@ -554,6 +558,11 @@ const STRINGS_FR: Record<string, string> = {
   "shop.empty.titleNoCountry": "Aucun produit trouvé",
   "shop.empty.descNoCountry":
     "Aucun produit ne correspond à vos filtres actuels.",
+  "shop.empty.titleSoldOut": "Tout est en rupture ici",
+  "shop.empty.descSoldOut":
+    "De nouvelles pièces arrivent bientôt. En attendant, voici quelques coups de cœur de nos clients.",
+  "shop.popularPicks": "Coups de cœur",
+  "shop.browseAll": "Parcourir toutes les collections",
 
   "shop.cat.handBouquets": "Bouquets à la main",
   "shop.cat.flowerBoxes": "Boîtes de fleurs",

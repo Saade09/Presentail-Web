@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -54,6 +55,14 @@ function OccasionScreen() {
     });
     return () => { cancelled = true; };
   }, [slug, countryCode, cityId]);
+
+  const { products: wooCatalog } = useWooProducts();
+  const popularPicks = useMemo(() => {
+    const pool = wooCatalog.filter((p) => p.image);
+    return [...pool]
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+      .slice(0, 6);
+  }, [wooCatalog]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -145,14 +154,48 @@ function OccasionScreen() {
             </Text>
           </View>
         ) : groups.length === 0 ? (
-          <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
-            <Feather name="inbox" size={28} color={colors.mutedForeground} />
-            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
-              {t.occasionCuratingTitle}
-            </Text>
-            <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-              {t.occasionCuratingDesc}
-            </Text>
+          <View>
+            <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
+              <Feather name="inbox" size={28} color={colors.mutedForeground} />
+              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+                {t.occasionSoldOutTitle}
+              </Text>
+              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+                {t.occasionSoldOutDesc}
+              </Text>
+            </View>
+            {popularPicks.length > 0 ? (
+              <View style={{ marginTop: 18 }}>
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: colors.gold,
+                    letterSpacing: 3,
+                    textTransform: "uppercase",
+                    paddingHorizontal: 24,
+                    marginBottom: 14,
+                    textAlign: "center",
+                  }}
+                >
+                  {t.popularPicksLabel}
+                </Text>
+                <View
+                  style={{
+                    paddingHorizontal: 24,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 14,
+                    rowGap: 26,
+                    justifyContent: "center",
+                  }}
+                >
+                  {popularPicks.map((p) => (
+                    <ProductCard key={p.id} product={p} width={CARD_W} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={{ marginTop: 10 }}>

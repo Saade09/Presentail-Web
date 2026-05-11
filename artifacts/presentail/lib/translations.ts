@@ -643,6 +643,11 @@ const EN = {
   categoryLoadingProducts: "Loading products…",
   categoryFallback: "Category",
   occasionFallback: "Occasion",
+  categorySoldOutTitle: "Everything in this collection is sold out",
+  categorySoldOutDesc: "New pieces are on the way. In the meantime, here are a few popular picks our customers love.",
+  occasionSoldOutTitle: "No gifts available for this occasion right now",
+  occasionSoldOutDesc: "Our florists are restocking. Try one of these popular picks while you wait.",
+  popularPicksLabel: "Popular picks",
 
   // ── Sort labels ──
   sortFeatured: "Featured",
@@ -1442,6 +1447,11 @@ const AR: typeof EN = {
   categoryLoadingProducts: "جارٍ تحميل المنتجات…",
   categoryFallback: "الفئة",
   occasionFallback: "المناسبة",
+  categorySoldOutTitle: "نفدت كل القطع في هذه الفئة",
+  categorySoldOutDesc: "قطع جديدة في الطريق. في هذه الأثناء، إليك بعض الاختيارات الشهيرة التي يحبها زبائننا.",
+  occasionSoldOutTitle: "لا توجد هدايا متاحة لهذه المناسبة حالياً",
+  occasionSoldOutDesc: "زهّارونا يعيدون التزويد. جرّب أحد هذه الاختيارات الشهيرة في انتظار وصول الجديد.",
+  popularPicksLabel: "اختيارات شائعة",
 
   // ── Sort labels ──
   sortFeatured: "مميّز",
@@ -2241,6 +2251,11 @@ const FR: typeof EN = {
   categoryLoadingProducts: "Chargement des produits…",
   categoryFallback: "Catégorie",
   occasionFallback: "Occasion",
+  categorySoldOutTitle: "Tout est en rupture dans cette collection",
+  categorySoldOutDesc: "De nouvelles pièces arrivent bientôt. En attendant, voici quelques coups de cœur de nos clients.",
+  occasionSoldOutTitle: "Aucun cadeau disponible pour cette occasion",
+  occasionSoldOutDesc: "Nos fleuristes réapprovisionnent. Essayez l'un de ces coups de cœur en attendant.",
+  popularPicksLabel: "Coups de cœur",
 
   // ── Sort labels ──
   sortFeatured: "À l'honneur",

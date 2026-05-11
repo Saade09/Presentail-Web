@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
   categories,
   getCategory,
@@ -99,6 +100,17 @@ function CategoryScreen() {
     if (sort === "name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
     return sourceProducts;
   }, [sourceProducts, sort]);
+
+  // Suggested popular picks shown when this category is sold out, drawn
+  // from the merged store-aware catalog and filtered to other categories
+  // so the suggestion isn't itself empty.
+  const { products: wooCatalog } = useWooProducts();
+  const popularPicks = useMemo(() => {
+    const pool = wooCatalog.filter((p) => p.category !== String(slug) && p.image);
+    return [...pool]
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+      .slice(0, 6);
+  }, [wooCatalog, slug]);
 
   const displayName = category?.name ?? wcCategoryName ?? String(slug);
 
@@ -255,14 +267,47 @@ function CategoryScreen() {
             </Text>
           </View>
         ) : products.length === 0 ? (
-          <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
-            <Feather name="inbox" size={28} color={colors.mutedForeground} />
-            <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
-              {t.comingSoon}
-            </Text>
-            <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-              {t.comingSoonDesc}
-            </Text>
+          <View>
+            <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
+              <Feather name="inbox" size={28} color={colors.mutedForeground} />
+              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+                {t.categorySoldOutTitle}
+              </Text>
+              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+                {t.categorySoldOutDesc}
+              </Text>
+            </View>
+            {popularPicks.length > 0 ? (
+              <View style={{ marginTop: 18 }}>
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: colors.gold,
+                    letterSpacing: 3,
+                    textTransform: "uppercase",
+                    paddingHorizontal: 24,
+                    marginBottom: 14,
+                    textAlign: "center",
+                  }}
+                >
+                  {t.popularPicksLabel}
+                </Text>
+                <View
+                  style={{
+                    paddingHorizontal: 24,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 14,
+                    rowGap: 26,
+                  }}
+                >
+                  {popularPicks.map((p) => (
+                    <ProductCard key={p.id} product={p} width={CARD_W} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : (
           <View

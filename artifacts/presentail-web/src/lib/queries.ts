@@ -15,6 +15,7 @@ export type Product = {
   description?: string;
   tag?: string;
   occasions: string[];
+  popularity?: number;
 };
 
 export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };

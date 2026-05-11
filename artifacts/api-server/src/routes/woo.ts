@@ -55,6 +55,7 @@ type WcProduct = {
   short_description?: string;
   stock_status?: string;
   featured?: boolean;
+  total_sales?: number;
   images?: WcImage[];
   categories?: WcProductCategory[];
   meta_data?: WcMeta[];
@@ -247,6 +248,7 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
       : undefined,
     tag: p.featured ? "Featured" : undefined,
     occasions: [],
+    popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
   };
 }
 

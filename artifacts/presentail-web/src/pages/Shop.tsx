@@ -67,6 +67,19 @@ export default function Shop() {
     return allProducts.data?.products ?? [];
   }, [category, occasion, categoryProducts.data, occasionProducts.data, allProducts.data]);
 
+  // Always-on store catalog used to suggest popular picks when the user lands
+  // on a sold-out category/occasion (so the page doesn't render an empty grid).
+  // We keep this enabled even when a filter is active because it has its own
+  // cache key and we only render its result inside the empty state.
+  const fallbackPool = useProducts(queryParams, true);
+  const popularPicks: Product[] = useMemo(() => {
+    const all = fallbackPool.data?.products ?? [];
+    const filtered = category ? all.filter((p) => p.category !== category) : all;
+    return [...filtered]
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+      .slice(0, 6);
+  }, [fallbackPool.data, category]);
+
   const [sort, setSort] = useState("featured");
 
   const products = useMemo(() => {
@@ -162,35 +175,61 @@ export default function Shop() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed" data-testid="empty-state-no-products">
-                {country ? (
-                  <>
-                    <MapPin className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleCountry", { country: country.name })}</h3>
-                    <p className="text-muted-foreground mb-6">
-                      {t("shop.empty.descCountry", { country: country.name })}
+              (category || occasion) ? (
+                <div data-testid="empty-state-sold-out">
+                  <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed">
+                    <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleSoldOut")}</h3>
+                    <p className="text-muted-foreground mb-6 max-w-xl mx-auto px-4">
+                      {t("shop.empty.descSoldOut")}
                     </p>
-                    <div className="flex flex-wrap items-center justify-center gap-3">
-                      <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
-                        {t("shop.empty.changeCountry")}
-                      </Button>
-                      {(category || occasion) && (
-                        <Button asChild variant="ghost" data-testid="button-clear-filters">
-                          <Link href="/shop">{t("shop.clearFiltersBtn")}</Link>
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleNoCountry")}</h3>
-                    <p className="text-muted-foreground mb-6">{t("shop.empty.descNoCountry")}</p>
-                    <Button asChild variant="outline" data-testid="button-clear-filters">
-                      <Link href="/shop">{t("shop.clearFiltersBtnCap")}</Link>
+                    <Button asChild variant="outline" data-testid="button-browse-all">
+                      <Link href="/shop">{t("shop.browseAll")}</Link>
                     </Button>
-                  </>
-                )}
-              </div>
+                  </div>
+                  {popularPicks.length > 0 ? (
+                    <div className="mt-12">
+                      <p className="text-xs tracking-[0.25em] uppercase text-primary text-center mb-6">
+                        {t("shop.popularPicks")}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+                        {popularPicks.map((product, i) => (
+                          <ProductCard key={product.id} product={product} index={i} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed" data-testid="empty-state-no-products">
+                  {country ? (
+                    <>
+                      <MapPin className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleCountry", { country: country.name })}</h3>
+                      <p className="text-muted-foreground mb-6">
+                        {t("shop.empty.descCountry", { country: country.name })}
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
+                          {t("shop.empty.changeCountry")}
+                        </Button>
+                        {(category || occasion) && (
+                          <Button asChild variant="ghost" data-testid="button-clear-filters">
+                            <Link href="/shop">{t("shop.clearFiltersBtn")}</Link>
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleNoCountry")}</h3>
+                      <p className="text-muted-foreground mb-6">{t("shop.empty.descNoCountry")}</p>
+                      <Button asChild variant="outline" data-testid="button-clear-filters">
+                        <Link href="/shop">{t("shop.clearFiltersBtnCap")}</Link>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
                 {products.map((product, i) => (
