@@ -1,11 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import {
   CURRENCIES,
   FALLBACK_CURRENCY_CODE,
   getCurrency,
-  isSupportedCurrencyCode,
   type Currency,
   type CurrencyCode,
 } from "@/data/currencies";
@@ -15,16 +13,9 @@ import {
 } from "@/services/locationCurrencyService";
 import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
 
-const STORAGE_KEY = "@presentail/currency-v1";
-const SOURCE_KEY = "@presentail/currency-source-v1";
-
-type CurrencySource = "manual" | "auto";
-
 type CurrencyContextValue = {
   currency: Currency;
   currencyCode: CurrencyCode;
-  source: CurrencySource;
-  setCurrencyCode: (code: CurrencyCode) => void;
   /** Convert a USD amount into the active currency, formatted with symbol/position. */
   formatPrice: (usdValue: number) => string;
   /** Format an amount that is already in the active currency (no FX conversion). */
@@ -37,13 +28,13 @@ type CurrencyContextValue = {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
+  // Display currency is derived from the user's location every launch — never
+  // persisted and never manually overridable. Precedence: device-GPS country
+  // → IP-based detection → USD fallback.
   const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(FALLBACK_CURRENCY_CODE);
-  const [source, setSource] = useState<CurrencySource>("auto");
-  const sourceRef = useRef<CurrencySource>("auto");
   // Bumped after live FX rates are applied so memoized convert/formatPrice
   // recompute against the refreshed CURRENCIES table.
   const [ratesVersion, setRatesVersion] = useState(0);
-  const hydrated = useRef(false);
 
   useEffect(() => {
     // Stale-while-revalidate: apply last-known cached rates immediately so the
@@ -66,36 +57,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
       try {
-        const [savedCode, savedSource] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(SOURCE_KEY),
-        ]);
-
-        if (cancelled) return;
-
-        // Manual / delivery-location selection always wins — never overwrite
-        // with auto-detection.
-        if (savedSource === "manual" && isSupportedCurrencyCode(savedCode)) {
-          setCurrencyCodeState(savedCode);
-          setSource("manual");
-          hydrated.current = true;
-          return;
-        }
-
-        // Use the previously detected value as a fast first paint while
-        // detection runs (avoids flicker on cold start).
-        if (isSupportedCurrencyCode(savedCode)) {
-          setCurrencyCodeState(savedCode);
-        }
-
-        // Precedence: device-GPS country (only when permission has not yet
-        // been asked OR has been granted) → IP-based detection → USD.
-        // The device path correctly handles VPNs, foreign SIMs and CGNAT
-        // misroutes; the IP path is the silent fallback when the user
-        // declines, dismisses, or has no GPS available.
         let detected: CurrencyCode = FALLBACK_CURRENCY_CODE;
         const deviceResult = await detectGeoFromDeviceLocation();
         if (cancelled) return;
@@ -105,37 +68,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           detected = await detectCurrencyFromLocation();
           if (cancelled) return;
         }
-
-        // If another caller (e.g. DeliveryLocationProvider) set the currency
-        // while detection was in-flight, don't overwrite it.
-        if (sourceRef.current === "manual") return;
-
         setCurrencyCodeState(detected);
-        setSource("auto");
-        await Promise.all([
-          AsyncStorage.setItem(STORAGE_KEY, detected),
-          AsyncStorage.setItem(SOURCE_KEY, "auto"),
-        ]).catch(() => {});
       } catch {
-        // Fall through with the default fallback already in state.
-      } finally {
-        hydrated.current = true;
+        // Already initialized to USD fallback.
       }
     })();
-
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const setCurrencyCode = useCallback((code: CurrencyCode) => {
-    setCurrencyCodeState(code);
-    setSource("manual");
-    sourceRef.current = "manual";
-    Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY, code),
-      AsyncStorage.setItem(SOURCE_KEY, "manual"),
-    ]).catch(() => {});
   }, []);
 
   // Re-derive when live FX rates land so display amounts pick up the new rate.
@@ -177,14 +117,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     () => ({
       currency,
       currencyCode,
-      source,
-      setCurrencyCode,
       formatPrice,
       formatNative,
       convert,
       list: CURRENCIES,
     }),
-    [currency, currencyCode, source, setCurrencyCode, formatPrice, formatNative, convert],
+    [currency, currencyCode, formatPrice, formatNative, convert],
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;

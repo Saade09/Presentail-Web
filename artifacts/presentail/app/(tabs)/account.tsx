@@ -17,11 +17,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCurrency } from "@/contexts/CurrencyContext";
-import { useDeliveryLocationContext } from "@/contexts/DeliveryLocationProvider";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CURRENCIES, type CurrencyCode } from "@/data/currencies";
-import { detectGeoFromDeviceLocation } from "@/services/locationCurrencyService";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
@@ -41,13 +37,10 @@ function AccountTab() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
-  const { currencyCode, setCurrencyCode } = useCurrency();
-  const { deliveryLocations, selectCountry } = useDeliveryLocationContext();
   const { ready, user, logout, deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
   const [notifModalOpen, setNotifModalOpen] = useState(false);
 
@@ -138,41 +131,6 @@ function AccountTab() {
     setLangOpen(false);
   };
 
-  const onSelectCurrency = (code: CurrencyCode) => {
-    setCurrencyCode(code);
-    setCurrencyOpen(false);
-  };
-
-  // Re-trigger the device-location-based currency detection on demand. Used
-  // by the "Detect from my location" action in the currency sheet so a user
-  // who initially denied (or dismissed) the prompt can opt in later without
-  // reinstalling. `force: true` bypasses the "already asked" flag.
-  const onDetectCurrencyFromLocation = async () => {
-    const result = await detectGeoFromDeviceLocation({ force: true });
-    if (result) {
-      // If the device-derived country maps to one of our active delivery
-      // stores (LB / AE / CY today), switch the delivery store too — that
-      // keeps the header, prices, and payment methods aligned with the
-      // user's actual region. `selectCountry` already updates the currency
-      // to the country's native currency, so there's no need to call
-      // setCurrencyCode in that branch.
-      const matched = result.countryCode
-        ? deliveryLocations.find(
-            (c) => c.code.toUpperCase() === result.countryCode!.toUpperCase(),
-          )
-        : null;
-      if (matched) {
-        selectCountry(matched);
-      } else if (result.currencyCode) {
-        setCurrencyCode(result.currencyCode);
-      }
-    }
-    setCurrencyOpen(false);
-  };
-
-  const currencyName = (code: CurrencyCode) =>
-    (t as any)[`cur_${code}`] ?? code;
-
   if (!user) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -241,16 +199,6 @@ function AccountTab() {
               icon="globe"
               label={t.languageLabel}
               onPress={() => setLangOpen(true)}
-            />
-            <Divider colors={colors} />
-            <SettingsRow
-              colors={colors}
-              isRTL={isRTL}
-              icon="dollar-sign"
-              label={t.currency}
-              value={currencyCode}
-              valueLTR
-              onPress={() => setCurrencyOpen(true)}
             />
             {Platform.OS !== "web" ? (
               <>
@@ -389,19 +337,6 @@ function AccountTab() {
           </View>
         </BottomSheet>
 
-        <CurrencySheet
-          visible={currencyOpen}
-          onClose={() => setCurrencyOpen(false)}
-          colors={colors}
-          isRTL={isRTL}
-          title={t.selectCurrency}
-          currencyCode={currencyCode}
-          onSelect={onSelectCurrency}
-          currencyName={currencyName}
-          detectLabel={t.detectCurrencyFromLocation}
-          onDetectFromLocation={onDetectCurrencyFromLocation}
-        />
-
         <NotificationPermissionModal
           visible={notifModalOpen}
           onAllow={onNotifAllow}
@@ -499,16 +434,6 @@ function AccountTab() {
             label={t.languageLabel}
             onPress={() => setLangOpen(true)}
           />
-          <Divider colors={colors} />
-          <SettingsRow
-            colors={colors}
-            isRTL={isRTL}
-            icon="dollar-sign"
-            label={t.currency}
-            value={currencyCode}
-            valueLTR
-            onPress={() => setCurrencyOpen(true)}
-          />
           {Platform.OS !== "web" ? (
             <>
               <Divider colors={colors} />
@@ -598,19 +523,6 @@ function AccountTab() {
           </View>
         </View>
       </BottomSheet>
-
-      <CurrencySheet
-        visible={currencyOpen}
-        onClose={() => setCurrencyOpen(false)}
-        colors={colors}
-        isRTL={isRTL}
-        title={t.selectCurrency}
-        currencyCode={currencyCode}
-        onSelect={onSelectCurrency}
-        currencyName={currencyName}
-        detectLabel={t.detectCurrencyFromLocation}
-        onDetectFromLocation={onDetectCurrencyFromLocation}
-      />
 
       <NotificationPermissionModal
         visible={notifModalOpen}
@@ -702,132 +614,6 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, 
         />
       )}
     </Pressable>
-  );
-}
-
-type CurrencySheetProps = {
-  visible: boolean;
-  onClose: () => void;
-  colors: Colors;
-  isRTL: boolean;
-  title: string;
-  currencyCode: CurrencyCode;
-  onSelect: (code: CurrencyCode) => void;
-  currencyName: (code: CurrencyCode) => string;
-  detectLabel: string;
-  onDetectFromLocation: () => void;
-};
-
-function CurrencySheet({
-  visible,
-  onClose,
-  colors,
-  isRTL,
-  title,
-  currencyCode,
-  onSelect,
-  currencyName,
-  detectLabel,
-  onDetectFromLocation,
-}: CurrencySheetProps) {
-  return (
-    <BottomSheet visible={visible} onClose={onClose}>
-      <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
-        <Text
-          style={{
-            fontFamily: "PlayfairDisplay_500Medium",
-            fontSize: 22,
-            color: colors.primary,
-            textAlign: isRTL ? "right" : "left",
-            marginBottom: 16,
-          }}
-        >
-          {title}
-        </Text>
-        <ScrollView
-          style={{ maxHeight: 440 }}
-          contentContainerStyle={{
-            backgroundColor: "#fff",
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: colors.border,
-            overflow: "hidden",
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <Pressable
-            onPress={onDetectFromLocation}
-            style={({ pressed }) => ({
-              flexDirection: isRTL ? "row-reverse" : "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              backgroundColor: pressed ? "#0001" : "#fff",
-            })}
-          >
-            <Feather name="map-pin" size={18} color={colors.primary} />
-            <Text
-              numberOfLines={1}
-              style={{
-                flex: 1,
-                fontFamily: "Inter_500Medium",
-                fontSize: 14,
-                color: colors.primary,
-                textAlign: isRTL ? "right" : "left",
-              }}
-            >
-              {detectLabel}
-            </Text>
-          </Pressable>
-          <Divider colors={colors} />
-          {CURRENCIES.map((c, idx) => (
-            <React.Fragment key={c.code}>
-              {idx > 0 ? <Divider colors={colors} /> : null}
-              <Pressable
-                onPress={() => onSelect(c.code)}
-                style={({ pressed }) => ({
-                  flexDirection: isRTL ? "row-reverse" : "row",
-                  alignItems: "center",
-                  gap: 12,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  backgroundColor: pressed ? "#0001" : "#fff",
-                })}
-              >
-                <Text style={{ fontSize: 22 }}>{c.flag}</Text>
-                <Text
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 14,
-                    color: colors.primary,
-                    minWidth: 44,
-                    writingDirection: "ltr",
-                  }}
-                >
-                  {c.code}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    flex: 1,
-                    fontFamily: currencyCode === c.code ? "Inter_600SemiBold" : "Inter_400Regular",
-                    fontSize: 14,
-                    color: colors.primary,
-                    textAlign: isRTL ? "right" : "left",
-                  }}
-                >
-                  {currencyName(c.code)}
-                </Text>
-                {currencyCode === c.code ? (
-                  <Feather name="check" size={18} color={colors.primary} />
-                ) : null}
-              </Pressable>
-            </React.Fragment>
-          ))}
-        </ScrollView>
-      </View>
-    </BottomSheet>
   );
 }
 

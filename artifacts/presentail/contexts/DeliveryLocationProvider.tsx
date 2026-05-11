@@ -13,7 +13,6 @@ import {
   type DeliveryCity,
   type DeliveryCountry,
 } from "@/constants/deliveryLocations";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { fetchDeliveryLocations } from "@/services/deliveryLocationService";
 import {
   detectGeoFromDeviceLocation,
@@ -71,7 +70,6 @@ function firstActiveCity(country: DeliveryCountry | null): DeliveryCity | null {
 }
 
 export function DeliveryLocationProvider({ children }: { children: React.ReactNode }) {
-  const { setCurrencyCode } = useCurrency();
   const [deliveryLocations, setDeliveryLocations] = useState<DeliveryCountry[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<DeliveryCountry | null>(null);
   const [selectedCity, setSelectedCity] = useState<DeliveryCity | null>(null);
@@ -216,20 +214,12 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (nextCountry) setSelectedCountry(nextCountry);
     if (nextCity) setSelectedCity(nextCity);
     updateCachedStoreLocation(nextCountry?.code ?? null, nextCity?.id ?? null);
-    // Force the currency to the country's native currency when the user
-    // actually picked this country in a previous session OR when we just
-    // auto-detected a supported delivery country from their IP — both cases
-    // should align prices and payment methods with the active store. The
-    // generic Lebanon fallback (no persisted pick AND no IP match) must
-    // still leave currency in "auto" mode so CurrencyContext's IP-based
-    // detection can pick e.g. CAD for a visitor outside our delivery zone.
-    if (nextCountry && (persisted?.manuallySelected || autoDetected)) {
-      setCurrencyCode(nextCountry.currency);
-    }
     // Persist the auto-detected pick so subsequent launches skip the geo
     // round-trip but keep `manuallySelected: false` — the country sheet UI
     // can still treat the selection as a soft default and the user override
-    // path remains unchanged.
+    // path remains unchanged. Note: display currency is NOT touched here —
+    // it's owned entirely by CurrencyContext, which derives it from the
+    // user's phone location each launch.
     if (autoDetected && nextCountry) {
       persist({
         selectedDeliveryCountryId: nextCountry.id,
@@ -248,7 +238,6 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     autoDetectionDone,
     selectedCountry,
     selectedCity,
-    setCurrencyCode,
     persist,
   ]);
 
@@ -258,7 +247,6 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       const nextCity = firstActiveCity(country);
       setSelectedCity(nextCity);
       updateCachedStoreLocation(country.code, nextCity?.id ?? null);
-      setCurrencyCode(country.currency);
       persist({
         selectedDeliveryCountryId: country.id,
         selectedDeliveryCountryCode: country.code,
@@ -268,7 +256,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
         manuallySelected: true,
       });
     },
-    [persist, setCurrencyCode],
+    [persist],
   );
 
   const selectCity = useCallback(
