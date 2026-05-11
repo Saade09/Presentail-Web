@@ -257,12 +257,59 @@ function cityLabelFromSlug(slug) {
     .join(" ");
 }
 
+// Small in-process LRU+TTL cache for the generic locale-aware head snippet.
+// `buildSeoHead` is invoked for every request that hits the SPA shell —
+// including high-traffic non-entity routes like `/{lang}-{country}/{city}` and
+// `/shop` — and its output is fully determined by (pathname, basePath, origin).
+// Caching the result for ~60s makes repeat crawler / user hits essentially
+// free without changing per-route content. Bounded with simple FIFO eviction
+// (re-inserting on hit gives LRU-ish behaviour).
+const GENERIC_SEO_CACHE_TTL_MS = 60_000;
+const GENERIC_SEO_CACHE_MAX_ENTRIES = 500;
+const genericSeoCache = new Map();
+
+function genericSeoCacheKey(pathname, basePath, origin) {
+  return `${pathname}\u0000${basePath}\u0000${origin}`;
+}
+
+function getCachedGenericSeo(key) {
+  const entry = genericSeoCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    genericSeoCache.delete(key);
+    return null;
+  }
+  genericSeoCache.delete(key);
+  genericSeoCache.set(key, entry);
+  return entry.value;
+}
+
+function setCachedGenericSeo(key, value) {
+  if (genericSeoCache.size >= GENERIC_SEO_CACHE_MAX_ENTRIES) {
+    const oldest = genericSeoCache.keys().next().value;
+    if (oldest !== undefined) genericSeoCache.delete(oldest);
+  }
+  genericSeoCache.set(key, {
+    value,
+    expiresAt: Date.now() + GENERIC_SEO_CACHE_TTL_MS,
+  });
+}
+
 /**
  * Build the SEO `<head>` snippet for the given pathname. `basePath` is the
  * artifact base prefix (e.g. "" or "/app"). `origin` is the site origin used
  * for absolute canonical / hreflang URLs.
  */
 export function buildSeoHead(pathname, { origin = "", basePath = "" } = {}) {
+  const cacheKey = genericSeoCacheKey(pathname, basePath, origin);
+  const cached = getCachedGenericSeo(cacheKey);
+  if (cached) return cached;
+  const value = computeSeoHead(pathname, { origin, basePath });
+  setCachedGenericSeo(cacheKey, value);
+  return value;
+}
+
+function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const parsed = parseLocalePath(pathname);
   const inLocale = parsed.hasLocalePrefix && parsed.country;
   const lang = parsed.lang ?? "en";
