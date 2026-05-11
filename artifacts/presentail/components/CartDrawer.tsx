@@ -13,7 +13,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartUpsells } from "@/components/CartUpsells";
+import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -34,6 +36,8 @@ export function CartDrawer() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
+  const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
   const { formatNative, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
@@ -83,6 +87,7 @@ export function CartDrawer() {
   }, [closeCart, router]);
 
   return (
+    <>
     <Modal
       visible={isCartOpen}
       transparent
@@ -408,6 +413,10 @@ export function CartDrawer() {
               </View>
               <Pressable
                 onPress={() => {
+                  if (!user) {
+                    setLoginSheetVisible(true);
+                    return;
+                  }
                   closeCart();
                   router.push("/checkout");
                 }}
@@ -439,5 +448,20 @@ export function CartDrawer() {
         )}
       </View>
     </Modal>
+    <CheckoutLoginSheet
+      visible={loginSheetVisible}
+      onClose={() => setLoginSheetVisible(false)}
+      onAuthSuccess={() => {
+        setLoginSheetVisible(false);
+        closeCart();
+        router.push("/checkout");
+      }}
+      onContinueAsGuest={() => {
+        setLoginSheetVisible(false);
+        closeCart();
+        router.push("/checkout");
+      }}
+    />
+    </>
   );
 }

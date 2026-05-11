@@ -13,7 +13,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartUpsells } from "@/components/CartUpsells";
+import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -52,6 +54,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   // fall back to the navigator context, otherwise the bare safe-area inset.
   const overlay = Math.max(bottomOffset ?? ctxTabBarHeight, insets.bottom);
   const [footerHeight, setFooterHeight] = React.useState(0);
+  const { user } = useAuth();
+  const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const { detailed, total, setQty, remove, clear } = useCart();
   const { selectedCountry } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
@@ -104,6 +108,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   }, [router]);
 
   return (
+    <>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View
         style={{
@@ -441,7 +446,13 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               />
             </View>
             <Pressable
-              onPress={() => router.push("/checkout")}
+              onPress={() => {
+                if (!user) {
+                  setLoginSheetVisible(true);
+                  return;
+                }
+                router.push("/checkout");
+              }}
               style={({ pressed }) => [
                 {
                   backgroundColor: colors.primary,
@@ -465,6 +476,19 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         </>
       )}
     </View>
+    <CheckoutLoginSheet
+      visible={loginSheetVisible}
+      onClose={() => setLoginSheetVisible(false)}
+      onAuthSuccess={() => {
+        setLoginSheetVisible(false);
+        router.push("/checkout");
+      }}
+      onContinueAsGuest={() => {
+        setLoginSheetVisible(false);
+        router.push("/checkout");
+      }}
+    />
+    </>
   );
 }
 
