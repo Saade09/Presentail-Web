@@ -19,6 +19,7 @@ import { useWooProducts } from "@/contexts/WooProductsContext";
 import { categories } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -27,7 +28,7 @@ const ALL = "all";
 
 type SortKey = "featured" | "priceUp" | "priceDown" | "name";
 
-export default function CatalogScreen() {
+function CatalogScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -268,3 +269,5 @@ export default function CatalogScreen() {
     </ScrollView>
   );
 }
+
+export default withRouteErrorBoundary(CatalogScreen, "(tabs)/catalog");

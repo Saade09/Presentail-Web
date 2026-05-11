@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { TranslationKey } from "@/lib/translations";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type PrivacySection = { titleKey: TranslationKey; bodyKey: TranslationKey };
 
@@ -24,7 +25,7 @@ const SECTIONS: PrivacySection[] = [
   { titleKey: "privacy_sec10_title", bodyKey: "privacy_sec10_body" },
 ];
 
-export default function PrivacyScreen() {
+function PrivacyScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -212,3 +213,5 @@ export default function PrivacyScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(PrivacyScreen, "privacy");

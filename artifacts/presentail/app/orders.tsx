@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type MyOrder = {
   appOrderId: string;
@@ -37,7 +38,7 @@ type FetchState =
   | { kind: "error"; message: string }
   | { kind: "ok"; orders: MyOrder[] };
 
-export default function OrdersScreen() {
+function OrdersScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -290,3 +291,5 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
+
+export default withRouteErrorBoundary(OrdersScreen, "orders");

@@ -17,11 +17,12 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
-export default function BrandScreen() {
+function BrandScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const router = useRouter();
@@ -136,3 +137,5 @@ export default function BrandScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(BrandScreen, "brand/[slug]");

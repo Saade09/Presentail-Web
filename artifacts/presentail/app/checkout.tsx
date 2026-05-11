@@ -47,6 +47,7 @@ export {
   nextPayMethodForCurrency,
   payMethodAvailability,
 } from "@/lib/payMethods";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const APP_SCHEME = "presentail";
 
@@ -192,7 +193,7 @@ function dayLabels(todayLabel: string, tomLabel: string) {
   return out;
 }
 
-export default function CheckoutScreen() {
+function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -1738,3 +1739,5 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
 const styles = StyleSheet.create({
   qtyMini: { width: 26, height: 26, alignItems: "center", justifyContent: "center" },
 });
+
+export default withRouteErrorBoundary(CheckoutScreen, "checkout");

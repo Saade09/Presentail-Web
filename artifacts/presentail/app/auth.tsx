@@ -30,6 +30,7 @@ import {
   signInWithGoogle,
 } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type Step =
   | "email"
@@ -39,7 +40,7 @@ type Step =
   | "forgotSent"
   | "forgotPasteLink";
 
-export default function AuthScreen() {
+function AuthScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -421,3 +422,5 @@ export default function AuthScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(AuthScreen, "auth");

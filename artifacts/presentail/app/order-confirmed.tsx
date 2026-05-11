@@ -7,8 +7,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-export default function OrderConfirmed() {
+function OrderConfirmed() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -241,3 +242,5 @@ function Row({ colors, icon, label, value, highlight }: any) {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(OrderConfirmed, "order-confirmed");

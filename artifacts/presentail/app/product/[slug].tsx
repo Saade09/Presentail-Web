@@ -27,6 +27,7 @@ import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -65,7 +66,7 @@ function toSafeImageSource(source: unknown): ImageSource | null {
   return null;
 }
 
-export default function ProductDetail() {
+function ProductDetail() {
   // `useLocalSearchParams` can return a string, an array of strings, or
   // undefined depending on how the route was reached (deep links and
   // some navigations can pass arrays). Coerce defensively so downstream
@@ -665,3 +666,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
+export default withRouteErrorBoundary(ProductDetail, "product/[slug]");

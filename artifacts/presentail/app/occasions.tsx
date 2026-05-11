@@ -11,6 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const OCC_NAME_KEY: Record<string, string> = {
   housewarming: "occ_housewarming",
@@ -33,7 +34,7 @@ const OCC_DESC_KEY: Record<string, string> = {
   condolences: "occ_condolences_desc",
 };
 
-export default function OccasionsScreen() {
+function OccasionsScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -234,3 +235,5 @@ export default function OccasionsScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(OccasionsScreen, "occasions");

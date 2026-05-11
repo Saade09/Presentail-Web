@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { TranslationKey } from "@/lib/translations";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type TermsSection = { titleKey: TranslationKey; bodyKey: TranslationKey };
 
@@ -24,7 +25,7 @@ const SECTIONS: TermsSection[] = [
   { titleKey: "terms_sec10_title", bodyKey: "terms_sec10_body" },
 ];
 
-export default function TermsScreen() {
+function TermsScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -212,3 +213,5 @@ export default function TermsScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(TermsScreen, "terms");

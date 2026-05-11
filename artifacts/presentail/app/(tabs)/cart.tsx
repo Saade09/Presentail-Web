@@ -10,8 +10,9 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-export default function CartTab() {
+function CartTab() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -110,3 +111,5 @@ export default function CartTab() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(CartTab, "(tabs)/cart");

@@ -26,13 +26,14 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
 type SortKey = "featured" | "priceUp" | "priceDown" | "name";
 
-export default function CategoryScreen() {
+function CategoryScreen() {
   const { slug: routeSlug } = useLocalSearchParams<{ slug: string }>();
   const [activeSlug, setActiveSlug] = useState<string>(String(routeSlug));
   useEffect(() => {
@@ -336,3 +337,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 });
+
+export default withRouteErrorBoundary(CategoryScreen, "category/[slug]");

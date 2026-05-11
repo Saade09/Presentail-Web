@@ -31,8 +31,9 @@ import {
   saveNotificationStatus,
   type NotificationStatus,
 } from "@/services/notifications";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-export default function AccountTab() {
+function AccountTab() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -865,3 +866,5 @@ function Row({ colors, icon, label, onPress, destructive, disabled }: any) {
     </Pressable>
   );
 }
+
+export default withRouteErrorBoundary(AccountTab, "(tabs)/account");

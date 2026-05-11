@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-export default function NotFoundScreen() {
+function NotFoundScreen() {
   const colors = useColors();
   const t = useT();
 
@@ -45,3 +46,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+export default withRouteErrorBoundary(NotFoundScreen, "+not-found");

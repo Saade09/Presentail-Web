@@ -18,8 +18,9 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { completePasswordReset } from "@/services/authService";
 import { passwordMeetsAll, passwordRequirements } from "@/utils/validation";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-export default function ResetPasswordScreen() {
+function ResetPasswordScreen() {
   const colors = useColors();
   const t = useT();
   const router = useRouter();
@@ -397,3 +398,5 @@ function Requirement({
     </View>
   );
 }
+
+export default withRouteErrorBoundary(ResetPasswordScreen, "reset-password");

@@ -28,6 +28,7 @@ import {
   type NotificationCategoryPrefs,
   type NotificationStatus,
 } from "@/services/notifications";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type CategoryDef = {
   key: NotificationCategory;
@@ -57,7 +58,7 @@ const CATEGORIES: CategoryDef[] = [
   },
 ];
 
-export default function NotificationPreferencesScreen() {
+function NotificationPreferencesScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -350,3 +351,5 @@ export default function NotificationPreferencesScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(NotificationPreferencesScreen, "notification-preferences");

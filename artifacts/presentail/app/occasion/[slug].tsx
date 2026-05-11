@@ -22,11 +22,12 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, type OccasionGroup } from "@/lib/woo";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = Math.min(160, (SCREEN_W - 48) / 2.3);
 
-export default function OccasionScreen() {
+function OccasionScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const router = useRouter();
@@ -246,3 +247,5 @@ const styles = StyleSheet.create({
   badge: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 999, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
   badgeText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 10 },
 });
+
+export default withRouteErrorBoundary(OccasionScreen, "occasion/[slug]");

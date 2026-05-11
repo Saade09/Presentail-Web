@@ -42,6 +42,7 @@ import {
   requestPermission,
   saveNotificationStatus,
 } from "@/services/notifications";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -254,7 +255,7 @@ function HomeHeader({
   );
 }
 
-export default function HomeScreen() {
+function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isRTL } = useLanguage();
@@ -1238,3 +1239,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
+
+export default withRouteErrorBoundary(HomeScreen, "(tabs)/index");

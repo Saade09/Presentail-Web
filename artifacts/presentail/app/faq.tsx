@@ -13,6 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { TranslationKey } from "@/lib/translations";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 type FAQEntry = { qKey: TranslationKey; aKey: TranslationKey };
 type Section = {
@@ -134,7 +135,7 @@ function FAQItem({
   );
 }
 
-export default function FAQScreen() {
+function FAQScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -350,3 +351,5 @@ export default function FAQScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(FAQScreen, "faq");

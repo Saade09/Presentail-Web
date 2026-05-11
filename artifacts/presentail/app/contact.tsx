@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const SOCIALS = [
   {
@@ -47,7 +48,7 @@ const SOCIALS = [
   },
 ];
 
-export default function ContactScreen() {
+function ContactScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -371,3 +372,5 @@ export default function ContactScreen() {
     </View>
   );
 }
+
+export default withRouteErrorBoundary(ContactScreen, "contact");
