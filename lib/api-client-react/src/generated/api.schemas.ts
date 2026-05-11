@@ -209,3 +209,14 @@ export type GetDeliveryConfigParams = {
    */
   cityId?: string;
 };
+
+export type GetGeoCurrencyByCoordsParams = {
+  /**
+   * WGS84 latitude in decimal degrees, range -90..90.
+   */
+  lat: number;
+  /**
+   * WGS84 longitude in decimal degrees, range -180..180.
+   */
+  lng: number;
+};

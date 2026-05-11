@@ -149,7 +149,98 @@ export async function resolveGeoCurrency(ip: string): Promise<GeoCurrencyResult>
   return result;
 }
 
+// ── Coordinate-based country lookup ──────────────────────────────────────────
+// Used by /geo/currency-by-coords to translate the device's GPS-reported
+// latitude/longitude into an ISO country code. We use BigDataCloud's public,
+// keyless `reverse-geocode-client` endpoint (works without an API key, no
+// PII beyond the lat/lng leaves the server) and fall back to USD on any
+// failure. Results are cached server-side keyed by lat/lng rounded to 0.1°
+// (~11 km) so a few sequential lookups from the same area share a single
+// outbound call without storing precise locations.
+
+const COORDS_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+const COORDS_MAX_CACHE_SIZE = 5000;
+const coordsCache = new Map<string, CacheEntry>();
+
+function coordsCacheKey(lat: number, lng: number): string {
+  const round = (v: number) => Math.round(v * 10) / 10;
+  return `${round(lat)},${round(lng)}`;
+}
+
+function readCoordsCache(key: string): CacheEntry | null {
+  const hit = coordsCache.get(key);
+  if (!hit) return null;
+  if (Date.now() >= hit.expiresAt) {
+    coordsCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function writeCoordsCache(key: string, entry: Omit<CacheEntry, "expiresAt">): void {
+  if (coordsCache.size >= COORDS_MAX_CACHE_SIZE) {
+    const firstKey = coordsCache.keys().next().value;
+    if (firstKey) coordsCache.delete(firstKey);
+  }
+  coordsCache.set(key, { ...entry, expiresAt: Date.now() + COORDS_CACHE_TTL_MS });
+}
+
+async function fetchCountryFromCoords(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    const url =
+      `https://api.bigdatacloud.net/data/reverse-geocode-client` +
+      `?latitude=${encodeURIComponent(lat.toString())}` +
+      `&longitude=${encodeURIComponent(lng.toString())}` +
+      `&localityLanguage=en`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { countryCode?: unknown };
+    const code = typeof json?.countryCode === "string" ? json.countryCode.trim() : "";
+    if (code && /^[A-Za-z]{2}$/.test(code)) return code.toUpperCase();
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function resolveGeoCurrencyByCoords(
+  lat: number,
+  lng: number,
+): Promise<GeoCurrencyResult> {
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return { countryCode: null, currencyCode: FALLBACK_DISPLAY_CURRENCY };
+  }
+  const key = coordsCacheKey(lat, lng);
+  const cached = readCoordsCache(key);
+  if (cached) {
+    return { countryCode: cached.countryCode, currencyCode: cached.currencyCode };
+  }
+  const country = await fetchCountryFromCoords(lat, lng);
+  const currency = currencyForCountry(country);
+  const result: GeoCurrencyResult = { countryCode: country, currencyCode: currency };
+  writeCoordsCache(key, result);
+  return result;
+}
+
 // Test-only hook. Avoids exporting cache directly.
 export function __resetGeoCurrencyCacheForTests(): void {
   cache.clear();
+  coordsCache.clear();
 }

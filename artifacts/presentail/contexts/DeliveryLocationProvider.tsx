@@ -15,7 +15,10 @@ import {
 } from "@/constants/deliveryLocations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { fetchDeliveryLocations } from "@/services/deliveryLocationService";
-import { detectGeoFromLocation } from "@/services/locationCurrencyService";
+import {
+  detectGeoFromDeviceLocation,
+  detectGeoFromLocation,
+} from "@/services/locationCurrencyService";
 import { updateCachedStoreLocation } from "@/lib/storeHeaders";
 
 const STORAGE_KEY = "@presentail/delivery-location-v1";
@@ -131,21 +134,31 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     loadLocations();
   }, [loadLocations]);
 
-  // Kick off IP-based country detection in parallel with the locations fetch
-  // so the first paint can pick the right delivery store (and therefore the
-  // right currency / payment methods) without the user opening the country
-  // sheet. Cached after the first call by the geo service.
+  // Kick off country detection in parallel with the locations fetch so the
+  // first paint can pick the right delivery store (and therefore the right
+  // currency / payment methods) without the user opening the country sheet.
+  // Precedence mirrors CurrencyContext: device GPS → IP → none. Both helpers
+  // are cached after the first call by the geo service, so this duplicates
+  // no network work.
   useEffect(() => {
     let cancelled = false;
-    detectGeoFromLocation()
-      .then((geo) => {
+    (async () => {
+      try {
+        const device = await detectGeoFromDeviceLocation();
+        if (cancelled) return;
+        if (device?.countryCode) {
+          setAutoDetectedCountryCode(device.countryCode);
+          return;
+        }
+        const geo = await detectGeoFromLocation();
         if (cancelled) return;
         setAutoDetectedCountryCode(geo.countryCode);
-      })
-      .catch(() => {})
-      .finally(() => {
+      } catch {
+        // ignore — IP-based / fallback path will still run on next mount
+      } finally {
         if (!cancelled) setAutoDetectionDone(true);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

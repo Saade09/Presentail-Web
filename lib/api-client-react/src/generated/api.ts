@@ -22,6 +22,7 @@ import type {
   ErrorResponse,
   GeoCurrencyResponse,
   GetDeliveryConfigParams,
+  GetGeoCurrencyByCoordsParams,
   GetHomepageBannersParams,
   GetHomepageCategoriesParams,
   HealthStatus,
@@ -878,6 +879,119 @@ export function useGetGeoCurrency<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGeoCurrencyQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Resolves the supplied latitude/longitude (typically from the device's
+coarse foreground location, with the user's permission) to an ISO
+country code and maps it to a display currency. Used by the mobile
+app as the primary currency-detection path so shoppers on a VPN, on
+a foreign SIM while roaming, or behind a carrier CGNAT that
+resolves to the wrong country still see prices in their actual
+local currency. Same response shape as `/geo/currency`. Invalid or
+out-of-range coordinates and any lookup failure degrade gracefully
+to `{ countryCode: null, currencyCode: "USD" }`.
+
+ * @summary Detect display currency from device coordinates
+ */
+export const getGetGeoCurrencyByCoordsUrl = (
+  params: GetGeoCurrencyByCoordsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/geo/currency-by-coords?${stringifiedParams}`
+    : `/api/geo/currency-by-coords`;
+};
+
+export const getGeoCurrencyByCoords = async (
+  params: GetGeoCurrencyByCoordsParams,
+  options?: RequestInit,
+): Promise<GeoCurrencyResponse> => {
+  return customFetch<GeoCurrencyResponse>(
+    getGetGeoCurrencyByCoordsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetGeoCurrencyByCoordsQueryKey = (
+  params?: GetGeoCurrencyByCoordsParams,
+) => {
+  return [`/api/geo/currency-by-coords`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetGeoCurrencyByCoordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGeoCurrencyByCoords>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetGeoCurrencyByCoordsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGeoCurrencyByCoords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGeoCurrencyByCoordsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGeoCurrencyByCoords>>
+  > = ({ signal }) =>
+    getGeoCurrencyByCoords(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGeoCurrencyByCoords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGeoCurrencyByCoordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGeoCurrencyByCoords>>
+>;
+export type GetGeoCurrencyByCoordsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Detect display currency from device coordinates
+ */
+
+export function useGetGeoCurrencyByCoords<
+  TData = Awaited<ReturnType<typeof getGeoCurrencyByCoords>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetGeoCurrencyByCoordsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGeoCurrencyByCoords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGeoCurrencyByCoordsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

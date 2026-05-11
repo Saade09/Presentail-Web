@@ -272,6 +272,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GeoCurrencyResponse"
+  /geo/currency-by-coords:
+    get:
+      operationId: getGeoCurrencyByCoords
+      tags: [geo]
+      summary: Detect display currency from device coordinates
+      description: |
+        Resolves the supplied latitude/longitude (typically from the device's
+        coarse foreground location, with the user's permission) to an ISO
+        country code and maps it to a display currency. Used by the mobile
+        app as the primary currency-detection path so shoppers on a VPN, on
+        a foreign SIM while roaming, or behind a carrier CGNAT that
+        resolves to the wrong country still see prices in their actual
+        local currency. Same response shape as `/geo/currency`. Invalid or
+        out-of-range coordinates and any lookup failure degrade gracefully
+        to `{ countryCode: null, currencyCode: "USD" }`.
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: WGS84 latitude in decimal degrees, range -90..90.
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: true
+          description: WGS84 longitude in decimal degrees, range -180..180.
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: Detected display currency for the supplied coordinates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoCurrencyResponse"
   /delivery-locations:
     get:
       operationId: getDeliveryLocations

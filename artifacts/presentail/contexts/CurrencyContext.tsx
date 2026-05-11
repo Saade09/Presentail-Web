@@ -9,7 +9,10 @@ import {
   type Currency,
   type CurrencyCode,
 } from "@/data/currencies";
-import { detectCurrencyFromLocation } from "@/services/locationCurrencyService";
+import {
+  detectCurrencyFromLocation,
+  detectGeoFromDeviceLocation,
+} from "@/services/locationCurrencyService";
 import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
 
 const STORAGE_KEY = "@presentail/currency-v1";
@@ -88,8 +91,20 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           setCurrencyCodeState(savedCode);
         }
 
-        const detected = await detectCurrencyFromLocation();
+        // Precedence: device-GPS country (only when permission has not yet
+        // been asked OR has been granted) → IP-based detection → USD.
+        // The device path correctly handles VPNs, foreign SIMs and CGNAT
+        // misroutes; the IP path is the silent fallback when the user
+        // declines, dismisses, or has no GPS available.
+        let detected: CurrencyCode = FALLBACK_CURRENCY_CODE;
+        const deviceResult = await detectGeoFromDeviceLocation();
         if (cancelled) return;
+        if (deviceResult) {
+          detected = deviceResult.currencyCode;
+        } else {
+          detected = await detectCurrencyFromLocation();
+          if (cancelled) return;
+        }
 
         // If another caller (e.g. DeliveryLocationProvider) set the currency
         // while detection was in-flight, don't overwrite it.

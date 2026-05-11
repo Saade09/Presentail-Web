@@ -18,8 +18,10 @@ import { NotificationPermissionModal } from "@/components/NotificationPermission
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDeliveryLocationContext } from "@/contexts/DeliveryLocationProvider";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CURRENCIES, type CurrencyCode } from "@/data/currencies";
+import { detectGeoFromDeviceLocation } from "@/services/locationCurrencyService";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
@@ -40,6 +42,7 @@ function AccountTab() {
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
   const { currencyCode, setCurrencyCode } = useCurrency();
+  const { deliveryLocations, selectCountry } = useDeliveryLocationContext();
   const { ready, user, logout, deleteAccount } = useAuth();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
@@ -137,6 +140,33 @@ function AccountTab() {
 
   const onSelectCurrency = (code: CurrencyCode) => {
     setCurrencyCode(code);
+    setCurrencyOpen(false);
+  };
+
+  // Re-trigger the device-location-based currency detection on demand. Used
+  // by the "Detect from my location" action in the currency sheet so a user
+  // who initially denied (or dismissed) the prompt can opt in later without
+  // reinstalling. `force: true` bypasses the "already asked" flag.
+  const onDetectCurrencyFromLocation = async () => {
+    const result = await detectGeoFromDeviceLocation({ force: true });
+    if (result) {
+      // If the device-derived country maps to one of our active delivery
+      // stores (LB / AE / CY today), switch the delivery store too — that
+      // keeps the header, prices, and payment methods aligned with the
+      // user's actual region. `selectCountry` already updates the currency
+      // to the country's native currency, so there's no need to call
+      // setCurrencyCode in that branch.
+      const matched = result.countryCode
+        ? deliveryLocations.find(
+            (c) => c.code.toUpperCase() === result.countryCode!.toUpperCase(),
+          )
+        : null;
+      if (matched) {
+        selectCountry(matched);
+      } else if (result.currencyCode) {
+        setCurrencyCode(result.currencyCode);
+      }
+    }
     setCurrencyOpen(false);
   };
 
@@ -368,6 +398,8 @@ function AccountTab() {
           currencyCode={currencyCode}
           onSelect={onSelectCurrency}
           currencyName={currencyName}
+          detectLabel={t.detectCurrencyFromLocation}
+          onDetectFromLocation={onDetectCurrencyFromLocation}
         />
 
         <NotificationPermissionModal
@@ -576,6 +608,8 @@ function AccountTab() {
         currencyCode={currencyCode}
         onSelect={onSelectCurrency}
         currencyName={currencyName}
+        detectLabel={t.detectCurrencyFromLocation}
+        onDetectFromLocation={onDetectCurrencyFromLocation}
       />
 
       <NotificationPermissionModal
@@ -680,6 +714,8 @@ type CurrencySheetProps = {
   currencyCode: CurrencyCode;
   onSelect: (code: CurrencyCode) => void;
   currencyName: (code: CurrencyCode) => string;
+  detectLabel: string;
+  onDetectFromLocation: () => void;
 };
 
 function CurrencySheet({
@@ -691,6 +727,8 @@ function CurrencySheet({
   currencyCode,
   onSelect,
   currencyName,
+  detectLabel,
+  onDetectFromLocation,
 }: CurrencySheetProps) {
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -717,6 +755,32 @@ function CurrencySheet({
           }}
           showsVerticalScrollIndicator={false}
         >
+          <Pressable
+            onPress={onDetectFromLocation}
+            style={({ pressed }) => ({
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 12,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              backgroundColor: pressed ? "#0001" : "#fff",
+            })}
+          >
+            <Feather name="map-pin" size={18} color={colors.primary} />
+            <Text
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                fontFamily: "Inter_500Medium",
+                fontSize: 14,
+                color: colors.primary,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {detectLabel}
+            </Text>
+          </Pressable>
+          <Divider colors={colors} />
           {CURRENCIES.map((c, idx) => (
             <React.Fragment key={c.code}>
               {idx > 0 ? <Divider colors={colors} /> : null}

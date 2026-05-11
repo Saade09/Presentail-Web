@@ -329,6 +329,42 @@ export const GetGeoCurrencyResponse = zod.object({
 });
 
 /**
+ * Resolves the supplied latitude/longitude (typically from the device's
+coarse foreground location, with the user's permission) to an ISO
+country code and maps it to a display currency. Used by the mobile
+app as the primary currency-detection path so shoppers on a VPN, on
+a foreign SIM while roaming, or behind a carrier CGNAT that
+resolves to the wrong country still see prices in their actual
+local currency. Same response shape as `/geo/currency`. Invalid or
+out-of-range coordinates and any lookup failure degrade gracefully
+to `{ countryCode: null, currencyCode: "USD" }`.
+
+ * @summary Detect display currency from device coordinates
+ */
+export const GetGeoCurrencyByCoordsQueryParams = zod.object({
+  lat: zod.coerce
+    .number()
+    .describe("WGS84 latitude in decimal degrees, range -90..90."),
+  lng: zod.coerce
+    .number()
+    .describe("WGS84 longitude in decimal degrees, range -180..180."),
+});
+
+export const GetGeoCurrencyByCoordsResponse = zod.object({
+  countryCode: zod
+    .string()
+    .nullable()
+    .describe(
+      "ISO 3166-1 alpha-2 country code derived from the caller's IP, or null when detection failed.",
+    ),
+  currencyCode: zod
+    .string()
+    .describe(
+      'ISO 4217 currency code suitable for display. Falls back to \"USD\" when the country has no first-class currency mapping or detection failed.',
+    ),
+});
+
+/**
  * Returns the canonical list of countries and cities Presentail can
 deliver to, including their isActive flags, currency, flag emoji
 and display ordering. Consumed by the mobile app on launch so

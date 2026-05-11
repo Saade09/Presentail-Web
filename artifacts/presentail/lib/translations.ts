@@ -164,6 +164,7 @@ const EN = {
   cur_OMR: "Omani rial",
   cur_CHF: "Swiss franc",
   country: "Country",
+  detectCurrencyFromLocation: "Detect from my location",
 
   // ── Product page ──
   productNotFound: "Product not found",
@@ -982,6 +983,7 @@ const AR: typeof EN = {
   cur_OMR: "الريال العماني",
   cur_CHF: "الفرنك السويسري",
   country: "البلد",
+  detectCurrencyFromLocation: "اكتشف من موقعي",
 
   // ── Product page ──
   productNotFound: "المنتج غير موجود",
@@ -1800,6 +1802,7 @@ const FR: typeof EN = {
   cur_OMR: "Rial omanais",
   cur_CHF: "Franc suisse",
   country: "Pays",
+  detectCurrencyFromLocation: "Détecter via ma position",
 
   // ── Product page ──
   productNotFound: "Produit introuvable",
