@@ -20,57 +20,13 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import {
+  expressSurchargeForCountry,
+  isExpressDeliveryAvailable,
+  timeSlotsForCountry,
+} from "@workspace/delivery";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
-
-type TimeSlot = { label: string; cutoffHour: number };
-const LB_TIME_SLOTS: TimeSlot[] = [
-  { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
-  { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
-  { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
-  { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
-];
-const AE_TIME_SLOTS: TimeSlot[] = [
-  { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
-  { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
-  { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
-  { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
-];
-const CY_TIME_SLOTS: TimeSlot[] = LB_TIME_SLOTS;
-
-function timeSlotsForCountry(code: string | null): TimeSlot[] {
-  if (code === "AE") return AE_TIME_SLOTS;
-  if (code === "CY") return CY_TIME_SLOTS;
-  return LB_TIME_SLOTS;
-}
-
-// Mirror mobile: $15 in Lebanon (and Cyprus), $4.90 in UAE.
-const LB_EXPRESS_SURCHARGE = 15;
-const AE_EXPRESS_SURCHARGE = 4.9;
-function expressSurchargeForCountry(code: string | null): number {
-  if (code === "AE") return AE_EXPRESS_SURCHARGE;
-  return LB_EXPRESS_SURCHARGE;
-}
-
-// Country-local hour, used to decide if Express Delivery (1–3 hrs) is
-// available — mobile shows the option only between 8 AM and 10 PM in the
-// recipient country's time zone.
-function getCountryHour(countryCode: string | null | undefined): number {
-  const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
-  try {
-    const h = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      hour: "numeric",
-      hour12: false,
-    }).format(new Date());
-    const n = parseInt(h, 10);
-    if (Number.isFinite(n) && n >= 0 && n <= 23) return n;
-  } catch {
-    // fall through
-  }
-  const offset = countryCode === "AE" ? 4 : 3;
-  return (new Date().getUTCHours() + offset + 24) % 24;
-}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -134,10 +90,10 @@ export default function Checkout() {
   // the recipient country's local time, mirroring the mobile rule. When
   // it's no longer available we silently fall back to the scheduled flow
   // so the order can still be placed.
-  const expressAvailable = useMemo(() => {
-    const h = getCountryHour(countryCode);
-    return h >= 8 && h < 22;
-  }, [countryCode]);
+  const expressAvailable = useMemo(
+    () => isExpressDeliveryAvailable(countryCode),
+    [countryCode],
+  );
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   useEffect(() => {
     if (deliveryMode === "express" && !expressAvailable) {

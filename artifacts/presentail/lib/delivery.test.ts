@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getBeirutHour, getBeirutOffsetHours } from "./beirutTime";
+import { getBeirutHour, getBeirutOffsetHours } from "@workspace/delivery";
 
 describe("getBeirutOffsetHours (DST edges)", () => {
   it("returns +2 in winter (mid-January)", () => {

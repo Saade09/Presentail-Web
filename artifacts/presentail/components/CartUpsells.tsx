@@ -19,7 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getCountryHour } from "@/lib/beirutTime";
+import { isExpressDeliveryAvailable } from "@workspace/delivery";
 import {
   type ResolvedUpsellTab,
   type UpsellTabId,
@@ -71,10 +71,10 @@ export function CartUpsells() {
     }
   }, [tabs, activeId]);
 
-  const expressAvailable = React.useMemo(() => {
-    const h = getCountryHour(selectedCountry?.code);
-    return h >= 8 && h < 22;
-  }, [selectedCountry?.code]);
+  const expressAvailable = React.useMemo(
+    () => isExpressDeliveryAvailable(selectedCountry?.code),
+    [selectedCountry?.code],
+  );
 
   // Lightweight in-component toast that mirrors the product detail screen's
   // pattern (ToastAndroid on Android, animated bubble elsewhere). Used to

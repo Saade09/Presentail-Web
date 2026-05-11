@@ -52,6 +52,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/clerk-types": "workspace:*",
+    "@workspace/delivery": "workspace:*",
     "@workspace/display-currency": "workspace:*",
     "@workspace/homepage-icons": "workspace:*",
     "class-variance-authority": "catalog:",

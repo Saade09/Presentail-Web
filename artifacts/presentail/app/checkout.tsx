@@ -29,16 +29,16 @@ import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { getCountryHour } from "@/lib/beirutTime";
 import {
   AE_EXPRESS_SURCHARGE,
   LB_EXPRESS_SURCHARGE,
   dayLabels,
   expressSurchargeForCountry,
+  getCountryHour,
   resolveSlotLabel,
   timeSlotsForCountry,
   type TimeSlot,
-} from "@/lib/delivery";
+} from "@workspace/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import {

@@ -14,23 +14,7 @@ import {
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
-
-function getCountryHour(countryCode: string | null | undefined): number {
-  const tz = countryCode === "AE" ? "Asia/Dubai" : "Asia/Beirut";
-  try {
-    const h = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      hour: "numeric",
-      hour12: false,
-    }).format(new Date());
-    const n = parseInt(h, 10);
-    if (Number.isFinite(n) && n >= 0 && n <= 23) return n;
-  } catch {
-    // fall through
-  }
-  const offset = countryCode === "AE" ? 4 : 3;
-  return (new Date().getUTCHours() + offset + 24) % 24;
-}
+import { isExpressDeliveryAvailable } from "@workspace/delivery";
 
 function tabLabelKey(id: UpsellTabId): string {
   switch (id) {
@@ -84,10 +68,10 @@ export function CartUpsells() {
     }
   }, [tabs, activeId]);
 
-  const expressAvailable = useMemo(() => {
-    const h = getCountryHour(countryCode);
-    return h >= 8 && h < 22;
-  }, [countryCode]);
+  const expressAvailable = useMemo(
+    () => isExpressDeliveryAvailable(countryCode),
+    [countryCode],
+  );
 
   const handleAdd = (product: ResolvedUpsellProduct) => {
     addItem(product, 1);

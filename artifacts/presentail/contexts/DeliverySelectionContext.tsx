@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext";
 import {
   timeSlotsForCountry,
   type TimeSlot,
-} from "@/lib/delivery";
+} from "@workspace/delivery";
 
 export type DeliveryMode = "express" | "today_slot" | "schedule";
 
