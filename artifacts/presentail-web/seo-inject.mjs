@@ -381,6 +381,60 @@ function assembleHtml(html, { lang, dir, headSnippet, titleTag }) {
 // ---------------------------------------------------------------------------
 
 const ENTITY_FETCH_TIMEOUT_MS = 2500;
+const ENTITY_CACHE_TTL_MS = 60_000;
+const ENTITY_CACHE_MAX_ENTRIES = 500;
+
+// Small in-process LRU+TTL cache for the per-entity SEO lookup. WhatsApp /
+// iMessage / Slack crawlers retry aggressively on shared product, brand, and
+// category links, so caching the upstream lookup for ~60s makes repeat shares
+// essentially free and protects the head-snippet renderer against transient
+// upstream slowdowns. Negative results (404 / timeout / network error) are
+// intentionally NOT cached so a transient blip can't pin an entity to the
+// generic fallback for the full TTL.
+const entitySeoCache = new Map();
+
+function entityCacheKey({ kind, slug, lang, countryCode, cityId }) {
+  return `${kind}\u0000${slug}\u0000${lang ?? ""}\u0000${countryCode ?? ""}\u0000${cityId ?? ""}`;
+}
+
+function getCachedEntity(key) {
+  const entry = entitySeoCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    entitySeoCache.delete(key);
+    return null;
+  }
+  entitySeoCache.delete(key);
+  entitySeoCache.set(key, entry);
+  return entry.value;
+}
+
+function setCachedEntity(key, value) {
+  if (!value) return;
+  if (entitySeoCache.size >= ENTITY_CACHE_MAX_ENTRIES) {
+    const oldest = entitySeoCache.keys().next().value;
+    if (oldest !== undefined) entitySeoCache.delete(oldest);
+  }
+  entitySeoCache.set(key, {
+    value,
+    expiresAt: Date.now() + ENTITY_CACHE_TTL_MS,
+  });
+}
+
+async function fetchEntityForSeoCached(kind, fetcher, opts) {
+  const key = entityCacheKey({
+    kind,
+    slug: opts.slug,
+    lang: opts.lang,
+    countryCode: opts.countryCode,
+    cityId: opts.cityId,
+  });
+  const hit = getCachedEntity(key);
+  if (hit) return hit;
+  const value = await fetcher(opts);
+  if (value) setCachedEntity(key, value);
+  return value;
+}
 
 function extractSlugFor(prefix, rest) {
   if (!rest || !rest.startsWith(prefix)) return null;
@@ -683,16 +737,23 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
 
   let result = null;
   if (productSlug) {
-    const product = await fetchProductForSeo({ slug: productSlug, ...fetchOpts });
-    if (product) result = buildProductHead({ product, ...headOpts });
-  } else if (brandSlug) {
-    const brand = await fetchBrandForSeo({ slug: brandSlug, ...fetchOpts });
-    if (brand) result = buildBrandHead({ brand, ...headOpts });
-  } else if (categorySlug) {
-    const category = await fetchCategoryForSeo({
-      slug: categorySlug,
+    const product = await fetchEntityForSeoCached("product", fetchProductForSeo, {
+      slug: productSlug,
       ...fetchOpts,
     });
+    if (product) result = buildProductHead({ product, ...headOpts });
+  } else if (brandSlug) {
+    const brand = await fetchEntityForSeoCached("brand", fetchBrandForSeo, {
+      slug: brandSlug,
+      ...fetchOpts,
+    });
+    if (brand) result = buildBrandHead({ brand, ...headOpts });
+  } else if (categorySlug) {
+    const category = await fetchEntityForSeoCached(
+      "category",
+      fetchCategoryForSeo,
+      { slug: categorySlug, ...fetchOpts },
+    );
     if (category)
       result = buildCategoryHead({ category, search, ...headOpts });
   }
