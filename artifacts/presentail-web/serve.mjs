@@ -75,6 +75,7 @@ const server = http.createServer(async (req, res) => {
           basePath: BASE_PATH,
           origin,
           apiBaseUrl: INTERNAL_API_BASE_URL,
+          search: url.search,
         });
         res.writeHead(200, { "content-type": MIME[".html"] });
         res.end(out);
@@ -104,6 +105,7 @@ const server = http.createServer(async (req, res) => {
       basePath: BASE_PATH,
       origin,
       apiBaseUrl: INTERNAL_API_BASE_URL,
+      search: url.search,
     });
     res.writeHead(200, { "content-type": MIME[".html"] });
     res.end(out);

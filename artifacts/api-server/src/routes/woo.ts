@@ -66,6 +66,7 @@ type WcBrand = {
   name: string;
   slug: string;
   count?: number;
+  description?: string;
   image?: WcImage | null;
 };
 
@@ -73,6 +74,8 @@ type WcCategory = {
   id: number;
   name?: string;
   slug: string;
+  description?: string;
+  image?: WcImage | null;
 };
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
@@ -632,6 +635,108 @@ router.get("/woo/product", async (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: err?.message ?? "Failed to fetch product" });
+  }
+});
+
+// GET /api/woo/brand?slug=...
+//
+// Single-brand lookup by slug, used by the web app's server-side SEO injector
+// to render brand-specific Open Graph / Twitter Card meta tags so that links
+// to `/brand/<slug>` pasted into WhatsApp, iMessage, Slack, etc. show a rich
+// preview (brand name, blurb, image) instead of the generic site-wide one.
+router.get("/woo/brand", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slugRaw = req.query.slug;
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
+  if (!slug) {
+    return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+  try {
+    const lang = readLang(req);
+    const r = await wooFetch(
+      `/products/brands?slug=${encodeURIComponent(slug)}&per_page=1`,
+      {},
+      lang,
+      store,
+    );
+    if (!r.ok) {
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup brand" });
+    }
+    const list = (await r.json()) as WcBrand[];
+    if (!list.length) {
+      return res.status(404).json({ ok: false, message: "Brand not found" });
+    }
+    const b = list[0];
+    return res.json({
+      ok: true,
+      brand: {
+        id: b.id,
+        name: b.name,
+        slug: b.slug,
+        description: typeof b.description === "string" ? b.description : "",
+        image: b.image?.src ?? null,
+      },
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message ?? "Failed to fetch brand" });
+  }
+});
+
+// GET /api/woo/category?slug=...
+//
+// Single-category lookup by slug, used by the web app's server-side SEO
+// injector to render category-specific Open Graph / Twitter Card meta tags
+// so that links to category landing pages (e.g. `/shop?n=<slug>`) pasted
+// into WhatsApp, iMessage, Slack, etc. show a rich preview (category name,
+// blurb, image) instead of the generic site-wide one.
+router.get("/woo/category", async (req, res) => {
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  const slugRaw = req.query.slug;
+  const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
+  if (!slug) {
+    return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+  if (isHiddenCategory(slug)) {
+    return res.status(404).json({ ok: false, message: "Category not found" });
+  }
+  try {
+    const lang = readLang(req);
+    const r = await wooFetch(
+      `/products/categories?slug=${encodeURIComponent(slug)}&per_page=1`,
+      {},
+      lang,
+      store,
+    );
+    if (!r.ok) {
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup category" });
+    }
+    const list = (await r.json()) as WcCategory[];
+    if (!list.length) {
+      return res.status(404).json({ ok: false, message: "Category not found" });
+    }
+    const c = list[0];
+    return res.json({
+      ok: true,
+      category: {
+        id: c.id,
+        name: c.name ?? c.slug,
+        slug: c.slug,
+        description: typeof c.description === "string" ? c.description : "",
+        image: c.image?.src ?? null,
+      },
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ ok: false, message: err?.message ?? "Failed to fetch category" });
   }
 });
 

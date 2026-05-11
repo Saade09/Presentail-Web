@@ -367,23 +367,25 @@ function assembleHtml(html, { lang, dir, headSnippet, titleTag }) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-product Open Graph / Twitter Card injection
+// Per-product / brand / category Open Graph / Twitter Card injection
 //
 // WhatsApp, iMessage, Slack, Facebook, X, etc. only honour static meta tags in
 // the initial HTML response — they do not execute the JS bundle. The generic
-// SEO injector above produces site-wide previews; for `/product/<slug>` paths
-// we additionally fetch the matching product server-side and override
-// og:title / og:description / og:image / og:url / twitter:* with real product
-// data so shared product links render with the product's name, blurb, and
-// primary image. Any failure (404, network error, slow upstream) falls back
-// silently to the generic locale-aware preview.
+// SEO injector above produces site-wide previews; for `/product/<slug>`,
+// `/brand/<slug>`, and `/shop?n=<slug>` (category landing) paths we
+// additionally fetch the matching record server-side and override
+// og:title / og:description / og:image / og:url / twitter:* with real data so
+// shared links render with the entity's name, blurb, and primary image. Any
+// failure (404, network error, slow upstream) falls back silently to the
+// generic locale-aware preview.
 // ---------------------------------------------------------------------------
 
-const PRODUCT_FETCH_TIMEOUT_MS = 2500;
+const ENTITY_FETCH_TIMEOUT_MS = 2500;
 
-function extractProductSlug(rest) {
-  if (!rest || !rest.startsWith("/product")) return null;
-  const m = rest.match(/^\/product\/([^/?#]+)/);
+function extractSlugFor(prefix, rest) {
+  if (!rest || !rest.startsWith(prefix)) return null;
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/([^/?#]+)`);
+  const m = rest.match(re);
   if (!m) return null;
   try {
     return decodeURIComponent(m[1]);
@@ -392,7 +394,31 @@ function extractProductSlug(rest) {
   }
 }
 
-async function fetchProductForSeo({
+function extractProductSlug(rest) {
+  return extractSlugFor("/product", rest);
+}
+
+function extractBrandSlug(rest) {
+  return extractSlugFor("/brand", rest);
+}
+
+function extractCategorySlugFromSearch(search) {
+  if (!search) return null;
+  const s = search.startsWith("?") ? search.slice(1) : search;
+  if (!s) return null;
+  const params = new URLSearchParams(s);
+  // The live storefront uses `?category=<slug>` (see Shop.tsx and the
+  // homepage CategoriesGrid / MainNavbar links). `?n=<slug>` is kept as a
+  // backward-compatible alias in case older shared links surface.
+  const raw = params.get("category") ?? params.get("n");
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
+}
+
+async function fetchEntityForSeo({
+  endpoint,
+  responseKey,
   slug,
   lang,
   countryCode,
@@ -404,15 +430,15 @@ async function fetchProductForSeo({
   if (lang) params.set("lang", lang);
   if (countryCode) params.set("countryCode", countryCode);
   if (cityId) params.set("cityId", cityId);
-  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/woo/product?${params.toString()}`;
+  const url = `${apiBaseUrl.replace(/\/$/, "")}${endpoint}?${params.toString()}`;
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), PRODUCT_FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: ac.signal });
     if (!res.ok) return null;
     const body = await res.json();
-    if (!body || body.ok !== true || !body.product) return null;
-    return body.product;
+    if (!body || body.ok !== true) return null;
+    return body[responseKey] ?? null;
   } catch {
     return null;
   } finally {
@@ -420,33 +446,67 @@ async function fetchProductForSeo({
   }
 }
 
-function buildProductHead({
-  product,
-  lang,
+function fetchProductForSeo(opts) {
+  return fetchEntityForSeo({
+    endpoint: "/api/woo/product",
+    responseKey: "product",
+    ...opts,
+  });
+}
+
+function fetchBrandForSeo(opts) {
+  return fetchEntityForSeo({
+    endpoint: "/api/woo/brand",
+    responseKey: "brand",
+    ...opts,
+  });
+}
+
+function fetchCategoryForSeo(opts) {
+  return fetchEntityForSeo({
+    endpoint: "/api/woo/category",
+    responseKey: "category",
+    ...opts,
+  });
+}
+
+// Strip basic HTML tags and collapse whitespace. WooCommerce category and
+// brand `description` fields commonly contain HTML (paragraphs, links).
+// Plain text is what social previews want.
+function stripHtml(s) {
+  return String(s)
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function clampDescription(s, max = 300) {
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1).trimEnd()}…`;
+}
+
+function buildEntityHead({
+  ogType,
+  title,
+  description,
+  imageUrl,
+  imageAlt,
   basePath,
   origin,
   pathname,
+  search,
+  lang,
+  extraLines = [],
 }) {
   const cleanBase = basePath.replace(/\/$/, "");
-  const canonicalHref = origin + cleanBase + pathname;
-  const rawName = typeof product.name === "string" ? product.name.trim() : "";
-  const title = rawName ? `${rawName} | Presentail` : "Presentail";
-  const rawDesc =
-    typeof product.description === "string" ? product.description.trim() : "";
-  const description = rawDesc.length > 0
-    ? rawDesc.length > 300
-      ? `${rawDesc.slice(0, 297).trimEnd()}…`
-      : rawDesc
-    : (DESCRIPTIONS[lang]?.product ?? DESCRIPTIONS.en.product).replace(
-        /\{(?:city|country)\}/g,
-        "",
-      );
-  const imageUrl =
-    (product.image && typeof product.image.uri === "string" && product.image.uri) ||
-    (Array.isArray(product.images) &&
-      product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
-    null;
-
+  const canonicalHref = origin + cleanBase + pathname + (search || "");
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
@@ -454,7 +514,7 @@ function buildProductHead({
   lines.push(
     `<meta property="og:description" content="${escapeAttr(description)}" />`,
   );
-  lines.push(`<meta property="og:type" content="product" />`);
+  lines.push(`<meta property="og:type" content="${escapeAttr(ogType)}" />`);
   lines.push(`<meta property="og:site_name" content="Presentail" />`);
   lines.push(
     `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[lang] ?? "en_US")}" />`,
@@ -463,7 +523,7 @@ function buildProductHead({
   if (imageUrl) {
     lines.push(`<meta property="og:image" content="${escapeAttr(imageUrl)}" />`);
     lines.push(
-      `<meta property="og:image:alt" content="${escapeAttr(rawName || "Presentail product")}" />`,
+      `<meta property="og:image:alt" content="${escapeAttr(imageAlt)}" />`,
     );
     lines.push(`<meta name="twitter:image" content="${escapeAttr(imageUrl)}" />`);
   }
@@ -474,63 +534,176 @@ function buildProductHead({
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
   );
+  for (const extra of extraLines) lines.push(extra);
+  return { title, headSnippet: lines.join("\n    ") };
+}
+
+function genericFallbackDescription(lang, key) {
+  const tpl = DESCRIPTIONS[lang]?.[key] ?? DESCRIPTIONS.en[key] ?? "";
+  return tpl.replace(/\{(?:city|country)\}/g, "").replace(/\s+/g, " ").trim();
+}
+
+function buildProductHead({
+  product,
+  lang,
+  basePath,
+  origin,
+  pathname,
+}) {
+  const rawName = typeof product.name === "string" ? product.name.trim() : "";
+  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const rawDesc =
+    typeof product.description === "string" ? product.description.trim() : "";
+  const description =
+    clampDescription(rawDesc) || genericFallbackDescription(lang, "product");
+  const imageUrl =
+    (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+    (Array.isArray(product.images) &&
+      product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+    null;
+
+  const extraLines = [];
   if (
     typeof product.priceValue === "number" &&
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0
   ) {
-    lines.push(
+    extraLines.push(
       `<meta property="product:price:amount" content="${escapeAttr(product.priceValue.toFixed(2))}" />`,
     );
-    lines.push(`<meta property="product:price:currency" content="USD" />`);
+    extraLines.push(`<meta property="product:price:currency" content="USD" />`);
   }
-  return { title, headSnippet: lines.join("\n    ") };
+  return buildEntityHead({
+    ogType: "product",
+    title,
+    description,
+    imageUrl,
+    imageAlt: rawName || "Presentail product",
+    basePath,
+    origin,
+    pathname,
+    search: "",
+    lang,
+    extraLines,
+  });
+}
+
+function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
+  const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
+  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const rawDesc = brand.description ? stripHtml(brand.description) : "";
+  const description =
+    clampDescription(rawDesc) || genericFallbackDescription(lang, "brand");
+  const imageUrl =
+    typeof brand.image === "string" && brand.image ? brand.image : null;
+  return buildEntityHead({
+    ogType: "website",
+    title,
+    description,
+    imageUrl,
+    imageAlt: rawName || "Presentail brand",
+    basePath,
+    origin,
+    pathname,
+    search: "",
+    lang,
+  });
+}
+
+function buildCategoryHead({
+  category,
+  lang,
+  basePath,
+  origin,
+  pathname,
+  search,
+}) {
+  const rawName = typeof category.name === "string" ? category.name.trim() : "";
+  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const rawDesc = category.description ? stripHtml(category.description) : "";
+  const description =
+    clampDescription(rawDesc) || genericFallbackDescription(lang, "shop");
+  const imageUrl =
+    typeof category.image === "string" && category.image ? category.image : null;
+  return buildEntityHead({
+    ogType: "website",
+    title,
+    description,
+    imageUrl,
+    imageAlt: rawName || "Presentail category",
+    basePath,
+    origin,
+    pathname,
+    search,
+    lang,
+  });
 }
 
 /**
- * Async variant of injectSeoTags that, for `/product/<slug>` routes, fetches
- * the product from the API and emits product-specific OG/Twitter Card meta so
- * shared links show a rich preview. Falls back to the generic locale-aware
- * injector on any failure.
+ * Async variant of injectSeoTags that, for `/product/<slug>`, `/brand/<slug>`,
+ * and `/shop?n=<slug>` routes, fetches the matching record from the API and
+ * emits entity-specific OG/Twitter Card meta so shared links show a rich
+ * preview. Falls back to the generic locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, ...rest } = opts;
+  const { apiBaseUrl, search, ...rest } = opts;
   const generic = buildSeoHead(pathname, rest);
   const parsed = parseLocalePath(pathname);
   if (!apiBaseUrl || !parsed.hasLocalePrefix) {
     return assembleHtml(html, generic);
   }
-  const slug = extractProductSlug(parsed.rest);
-  if (!slug) {
+
+  const productSlug = extractProductSlug(parsed.rest);
+  const brandSlug = extractBrandSlug(parsed.rest);
+  const categorySlug =
+    parsed.rest === "/shop" ? extractCategorySlugFromSearch(search) : null;
+
+  if (!productSlug && !brandSlug && !categorySlug) {
     return assembleHtml(html, generic);
   }
+
   const countryCode = parsed.country ? parsed.country.toUpperCase() : undefined;
   const cityId = parsed.city
     ? parsed.city.startsWith(`${parsed.country}-`)
       ? parsed.city
       : `${parsed.country}-${parsed.city}`
     : undefined;
-  const product = await fetchProductForSeo({
-    slug,
+  const fetchOpts = {
     lang: generic.lang,
     countryCode,
     cityId,
     apiBaseUrl,
-  });
-  if (!product) {
-    return assembleHtml(html, generic);
-  }
-  const { title, headSnippet } = buildProductHead({
-    product,
+  };
+  const headOpts = {
     lang: generic.lang,
     basePath: rest.basePath ?? "",
     origin: rest.origin ?? "",
     pathname,
-  });
+  };
+
+  let result = null;
+  if (productSlug) {
+    const product = await fetchProductForSeo({ slug: productSlug, ...fetchOpts });
+    if (product) result = buildProductHead({ product, ...headOpts });
+  } else if (brandSlug) {
+    const brand = await fetchBrandForSeo({ slug: brandSlug, ...fetchOpts });
+    if (brand) result = buildBrandHead({ brand, ...headOpts });
+  } else if (categorySlug) {
+    const category = await fetchCategoryForSeo({
+      slug: categorySlug,
+      ...fetchOpts,
+    });
+    if (category)
+      result = buildCategoryHead({ category, search, ...headOpts });
+  }
+
+  if (!result) {
+    return assembleHtml(html, generic);
+  }
   return assembleHtml(html, {
     lang: generic.lang,
     dir: generic.dir,
-    headSnippet,
-    titleTag: `<title>${escapeHtml(title)}</title>`,
+    headSnippet: result.headSnippet,
+    titleTag: `<title>${escapeHtml(result.title)}</title>`,
   });
 }

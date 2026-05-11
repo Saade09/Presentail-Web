@@ -24,13 +24,18 @@ function seoInjectPlugin(basePath: string): Plugin {
         // ctx.originalUrl is the full request URL including the base prefix.
         const reqUrl = ctx.originalUrl ?? ctx.path ?? "/";
         const cleanBase = basePath.replace(/\/$/, "");
-        let pathname = reqUrl.split("?")[0].split("#")[0];
+        const hashIdx = reqUrl.indexOf("#");
+        const noHash = hashIdx >= 0 ? reqUrl.slice(0, hashIdx) : reqUrl;
+        const qIdx = noHash.indexOf("?");
+        let pathname = qIdx >= 0 ? noHash.slice(0, qIdx) : noHash;
+        const search = qIdx >= 0 ? noHash.slice(qIdx) : "";
         if (cleanBase && pathname.startsWith(cleanBase)) {
           pathname = pathname.slice(cleanBase.length) || "/";
         }
         return injectSeoTagsAsync(html, pathname, {
           basePath: cleanBase,
           apiBaseUrl,
+          search,
         });
       },
     },
