@@ -23,7 +23,9 @@
         "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",
         "NSUserNotificationUsageDescription": "Allow notifications so we can update you about your orders, deliveries, and gift moments.",
         "CFBundleDisplayName": "Presentail",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": ["en", "ar", "fr"]
       },
       "associatedDomains": [
         "applinks:presentail.com"
