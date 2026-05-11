@@ -7,6 +7,11 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const APP_JSON_PATH = path.join(REPO_ROOT, "artifacts/presentail/app.json");
 const EAS_JSON_PATH = path.join(REPO_ROOT, "artifacts/presentail/eas.json");
+const APP_STORE_METADATA_PATH = path.join(
+  REPO_ROOT,
+  "artifacts/presentail/app-store-metadata.json",
+);
+const APP_STORE_SUBTITLE_MAX_LENGTH = 30;
 
 const ASC_BASE = "https://api.appstoreconnect.apple.com";
 const PLATFORM = "IOS";
@@ -316,6 +321,98 @@ async function attachBuildToVersion(
   );
 }
 
+function loadSubtitle(): string {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(APP_STORE_METADATA_PATH, "utf8");
+  } catch (err) {
+    throw new Error(
+      `Could not read App Store metadata file at ${APP_STORE_METADATA_PATH}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  let parsed: { subtitle?: unknown };
+  try {
+    parsed = JSON.parse(raw) as { subtitle?: unknown };
+  } catch (err) {
+    throw new Error(
+      `App Store metadata file at ${APP_STORE_METADATA_PATH} is not valid JSON: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  const subtitle = parsed.subtitle;
+  if (typeof subtitle !== "string") {
+    throw new Error(
+      `App Store metadata file at ${APP_STORE_METADATA_PATH} must contain a string "subtitle" field.`,
+    );
+  }
+  if (subtitle.length === 0) {
+    throw new Error(
+      `App Store "subtitle" in ${APP_STORE_METADATA_PATH} must not be empty.`,
+    );
+  }
+  if (subtitle.length > APP_STORE_SUBTITLE_MAX_LENGTH) {
+    throw new Error(
+      `App Store "subtitle" in ${APP_STORE_METADATA_PATH} is ${subtitle.length} characters long; ` +
+        `the App Store hard limit is ${APP_STORE_SUBTITLE_MAX_LENGTH}. Shorten "${subtitle}" before promoting.`,
+    );
+  }
+  if (subtitle !== subtitle.trim()) {
+    throw new Error(
+      `App Store "subtitle" in ${APP_STORE_METADATA_PATH} has leading or trailing whitespace; ` +
+        `trim "${subtitle}" before promoting.`,
+    );
+  }
+  return subtitle;
+}
+
+async function setSubtitle(
+  client: AscClient,
+  versionId: string,
+  subtitle: string,
+): Promise<{ locale: string; subtitle: string }[]> {
+  const list = await client.get<AscList>(
+    `/v1/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=50`,
+  );
+  if (list.data.length === 0) {
+    throw new Error(
+      `No localizations found on App Store version ${versionId}; cannot set subtitle.`,
+    );
+  }
+  const rendered: { locale: string; subtitle: string }[] = [];
+  for (const loc of list.data) {
+    const locale = (loc.attributes?.locale as string) ?? "(unknown)";
+    log(`Updating subtitle for locale ${locale} (id=${loc.id}).`);
+    let updated: AscSingle;
+    try {
+      updated = await client.patch<AscSingle>(
+        `/v1/appStoreVersionLocalizations/${loc.id}`,
+        {
+          data: {
+            type: "appStoreVersionLocalizations",
+            id: loc.id,
+            attributes: { subtitle },
+          },
+        },
+      );
+    } catch (err) {
+      throw new Error(
+        `App Store Connect rejected the subtitle for locale "${locale}" ` +
+          `(localization id=${loc.id}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+      );
+    }
+    const written =
+      ((updated.data.attributes ?? {}) as { subtitle?: string }).subtitle ??
+      subtitle;
+    rendered.push({ locale, subtitle: written });
+  }
+  return rendered;
+}
+
 async function setReleaseNotes(
   client: AscClient,
   versionId: string,
@@ -390,6 +487,12 @@ async function main(): Promise<void> {
     );
   }
   const dryRun = modeInput === "dry-run";
+
+  const subtitle = loadSubtitle();
+  log(
+    `App Store subtitle (from ${path.relative(REPO_ROOT, APP_STORE_METADATA_PATH)}): ` +
+      `"${subtitle}" (${subtitle.length}/${APP_STORE_SUBTITLE_MAX_LENGTH} chars).`,
+  );
 
   const appJson = readJson<{ expo: { version: string } }>(APP_JSON_PATH);
   const easJson = readJson<{
@@ -478,8 +581,15 @@ async function main(): Promise<void> {
   );
 
   await attachBuildToVersion(client, version.id, build.id);
+  const renderedSubtitle = await setSubtitle(client, version.id, subtitle);
   const renderedNotes = await setReleaseNotes(client, version.id, releaseNotes);
 
+  log("");
+  log("=== Rendered subtitle (as App Store has it now) ===");
+  for (const { locale, subtitle: written } of renderedSubtitle) {
+    log(`--- ${locale} --- ${written}`);
+  }
+  log("=== end of rendered subtitle ===");
   log("");
   log("=== Rendered release notes (as App Store has them now) ===");
   for (const { locale, whatsNew } of renderedNotes) {
@@ -510,6 +620,7 @@ async function main(): Promise<void> {
   log(`Build number      : ${buildVersion} (id=${build.id})`);
   log(`Release type      : ${releaseType}`);
   log(`Export compliance : usesNonExemptEncryption=${exportComplianceValue} (source: ${exportComplianceSource})`);
+  log(`Subtitle          : "${subtitle}" (${subtitle.length}/${APP_STORE_SUBTITLE_MAX_LENGTH} chars)`);
   log(`Submission id     : ${submission ? submission.id : "(dry-run, not submitted)"}`);
   log(`Review state      : ${finalState}`);
   log(`ASC link          : ${ascLink}`);
@@ -534,6 +645,12 @@ async function main(): Promise<void> {
           "\n```\n\n</details>",
       )
       .join("\n");
+    const subtitleRows = renderedSubtitle
+      .map(
+        ({ locale, subtitle: written }) =>
+          `| \`${escape(locale)}\` | ${escape(written)} |`,
+      )
+      .join("\n");
     const heading = dryRun
       ? `## App Store promotion — DRY RUN (not submitted)`
       : `## App Store promotion submitted`;
@@ -545,9 +662,16 @@ async function main(): Promise<void> {
       `- **Build**: \`${buildVersion}\``,
       `- **Release type**: \`${releaseType}\``,
       `- **Export compliance**: \`usesNonExemptEncryption=${exportComplianceValue}\` (source: ${exportComplianceSource})`,
+      `- **Subtitle**: \`${subtitle}\` (${subtitle.length}/${APP_STORE_SUBTITLE_MAX_LENGTH} chars, from \`${path.relative(REPO_ROOT, APP_STORE_METADATA_PATH)}\`)`,
       `- **Review state**: \`${finalState}\``,
       `- **Submission id**: \`${submission ? submission.id : "(dry-run, not submitted)"}\``,
       `- **ASC**: ${ascLink}`,
+      ``,
+      `### Rendered subtitle per locale`,
+      ``,
+      `| Locale | Subtitle |`,
+      `| --- | --- |`,
+      subtitleRows,
       ``,
       `### Rendered release notes per locale`,
       ``,
