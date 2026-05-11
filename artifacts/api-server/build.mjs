@@ -38,6 +38,28 @@ async function buildAll() {
     // - uses native modules and loads them dynamically (e.g. sharp)
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
+      // Project runtime dependencies that are present in node_modules at
+      // runtime (declared in package.json `dependencies`). Externalising
+      // them keeps the bundle small and lets each be loaded directly,
+      // which also avoids accidentally double-bundling the Clerk SDK or
+      // Stripe SDK and breaking their internal singletons.
+      "@clerk/express",
+      "@clerk/shared",
+      "drizzle-orm",
+      "drizzle-orm/*",
+      "stripe",
+      "svix",
+      "jose",
+      "express",
+      "express-rate-limit",
+      "cors",
+      "cookie-parser",
+      "http-proxy-middleware",
+      // NOTE: workspace packages (@workspace/*) MUST stay bundled — their
+      // package.json `main` points at TS source (`src/index.ts`) and Node's
+      // ESM resolver cannot follow that at runtime, nor the extensionless
+      // bare imports inside the generated code.
+      // Native / dynamic-load packages that must never be bundled.
       "*.node",
       "sharp",
       "better-sqlite3",

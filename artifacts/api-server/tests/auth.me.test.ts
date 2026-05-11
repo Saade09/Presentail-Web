@@ -10,6 +10,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 //   3. If found → return the local fields and DO NOT call WooCommerce.
 //   4. If not found → fall back to a WC GET, then mirror locally in the bg.
 
+// /auth/me is now wrapped in `requireUserType(["customer"])`, which calls
+// `getAuth(req)` from @clerk/express. Without the real clerkMiddleware
+// mounted in the test harness, getAuth throws — yielding 500s for all
+// three cases. Stub it to report an unauthenticated request so the
+// middleware passes through to the legacy WP/JWT auth path the tests
+// actually exercise.
+vi.mock("@clerk/express", () => ({
+  getAuth: () => ({ userId: null, sessionClaims: null }),
+  createClerkClient: () => ({
+    users: {
+      getUser: vi.fn(),
+      updateUserMetadata: vi.fn(),
+    },
+  }),
+}));
+
 const authenticateMock = vi.fn();
 vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),

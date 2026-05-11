@@ -65,10 +65,21 @@ beforeEach(async () => {
   lastWcRequest = null;
 
   // Default: WC accepts the order. Individual tests can override.
+  // The route also does a catalog price lookup (/products/<id>) before
+  // creating the order to verify the submitted price; route the two URL
+  // shapes to the appropriate response. Country-forwarding tests assert
+  // against the /orders request specifically — `lastWcRequest` tracks it.
   fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (url, init) => {
-      lastWcRequest = { url: String(url), init: init ?? {} };
+      const u = String(url);
+      if (u.includes("/products/")) {
+        return new Response(
+          JSON.stringify({ id: 99, price: "50.00", name: "Bouquet" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      lastWcRequest = { url: u, init: init ?? {} };
       return new Response(
         JSON.stringify({ id: 12345, order_key: "wc_order_abc" }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -114,7 +125,11 @@ function basePayload(overrides: Record<string, unknown> = {}) {
     deliveryDetails: "Some street",
     deliveryDate: "2026-05-10",
     deliverySlot: "9:00 AM – 2:00 PM",
-    paymentMethod: "card",
+    // Default to an offline method ("whish") so country / appDeviceId tests
+    // bypass the card payment-intent gate (covered separately in
+    // woo.order.payment.test.ts). Tests that need to exercise the card path
+    // explicitly override this field.
+    paymentMethod: "whish",
     appDeviceId: "device-abc",
     ...overrides,
   };
@@ -185,10 +200,18 @@ describe("POST /api/woo/order — country forwarding", () => {
 });
 
 describe("POST /api/woo/order — appDeviceId handling", () => {
-  it("drops appDeviceId for unauthenticated requests (no Authorization header)", async () => {
+  // Contract change (post-customer-mirror migration): guest checkouts now
+  // upsert a local customer row from the billing email and link the order
+  // to the synced WC customer mirror. As a result `userId` is non-null
+  // even on unauthenticated requests, and the `appDeviceId` is preserved
+  // alongside it in `app_orders`. The previous "drop on unauth" contract
+  // is gone — `recordSuccessfulWcOrder` only nulls deviceId when userId
+  // ends up null (e.g. when the upsert returns no wcCustomerId).
+
+  it("persists appDeviceId on a guest order (linked to upserted WC mirror)", async () => {
     const res = await request(app)
       .post("/api/woo/order")
-      .send(basePayload({ appDeviceId: "should-be-dropped" }));
+      .send(basePayload({ appDeviceId: "device-guest" }));
     expect(res.status).toBe(200);
     // The DB insert is fire-and-forget; await a microtask flush so the
     // background work has a chance to run before we assert.
@@ -196,8 +219,10 @@ describe("POST /api/woo/order — appDeviceId handling", () => {
     expect(dbMock.insert).toHaveBeenCalled();
     const inserted = insertChain.values.mock.calls[0]?.[0];
     expect(inserted).toBeDefined();
-    expect(inserted.deviceId).toBeNull();
-    expect(inserted.userId).toBeNull();
+    // Mock customers lib returns wcCustomerId=777, so the order is linked
+    // to that mirror id and the device id rides along with it.
+    expect(inserted.userId).toBe(777);
+    expect(inserted.deviceId).toBe("device-guest");
   });
 
   it("persists appDeviceId when the request is authenticated", async () => {
@@ -214,10 +239,11 @@ describe("POST /api/woo/order — appDeviceId handling", () => {
     await new Promise((r) => setImmediate(r));
     const inserted = insertChain.values.mock.calls[0]?.[0];
     expect(inserted.deviceId).toBe("device-xyz");
+    // Authenticated identity wins over the upserted mirror id.
     expect(inserted.userId).toBe(42);
   });
 
-  it("drops appDeviceId when authentication fails", async () => {
+  it("falls back to the upserted mirror id when authentication fails", async () => {
     authenticateMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -230,7 +256,10 @@ describe("POST /api/woo/order — appDeviceId handling", () => {
     expect(res.status).toBe(200);
     await new Promise((r) => setImmediate(r));
     const inserted = insertChain.values.mock.calls[0]?.[0];
-    expect(inserted.deviceId).toBeNull();
-    expect(inserted.userId).toBeNull();
+    // The bad token does not abort the order — we proceed as a guest
+    // checkout, link the order to the upserted mirror, and keep the
+    // device id alongside it.
+    expect(inserted.userId).toBe(777);
+    expect(inserted.deviceId).toBe("device-xyz");
   });
 });

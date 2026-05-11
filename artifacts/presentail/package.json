@@ -68,10 +68,10 @@
   "dependencies": {
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/bottom-tabs": "7.15.9",
-    "babel-preset-expo": "^55.0.18",
+    "babel-preset-expo": "^54.0.10",
     "expo-apple-authentication": "~8.0.8",
     "expo-clipboard": "~8.0.8",
-    "expo-localization": "^55.0.13",
+    "expo-localization": "^17.0.8",
     "expo-secure-store": "^15.0.8",
     "expo-updates": "^29.0.17"
   }

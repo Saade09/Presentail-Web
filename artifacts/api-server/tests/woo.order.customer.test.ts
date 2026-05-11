@@ -162,7 +162,10 @@ describe("POST /api/woo/order — customer linking", () => {
 
     // ── Sanity: the route invoked both upsert + WC sync exactly once.
     expect(upsertCustomerMock).toHaveBeenCalledTimes(1);
-    expect(syncCustomerToWooMock).toHaveBeenCalledWith(7);
+    // syncCustomerToWoo now receives the resolved store config as the
+    // second argument so it talks to the right WC instance for the
+    // delivery country. The first argument remains the local customer id.
+    expect(syncCustomerToWooMock).toHaveBeenCalledWith(7, expect.any(Object));
   });
 
   it("returns 502 customer_sync_failed when the WC mirror sync throws", async () => {
