@@ -139,7 +139,33 @@ function findOffendingImports(
   return Array.from(hits).sort();
 }
 
+const SHIPPED_COMMENT =
+  "Native modules (packages with native iOS/Android code) that were compiled into the most recently shipped TestFlight / App Store build of the Presentail mobile app. The check-presentail-native-modules script compares this list against the native modules currently declared in artifacts/presentail/package.json. Any new entry that is not yet in this file MUST be lazy-loaded (await import / try { require } catch) in the JS layer until a fresh EAS build has been submitted, otherwise the app will crash on older TestFlight binaries the moment a screen importing it is opened. This file is regenerated automatically by the `iOS – Build & Submit to TestFlight` GitHub Actions workflow after every successful EAS production build (it runs `pnpm --filter @workspace/scripts run write-presentail-native-modules` and opens a PR with the diff). You can also re-run it locally with the same command if you ever need to refresh the baseline by hand.";
+
+function writeBaseline(): void {
+  const current = getCurrentNativeModules();
+  let existingComment = SHIPPED_COMMENT;
+  try {
+    const existing = readJson<ShippedFile>(SHIPPED_PATH);
+    if (existing._comment) existingComment = existing._comment;
+  } catch {
+    /* file may not exist yet */
+  }
+  const next: ShippedFile = {
+    _comment: existingComment,
+    modules: current,
+  };
+  fs.writeFileSync(SHIPPED_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  console.log(
+    `Wrote ${current.length} native modules to ${path.relative(REPO_ROOT, SHIPPED_PATH)}.`,
+  );
+}
+
 function main(): void {
+  if (process.argv.includes("--write")) {
+    writeBaseline();
+    return;
+  }
   const shipped = readJson<ShippedFile>(SHIPPED_PATH);
   const shippedSet = new Set(shipped.modules);
   const current = getCurrentNativeModules();
