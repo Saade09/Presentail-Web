@@ -419,16 +419,6 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         </View>
       </View>
 
-      {/* Rating */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <MaterialCommunityIcons key={i} name="star" size={14} color={colors.gold} />
-        ))}
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginLeft: 4 }}>
-          {t.excellentRating}
-        </Text>
-      </View>
-
       {/* Delivery options */}
       <View style={{ marginTop: 8, gap: 10 }}>
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
