@@ -78,42 +78,17 @@ function CatalogScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={{ paddingHorizontal: 24, paddingTop: topPad + 12, gap: 18 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 11,
-              color: colors.gold,
-              letterSpacing: 3,
-              textTransform: "uppercase",
-            }}
-          >
-            {t.boutique}
-          </Text>
-          <Pressable hitSlop={10} onPress={() => router.push("/cart")}>
-            <Feather name="shopping-bag" size={18} color={colors.primary} />
-            {count > 0 ? (
-              <View
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -8,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 999,
-                  backgroundColor: colors.gold,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 4,
-                }}
-              >
-                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 9 }}>
-                  {count}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
+        <Text
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 11,
+            color: colors.gold,
+            letterSpacing: 3,
+            textTransform: "uppercase",
+          }}
+        >
+          {t.boutique}
+        </Text>
         <SectionTitle
           title={t.catalogFullTitle}
           description={t.catalogFullDesc}
