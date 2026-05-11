@@ -72,17 +72,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         const ipResult = await detectGeoFromLocation();
         if (cancelled) return;
 
-        let localeCountry: string | null = null;
-        try {
-          const Localization = await import("expo-localization");
-          const region =
-            typeof Localization.getLocales === "function"
-              ? Localization.getLocales()[0]?.regionCode
-              : null;
-          if (typeof region === "string") localeCountry = region;
-        } catch {
-          // expo-localization may be missing in some test contexts; ignore.
-        }
+        // expo-localization is intentionally NOT imported here. The native
+        // module is not present in TestFlight build 16 / App Store build,
+        // so importing it (even dynamically) crashes the app on boot via a
+        // hard native error that JS can't catch. Locale-country resolution
+        // will be re-enabled in the next binary build.
+        const localeCountry: string | null = null;
 
         const resolved = resolveDisplayCurrency({
           manualOverride: null,
