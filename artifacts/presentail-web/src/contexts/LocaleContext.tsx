@@ -314,7 +314,7 @@ const STRINGS: Dict = {
 
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
-  "brands.desc": { en: "Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium electronics.", ar: "اكتشف مجموعتنا المنتقاة من علامات الهدايا الفاخرة، من صنّاع الشوكولاتة الحرفيين إلى الإلكترونيات المميزة." },
+  "brands.desc": { en: "Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium florists.", ar: "اكتشف مجموعتنا المنتقاة من علامات الهدايا الفاخرة، من صنّاع الشوكولاتة الحرفيين إلى أرقى محلات الزهور." },
   "brands.products": { en: "products", ar: "منتجات" },
   "brand.backToBrands": { en: "Back to Brands", ar: "العودة إلى العلامات" },
   "brand.descPrefix": { en: "Explore the complete collection from {name}.", ar: "استكشف المجموعة الكاملة من {name}." },

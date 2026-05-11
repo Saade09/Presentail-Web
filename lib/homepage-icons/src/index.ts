@@ -44,7 +44,6 @@ const SLUG_TO_ICON: Record<string, HomepageIconName> = {
   "gift-bundles": "basket",
   baskets: "basket",
   "stuffed-animals": "teddy-bear",
-  electronics: "tv",
   gaming: "gamepad",
   "board-games": "gamepad",
   "personal-gifts": "gift",
