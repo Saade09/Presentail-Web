@@ -32,7 +32,7 @@ pnpm workspaces · Node 24 · TypeScript 5.9 · Expo Router (mobile) · React + 
 - Shared delivery rules (express surcharge, slot tables, recipient-country windows): `lib/delivery`
 - Display currency rules: `lib/display-currency`
 - WooCommerce store resolver: `artifacts/api-server/src/lib/wooStore.ts`
-- Auth: `artifacts/api-server/src/routes/auth.ts`, `artifacts/api-server/src/lib/auth.ts`, mobile `artifacts/presentail/contexts/AuthContext.tsx`
+- Auth: `artifacts/api-server/src/routes/auth.ts`, `artifacts/api-server/src/lib/auth.ts`, mobile `artifacts/presentail/src/contexts/AuthContext.tsx`
 - iOS CI/CD: `.github/workflows/ios-testflight.yml`, `.github/workflows/ios-app-store.yml`
 - Stripe API base: `artifacts/presentail/lib/stripe.ts` · Country codes: `artifacts/presentail/data/countryCodes.ts` · Currencies: `artifacts/presentail/data/currencies.ts`
 

@@ -24,6 +24,71 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("injectSeoTagsAsync — /product/<slug>", () => {
+  it("uses product name, description, image and price when API returns the product", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses, hand-tied.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/velvet-rose-bouquet",
+      OPTS,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
+    expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
+    expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
+    expect(fetchMock.mock.calls[0][0]).toContain("cityId=ae-dubai");
+    expect(out).toContain("<title>Velvet Rose Bouquet | Presentail</title>");
+    expect(out).toContain(
+      'content="A dozen long-stem velvet roses, hand-tied."',
+    );
+    expect(out).toContain(
+      '<meta property="og:image" content="https://cdn.test/velvet.jpg"',
+    );
+    expect(out).toContain('<meta property="og:type" content="product"');
+    expect(out).toContain(
+      '<meta property="product:price:amount" content="89.50"',
+    );
+    expect(out).toContain(
+      '<meta property="product:price:currency" content="USD"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet"',
+    );
+  });
+
+  it("falls back to the generic product preview when the product 404s", async () => {
+    mockFetchOnce({ ok: false }, false);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/missing-product",
+      OPTS,
+    );
+    expect(out).not.toContain("missing-product | Presentail");
+    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    expect(out).not.toContain('property="product:price:amount"');
+  });
+
+  it("falls back when the API is unreachable (network error)", async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/anything",
+      OPTS,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+  });
+});
+
 describe("injectSeoTagsAsync — /brand/<slug>", () => {
   it("uses brand name, stripped description and image when API returns the brand", async () => {
     const fetchMock = mockFetchOnce({
@@ -146,6 +211,73 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       search: "?n=nope",
     });
     expect(out).toContain("<title>Shop Flowers &amp; Gifts in Dubai | Presentail</title>");
+  });
+});
+
+describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
+  it("uses the occasion name and description when API returns the occasion", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      occasion: {
+        name: "Birthday Gifts",
+        description: "<p>Make every birthday memorable.</p>",
+        image: "https://cdn.test/birthday.jpg",
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?occasion=birthday",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
+    expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
+    expect(out).toContain("<title>Birthday Gifts | Presentail</title>");
+    expect(out).toContain('content="Make every birthday memorable."');
+    expect(out).toContain(
+      '<meta property="og:image" content="https://cdn.test/birthday.jpg"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/shop?occasion=birthday"',
+    );
+  });
+
+  it("falls back to the generic shop preview when the occasion 404s", async () => {
+    mockFetchOnce({ ok: false }, false);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?occasion=nope",
+    });
+    expect(out).toContain(
+      "<title>Shop Flowers &amp; Gifts in Dubai | Presentail</title>",
+    );
+  });
+
+  it("falls back when the occasion API is unreachable", async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ETIMEDOUT"));
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?occasion=anniversary",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(out).toContain(
+      "<title>Shop Flowers &amp; Gifts in Dubai | Presentail</title>",
+    );
+  });
+
+  it("prefers the category param over the occasion param", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      category: { name: "Roses", description: "Long-stem roses.", image: null },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?category=roses&occasion=birthday",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
+    expect(fetchMock.mock.calls[0][0]).not.toContain("/api/woo/occasion");
+    expect(out).toContain("<title>Roses | Presentail</title>");
   });
 });
 
