@@ -13,16 +13,20 @@ export default function Account() {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("profile");
 
+  // Account routing is gated by <CustomerOnly> in App.tsx — by the time we
+  // reach this component we know the user is signed in and a customer.
+  // The conditional below is just a defensive render-loading fallback while
+  // Clerk hydrates user.firstName/email from cache.
   useEffect(() => {
     if (!isLoading && !user) {
-      setLocation("/auth");
+      setLocation("/sign-in");
     }
   }, [user, isLoading, setLocation]);
 
   if (isLoading || !user) return <div className="min-h-screen pt-32 text-center">{t("account.loading")}</div>;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setLocation("/");
   };
 
@@ -83,7 +87,7 @@ export default function Account() {
             {tab === "profile" ? (
               <ProfilePanel user={user} t={t} />
             ) : (
-              <OrdersPanel token={token} t={t} />
+              <OrdersPanel signedIn={!!token} t={t} />
             )}
           </div>
         </div>
@@ -127,13 +131,13 @@ function ProfilePanel({
 }
 
 function OrdersPanel({
-  token,
+  signedIn,
   t,
 }: {
-  token: string | null;
+  signedIn: boolean;
   t: (k: string) => string;
 }) {
-  const { data, isLoading, isError } = useMyOrders(token);
+  const { data, isLoading, isError } = useMyOrders(signedIn);
 
   return (
     <div className="bg-secondary/30 rounded-3xl p-8 border border-border/50" data-testid="orders-panel">

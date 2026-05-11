@@ -14,6 +14,9 @@
     },
     {
       "path": "./lib/homepage-icons"
+    },
+    {
+      "path": "./lib/clerk-types"
     }
   ]
 }

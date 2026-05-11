@@ -79,7 +79,7 @@ export function Navbar() {
             <Search className="w-5 h-5" />
           </Button>
 
-          <Link href={user ? "/account" : "/auth"}>
+          <Link href={user ? "/account" : "/sign-in"}>
             <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>
               <User className="w-5 h-5" />
             </Button>

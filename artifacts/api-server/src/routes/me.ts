@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
 import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
+import { requireUserType } from "../lib/requireUserType";
 import { getCustomerByWcId } from "../lib/customers";
 
 const router: IRouter = Router();
@@ -45,7 +46,7 @@ type WcOrder = {
 // guest and authenticated purchases through `upsertCustomer` — matching by
 // email and phone — orders placed before the customer signed up are stitched
 // onto the same canonical row and surface here automatically.
-router.get("/me/orders", async (req, res) => {
+router.get("/me/orders", requireUserType(["customer"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });

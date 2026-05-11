@@ -2,7 +2,13 @@ import path from "node:path";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
+import clerkWebhookRouter from "./routes/clerkWebhook";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+} from "./middlewares/clerkProxyMiddleware";
 import { logger } from "./lib/logger";
 import { resolveStoreLogContext } from "./lib/wooStore";
 
@@ -19,16 +25,6 @@ app.set("trust proxy", 1);
 app.use(
   pinoHttp({
     logger,
-    // Add the resolved WooCommerce store routing context to every
-    // auto-emitted request completion log line. `country` reflects the
-    // regional WooCommerce instance the resolver actually picked (after
-    // applying fallback rules), and `city` is the recognized routing city
-    // id when one was supplied. Using `customProps` ensures the field
-    // lands on the line pino-http itself emits (independent of whether
-    // handlers ever touch `req.log`), so QA/support can confirm which
-    // regional store served any request without re-deriving it from
-    // headers. Only routing context is added — no PII, secrets, or
-    // credentials.
     customProps: (req) => ({
       store: resolveStoreLogContext(req),
     }),
@@ -48,9 +44,30 @@ app.use(
     },
   }),
 );
+
+// Clerk Frontend API proxy. No-op outside production / when CLERK_SECRET_KEY
+// is unset. Must run BEFORE any body parser because the proxy streams raw
+// bytes to Clerk.
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
+// Clerk webhook: Svix verifies the signature against the exact raw bytes,
+// so we mount this BEFORE `express.json()`. The handler reads the raw
+// Buffer from `req.body`.
+app.use(
+  "/api/clerk/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  clerkWebhookRouter,
+);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Attach `req.auth` for every downstream handler. Uses the publishable +
+// secret keys from the environment. With no key configured `getAuth(req)`
+// simply returns `{ userId: null }` so legacy WP/social JWT flows keep
+// working unchanged during the migration.
+app.use(clerkMiddleware());
 
 // Static assets used by the homepage rails (e.g. fallback category
 // images). Resolved relative to the bundled server's __dirname so the

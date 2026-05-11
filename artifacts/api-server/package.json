@@ -12,17 +12,22 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.15",
+    "@clerk/shared": "^4.10.2",
     "@workspace/api-zod": "workspace:*",
+    "@workspace/clerk-types": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-rate-limit": "^8.4.1",
+    "http-proxy-middleware": "^4.0.0",
     "jose": "^6.2.3",
     "pino": "^9",
     "pino-http": "^10",
     "stripe": "^22.0.2",
+    "svix": "^1.93.0",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
+import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, customersTable } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId } from "../lib/customers";
@@ -321,7 +322,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 });
 
 // ── Get current user (auth via Bearer JWT, validated against WP) ─────────────
-router.get("/auth/me", async (req, res) => {
+router.get("/auth/me", requireUserType(["customer"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
@@ -369,7 +370,7 @@ router.get("/auth/me", async (req, res) => {
 });
 
 // ── Update current user profile ──────────────────────────────────────────────
-router.put("/auth/me", async (req, res) => {
+router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
@@ -420,7 +421,7 @@ router.put("/auth/me", async (req, res) => {
 //      sign in with their old credentials.
 //   3. Issue the WC REST DELETE so the row is dropped from the customer
 //      index. The wp_users row may persist but contains no PII.
-router.delete("/auth/me", async (req, res) => {
+router.delete("/auth/me", requireUserType(["customer"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });

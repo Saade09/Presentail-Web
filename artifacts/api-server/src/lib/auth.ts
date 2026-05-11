@@ -1,6 +1,12 @@
 import { SignJWT, jwtVerify } from "jose";
+import { getAuth, createClerkClient } from "@clerk/express";
+import type { Request } from "express";
+import { isUserType } from "@workspace/clerk-types";
 
 import { resolveStore, resolveStoreFromRequest } from "./wooStore";
+import { upsertCustomer, getCustomerById } from "./customers";
+import { syncCustomerToWoo } from "./customers";
+import { logger } from "./logger";
 
 const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
@@ -103,15 +109,159 @@ async function verifyServerToken(token: string, req?: { query: any; headers: any
   }
 }
 
-// Authenticate the request. The token may be either:
-//   1. A WP JWT issued by the `jwt-auth` plugin (email+password login).
-//   2. A server-minted JWT issued by `signServerToken()` (social login).
-// We decode the issuer claim first so we route to the right verifier
-// without an extra WP round-trip for social tokens.
+// ── Clerk session resolution ─────────────────────────────────────────────────
+//
+// A Clerk-authenticated request must still resolve to a WooCommerce-aware
+// `customers.id` row so the rest of the API (orders, push, etc.) continues
+// to work unchanged. We:
+//   1. Read the verified `userId` Clerk attached to the request.
+//   2. Look up Clerk's user record (email + name).
+//   3. upsertCustomer() by email; persist the Clerk user id as
+//      `(authProvider="clerk", authUserId=<clerk userId>)`.
+//   4. syncCustomerToWoo() so the row gets a `wcCustomerId` and the rest
+//      of the API can resolve back to a WooCommerce customer.
+//   5. Lazy-tag the Clerk user with `publicMetadata.userType="customer"`
+//      when the webhook hasn't fired yet (no CLERK_WEBHOOK_SECRET, retry
+//      pending, etc) so requireUserType(["customer"]) keeps working.
+async function resolveClerkSession(
+  req: Request,
+): Promise<AuthResult | null> {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) return null;
+
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) {
+    return { ok: false, status: 503, message: "Clerk is not configured" };
+  }
+
+  let clerkUser: {
+    id: string;
+    emailAddresses: { id: string; emailAddress: string }[];
+    primaryEmailAddressId: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    publicMetadata: { userType?: unknown } & Record<string, unknown>;
+  };
+  try {
+    const clerk = createClerkClient({ secretKey });
+    clerkUser = (await clerk.users.getUser(userId)) as typeof clerkUser;
+  } catch (err: any) {
+    req.log?.warn?.(
+      { err: err?.message, userId },
+      "auth.clerk: failed to load user from Clerk",
+    );
+    return { ok: false, status: 401, message: "Clerk session is invalid" };
+  }
+
+  const primaryEmail =
+    clerkUser.emailAddresses.find(
+      (e) => e.id === clerkUser.primaryEmailAddressId,
+    )?.emailAddress ??
+    clerkUser.emailAddresses[0]?.emailAddress ??
+    null;
+  if (!primaryEmail) {
+    return { ok: false, status: 401, message: "Clerk user has no email" };
+  }
+
+  const store = resolveStoreFromRequest(req);
+  let localCustomerId: number;
+  try {
+    const upserted = await upsertCustomer({
+      email: primaryEmail,
+      firstName: clerkUser.firstName ?? "",
+      lastName: clerkUser.lastName ?? "",
+      authProvider: "clerk",
+      authUserId: clerkUser.id,
+      country: store.country,
+      source: "presentail.com",
+    });
+    localCustomerId = upserted.customer.id;
+  } catch (err: any) {
+    req.log?.error?.(
+      { err: err?.message, userId },
+      "auth.clerk: failed to upsert local customer",
+    );
+    return { ok: false, status: 500, message: "Failed to resolve customer" };
+  }
+
+  // The legacy WP/social JWT flow returns the WooCommerce customer id as
+  // `customerId`, and downstream routes (`/auth/me`, `/me/orders`) look
+  // it up via `getCustomerByWcId(auth.customerId)`. We must therefore
+  // also return the WC id, not the local row id. Mirror the customer
+  // into WooCommerce (idempotent) to obtain or recover the wcCustomerId.
+  let wcCustomerId: number | null = null;
+  try {
+    const local = await getCustomerById(localCustomerId);
+    if (local?.wcCustomerId) {
+      wcCustomerId = local.wcCustomerId;
+    } else {
+      wcCustomerId = await syncCustomerToWoo(localCustomerId, store);
+    }
+  } catch (err: any) {
+    req.log?.error?.(
+      { err: err?.message, customerId: localCustomerId },
+      "auth.clerk: WooCommerce mirror failed",
+    );
+    return {
+      ok: false,
+      status: 502,
+      message: "Failed to resolve WooCommerce customer for this session",
+    };
+  }
+  if (!wcCustomerId || wcCustomerId <= 0) {
+    return {
+      ok: false,
+      status: 502,
+      message: "Failed to resolve WooCommerce customer for this session",
+    };
+  }
+
+  // Lazy userType tagging — covers the case where CLERK_WEBHOOK_SECRET
+  // isn't configured yet and `user.created` was never delivered.
+  if (!isUserType(clerkUser.publicMetadata?.userType)) {
+    try {
+      const clerk = createClerkClient({ secretKey });
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { userType: "customer" },
+      });
+    } catch (err: any) {
+      req.log?.warn?.(
+        { err: err?.message, userId },
+        "auth.clerk: failed to lazy-tag userType (non-fatal)",
+      );
+    }
+  }
+
+  return { ok: true, customerId: wcCustomerId, token: "" };
+}
+
+// Authenticate the request. Resolution order:
+//   1. Clerk session (set by clerkMiddleware on req.auth) — preferred.
+//   2. Server-minted JWT issued by `signServerToken()` (legacy social login).
+//   3. WP JWT issued by the `jwt-auth` plugin (legacy email+password login).
+// Resolving Clerk first lets the new web app authenticate with cookies/
+// bearer tokens minted by Clerk while the mobile app keeps using its
+// existing WP/social JWTs unchanged.
 export async function authenticate(
   authHeader: string | undefined,
-  req?: { query: any; headers: any },
+  req?: Request | { query: any; headers: any },
 ): Promise<AuthResult> {
+  // 1) Clerk — only when a real Express Request was provided (the
+  //    middleware attaches `req.auth` per request).
+  if (req && "header" in (req as Request)) {
+    try {
+      const clerkResult = await resolveClerkSession(req as Request);
+      if (clerkResult) return clerkResult;
+    } catch (err: any) {
+      logger.warn(
+        { err: err?.message },
+        "auth.clerk: unexpected resolution error (falling back)",
+      );
+    }
+  }
+
+  // 2/3) Legacy WP / server-minted JWT in the Authorization header.
   if (!authHeader || !/^Bearer\s+/i.test(authHeader)) {
     return {
       ok: false,

@@ -94,7 +94,7 @@ export function MainNavbar() {
             <Search className="w-5 h-5" />
           </Button>
 
-          <Link href={user ? "/account" : "/auth"} aria-label={t("nav.accountAria")}>
+          <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")}>
             <Button variant="ghost" size="icon" data-testid="button-account">
               <User className="w-5 h-5" />
             </Button>

@@ -7,6 +7,12 @@ import {
 } from "wouter";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  ClerkProvider,
+  useAuth as useClerkAuth,
+  useUser,
+} from "@clerk/react";
+import { isUserType } from "@workspace/clerk-types";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -25,7 +31,6 @@ import {
   type CountrySlug,
   type Lang,
 } from "@/lib/locale-route";
-
 import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
@@ -39,8 +44,10 @@ import BrandDetail from "@/pages/BrandDetail";
 import Cart from "@/pages/Cart";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmed from "@/pages/OrderConfirmed";
-import Auth from "@/pages/Auth";
 import Account from "@/pages/Account";
+import SignInPage from "@/pages/SignIn";
+import SignUpPage from "@/pages/SignUp";
+import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -51,6 +58,55 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
+  | string
+  | undefined;
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error(
+    "VITE_CLERK_PUBLISHABLE_KEY is required. Add it to the project's environment variables.",
+  );
+}
+
+// Optional same-origin Clerk Frontend API proxy. The API server mounts
+// `/api/__clerk` (production-only when CLERK_SECRET_KEY is set). When
+// `VITE_CLERK_PROXY_URL` is provided we tell ClerkProvider to use that
+// URL instead of Clerk's hosted FAPI, which avoids third-party-cookie
+// restrictions on the storefront's custom domains. In dev (and when the
+// env var isn't set) we leave it undefined so Clerk talks to its own
+// hosted FAPI directly.
+const CLERK_PROXY_URL = import.meta.env.VITE_CLERK_PROXY_URL as
+  | string
+  | undefined;
+
+// Customer-only gate. Signed-out users are bounced to the LOCALE-PREFIXED
+// `/sign-in` route via wouter's `<Redirect>` (which prepends the active
+// router base, so the URL becomes e.g. `/en-lb/beirut/sign-in`). Clerk's
+// own `<RedirectToSignIn>` always sends to a root-level `/sign-in`, which
+// isn't a valid route in this storefront's locale-prefixed router and
+// would lose the auth intent. We carry the originally-requested path in
+// `redirect_url` so Clerk returns the user to it after sign-in.
+//
+// Signed-in users whose Clerk `publicMetadata.userType` is anything other
+// than "customer" land on `/unauthorized` — we never silently downgrade
+// a driver/team user to customer privileges on the storefront.
+function CustomerOnly({ children }: { children: React.ReactNode }) {
+  const { isLoaded: authLoaded, isSignedIn } = useClerkAuth();
+  const { isLoaded: userLoaded, user } = useUser();
+  const [currentPath] = useLocation();
+  if (!authLoaded || (isSignedIn && !userLoaded)) {
+    return <div className="min-h-[60vh]" data-testid="account-loading" />;
+  }
+  if (!isSignedIn) {
+    const target = `/sign-in?redirect_url=${encodeURIComponent(currentPath)}`;
+    return <Redirect to={target} replace />;
+  }
+  const userType = user?.publicMetadata?.userType;
+  if (isUserType(userType) && userType !== "customer") {
+    return <Redirect to="/unauthorized" replace />;
+  }
+  return <>{children}</>;
+}
 
 function ShopShell() {
   return (
@@ -67,8 +123,18 @@ function ShopShell() {
             <Route path="/cart" component={Cart} />
             <Route path="/checkout" component={Checkout} />
             <Route path="/order-confirmed" component={OrderConfirmed} />
-            <Route path="/auth" component={Auth} />
-            <Route path="/account" component={Account} />
+            {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
+                factor-one, ...) so their routes need wildcard suffixes. */}
+            <Route path="/sign-in/:rest*" component={SignInPage} />
+            <Route path="/sign-in" component={SignInPage} />
+            <Route path="/sign-up/:rest*" component={SignUpPage} />
+            <Route path="/sign-up" component={SignUpPage} />
+            <Route path="/unauthorized" component={Unauthorized} />
+            <Route path="/account">
+              <CustomerOnly>
+                <Account />
+              </CustomerOnly>
+            </Route>
             <Route component={NotFound} />
           </Switch>
         </main>
@@ -190,23 +256,55 @@ function DocumentMeta() {
   return null;
 }
 
+// Clerk passes absolute paths (incl. the wouter router base) to
+// routerPush/routerReplace, but wouter's `setLocation` re-prepends the
+// active router base — strip the outer base to avoid the doubled prefix
+// that would otherwise produce URLs like `/en-lb/beirut/en-lb/beirut/...`
+// after sign-in / verification / OAuth callbacks.
+const OUTER_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+function stripBase(path: string): string {
+  if (OUTER_BASE && path.startsWith(OUTER_BASE)) {
+    return path.slice(OUTER_BASE.length) || "/";
+  }
+  return path;
+}
+
+// Plumbs wouter's `setLocation` into Clerk so its built-in navigations
+// (after sign-in / verification / OAuth callbacks) use SPA pushState
+// transitions instead of full page reloads.
+function ClerkRouterBridge({ children }: { children: React.ReactNode }) {
+  const [, navigate] = useLocation();
+  return (
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY!}
+      proxyUrl={CLERK_PROXY_URL}
+      routerPush={(to) => navigate(stripBase(to))}
+      routerReplace={(to) => navigate(stripBase(to), { replace: true })}
+    >
+      {children}
+    </ClerkProvider>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <LocaleProvider>
-            <LocationProvider>
-              <AuthProvider>
-                <CartProvider>
-                  <DocumentMeta />
-                  <SeoHead />
-                  <RootRouter />
-                  <Toaster />
-                </CartProvider>
-              </AuthProvider>
-            </LocationProvider>
-          </LocaleProvider>
+          <ClerkRouterBridge>
+            <LocaleProvider>
+              <LocationProvider>
+                <AuthProvider>
+                  <CartProvider>
+                    <DocumentMeta />
+                    <SeoHead />
+                    <RootRouter />
+                    <Toaster />
+                  </CartProvider>
+                </AuthProvider>
+              </LocationProvider>
+            </LocaleProvider>
+          </ClerkRouterBridge>
         </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>

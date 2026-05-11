@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 
 // Types matching the backend shape
@@ -169,69 +169,6 @@ export const useBrands = (params: LocalizedParams = {}) => {
   });
 };
 
-// Auth Hooks
-export const useCurrentUser = (token: string | null) => {
-  return useQuery({
-    queryKey: ["auth-me"],
-    queryFn: () => apiFetch<{ ok: boolean; user: any }>("/auth/me"),
-    enabled: !!token,
-    retry: false
-  });
-};
-
-export const checkEmailExists = (email: string) =>
-  apiFetch<{ ok: boolean; exists: boolean; code?: string }>(`/auth/exists?email=${encodeURIComponent(email)}`);
-
-export const useLogin = () => {
-  return useMutation({
-    mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data)
-    })
-  });
-};
-
-export const requestPasswordReset = (email: string) =>
-  apiFetch<{ ok: boolean; message?: string }>("/auth/reset/request", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-  });
-
-export const useRegister = () => {
-  return useMutation({
-    mutationFn: (data: any) => apiFetch<{ ok: boolean; token: string; user: any }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(data)
-    })
-  });
-};
-
-// Social OAuth — these endpoints accept the identity token returned by the
-// provider's web SDK, verify it server-side, and return a Presentail session
-// token + user, identical in shape to /auth/login.
-export const useGoogleOAuth = () => {
-  return useMutation({
-    mutationFn: (data: { credential: string }) =>
-      apiFetch<{ ok: boolean; token: string; user: any }>("/auth/oauth/google", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  });
-};
-
-export const useAppleOAuth = () => {
-  return useMutation({
-    mutationFn: (data: {
-      idToken: string;
-      user?: { name?: { firstName?: string | null; lastName?: string | null } | null } | null;
-    }) =>
-      apiFetch<{ ok: boolean; token: string; user: any }>("/auth/oauth/apple", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  });
-};
-
 // Customer's order history — combines guest checkouts (matched by email/phone)
 // with logged-in orders, since the server links every checkout to a canonical
 // customer row.
@@ -250,11 +187,14 @@ export type MyOrder = {
   items: { name: string; quantity: number; image: string | null }[];
 };
 
-export const useMyOrders = (token: string | null) => {
+// Pass `true` when the caller has confirmed there is an active session
+// (Clerk's `useAuth().isSignedIn`). The query is disabled otherwise so we
+// don't fire an anonymous request that would 401.
+export const useMyOrders = (enabled: boolean) => {
   return useQuery({
     queryKey: ["my-orders"],
     queryFn: () => apiFetch<{ ok: boolean; orders: MyOrder[] }>("/me/orders"),
-    enabled: !!token,
+    enabled,
   });
 };
 
