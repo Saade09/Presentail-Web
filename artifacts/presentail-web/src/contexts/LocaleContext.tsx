@@ -339,6 +339,11 @@ const STRINGS: Dict = {
   "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
   "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
 
+  // Checkout login prompt (shown when a logged-out shopper taps Checkout)
+  "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
+  "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
+  "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
+
   // Brands
   "brandsPage.title": { en: "Our Partner Brands", ar: "علاماتنا الشريكة" },
   "brands.desc": { en: "Discover our curated selection of luxury gifting brands, from artisan chocolatiers to premium florists.", ar: "اكتشف مجموعتنا المنتقاة من علامات الهدايا الفاخرة، من صنّاع الشوكولاتة الحرفيين إلى أرقى محلات الزهور." },
@@ -758,6 +763,16 @@ const STRINGS_FR: Record<string, string> = {
   "auth.accountFound": "Compte trouvé. Veuillez vous connecter.",
   "auth.checkFailed": "Une erreur est survenue, veuillez réessayer.",
   "auth.invalidEmail": "Veuillez saisir un email valide.",
+  "auth.or": "Ou",
+  "auth.continueApple": "Continuer avec Apple",
+  "auth.continueGoogle": "Continuer avec Google",
+  "auth.toast.oauthFailed": "Échec de la connexion {provider}",
+  "auth.emailLabel": "Adresse email",
+  "auth.emailPlaceholder": "Saisissez votre adresse email",
+
+  "checkoutLogin.title": "Connectez-vous pour un paiement plus rapide",
+  "checkoutLogin.desc": "Enregistrez vos informations pour la prochaine fois, ou continuez en tant qu'invité.",
+  "checkoutLogin.guest": "Payer en tant qu'invité",
 
   "brandsPage.title": "Nos marques partenaires",
   "brands.desc":

@@ -1,18 +1,34 @@
+import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { CartUpsells } from "@/components/cart/CartUpsells";
+import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
   const { t, dir } = useLocale();
+  const { user, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const { formatPrice } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
+  // Mirror the mobile checkout login sheet: when a logged-out shopper taps
+  // Proceed to Checkout we open a dismissible prompt that offers email +
+  // social sign-in or a clearly visible "Checkout as Guest" button. Signed-in
+  // shoppers (and the brief auth-loading window) bypass the prompt entirely.
+  const [loginOpen, setLoginOpen] = useState(false);
+  const handleProceed = (e: React.MouseEvent) => {
+    if (authLoading || user) return;
+    e.preventDefault();
+    setLoginOpen(true);
+  };
+  const goToCheckout = () => setLocation("/checkout?guest=1");
 
   if (itemCount === 0) {
     return (
@@ -118,7 +134,11 @@ export default function Cart() {
               </div>
               
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
-                <Link href="/checkout">
+                <Link
+                  href="/checkout"
+                  onClick={handleProceed}
+                  data-testid="link-proceed-to-checkout"
+                >
                   {t("cart.proceed")} <ArrowRight className={`w-4 h-4 ml-2 ${dir === "rtl" ? "rotate-180" : ""}`} />
                 </Link>
               </Button>
@@ -126,6 +146,11 @@ export default function Cart() {
           </div>
         </div>
       </div>
+      <CheckoutLoginDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onContinueAsGuest={goToCheckout}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
+import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
 
@@ -79,8 +80,19 @@ const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
 export default function Checkout() {
   const { items, subtotal, clearCart, itemCount } = useCart();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  // Mirror the cart-button gate for direct visits to /checkout: signed-out
+  // shoppers see the same dismissible login prompt; dismissing returns them
+  // to the cart with no state lost. Suppressed once they've explicitly
+  // chosen "Checkout as Guest" so they're not re-prompted on every render.
+  // The cart's guest button forwards `?guest=1` so we don't double-prompt
+  // when transitioning from the cart-side dialog to /checkout.
+  const [guestAcked, setGuestAcked] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("guest") === "1";
+  });
+  const showLoginGate = !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir } = useLocale();
   const { countryCode, country } = useLocationSelection();
@@ -142,6 +154,18 @@ export default function Checkout() {
       setDeliverySlot(newSlots[0]?.label ?? "");
     }
   }, [countryCode]);
+
+  if (showLoginGate) {
+    return (
+      <CheckoutLoginDialog
+        open
+        onOpenChange={(open) => {
+          if (!open) setLocation("/cart");
+        }}
+        onContinueAsGuest={() => setGuestAcked(true)}
+      />
+    );
+  }
 
   if (itemCount === 0) {
     return (
