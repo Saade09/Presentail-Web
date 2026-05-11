@@ -80,7 +80,6 @@ function ProductDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { add } = useCart();
-  const { formatNative } = useCurrency();
   const t = useT();
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
@@ -255,7 +254,7 @@ function ProductDetail() {
               textTransform: "uppercase",
             }}
           >
-            {t.addLabel} — {formatNative(safePriceValue)}
+            {t.addLabel}
           </Text>
         </Pressable>
       </View>

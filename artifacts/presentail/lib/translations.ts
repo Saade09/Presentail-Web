@@ -196,7 +196,7 @@ const EN = {
   includedWrap: "Boutique wrapping & ribbon",
   includedCard: "Complimentary message card",
   includedDelivery: "Climate-controlled delivery",
-  addLabel: "Add",
+  addLabel: "Add to Cart",
 
   // ── Checkout ──
   checkoutStep0: "Customize",
@@ -999,7 +999,7 @@ const AR: typeof EN = {
   includedWrap: "تغليف بوتيكي وشريط",
   includedCard: "بطاقة رسالة مجانية",
   includedDelivery: "توصيل بتحكم مناخي",
-  addLabel: "أضف",
+  addLabel: "أضف إلى السلة",
 
   // ── Checkout ──
   checkoutStep0: "تخصيص",
@@ -1802,7 +1802,7 @@ const FR: typeof EN = {
   includedWrap: "Emballage boutique avec ruban",
   includedCard: "Carte message offerte",
   includedDelivery: "Livraison climatisée",
-  addLabel: "Ajouter",
+  addLabel: "Ajouter au panier",
 
   // ── Checkout ──
   checkoutStep0: "Personnaliser",
