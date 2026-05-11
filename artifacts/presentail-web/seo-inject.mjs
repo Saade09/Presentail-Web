@@ -338,7 +338,15 @@ export function buildSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     );
   }
 
-  return { lang, dir, title, headSnippet: lines.join("\n    "), titleTag: `<title>${escapeHtml(title)}</title>` };
+  return {
+    lang,
+    dir,
+    title,
+    headSnippet: lines.join("\n    "),
+    titleTag: `<title>${escapeHtml(title)}</title>`,
+    cityLabel,
+    countryLabel,
+  };
 }
 
 /**
@@ -468,6 +476,21 @@ function extractCategorySlugFromSearch(search) {
   if (!raw) return null;
   const trimmed = raw.trim();
   return trimmed || null;
+}
+
+function extractBrandsFilterFromSearch(search) {
+  if (!search) return null;
+  const s = search.startsWith("?") ? search.slice(1) : search;
+  if (!s) return null;
+  const params = new URLSearchParams(s);
+  // The Brands page can additionally be filtered (or eventually be filtered)
+  // by category or occasion via `?category=<slug>` / `?occasion=<slug>`. We
+  // accept the same `?n=<slug>` alias the shop page does for parity.
+  const rawCategory = (params.get("category") ?? params.get("n") ?? "").trim();
+  if (rawCategory) return { kind: "category", slug: rawCategory };
+  const rawOccasion = (params.get("occasion") ?? "").trim();
+  if (rawOccasion) return { kind: "occasion", slug: rawOccasion };
+  return null;
 }
 
 function extractOccasionSlugFromSearch(search) {
@@ -661,6 +684,61 @@ function buildProductHead({
   });
 }
 
+const BRANDS_FILTER_TITLES = {
+  en: "{name} Brands in {city} | Presentail",
+  ar: "علامات {name} في {city} | Presentail",
+  fr: "Marques {name} à {city} | Presentail",
+};
+
+const BRANDS_FILTER_DESCRIPTIONS = {
+  en: "Discover Presentail's hand-picked partner brands offering {name} for delivery in {city}, {country}.",
+  ar: "اكتشف العلامات الشريكة المنتقاة من Presentail والتي تقدّم {name} للتوصيل في {city}، {country}.",
+  fr: "Découvrez les marques partenaires sélectionnées par Presentail proposant {name} pour livraison à {city}, {country}.",
+};
+
+function buildBrandsFilterHead({
+  entity,
+  lang,
+  basePath,
+  origin,
+  pathname,
+  search,
+  cityLabel,
+  countryLabel,
+}) {
+  const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
+  const params = {
+    name: rawName || "",
+    city: cityLabel || "",
+    country: countryLabel || "",
+  };
+  const titleTpl =
+    BRANDS_FILTER_TITLES[lang] ?? BRANDS_FILTER_TITLES.en;
+  const descTpl =
+    BRANDS_FILTER_DESCRIPTIONS[lang] ?? BRANDS_FILTER_DESCRIPTIONS.en;
+  const title = rawName
+    ? format(titleTpl, params).replace(/\s+/g, " ").trim()
+    : format(TITLES[lang]?.brands ?? TITLES.en.brands, params);
+  const rawDesc = entity.description ? stripHtml(entity.description) : "";
+  const description =
+    clampDescription(rawDesc) ||
+    format(descTpl, params).replace(/\s+/g, " ").trim();
+  const imageUrl =
+    typeof entity.image === "string" && entity.image ? entity.image : null;
+  return buildEntityHead({
+    ogType: "website",
+    title,
+    description,
+    imageUrl,
+    imageAlt: rawName || "Presentail brands",
+    basePath,
+    origin,
+    pathname,
+    search,
+    lang,
+  });
+}
+
 function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
@@ -774,8 +852,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     parsed.rest === "/shop" && !categorySlug
       ? extractOccasionSlugFromSearch(search)
       : null;
+  const brandsFilter =
+    parsed.rest === "/brands" ? extractBrandsFilterFromSearch(search) : null;
 
-  if (!productSlug && !brandSlug && !categorySlug && !occasionSlug) {
+  if (
+    !productSlug &&
+    !brandSlug &&
+    !categorySlug &&
+    !occasionSlug &&
+    !brandsFilter
+  ) {
     return assembleHtml(html, generic);
   }
 
@@ -826,6 +912,24 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     });
     if (occasion)
       result = buildOccasionHead({ occasion, search, ...headOpts });
+  } else if (brandsFilter) {
+    const fetcher =
+      brandsFilter.kind === "category"
+        ? fetchCategoryForSeo
+        : fetchOccasionForSeo;
+    const entity = await fetchEntityForSeoCached(
+      brandsFilter.kind,
+      fetcher,
+      { slug: brandsFilter.slug, ...fetchOpts },
+    );
+    if (entity)
+      result = buildBrandsFilterHead({
+        entity,
+        search,
+        cityLabel: generic.cityLabel,
+        countryLabel: generic.countryLabel,
+        ...headOpts,
+      });
   }
 
   if (!result) {
