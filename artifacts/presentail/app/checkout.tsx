@@ -1255,7 +1255,7 @@ function DeliveryDetailsStep(props: any) {
               onPress={() => {
                 setDeliveryMode("today_slot");
                 setDate(days[0].iso);
-                const firstAvail = timeSlots.find(s => s.cutoffHour > localHour) ?? null;
+                const firstAvail = timeSlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
                 setSlot(firstAvail);
               }}
             />
@@ -1300,7 +1300,7 @@ function DeliveryDetailsStep(props: any) {
                 </ScrollView>
               )}
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {timeSlots.map((s) => {
+                {timeSlots.map((s: TimeSlot) => {
                   const isToday = date === todayIso;
                   const past = isToday && localHour >= s.cutoffHour;
                   const active = slot?.label === s.label;
