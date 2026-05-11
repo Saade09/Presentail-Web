@@ -64,10 +64,34 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Attach `req.auth` for every downstream handler. Uses the publishable +
-// secret keys from the environment. With no key configured `getAuth(req)`
-// simply returns `{ userId: null }` so legacy WP/social JWT flows keep
-// working unchanged during the migration.
-app.use(clerkMiddleware());
+// secret keys from the environment. When CLERK_SECRET_KEY is missing or
+// obviously invalid, mounting `clerkMiddleware()` directly would throw
+// "Missing Clerk Secret Key" on EVERY request and 500 even fully public
+// endpoints (e.g. /api/woo/products, /api/homepage/categories). Install a
+// no-op shim instead so legacy WP/social JWT flows keep working and the
+// `getAuth(req)` call sites — which already null-check / try-catch — see a
+// signed-out auth object.
+const clerkSecret = process.env.CLERK_SECRET_KEY;
+if (clerkSecret && /^sk_(test|live)_/.test(clerkSecret)) {
+  app.use(clerkMiddleware());
+} else {
+  if (process.env.NODE_ENV !== "test") {
+    logger.warn(
+      "CLERK_SECRET_KEY is not set (or not an sk_test_/sk_live_ key); " +
+        "Clerk middleware disabled. Authenticated routes will behave as " +
+        "signed-out for Clerk sessions.",
+    );
+  }
+  app.use((req, _res, next) => {
+    // Shape mirrors @clerk/express's signed-out AuthObject for the fields
+    // we read (`userId`, `sessionClaims`).
+    (req as unknown as { auth: () => unknown }).auth = () => ({
+      userId: null,
+      sessionClaims: null,
+    });
+    next();
+  });
+}
 
 // Static assets used by the homepage rails (e.g. fallback category
 // images). Resolved relative to the bundled server's __dirname so the
