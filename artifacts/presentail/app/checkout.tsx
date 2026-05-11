@@ -1447,6 +1447,8 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const reason = (m: PayMethodId): string | undefined => {
     if (supports(m)) return undefined;
     if (m === "mamo") return t.checkoutPayDisabledMamo;
+    if (m === "paypal" && country === "AE")
+      return t.checkoutPayDisabledPaypalUae ?? t.checkoutPayDisabledGeneric;
     if ((m === "whish" || m === "western") && country !== "LB")
       return t.checkoutPayDisabledLebanonOnly ?? t.checkoutPayDisabledUsdOnly;
     if (m === "paypal" || m === "whish" || m === "western") return t.checkoutPayDisabledUsdOnly;

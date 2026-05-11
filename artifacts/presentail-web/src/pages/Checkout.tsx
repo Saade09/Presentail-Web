@@ -292,9 +292,12 @@ export default function Checkout() {
   // Whish Money is a Lebanon-only local transfer flow — only show it when
   // the active country is Lebanon, so a UAE/Cyprus shopper browsing in USD
   // doesn't see a payment option that doesn't apply to their region.
+  // PayPal is hidden in UAE because Mamo is the natural local option there;
+  // even a UAE shopper browsing in USD shouldn't see it.
+  const paypalHidden = countryCode === "AE";
   const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
     { id: "card", labelKey: "checkout.pay.card" },
-    { id: "paypal", labelKey: "checkout.pay.paypal" },
+    ...(paypalHidden ? [] : [{ id: "paypal" as const, labelKey: "checkout.pay.paypal" }]),
     ...(mamoHidden ? [] : [{ id: "mamo" as const, labelKey: "checkout.pay.mamo" }]),
     ...(countryCode === "LB"
       ? [{ id: "whish" as const, labelKey: "checkout.pay.whish" }]
@@ -302,15 +305,17 @@ export default function Checkout() {
   ];
 
   // If the currently selected payment method becomes unavailable (Whish on
-  // a non-LB country, or Mamo when hidden), fall back to a default so the
-  // pay button stays valid.
+  // a non-LB country, Mamo when hidden, or PayPal in UAE), fall back to a
+  // default so the pay button stays valid.
   useEffect(() => {
     if (paymentMethod === "whish" && countryCode !== "LB") {
       setPaymentMethod("card");
     } else if (paymentMethod === "mamo" && mamoHidden) {
       setPaymentMethod("card");
+    } else if (paymentMethod === "paypal" && paypalHidden) {
+      setPaymentMethod("card");
     }
-  }, [countryCode, paymentMethod, mamoHidden]);
+  }, [countryCode, paymentMethod, mamoHidden, paypalHidden]);
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">

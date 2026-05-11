@@ -43,6 +43,21 @@ export const PAY_METHOD_COUNTRIES: Partial<Record<PayMethodId, readonly string[]
   western: ["LB"],
 };
 
+/**
+ * ISO-3166 alpha-2 country codes a payment method is *not* available in.
+ * Used for methods that are otherwise broadly available but should be hidden
+ * in regions where a better local alternative exists.
+ *
+ * PayPal is excluded from UAE because Mamo is the natural local AED option
+ * there — even a UAE shopper who switches their display currency to USD
+ * should not see PayPal in the picker.
+ */
+export const PAY_METHOD_EXCLUDED_COUNTRIES: Partial<
+  Record<PayMethodId, readonly string[]>
+> = {
+  paypal: ["AE"],
+};
+
 export type PayMethodContext = {
   /** Active country code (ISO-3166 alpha-2), e.g. "LB", "AE", "CY". */
   country?: string;
@@ -61,6 +76,10 @@ export function isPayMethodSupported(
   if (allowedCountries) {
     if (!ctx.country) return false;
     if (!allowedCountries.includes(ctx.country)) return false;
+  }
+  const excludedCountries = PAY_METHOD_EXCLUDED_COUNTRIES[method];
+  if (excludedCountries && ctx.country && excludedCountries.includes(ctx.country)) {
+    return false;
   }
   return true;
 }

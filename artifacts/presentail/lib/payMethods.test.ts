@@ -27,13 +27,21 @@ describe("isPayMethodSupported", () => {
     expect(isPayMethodSupported("mamo", "USD", ctx)).toBe(false);
   });
 
-  it("USD + AE keeps card/wallet/paypal but disables Whish & Western (LB-only)", () => {
+  it("USD + AE keeps card/wallet but disables PayPal (UAE excluded) and Whish/Western (LB-only)", () => {
     const ctx = { country: "AE" };
     expect(isPayMethodSupported("card", "USD", ctx)).toBe(true);
     expect(isPayMethodSupported("wallet", "USD", ctx)).toBe(true);
-    expect(isPayMethodSupported("paypal", "USD", ctx)).toBe(true);
+    // PayPal is country-excluded from UAE — even browsing in USD, Mamo
+    // is the natural local option there.
+    expect(isPayMethodSupported("paypal", "USD", ctx)).toBe(false);
     expect(isPayMethodSupported("whish", "USD", ctx)).toBe(false);
     expect(isPayMethodSupported("western", "USD", ctx)).toBe(false);
+  });
+
+  it("AED + AE still excludes PayPal (already USD-only, but country rule applies too)", () => {
+    const ctx = { country: "AE" };
+    expect(isPayMethodSupported("paypal", "AED", ctx)).toBe(false);
+    expect(isPayMethodSupported("mamo", "AED", ctx)).toBe(true);
   });
 
   it("USD + CY also disables Whish & Western (LB-only)", () => {
@@ -87,7 +95,7 @@ describe("defaultPayMethodFor", () => {
 
 describe("nextPayMethodForCurrency — currency/country switch transition", () => {
   it("preserves the user's selection when it remains compatible", () => {
-    expect(nextPayMethodForCurrency("paypal", "USD")).toBe("paypal");
+    expect(nextPayMethodForCurrency("paypal", "USD", { country: "LB" })).toBe("paypal");
     expect(nextPayMethodForCurrency("whish", "USD", { country: "LB" })).toBe("whish");
     expect(nextPayMethodForCurrency("card", "GBP")).toBe("card");
   });
@@ -102,6 +110,17 @@ describe("nextPayMethodForCurrency — currency/country switch transition", () =
     expect(nextPayMethodForCurrency("card", "AED")).toBe("mamo");
     expect(nextPayMethodForCurrency("mamo", "USD")).toBe("card");
     expect(nextPayMethodForCurrency("whish", "AED")).toBe("mamo");
+  });
+
+  it("moves PayPal off when the country flips to UAE", () => {
+    // Shopper picked PayPal in LB (USD), then switched country to UAE.
+    // PayPal is hidden in UAE so we must not leave them on it.
+    expect(nextPayMethodForCurrency("paypal", "USD", { country: "AE" })).toBe(
+      "card",
+    );
+    expect(nextPayMethodForCurrency("paypal", "AED", { country: "AE" })).toBe(
+      "mamo",
+    );
   });
 
   it("moves Whish/Western off when the country flips away from LB", () => {
@@ -156,11 +175,11 @@ describe("payMethodAvailability — disabled (not hidden) for incompatible", () 
     expect(av.mamo.enabled).toBe(false);
   });
 
-  it("USD + AE disables Whish/Western (LB-only) but keeps card/wallet/paypal", () => {
+  it("USD + AE keeps card/wallet but disables PayPal (UAE-excluded) and Whish/Western (LB-only)", () => {
     const av = payMethodAvailability("USD", { country: "AE" });
     expect(av.card.enabled).toBe(true);
     expect(av.wallet.enabled).toBe(true);
-    expect(av.paypal.enabled).toBe(true);
+    expect(av.paypal.enabled).toBe(false);
     expect(av.whish.enabled).toBe(false);
     expect(av.western.enabled).toBe(false);
     expect(av.mamo.enabled).toBe(false);
