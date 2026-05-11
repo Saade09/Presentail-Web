@@ -15,6 +15,7 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, with an acco
 **Required Environment Variables**:
 - WooCommerce: `WC_CONSUMER_KEY`/`WC_CONSUMER_SECRET` (LB), `WC_DUBAI_*`, `WC_ABUDHABI_*`, `WC_CYPRUS_*`.
 - Push & sync: `PUSH_ADMIN_TOKEN`; optional `WOO_SYNC_ENABLED`, `WOO_SYNC_INTERVAL_MS` (default 900000, min 60000), `WOO_SYNC_PUSH_ON_CHANGE`, `BANNERS_REMOTE_URL`.
+- Alerting (optional): `ALERTS_SLACK_WEBHOOK_URL` (Slack incoming webhook for ops alerts; falls back to WARN-level logs when unset). Funnel monitor knobs: `CHECKOUT_LOGIN_FUNNEL_MONITOR_ENABLED` (default on), `CHECKOUT_LOGIN_MIN_VIEWED` (default 25), `CHECKOUT_LOGIN_GUEST_RATE_MAX` (0.7), `CHECKOUT_LOGIN_SIGNIN_RATE_MIN` (0.1), `CHECKOUT_LOGIN_DISMISS_RATE_MAX` (0.5).
 - CI/CD: `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_KEY_ISSUER_ID`, `ASC_API_KEY_P8`.
 - Mobile: `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_DOMAIN`.
 - Google Sign-In (mobile, EAS-secret only — see Gotchas): `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` (auto-derived from the iOS id).

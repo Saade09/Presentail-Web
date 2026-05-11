@@ -5,6 +5,7 @@ import {
   RecordAnalyticsEventBody,
   RecordAnalyticsEventResponse,
 } from "@workspace/api-zod";
+import { db, analyticsEventsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -58,6 +59,8 @@ router.post(
       userId = undefined;
     }
 
+    const clippedAppVersion = clip(appVersion, MAX_FIELD);
+
     req.log.info(
       {
         analytics: true,
@@ -65,12 +68,34 @@ router.post(
         surface,
         action,
         platform,
-        appVersion: clip(appVersion, MAX_FIELD),
+        appVersion: clippedAppVersion,
         userId,
         signedIn: Boolean(userId),
       },
       "analytics event",
     );
+
+    // Persist the event so the scheduled funnel monitor can compute
+    // platform/surface ratios after the fact. Best-effort: a DB outage
+    // must not break analytics ingestion.
+    void db
+      .insert(analyticsEventsTable)
+      .values({
+        name,
+        surface: surface ?? null,
+        action: action ?? null,
+        platform: platform ?? null,
+        appVersion: clippedAppVersion ?? null,
+        userId: userId ?? null,
+        signedIn: Boolean(userId),
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        req.log.warn(
+          { err: message, event: name },
+          "analytics: failed to persist event",
+        );
+      });
 
     const body = RecordAnalyticsEventResponse.parse({ ok: true });
     res.status(200).json(body);
