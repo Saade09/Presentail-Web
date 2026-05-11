@@ -1,8 +1,14 @@
 name: iOS – Promote TestFlight build to App Store
 
 # Manually-triggered workflow that promotes a TestFlight build to the public
-# App Store and submits it for App Review. We deliberately keep promotion
-# manual so a human stays in the loop after TestFlight QA.
+# App Store. Supports two modes: "dry-run" (default) prepares the App Store
+# version, attaches the build, writes the release notes, and prints the
+# rendered notes per locale WITHOUT submitting for App Review; "submit"
+# performs the same preparation and then submits for App Review. The
+# recommended flow is to run "dry-run" first, eyeball the rendered notes
+# in the job summary, then re-run with the same inputs in "submit" mode.
+# We deliberately keep promotion manual so a human stays in the loop after
+# TestFlight QA.
 #
 # Mechanism: a small Node script (`scripts/src/promoteToAppStore.ts`) that
 # talks to the App Store Connect API directly. We chose this over `eas submit`
@@ -11,6 +17,14 @@ name: iOS – Promote TestFlight build to App Store
 # dependencies and produces clear, line-by-line failure messages.
 #
 # Inputs:
+#   mode           – "dry-run" (default) prepares the App Store version,
+#                    attaches the build, writes the release notes, and
+#                    prints the rendered notes per locale, but does NOT
+#                    submit for App Review. "submit" performs the same
+#                    preparation and then submits for App Review.
+#                    Recommended flow: run "dry-run" first, eyeball the
+#                    rendered notes in the job summary, then re-run with
+#                    the same inputs in "submit" mode.
 #   build_number   – ASC build number to promote, or "latest" for the most
 #                    recent VALID iOS build uploaded to TestFlight.
 #   release_notes  – "What's New" text written to every existing localization
@@ -27,6 +41,14 @@ name: iOS – Promote TestFlight build to App Store
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Run mode: dry-run (preview only) or submit (sends for App Review)"
+        required: true
+        type: choice
+        default: "dry-run"
+        options:
+          - dry-run
+          - submit
       build_number:
         description: 'TestFlight build number to promote (or "latest")'
         required: true
@@ -73,18 +95,22 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           PROMOTE_BUILD_NUMBER: ${{ inputs.build_number }}
           PROMOTE_RELEASE_NOTES: ${{ inputs.release_notes }}
+          PROMOTE_MODE: ${{ inputs.mode }}
 
       # Once promotion succeeds, the marketing version we just submitted is
       # locked into App Review / Ready For Sale. The next TestFlight build
       # must therefore ship under a NEW marketing version, otherwise the
       # next promotion run will collide with this one. We bump the patch
       # version automatically and open a PR so a human still reviews/merges
-      # it before the next iOS build goes out.
+      # it before the next iOS build goes out. Skip in dry-run mode since
+      # nothing was actually submitted to App Review.
       - name: Bump expo.version (patch)
         id: bump
+        if: inputs.mode == 'submit'
         run: pnpm --filter @workspace/scripts run bump-app-version
 
       - name: Open PR with version bump
+        if: inputs.mode == 'submit'
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "chore(ios): bump expo.version to ${{ steps.bump.outputs.next_version }} after App Store promotion"

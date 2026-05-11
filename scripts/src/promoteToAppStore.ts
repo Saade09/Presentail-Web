@@ -320,7 +320,7 @@ async function setReleaseNotes(
   client: AscClient,
   versionId: string,
   notes: string,
-): Promise<void> {
+): Promise<{ locale: string; whatsNew: string }[]> {
   const list = await client.get<AscList>(
     `/v1/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=50`,
   );
@@ -329,17 +329,25 @@ async function setReleaseNotes(
       `No localizations found on App Store version ${versionId}; cannot set release notes.`,
     );
   }
+  const rendered: { locale: string; whatsNew: string }[] = [];
   for (const loc of list.data) {
     const locale = (loc.attributes?.locale as string) ?? "(unknown)";
     log(`Updating release notes for locale ${locale} (id=${loc.id}).`);
-    await client.patch(`/v1/appStoreVersionLocalizations/${loc.id}`, {
-      data: {
-        type: "appStoreVersionLocalizations",
-        id: loc.id,
-        attributes: { whatsNew: notes },
+    const updated = await client.patch<AscSingle>(
+      `/v1/appStoreVersionLocalizations/${loc.id}`,
+      {
+        data: {
+          type: "appStoreVersionLocalizations",
+          id: loc.id,
+          attributes: { whatsNew: notes },
+        },
       },
-    });
+    );
+    const whatsNew =
+      ((updated.data.attributes ?? {}) as { whatsNew?: string }).whatsNew ?? notes;
+    rendered.push({ locale, whatsNew });
   }
+  return rendered;
 }
 
 async function submitForReview(
@@ -375,6 +383,13 @@ async function main(): Promise<void> {
   if (!releaseNotes) {
     throw new Error("PROMOTE_RELEASE_NOTES is required (the What's New text).");
   }
+  const modeInput = (process.env.PROMOTE_MODE ?? "dry-run").trim().toLowerCase();
+  if (modeInput !== "dry-run" && modeInput !== "submit") {
+    throw new Error(
+      `PROMOTE_MODE must be "dry-run" or "submit" (got "${modeInput}").`,
+    );
+  }
+  const dryRun = modeInput === "dry-run";
 
   const appJson = readJson<{ expo: { version: string } }>(APP_JSON_PATH);
   const easJson = readJson<{
@@ -386,7 +401,17 @@ async function main(): Promise<void> {
   if (!ascAppId)
     throw new Error("Could not read submit.production.ios.ascAppId from eas.json.");
 
-  log(`Promoting to App Store: app ${ascAppId}, version ${versionString}.`);
+  log(
+    `Promoting to App Store: app ${ascAppId}, version ${versionString} ` +
+      `(mode=${dryRun ? "dry-run" : "submit"}).`,
+  );
+  if (dryRun) {
+    log(
+      "Dry-run mode: the version will be prepared, the build attached, " +
+        "and release notes written, but the version will NOT be submitted " +
+        "for App Review. Re-run the workflow in 'submit' mode to send it.",
+    );
+  }
   log(
     buildNumber
       ? `Target build: ${buildNumber}.`
@@ -453,9 +478,20 @@ async function main(): Promise<void> {
   );
 
   await attachBuildToVersion(client, version.id, build.id);
-  await setReleaseNotes(client, version.id, releaseNotes);
+  const renderedNotes = await setReleaseNotes(client, version.id, releaseNotes);
 
-  const submission = await submitForReview(client, version.id);
+  log("");
+  log("=== Rendered release notes (as App Store has them now) ===");
+  for (const { locale, whatsNew } of renderedNotes) {
+    log(`--- ${locale} ---`);
+    log(whatsNew);
+  }
+  log("=== end of rendered release notes ===");
+  log("");
+
+  const submission = dryRun
+    ? null
+    : await submitForReview(client, version.id);
 
   const refreshed = await client.get<AscSingle>(
     `/v1/appStoreVersions/${version.id}`,
@@ -465,29 +501,66 @@ async function main(): Promise<void> {
   const ascLink = `https://appstoreconnect.apple.com/apps/${ascAppId}/appstore/ios/version/${version.id}`;
 
   log("");
-  log("=== App Store promotion complete ===");
+  log(
+    dryRun
+      ? "=== App Store promotion DRY RUN complete (NOT submitted for review) ==="
+      : "=== App Store promotion complete ===",
+  );
   log(`App Store version : ${versionString} (id=${version.id})`);
   log(`Build number      : ${buildVersion} (id=${build.id})`);
   log(`Release type      : ${releaseType}`);
   log(`Export compliance : usesNonExemptEncryption=${exportComplianceValue} (source: ${exportComplianceSource})`);
-  log(`Submission id     : ${submission.id}`);
+  log(`Submission id     : ${submission ? submission.id : "(dry-run, not submitted)"}`);
   log(`Review state      : ${finalState}`);
   log(`ASC link          : ${ascLink}`);
+  if (dryRun) {
+    log("");
+    log(
+      "Next step: review the rendered release notes above. If they look right, " +
+        "re-run this workflow with the same inputs and mode=submit to send the " +
+        "version for App Review.",
+    );
+  }
 
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
-    const md = [
-      `## App Store promotion submitted`,
+    const escape = (s: string) => s.replace(/\|/g, "\\|");
+    const notesBlock = renderedNotes
+      .map(
+        ({ locale, whatsNew }) =>
+          `<details><summary><code>${escape(locale)}</code></summary>\n\n` +
+          "```\n" +
+          whatsNew +
+          "\n```\n\n</details>",
+      )
+      .join("\n");
+    const heading = dryRun
+      ? `## App Store promotion — DRY RUN (not submitted)`
+      : `## App Store promotion submitted`;
+    const lines = [
+      heading,
       ``,
+      `- **Mode**: \`${dryRun ? "dry-run" : "submit"}\``,
       `- **Version**: \`${versionString}\``,
       `- **Build**: \`${buildVersion}\``,
       `- **Release type**: \`${releaseType}\``,
       `- **Export compliance**: \`usesNonExemptEncryption=${exportComplianceValue}\` (source: ${exportComplianceSource})`,
       `- **Review state**: \`${finalState}\``,
+      `- **Submission id**: \`${submission ? submission.id : "(dry-run, not submitted)"}\``,
       `- **ASC**: ${ascLink}`,
       ``,
-    ].join("\n");
-    fs.appendFileSync(summaryPath, md);
+      `### Rendered release notes per locale`,
+      ``,
+      notesBlock,
+      ``,
+    ];
+    if (dryRun) {
+      lines.push(
+        `> Re-run this workflow with the same inputs and **mode=submit** to send for App Review.`,
+        ``,
+      );
+    }
+    fs.appendFileSync(summaryPath, lines.join("\n"));
   }
 }
 
