@@ -21,7 +21,9 @@ import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import {
+  dayLabels,
   expressSurchargeForCountry,
+  formatDeliveryRow,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
@@ -150,6 +152,21 @@ export default function Checkout() {
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
   const total = subtotal + districtFee + expressFee;
+
+  // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
+  // line for the order summary so the shopper can confirm their pick at a
+  // glance before paying — mirrors the mobile checkout summary.
+  const summaryDays = useMemo(
+    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
+    [t],
+  );
+  const deliveryRowText = formatDeliveryRow({
+    mode: deliveryMode,
+    date: recipient.deliveryDate,
+    slotLabel: deliverySlot,
+    days: summaryDays,
+    expressLabel: t("checkout.expressDeliveryLabel"),
+  });
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
@@ -620,6 +637,12 @@ export default function Checkout() {
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("cart.subtotal")}</span>
                   <span data-testid="text-subtotal">{fmt(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground gap-4" data-testid="row-delivery-when">
+                  <span className="shrink-0">{t("checkout.summary.delivery")}</span>
+                  <span className="text-right text-foreground">
+                    {deliveryRowText ?? t("checkout.summary.deliveryNotSet")}
+                  </span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("checkout.deliveryEstimated")}</span>
