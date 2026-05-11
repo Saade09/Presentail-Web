@@ -158,17 +158,19 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     if (deliveryLocations.length === 0) return;
     if (selectedCountry && selectedCity) return;
 
-    const hasPersistedCountry =
-      !!(persisted?.selectedDeliveryCountryId || persisted?.selectedDeliveryCountryCode);
-    // Only wait on geo detection when we actually need it (no persisted pick).
-    if (!hasPersistedCountry && !autoDetectionDone) return;
+    const wasManuallySelected = persisted?.manuallySelected === true;
+    // Always wait on geo detection unless the user explicitly picked their
+    // country in a previous session — that way a stale auto-detected pick
+    // (e.g. Lebanon stored before the user enabled a UAE VPN) gets a chance
+    // to be corrected before we paint a wrong store / currency.
+    if (!wasManuallySelected && !autoDetectionDone) return;
 
     let nextCountry: DeliveryCountry | null = null;
     let nextCity: DeliveryCity | null = null;
     let autoDetected = false;
 
-    // 1. Persisted selection wins.
-    if (persisted) {
+    // 1. Manual selection always wins.
+    if (wasManuallySelected && persisted) {
       nextCountry =
         findCountryById(deliveryLocations, persisted.selectedDeliveryCountryId) ??
         findCountryByCode(deliveryLocations, persisted.selectedDeliveryCountryCode);
@@ -182,7 +184,9 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     // 2. IP-based country detection (LB / AE / CY today). When the caller's
     //    IP maps to one of our active delivery countries, pick it so the
     //    header, prices, currency and payment methods match their region on
-    //    first launch without forcing them to open the country sheet.
+    //    every launch without forcing them to open the country sheet — this
+    //    also re-detects after a VPN change for users who never made a
+    //    manual pick.
     if (!nextCountry) {
       const detected = findCountryByCode(deliveryLocations, autoDetectedCountryCode);
       if (detected) {
@@ -191,7 +195,21 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       }
     }
 
-    // 3. Fallback to Lebanon (default), then first active country.
+    // 3. Fall back to a previous auto-detected pick when the IP couldn't be
+    //    mapped this launch (e.g. transient geo lookup failure) — still
+    //    better than swinging back to Lebanon.
+    if (!nextCountry && persisted && !wasManuallySelected) {
+      nextCountry =
+        findCountryById(deliveryLocations, persisted.selectedDeliveryCountryId) ??
+        findCountryByCode(deliveryLocations, persisted.selectedDeliveryCountryCode);
+      if (nextCountry && persisted.selectedDeliveryCityId) {
+        nextCity =
+          nextCountry.cities.find((c) => c.id === persisted.selectedDeliveryCityId) ??
+          null;
+      }
+    }
+
+    // 4. Final fallback: Lebanon (default), then first active country.
     if (!nextCountry) {
       nextCountry = pickFallbackCountry(deliveryLocations);
     }
