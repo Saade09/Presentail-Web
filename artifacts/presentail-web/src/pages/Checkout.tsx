@@ -18,6 +18,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { PaymentMethods } from "@/components/product/PaymentMethods";
 
 type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
 
@@ -477,6 +478,12 @@ export default function Checkout() {
                 <div>
                   <h2 className="text-3xl font-serif mb-2">{t("checkout.step3.title")}</h2>
                   <p className="text-muted-foreground mb-8">{t("checkout.step3.desc")}</p>
+
+                  <PaymentMethods
+                    label={t("payments.waysToPay")}
+                    countryCode={countryCode}
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6"
+                  />
 
                   <div className="space-y-3 mb-8">
                     {paymentOptions.map((m) => (
