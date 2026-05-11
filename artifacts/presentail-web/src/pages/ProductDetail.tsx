@@ -3,14 +3,6 @@ import { Link, useRoute } from "wouter";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -33,33 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  "hand-bouquets": "Hand Bouquets",
-  "flower-boxes": "Flower Boxes",
-  "flower-vases": "Flower Vases",
-  bundles: "Bundles",
-  "lux-arrangements": "Lux Arrangements",
-  "dried-flowers": "Dried Flowers",
-  "preserved-flowers": "Preserved Flowers",
-  plants: "Plants",
-  balloons: "Balloons",
-  "board-games": "Board Games",
-  cakes: "Cakes",
-  chocolate: "Chocolate",
-  "arabic-sweets": "Arabic Sweets",
-  "stuffed-animals": "Stuffed Animals",
-};
-
-function categoryLabel(slug: string): string {
-  return (
-    CATEGORY_LABELS[slug] ??
-    slug
-      .split("-")
-      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join(" ")
-  );
-}
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -154,32 +119,9 @@ export default function ProductDetail() {
     );
   }
 
-  const catLabel = categoryLabel(product.category);
-  const catHref = `/shop?category=${product.category}`;
-
   return (
     <div className="bg-background min-h-screen">
       <div className="container mx-auto px-4 pt-8 pb-20">
-        <Breadcrumb className="mb-6" data-testid="product-breadcrumb">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href={catHref}>{catLabel}</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{product.name}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
           <ProductGallery
             images={vm.galleryImages}
