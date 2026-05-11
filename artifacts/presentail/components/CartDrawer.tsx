@@ -450,6 +450,7 @@ export function CartDrawer() {
     </Modal>
     <CheckoutLoginSheet
       visible={loginSheetVisible}
+      surface="cart"
       onClose={() => setLoginSheetVisible(false)}
       onAuthSuccess={() => {
         setLoginSheetVisible(false);

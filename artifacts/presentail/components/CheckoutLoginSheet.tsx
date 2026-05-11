@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { trackEvent } from "@/lib/analytics";
 import {
   AuthError,
   checkEmailExists,
@@ -47,11 +48,19 @@ type Step =
   | "forgotSent"
   | "forgotPasteLink";
 
+type Surface = "cart" | "checkout-direct";
+
 type Props = {
   visible: boolean;
   onClose: () => void;
   onAuthSuccess: () => void;
   onContinueAsGuest: () => void;
+  /**
+   * Where in the checkout funnel this prompt was opened so we can
+   * separately attribute conversion of cart-button taps vs direct
+   * /checkout visits in analytics, mirroring the web prompt.
+   */
+  surface: Surface;
 };
 
 export function CheckoutLoginSheet({
@@ -59,6 +68,7 @@ export function CheckoutLoginSheet({
   onClose,
   onAuthSuccess,
   onContinueAsGuest,
+  surface,
 }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -94,6 +104,38 @@ export function CheckoutLoginSheet({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
+
+  // Mirrors the web CheckoutLoginDialog: emit one "viewed" per open and
+  // one "action" per close. If the shopper closes the sheet without
+  // picking an option we emit a "dismissed" action so prompt → drop-off
+  // shows up alongside prompt → sign-in / prompt → guest in the funnel.
+  const actionTakenRef = useRef(false);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (visible && !wasOpenRef.current) {
+      actionTakenRef.current = false;
+      trackEvent({ name: "checkout_login_prompt_viewed", surface });
+    }
+    if (!visible && wasOpenRef.current && !actionTakenRef.current) {
+      trackEvent({
+        name: "checkout_login_prompt_action",
+        surface,
+        action: "dismissed",
+      });
+    }
+    wasOpenRef.current = visible;
+  }, [visible, surface]);
+
+  const recordAction = (
+    action: "continue" | "google" | "apple" | "guest",
+  ) => {
+    actionTakenRef.current = true;
+    trackEvent({
+      name: "checkout_login_prompt_action",
+      surface,
+      action,
+    });
+  };
 
   const resetState = () => {
     setStep("email");
@@ -234,6 +276,11 @@ export function CheckoutLoginSheet({
   };
 
   const onContinueEmail = async () => {
+    // Record intent up-front so the funnel reflects every Continue tap,
+    // even ones that fail email validation. Otherwise shoppers who fat-
+    // finger their email never show up as a "continue" action and the
+    // sign-in conversion looks artificially low.
+    recordAction("continue");
     const trimmed = email.trim();
     if (!isValidEmail(trimmed)) {
       setEmailError(t.authInvalidEmail);
@@ -286,6 +333,7 @@ export function CheckoutLoginSheet({
   };
 
   const onApple = async () => {
+    recordAction("apple");
     setSocialError(null);
     setSocialBusy("apple");
     const r = await signInWithApple(applySession);
@@ -299,6 +347,7 @@ export function CheckoutLoginSheet({
   };
 
   const onGoogle = async () => {
+    recordAction("google");
     setSocialError(null);
     setSocialBusy("google");
     const r = await signInWithGoogle(applySession);
@@ -494,7 +543,10 @@ export function CheckoutLoginSheet({
                     }}
                   />
                   <Pressable
-                    onPress={onContinueAsGuest}
+                    onPress={() => {
+                      recordAction("guest");
+                      onContinueAsGuest();
+                    }}
                     disabled={emailBusy || socialBusy !== null}
                     accessibilityRole="button"
                     accessibilityLabel={t.checkoutAsGuest}

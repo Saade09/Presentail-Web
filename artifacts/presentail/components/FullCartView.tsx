@@ -478,6 +478,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     </View>
     <CheckoutLoginSheet
       visible={loginSheetVisible}
+      surface="cart"
       onClose={() => setLoginSheetVisible(false)}
       onAuthSuccess={() => {
         setLoginSheetVisible(false);
