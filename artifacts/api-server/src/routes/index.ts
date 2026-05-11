@@ -12,6 +12,7 @@ import fxRouter from "./fx";
 import geoRouter from "./geo";
 import homepageRouter from "./homepage";
 import meRouter from "./me";
+import clientErrorsRouter from "./clientErrors";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(fxRouter);
 router.use(geoRouter);
 router.use(homepageRouter);
 router.use(meRouter);
+router.use(clientErrorsRouter);
 
 export default router;

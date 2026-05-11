@@ -111,6 +111,72 @@ export const SendOrderEventPushResponse = zod.object({
 });
 
 /**
+ * Accepts a single crash report from a mobile or web client. Used by the
+per-screen and root error boundaries to surface real crashes in the
+server logs (and any downstream log sink) instead of leaving them only
+in the device console. Bodies are intentionally bounded; messages and
+stacks longer than the hard limit are truncated server-side. PII
+scrubbing is the client's responsibility, but the server also drops
+obviously sensitive substrings (bearer tokens, JWTs, emails, phone
+numbers) defensively before logging. Rate-limited per IP.
+
+ * @summary Report a client-side crash
+ */
+export const ReportClientErrorBody = zod.object({
+  message: zod
+    .string()
+    .describe("The error message. Truncated server-side at 2000 characters."),
+  stack: zod
+    .string()
+    .optional()
+    .describe(
+      "The JS stack trace, when available. Truncated server-side at 8000 characters.",
+    ),
+  componentStack: zod
+    .string()
+    .optional()
+    .describe(
+      "The React component stack captured by the error boundary, when available. Truncated server-side at 4000 characters.",
+    ),
+  route: zod
+    .string()
+    .optional()
+    .describe(
+      'The route or screen name where the error happened (e.g. \"product\/[slug]\" or \"root\").',
+    ),
+  boundary: zod
+    .enum(["route", "root"])
+    .optional()
+    .describe(
+      'Which error boundary caught the error. Defaults to \"route\" when omitted.',
+    ),
+  platform: zod
+    .enum(["ios", "android", "web"])
+    .optional()
+    .describe("The client platform that produced the report."),
+  appVersion: zod
+    .string()
+    .optional()
+    .describe("The app's display version (e.g. expo.version)."),
+  buildNumber: zod
+    .string()
+    .optional()
+    .describe(
+      "The native build number (iOS buildNumber \/ Android versionCode), when available.",
+    ),
+  deviceId: zod
+    .string()
+    .optional()
+    .describe(
+      "A stable per-device identifier for correlating multiple reports from the same device. Not a user identifier.",
+    ),
+});
+
+export const ReportClientErrorResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Returns the active homepage hero banner carousel for the supplied
 country. Banners are filtered server-side by isActive, the optional
 startsAt/endsAt window (inclusive bounds against the current server

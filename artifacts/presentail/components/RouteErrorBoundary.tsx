@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallbackProps } from "@/components/ErrorFallback";
 import { useColors } from "@/hooks/useColors";
+import { reportClientError } from "@/lib/clientErrorReporter";
 
 type RouteErrorFallbackProps = ErrorFallbackProps & { routeName: string };
 
@@ -204,6 +205,12 @@ export function withRouteErrorBoundary<P extends object>(
           `[RouteErrorBoundary] ${routeName} crashed: ${error.message}`,
           stackTrace,
         );
+        reportClientError({
+          error,
+          componentStack: stackTrace,
+          route: routeName,
+          boundary: "route",
+        });
       }}
     >
       <Component {...props} />

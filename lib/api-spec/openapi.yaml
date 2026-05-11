@@ -20,6 +20,8 @@ tags:
     description: Per-city express delivery time and free-delivery threshold copy
   - name: geo
     description: IP-based geolocation helpers (display currency hints)
+  - name: clientErrors
+    description: Client-side crash reports from mobile and web clients
 paths:
   /healthz:
     get:
@@ -122,6 +124,39 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /client-errors:
+    post:
+      operationId: reportClientError
+      tags: [clientErrors]
+      summary: Report a client-side crash
+      description: |
+        Accepts a single crash report from a mobile or web client. Used by the
+        per-screen and root error boundaries to surface real crashes in the
+        server logs (and any downstream log sink) instead of leaving them only
+        in the device console. Bodies are intentionally bounded; messages and
+        stacks longer than the hard limit are truncated server-side. PII
+        scrubbing is the client's responsibility, but the server also drops
+        obviously sensitive substrings (bearer tokens, JWTs, emails, phone
+        numbers) defensively before logging. Rate-limited per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientErrorReportRequest"
+      responses:
+        "200":
+          description: Report acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientErrorReportResponse"
+        "400":
+          description: Invalid request
           content:
             application/json:
               schema:
@@ -396,6 +431,47 @@ components:
       required:
         - ok
         - removed
+    ClientErrorReportRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message. Truncated server-side at 2000 characters.
+        stack:
+          type: string
+          description: The JS stack trace, when available. Truncated server-side at 8000 characters.
+        componentStack:
+          type: string
+          description: The React component stack captured by the error boundary, when available. Truncated server-side at 4000 characters.
+        route:
+          type: string
+          description: The route or screen name where the error happened (e.g. "product/[slug]" or "root").
+        boundary:
+          type: string
+          enum: [route, root]
+          description: Which error boundary caught the error. Defaults to "route" when omitted.
+        platform:
+          type: string
+          enum: [ios, android, web]
+          description: The client platform that produced the report.
+        appVersion:
+          type: string
+          description: The app's display version (e.g. expo.version).
+        buildNumber:
+          type: string
+          description: The native build number (iOS buildNumber / Android versionCode), when available.
+        deviceId:
+          type: string
+          description: A stable per-device identifier for correlating multiple reports from the same device. Not a user identifier.
+      required:
+        - message
+    ClientErrorReportResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
     OrderEventState:
       type: string
       enum: [confirmed, out_for_delivery, delivered]

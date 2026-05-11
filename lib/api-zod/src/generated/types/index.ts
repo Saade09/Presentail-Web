@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./clientErrorReportRequest";
+export * from "./clientErrorReportRequestBoundary";
+export * from "./clientErrorReportRequestPlatform";
+export * from "./clientErrorReportResponse";
 export * from "./deliveryCity";
 export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";

@@ -35,6 +35,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE } from "@/lib/stripe";
+import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
 
 setBaseUrl(API_BASE);
@@ -213,7 +214,20 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
+      <ErrorBoundary
+        onError={(error, stackTrace) => {
+          console.error(
+            `[RootErrorBoundary] app crashed: ${error.message}`,
+            stackTrace,
+          );
+          reportClientError({
+            error,
+            componentStack: stackTrace,
+            route: "root",
+            boundary: "root",
+          });
+        }}
+      >
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>

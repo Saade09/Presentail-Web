@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ClientErrorReportRequest,
+  ClientErrorReportResponse,
   DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
@@ -391,6 +393,101 @@ export const useSendOrderEventPush = <
   TContext
 > => {
   return useMutation(getSendOrderEventPushMutationOptions(options));
+};
+
+/**
+ * Accepts a single crash report from a mobile or web client. Used by the
+per-screen and root error boundaries to surface real crashes in the
+server logs (and any downstream log sink) instead of leaving them only
+in the device console. Bodies are intentionally bounded; messages and
+stacks longer than the hard limit are truncated server-side. PII
+scrubbing is the client's responsibility, but the server also drops
+obviously sensitive substrings (bearer tokens, JWTs, emails, phone
+numbers) defensively before logging. Rate-limited per IP.
+
+ * @summary Report a client-side crash
+ */
+export const getReportClientErrorUrl = () => {
+  return `/api/client-errors`;
+};
+
+export const reportClientError = async (
+  clientErrorReportRequest: ClientErrorReportRequest,
+  options?: RequestInit,
+): Promise<ClientErrorReportResponse> => {
+  return customFetch<ClientErrorReportResponse>(getReportClientErrorUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(clientErrorReportRequest),
+  });
+};
+
+export const getReportClientErrorMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reportClientError>>,
+    TError,
+    { data: BodyType<ClientErrorReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reportClientError>>,
+  TError,
+  { data: BodyType<ClientErrorReportRequest> },
+  TContext
+> => {
+  const mutationKey = ["reportClientError"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reportClientError>>,
+    { data: BodyType<ClientErrorReportRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reportClientError(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReportClientErrorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reportClientError>>
+>;
+export type ReportClientErrorMutationBody = BodyType<ClientErrorReportRequest>;
+export type ReportClientErrorMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Report a client-side crash
+ */
+export const useReportClientError = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reportClientError>>,
+    TError,
+    { data: BodyType<ClientErrorReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reportClientError>>,
+  TError,
+  { data: BodyType<ClientErrorReportRequest> },
+  TContext
+> => {
+  return useMutation(getReportClientErrorMutationOptions(options));
 };
 
 /**

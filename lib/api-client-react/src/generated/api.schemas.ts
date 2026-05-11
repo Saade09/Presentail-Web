@@ -50,6 +50,54 @@ export interface PushUnregisterResponse {
   removed: number;
 }
 
+/**
+ * Which error boundary caught the error. Defaults to "route" when omitted.
+ */
+export type ClientErrorReportRequestBoundary =
+  (typeof ClientErrorReportRequestBoundary)[keyof typeof ClientErrorReportRequestBoundary];
+
+export const ClientErrorReportRequestBoundary = {
+  route: "route",
+  root: "root",
+} as const;
+
+/**
+ * The client platform that produced the report.
+ */
+export type ClientErrorReportRequestPlatform =
+  (typeof ClientErrorReportRequestPlatform)[keyof typeof ClientErrorReportRequestPlatform];
+
+export const ClientErrorReportRequestPlatform = {
+  ios: "ios",
+  android: "android",
+  web: "web",
+} as const;
+
+export interface ClientErrorReportRequest {
+  /** The error message. Truncated server-side at 2000 characters. */
+  message: string;
+  /** The JS stack trace, when available. Truncated server-side at 8000 characters. */
+  stack?: string;
+  /** The React component stack captured by the error boundary, when available. Truncated server-side at 4000 characters. */
+  componentStack?: string;
+  /** The route or screen name where the error happened (e.g. "product/[slug]" or "root"). */
+  route?: string;
+  /** Which error boundary caught the error. Defaults to "route" when omitted. */
+  boundary?: ClientErrorReportRequestBoundary;
+  /** The client platform that produced the report. */
+  platform?: ClientErrorReportRequestPlatform;
+  /** The app's display version (e.g. expo.version). */
+  appVersion?: string;
+  /** The native build number (iOS buildNumber / Android versionCode), when available. */
+  buildNumber?: string;
+  /** A stable per-device identifier for correlating multiple reports from the same device. Not a user identifier. */
+  deviceId?: string;
+}
+
+export interface ClientErrorReportResponse {
+  ok: boolean;
+}
+
 export type OrderEventState =
   (typeof OrderEventState)[keyof typeof OrderEventState];
 
