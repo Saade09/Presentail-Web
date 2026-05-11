@@ -119,6 +119,7 @@ export default function Checkout() {
           if (!open) setLocation("/cart");
         }}
         onContinueAsGuest={() => setGuestAcked(true)}
+        surface="checkout-direct"
       />
     );
   }

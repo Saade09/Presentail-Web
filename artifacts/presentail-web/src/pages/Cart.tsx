@@ -150,6 +150,7 @@ export default function Cart() {
         open={loginOpen}
         onOpenChange={setLoginOpen}
         onContinueAsGuest={goToCheckout}
+        surface="cart"
       />
     </div>
   );

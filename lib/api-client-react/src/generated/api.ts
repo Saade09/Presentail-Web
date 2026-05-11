@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AnalyticsEventRequest,
+  AnalyticsEventResponse,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
   DeliveryConfigResponse,
@@ -488,6 +490,101 @@ export const useReportClientError = <
   TContext
 > => {
   return useMutation(getReportClientErrorMutationOptions(options));
+};
+
+/**
+ * Accepts a single lightweight product-analytics event from a web or
+mobile client (for example, which button a shopper picked on the
+checkout login prompt). Events are bounded, validated against an
+allowlist of known event names, and forwarded to the server log
+sink that downstream BI/dashboards already consume — there is no
+separate analytics destination configured today. Rate-limited per
+IP. The server never trusts client-supplied user identifiers; the
+signed-in user (if any) is read from the session cookie instead.
+
+ * @summary Record a client-side analytics event
+ */
+export const getRecordAnalyticsEventUrl = () => {
+  return `/api/analytics/events`;
+};
+
+export const recordAnalyticsEvent = async (
+  analyticsEventRequest: AnalyticsEventRequest,
+  options?: RequestInit,
+): Promise<AnalyticsEventResponse> => {
+  return customFetch<AnalyticsEventResponse>(getRecordAnalyticsEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(analyticsEventRequest),
+  });
+};
+
+export const getRecordAnalyticsEventMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordAnalyticsEvent>>,
+    TError,
+    { data: BodyType<AnalyticsEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recordAnalyticsEvent>>,
+  TError,
+  { data: BodyType<AnalyticsEventRequest> },
+  TContext
+> => {
+  const mutationKey = ["recordAnalyticsEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recordAnalyticsEvent>>,
+    { data: BodyType<AnalyticsEventRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return recordAnalyticsEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecordAnalyticsEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordAnalyticsEvent>>
+>;
+export type RecordAnalyticsEventMutationBody = BodyType<AnalyticsEventRequest>;
+export type RecordAnalyticsEventMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Record a client-side analytics event
+ */
+export const useRecordAnalyticsEvent = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordAnalyticsEvent>>,
+    TError,
+    { data: BodyType<AnalyticsEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recordAnalyticsEvent>>,
+  TError,
+  { data: BodyType<AnalyticsEventRequest> },
+  TContext
+> => {
+  return useMutation(getRecordAnalyticsEventMutationOptions(options));
 };
 
 /**

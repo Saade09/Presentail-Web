@@ -22,6 +22,8 @@ tags:
     description: IP-based geolocation helpers (display currency hints)
   - name: clientErrors
     description: Client-side crash reports from mobile and web clients
+  - name: analytics
+    description: Lightweight client-side product analytics events
 paths:
   /healthz:
     get:
@@ -155,6 +157,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientErrorReportResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analytics/events:
+    post:
+      operationId: recordAnalyticsEvent
+      tags: [analytics]
+      summary: Record a client-side analytics event
+      description: |
+        Accepts a single lightweight product-analytics event from a web or
+        mobile client (for example, which button a shopper picked on the
+        checkout login prompt). Events are bounded, validated against an
+        allowlist of known event names, and forwarded to the server log
+        sink that downstream BI/dashboards already consume — there is no
+        separate analytics destination configured today. Rate-limited per
+        IP. The server never trusts client-supplied user identifiers; the
+        signed-in user (if any) is read from the session cookie instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsEventRequest"
+      responses:
+        "200":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsEventResponse"
         "400":
           description: Invalid request
           content:
@@ -466,6 +501,47 @@ components:
       required:
         - message
     ClientErrorReportResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    AnalyticsEventName:
+      type: string
+      description: |
+        Allowlisted analytics event name. Adding a new event requires a
+        spec change so we never log unbounded user-controlled strings.
+      enum:
+        - checkout_login_prompt_viewed
+        - checkout_login_prompt_action
+    AnalyticsEventRequest:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/AnalyticsEventName"
+        surface:
+          type: string
+          description: |
+            Where the event was emitted from. For the checkout login
+            prompt this is "cart" (cart's Proceed to Checkout button) or
+            "checkout-direct" (a signed-out shopper hitting /checkout).
+          enum: [cart, checkout-direct]
+        action:
+          type: string
+          description: |
+            For action events, which choice the shopper picked.
+          enum: [continue, google, apple, guest, dismissed]
+        platform:
+          type: string
+          enum: [ios, android, web]
+          description: The client platform that produced the event.
+        appVersion:
+          type: string
+          description: Optional app/build version string for debugging.
+      required:
+        - name
+    AnalyticsEventResponse:
       type: object
       properties:
         ok:

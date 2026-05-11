@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSignIn } from "@clerk/react/legacy";
 import { useLocation, useRouter } from "wouter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -6,11 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
+
+type Surface = "cart" | "checkout-direct";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onContinueAsGuest: () => void;
+  /**
+   * Where in the checkout funnel this prompt was opened so we can
+   * separately attribute conversion of cart-button taps vs direct
+   * /checkout visits in analytics.
+   */
+  surface: Surface;
 };
 
 function isValidEmail(value: string): boolean {
@@ -21,6 +30,7 @@ export function CheckoutLoginDialog({
   open,
   onOpenChange,
   onContinueAsGuest,
+  surface,
 }: Props) {
   const { t, dir } = useLocale();
   const { toast } = useToast();
@@ -32,11 +42,46 @@ export function CheckoutLoginDialog({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState<"google" | "apple" | null>(null);
 
+  // Track each open as a single "viewed" event and remember whether the
+  // shopper actually picked an action; if they close the dialog without
+  // picking one we emit a "dismissed" action so prompt → drop-off shows
+  // up alongside prompt → sign-in / prompt → guest in the funnel.
+  const actionTakenRef = useRef(false);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      actionTakenRef.current = false;
+      trackEvent({ name: "checkout_login_prompt_viewed", surface });
+    }
+    if (!open && wasOpenRef.current && !actionTakenRef.current) {
+      trackEvent({
+        name: "checkout_login_prompt_action",
+        surface,
+        action: "dismissed",
+      });
+    }
+    wasOpenRef.current = open;
+  }, [open, surface]);
+
+  const recordAction = (action: "continue" | "google" | "apple" | "guest") => {
+    actionTakenRef.current = true;
+    trackEvent({
+      name: "checkout_login_prompt_action",
+      surface,
+      action,
+    });
+  };
+
   const base = (router.base || "").replace(/\/+$/, "");
   // Where to send the user after sign-in completes — straight to checkout.
   const redirectAfterAuth = `${base}/checkout`;
 
   const onContinueEmail = () => {
+    // Record intent up-front so the funnel reflects every Continue click,
+    // even ones that fail email validation. Otherwise shoppers who fat-
+    // finger their email never show up as a "continue" action and the
+    // sign-in conversion looks artificially low.
+    recordAction("continue");
     const trimmed = email.trim();
     if (!isValidEmail(trimmed)) {
       setEmailError(t("auth.invalidEmail"));
@@ -60,6 +105,7 @@ export function CheckoutLoginDialog({
     if (!isLoaded || !signIn) return;
     try {
       setOauthBusy(provider);
+      recordAction(provider);
       await signIn.authenticateWithRedirect({
         strategy: provider === "google" ? "oauth_google" : "oauth_apple",
         // Clerk needs absolute URLs here; same-origin is fine because the
@@ -173,6 +219,7 @@ export function CheckoutLoginDialog({
             size="lg"
             className="w-full h-12 rounded-xl border border-primary/30 text-primary hover:bg-primary/5"
             onClick={() => {
+              recordAction("guest");
               onOpenChange(false);
               onContinueAsGuest();
             }}

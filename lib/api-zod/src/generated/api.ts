@@ -177,6 +177,48 @@ export const ReportClientErrorResponse = zod.object({
 });
 
 /**
+ * Accepts a single lightweight product-analytics event from a web or
+mobile client (for example, which button a shopper picked on the
+checkout login prompt). Events are bounded, validated against an
+allowlist of known event names, and forwarded to the server log
+sink that downstream BI/dashboards already consume — there is no
+separate analytics destination configured today. Rate-limited per
+IP. The server never trusts client-supplied user identifiers; the
+signed-in user (if any) is read from the session cookie instead.
+
+ * @summary Record a client-side analytics event
+ */
+export const RecordAnalyticsEventBody = zod.object({
+  name: zod
+    .enum(["checkout_login_prompt_viewed", "checkout_login_prompt_action"])
+    .describe(
+      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n",
+    ),
+  surface: zod
+    .enum(["cart", "checkout-direct"])
+    .optional()
+    .describe(
+      'Where the event was emitted from. For the checkout login\nprompt this is \"cart\" (cart\'s Proceed to Checkout button) or\n\"checkout-direct\" (a signed-out shopper hitting \/checkout).\n',
+    ),
+  action: zod
+    .enum(["continue", "google", "apple", "guest", "dismissed"])
+    .optional()
+    .describe("For action events, which choice the shopper picked.\n"),
+  platform: zod
+    .enum(["ios", "android", "web"])
+    .optional()
+    .describe("The client platform that produced the event."),
+  appVersion: zod
+    .string()
+    .optional()
+    .describe("Optional app\/build version string for debugging."),
+});
+
+export const RecordAnalyticsEventResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Returns the active homepage hero banner carousel for the supplied
 country. Banners are filtered server-side by isActive, the optional
 startsAt/endsAt window (inclusive bounds against the current server

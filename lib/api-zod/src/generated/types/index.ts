@@ -6,6 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./analyticsEventName";
+export * from "./analyticsEventRequest";
+export * from "./analyticsEventRequestAction";
+export * from "./analyticsEventRequestPlatform";
+export * from "./analyticsEventRequestSurface";
+export * from "./analyticsEventResponse";
 export * from "./clientErrorReportRequest";
 export * from "./clientErrorReportRequestBoundary";
 export * from "./clientErrorReportRequestPlatform";

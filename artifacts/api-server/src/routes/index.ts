@@ -13,6 +13,7 @@ import geoRouter from "./geo";
 import homepageRouter from "./homepage";
 import meRouter from "./me";
 import clientErrorsRouter from "./clientErrors";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(geoRouter);
 router.use(homepageRouter);
 router.use(meRouter);
 router.use(clientErrorsRouter);
+router.use(analyticsRouter);
 
 export default router;

@@ -98,6 +98,80 @@ export interface ClientErrorReportResponse {
   ok: boolean;
 }
 
+/**
+ * Allowlisted analytics event name. Adding a new event requires a
+spec change so we never log unbounded user-controlled strings.
+
+ */
+export type AnalyticsEventName =
+  (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
+
+export const AnalyticsEventName = {
+  checkout_login_prompt_viewed: "checkout_login_prompt_viewed",
+  checkout_login_prompt_action: "checkout_login_prompt_action",
+} as const;
+
+/**
+ * Where the event was emitted from. For the checkout login
+prompt this is "cart" (cart's Proceed to Checkout button) or
+"checkout-direct" (a signed-out shopper hitting /checkout).
+
+ */
+export type AnalyticsEventRequestSurface =
+  (typeof AnalyticsEventRequestSurface)[keyof typeof AnalyticsEventRequestSurface];
+
+export const AnalyticsEventRequestSurface = {
+  cart: "cart",
+  "checkout-direct": "checkout-direct",
+} as const;
+
+/**
+ * For action events, which choice the shopper picked.
+
+ */
+export type AnalyticsEventRequestAction =
+  (typeof AnalyticsEventRequestAction)[keyof typeof AnalyticsEventRequestAction];
+
+export const AnalyticsEventRequestAction = {
+  continue: "continue",
+  google: "google",
+  apple: "apple",
+  guest: "guest",
+  dismissed: "dismissed",
+} as const;
+
+/**
+ * The client platform that produced the event.
+ */
+export type AnalyticsEventRequestPlatform =
+  (typeof AnalyticsEventRequestPlatform)[keyof typeof AnalyticsEventRequestPlatform];
+
+export const AnalyticsEventRequestPlatform = {
+  ios: "ios",
+  android: "android",
+  web: "web",
+} as const;
+
+export interface AnalyticsEventRequest {
+  name: AnalyticsEventName;
+  /** Where the event was emitted from. For the checkout login
+prompt this is "cart" (cart's Proceed to Checkout button) or
+"checkout-direct" (a signed-out shopper hitting /checkout).
+ */
+  surface?: AnalyticsEventRequestSurface;
+  /** For action events, which choice the shopper picked.
+   */
+  action?: AnalyticsEventRequestAction;
+  /** The client platform that produced the event. */
+  platform?: AnalyticsEventRequestPlatform;
+  /** Optional app/build version string for debugging. */
+  appVersion?: string;
+}
+
+export interface AnalyticsEventResponse {
+  ok: boolean;
+}
+
 export type OrderEventState =
   (typeof OrderEventState)[keyof typeof OrderEventState];
 
