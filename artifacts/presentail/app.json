@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "16",
+      "buildNumber": "18",
       "usesAppleSignIn": true,
       "entitlements": {
         "keychain-access-groups": [
@@ -31,7 +31,11 @@
         "CFBundleDisplayName": "Presentail",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDevelopmentRegion": "en",
-        "CFBundleLocalizations": ["en", "ar", "fr"]
+        "CFBundleLocalizations": [
+          "en",
+          "ar",
+          "fr"
+        ]
       },
       "associatedDomains": [
         "applinks:presentail.com"
