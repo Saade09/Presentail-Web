@@ -136,6 +136,7 @@ function RootLayoutNav() {
       />
       <Stack.Screen name="privacy" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="reset-password" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="personal-information" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }

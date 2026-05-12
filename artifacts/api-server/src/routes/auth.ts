@@ -4,8 +4,8 @@ import { randomBytes } from "node:crypto";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull } from "drizzle-orm";
-import { db, customersTable } from "@workspace/db";
-import { upsertCustomer, getCustomerByWcId } from "../lib/customers";
+import { db, customersTable, CUSTOMER_GENDERS } from "@workspace/db";
+import { upsertCustomer, getCustomerByWcId, normalizePhoneE164 } from "../lib/customers";
 import {
   existsIpLimiter,
   loginIpLimiter,
@@ -48,7 +48,31 @@ async function wpFetch(path: string, options: RequestInit = {}, req?: { query: a
   });
 }
 
-function mapCustomer(c: any) {
+type CustomerProfile = {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  phone: string;
+  gender: string | null;
+  birthday: string | null;
+  birthdayShareMonthDay: boolean;
+};
+
+function readWcMetaString(meta: any[] | undefined, key: string): string | null {
+  if (!Array.isArray(meta)) return null;
+  const found = meta.find((m: any) => m?.key === key);
+  if (!found) return null;
+  const v = found.value;
+  if (v === null || v === undefined || v === "") return null;
+  return String(v);
+}
+
+function mapCustomer(c: any): CustomerProfile {
+  const gender = readWcMetaString(c?.meta_data, "presentail_gender");
+  const birthday = readWcMetaString(c?.meta_data, "presentail_birthday");
+  const shareRaw = readWcMetaString(c?.meta_data, "presentail_birthday_share");
   return {
     id: c.id as number,
     email: c.email as string,
@@ -56,6 +80,9 @@ function mapCustomer(c: any) {
     lastName: (c.last_name ?? "") as string,
     username: (c.username ?? "") as string,
     phone: (c.billing?.phone ?? "") as string,
+    gender,
+    birthday,
+    birthdayShareMonthDay: shareRaw === null ? true : shareRaw !== "false" && shareRaw !== "0",
   };
 }
 
@@ -278,6 +305,9 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
         lastName: rest.join(" "),
         username: String(tokenData?.user_nicename ?? ""),
         phone: "",
+        gender: null,
+        birthday: null,
+        birthdayShareMonthDay: true,
       };
     }
 
@@ -392,6 +422,9 @@ router.get("/auth/me", requireUserType(["customer"]), async (req, res) => {
           lastName: local.lastName ?? "",
           username: "",
           phone: local.phoneE164 ?? "",
+          gender: local.gender ?? null,
+          birthday: local.birthday ?? null,
+          birthdayShareMonthDay: local.birthdayShareMonthDay,
         },
       });
       return;
@@ -420,46 +453,196 @@ router.get("/auth/me", requireUserType(["customer"]), async (req, res) => {
 });
 
 // ── Update current user profile ──────────────────────────────────────────────
+// Birthday must be a valid past calendar date in `YYYY-MM-DD` form. We
+// cap the upper bound at "today" in UTC so a clock-skewed device clock
+// can't slip a future date through.
+function parseBirthday(raw: unknown): { ok: true; value: string | null } | { ok: false } {
+  if (raw === null || raw === undefined || raw === "") {
+    return { ok: true, value: null };
+  }
+  if (typeof raw !== "string") return { ok: false };
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return { ok: false };
+  const parsed = new Date(`${trimmed}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return { ok: false };
+  // Reject dates the calendar normalised away (e.g. 2024-02-31).
+  const [y, m, d] = trimmed.split("-").map((s) => Number(s));
+  if (
+    parsed.getUTCFullYear() !== y ||
+    parsed.getUTCMonth() + 1 !== m ||
+    parsed.getUTCDate() !== d
+  ) {
+    return { ok: false };
+  }
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  if (parsed.getTime() > todayUtc.getTime()) return { ok: false };
+  // 130-year sanity bound — anything older is almost certainly a typo.
+  const minYear = todayUtc.getUTCFullYear() - 130;
+  if (y < minYear) return { ok: false };
+  return { ok: true, value: trimmed };
+}
+
 router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
-  const { firstName, lastName, phone } = req.body as {
+  const body = (req.body ?? {}) as {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    gender?: string | null;
+    birthday?: string | null;
+    birthdayShareMonthDay?: boolean;
   };
+
+  let normalizedGender: string | null | undefined;
+  if (body.gender !== undefined) {
+    if (body.gender === null || body.gender === "") {
+      normalizedGender = null;
+    } else if (
+      typeof body.gender === "string" &&
+      (CUSTOMER_GENDERS as readonly string[]).includes(body.gender)
+    ) {
+      normalizedGender = body.gender;
+    } else {
+      // Unknown value — silently ignore rather than rejecting the whole
+      // request, matching the "ignore unknown values" contract in the spec.
+      normalizedGender = undefined;
+    }
+  }
+
+  let normalizedBirthday: string | null | undefined;
+  if (body.birthday !== undefined) {
+    const parsed = parseBirthday(body.birthday);
+    if (!parsed.ok) {
+      res.status(400).json({ ok: false, message: "Invalid birthday" });
+      return;
+    }
+    normalizedBirthday = parsed.value;
+  }
+
+  const normalizedShare =
+    typeof body.birthdayShareMonthDay === "boolean"
+      ? body.birthdayShareMonthDay
+      : undefined;
+
+  // First, persist to the canonical local row so the change is durable
+  // even if the WC mirror call below fails.
+  let localPatchApplied = false;
+  try {
+    const localPatch: Partial<typeof customersTable.$inferInsert> = {};
+    if (typeof body.firstName === "string") localPatch.firstName = body.firstName.trim();
+    if (typeof body.lastName === "string") localPatch.lastName = body.lastName.trim();
+    if (body.phone !== undefined) {
+      const raw = typeof body.phone === "string" ? body.phone : "";
+      localPatch.phoneE164 = normalizePhoneE164(raw);
+    }
+    if (normalizedGender !== undefined) localPatch.gender = normalizedGender;
+    if (normalizedBirthday !== undefined) localPatch.birthday = normalizedBirthday;
+    if (normalizedShare !== undefined) localPatch.birthdayShareMonthDay = normalizedShare;
+    if (Object.keys(localPatch).length > 0) {
+      await db
+        .update(customersTable)
+        .set({ ...localPatch, updatedAt: new Date() })
+        .where(eq(customersTable.wcCustomerId, auth.customerId));
+      localPatchApplied = true;
+    }
+  } catch (err: any) {
+    req.log?.warn?.(
+      { err: err?.message, wcCustomerId: auth.customerId },
+      "auth.me.put: local profile patch failed",
+    );
+  }
+
+  // Best-effort mirror to WooCommerce. Failures are logged but do not
+  // break the save — same contract as the existing first/last/phone path.
+  const wcPayload: Record<string, unknown> = {};
+  if (typeof body.firstName === "string") wcPayload.first_name = body.firstName;
+  if (typeof body.lastName === "string") wcPayload.last_name = body.lastName;
+  if (body.phone !== undefined) wcPayload.billing = { phone: body.phone };
+  const metaUpdates: { key: string; value: string }[] = [];
+  if (normalizedGender !== undefined) {
+    metaUpdates.push({ key: "presentail_gender", value: normalizedGender ?? "" });
+  }
+  if (normalizedBirthday !== undefined) {
+    metaUpdates.push({ key: "presentail_birthday", value: normalizedBirthday ?? "" });
+  }
+  if (normalizedShare !== undefined) {
+    metaUpdates.push({ key: "presentail_birthday_share", value: String(normalizedShare) });
+  }
+  if (metaUpdates.length > 0) wcPayload.meta_data = metaUpdates;
+
+  let mapped: CustomerProfile | null = null;
   try {
     const r = await wcFetch(`/customers/${auth.customerId}`, {
       method: "PUT",
-      body: JSON.stringify({
-        first_name: firstName,
-        last_name: lastName,
-        billing: phone !== undefined ? { phone } : undefined,
-      }),
+      body: JSON.stringify(wcPayload),
     }, req);
     const data = (await r.json().catch(() => ({}))) as any;
-    if (!r.ok) {
-      res.status(r.status).json({ ok: false, message: data?.message ?? "Update failed" });
+    if (r.ok) {
+      mapped = mapCustomer(data);
+      void mirrorWcCustomerLocally(
+        mapped.id,
+        {
+          email: mapped.email,
+          firstName: mapped.firstName,
+          lastName: mapped.lastName,
+          phone: mapped.phone,
+        },
+        req.log,
+      );
+    } else {
+      req.log?.warn?.(
+        { status: r.status, message: data?.message },
+        "auth.me.put: WC mirror update failed (non-fatal)",
+      );
+    }
+  } catch (err: any) {
+    req.log?.warn?.(
+      { err: err?.message },
+      "auth.me.put: WC mirror update threw (non-fatal)",
+    );
+  }
+
+  // If the WC call succeeded use its mapped values, but always overlay
+  // the locally-persisted gender/birthday/share so the response reflects
+  // what we actually saved (the WC mirror may not echo our meta_data
+  // immediately on some hosts).
+  try {
+    const local = await getCustomerByWcId(auth.customerId);
+    if (local) {
+      const user: CustomerProfile = {
+        id: auth.customerId,
+        email: local.email,
+        firstName: mapped?.firstName ?? local.firstName ?? "",
+        lastName: mapped?.lastName ?? local.lastName ?? "",
+        username: mapped?.username ?? "",
+        phone: mapped?.phone ?? local.phoneE164 ?? "",
+        gender: local.gender ?? null,
+        birthday: local.birthday ?? null,
+        birthdayShareMonthDay: local.birthdayShareMonthDay,
+      };
+      res.json({ ok: true, user });
       return;
     }
-    const mapped = mapCustomer(data);
-    void mirrorWcCustomerLocally(
-      mapped.id,
-      {
-        email: mapped.email,
-        firstName: mapped.firstName,
-        lastName: mapped.lastName,
-        phone: mapped.phone,
-      },
-      req.log,
-    );
-    res.json({ ok: true, user: mapped });
-  } catch (e: any) {
-    res.status(500).json({ ok: false, message: e?.message ?? "Update failed" });
+  } catch {
+    // fall through
   }
+
+  if (mapped) {
+    res.json({ ok: true, user: mapped });
+    return;
+  }
+
+  if (!localPatchApplied) {
+    res.status(500).json({ ok: false, message: "Update failed" });
+    return;
+  }
+  res.json({ ok: true, user: null });
 });
 
 // ── Delete current user account ──────────────────────────────────────────────

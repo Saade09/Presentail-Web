@@ -523,3 +523,98 @@ export const GetDeliveryLocationsResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * Returns the canonical profile for the currently signed-in customer,
+including the optional personal-information fields (gender,
+birthday, birthday-sharing preference). Requires a Bearer token.
+
+ * @summary Get the signed-in customer's profile
+ */
+export const GetAuthMeResponse = zod.object({
+  ok: zod.boolean(),
+  user: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        email: zod.string().email(),
+        firstName: zod.string(),
+        lastName: zod.string(),
+        username: zod.string().optional(),
+        phone: zod.string().optional(),
+        gender: zod
+          .union([zod.enum(["female", "male", "unspecified"]), zod.null()])
+          .optional()
+          .describe(
+            "Optional gender. `null` means the customer prefers not to say.",
+          ),
+        birthday: zod
+          .string()
+          .nullish()
+          .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
+        birthdayShareMonthDay: zod
+          .boolean()
+          .describe(
+            "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
+          ),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+});
+
+/**
+ * Partial update for the current customer's profile. Any field that
+is omitted is left untouched. Personal-information fields can be
+cleared by sending `null` (gender, birthday). Email cannot be
+changed through this endpoint.
+
+ * @summary Update the signed-in customer's profile
+ */
+export const UpdateAuthMeBody = zod
+  .object({
+    firstName: zod.string().optional(),
+    lastName: zod.string().optional(),
+    phone: zod.string().optional(),
+    gender: zod
+      .union([zod.enum(["female", "male", "unspecified"]), zod.null()])
+      .optional(),
+    birthday: zod
+      .string()
+      .nullish()
+      .describe("ISO calendar date `YYYY-MM-DD`, or null to clear."),
+    birthdayShareMonthDay: zod.boolean().optional(),
+  })
+  .describe("Partial profile update. Omit a field to leave it unchanged.");
+
+export const UpdateAuthMeResponse = zod.object({
+  ok: zod.boolean(),
+  user: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        email: zod.string().email(),
+        firstName: zod.string(),
+        lastName: zod.string(),
+        username: zod.string().optional(),
+        phone: zod.string().optional(),
+        gender: zod
+          .union([zod.enum(["female", "male", "unspecified"]), zod.null()])
+          .optional()
+          .describe(
+            "Optional gender. `null` means the customer prefers not to say.",
+          ),
+        birthday: zod
+          .string()
+          .nullish()
+          .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
+        birthdayShareMonthDay: zod
+          .boolean()
+          .describe(
+            "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
+          ),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+});

@@ -324,6 +324,47 @@ export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
 }
 
+export type Gender = (typeof Gender)[keyof typeof Gender];
+
+export const Gender = {
+  female: "female",
+  male: "male",
+  unspecified: "unspecified",
+} as const;
+
+export interface User {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  username?: string;
+  phone?: string;
+  /** Optional gender. `null` means the customer prefers not to say. */
+  gender?: Gender | null;
+  /** Optional birthday in `YYYY-MM-DD` form, or null. */
+  birthday?: string | null;
+  /** Whether the customer is OK with us sharing month/day for birthday wishes (year is never shared). */
+  birthdayShareMonthDay: boolean;
+}
+
+export interface AuthMeResponse {
+  ok: boolean;
+  user?: User | null;
+}
+
+/**
+ * Partial profile update. Omit a field to leave it unchanged.
+ */
+export interface AuthMeUpdateRequest {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  gender?: Gender | null;
+  /** ISO calendar date `YYYY-MM-DD`, or null to clear. */
+  birthday?: string | null;
+  birthdayShareMonthDay?: boolean;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

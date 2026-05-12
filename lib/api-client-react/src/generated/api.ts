@@ -19,6 +19,8 @@ import type {
 import type {
   AnalyticsEventRequest,
   AnalyticsEventResponse,
+  AuthMeResponse,
+  AuthMeUpdateRequest,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
   DeliveryConfigResponse,
@@ -1274,3 +1276,165 @@ export function useGetDeliveryLocations<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns the canonical profile for the currently signed-in customer,
+including the optional personal-information fields (gender,
+birthday, birthday-sharing preference). Requires a Bearer token.
+
+ * @summary Get the signed-in customer's profile
+ */
+export const getGetAuthMeUrl = () => {
+  return `/api/auth/me`;
+};
+
+export const getAuthMe = async (
+  options?: RequestInit,
+): Promise<AuthMeResponse> => {
+  return customFetch<AuthMeResponse>(getGetAuthMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAuthMeQueryKey = () => {
+  return [`/api/auth/me`] as const;
+};
+
+export const getGetAuthMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAuthMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getAuthMe>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAuthMeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthMe>>> = ({
+    signal,
+  }) => getAuthMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAuthMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAuthMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAuthMe>>
+>;
+export type GetAuthMeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the signed-in customer's profile
+ */
+
+export function useGetAuthMe<
+  TData = Awaited<ReturnType<typeof getAuthMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getAuthMe>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAuthMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Partial update for the current customer's profile. Any field that
+is omitted is left untouched. Personal-information fields can be
+cleared by sending `null` (gender, birthday). Email cannot be
+changed through this endpoint.
+
+ * @summary Update the signed-in customer's profile
+ */
+export const getUpdateAuthMeUrl = () => {
+  return `/api/auth/me`;
+};
+
+export const updateAuthMe = async (
+  authMeUpdateRequest: AuthMeUpdateRequest,
+  options?: RequestInit,
+): Promise<AuthMeResponse> => {
+  return customFetch<AuthMeResponse>(getUpdateAuthMeUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authMeUpdateRequest),
+  });
+};
+
+export const getUpdateAuthMeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuthMe>>,
+    TError,
+    { data: BodyType<AuthMeUpdateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAuthMe>>,
+  TError,
+  { data: BodyType<AuthMeUpdateRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateAuthMe"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAuthMe>>,
+    { data: BodyType<AuthMeUpdateRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateAuthMe(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAuthMeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAuthMe>>
+>;
+export type UpdateAuthMeMutationBody = BodyType<AuthMeUpdateRequest>;
+export type UpdateAuthMeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the signed-in customer's profile
+ */
+export const useUpdateAuthMe = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuthMe>>,
+    TError,
+    { data: BodyType<AuthMeUpdateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAuthMe>>,
+  TError,
+  { data: BodyType<AuthMeUpdateRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateAuthMeMutationOptions(options));
+};

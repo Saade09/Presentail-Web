@@ -1,4 +1,6 @@
 import {
+  boolean,
+  date,
   index,
   integer,
   pgTable,
@@ -7,6 +9,11 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+// Allowed values for the `gender` column. Kept open with `unspecified`
+// so users can opt out, and validated at the API boundary before write.
+export const CUSTOMER_GENDERS = ["female", "male", "unspecified"] as const;
+export type CustomerGender = (typeof CUSTOMER_GENDERS)[number];
 
 // Canonical customer record for the project. This is the source of truth for
 // identity going forward; WooCommerce is treated as a downstream sync target
@@ -25,6 +32,11 @@ export const customersTable = pgTable(
     wcCustomerId: integer("wc_customer_id"),
     authProvider: text("auth_provider"),
     authUserId: text("auth_user_id"),
+    gender: text("gender"),
+    birthday: date("birthday"),
+    birthdayShareMonthDay: boolean("birthday_share_month_day")
+      .notNull()
+      .default(true),
     source: text("source").notNull().default("presentail.com"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

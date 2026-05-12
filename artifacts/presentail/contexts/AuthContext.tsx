@@ -19,6 +19,8 @@ import {
 } from "@/services/notifications";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 
+export type AuthGender = "female" | "male" | "unspecified";
+
 export type AuthUser = {
   id: number;
   email: string;
@@ -26,6 +28,10 @@ export type AuthUser = {
   lastName: string;
   username?: string;
   phone?: string;
+  gender?: AuthGender | null;
+  /** ISO calendar date `YYYY-MM-DD`, or null when unset. */
+  birthday?: string | null;
+  birthdayShareMonthDay?: boolean;
 };
 
 type AuthState = {
@@ -47,6 +53,9 @@ type AuthState = {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    gender?: AuthGender | null;
+    birthday?: string | null;
+    birthdayShareMonthDay?: boolean;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
 };
 

@@ -430,6 +430,14 @@ function AccountTab() {
           <SettingsRow
             colors={colors}
             isRTL={isRTL}
+            icon="user"
+            label={t.personalInfoTitle}
+            onPress={() => router.push("/personal-information" as never)}
+          />
+          <Divider colors={colors} />
+          <SettingsRow
+            colors={colors}
+            isRTL={isRTL}
             icon="globe"
             label={t.languageLabel}
             onPress={() => setLangOpen(true)}

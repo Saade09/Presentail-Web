@@ -24,6 +24,8 @@ tags:
     description: Client-side crash reports from mobile and web clients
   - name: analytics
     description: Lightweight client-side product analytics events
+  - name: auth
+    description: Account profile operations for the signed-in customer
 paths:
   /healthz:
     get:
@@ -397,6 +399,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeliveryLocationsResponse"
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get the signed-in customer's profile
+      description: |
+        Returns the canonical profile for the currently signed-in customer,
+        including the optional personal-information fields (gender,
+        birthday, birthday-sharing preference). Requires a Bearer token.
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMeResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateAuthMe
+      tags: [auth]
+      summary: Update the signed-in customer's profile
+      description: |
+        Partial update for the current customer's profile. Any field that
+        is omitted is left untouched. Personal-information fields can be
+        cleared by sending `null` (gender, birthday). Email cannot be
+        changed through this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthMeUpdateRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMeResponse"
+        "400":
+          description: Invalid request (e.g. malformed birthday)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -790,3 +848,71 @@ components:
       required:
         - countries
 
+    Gender:
+      type: string
+      enum: [female, male, unspecified]
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        username:
+          type: string
+        phone:
+          type: string
+        gender:
+          oneOf:
+            - $ref: "#/components/schemas/Gender"
+            - type: "null"
+          description: Optional gender. `null` means the customer prefers not to say.
+        birthday:
+          type: string
+          nullable: true
+          description: Optional birthday in `YYYY-MM-DD` form, or null.
+        birthdayShareMonthDay:
+          type: boolean
+          description: Whether the customer is OK with us sharing month/day for birthday wishes (year is never shared).
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - birthdayShareMonthDay
+    AuthMeResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+      required:
+        - ok
+    AuthMeUpdateRequest:
+      type: object
+      description: Partial profile update. Omit a field to leave it unchanged.
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        gender:
+          oneOf:
+            - $ref: "#/components/schemas/Gender"
+            - type: "null"
+        birthday:
+          type: string
+          nullable: true
+          description: ISO calendar date `YYYY-MM-DD`, or null to clear.
+        birthdayShareMonthDay:
+          type: boolean
