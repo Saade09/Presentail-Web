@@ -253,7 +253,6 @@ export function OnboardingLocationScreen() {
                         gap: 12,
                       }}
                     >
-                      <Text style={{ fontSize: 22 }}>{draftCountry?.flag ?? ""}</Text>
                       <Text
                         style={{
                           flex: 1,
