@@ -201,6 +201,67 @@ async function loadBuckets(
   return aggregateBuckets(rows);
 }
 
+export type PurchaseDailyBucket = PurchaseFunnelBucket & { day: string };
+
+/**
+ * Load per-day per-platform purchase funnel buckets for the inclusive day
+ * range `[startDayUtc, endDayUtcExclusive)`. Used by the admin dashboard;
+ * shares the underlying aggregator with the alerting monitor so the two
+ * views can never disagree.
+ */
+export async function loadDailyPurchaseBuckets(
+  startDayUtc: Date,
+  endDayUtcExclusive: Date,
+): Promise<PurchaseDailyBucket[]> {
+  const rows = (await db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
+      name: analyticsEventsTable.name,
+      platform: analyticsEventsTable.platform,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} in ('cart_viewed', 'checkout_started', 'payment_method_selected', 'order_placed')`,
+        gte(analyticsEventsTable.createdAt, startDayUtc),
+        lt(analyticsEventsTable.createdAt, endDayUtcExclusive),
+      )!,
+    )
+    .groupBy(
+      sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`,
+      analyticsEventsTable.name,
+      analyticsEventsTable.platform,
+    )) as Array<RawRow & { day: string }>;
+
+  return aggregateDailyPurchaseBuckets(rows);
+}
+
+export function aggregateDailyPurchaseBuckets(
+  rows: Array<RawRow & { day: string }>,
+): PurchaseDailyBucket[] {
+  const byDay = new Map<string, RawRow[]>();
+  for (const r of rows) {
+    let arr = byDay.get(r.day);
+    if (!arr) {
+      arr = [];
+      byDay.set(r.day, arr);
+    }
+    arr.push({ name: r.name, platform: r.platform, count: r.count });
+  }
+  const out: PurchaseDailyBucket[] = [];
+  for (const [day, dayRows] of byDay) {
+    for (const b of aggregateBuckets(dayRows)) {
+      out.push({ day, ...b });
+    }
+  }
+  // Newest day first; within a day, alphabetical platform.
+  return out.sort((a, b) => {
+    if (a.day !== b.day) return a.day < b.day ? 1 : -1;
+    return a.platform < b.platform ? -1 : a.platform > b.platform ? 1 : 0;
+  });
+}
+
 export function aggregateBuckets(rows: RawRow[]): PurchaseFunnelBucket[] {
   const map = new Map<string, PurchaseFunnelBucket>();
   const get = (platform: string): PurchaseFunnelBucket => {

@@ -189,6 +189,76 @@ async function loadBuckets(start: Date, end: Date): Promise<FunnelBucket[]> {
   return aggregateBuckets(rows);
 }
 
+export type LoginDailyBucket = FunnelBucket & { day: string };
+
+/**
+ * Load per-day per-(platform, surface) login-prompt funnel buckets for the
+ * day range `[startDayUtc, endDayUtcExclusive)`. Shares the aggregator with
+ * the alerting monitor so the dashboard view stays consistent.
+ */
+export async function loadDailyLoginBuckets(
+  startDayUtc: Date,
+  endDayUtcExclusive: Date,
+): Promise<LoginDailyBucket[]> {
+  const rows = (await db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
+      name: analyticsEventsTable.name,
+      platform: analyticsEventsTable.platform,
+      surface: analyticsEventsTable.surface,
+      action: analyticsEventsTable.action,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} in ('checkout_login_prompt_viewed', 'checkout_login_prompt_action')`,
+        gte(analyticsEventsTable.createdAt, startDayUtc),
+        lt(analyticsEventsTable.createdAt, endDayUtcExclusive),
+      )!,
+    )
+    .groupBy(
+      sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`,
+      analyticsEventsTable.name,
+      analyticsEventsTable.platform,
+      analyticsEventsTable.surface,
+      analyticsEventsTable.action,
+    )) as Array<RawRow & { day: string }>;
+
+  return aggregateDailyLoginBuckets(rows);
+}
+
+export function aggregateDailyLoginBuckets(
+  rows: Array<RawRow & { day: string }>,
+): LoginDailyBucket[] {
+  const byDay = new Map<string, RawRow[]>();
+  for (const r of rows) {
+    let arr = byDay.get(r.day);
+    if (!arr) {
+      arr = [];
+      byDay.set(r.day, arr);
+    }
+    arr.push({
+      name: r.name,
+      platform: r.platform,
+      surface: r.surface,
+      action: r.action,
+      count: r.count,
+    });
+  }
+  const out: LoginDailyBucket[] = [];
+  for (const [day, dayRows] of byDay) {
+    for (const b of aggregateBuckets(dayRows)) {
+      out.push({ day, ...b });
+    }
+  }
+  return out.sort((a, b) => {
+    if (a.day !== b.day) return a.day < b.day ? 1 : -1;
+    if (a.platform !== b.platform) return a.platform < b.platform ? -1 : 1;
+    return a.surface < b.surface ? -1 : a.surface > b.surface ? 1 : 0;
+  });
+}
+
 export function aggregateBuckets(rows: RawRow[]): FunnelBucket[] {
   const map = new Map<string, FunnelBucket>();
   const get = (platform: string, surface: string): FunnelBucket => {

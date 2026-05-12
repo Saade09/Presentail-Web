@@ -15,6 +15,7 @@ import meRouter from "./me";
 import meAddressesRouter from "./meAddresses";
 import clientErrorsRouter from "./clientErrors";
 import analyticsRouter from "./analytics";
+import adminFunnelsRouter from "./adminFunnels";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(meRouter);
 router.use(meAddressesRouter);
 router.use(clientErrorsRouter);
 router.use(analyticsRouter);
+router.use(adminFunnelsRouter);
 
 export default router;
