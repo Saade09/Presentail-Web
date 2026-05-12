@@ -424,6 +424,8 @@ function AccountTab() {
 
         <Section colors={colors} title={t.accountOrdersHistory}>
           <Row colors={colors} icon="package" label={t.accountMyOrders} onPress={() => router.push("/orders" as never)} />
+          <Divider colors={colors} />
+          <Row colors={colors} icon="map-pin" label={t.savedAddressesTitle} onPress={() => router.push("/saved-addresses" as never)} />
         </Section>
 
         <Section colors={colors} title={t.accountPreferences}>

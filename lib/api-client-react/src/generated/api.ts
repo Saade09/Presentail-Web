@@ -23,6 +23,11 @@ import type {
   AuthMeUpdateRequest,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
+  CustomerAddressDeleteResponse,
+  CustomerAddressInput,
+  CustomerAddressListResponse,
+  CustomerAddressPatchInput,
+  CustomerAddressResponse,
   DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
@@ -1195,6 +1200,427 @@ export function useGetGeoCurrencyByCoords<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns every saved address that belongs to the authenticated
+customer, sorted with the default address first and then by most
+recently updated. Requires a valid Bearer token (legacy WP/social
+JWT or a Clerk session). Other users' addresses are never returned.
+
+ * @summary List the signed-in customer's saved delivery addresses
+ */
+export const getListMyAddressesUrl = () => {
+  return `/api/me/addresses`;
+};
+
+export const listMyAddresses = async (
+  options?: RequestInit,
+): Promise<CustomerAddressListResponse> => {
+  return customFetch<CustomerAddressListResponse>(getListMyAddressesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyAddressesQueryKey = () => {
+  return [`/api/me/addresses`] as const;
+};
+
+export const getListMyAddressesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyAddresses>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAddresses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyAddressesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyAddresses>>> = ({
+    signal,
+  }) => listMyAddresses({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAddresses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyAddressesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyAddresses>>
+>;
+export type ListMyAddressesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List the signed-in customer's saved delivery addresses
+ */
+
+export function useListMyAddresses<
+  TData = Awaited<ReturnType<typeof listMyAddresses>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAddresses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyAddressesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a new delivery address to the customer's profile
+ */
+export const getCreateMyAddressUrl = () => {
+  return `/api/me/addresses`;
+};
+
+export const createMyAddress = async (
+  customerAddressInput: CustomerAddressInput,
+  options?: RequestInit,
+): Promise<CustomerAddressResponse> => {
+  return customFetch<CustomerAddressResponse>(getCreateMyAddressUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(customerAddressInput),
+  });
+};
+
+export const getCreateMyAddressMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyAddress>>,
+    TError,
+    { data: BodyType<CustomerAddressInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMyAddress>>,
+  TError,
+  { data: BodyType<CustomerAddressInput> },
+  TContext
+> => {
+  const mutationKey = ["createMyAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMyAddress>>,
+    { data: BodyType<CustomerAddressInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMyAddress(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMyAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMyAddress>>
+>;
+export type CreateMyAddressMutationBody = BodyType<CustomerAddressInput>;
+export type CreateMyAddressMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save a new delivery address to the customer's profile
+ */
+export const useCreateMyAddress = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyAddress>>,
+    TError,
+    { data: BodyType<CustomerAddressInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMyAddress>>,
+  TError,
+  { data: BodyType<CustomerAddressInput> },
+  TContext
+> => {
+  return useMutation(getCreateMyAddressMutationOptions(options));
+};
+
+/**
+ * @summary Update one of the customer's saved addresses
+ */
+export const getUpdateMyAddressUrl = (id: number) => {
+  return `/api/me/addresses/${id}`;
+};
+
+export const updateMyAddress = async (
+  id: number,
+  customerAddressPatchInput: CustomerAddressPatchInput,
+  options?: RequestInit,
+): Promise<CustomerAddressResponse> => {
+  return customFetch<CustomerAddressResponse>(getUpdateMyAddressUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(customerAddressPatchInput),
+  });
+};
+
+export const getUpdateMyAddressMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyAddress>>,
+    TError,
+    { id: number; data: BodyType<CustomerAddressPatchInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyAddress>>,
+  TError,
+  { id: number; data: BodyType<CustomerAddressPatchInput> },
+  TContext
+> => {
+  const mutationKey = ["updateMyAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyAddress>>,
+    { id: number; data: BodyType<CustomerAddressPatchInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateMyAddress(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyAddress>>
+>;
+export type UpdateMyAddressMutationBody = BodyType<CustomerAddressPatchInput>;
+export type UpdateMyAddressMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update one of the customer's saved addresses
+ */
+export const useUpdateMyAddress = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyAddress>>,
+    TError,
+    { id: number; data: BodyType<CustomerAddressPatchInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyAddress>>,
+  TError,
+  { id: number; data: BodyType<CustomerAddressPatchInput> },
+  TContext
+> => {
+  return useMutation(getUpdateMyAddressMutationOptions(options));
+};
+
+/**
+ * @summary Delete one of the customer's saved addresses
+ */
+export const getDeleteMyAddressUrl = (id: number) => {
+  return `/api/me/addresses/${id}`;
+};
+
+export const deleteMyAddress = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CustomerAddressDeleteResponse> => {
+  return customFetch<CustomerAddressDeleteResponse>(getDeleteMyAddressUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMyAddressMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAddress>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMyAddress>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMyAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMyAddress>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMyAddress(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMyAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMyAddress>>
+>;
+
+export type DeleteMyAddressMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete one of the customer's saved addresses
+ */
+export const useDeleteMyAddress = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAddress>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMyAddress>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMyAddressMutationOptions(options));
+};
+
+/**
+ * @summary Mark a saved address as the customer's default
+ */
+export const getSetMyDefaultAddressUrl = (id: number) => {
+  return `/api/me/addresses/${id}/default`;
+};
+
+export const setMyDefaultAddress = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CustomerAddressResponse> => {
+  return customFetch<CustomerAddressResponse>(getSetMyDefaultAddressUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSetMyDefaultAddressMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setMyDefaultAddress>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setMyDefaultAddress>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["setMyDefaultAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setMyDefaultAddress>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return setMyDefaultAddress(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetMyDefaultAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setMyDefaultAddress>>
+>;
+
+export type SetMyDefaultAddressMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mark a saved address as the customer's default
+ */
+export const useSetMyDefaultAddress = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setMyDefaultAddress>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setMyDefaultAddress>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSetMyDefaultAddressMutationOptions(options));
+};
 
 /**
  * Returns the canonical list of countries and cities Presentail can

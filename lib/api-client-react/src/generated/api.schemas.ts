@@ -320,6 +320,86 @@ export interface GeoCurrencyResponse {
   currencyCode: string;
 }
 
+export type CustomerAddressLabel =
+  (typeof CustomerAddressLabel)[keyof typeof CustomerAddressLabel];
+
+export const CustomerAddressLabel = {
+  home: "home",
+  work: "work",
+  other: "other",
+} as const;
+
+export interface CustomerAddress {
+  id: number;
+  label: CustomerAddressLabel;
+  nickname?: string | null;
+  /** ISO 3166-1 alpha-2 country code (uppercased). */
+  countryCode: string;
+  district: string;
+  addressLine: string;
+  apartment?: string | null;
+  building?: string | null;
+  directions?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhoneCountryCode?: string | null;
+  recipientPhone?: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerAddressInput {
+  label: CustomerAddressLabel;
+  nickname?: string | null;
+  /** ISO 3166-1 alpha-2 country code. */
+  countryCode: string;
+  district: string;
+  addressLine: string;
+  apartment?: string | null;
+  building?: string | null;
+  directions?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhoneCountryCode?: string | null;
+  recipientPhone?: string | null;
+  /** When true (and the customer has no other default), the new/updated row becomes the default. Existing default is automatically unset on create. */
+  isDefault?: boolean;
+}
+
+/**
+ * Partial update — every field is optional; only the supplied fields are written.
+ */
+export interface CustomerAddressPatchInput {
+  label?: CustomerAddressLabel;
+  nickname?: string | null;
+  countryCode?: string;
+  district?: string;
+  addressLine?: string;
+  apartment?: string | null;
+  building?: string | null;
+  directions?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhoneCountryCode?: string | null;
+  recipientPhone?: string | null;
+  isDefault?: boolean;
+}
+
+export interface CustomerAddressListResponse {
+  ok: boolean;
+  addresses: CustomerAddress[];
+}
+
+export interface CustomerAddressResponse {
+  ok: boolean;
+  address: CustomerAddress;
+}
+
+export interface CustomerAddressDeleteResponse {
+  ok: boolean;
+}
+
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
 }

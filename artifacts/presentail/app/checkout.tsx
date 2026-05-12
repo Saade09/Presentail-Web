@@ -1,4 +1,10 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  createMyAddress,
+  getListMyAddressesQueryKey,
+  useListMyAddresses,
+  type CustomerAddress,
+} from "@workspace/api-client-react";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -26,6 +32,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
+import { districtsForCountry, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
@@ -117,63 +124,13 @@ function freeDeliveryThresholdForCountry(code?: string): number {
   return freeDeliveryThresholdUsd(code);
 }
 
-type District = { name: string; fee: number };
-const LB_DISTRICTS: District[] = [
-  { name: "Akkar", fee: 39 },
-  { name: "Aley", fee: 19 },
-  { name: "Baabda", fee: 11 },
-  { name: "Baalbeck", fee: 39 },
-  { name: "Batroun", fee: 19 },
-  { name: "Bcharee", fee: 39 },
-  { name: "Beirut", fee: 8 },
-  { name: "Bent Jbeil", fee: 39 },
-  { name: "Chouf", fee: 29 },
-  { name: "Hasbaya", fee: 39 },
-  { name: "Hermel", fee: 39 },
-  { name: "Jbail", fee: 19 },
-  { name: "Jezzine", fee: 29 },
-  { name: "Kasserwan", fee: 11 },
-  { name: "Koura", fee: 29 },
-  { name: "Marjayoun", fee: 39 },
-  { name: "Metn", fee: 11 },
-  { name: "Minnieh-Dennaya", fee: 39 },
-  { name: "Nabatieh", fee: 39 },
-  { name: "Rechaya", fee: 39 },
-  { name: "Saida", fee: 29 },
-  { name: "Tripoli", fee: 29 },
-  { name: "Tyre", fee: 39 },
-  { name: "West Bekaa", fee: 39 },
-  { name: "Zahle", fee: 29 },
-  { name: "Zghorta", fee: 39 },
-];
-const AE_DISTRICTS: District[] = [
-  { name: "Dubai", fee: 13.61 },
-  { name: "Ras Al Khaimah", fee: 13.61 },
-  { name: "Umm Al Quwain", fee: 13.61 },
-  { name: "Fujairah", fee: 13.61 },
-  { name: "Ajman", fee: 13.61 },
-  { name: "Sharjah", fee: 13.61 },
-  { name: "Abu Dhabi", fee: 13.61 },
-];
-const CY_DISTRICTS: District[] = [
-  { name: "Larnaca", fee: 11 },
-  { name: "Limassol", fee: 11 },
-  { name: "Nicosia", fee: 11 },
-  { name: "Paphos", fee: 11 },
-];
-function districtsForCountry(code?: string): District[] {
-  if (code === "AE") return AE_DISTRICTS;
-  if (code === "CY") return CY_DISTRICTS;
-  return LB_DISTRICTS;
-}
-
 function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
   const { formatNative, currencyCode } = useCurrency();
-  const { token: authToken } = useAuth();
+  const { token: authToken, user: authUser } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
   const effectiveCountry = resolveCountryCode(selectedCountry?.code, currencyCode);
@@ -265,12 +222,77 @@ function CheckoutScreen() {
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
+  const [addressApartment, setAddressApartment] = useState("");
+  const [addressBuilding, setAddressBuilding] = useState("");
+  const [addressDirections, setAddressDirections] = useState("");
   const [senderFirst, setSenderFirst] = useState("");
   const [senderLast, setSenderLast] = useState("");
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
   const [senderCountry, setSenderCountry] = useState<CountryDialCode>(defaultDialCode);
   const [senderEmail, setSenderEmail] = useState("");
   const [identitySecret, setIdentitySecret] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [savedAddressPickerOpen, setSavedAddressPickerOpen] = useState(false);
+  const savedAddressesQuery = useListMyAddresses({
+    query: { queryKey: getListMyAddressesQueryKey(), enabled: !!authUser },
+  });
+  const savedAddresses = savedAddressesQuery.data?.addresses ?? [];
+  const applySavedAddress = (addr: CustomerAddress) => {
+    const matchedCountry = COUNTRY_DIAL_CODES.find(
+      (c) => c.code === addr.countryCode,
+    );
+    if (matchedCountry) setRecipientCountry(matchedCountry);
+    if (addr.recipientFirstName) setRecipientFirst(addr.recipientFirstName);
+    if (addr.recipientLastName) setRecipientLast(addr.recipientLastName);
+    if (addr.recipientPhone) setRecipientPhone(addr.recipientPhone);
+    if (addr.recipientPhoneCountryCode) {
+      const matchedDial = COUNTRY_DIAL_CODES.find(
+        (c) => c.dial === addr.recipientPhoneCountryCode,
+      );
+      if (matchedDial) setRecipientCountry(matchedDial);
+    }
+    // Try to match the saved district against the buyer's currently
+    // available delivery districts so the fee is correct. Otherwise the
+    // buyer keeps their existing district selection and the saved
+    // district name is recorded in the address line so the courier
+    // still sees it.
+    const districtMatch = districts.find(
+      (d) => d.name.trim().toLowerCase() === addr.district.trim().toLowerCase(),
+    );
+    if (districtMatch) {
+      districtManuallyEdited.current = true;
+      setDistrict(districtMatch);
+    }
+    setDeliveryDetails(
+      districtMatch
+        ? addr.addressLine
+        : [addr.addressLine, addr.district].filter(Boolean).join(" · "),
+    );
+    setAddressApartment(addr.apartment ?? "");
+    setAddressBuilding(addr.building ?? "");
+    setAddressDirections(addr.directions ?? "");
+    setNoAddress(false);
+    setSavedAddressPickerOpen(false);
+  };
+
+  // Auto-apply the customer's default saved address once after sign-in,
+  // when the picker hasn't been touched and the buyer hasn't started
+  // typing an address themselves. The shopper can still pick a different
+  // saved address (or clear and re-type) from the picker.
+  const defaultAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (defaultAppliedRef.current) return;
+    if (!authUser) return;
+    if (savedAddresses.length === 0) return;
+    if (deliveryDetails.trim() || noAddress) return;
+    const def = savedAddresses.find((a) => a.isDefault) ?? null;
+    if (!def) return;
+    defaultAppliedRef.current = true;
+    applySavedAddress(def);
+    // applySavedAddress is stable enough for this one-shot effect; we
+    // intentionally key only on the inputs that decide whether to apply.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, savedAddresses, districts]);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const expressAvailable = useMemo(() => {
     const h = getCountryHour(effectiveCountry);
@@ -432,7 +454,16 @@ function CheckoutScreen() {
     // instead of a hardcoded LB.
     billingCountry: senderCountry.code,
     shippingCountry: recipientCountry.code,
-    deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
+    deliveryDetails: noAddress
+      ? "To be confirmed"
+      : [
+          deliveryDetails,
+          addressBuilding && `Building: ${addressBuilding}`,
+          addressApartment && `Apt/Floor: ${addressApartment}`,
+          addressDirections && `Notes: ${addressDirections}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
@@ -499,6 +530,32 @@ function CheckoutScreen() {
         // via the onClear listener registered in DeliverySelectionContext, so
         // we don't need to call deliverySelection.clear() explicitly here.
         clear();
+        // Best-effort save of the delivery address to the customer's profile
+        // when they opted in. Never blocks order completion.
+        if (saveAddress && authUser && !noAddress) {
+          try {
+            await createMyAddress({
+              label: "home",
+              nickname: null,
+              countryCode: recipientCountry.code,
+              district: district.name,
+              addressLine: deliveryDetails.trim() || district.name,
+              apartment: addressApartment.trim() || null,
+              building: addressBuilding.trim() || null,
+              directions: addressDirections.trim() || null,
+              recipientFirstName: recipientFirst.trim() || null,
+              recipientLastName: recipientLast.trim() || null,
+              recipientPhoneCountryCode: recipientPhone.trim()
+                ? recipientCountry.dial
+                : null,
+              recipientPhone: recipientPhone.trim() || null,
+              isDefault: false,
+            });
+          } catch {
+            // Silent: the order itself succeeded; saving an address is
+            // a convenience and must not surface an error to the user.
+          }
+        }
         // Funnel terminal step: only emit once the WC order has actually
         // been created, never just because a payment session resolved.
         trackEvent({
@@ -781,6 +838,12 @@ function CheckoutScreen() {
               setNoAddress={setNoAddress}
               deliveryDetails={deliveryDetails}
               setDeliveryDetails={setDeliveryDetails}
+              addressApartment={addressApartment}
+              setAddressApartment={setAddressApartment}
+              addressBuilding={addressBuilding}
+              setAddressBuilding={setAddressBuilding}
+              addressDirections={addressDirections}
+              setAddressDirections={setAddressDirections}
               senderFirst={senderFirst}
               setSenderFirst={setSenderFirst}
               senderLast={senderLast}
@@ -793,6 +856,13 @@ function CheckoutScreen() {
               setSenderEmail={setSenderEmail}
               identitySecret={identitySecret}
               setIdentitySecret={setIdentitySecret}
+              isSignedIn={!!authUser}
+              savedAddresses={savedAddresses}
+              savedAddressPickerOpen={savedAddressPickerOpen}
+              setSavedAddressPickerOpen={setSavedAddressPickerOpen}
+              applySavedAddress={applySavedAddress}
+              saveAddress={saveAddress}
+              setSaveAddress={setSaveAddress}
               days={days}
               date={date}
               setDate={setDate}
@@ -1066,6 +1136,11 @@ function DeliveryDetailsStep(props: any) {
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
     districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
+    addressApartment, setAddressApartment,
+    addressBuilding, setAddressBuilding,
+    addressDirections, setAddressDirections,
+    isSignedIn, savedAddresses, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
+    saveAddress, setSaveAddress,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
@@ -1078,6 +1153,92 @@ function DeliveryDetailsStep(props: any) {
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title={t.recipientDetailsTitle}>
+        {isSignedIn && savedAddresses.length > 0 ? (
+          <Pressable
+            onPress={() => setSavedAddressPickerOpen(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              backgroundColor: "#faf7f2",
+            }}
+          >
+            <Feather name="map-pin" size={16} color={colors.gold} />
+            <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+              {t.checkoutUseSavedAddress}
+            </Text>
+            <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+          </Pressable>
+        ) : null}
+        <Modal
+          visible={savedAddressPickerOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setSavedAddressPickerOpen(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}
+            onPress={() => setSavedAddressPickerOpen(false)}
+          />
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: "#fff",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: "72%",
+              paddingBottom: 32,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.checkoutSavedAddressPickerTitle}</Text>
+              <Pressable onPress={() => setSavedAddressPickerOpen(false)}>
+                <Feather name="x" size={20} color={colors.primary} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={savedAddresses}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => applySavedAddress(item)}
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingVertical: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#f7f4ef",
+                    gap: 4,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary }}>
+                      {item.nickname || item.label}
+                    </Text>
+                    {item.isDefault ? (
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
+                        ★
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                    {item.district}, {item.countryCode}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                    {[item.addressLine, item.building, item.apartment].filter(Boolean).join(" · ")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </Modal>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required />
@@ -1220,13 +1381,72 @@ function DeliveryDetailsStep(props: any) {
         {!noAddress ? (
         <Field
           colors={colors}
-          label={t.deliveryDetailsField}
+          label={t.addressFormAddressLine}
           value={deliveryDetails}
           onChangeText={setDeliveryDetails}
-          placeholder={t.buildingFloorStreet}
+          placeholder={t.addressFormAddressLinePlaceholder}
           required
           multiline
         />
+        ) : null}
+
+        {!noAddress ? (
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Field
+                colors={colors}
+                label={t.addressFormBuilding}
+                value={addressBuilding}
+                onChangeText={setAddressBuilding}
+                placeholder={t.addressFormBuildingPlaceholder}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field
+                colors={colors}
+                label={t.addressFormApartment}
+                value={addressApartment}
+                onChangeText={setAddressApartment}
+                placeholder={t.addressFormApartmentPlaceholder}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {!noAddress ? (
+          <Field
+            colors={colors}
+            label={t.addressFormDirections}
+            value={addressDirections}
+            onChangeText={setAddressDirections}
+            placeholder={t.addressFormDirectionsPlaceholder}
+            multiline
+          />
+        ) : null}
+
+        {isSignedIn && !noAddress ? (
+          <Pressable
+            onPress={() => setSaveAddress(!saveAddress)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}
+          >
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                borderWidth: 1.5,
+                borderColor: saveAddress ? colors.gold : colors.border,
+                backgroundColor: saveAddress ? colors.gold : "#fff",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {saveAddress ? <Feather name="check" size={12} color="#fff" /> : null}
+            </View>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1 }}>
+              {t.checkoutSaveAddressToggle}
+            </Text>
+          </Pressable>
         ) : null}
       </Card>
 

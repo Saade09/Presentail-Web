@@ -12,6 +12,7 @@ import fxRouter from "./fx";
 import geoRouter from "./geo";
 import homepageRouter from "./homepage";
 import meRouter from "./me";
+import meAddressesRouter from "./meAddresses";
 import clientErrorsRouter from "./clientErrors";
 import analyticsRouter from "./analytics";
 
@@ -30,6 +31,7 @@ router.use(fxRouter);
 router.use(geoRouter);
 router.use(homepageRouter);
 router.use(meRouter);
+router.use(meAddressesRouter);
 router.use(clientErrorsRouter);
 router.use(analyticsRouter);
 

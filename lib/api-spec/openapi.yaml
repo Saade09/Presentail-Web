@@ -26,6 +26,8 @@ tags:
     description: Lightweight client-side product analytics events
   - name: auth
     description: Account profile operations for the signed-in customer
+  - name: meAddresses
+    description: Saved delivery addresses owned by the signed-in customer
 paths:
   /healthz:
     get:
@@ -381,6 +383,159 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GeoCurrencyResponse"
+  /me/addresses:
+    get:
+      operationId: listMyAddresses
+      tags: [meAddresses]
+      summary: List the signed-in customer's saved delivery addresses
+      description: |
+        Returns every saved address that belongs to the authenticated
+        customer, sorted with the default address first and then by most
+        recently updated. Requires a valid Bearer token (legacy WP/social
+        JWT or a Clerk session). Other users' addresses are never returned.
+      responses:
+        "200":
+          description: Saved addresses for the current customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddressListResponse"
+        "401":
+          description: Missing or invalid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createMyAddress
+      tags: [meAddresses]
+      summary: Save a new delivery address to the customer's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerAddressInput"
+      responses:
+        "200":
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddressResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/addresses/{id}:
+    patch:
+      operationId: updateMyAddress
+      tags: [meAddresses]
+      summary: Update one of the customer's saved addresses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerAddressPatchInput"
+      responses:
+        "200":
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddressResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMyAddress
+      tags: [meAddresses]
+      summary: Delete one of the customer's saved addresses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Address removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddressDeleteResponse"
+        "401":
+          description: Missing or invalid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/addresses/{id}/default:
+    post:
+      operationId: setMyDefaultAddress
+      tags: [meAddresses]
+      summary: Mark a saved address as the customer's default
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Address marked as default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddressResponse"
+        "401":
+          description: Missing or invalid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /delivery-locations:
     get:
       operationId: getDeliveryLocations
@@ -838,6 +993,175 @@ components:
       required:
         - countryCode
         - currencyCode
+    CustomerAddressLabel:
+      type: string
+      enum: [home, work, other]
+    CustomerAddress:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          $ref: "#/components/schemas/CustomerAddressLabel"
+        nickname:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (uppercased).
+        district:
+          type: string
+        addressLine:
+          type: string
+        apartment:
+          type: string
+          nullable: true
+        building:
+          type: string
+          nullable: true
+        directions:
+          type: string
+          nullable: true
+        recipientFirstName:
+          type: string
+          nullable: true
+        recipientLastName:
+          type: string
+          nullable: true
+        recipientPhoneCountryCode:
+          type: string
+          nullable: true
+        recipientPhone:
+          type: string
+          nullable: true
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - label
+        - countryCode
+        - district
+        - addressLine
+        - isDefault
+        - createdAt
+        - updatedAt
+    CustomerAddressInput:
+      type: object
+      properties:
+        label:
+          $ref: "#/components/schemas/CustomerAddressLabel"
+        nickname:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        district:
+          type: string
+        addressLine:
+          type: string
+        apartment:
+          type: string
+          nullable: true
+        building:
+          type: string
+          nullable: true
+        directions:
+          type: string
+          nullable: true
+        recipientFirstName:
+          type: string
+          nullable: true
+        recipientLastName:
+          type: string
+          nullable: true
+        recipientPhoneCountryCode:
+          type: string
+          nullable: true
+        recipientPhone:
+          type: string
+          nullable: true
+        isDefault:
+          type: boolean
+          description: When true (and the customer has no other default), the new/updated row becomes the default. Existing default is automatically unset on create.
+      required:
+        - label
+        - countryCode
+        - district
+        - addressLine
+    CustomerAddressPatchInput:
+      type: object
+      description: Partial update — every field is optional; only the supplied fields are written.
+      properties:
+        label:
+          $ref: "#/components/schemas/CustomerAddressLabel"
+        nickname:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+        district:
+          type: string
+        addressLine:
+          type: string
+        apartment:
+          type: string
+          nullable: true
+        building:
+          type: string
+          nullable: true
+        directions:
+          type: string
+          nullable: true
+        recipientFirstName:
+          type: string
+          nullable: true
+        recipientLastName:
+          type: string
+          nullable: true
+        recipientPhoneCountryCode:
+          type: string
+          nullable: true
+        recipientPhone:
+          type: string
+          nullable: true
+        isDefault:
+          type: boolean
+    CustomerAddressListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerAddress"
+      required:
+        - ok
+        - addresses
+    CustomerAddressResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        address:
+          $ref: "#/components/schemas/CustomerAddress"
+      required:
+        - ok
+        - address
+    CustomerAddressDeleteResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
     DeliveryLocationsResponse:
       type: object
       properties:

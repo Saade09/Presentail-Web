@@ -21,7 +21,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -98,6 +98,17 @@ function DataRefreshPushListener() {
   return null;
 }
 
+function ApiAuthTokenSync() {
+  const { token } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(token ? () => token : null);
+    return () => {
+      setAuthTokenGetter(null);
+    };
+  }, [token]);
+  return null;
+}
+
 function PushTokenRotationListener() {
   const { token: authToken, user } = useAuth();
   useEffect(() => {
@@ -139,6 +150,8 @@ function RootLayoutNav() {
       <Stack.Screen name="privacy" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="reset-password" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="personal-information" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="saved-addresses/index" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="saved-addresses/[id]" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }
@@ -183,6 +196,7 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   return (
     <>
+      <ApiAuthTokenSync />
       <PushTokenRotationListener />
       <DataRefreshPushListener />
       {/* Hard gate: until AsyncStorage has told us whether onboarding is

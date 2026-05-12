@@ -494,6 +494,181 @@ export const GetGeoCurrencyByCoordsResponse = zod.object({
 });
 
 /**
+ * Returns every saved address that belongs to the authenticated
+customer, sorted with the default address first and then by most
+recently updated. Requires a valid Bearer token (legacy WP/social
+JWT or a Clerk session). Other users' addresses are never returned.
+
+ * @summary List the signed-in customer's saved delivery addresses
+ */
+export const ListMyAddressesResponse = zod.object({
+  ok: zod.boolean(),
+  addresses: zod.array(
+    zod.object({
+      id: zod.number(),
+      label: zod.enum(["home", "work", "other"]),
+      nickname: zod.string().nullish(),
+      countryCode: zod
+        .string()
+        .describe("ISO 3166-1 alpha-2 country code (uppercased)."),
+      district: zod.string(),
+      addressLine: zod.string(),
+      apartment: zod.string().nullish(),
+      building: zod.string().nullish(),
+      directions: zod.string().nullish(),
+      recipientFirstName: zod.string().nullish(),
+      recipientLastName: zod.string().nullish(),
+      recipientPhoneCountryCode: zod.string().nullish(),
+      recipientPhone: zod.string().nullish(),
+      isDefault: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save a new delivery address to the customer's profile
+ */
+export const CreateMyAddressBody = zod.object({
+  label: zod.enum(["home", "work", "other"]),
+  nickname: zod.string().nullish(),
+  countryCode: zod.string().describe("ISO 3166-1 alpha-2 country code."),
+  district: zod.string(),
+  addressLine: zod.string(),
+  apartment: zod.string().nullish(),
+  building: zod.string().nullish(),
+  directions: zod.string().nullish(),
+  recipientFirstName: zod.string().nullish(),
+  recipientLastName: zod.string().nullish(),
+  recipientPhoneCountryCode: zod.string().nullish(),
+  recipientPhone: zod.string().nullish(),
+  isDefault: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true (and the customer has no other default), the new\/updated row becomes the default. Existing default is automatically unset on create.",
+    ),
+});
+
+export const CreateMyAddressResponse = zod.object({
+  ok: zod.boolean(),
+  address: zod.object({
+    id: zod.number(),
+    label: zod.enum(["home", "work", "other"]),
+    nickname: zod.string().nullish(),
+    countryCode: zod
+      .string()
+      .describe("ISO 3166-1 alpha-2 country code (uppercased)."),
+    district: zod.string(),
+    addressLine: zod.string(),
+    apartment: zod.string().nullish(),
+    building: zod.string().nullish(),
+    directions: zod.string().nullish(),
+    recipientFirstName: zod.string().nullish(),
+    recipientLastName: zod.string().nullish(),
+    recipientPhoneCountryCode: zod.string().nullish(),
+    recipientPhone: zod.string().nullish(),
+    isDefault: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update one of the customer's saved addresses
+ */
+export const UpdateMyAddressParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateMyAddressBody = zod
+  .object({
+    label: zod.enum(["home", "work", "other"]).optional(),
+    nickname: zod.string().nullish(),
+    countryCode: zod.string().optional(),
+    district: zod.string().optional(),
+    addressLine: zod.string().optional(),
+    apartment: zod.string().nullish(),
+    building: zod.string().nullish(),
+    directions: zod.string().nullish(),
+    recipientFirstName: zod.string().nullish(),
+    recipientLastName: zod.string().nullish(),
+    recipientPhoneCountryCode: zod.string().nullish(),
+    recipientPhone: zod.string().nullish(),
+    isDefault: zod.boolean().optional(),
+  })
+  .describe(
+    "Partial update — every field is optional; only the supplied fields are written.",
+  );
+
+export const UpdateMyAddressResponse = zod.object({
+  ok: zod.boolean(),
+  address: zod.object({
+    id: zod.number(),
+    label: zod.enum(["home", "work", "other"]),
+    nickname: zod.string().nullish(),
+    countryCode: zod
+      .string()
+      .describe("ISO 3166-1 alpha-2 country code (uppercased)."),
+    district: zod.string(),
+    addressLine: zod.string(),
+    apartment: zod.string().nullish(),
+    building: zod.string().nullish(),
+    directions: zod.string().nullish(),
+    recipientFirstName: zod.string().nullish(),
+    recipientLastName: zod.string().nullish(),
+    recipientPhoneCountryCode: zod.string().nullish(),
+    recipientPhone: zod.string().nullish(),
+    isDefault: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete one of the customer's saved addresses
+ */
+export const DeleteMyAddressParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteMyAddressResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Mark a saved address as the customer's default
+ */
+export const SetMyDefaultAddressParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SetMyDefaultAddressResponse = zod.object({
+  ok: zod.boolean(),
+  address: zod.object({
+    id: zod.number(),
+    label: zod.enum(["home", "work", "other"]),
+    nickname: zod.string().nullish(),
+    countryCode: zod
+      .string()
+      .describe("ISO 3166-1 alpha-2 country code (uppercased)."),
+    district: zod.string(),
+    addressLine: zod.string(),
+    apartment: zod.string().nullish(),
+    building: zod.string().nullish(),
+    directions: zod.string().nullish(),
+    recipientFirstName: zod.string().nullish(),
+    recipientLastName: zod.string().nullish(),
+    recipientPhoneCountryCode: zod.string().nullish(),
+    recipientPhone: zod.string().nullish(),
+    isDefault: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
  * Returns the canonical list of countries and cities Presentail can
 deliver to, including their isActive flags, currency, flag emoji
 and display ordering. Consumed by the mobile app on launch so

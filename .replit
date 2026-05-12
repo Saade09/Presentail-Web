@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -53,3 +53,4 @@ PAYPAL_CLIENT_ID = "BAAm4Bv7_LMv19VEMB1We2VTaZuWx8dg2fL94_ECHXOijrN-cab-PcZmRiRU
 VITE_CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucHJlc2VudGFpbC5jb20k"
 
 [nix]
+channel = "stable-25_05"
