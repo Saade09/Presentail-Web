@@ -2,7 +2,7 @@
   "expo": {
     "name": "Presentail",
     "slug": "presentail",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "presentail",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "20",
+      "buildNumber": "22",
       "usesAppleSignIn": true,
       "entitlements": {
         "keychain-access-groups": [
@@ -77,7 +77,7 @@
     "updates": {
       "url": "https://u.expo.dev/4dfed5db-2405-4de3-bca5-0e0ce9da84c0",
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_ERROR_RECOVERY"
+      "checkAutomatically": "ON_LOAD"
     },
     "runtimeVersion": {
       "policy": "appVersion"
