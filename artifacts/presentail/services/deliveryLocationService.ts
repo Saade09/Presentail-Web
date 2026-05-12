@@ -107,7 +107,19 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
           return { id: fc.id, name: fc.name, isActive: match ? match.isActive : true };
         })
       : remoteCities;
-    out.push({ id, name, code: upperCode, flag, currency, isActive, cities });
+    out.push({
+      id,
+      name,
+      code: upperCode,
+      flag,
+      currency,
+      isActive,
+      cities,
+      // Preserve the static preferred-default-city hint (e.g. Lebanon →
+      // Beirut). The remote feed does not carry this field, but it is a
+      // local UX preference owned by the fallback list.
+      preferredDefaultCityId: fallback?.preferredDefaultCityId,
+    });
   }
   return out.length > 0 ? out : null;
 }

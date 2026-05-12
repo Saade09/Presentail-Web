@@ -14,6 +14,14 @@ export type DeliveryCountry = {
   currency: CurrencyCode;
   isActive: boolean;
   cities: DeliveryCity[];
+  /**
+   * Optional id of the city to highlight as the default for this country
+   * when no explicit city has been picked yet (fresh install, country
+   * change, missing persisted city). When omitted or when the referenced
+   * city is missing/inactive, the provider falls back to the first active
+   * city in `cities`.
+   */
+  preferredDefaultCityId?: string;
 };
 
 export const FALLBACK_DELIVERY_COUNTRIES: DeliveryCountry[] = [
@@ -24,6 +32,7 @@ export const FALLBACK_DELIVERY_COUNTRIES: DeliveryCountry[] = [
     flag: "\u{1F1F1}\u{1F1E7}",
     currency: "USD",
     isActive: true,
+    preferredDefaultCityId: "lb-beirut",
     cities: [
       { id: "lb-akkar", name: "Akkar", isActive: true },
       { id: "lb-aley", name: "Aley", isActive: true },

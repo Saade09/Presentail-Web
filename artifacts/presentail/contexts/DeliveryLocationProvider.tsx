@@ -72,6 +72,15 @@ function pickFallbackCountry(list: DeliveryCountry[]): DeliveryCountry | null {
 
 function firstActiveCity(country: DeliveryCountry | null): DeliveryCity | null {
   if (!country) return null;
+  // Honor a country-level preferred default city when present and active
+  // (e.g. Lebanon → Beirut). Falls back to the first active city, then to
+  // the first city in the list.
+  if (country.preferredDefaultCityId) {
+    const preferred = country.cities.find(
+      (c) => c.id === country.preferredDefaultCityId && c.isActive,
+    );
+    if (preferred) return preferred;
+  }
   return country.cities.find((c) => c.isActive) ?? country.cities[0] ?? null;
 }
 
