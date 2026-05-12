@@ -103,6 +103,7 @@ function ProfilePanel({
   user: { firstName?: string; lastName?: string; email: string; phone?: string };
   t: (k: string) => string;
 }) {
+  const [, setLocation] = useLocation();
   return (
     <div className="bg-secondary/30 rounded-3xl p-8 border border-border/50">
       <h2 className="text-2xl font-serif mb-6">{t("account.profile")}</h2>
@@ -125,6 +126,16 @@ function ProfilePanel({
           <label className="text-sm text-muted-foreground block mb-1">{t("account.phone")}</label>
           <p className="font-medium text-lg">{user.phone || t("account.notProvided")}</p>
         </div>
+      </div>
+      <div className="mt-8 pt-6 border-t border-border/40">
+        <button
+          type="button"
+          onClick={() => setLocation("/account/personal-information")}
+          className="inline-flex items-center justify-center rounded-full border border-primary px-5 py-2.5 text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          data-testid="account-edit-personal-information"
+        >
+          {t("account.editPersonalInfo")}
+        </button>
       </div>
     </div>
   );

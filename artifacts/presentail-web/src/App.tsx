@@ -45,6 +45,7 @@ import Cart from "@/pages/Cart";
 import Checkout from "@/pages/Checkout";
 import OrderConfirmed from "@/pages/OrderConfirmed";
 import Account from "@/pages/Account";
+import PersonalInformation from "@/pages/PersonalInformation";
 import SignInPage from "@/pages/SignIn";
 import SignUpPage from "@/pages/SignUp";
 import Unauthorized from "@/pages/Unauthorized";
@@ -130,6 +131,11 @@ function ShopShell() {
             <Route path="/sign-up/:rest*" component={SignUpPage} />
             <Route path="/sign-up" component={SignUpPage} />
             <Route path="/unauthorized" component={Unauthorized} />
+            <Route path="/account/personal-information">
+              <CustomerOnly>
+                <PersonalInformation />
+              </CustomerOnly>
+            </Route>
             <Route path="/account">
               <CustomerOnly>
                 <Account />
