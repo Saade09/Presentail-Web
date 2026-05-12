@@ -52,11 +52,22 @@ export default function SavedAddressesScreen() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const enabled = !!user;
-  const { data, isLoading, isError, refetch } = useListMyAddresses({
-    query: { queryKey: getListMyAddressesQueryKey(), enabled },
+  const { data, isLoading, isError, error, refetch } = useListMyAddresses({
+    query: {
+      queryKey: getListMyAddressesQueryKey(),
+      enabled,
+      retry: 1,
+      staleTime: 30_000,
+    },
   });
   const setDefault = useSetMyDefaultAddress();
   const remove = useDeleteMyAddress();
+
+  // Treat "Customer profile not found" (404, returned for shoppers who just
+  // signed up and have no local row yet) as an empty list rather than a hard
+  // error — there can be no saved addresses without a customer profile.
+  const errStatus = (error as { status?: number } | null)?.status;
+  const treatErrorAsEmpty = isError && errStatus === 404;
 
   const addresses = data?.addresses ?? [];
 
@@ -123,7 +134,7 @@ export default function SavedAddressesScreen() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator color={colors.gold} />
         </View>
-      ) : isError ? (
+      ) : isError && !treatErrorAsEmpty ? (
         <ScrollView contentContainerStyle={{ padding: 20 }}>
           <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>
             {t.savedAddressesError}
