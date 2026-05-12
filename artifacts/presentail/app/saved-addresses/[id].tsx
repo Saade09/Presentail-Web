@@ -162,8 +162,33 @@ export default function SavedAddressFormScreen() {
       qc.invalidateQueries({ queryKey: getListMyAddressesQueryKey() });
       router.back();
     };
-    const onError = () => {
-      Alert.alert(t.addressFormError, t.addressFormSaveFailed);
+    const onError = (err: unknown) => {
+      const e = err as
+        | { status?: number; data?: { message?: string } | null; message?: string }
+        | null;
+      const status = e?.status;
+      const serverMsg =
+        (typeof e?.data?.message === "string" && e.data.message.trim()) ||
+        (typeof e?.message === "string" && e.message.trim()) ||
+        "";
+      // 401/403 means the auth token isn't valid for this store anymore (most
+      // commonly: the session was minted in a different country store, or the
+      // WP JWT has expired). Tell the user to sign back in instead of showing
+      // a generic "try again" message that they'd just keep retrying.
+      if (status === 401 || status === 403) {
+        Alert.alert(
+          t.addressFormError,
+          t.addressFormSessionExpired,
+          [
+            { text: t.addressFormSignInAgain, style: "default" },
+          ],
+        );
+        return;
+      }
+      Alert.alert(
+        t.addressFormError,
+        serverMsg ? `${t.addressFormSaveFailed}\n\n${serverMsg}` : t.addressFormSaveFailed,
+      );
     };
     if (isNew || numericId == null) {
       createMut.mutate({ data: payload }, { onSuccess: onDone, onError });

@@ -578,6 +578,9 @@ const EN = {
   addressFormSaving: "Saving…",
   addressFormError: "Couldn't save address",
   addressFormSaveFailed: "Please try again in a moment.",
+  addressFormSessionExpired:
+    "Your session has expired or belongs to a different country store. Please sign in again to save addresses.",
+  addressFormSignInAgain: "OK",
   addressFormMissingFields: "District and street are required.",
   // Checkout integration
   checkoutUseSavedAddress: "Use a saved address",
@@ -1492,6 +1495,9 @@ const AR: typeof EN = {
   addressFormSaving: "جارٍ الحفظ…",
   addressFormError: "تعذّر حفظ العنوان",
   addressFormSaveFailed: "يرجى المحاولة مرة أخرى بعد قليل.",
+  addressFormSessionExpired:
+    "انتهت صلاحية جلستك أو أنها تخصّ متجر دولة مختلفة. يرجى تسجيل الدخول مجددًا لحفظ العناوين.",
+  addressFormSignInAgain: "حسناً",
   addressFormMissingFields: "المنطقة والشارع مطلوبان.",
   checkoutUseSavedAddress: "استخدم عنوانًا محفوظًا",
   checkoutSavedAddressPickerTitle: "العناوين المحفوظة",
@@ -2406,6 +2412,9 @@ const FR: typeof EN = {
   addressFormSaving: "Enregistrement…",
   addressFormError: "Impossible d'enregistrer l'adresse",
   addressFormSaveFailed: "Veuillez réessayer dans un instant.",
+  addressFormSessionExpired:
+    "Votre session a expiré ou appartient au magasin d'un autre pays. Veuillez vous reconnecter pour enregistrer des adresses.",
+  addressFormSignInAgain: "OK",
   addressFormMissingFields: "Le district et la rue sont requis.",
   checkoutUseSavedAddress: "Utiliser une adresse enregistrée",
   checkoutSavedAddressPickerTitle: "Adresses enregistrées",
