@@ -342,6 +342,16 @@ const STRINGS: Dict = {
   "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
   "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
   "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
+  "auth.codeLabel": { en: "Verification code", ar: "رمز التحقق" },
+  "auth.codePlaceholder": { en: "6-digit code", ar: "الرمز المكوّن من ٦ أرقام" },
+  "auth.codeSentTo": {
+    en: "We sent a code to {email}. Enter it below to sign in.",
+    ar: "أرسلنا رمزًا إلى {email}. أدخله أدناه لتسجيل الدخول.",
+  },
+  "auth.codeResent": { en: "Code resent", ar: "تم إعادة إرسال الرمز" },
+  "auth.codeInvalid": { en: "That code didn't work. Please try again.", ar: "هذا الرمز غير صحيح. يرجى المحاولة مرة أخرى." },
+  "auth.verifyCode": { en: "Verify code", ar: "تحقق من الرمز" },
+  "auth.resendCode": { en: "Resend code", ar: "إعادة إرسال الرمز" },
 
   // Checkout login prompt (shown when a logged-out shopper taps Checkout)
   "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
@@ -777,6 +787,17 @@ const STRINGS_FR: Record<string, string> = {
   "auth.toast.oauthFailed": "Échec de la connexion {provider}",
   "auth.emailLabel": "Adresse email",
   "auth.emailPlaceholder": "Saisissez votre adresse email",
+  "auth.codeLabel": "Code de vérification",
+  "auth.codePlaceholder": "Code à 6 chiffres",
+  "auth.codeSentTo":
+    "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour vous connecter.",
+  "auth.codeResent": "Code renvoyé",
+  "auth.codeInvalid":
+    "Ce code n'a pas fonctionné. Veuillez réessayer.",
+  "auth.verifyCode": "Vérifier le code",
+  "auth.resendCode": "Renvoyer le code",
+  "auth.cardHeading": "Connexion ou créer un compte",
+  "auth.cardSubheading": "Connectez-vous avec votre adresse email",
 
   "checkoutLogin.title": "Connectez-vous pour un paiement plus rapide",
   "checkoutLogin.desc": "Enregistrez vos informations pour la prochaine fois, ou continuez en tant qu'invité.",

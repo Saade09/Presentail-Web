@@ -7,6 +7,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId, normalizePhoneE164 } from "../lib/customers";
 import {
+  ensureClerkUserInBackground,
+  ensureClerkUserForCustomer,
+  isClerkConfigured,
+} from "../lib/clerkUserSync";
+import type { Customer } from "@workspace/db";
+import {
   existsIpLimiter,
   loginIpLimiter,
   registerIpLimiter,
@@ -99,7 +105,7 @@ async function mirrorWcCustomerLocally(
     provider?: "apple" | "google" | "password";
   },
   log?: { warn?: (...args: any[]) => void },
-): Promise<void> {
+): Promise<Customer | null> {
   try {
     const existing = await getCustomerByWcId(wcCustomerId);
     const upserted = await upsertCustomer({
@@ -134,12 +140,41 @@ async function mirrorWcCustomerLocally(
         );
       }
     }
+    return upserted.customer;
   } catch (err: any) {
     log?.warn?.(
       { err: err?.message, wcCustomerId },
       "auth.mirror: local customer upsert failed (non-fatal)",
     );
+    return null;
   }
+}
+
+// Combined "mirror to local DB + propagate to Clerk" used by the mobile
+// registration / social login paths so a fresh signup shows up in Clerk
+// within seconds (as opposed to waiting for the daily catch-up sync).
+// Both legs are best-effort and never throw.
+function mirrorAndPropagateToClerk(
+  wcCustomerId: number,
+  profile: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    provider?: "apple" | "google" | "password";
+  },
+  log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void },
+): void {
+  void mirrorWcCustomerLocally(wcCustomerId, profile, log).then((local) => {
+    if (!isClerkConfigured()) return;
+    ensureClerkUserInBackground({
+      email: profile.email,
+      firstName: profile.firstName ?? null,
+      lastName: profile.lastName ?? null,
+      localCustomerId: local?.id ?? null,
+      log,
+    });
+  });
 }
 
 // ── Email existence check ────────────────────────────────────────────────────
@@ -158,45 +193,51 @@ async function mirrorWcCustomerLocally(
 //   - missing WC creds → { exists: false, code: "lookup_unavailable" }
 //   - WC upstream error → { exists: false, code: "lookup_failed" }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-router.get("/auth/exists", existsIpLimiter, async (req, res) => {
-  const raw = String(req.query.email ?? "").trim().toLowerCase();
+
+// Shared lookup for /auth/exists and /auth/web-bridge. The contract:
+//   - { exists: true, wcCustomer? }                  → existing WP/WC user
+//   - { exists: false }                              → confirmed new email
+//   - { exists: false, code: "lookup_failed" }       → upstream error
+//   - { exists: false, code: "lookup_unavailable" }  → can't check at all
+// `wcCustomer` is populated when the email matches a real WC row, so the
+// caller (web-bridge) can use the WC profile fields when JIT-creating the
+// Clerk user. The WP-only path doesn't expose a profile, hence undefined.
+type LookupResult = {
+  exists: boolean;
+  code?: "lookup_failed" | "lookup_unavailable";
+  wcCustomer?: any;
+};
+
+async function lookupWpUserByEmail(
+  raw: string,
+  req: import("express").Request,
+): Promise<LookupResult> {
   if (!raw || raw.length > 254 || !EMAIL_RE.test(raw)) {
-    res.json({ ok: true, exists: false });
-    return;
+    return { exists: false };
   }
   if (!process.env.WC_CONSUMER_KEY) {
-    res.json({ ok: true, exists: false, code: "lookup_unavailable" });
-    return;
+    return { exists: false, code: "lookup_unavailable" };
   }
   try {
-    const r = await wcFetch(`/customers?email=${encodeURIComponent(raw)}&per_page=1`, {}, req);
+    const r = await wcFetch(
+      `/customers?email=${encodeURIComponent(raw)}&per_page=1`,
+      {},
+      req,
+    );
     if (!r.ok) {
       req.log?.warn?.({ status: r.status }, "auth.exists: WC upstream non-ok");
-      res.json({ ok: true, exists: false, code: "lookup_failed" });
-      return;
+      return { exists: false, code: "lookup_failed" };
     }
     const list = (await r.json().catch(() => [])) as any[];
     if (Array.isArray(list) && list.length > 0) {
-      res.json({ ok: true, exists: true });
-      return;
+      return { exists: true, wcCustomer: list[0] };
     }
-    // WC returned no rows. Some accounts exist as WordPress users but were
-    // never promoted to a WC customer row (legacy accounts, accounts created
-    // before WC was installed, JWT-only registrations, accounts whose role
-    // isn't `customer`). Without a fallback, those shoppers get routed to
-    // the sign-up step instead of the password-login step.
-    //
-    // We don't have admin credentials for `/wp/v2/users`, but the JWT plugin
-    // gives us a clean signal: hit `/jwt-auth/v1/token` with a deliberately
-    // bogus password and inspect the error code:
-    //   - `[jwt_auth] incorrect_password` → user exists
-    //   - `[jwt_auth] invalid_email` / `invalid_username` → user doesn't exist
-    // Any other shape (plugin missing, upstream 5xx, network) → lookup_failed
-    // so the UI can show "couldn't check" rather than silently send the
-    // shopper to sign-up.
+    // WP-only fallback (see /auth/exists comment).
     try {
       const probePassword =
-        "_existscheck_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        "_existscheck_" +
+        Math.random().toString(36).slice(2) +
+        Date.now().toString(36);
       const probe = await wpFetch(
         `/jwt-auth/v1/token`,
         {
@@ -206,31 +247,135 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
         req,
       );
       if (probe.status === 404) {
-        // JWT plugin not installed — we can't confirm WP-user existence at
-        // all, so be honest about it instead of routing to sign-up.
-        req.log?.warn?.({ status: probe.status }, "auth.exists: JWT plugin missing for WP fallback");
-        res.json({ ok: true, exists: false, code: "lookup_unavailable" });
-        return;
+        req.log?.warn?.(
+          { status: probe.status },
+          "auth.exists: JWT plugin missing for WP fallback",
+        );
+        return { exists: false, code: "lookup_unavailable" };
       }
       const probeData = (await probe.json().catch(() => ({}))) as any;
       const code = String(probeData?.code ?? "");
       if (/incorrect_password/i.test(code)) {
-        res.json({ ok: true, exists: true });
-        return;
+        return { exists: true };
       }
       if (/invalid_email|invalid_username|invalid_user/i.test(code)) {
-        res.json({ ok: true, exists: false });
-        return;
+        return { exists: false };
       }
-      req.log?.warn?.({ status: probe.status, code }, "auth.exists: WP probe inconclusive");
-      res.json({ ok: true, exists: false, code: "lookup_failed" });
+      req.log?.warn?.(
+        { status: probe.status, code },
+        "auth.exists: WP probe inconclusive",
+      );
+      return { exists: false, code: "lookup_failed" };
     } catch (e: any) {
       req.log?.warn?.({ err: e?.message }, "auth.exists: WP probe failed");
-      res.json({ ok: true, exists: false, code: "lookup_failed" });
+      return { exists: false, code: "lookup_failed" };
     }
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.exists: lookup failed");
-    res.json({ ok: true, exists: false, code: "lookup_failed" });
+    return { exists: false, code: "lookup_failed" };
+  }
+}
+
+router.get("/auth/exists", existsIpLimiter, async (req, res) => {
+  const raw = String(req.query.email ?? "").trim().toLowerCase();
+  const result = await lookupWpUserByEmail(raw, req);
+  // Match the historical response shape exactly (no `wcCustomer` echoed).
+  const out: { ok: true; exists: boolean; code?: string } = {
+    ok: true,
+    exists: result.exists,
+  };
+  if (result.code) out.code = result.code;
+  res.json(out);
+});
+
+// ── Web-bridge: JIT Clerk creation for an existing WP shopper ────────────────
+// The web sign-in page calls this with the email the shopper just typed. If
+// the email matches a WP/WC account, we ensure a corresponding Clerk user
+// exists (idempotent, see `ensureClerkUserForCustomer`) so the subsequent
+// Clerk email-code flow can authenticate them.
+//
+// Response contract:
+//   - { ok: true, exists: true,  clerkReady: true }   → frontend may proceed
+//                                                       with `signIn.create`
+//   - { ok: true, exists: true,  clerkReady: false }  → existed in WP but
+//                                                       Clerk provisioning
+//                                                       failed; show error
+//   - { ok: true, exists: false }                     → unknown email; let
+//                                                       Clerk's normal
+//                                                       sign-up flow handle
+//   - { ok: true, exists: false, code: "lookup_failed" | "lookup_unavailable" }
+//                                                     → hard error; the UI
+//                                                       must NOT route the
+//                                                       shopper to sign-up
+router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
+  const raw = String((req.body as any)?.email ?? "").trim().toLowerCase();
+  const lookup = await lookupWpUserByEmail(raw, req);
+  if (!lookup.exists || lookup.code) {
+    const out: { ok: true; exists: boolean; code?: string } = {
+      ok: true,
+      exists: lookup.exists,
+    };
+    if (lookup.code) out.code = lookup.code;
+    res.json(out);
+    return;
+  }
+  if (!isClerkConfigured()) {
+    // We confirmed the WP user exists but cannot provision Clerk. Surface as
+    // a hard error so the UI shows "try again later" rather than silently
+    // failing on the next step.
+    req.log?.warn?.("auth.web-bridge: Clerk not configured");
+    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable" });
+    return;
+  }
+  // Best-effort: also mirror into our local customers table from the WC row
+  // we already fetched, so the Clerk externalId points at our local id.
+  let localCustomerId: number | null = null;
+  const wc = lookup.wcCustomer;
+  if (wc?.id) {
+    const local = await mirrorWcCustomerLocally(
+      Number(wc.id),
+      {
+        email: raw,
+        firstName: typeof wc.first_name === "string" ? wc.first_name : undefined,
+        lastName: typeof wc.last_name === "string" ? wc.last_name : undefined,
+        phone: typeof wc.billing?.phone === "string" ? wc.billing.phone : undefined,
+      },
+      req.log,
+    );
+    localCustomerId = local?.id ?? null;
+  }
+  try {
+    const ensure = await ensureClerkUserForCustomer({
+      email: raw,
+      firstName: (wc?.first_name as string) ?? null,
+      lastName: (wc?.last_name as string) ?? null,
+      localCustomerId,
+      log: req.log,
+    });
+    // `ensureClerkUserForCustomer` is intentionally non-throwing — it
+    // returns structured `{ok:false,reason}` on failure. We MUST inspect
+    // it before claiming `clerkReady: true`, otherwise the web SignIn
+    // page will advance the shopper to a Clerk email-code step against
+    // a Clerk user that doesn't exist.
+    if (!ensure.ok) {
+      req.log?.warn?.(
+        { reason: ensure.reason, message: (ensure as any).message },
+        "auth.web-bridge: ensureClerkUserForCustomer returned not-ok",
+      );
+      const code: "lookup_failed" | "lookup_unavailable" =
+        ensure.reason === "not_configured" ? "lookup_unavailable" : "lookup_failed";
+      res.json({ ok: true, exists: true, clerkReady: false, code });
+      return;
+    }
+    res.json({ ok: true, exists: true, clerkReady: true });
+  } catch (e: any) {
+    // Defensive: helper shouldn't throw, but if it does (e.g. unexpected
+    // sync error during construction), still surface a hard error.
+    req.log?.warn?.(
+      { err: e?.message },
+      "auth.web-bridge: ensureClerkUserForCustomer threw",
+    );
+    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_failed" });
   }
 });
 
@@ -383,7 +528,11 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 
     const mapped = mapCustomer(data);
     if (mapped.id) {
-      void mirrorWcCustomerLocally(
+      // Mirror to local DB AND propagate to Clerk (best-effort, non-blocking).
+      // A brand-new mobile signup should appear in Clerk within seconds so a
+      // matching web sign-in can find them via email lookup, without waiting
+      // for the daily catch-up sync.
+      mirrorAndPropagateToClerk(
         mapped.id,
         {
           email: mapped.email,
@@ -837,7 +986,10 @@ async function issueSocialSession(
   try {
     const customer = await ensureCustomerForSocial(profile, req);
     const mapped = mapCustomer(customer);
-    void mirrorWcCustomerLocally(
+    // Best-effort mirror to local DB AND propagate to Clerk so a new
+    // mobile/web social signup is reachable from the web sign-in
+    // email-lookup flow within seconds.
+    mirrorAndPropagateToClerk(
       mapped.id,
       {
         email: mapped.email,
