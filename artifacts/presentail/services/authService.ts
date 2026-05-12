@@ -36,9 +36,16 @@ export async function checkEmailExists(
   if (!trimmed) return { ok: false, code: "email_required" };
   try {
     const url = `${API_BASE}/api/auth/exists?email=${encodeURIComponent(trimmed)}`;
+    // Tagging the platform lets the server-side auth-exists lookup
+    // monitor (lib/authExistsLookupMonitor.ts) bucket inconclusive-rate
+    // alerts per-platform instead of lumping everything as "unknown".
     const res = await fetch(url, {
       method: "GET",
-      headers: { "Cache-Control": "no-cache", ...getStoredStoreHeaders() },
+      headers: {
+        "Cache-Control": "no-cache",
+        "X-App-Platform": Platform.OS,
+        ...getStoredStoreHeaders(),
+      },
     });
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;

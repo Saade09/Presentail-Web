@@ -5,6 +5,7 @@ import { startWooSyncWorker } from "./lib/wooSync";
 import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonitor";
 import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnelMonitor";
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
+import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
 
 const rawPort = process.env["PORT"];
 
@@ -32,4 +33,5 @@ app.listen(port, (err) => {
   startCheckoutLoginFunnelMonitor();
   startCheckoutPurchaseFunnelMonitor();
   startClerkCatchupSync();
+  startAuthExistsLookupMonitor();
 });

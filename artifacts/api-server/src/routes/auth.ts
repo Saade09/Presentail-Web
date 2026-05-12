@@ -22,6 +22,17 @@ import {
   loginEmailLimiter,
   resetEmailLimiter,
 } from "../lib/auth-rate-limit";
+import {
+  classifyAuthExists,
+  normalizeAuthExistsEmail,
+  recordAuthExistsOutcome,
+} from "../lib/authExists";
+
+// Used by the password-reset / login routes below for a quick syntactic
+// pre-check on input. The /auth/exists endpoint uses
+// `normalizeAuthExistsEmail` instead, which is stricter (also lowercases
+// + trims + bounds length).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const router: IRouter = Router();
 
@@ -192,100 +203,57 @@ function mirrorAndPropagateToClerk(
 //   - padded email (e.g. "  user@example.com  ") → still { exists: true }
 //   - missing WC creds → { exists: false, code: "lookup_unavailable" }
 //   - WC upstream error → { exists: false, code: "lookup_failed" }
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Shared lookup for /auth/exists and /auth/web-bridge. The contract:
-//   - { exists: true, wcCustomer? }                  → existing WP/WC user
-//   - { exists: false }                              → confirmed new email
-//   - { exists: false, code: "lookup_failed" }       → upstream error
-//   - { exists: false, code: "lookup_unavailable" }  → can't check at all
-// `wcCustomer` is populated when the email matches a real WC row, so the
-// caller (web-bridge) can use the WC profile fields when JIT-creating the
-// Clerk user. The WP-only path doesn't expose a profile, hence undefined.
-type LookupResult = {
-  exists: boolean;
-  code?: "lookup_failed" | "lookup_unavailable";
-  wcCustomer?: any;
-};
-
-async function lookupWpUserByEmail(
-  raw: string,
-  req: import("express").Request,
-): Promise<LookupResult> {
-  if (!raw || raw.length > 254 || !EMAIL_RE.test(raw)) {
-    return { exists: false };
-  }
-  if (!process.env.WC_CONSUMER_KEY) {
-    return { exists: false, code: "lookup_unavailable" };
-  }
-  try {
-    const r = await wcFetch(
-      `/customers?email=${encodeURIComponent(raw)}&per_page=1`,
-      {},
-      req,
-    );
-    if (!r.ok) {
-      req.log?.warn?.({ status: r.status }, "auth.exists: WC upstream non-ok");
-      return { exists: false, code: "lookup_failed" };
-    }
-    const list = (await r.json().catch(() => [])) as any[];
-    if (Array.isArray(list) && list.length > 0) {
-      return { exists: true, wcCustomer: list[0] };
-    }
-    // WP-only fallback (see /auth/exists comment).
-    try {
-      const probePassword =
-        "_existscheck_" +
-        Math.random().toString(36).slice(2) +
-        Date.now().toString(36);
-      const probe = await wpFetch(
-        `/jwt-auth/v1/token`,
-        {
-          method: "POST",
-          body: JSON.stringify({ username: raw, password: probePassword }),
-        },
-        req,
-      );
-      if (probe.status === 404) {
-        req.log?.warn?.(
-          { status: probe.status },
-          "auth.exists: JWT plugin missing for WP fallback",
-        );
-        return { exists: false, code: "lookup_unavailable" };
-      }
-      const probeData = (await probe.json().catch(() => ({}))) as any;
-      const code = String(probeData?.code ?? "");
-      if (/incorrect_password/i.test(code)) {
-        return { exists: true };
-      }
-      if (/invalid_email|invalid_username|invalid_user/i.test(code)) {
-        return { exists: false };
-      }
-      req.log?.warn?.(
-        { status: probe.status, code },
-        "auth.exists: WP probe inconclusive",
-      );
-      return { exists: false, code: "lookup_failed" };
-    } catch (e: any) {
-      req.log?.warn?.({ err: e?.message }, "auth.exists: WP probe failed");
-      return { exists: false, code: "lookup_failed" };
-    }
-  } catch (e: any) {
-    req.log?.warn?.({ err: e?.message }, "auth.exists: lookup failed");
-    return { exists: false, code: "lookup_failed" };
-  }
-}
-
 router.get("/auth/exists", existsIpLimiter, async (req, res) => {
-  const raw = String(req.query.email ?? "").trim().toLowerCase();
-  const result = await lookupWpUserByEmail(raw, req);
-  // Match the historical response shape exactly (no `wcCustomer` echoed).
-  const out: { ok: true; exists: boolean; code?: string } = {
+  const platformHeader = String(req.header("x-app-platform") ?? "")
+    .trim()
+    .toLowerCase() || null;
+
+  const email = normalizeAuthExistsEmail(req.query.email);
+  if (!email) {
+    req.log?.info?.(
+      { authExistsOutcome: "invalid_email", platform: platformHeader },
+      "auth.exists outcome",
+    );
+    recordAuthExistsOutcome("invalid_email", platformHeader);
+    res.json({ ok: true, exists: false });
+    return;
+  }
+
+  const result = await classifyAuthExists({
+    email,
+    wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
+    wcFetch: (path, init) => wcFetch(path, init, req),
+    wpFetch: (path, init) => wpFetch(path, init, req),
+  });
+
+  // Centralised structured log + persisted outcome row. Both feed the
+  // scheduled monitor that alerts on inconclusive-rate spikes — i.e. the
+  // moment WC creds rotate, the JWT plugin is disabled, or upstream
+  // starts 5xx-ing, ops gets a Slack ping instead of a slow leak of
+  // returning shoppers being misrouted to sign-up.
+  if (result.code) {
+    req.log?.warn?.(
+      { authExistsOutcome: result.outcome, platform: platformHeader },
+      "auth.exists outcome (inconclusive)",
+    );
+  } else {
+    req.log?.info?.(
+      {
+        authExistsOutcome: result.outcome,
+        platform: platformHeader,
+        exists: result.exists,
+      },
+      "auth.exists outcome",
+    );
+  }
+  recordAuthExistsOutcome(result.outcome, platformHeader);
+
+  const body: { ok: true; exists: boolean; code?: string } = {
     ok: true,
     exists: result.exists,
   };
-  if (result.code) out.code = result.code;
-  res.json(out);
+  if (result.code) body.code = result.code;
+  res.json(body);
 });
 
 // ── Web-bridge: JIT Clerk creation for an existing WP shopper ────────────────
@@ -293,6 +261,12 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
 // the email matches a WP/WC account, we ensure a corresponding Clerk user
 // exists (idempotent, see `ensureClerkUserForCustomer`) so the subsequent
 // Clerk email-code flow can authenticate them.
+//
+// We reuse `classifyAuthExists` for the lookup so this endpoint inherits the
+// same monitoring + outcome taxonomy as `/auth/exists`. When the classifier
+// reports `exists_true_wc` we additionally do a one-shot WC fetch to grab
+// the customer profile (the classifier intentionally returns no payload),
+// so the Clerk JIT-create has first / last name and phone.
 //
 // Response contract:
 //   - { ok: true, exists: true,  clerkReady: true }   → frontend may proceed
@@ -308,8 +282,25 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
 //                                                       must NOT route the
 //                                                       shopper to sign-up
 router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
-  const raw = String((req.body as any)?.email ?? "").trim().toLowerCase();
-  const lookup = await lookupWpUserByEmail(raw, req);
+  const platformHeader = String(req.header("x-app-platform") ?? "")
+    .trim()
+    .toLowerCase() || null;
+
+  const email = normalizeAuthExistsEmail((req.body as any)?.email);
+  if (!email) {
+    recordAuthExistsOutcome("invalid_email", platformHeader);
+    res.json({ ok: true, exists: false });
+    return;
+  }
+
+  const lookup = await classifyAuthExists({
+    email,
+    wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
+    wcFetch: (path, init) => wcFetch(path, init, req),
+    wpFetch: (path, init) => wpFetch(path, init, req),
+  });
+  recordAuthExistsOutcome(lookup.outcome, platformHeader);
+
   if (!lookup.exists || lookup.code) {
     const out: { ok: true; exists: boolean; code?: string } = {
       ok: true,
@@ -327,15 +318,39 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable" });
     return;
   }
-  // Best-effort: also mirror into our local customers table from the WC row
-  // we already fetched, so the Clerk externalId points at our local id.
+
+  // For the WC-hit path, fetch the matching WC row so we can mirror it
+  // into our local customers table and populate the Clerk JIT-create
+  // payload with first / last / phone. Best-effort — failures here just
+  // mean we create the Clerk user with email-only.
+  let wc: any = null;
+  if (lookup.outcome === "exists_true_wc") {
+    try {
+      const r = await wcFetch(
+        `/customers?email=${encodeURIComponent(email)}&per_page=1`,
+        {},
+        req,
+      );
+      if (r.ok) {
+        const list = (await r.json().catch(() => [])) as any[];
+        if (Array.isArray(list) && list.length > 0) {
+          wc = list[0];
+        }
+      }
+    } catch (e: any) {
+      req.log?.warn?.(
+        { err: e?.message },
+        "auth.web-bridge: WC profile fetch failed (non-fatal)",
+      );
+    }
+  }
+
   let localCustomerId: number | null = null;
-  const wc = lookup.wcCustomer;
   if (wc?.id) {
     const local = await mirrorWcCustomerLocally(
       Number(wc.id),
       {
-        email: raw,
+        email,
         firstName: typeof wc.first_name === "string" ? wc.first_name : undefined,
         lastName: typeof wc.last_name === "string" ? wc.last_name : undefined,
         phone: typeof wc.billing?.phone === "string" ? wc.billing.phone : undefined,
@@ -346,7 +361,7 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
   }
   try {
     const ensure = await ensureClerkUserForCustomer({
-      email: raw,
+      email,
       firstName: (wc?.first_name as string) ?? null,
       lastName: (wc?.last_name as string) ?? null,
       localCustomerId,
@@ -377,6 +392,111 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     );
     res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_failed" });
   }
+});
+
+// ── Admin diagnostic ─────────────────────────────────────────────────────────
+// Lets ops verify, in one call, that the two upstream signals the
+// `/auth/exists` lookup depends on are actually wired up. Returns a
+// per-check pass/fail so a regression (rotated WC keys, JWT plugin
+// disabled on prod) is obvious without having to read funnel charts.
+//
+// Gated by the same `PUSH_ADMIN_TOKEN` header used by the other admin
+// surfaces. The check email is a syntactically-valid value that's
+// guaranteed not to exist (`@example.invalid`) so the WP probe can't
+// authenticate against a real account even if someone misuses the
+// endpoint. We never echo WC creds, store URLs, or response bodies back.
+router.get("/auth/diagnostics", async (req, res) => {
+  const expected = process.env.PUSH_ADMIN_TOKEN;
+  const provided = req.header("x-push-admin-token");
+  if (!expected || provided !== expected) {
+    res.status(403).json({ ok: false, message: "Forbidden" });
+    return;
+  }
+
+  const wcConfigured = Boolean(process.env.WC_CONSUMER_KEY);
+  const probeEmail =
+    "diagnostic-" + Date.now().toString(36) + "@example.invalid";
+
+  const checks: Record<
+    string,
+    { ok: boolean; status?: number; detail?: string }
+  > = {};
+
+  // 1) WC customers endpoint reachable + creds accepted.
+  if (!wcConfigured) {
+    checks.wcCustomers = { ok: false, detail: "WC_CONSUMER_KEY not set" };
+  } else {
+    try {
+      const r = await wcFetch(`/customers?per_page=1`, {}, req);
+      checks.wcCustomers = {
+        ok: r.ok,
+        status: r.status,
+        detail: r.ok ? "ok" : "non-2xx response",
+      };
+    } catch (e: any) {
+      checks.wcCustomers = { ok: false, detail: e?.message ?? "fetch failed" };
+    }
+  }
+
+  // 2) JWT plugin reachable. We expect a 4xx with an `invalid_email` /
+  //    `invalid_username` / `invalid_user` code (since the email is
+  //    guaranteed not to resolve). 404 means the plugin isn't installed.
+  try {
+    const r = await wpFetch(
+      `/jwt-auth/v1/token`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          username: probeEmail,
+          password: "_diagnostic_" + Math.random().toString(36).slice(2),
+        }),
+      },
+      req,
+    );
+    if (r.status === 404) {
+      checks.wpJwtPlugin = {
+        ok: false,
+        status: 404,
+        detail: "JWT plugin missing (returns 404)",
+      };
+    } else {
+      const data = (await r.json().catch(() => ({}))) as any;
+      const code = String(data?.code ?? "");
+      const recognised =
+        /incorrect_password|invalid_email|invalid_username|invalid_user/i.test(
+          code,
+        );
+      checks.wpJwtPlugin = {
+        ok: recognised,
+        status: r.status,
+        detail: recognised
+          ? "plugin reachable, returns recognised code"
+          : `unexpected response code: ${code || "<none>"}`,
+      };
+    }
+  } catch (e: any) {
+    checks.wpJwtPlugin = { ok: false, detail: e?.message ?? "fetch failed" };
+  }
+
+  // 3) End-to-end classifier on the guaranteed-not-to-exist email. We
+  //    expect `exists_false` when both upstreams are healthy.
+  try {
+    const result = await classifyAuthExists({
+      email: probeEmail,
+      wcConfigured,
+      wcFetch: (path, init) => wcFetch(path, init, req),
+      wpFetch: (path, init) => wpFetch(path, init, req),
+    });
+    checks.classifier = {
+      ok: result.outcome === "exists_false",
+      detail: `outcome=${result.outcome}`,
+    };
+  } catch (e: any) {
+    checks.classifier = { ok: false, detail: e?.message ?? "threw" };
+  }
+
+  const overallOk = Object.values(checks).every((c) => c.ok);
+  res.status(overallOk ? 200 : 503).json({ ok: overallOk, checks });
 });
 
 // ── Login: uses JWT Authentication for WP REST API plugin ────────────────────

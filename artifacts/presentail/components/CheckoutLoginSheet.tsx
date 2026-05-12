@@ -655,6 +655,11 @@ export function CheckoutLoginSheet({
                   busy={signupBusy}
                   errorMessage={signupError}
                   onSubmit={onSubmitSignup}
+                  onAlreadyHaveAccount={() => {
+                    setSignupError(null);
+                    setPassword("");
+                    setStep("passwordLogin");
+                  }}
                 />
               ) : null}
             </ScrollView>

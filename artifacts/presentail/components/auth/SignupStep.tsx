@@ -24,6 +24,14 @@ type Props = {
   busy: boolean;
   errorMessage: string | null;
   onSubmit: () => void;
+  /**
+   * Optional escape hatch shown as a link below the create-account button.
+   * Lets shoppers who landed here by mistake — typically because the
+   * `/auth/exists` lookup was inconclusive and the system couldn't be
+   * sure their account existed — jump straight to the password-login
+   * step without re-typing their email.
+   */
+  onAlreadyHaveAccount?: () => void;
 };
 
 export function SignupStep({
@@ -37,6 +45,7 @@ export function SignupStep({
   busy,
   errorMessage,
   onSubmit,
+  onAlreadyHaveAccount,
 }: Props) {
   const colors = useColors();
   const t = useT();
@@ -293,6 +302,32 @@ export function SignupStep({
           </Text>
         )}
       </Pressable>
+
+      {onAlreadyHaveAccount ? (
+        <Pressable
+          onPress={onAlreadyHaveAccount}
+          disabled={busy}
+          hitSlop={8}
+          accessibilityRole="link"
+          style={({ pressed }) => ({
+            alignItems: "center",
+            opacity: busy ? 0.5 : pressed ? 0.6 : 1,
+            marginTop: -6,
+          })}
+        >
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 13,
+              color: colors.primary,
+              textDecorationLine: "underline",
+              textAlign: "center",
+            }}
+          >
+            {t.authAlreadyHaveAccount}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

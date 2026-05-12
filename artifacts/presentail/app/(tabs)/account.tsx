@@ -346,40 +346,75 @@ function AccountTab() {
     );
   }
 
-  const onLogout = () => {
-    Alert.alert(t.accountSignOut, t.accountSignOutMsg, [
+  // react-native-web's Alert.alert doesn't render multi-button confirmation
+  // dialogs reliably — tapping the destructive action never fires its
+  // onPress, which made the Sign out / Delete buttons appear "clickable but
+  // dead" in the web preview. Use the browser's native confirm there and
+  // keep the native iOS/Android Alert flow everywhere else.
+  const confirmDestructive = (
+    title: string,
+    message: string,
+    confirmLabel: string,
+    onConfirm: () => void | Promise<void>,
+  ) => {
+    if (Platform.OS === "web") {
+      const ok =
+        typeof window !== "undefined" && typeof window.confirm === "function"
+          ? window.confirm(`${title}\n\n${message}`)
+          : true;
+      if (ok) {
+        void onConfirm();
+      }
+      return;
+    }
+    Alert.alert(title, message, [
       { text: t.accountCancel, style: "cancel" },
       {
-        text: t.accountSignOut,
+        text: confirmLabel,
         style: "destructive",
-        onPress: async () => {
-          await logout();
+        onPress: () => {
+          void onConfirm();
         },
       },
     ]);
   };
 
+  const notify = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && typeof window.alert === "function") {
+        window.alert(`${title}\n\n${message}`);
+      }
+      return;
+    }
+    Alert.alert(title, message);
+  };
+
+  const onLogout = () => {
+    confirmDestructive(
+      t.accountSignOut,
+      t.accountSignOutMsg,
+      t.accountSignOut,
+      async () => {
+        await logout();
+      },
+    );
+  };
+
   const onDelete = () => {
-    Alert.alert(
+    confirmDestructive(
       t.accountDeleteAccount,
       t.accountDeleteMsg,
-      [
-        { text: t.accountCancel, style: "cancel" },
-        {
-          text: t.accountDelete,
-          style: "destructive",
-          onPress: async () => {
-            setBusy(true);
-            const r = await deleteAccount();
-            setBusy(false);
-            if (!r.ok) {
-              Alert.alert(t.accountCouldntDelete, r.message);
-              return;
-            }
-            Alert.alert(t.accountDeletedTitle, t.accountDeletedMsg);
-          },
-        },
-      ]
+      t.accountDelete,
+      async () => {
+        setBusy(true);
+        const r = await deleteAccount();
+        setBusy(false);
+        if (!r.ok) {
+          notify(t.accountCouldntDelete, r.message);
+          return;
+        }
+        notify(t.accountDeletedTitle, t.accountDeletedMsg);
+      },
     );
   };
 
