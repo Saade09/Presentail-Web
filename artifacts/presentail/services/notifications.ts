@@ -197,6 +197,20 @@ async function getCachedToken(): Promise<string | null> {
   }
 }
 
+// In-memory dedupe so any caller (auth state changes, push-token rotation
+// listener, home-tab focus, etc.) firing in quick succession does not
+// hammer /api/push/register. We've observed runaway loops in the wild
+// (hundreds of registers per minute from a single device) saturating the
+// server's request queue and starving unrelated requests like
+// /me/addresses. Skip the network call when (token, userId, store) match
+// the last successful registration in the same process and the cooldown
+// hasn't expired. The server is also rate-limited (30/min/IP) as a
+// belt-and-braces measure.
+let _lastRegister:
+  | { key: string; at: number }
+  | null = null;
+const REGISTER_DEDUPE_MS = 5 * 60 * 1000;
+
 // Register this device's Expo push token with the API server. Safe to call
 // repeatedly — the server upserts on the token. Pass an authToken so the
 // server can associate the token with the signed-in user; otherwise it is
@@ -219,6 +233,25 @@ export async function registerPushToken(opts: {
 
   try {
     const storeHeaders = getStoredStoreHeaders();
+    // Build a cache key over every input the server upserts on. If any
+    // of these changed (sign-in, store switch, token rotation) we must
+    // re-register; otherwise the call is a no-op.
+    const dedupeKey = JSON.stringify({
+      token,
+      userId: opts.userId ?? null,
+      authPresent: !!opts.authToken,
+      country: storeHeaders["x-store-country"] ?? null,
+      city: storeHeaders["x-store-city"] ?? null,
+    });
+    const now = Date.now();
+    if (
+      _lastRegister &&
+      _lastRegister.key === dedupeKey &&
+      now - _lastRegister.at < REGISTER_DEDUPE_MS
+    ) {
+      return { ok: true, token };
+    }
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...storeHeaders,
@@ -243,6 +276,9 @@ export async function registerPushToken(opts: {
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+    if (json?.ok) {
+      _lastRegister = { key: dedupeKey, at: now };
+    }
     return { ok: !!json?.ok, token };
   } catch {
     return { ok: false };

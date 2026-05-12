@@ -1,4 +1,5 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { db, pushTokensTable, appOrdersTable, type AppOrder } from "@workspace/db";
 import { and, eq, isNull, or } from "drizzle-orm";
 import {
@@ -11,11 +12,33 @@ import { sendOrderEventPush } from "../lib/orderEvents";
 
 const router: IRouter = Router();
 
+// /push/register can be called from the same device several times per session
+// (sign-in, push-token rotation, home tab focus, etc.), but we have observed
+// runaway client loops flooding the server with hundreds of registers per
+// minute, which exhausts the DB / WP-JWT validate path and starves unrelated
+// requests like /me/addresses. Cap at 30 / minute / IP — well above any
+// legitimate flow but tight enough to stop a stuck client from saturating
+// the request queue.
+const registerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => ipKeyGenerator(req.ip ?? ""),
+  handler: (_req: Request, res: Response) => {
+    res.status(429).json({
+      ok: false,
+      code: "too_many_requests",
+      message: "Too many push registrations. Slow down.",
+    });
+  },
+});
+
 // Register an Expo push token for the current device. The signed-in user
 // (when an Authorization header is present) is trusted over any
 // client-supplied userId, so a malicious client cannot associate their
 // token with another user's id and harvest their notifications.
-router.post("/push/register", async (req, res): Promise<void> => {
+router.post("/push/register", registerLimiter, async (req, res): Promise<void> => {
   const parsed = RegisterPushTokenBody.safeParse(req.body);
   if (!parsed.success) {
     res
