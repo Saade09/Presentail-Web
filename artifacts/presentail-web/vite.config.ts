@@ -18,6 +18,14 @@ function seoInjectPlugin(basePath: string): Plugin {
     process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
   return {
     name: "presentail-seo-inject",
+    // IMPORTANT: only run during the dev server. At build time `ctx.originalUrl`
+    // is always "/" with no real request context, so injecting here would bake a
+    // relative canonical (`href="/"`) and stale generic title into the static
+    // index.html. The Node serve script (serve.mjs) re-runs the same injector
+    // per-request with the real origin, which is the only output crawlers see in
+    // production — running here too produces duplicate <link rel="canonical"> tags
+    // (Lighthouse picks the first, relative one and rejects it).
+    apply: "serve",
     transformIndexHtml: {
       order: "post",
       async handler(html, ctx) {

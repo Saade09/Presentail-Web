@@ -77,7 +77,13 @@ const server = http.createServer(async (req, res) => {
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
         });
-        res.writeHead(200, { "content-type": MIME[".html"] });
+        res.writeHead(200, {
+          "content-type": MIME[".html"],
+          // Override any upstream X-Robots-Tag (e.g. Replit's default for
+          // `.replit.app` preview domains) so Lighthouse / Googlebot don't
+          // see "noindex" on a production deployment.
+          "x-robots-tag": "index, follow",
+        });
         res.end(out);
         return;
       }
@@ -107,7 +113,10 @@ const server = http.createServer(async (req, res) => {
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
     });
-    res.writeHead(200, { "content-type": MIME[".html"] });
+    res.writeHead(200, {
+      "content-type": MIME[".html"],
+      "x-robots-tag": "index, follow",
+    });
     res.end(out);
   } catch (err) {
     console.error("serve error:", err);
