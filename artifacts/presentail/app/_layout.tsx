@@ -25,6 +25,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OnboardingLocationScreen } from "@/components/location/OnboardingLocationScreen";
 import { AnimatedSplash } from "@/components/SplashScreen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -32,6 +33,7 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationProvider";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE } from "@/lib/stripe";
@@ -168,19 +170,34 @@ function useAutoUpdate() {
 
 function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { ready } = useAppInitialization({ fontsLoaded });
+  const { hydrated: onboardingHydrated, needsOnboarding } = useOnboarding();
   const [splashGone, setSplashGone] = useState(false);
 
   const handleFadeOutEnd = useCallback(() => {
     setSplashGone(true);
   }, []);
 
+  // Hold the splash open until we know whether onboarding is needed, so we
+  // never flash the main navigator before the first-run picker (Task #286).
+  const initReady = ready && onboardingHydrated;
+
   return (
     <>
       <PushTokenRotationListener />
       <DataRefreshPushListener />
-      <RootLayoutNav />
-      <CartDrawer />
-      {!splashGone && <AnimatedSplash fadingOut={ready} onFadeOutEnd={handleFadeOutEnd} />}
+      {/* Hard gate: until AsyncStorage has told us whether onboarding is
+          required, render nothing under the splash. This prevents the home
+          tab (and its product / homepage queries) from mounting on a fresh
+          install before the first-run picker can be shown. */}
+      {!onboardingHydrated ? null : needsOnboarding ? (
+        <OnboardingLocationScreen />
+      ) : (
+        <>
+          <RootLayoutNav />
+          <CartDrawer />
+        </>
+      )}
+      {!splashGone && <AnimatedSplash fadingOut={initReady} onFadeOutEnd={handleFadeOutEnd} />}
     </>
   );
 }
@@ -233,19 +250,21 @@ export default function RootLayout() {
           <GestureHandlerRootView>
             <KeyboardProvider>
               <LanguageProvider>
-                <CurrencyProvider>
-                  <DeliveryLocationProvider>
-                    <AuthProvider>
-                      <WooProductsProvider>
-                        <CartProvider>
-                          <DeliverySelectionProvider>
-                            <AppShell fontsLoaded={fontsReady} />
-                          </DeliverySelectionProvider>
-                        </CartProvider>
-                      </WooProductsProvider>
-                    </AuthProvider>
-                  </DeliveryLocationProvider>
-                </CurrencyProvider>
+                <OnboardingProvider>
+                  <CurrencyProvider>
+                    <DeliveryLocationProvider>
+                      <AuthProvider>
+                        <WooProductsProvider>
+                          <CartProvider>
+                            <DeliverySelectionProvider>
+                              <AppShell fontsLoaded={fontsReady} />
+                            </DeliverySelectionProvider>
+                          </CartProvider>
+                        </WooProductsProvider>
+                      </AuthProvider>
+                    </DeliveryLocationProvider>
+                  </CurrencyProvider>
+                </OnboardingProvider>
               </LanguageProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

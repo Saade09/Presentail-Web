@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState, type AppStateStatus } from "react-native";
 import { products as CATALOG } from "@/data/catalog";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
 type AnyProduct = (typeof CATALOG)[number] & { wcId?: number; popularity?: number };
@@ -43,6 +44,7 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
   const syncSeq = useRef(0);
   const unmounted = useRef(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const { needsOnboarding, hydrated: onboardingHydrated } = useOnboarding();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
 
@@ -78,23 +80,29 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
     }
   }, [countryCode, cityId]);
 
-  // Initial fetch + unmount tracking
+  // Initial fetch + unmount tracking. Defer until the first-run country
+  // picker (Task #286) is dismissed so a UAE / Cyprus shopper never briefly
+  // sees catalogue data fetched against the default Lebanon store.
   useEffect(() => {
     unmounted.current = false;
-    sync(true);
+    if (onboardingHydrated && !needsOnboarding) {
+      sync(true);
+    }
     return () => {
       unmounted.current = true;
     };
-  }, [sync]);
+  }, [sync, onboardingHydrated, needsOnboarding]);
 
   // Refresh every 5 hours
   useEffect(() => {
+    if (!onboardingHydrated || needsOnboarding) return;
     const timer = setInterval(() => sync(true), SYNC_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [sync]);
+  }, [sync, onboardingHydrated, needsOnboarding]);
 
   // Re-sync whenever the app comes back to the foreground
   useEffect(() => {
+    if (!onboardingHydrated || needsOnboarding) return;
     const handleAppState = (next: AppStateStatus) => {
       if (next === "active") {
         const sinceLast = lastSync ? Date.now() - lastSync.getTime() : Infinity;
@@ -106,7 +114,7 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
     };
     const sub = AppState.addEventListener("change", handleAppState);
     return () => sub.remove();
-  }, [sync, lastSync]);
+  }, [sync, lastSync, onboardingHydrated, needsOnboarding]);
 
   return (
     <WooProductsContext.Provider value={{ products, loading, lastSync, refresh: () => sync(true) }}>

@@ -834,6 +834,10 @@ const EN = {
   deliveryNoneAvailable: "No delivery locations available",
   deliveryUnableToLoad: "Unable to load delivery locations",
   deliveryRetry: "Retry",
+  onboardingSelectCountry: "Select country of delivery",
+  onboardingSelectCity: "Select city of delivery",
+  onboardingContinue: "Continue",
+  onboardingContinueTo: "Continue to [[flag]] [[city]]",
 
   // ── Side menu ──
   menuTitle: "Menu",
@@ -1692,6 +1696,10 @@ const AR: typeof EN = {
   deliveryNoneAvailable: "لا توجد مواقع توصيل متاحة",
   deliveryUnableToLoad: "تعذّر تحميل مواقع التوصيل",
   deliveryRetry: "إعادة المحاولة",
+  onboardingSelectCountry: "اختر بلد التوصيل",
+  onboardingSelectCity: "اختر مدينة التوصيل",
+  onboardingContinue: "متابعة",
+  onboardingContinueTo: "متابعة إلى [[flag]] [[city]]",
 
   // ── Side menu ──
   menuTitle: "القائمة",
@@ -2551,6 +2559,10 @@ const FR: typeof EN = {
   deliveryNoneAvailable: "Aucun lieu de livraison disponible",
   deliveryUnableToLoad: "Impossible de charger les lieux de livraison",
   deliveryRetry: "Réessayer",
+  onboardingSelectCountry: "Sélectionnez le pays de livraison",
+  onboardingSelectCity: "Sélectionnez la ville de livraison",
+  onboardingContinue: "Continuer",
+  onboardingContinueTo: "Continuer vers [[flag]] [[city]]",
 
   // ── Side menu ──
   menuTitle: "Menu",

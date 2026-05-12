@@ -16,6 +16,7 @@ import {
   detectGeoFromLocation,
 } from "@/services/locationCurrencyService";
 import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 
 type CurrencyContextValue = {
   currency: Currency;
@@ -59,7 +60,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const { needsOnboarding, hydrated: onboardingHydrated } = useOnboarding();
+
   useEffect(() => {
+    // Don't trigger the device-location prompt before the first-run country
+    // picker (Task #286) has been completed.
+    if (!onboardingHydrated || needsOnboarding) return;
     let cancelled = false;
     (async () => {
       try {
@@ -115,7 +121,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onboardingHydrated, needsOnboarding]);
 
   // Re-derive when live FX rates land so display amounts pick up the new rate.
   const currency = useMemo(() => getCurrency(currencyCode), [currencyCode, ratesVersion]);

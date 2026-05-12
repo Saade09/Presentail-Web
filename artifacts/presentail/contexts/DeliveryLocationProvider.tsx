@@ -19,6 +19,7 @@ import {
   detectGeoFromLocation,
 } from "@/services/locationCurrencyService";
 import { updateCachedStoreLocation } from "@/lib/storeHeaders";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 
 const STORAGE_KEY = "@presentail/delivery-location-v1";
 
@@ -39,6 +40,11 @@ export type DeliveryLocationContextValue = {
   error: Error | null;
   selectCountry: (country: DeliveryCountry) => void;
   selectCity: (city: DeliveryCity) => void;
+  /** Set country and city together as a single manual selection. Used by
+   *  the first-run onboarding screen to avoid the back-to-back
+   *  selectCountry/selectCity race where the second persist would read a
+   *  stale `selectedCountry` from closure state. */
+  setManualLocation: (country: DeliveryCountry, city: DeliveryCity) => Promise<void>;
   refreshDeliveryLocations: () => Promise<void>;
 };
 
@@ -79,6 +85,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
   const [persistedHydrated, setPersistedHydrated] = useState(false);
   const [autoDetectedCountryCode, setAutoDetectedCountryCode] = useState<string | null>(null);
   const [autoDetectionDone, setAutoDetectionDone] = useState(false);
+  const { needsOnboarding, hydrated: onboardingHydrated } = useOnboarding();
 
   // Hydrate persisted selection eagerly so the header doesn't flash on cold launch.
   useEffect(() => {
@@ -139,6 +146,10 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
   // are cached after the first call by the geo service, so this duplicates
   // no network work.
   useEffect(() => {
+    // Wait until onboarding has either been completed or determined to be
+    // unnecessary before issuing the device-location prompt. The first-run
+    // country picker (Task #286) must come before any geo-permission prompt.
+    if (!onboardingHydrated || needsOnboarding) return;
     let cancelled = false;
     (async () => {
       try {
@@ -160,7 +171,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onboardingHydrated, needsOnboarding]);
 
   // Resolve initial selection once persisted state, locations and (when no
   // persisted country exists) IP detection have all settled.
@@ -259,6 +270,23 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     [persist],
   );
 
+  const setManualLocation = useCallback(
+    async (country: DeliveryCountry, city: DeliveryCity) => {
+      setSelectedCountry(country);
+      setSelectedCity(city);
+      updateCachedStoreLocation(country.code, city.id);
+      await persist({
+        selectedDeliveryCountryId: country.id,
+        selectedDeliveryCountryCode: country.code,
+        selectedDeliveryCountryName: country.name,
+        selectedDeliveryCityId: city.id,
+        selectedDeliveryCityName: city.name,
+        manuallySelected: true,
+      });
+    },
+    [persist],
+  );
+
   const selectCity = useCallback(
     (city: DeliveryCity) => {
       setSelectedCity(city);
@@ -299,6 +327,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       error,
       selectCountry,
       selectCity,
+      setManualLocation,
       refreshDeliveryLocations,
     }),
     [
@@ -309,6 +338,7 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
       error,
       selectCountry,
       selectCity,
+      setManualLocation,
       refreshDeliveryLocations,
     ],
   );
