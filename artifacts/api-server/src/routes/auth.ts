@@ -149,8 +149,58 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
       return;
     }
     const list = (await r.json().catch(() => [])) as any[];
-    const exists = Array.isArray(list) && list.length > 0;
-    res.json({ ok: true, exists });
+    if (Array.isArray(list) && list.length > 0) {
+      res.json({ ok: true, exists: true });
+      return;
+    }
+    // WC returned no rows. Some accounts exist as WordPress users but were
+    // never promoted to a WC customer row (legacy accounts, accounts created
+    // before WC was installed, JWT-only registrations, accounts whose role
+    // isn't `customer`). Without a fallback, those shoppers get routed to
+    // the sign-up step instead of the password-login step.
+    //
+    // We don't have admin credentials for `/wp/v2/users`, but the JWT plugin
+    // gives us a clean signal: hit `/jwt-auth/v1/token` with a deliberately
+    // bogus password and inspect the error code:
+    //   - `[jwt_auth] incorrect_password` → user exists
+    //   - `[jwt_auth] invalid_email` / `invalid_username` → user doesn't exist
+    // Any other shape (plugin missing, upstream 5xx, network) → lookup_failed
+    // so the UI can show "couldn't check" rather than silently send the
+    // shopper to sign-up.
+    try {
+      const probePassword =
+        "_existscheck_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const probe = await wpFetch(
+        `/jwt-auth/v1/token`,
+        {
+          method: "POST",
+          body: JSON.stringify({ username: raw, password: probePassword }),
+        },
+        req,
+      );
+      if (probe.status === 404) {
+        // JWT plugin not installed — we can't confirm WP-user existence at
+        // all, so be honest about it instead of routing to sign-up.
+        req.log?.warn?.({ status: probe.status }, "auth.exists: JWT plugin missing for WP fallback");
+        res.json({ ok: true, exists: false, code: "lookup_unavailable" });
+        return;
+      }
+      const probeData = (await probe.json().catch(() => ({}))) as any;
+      const code = String(probeData?.code ?? "");
+      if (/incorrect_password/i.test(code)) {
+        res.json({ ok: true, exists: true });
+        return;
+      }
+      if (/invalid_email|invalid_username|invalid_user/i.test(code)) {
+        res.json({ ok: true, exists: false });
+        return;
+      }
+      req.log?.warn?.({ status: probe.status, code }, "auth.exists: WP probe inconclusive");
+      res.json({ ok: true, exists: false, code: "lookup_failed" });
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.exists: WP probe failed");
+      res.json({ ok: true, exists: false, code: "lookup_failed" });
+    }
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.exists: lookup failed");
     res.json({ ok: true, exists: false, code: "lookup_failed" });

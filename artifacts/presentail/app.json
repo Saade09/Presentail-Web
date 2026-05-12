@@ -18,6 +18,11 @@
       "bundleIdentifier": "presentail",
       "buildNumber": "16",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)$(CFBundleIdentifier)"
+        ]
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Used to scan QR codes for gift messages.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for personalised gifts.",

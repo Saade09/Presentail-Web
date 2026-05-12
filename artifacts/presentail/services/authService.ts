@@ -17,6 +17,8 @@ export type AuthErrorCode =
   | "weak_password"
   | "missing_link"
   | "unknown_email"
+  | "lookup_failed"
+  | "lookup_unavailable"
   | "server";
 
 export type AuthError = {
@@ -41,10 +43,22 @@ export async function checkEmailExists(
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       exists?: boolean;
+      code?: string;
       message?: string;
     };
     if (!res.ok || !data?.ok) {
       return { ok: false, code: "server", serverMessage: data?.message };
+    }
+    // The server returns `code: "lookup_failed"` / `"lookup_unavailable"` when
+    // it couldn't actually confirm whether the account exists (missing WC
+    // creds, WC upstream 5xx, JWT plugin missing, network failure). Treat
+    // those as errors so the UI can show "couldn't check, try again" rather
+    // than silently routing the shopper to sign-up.
+    if (data?.code === "lookup_failed") {
+      return { ok: false, code: "lookup_failed" };
+    }
+    if (data?.code === "lookup_unavailable") {
+      return { ok: false, code: "lookup_unavailable" };
     }
     return { ok: true, exists: Boolean(data.exists) };
   } catch {

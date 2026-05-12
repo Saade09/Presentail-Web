@@ -237,9 +237,10 @@ export function CheckoutLoginSheet({
       case "apple_failed":
         return t.authAppleFailed;
       case "google_failed":
-        return err.serverMessage
-          ? `${t.authGoogleFailed} (${err.serverMessage})`
-          : t.authGoogleFailed;
+        // Friendly copy regardless of native code (e.g. -61440 =
+        // errSecMissingEntitlement). Native code is already logged in dev
+        // and on the server.
+        return t.authGoogleFailed;
       case "canceled":
         return "";
       case "expired_link":
@@ -250,6 +251,9 @@ export function CheckoutLoginSheet({
         return t.authResetMissingLink;
       case "unknown_email":
         return t.authForgotUnknownEmail;
+      case "lookup_failed":
+      case "lookup_unavailable":
+        return t.authEmailCheckFailed;
       case "server":
         return err.serverMessage || t.authGenericError;
     }

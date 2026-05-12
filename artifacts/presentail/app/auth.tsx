@@ -89,9 +89,11 @@ function AuthScreen() {
       case "apple_failed":
         return t.authAppleFailed;
       case "google_failed":
-        return err.serverMessage
-          ? `${t.authGoogleFailed} (${err.serverMessage})`
-          : t.authGoogleFailed;
+        // Surface a friendly message regardless of native code (e.g. -61440
+        // = errSecMissingEntitlement). The native code/serverMessage is
+        // already logged via __DEV__ console.warn in authService and on the
+        // server, so we don't need to leak hex-looking codes to shoppers.
+        return t.authGoogleFailed;
       case "canceled":
         return "";
       case "expired_link":
@@ -102,6 +104,9 @@ function AuthScreen() {
         return t.authResetMissingLink;
       case "unknown_email":
         return t.authForgotUnknownEmail;
+      case "lookup_failed":
+      case "lookup_unavailable":
+        return t.authEmailCheckFailed;
       case "server":
         return err.serverMessage || t.authGenericError;
     }
