@@ -96,17 +96,13 @@ function HomeHeader({
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
 
-  const pillBg = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
-    outputRange: ["rgba(255,255,255,0.25)", "rgba(255,255,255,0.25)", "#e6e6e6"],
-    extrapolate: "clamp",
-  });
-
-  const pillTextColor = scrollY.interpolate({
-    inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT * 0.85],
-    outputRange: ["#ffffff", "#ffffff", colors.primary],
-    extrapolate: "clamp",
-  });
+  // Solid pill background + text colors at all scroll positions, so the
+  // location chip stays readable and visually anchored regardless of what's
+  // behind it (hero image at the top vs white header background after
+  // scrolling). Previously these interpolated with scrollY, which made the
+  // pill appear to shift colors as the page scrolled.
+  const pillBg = "#ffffff";
+  const pillTextColor = colors.primary;
 
   return (
     <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }} pointerEvents="box-none">
