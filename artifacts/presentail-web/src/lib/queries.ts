@@ -203,7 +203,11 @@ export const useCreateOrder = () => {
   return useMutation({
     mutationFn: (data: any) => apiFetch<{ ok: boolean; wcOrderId?: number; orderKey?: string; message?: string }>("/woo/order", {
       method: "POST",
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      // Tag the request with the source platform so the admin funnel
+      // dashboard can attribute revenue to "web" the same way analytics
+      // events attribute counts.
+      headers: { "x-app-platform": "web" },
     })
   });
 };

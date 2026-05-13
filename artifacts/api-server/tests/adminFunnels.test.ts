@@ -55,6 +55,55 @@ describe("aggregateDailyPurchaseBuckets", () => {
     expect(may10ios.checkoutStarted).toBe(40);
     expect(may10ios.paymentMethodSelected).toBe(25);
     expect(may10ios.orderPlaced).toBe(10);
+    // Revenue defaults to 0 when no app_orders rows are passed.
+    expect(may10ios.revenueUsd).toBe(0);
+  });
+
+  it("attaches USD revenue from app_orders to the matching (day, platform) bucket", () => {
+    const buckets = aggregateDailyPurchaseBuckets(
+      [
+        { day: "2026-05-11", name: "order_placed", platform: "ios", count: 3 },
+        { day: "2026-05-11", name: "order_placed", platform: "web", count: 2 },
+      ],
+      [
+        { day: "2026-05-11", platform: "ios", revenueUsdCents: 12345 },
+        { day: "2026-05-11", platform: "web", revenueUsdCents: 6789 },
+      ],
+    );
+    const ios = buckets.find((b) => b.platform === "ios")!;
+    const web = buckets.find((b) => b.platform === "web")!;
+    expect(ios.revenueUsd).toBeCloseTo(123.45);
+    expect(web.revenueUsd).toBeCloseTo(67.89);
+  });
+
+  it("materialises a revenue-only bucket when orders exist without analytics events", () => {
+    const buckets = aggregateDailyPurchaseBuckets(
+      [],
+      [{ day: "2026-05-11", platform: "ios", revenueUsdCents: 5000 }],
+    );
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({
+      day: "2026-05-11",
+      platform: "ios",
+      cartViewed: 0,
+      orderPlaced: 0,
+      revenueUsd: 50,
+    });
+  });
+
+  it("collapses null platform on app_orders to the same 'unknown' bucket as analytics events", () => {
+    const buckets = aggregateDailyPurchaseBuckets(
+      [
+        { day: "2026-05-11", name: "order_placed", platform: null, count: 1 },
+      ],
+      [{ day: "2026-05-11", platform: null, revenueUsdCents: 4200 }],
+    );
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({
+      platform: "unknown",
+      orderPlaced: 1,
+      revenueUsd: 42,
+    });
   });
 });
 
@@ -135,6 +184,7 @@ describe("admin funnels routes", () => {
         checkoutStarted: 80,
         paymentMethodSelected: 40,
         orderPlaced: 20,
+        revenueUsd: 1234.56,
       },
     ]);
     (loadDailyLoginBuckets as any).mockResolvedValueOnce([
@@ -163,6 +213,9 @@ describe("admin funnels routes", () => {
       checkoutToPaymentPct: 50,
       paymentToOrderPct: 50,
       cartToOrderPct: 10,
+      // Wire payload rounds to whole USD (no point shipping pennies for a
+      // per-day per-platform overview).
+      revenueUsd: 1235,
     });
     expect(res.body.login[0]).toMatchObject({
       day: "2026-05-11",

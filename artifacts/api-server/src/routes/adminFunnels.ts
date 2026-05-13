@@ -109,6 +109,10 @@ function toPurchaseRow(b: PurchaseDailyBucket) {
     checkoutToPaymentPct: pct(b.paymentMethodSelected, b.checkoutStarted),
     paymentToOrderPct: pct(b.orderPlaced, b.paymentMethodSelected),
     cartToOrderPct: pct(b.orderPlaced, b.cartViewed),
+    // Absolute USD revenue from the matching app_orders rows. Rounded to a
+    // whole dollar in the wire payload — pennies don't matter at the
+    // per-day per-platform level the dashboard surfaces.
+    revenueUsd: Math.round(b.revenueUsd ?? 0),
   };
 }
 
@@ -167,12 +171,13 @@ const DASHBOARD_HTML = `<!doctype html>
   </div>
 
   <h2>Purchase funnel</h2>
-  <div class="sub">cart_viewed → checkout_started → payment_method_selected → order_placed</div>
+  <div class="sub">cart_viewed → checkout_started → payment_method_selected → order_placed. Revenue is summed from confirmed app_orders in USD (the canonical wire currency); pre-rollout rows show as $0.</div>
   <table id="purchase">
     <thead>
       <tr>
         <th>Day</th><th>Platform</th>
         <th>Cart</th><th>Checkout</th><th>Payment</th><th>Orders</th>
+        <th>Revenue (USD)</th>
         <th>Cart→Co</th><th>Co→Pay</th><th>Pay→Ord</th><th>Cart→Ord</th>
       </tr>
     </thead>
@@ -210,10 +215,15 @@ const DASHBOARD_HTML = `<!doctype html>
     return '<span class="pct' + cls + '">' + p.toFixed(1) + '%</span>';
   }
   function num(n) { return (n == null ? 0 : n).toLocaleString(); }
+  function money(usd) {
+    var n = (usd == null ? 0 : usd);
+    if (!n) return '<span class="muted">$0</span>';
+    return '$' + n.toLocaleString();
+  }
 
   function renderPurchase(rows) {
     if (!rows.length) {
-      purchaseBody.innerHTML = '<tr><td colspan="10" class="muted">No events in range.</td></tr>';
+      purchaseBody.innerHTML = '<tr><td colspan="11" class="muted">No events in range.</td></tr>';
       return;
     }
     purchaseBody.innerHTML = rows.map(function (r) {
@@ -224,6 +234,7 @@ const DASHBOARD_HTML = `<!doctype html>
         '<td>' + num(r.checkoutStarted) + '</td>' +
         '<td>' + num(r.paymentMethodSelected) + '</td>' +
         '<td>' + num(r.orderPlaced) + '</td>' +
+        '<td>' + money(r.revenueUsd) + '</td>' +
         '<td>' + fmtPct(r.cartToCheckoutPct) + '</td>' +
         '<td>' + fmtPct(r.checkoutToPaymentPct) + '</td>' +
         '<td>' + fmtPct(r.paymentToOrderPct) + '</td>' +

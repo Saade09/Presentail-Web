@@ -5,6 +5,7 @@ import {
   attemptCreateWcOrder,
   enqueuePendingWcOrder,
   listPendingWooOrders,
+  normalizePlatform,
   recordSuccessfulWcOrder,
 } from "../lib/wooOrders";
 import {
@@ -842,6 +843,7 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues });
   }
   const body = parsed.data;
+  const requestPlatform = normalizePlatform(req.header("x-app-platform"));
 
   // Resolve the owning user from the Authorization header (if any). The
   // legacy `userId` column stores the WC customer id (kept for backward
@@ -1150,6 +1152,7 @@ router.post("/woo/order", async (req, res) => {
       paymentVerified,
       storeCountryCode: storeCtx.countryCode,
       storeCityId: storeCtx.cityId,
+      platform: requestPlatform,
       log: req.log,
     });
     req.log?.warn?.(
@@ -1172,6 +1175,8 @@ router.post("/woo/order", async (req, res) => {
     userId: resolvedUserId,
     customerId: resolvedCustomerId,
     recipientName: result.recipientName,
+    totalUsdCents: result.totalUsdCents,
+    platform: requestPlatform,
     log: req.log,
   });
 

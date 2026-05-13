@@ -24,6 +24,15 @@ export const appOrdersTable = pgTable(
     deliveryDate: text("delivery_date"),
     deliverySlot: text("delivery_slot"),
     state: text("state").notNull().default("confirmed"),
+    // Source platform that placed the order ("ios" / "android" / "web" / null
+    // for legacy rows). Used to break revenue down per platform on the admin
+    // funnel dashboard alongside the analytics-event counts.
+    platform: text("platform"),
+    // Authoritative order total in USD cents (catalog subtotal + delivery fee
+    // + express surcharge + non-catalog fee items). USD is the canonical wire
+    // currency on this codebase; presented currency is a display concern only.
+    // Nullable for legacy rows created before the column existed.
+    totalUsdCents: integer("total_usd_cents"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

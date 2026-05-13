@@ -113,6 +113,10 @@ export type WcOrderAttemptResult =
       wcOrderId: number | null;
       orderKey: string | undefined;
       recipientName: string;
+      // Authoritative USD total (catalog subtotal + delivery + express +
+      // non-catalog fee items). Always returned on success so the caller can
+      // persist it on the app_orders row for reporting.
+      totalUsdCents: number;
     }
   | {
       ok: false;
@@ -120,6 +124,17 @@ export type WcOrderAttemptResult =
       message: string;
       recipientName: string;
     };
+
+// Accepted source-platform values for the analytics-funnel revenue join.
+// Anything else collapses to null so we don't spray unbounded user-controlled
+// strings into the column (the alerter monitor groups by platform too).
+const KNOWN_PLATFORMS = new Set(["ios", "android", "web"]);
+
+export function normalizePlatform(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim().toLowerCase();
+  return KNOWN_PLATFORMS.has(v) ? v : null;
+}
 
 const PAYMENT_TITLES: Record<string, string> = {
   card: "Credit / Debit Card (Stripe)",
@@ -198,6 +213,12 @@ export async function attemptCreateWcOrder(
   // manipulation even when the payment verification step was somehow bypassed.
   // Accumulate the catalog subtotal in USD for delivery fee computation.
   const catalogItemInputs = body.items.filter((item) => !!item.wcId);
+  // Sum non-catalog fee-line items (those without wcId — typically client-
+  // added line items like card-printing fees). Their `price` is already in
+  // USD on the wire, same as catalog prices.
+  const nonCatalogFeesUsd = body.items
+    .filter((item) => !item.wcId)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0);
   let catalogSubtotalUsd = 0;
   const lineItemData: { wcId: number | undefined; quantity: number; priceUsd: number }[] = [];
 
@@ -282,14 +303,27 @@ export async function attemptCreateWcOrder(
   // Express surcharge: use the server constant when the client signalled
   // express (body.expressFee > 0). We never use the client's numeric value.
   const clientSignalledExpress = body.expressFee > 0;
+  let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     const districtCountry = countryForDistrict(body.district);
+    expressSurchargeAppliedUsd = expressSurchargeUsd(districtCountry);
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
-      total: fmt(await conv(expressSurchargeUsd(districtCountry))),
+      total: fmt(await conv(expressSurchargeAppliedUsd)),
     });
   }
+
+  // Final authoritative USD total persisted on the app_orders row. Mirrors
+  // exactly the lines we send to WooCommerce above (catalog subtotal +
+  // non-catalog fee items + district fee + express surcharge), so the funnel
+  // dashboard's revenue numbers add up to what shoppers actually paid.
+  const totalUsd =
+    catalogSubtotalUsd +
+    nonCatalogFeesUsd +
+    serverDistrictFeeUsd +
+    expressSurchargeAppliedUsd;
+  const totalUsdCents = Math.max(0, Math.round(totalUsd * 100));
 
   // Determine set_paid: only true when payment has been verified with the
   // provider. The route handler sets paymentVerified; the reconciliation
@@ -367,6 +401,7 @@ export async function attemptCreateWcOrder(
       wcOrderId: typeof data?.id === "number" ? data.id : null,
       orderKey: data.order_key,
       recipientName: recipientFullName,
+      totalUsdCents,
     };
   } catch (err: any) {
     return {
@@ -387,9 +422,25 @@ export async function recordSuccessfulWcOrder(input: {
   userId: number | null;
   customerId?: number | null;
   recipientName: string;
+  // Authoritative USD total in cents, computed by attemptCreateWcOrder. Stored
+  // on the app_orders row so the admin funnel dashboard can sum revenue per
+  // (day, platform) without re-deriving from line items.
+  totalUsdCents?: number | null;
+  // Source platform that placed the order (one of "ios" / "android" / "web").
+  // Already normalized via normalizePlatform — anything else is null.
+  platform?: string | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
-  const { body, wcOrderId, userId, customerId, recipientName, log } = input;
+  const {
+    body,
+    wcOrderId,
+    userId,
+    customerId,
+    recipientName,
+    totalUsdCents,
+    platform,
+    log,
+  } = input;
   const rawDeviceId =
     typeof body.appDeviceId === "string" && body.appDeviceId
       ? body.appDeviceId
@@ -415,6 +466,8 @@ export async function recordSuccessfulWcOrder(input: {
         deliveryDate: body.deliveryDate ?? null,
         deliverySlot: body.deliverySlot ?? null,
         state: "confirmed",
+        platform: platform ?? null,
+        totalUsdCents: totalUsdCents ?? null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -427,6 +480,8 @@ export async function recordSuccessfulWcOrder(input: {
           deliveryDate: body.deliveryDate ?? null,
           deliverySlot: body.deliverySlot ?? null,
           state: "confirmed",
+          platform: platform ?? null,
+          totalUsdCents: totalUsdCents ?? null,
           updatedAt: new Date(),
         },
       });
@@ -481,6 +536,7 @@ export async function enqueuePendingWcOrder(input: {
   paymentVerified: boolean;
   storeCountryCode?: string | null;
   storeCityId?: string | null;
+  platform?: string | null;
   log?: { warn?: (...args: any[]) => void };
 }) {
   const {
@@ -493,6 +549,7 @@ export async function enqueuePendingWcOrder(input: {
     paymentVerified,
     storeCountryCode,
     storeCityId,
+    platform,
     log,
   } = input;
   const deviceId =
@@ -509,6 +566,7 @@ export async function enqueuePendingWcOrder(input: {
     _wcCustomerId: wcCustomerId ?? null,
     _storeCountryCode: storeCountryCode ?? null,
     _storeCityId: storeCityId ?? null,
+    _platform: platform ?? null,
   };
 
   try {
@@ -601,6 +659,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
     typeof rawPayload?._storeCountryCode === "string" ? rawPayload._storeCountryCode : null;
   const storedCityId =
     typeof rawPayload?._storeCityId === "string" ? rawPayload._storeCityId : null;
+  const storedPlatform = normalizePlatform(rawPayload?._platform);
   const store = resolveStore(storedCountryCode, storedCityId);
 
   const result = await attemptCreateWcOrder(body, {
@@ -627,6 +686,8 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       userId: row.userId,
       customerId: storedCustomerId,
       recipientName: result.recipientName,
+      totalUsdCents: result.totalUsdCents,
+      platform: storedPlatform,
       log: logger,
     });
     logger.info(

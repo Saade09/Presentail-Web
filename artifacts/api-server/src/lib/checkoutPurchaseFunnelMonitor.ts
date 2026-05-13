@@ -1,5 +1,5 @@
 import { and, gte, lt, sql } from "drizzle-orm";
-import { db, analyticsEventsTable } from "@workspace/db";
+import { db, analyticsEventsTable, appOrdersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert, type AlertField } from "./alerts";
 
@@ -201,44 +201,95 @@ async function loadBuckets(
   return aggregateBuckets(rows);
 }
 
-export type PurchaseDailyBucket = PurchaseFunnelBucket & { day: string };
+export type PurchaseDailyBucket = PurchaseFunnelBucket & {
+  day: string;
+  // Sum of confirmed app-order totals for this (day, platform), in USD. Source
+  // of truth is `app_orders.total_usd_cents` — populated server-side at order
+  // creation time, so it can never be inflated or zero'd by the client. Days
+  // before the column landed will read as 0 (rows had no totals stored).
+  revenueUsd: number;
+};
+
+export type DailyRevenueRow = {
+  day: string;
+  platform: string | null;
+  revenueUsdCents: number;
+};
 
 /**
  * Load per-day per-platform purchase funnel buckets for the inclusive day
  * range `[startDayUtc, endDayUtcExclusive)`. Used by the admin dashboard;
  * shares the underlying aggregator with the alerting monitor so the two
  * views can never disagree.
+ *
+ * Also enriches each bucket with `revenueUsd` summed from `app_orders` so
+ * the dashboard can show absolute money alongside the count funnel.
  */
 export async function loadDailyPurchaseBuckets(
   startDayUtc: Date,
   endDayUtcExclusive: Date,
 ): Promise<PurchaseDailyBucket[]> {
-  const rows = (await db
+  const [rows, revenueRows] = await Promise.all([
+    db
+      .select({
+        day: sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
+        name: analyticsEventsTable.name,
+        platform: analyticsEventsTable.platform,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(analyticsEventsTable)
+      .where(
+        and(
+          sql`${analyticsEventsTable.name} in ('cart_viewed', 'checkout_started', 'payment_method_selected', 'order_placed')`,
+          gte(analyticsEventsTable.createdAt, startDayUtc),
+          lt(analyticsEventsTable.createdAt, endDayUtcExclusive),
+        )!,
+      )
+      .groupBy(
+        sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`,
+        analyticsEventsTable.name,
+        analyticsEventsTable.platform,
+      ) as Promise<Array<RawRow & { day: string }>>,
+    loadDailyRevenueRows(startDayUtc, endDayUtcExclusive),
+  ]);
+
+  return aggregateDailyPurchaseBuckets(rows, revenueRows);
+}
+
+/**
+ * Sum confirmed app-order revenue (in USD cents) per (UTC day, platform) for
+ * the given window. Pulls only from `app_orders` — the canonical record of
+ * what a shopper actually paid for, server-derived at order creation. Rows
+ * with `total_usd_cents IS NULL` (legacy, pre-column) are skipped rather
+ * than inflating the totals with 0s.
+ */
+export async function loadDailyRevenueRows(
+  startDayUtc: Date,
+  endDayUtcExclusive: Date,
+): Promise<DailyRevenueRow[]> {
+  return db
     .select({
-      day: sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
-      name: analyticsEventsTable.name,
-      platform: analyticsEventsTable.platform,
-      count: sql<number>`count(*)::int`,
+      day: sql<string>`to_char(date_trunc('day', ${appOrdersTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
+      platform: appOrdersTable.platform,
+      revenueUsdCents: sql<number>`coalesce(sum(${appOrdersTable.totalUsdCents}), 0)::bigint::int`,
     })
-    .from(analyticsEventsTable)
+    .from(appOrdersTable)
     .where(
       and(
-        sql`${analyticsEventsTable.name} in ('cart_viewed', 'checkout_started', 'payment_method_selected', 'order_placed')`,
-        gte(analyticsEventsTable.createdAt, startDayUtc),
-        lt(analyticsEventsTable.createdAt, endDayUtcExclusive),
+        gte(appOrdersTable.createdAt, startDayUtc),
+        lt(appOrdersTable.createdAt, endDayUtcExclusive),
+        sql`${appOrdersTable.totalUsdCents} is not null`,
       )!,
     )
     .groupBy(
-      sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`,
-      analyticsEventsTable.name,
-      analyticsEventsTable.platform,
-    )) as Array<RawRow & { day: string }>;
-
-  return aggregateDailyPurchaseBuckets(rows);
+      sql`date_trunc('day', ${appOrdersTable.createdAt} at time zone 'UTC')`,
+      appOrdersTable.platform,
+    ) as Promise<DailyRevenueRow[]>;
 }
 
 export function aggregateDailyPurchaseBuckets(
   rows: Array<RawRow & { day: string }>,
+  revenueRows: DailyRevenueRow[] = [],
 ): PurchaseDailyBucket[] {
   const byDay = new Map<string, RawRow[]>();
   for (const r of rows) {
@@ -249,10 +300,55 @@ export function aggregateDailyPurchaseBuckets(
     }
     arr.push({ name: r.name, platform: r.platform, count: r.count });
   }
+
+  // Index revenue by `${day}::${platform}` so every emitted bucket can look
+  // up its USD total in O(1). Unknown / null platforms collapse to "unknown",
+  // matching the count aggregator's behaviour.
+  const revenueIndex = new Map<string, number>();
+  for (const r of revenueRows) {
+    const key = `${r.day}::${r.platform ?? "unknown"}`;
+    revenueIndex.set(
+      key,
+      (revenueIndex.get(key) ?? 0) + (r.revenueUsdCents ?? 0),
+    );
+  }
+  // Days that have revenue but zero analytics events still need a row so the
+  // dashboard doesn't silently drop the money. Materialise placeholder rows.
+  for (const r of revenueRows) {
+    const day = r.day;
+    let arr = byDay.get(day);
+    if (!arr) {
+      arr = [];
+      byDay.set(day, arr);
+    }
+  }
+
   const out: PurchaseDailyBucket[] = [];
   for (const [day, dayRows] of byDay) {
+    const platformsWithCounts = new Set<string>();
     for (const b of aggregateBuckets(dayRows)) {
-      out.push({ day, ...b });
+      const cents = revenueIndex.get(`${day}::${b.platform}`) ?? 0;
+      out.push({ day, ...b, revenueUsd: cents / 100 });
+      platformsWithCounts.add(b.platform);
+    }
+    // Surface revenue-only platforms (orders placed without a corresponding
+    // analytics event) with zeroed counts so the money shows up explicitly.
+    for (const r of revenueRows) {
+      if (r.day !== day) continue;
+      const platform = r.platform ?? "unknown";
+      if (platformsWithCounts.has(platform)) continue;
+      const cents = revenueIndex.get(`${day}::${platform}`) ?? 0;
+      if (cents <= 0) continue;
+      out.push({
+        day,
+        platform,
+        cartViewed: 0,
+        checkoutStarted: 0,
+        paymentMethodSelected: 0,
+        orderPlaced: 0,
+        revenueUsd: cents / 100,
+      });
+      platformsWithCounts.add(platform);
     }
   }
   // Newest day first; within a day, alphabetical platform.

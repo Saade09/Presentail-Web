@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { API_BASE } from "./stripe";
 
 export type WooProduct = {
@@ -196,6 +197,12 @@ export async function createWooOrder(
   try {
     const headers: Record<string, string> = storeHeaders(opts.filter);
     if (opts.authToken) headers.Authorization = `Bearer ${opts.authToken}`;
+    // Tag the request with the source platform so the admin funnel dashboard
+    // can break revenue down per ios/android the same way the analytics
+    // events break down counts. Best-effort — server normalises and ignores
+    // anything outside its allowlist.
+    headers["x-app-platform"] =
+      Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : "web";
 
     const res = await fetch(`${API_BASE}/api/woo/order`, {
       method: "POST",
