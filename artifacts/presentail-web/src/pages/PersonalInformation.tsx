@@ -21,6 +21,7 @@ import { apiFetch } from "@/lib/api";
 import {
   COUNTRY_DIAL_CODES,
   splitPhone,
+  validateNationalNumber,
   type CountryDialCode,
 } from "@/data/countryCodes";
 
@@ -94,6 +95,7 @@ export default function PersonalInformation() {
     COUNTRY_DIAL_CODES[0],
   );
   const [phoneLocal, setPhoneLocal] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Redirect to sign-in if signed out (CustomerOnly upstream gates this too,
   // but the inner shim hook briefly reports null while Clerk hydrates).
@@ -213,9 +215,19 @@ export default function PersonalInformation() {
   };
 
   const onSavePhone = async () => {
+    setPhoneError(null);
     // Normalise to strict E.164: dial code + digits-only national number,
     // no spaces or punctuation. Empty national number clears the field.
     const digits = phoneLocal.replace(/\D/g, "");
+    const validation = validateNationalNumber(phoneCountry, phoneLocal);
+    if (validation === "too_short") {
+      setPhoneError(t("pi.phone.errorTooShort"));
+      return;
+    }
+    if (validation === "too_long") {
+      setPhoneError(t("pi.phone.errorTooLong"));
+      return;
+    }
     const phoneValue = digits ? `${phoneCountry.dial}${digits}` : "";
     setPhoneBusy(true);
     try {
@@ -430,7 +442,10 @@ export default function PersonalInformation() {
               value={phoneCountry.code}
               onValueChange={(v) => {
                 const next = COUNTRY_DIAL_CODES.find((c) => c.code === v);
-                if (next) setPhoneCountry(next);
+                if (next) {
+                  setPhoneCountry(next);
+                  setPhoneError(null);
+                }
               }}
             >
               <SelectTrigger data-testid="pi-phone-country">
@@ -458,11 +473,23 @@ export default function PersonalInformation() {
             <Input
               inputMode="tel"
               value={phoneLocal}
-              onChange={(e) => setPhoneLocal(e.target.value)}
+              onChange={(e) => {
+                setPhoneLocal(e.target.value);
+                if (phoneError) setPhoneError(null);
+              }}
               placeholder={t("pi.phone.placeholder")}
               data-testid="pi-phone-input"
             />
           </div>
+
+          {phoneError ? (
+            <p
+              className="text-sm text-destructive mt-3"
+              data-testid="pi-phone-error"
+            >
+              {phoneError}
+            </p>
+          ) : null}
 
           <div className="mt-5">
             <Button

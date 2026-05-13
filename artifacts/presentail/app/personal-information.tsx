@@ -19,6 +19,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
+import { validateNationalNumber } from "@/data/phoneLengths";
 import { useAuth, type AuthGender } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -116,6 +117,7 @@ function PersonalInformationScreen() {
 
   const [busy, setBusy] = useState(false);
   const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [bdayError, setBdayError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
 
@@ -194,7 +196,17 @@ function PersonalInformationScreen() {
   };
 
   const onUpdatePhone = async () => {
+    setPhoneError(null);
     const local = phoneLocal.trim();
+    const validation = validateNationalNumber(phoneCountry.code, local);
+    if (validation === "too_short") {
+      setPhoneError(t.piPhoneErrorTooShort);
+      return;
+    }
+    if (validation === "too_long") {
+      setPhoneError(t.piPhoneErrorTooLong);
+      return;
+    }
     const phoneValue = local ? `${phoneCountry.dial} ${local}`.trim() : "";
     setPhoneBusy(true);
     const r = await updateProfile({ phone: phoneValue });
@@ -652,10 +664,28 @@ function PersonalInformationScreen() {
           <PhoneField
             label={t.piPhoneCardTitle}
             value={phoneLocal}
-            onChangeText={setPhoneLocal}
+            onChangeText={(v) => {
+              setPhoneLocal(v);
+              if (phoneError) setPhoneError(null);
+            }}
             countryCode={phoneCountry.code}
-            onChangeCountry={setPhoneCountry}
+            onChangeCountry={(c) => {
+              setPhoneCountry(c);
+              if (phoneError) setPhoneError(null);
+            }}
           />
+          {phoneError ? (
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 12,
+                color: "#c0392b",
+                textAlign: align,
+              }}
+            >
+              {phoneError}
+            </Text>
+          ) : null}
           <Pressable
             onPress={onUpdatePhone}
             disabled={phoneBusy}

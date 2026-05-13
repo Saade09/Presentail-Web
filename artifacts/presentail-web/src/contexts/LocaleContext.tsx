@@ -349,6 +349,14 @@ const STRINGS: Dict = {
     en: "Your phone number has been updated.",
     ar: "تم تحديث رقم هاتفك.",
   },
+  "pi.phone.errorTooShort": {
+    en: "This phone number looks too short for the country you picked.",
+    ar: "رقم الهاتف قصير جداً بالنسبة للدولة المختارة.",
+  },
+  "pi.phone.errorTooLong": {
+    en: "This phone number looks too long for the country you picked.",
+    ar: "رقم الهاتف طويل جداً بالنسبة للدولة المختارة.",
+  },
   "pi.password.title": { en: "Password", ar: "كلمة المرور" },
   "pi.password.help": {
     en: "Update your password to keep your account secure.",
@@ -880,6 +888,10 @@ const STRINGS_FR: Record<string, string> = {
   "pi.phone.change": "Modifier le numéro",
   "pi.phone.placeholder": "Numéro de téléphone",
   "pi.phone.updatedMsg": "Votre numéro de téléphone a été mis à jour.",
+  "pi.phone.errorTooShort":
+    "Ce numéro de téléphone semble trop court pour le pays sélectionné.",
+  "pi.phone.errorTooLong":
+    "Ce numéro de téléphone semble trop long pour le pays sélectionné.",
   "pi.password.title": "Mot de passe",
   "pi.password.help":
     "Mettez à jour votre mot de passe pour sécuriser votre compte.",

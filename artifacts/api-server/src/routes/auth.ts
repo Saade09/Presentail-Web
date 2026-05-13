@@ -6,6 +6,7 @@ import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId, normalizePhoneE164 } from "../lib/customers";
+import { validateStoredPhone } from "../lib/phoneValidation";
 import {
   ensureClerkUserInBackground,
   ensureClerkUserForCustomer,
@@ -768,6 +769,29 @@ router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
     birthdayShareMonthDay?: boolean;
   };
 
+  // When the client sends a phone, it must be a strict-E.164 string and
+  // (when the dial code is known) fall inside the per-country length
+  // bounds. We use the normalized "+digits" value for both the local row
+  // and the WooCommerce mirror so a hand-rolled API call can't smuggle a
+  // raw, unvalidated string into the billing record.
+  let validatedPhone: string | undefined;
+  if (body.phone !== undefined) {
+    const phoneCheck = validateStoredPhone(
+      typeof body.phone === "string" ? body.phone : "",
+    );
+    if (!phoneCheck.ok) {
+      const message =
+        phoneCheck.reason === "too_short"
+          ? "Phone number is too short for the selected country"
+          : phoneCheck.reason === "too_long"
+            ? "Phone number is too long for the selected country"
+            : "Invalid phone number";
+      res.status(400).json({ ok: false, message, code: phoneCheck.reason });
+      return;
+    }
+    validatedPhone = phoneCheck.normalized;
+  }
+
   let normalizedGender: string | null | undefined;
   if (body.gender !== undefined) {
     if (body.gender === null || body.gender === "") {
@@ -806,9 +830,13 @@ router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
     const localPatch: Partial<typeof customersTable.$inferInsert> = {};
     if (typeof body.firstName === "string") localPatch.firstName = body.firstName.trim();
     if (typeof body.lastName === "string") localPatch.lastName = body.lastName.trim();
-    if (body.phone !== undefined) {
-      const raw = typeof body.phone === "string" ? body.phone : "";
-      localPatch.phoneE164 = normalizePhoneE164(raw);
+    if (validatedPhone !== undefined) {
+      // `validatedPhone` is already strict E.164 (or "" to clear).
+      // `normalizePhoneE164` may still return null for the empty case,
+      // which is the correct value to persist.
+      localPatch.phoneE164 = validatedPhone
+        ? normalizePhoneE164(validatedPhone)
+        : null;
     }
     if (normalizedGender !== undefined) localPatch.gender = normalizedGender;
     if (normalizedBirthday !== undefined) localPatch.birthday = normalizedBirthday;
@@ -832,7 +860,7 @@ router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
   const wcPayload: Record<string, unknown> = {};
   if (typeof body.firstName === "string") wcPayload.first_name = body.firstName;
   if (typeof body.lastName === "string") wcPayload.last_name = body.lastName;
-  if (body.phone !== undefined) wcPayload.billing = { phone: body.phone };
+  if (validatedPhone !== undefined) wcPayload.billing = { phone: validatedPhone };
   const metaUpdates: { key: string; value: string }[] = [];
   if (normalizedGender !== undefined) {
     metaUpdates.push({ key: "presentail_gender", value: normalizedGender ?? "" });

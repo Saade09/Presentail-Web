@@ -530,6 +530,10 @@ const EN = {
   piErrorGeneric: "Something went wrong. Please try again.",
   piErrorNameRequired: "Please enter your first name.",
   piErrorBirthdayInvalid: "Please enter a valid past date (DD MM YYYY).",
+  piPhoneErrorTooShort:
+    "This phone number looks too short for the country you picked.",
+  piPhoneErrorTooLong:
+    "This phone number looks too long for the country you picked.",
   piSignInRequired: "Please sign in to view your personal information.",
   // ── Saved addresses ──
   savedAddressesTitle: "Saved addresses",
@@ -1448,6 +1452,8 @@ const AR: typeof EN = {
   piErrorGeneric: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
   piErrorNameRequired: "يرجى إدخال اسمك الأول.",
   piErrorBirthdayInvalid: "يرجى إدخال تاريخ صحيح في الماضي (يوم/شهر/سنة).",
+  piPhoneErrorTooShort: "رقم الهاتف قصير جداً بالنسبة للدولة المختارة.",
+  piPhoneErrorTooLong: "رقم الهاتف طويل جداً بالنسبة للدولة المختارة.",
   piSignInRequired: "يرجى تسجيل الدخول لعرض معلوماتك الشخصية.",
   // ── Saved addresses ──
   savedAddressesTitle: "العناوين المحفوظة",
@@ -2365,6 +2371,10 @@ const FR: typeof EN = {
   piErrorGeneric: "Une erreur est survenue. Veuillez réessayer.",
   piErrorNameRequired: "Veuillez saisir votre prénom.",
   piErrorBirthdayInvalid: "Veuillez saisir une date passée valide (JJ MM AAAA).",
+  piPhoneErrorTooShort:
+    "Ce numéro de téléphone semble trop court pour le pays sélectionné.",
+  piPhoneErrorTooLong:
+    "Ce numéro de téléphone semble trop long pour le pays sélectionné.",
   piSignInRequired: "Veuillez vous connecter pour voir vos informations personnelles.",
   // ── Saved addresses ──
   savedAddressesTitle: "Adresses enregistrées",
