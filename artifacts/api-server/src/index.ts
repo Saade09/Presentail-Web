@@ -6,6 +6,7 @@ import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonito
 import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnelMonitor";
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
 import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
+import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
 
 const rawPort = process.env["PORT"];
 
@@ -34,4 +35,5 @@ app.listen(port, (err) => {
   startCheckoutPurchaseFunnelMonitor();
   startClerkCatchupSync();
   startAuthExistsLookupMonitor();
+  startSocialAuthFailureMonitor();
 });
