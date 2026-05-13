@@ -7,6 +7,12 @@ import {
   loadDailyLoginBuckets,
   type LoginDailyBucket,
 } from "../lib/checkoutLoginFunnelMonitor";
+import {
+  loadDailySocialFailureBuckets,
+  summariseDailyBuckets,
+  type SocialFailureBucket,
+  type SocialFailureDailyBucket,
+} from "../lib/socialAuthFailureAggregator";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -62,9 +68,10 @@ router.get("/admin/funnels/data", async (req, res) => {
   const { start, end } = dayWindow(new Date(), days);
 
   try {
-    const [purchase, login] = await Promise.all([
+    const [purchase, login, socialFailuresDaily] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
+      loadDailySocialFailureBuckets(start, end),
     ]);
     res.json({
       days,
@@ -72,6 +79,15 @@ router.get("/admin/funnels/data", async (req, res) => {
       rangeEndUtc: end.toISOString(),
       purchase: purchase.map(toPurchaseRow),
       login: login.map(toLoginRow),
+      socialFailures: {
+        // Per-(platform, provider) totals for the whole window, with the
+        // top error codes attached. Driven off the daily rows so the two
+        // views can never disagree.
+        summary: summariseDailyBuckets(socialFailuresDaily).map(
+          toSocialFailureSummaryRow,
+        ),
+        daily: socialFailuresDaily.map(toSocialFailureDailyRow),
+      },
     });
   } catch (err: any) {
     logger.warn(
@@ -113,6 +129,31 @@ function toPurchaseRow(b: PurchaseDailyBucket) {
     // whole dollar in the wire payload — pennies don't matter at the
     // per-day per-platform level the dashboard surfaces.
     revenueUsd: Math.round(b.revenueUsd ?? 0),
+  };
+}
+
+function toSocialFailureSummaryRow(b: SocialFailureBucket) {
+  return {
+    platform: b.platform,
+    provider: b.provider,
+    total: b.total,
+    topErrorCodes: b.errorCodes.map((c) => ({
+      errorCode: c.errorCode,
+      count: c.count,
+    })),
+  };
+}
+
+function toSocialFailureDailyRow(b: SocialFailureDailyBucket) {
+  return {
+    day: b.day,
+    platform: b.platform,
+    provider: b.provider,
+    total: b.total,
+    topErrorCodes: b.errorCodes.slice(0, 5).map((c) => ({
+      errorCode: c.errorCode,
+      count: c.count,
+    })),
   };
 }
 
@@ -192,6 +233,20 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Social sign-in errors</h2>
+  <div class="sub">auth_social_failed events grouped by (platform, provider). Top error codes for the window are shown inline; ops can use these to spot Google/Apple regressions before shoppers complain.</div>
+  <div id="socialFailuresSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="socialFailuresDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform / Provider</th>
+        <th>Failures</th><th>Top error codes</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -216,6 +271,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var refreshBtn = document.getElementById('refresh');
   var purchaseBody = document.querySelector('#purchase tbody');
   var loginBody = document.querySelector('#login tbody');
+  var socialDailyBody = document.querySelector('#socialFailuresDaily tbody');
+  var socialSummary = document.getElementById('socialFailuresSummary');
   var purchaseTrends = document.getElementById('purchaseTrends');
   var purchaseLegend = document.getElementById('purchaseLegend');
   var loginTrends = document.getElementById('loginTrends');
@@ -345,6 +402,49 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  function fmtErrorCodes(codes) {
+    if (!codes || !codes.length) return '<span class="muted">—</span>';
+    return codes.map(function (c) {
+      return escapeHtml(c.errorCode) + ' (' + num(c.count) + ')';
+    }).join(', ');
+  }
+
+  function renderSocialFailures(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      socialSummary.innerHTML = '<div class="muted">No social sign-in failures in range.</div>';
+      socialDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    if (summary.length) {
+      socialSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Provider</th><th>Failures (window)</th><th>Top error codes</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + escapeHtml(r.provider) + '</td>' +
+            '<td>' + num(r.total) + '</td>' +
+            '<td>' + fmtErrorCodes(r.topErrorCodes) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      socialSummary.innerHTML = '<div class="muted">No social sign-in failures in range.</div>';
+    }
+    if (daily.length) {
+      socialDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + ' / ' + escapeHtml(r.provider) + '</td>' +
+          '<td>' + num(r.total) + '</td>' +
+          '<td>' + fmtErrorCodes(r.topErrorCodes) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      socialDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+    }
+  }
+
   function renderLogin(rows) {
     if (!rows.length) {
       loginBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
@@ -386,8 +486,10 @@ const DASHBOARD_HTML = `<!doctype html>
       .then(function (data) {
         var purchase = data.purchase || [];
         var login = data.login || [];
+        var socialFailures = data.socialFailures || { summary: [], daily: [] };
         renderPurchase(purchase);
         renderLogin(login);
+        renderSocialFailures(socialFailures);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
