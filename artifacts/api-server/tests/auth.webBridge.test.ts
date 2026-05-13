@@ -80,8 +80,16 @@ vi.mock("@workspace/db", () => ({
       set: vi.fn().mockReturnThis(),
       where: vi.fn().mockResolvedValue(undefined),
     })),
+    // `recordAuthExistsOutcome` writes a best-effort analytics row on
+    // every /auth/web-bridge call. Without an `insert(...).values(...)`
+    // chain that resolves, the route blows up at the very first await
+    // and every assertion in this file fails with `body = {}`.
+    insert: vi.fn(() => ({
+      values: vi.fn(() => Promise.resolve(undefined)),
+    })),
   },
   customersTable: { id: "id", wcCustomerId: "wcCustomerId" },
+  analyticsEventsTable: { name: "name", action: "action" },
   CUSTOMER_GENDERS: [],
 }));
 
