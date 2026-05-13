@@ -157,6 +157,12 @@ const DASHBOARD_HTML = `<!doctype html>
   .err { color: #b00020; }
   .pct { font-weight: 500; }
   .low { color: #b00020; }
+  .trends { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .trend { flex: 1 1 160px; min-width: 140px; }
+  .trend-title { font-size: 11px; color: #666; margin-bottom: 2px; }
+  .trend svg { display: block; width: 100%; height: 44px; background: rgba(127,127,127,0.04); border-radius: 4px; }
+  .legend { font-size: 11px; color: #666; margin: 4px 0 6px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .legend .swatch { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 4px; }
 </style>
 </head>
 <body>
@@ -172,6 +178,8 @@ const DASHBOARD_HTML = `<!doctype html>
 
   <h2>Purchase funnel</h2>
   <div class="sub">cart_viewed → checkout_started → payment_method_selected → order_placed. Revenue is summed from confirmed app_orders in USD (the canonical wire currency); pre-rollout rows show as $0.</div>
+  <div id="purchaseLegend" class="legend"></div>
+  <div id="purchaseTrends" class="trends"></div>
   <table id="purchase">
     <thead>
       <tr>
@@ -186,6 +194,8 @@ const DASHBOARD_HTML = `<!doctype html>
 
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
+  <div id="loginLegend" class="legend"></div>
+  <div id="loginTrends" class="trends"></div>
   <table id="login">
     <thead>
       <tr>
@@ -206,6 +216,98 @@ const DASHBOARD_HTML = `<!doctype html>
   var refreshBtn = document.getElementById('refresh');
   var purchaseBody = document.querySelector('#purchase tbody');
   var loginBody = document.querySelector('#login tbody');
+  var purchaseTrends = document.getElementById('purchaseTrends');
+  var purchaseLegend = document.getElementById('purchaseLegend');
+  var loginTrends = document.getElementById('loginTrends');
+  var loginLegend = document.getElementById('loginLegend');
+
+  var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
+  function colorFor(key) {
+    var h = 0;
+    for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function uniqueDays(rows) {
+    var set = {};
+    rows.forEach(function (r) { set[r.day] = true; });
+    return Object.keys(set).sort();
+  }
+  function uniqueKeys(rows, keyFn) {
+    var set = {};
+    rows.forEach(function (r) { set[keyFn(r)] = true; });
+    return Object.keys(set).sort();
+  }
+  function buildSeries(rows, days, keyFn, valueFn) {
+    var byKey = {};
+    rows.forEach(function (r) {
+      var k = keyFn(r);
+      if (!byKey[k]) byKey[k] = {};
+      byKey[k][r.day] = valueFn(r);
+    });
+    var keys = Object.keys(byKey).sort();
+    var series = {};
+    keys.forEach(function (k) {
+      series[k] = days.map(function (d) {
+        var v = byKey[k][d];
+        return v == null ? null : v;
+      });
+    });
+    return series;
+  }
+  function renderSparkline(days, series, opts) {
+    var width = 200, height = 44, pad = 3;
+    var n = days.length;
+    var maxY = (opts && opts.max) || 0;
+    if (!opts || !opts.max) {
+      Object.keys(series).forEach(function (k) {
+        series[k].forEach(function (v) { if (v != null && v > maxY) maxY = v; });
+      });
+      if (!maxY) maxY = 1;
+    }
+    var w = width - 2 * pad, h = height - 2 * pad;
+    function x(i) { return pad + (n <= 1 ? w / 2 : (i / (n - 1)) * w); }
+    function y(v) { return pad + h - (v / maxY) * h; }
+    var paths = Object.keys(series).map(function (key) {
+      var values = series[key];
+      var d = '', started = false, dotCount = 0, lastX = 0, lastY = 0;
+      values.forEach(function (v, i) {
+        if (v == null) { started = false; return; }
+        var px = x(i), py = y(v);
+        d += (started ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
+        started = true;
+        dotCount++;
+        lastX = px; lastY = py;
+      });
+      var color = colorFor(key);
+      var dot = dotCount === 1
+        ? '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="2" fill="' + color + '" />'
+        : '';
+      return '<path d="' + d + '" stroke="' + color + '" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round" />' + dot;
+    }).join('');
+    var axis = '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="#ccc" stroke-width="0.5" />';
+    var maxLabel = '<text x="' + (width - pad) + '" y="' + (pad + 8) + '" font-size="9" text-anchor="end" fill="#999">' + (opts && opts.max === 100 ? maxY.toFixed(0) + '%' : maxY.toLocaleString()) + '</text>';
+    return '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' + axis + paths + maxLabel + '</svg>';
+  }
+  function renderLegend(container, keys) {
+    if (!keys.length) { container.innerHTML = ''; return; }
+    container.innerHTML = keys.map(function (k) {
+      return '<span><span class="swatch" style="background:' + colorFor(k) + '"></span>' + escapeHtml(k) + '</span>';
+    }).join('');
+  }
+  function renderTrends(container, rows, keyFn, metrics) {
+    if (!rows.length) { container.innerHTML = ''; return; }
+    var days = uniqueDays(rows);
+    container.innerHTML = metrics.map(function (m) {
+      var series = buildSeries(rows, days, keyFn, m.valueFn);
+      return '<div class="trend"><div class="trend-title">' + escapeHtml(m.label) + '</div>' +
+        renderSparkline(days, series, { max: m.max }) + '</div>';
+    }).join('');
+  }
 
   try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
 
@@ -282,8 +384,28 @@ const DASHBOARD_HTML = `<!doctype html>
         return r.json();
       })
       .then(function (data) {
-        renderPurchase(data.purchase || []);
-        renderLogin(data.login || []);
+        var purchase = data.purchase || [];
+        var login = data.login || [];
+        renderPurchase(purchase);
+        renderLogin(login);
+        var purchaseKeyFn = function (r) { return r.platform; };
+        var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
+        renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
+        renderLegend(loginLegend, uniqueKeys(login, loginKeyFn));
+        renderTrends(purchaseTrends, purchase, purchaseKeyFn, [
+          { label: 'Cart→Co %', valueFn: function (r) { return r.cartToCheckoutPct; }, max: 100 },
+          { label: 'Co→Pay %', valueFn: function (r) { return r.checkoutToPaymentPct; }, max: 100 },
+          { label: 'Pay→Ord %', valueFn: function (r) { return r.paymentToOrderPct; }, max: 100 },
+          { label: 'Cart→Ord %', valueFn: function (r) { return r.cartToOrderPct; }, max: 100 },
+          { label: 'Cart views', valueFn: function (r) { return r.cartViewed; } },
+          { label: 'Orders', valueFn: function (r) { return r.orderPlaced; } },
+        ]);
+        renderTrends(loginTrends, login, loginKeyFn, [
+          { label: 'Sign-in %', valueFn: function (r) { return r.signinPct; }, max: 100 },
+          { label: 'Guest %', valueFn: function (r) { return r.guestPct; }, max: 100 },
+          { label: 'Dismiss %', valueFn: function (r) { return r.dismissedPct; }, max: 100 },
+          { label: 'Prompt views', valueFn: function (r) { return r.viewed; } },
+        ]);
         statusEl.textContent = 'Loaded ' + data.days + ' day(s) ending ' + (data.rangeEndUtc || '').slice(0, 10) + ' UTC.';
         statusEl.className = 'muted';
       })
