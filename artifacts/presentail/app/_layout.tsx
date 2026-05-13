@@ -80,18 +80,48 @@ if (Platform.OS !== "web") {
 // homepage so the next render re-fetches the latest content. Foreground
 // only — when the app is backgrounded, the existing AppState listener
 // already triggers a product re-sync on resume.
+// Coalesce bursts of silent `data_refresh` pushes from the server's
+// scheduled WC sync. Without this throttle a single sync that fans out
+// across multiple stores / topics can fire several pushes in quick
+// succession, each triggering full homepage re-fetches and re-renders
+// that pin the JS thread (and noticeably warm the device).
+const DATA_REFRESH_MIN_INTERVAL_MS = 60 * 1000;
+
 function DataRefreshPushListener() {
   const qc = useQueryClient();
   useEffect(() => {
     if (Platform.OS === "web") return;
-    const sub = Notifications.addNotificationReceivedListener((notif) => {
-      const data = notif?.request?.content?.data ?? {};
-      if ((data as { type?: string }).type !== "data_refresh") return;
+    let lastInvalidatedAt = 0;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    const runInvalidations = () => {
+      lastInvalidatedAt = Date.now();
       qc.invalidateQueries({ queryKey: ["/api/homepage/categories"] });
       qc.invalidateQueries({ queryKey: ["/api/homepage/occasions"] });
       qc.invalidateQueries({ queryKey: ["/api/homepage/banners"] });
+    };
+    const sub = Notifications.addNotificationReceivedListener((notif) => {
+      const data = notif?.request?.content?.data ?? {};
+      if ((data as { type?: string }).type !== "data_refresh") return;
+      const sinceLast = Date.now() - lastInvalidatedAt;
+      if (sinceLast >= DATA_REFRESH_MIN_INTERVAL_MS) {
+        if (pendingTimer) {
+          clearTimeout(pendingTimer);
+          pendingTimer = null;
+        }
+        runInvalidations();
+        return;
+      }
+      // Within the throttle window — schedule a single trailing
+      // invalidation so the latest push still takes effect, but we
+      // don't re-fetch on every burst notification.
+      if (pendingTimer) return;
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        runInvalidations();
+      }, DATA_REFRESH_MIN_INTERVAL_MS - sinceLast);
     });
     return () => {
+      if (pendingTimer) clearTimeout(pendingTimer);
       sub.remove();
     };
   }, [qc]);

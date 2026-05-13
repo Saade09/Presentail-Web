@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -78,6 +79,10 @@ function CategoryScreen() {
   useEffect(() => {
     let cancelled = false;
     setWcLoading(true);
+    // Clear stale rows from the previous slug / store immediately so the
+    // virtualized list shows the loading state instead of flashing the
+    // previous category's products while the new fetch is in flight.
+    setWcProducts([]);
     fetchCategoryProducts(String(slug), { countryCode, cityId }).then(({ products, categoryName }) => {
       if (cancelled) return;
       // Merge first so static metadata (including fallback image) can
@@ -114,12 +119,8 @@ function CategoryScreen() {
 
   const displayName = category?.name ?? wcCategoryName ?? String(slug);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-        showsVerticalScrollIndicator={false}
-      >
+  const header = (
+    <>
         <View style={{ height: 240, backgroundColor: colors.muted }}>
           {category ? (
             <Image source={category.image} style={StyleSheet.absoluteFill} contentFit="cover" />
@@ -259,73 +260,84 @@ function CategoryScreen() {
           </ScrollView>
         </View>
 
-        {wcLoading ? (
-          <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-              {t.categoryLoadingProducts}
-            </Text>
-          </View>
-        ) : products.length === 0 ? (
-          <View>
-            <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
-              <Feather name="inbox" size={28} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
-                {t.categorySoldOutTitle}
-              </Text>
-              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
-                {t.categorySoldOutDesc}
-              </Text>
-            </View>
-            {popularPicks.length > 0 ? (
-              <View style={{ marginTop: 18 }}>
-                <Text
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 11,
-                    color: colors.gold,
-                    letterSpacing: 3,
-                    textTransform: "uppercase",
-                    paddingHorizontal: 24,
-                    marginBottom: 14,
-                    textAlign: "center",
-                  }}
-                >
-                  {t.popularPicksLabel}
-                </Text>
-                <View
-                  style={{
-                    paddingHorizontal: 24,
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 14,
-                    rowGap: 26,
-                  }}
-                >
-                  {popularPicks.map((p) => (
-                    <ProductCard key={p.id} product={p} width={CARD_W} />
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : (
+      {products.length > 0 ? <View style={{ height: 18 }} /> : null}
+    </>
+  );
+
+  const empty = wcLoading ? (
+    <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+      <ActivityIndicator color={colors.primary} />
+      <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+        {t.categoryLoadingProducts}
+      </Text>
+    </View>
+  ) : (
+    <View>
+      <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
+        <Feather name="inbox" size={28} color={colors.mutedForeground} />
+        <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+          {t.categorySoldOutTitle}
+        </Text>
+        <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+          {t.categorySoldOutDesc}
+        </Text>
+      </View>
+      {popularPicks.length > 0 ? (
+        <View style={{ marginTop: 18 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 11,
+              color: colors.gold,
+              letterSpacing: 3,
+              textTransform: "uppercase",
+              paddingHorizontal: 24,
+              marginBottom: 14,
+              textAlign: "center",
+            }}
+          >
+            {t.popularPicksLabel}
+          </Text>
           <View
             style={{
               paddingHorizontal: 24,
-              paddingTop: 18,
               flexDirection: "row",
               flexWrap: "wrap",
               gap: 14,
               rowGap: 26,
             }}
           >
-            {products.map((p) => (
+            {popularPicks.map((p) => (
               <ProductCard key={p.id} product={p} width={CARD_W} />
             ))}
           </View>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <FlatList
+        data={products}
+        keyExtractor={(p) => p.id}
+        numColumns={2}
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
+        columnWrapperStyle={{ paddingHorizontal: 24, gap: 14 }}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 40,
+          rowGap: 26,
+        }}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        renderItem={({ item }) => (
+          <ProductCard product={item} width={CARD_W} />
         )}
-      </ScrollView>
+      />
     </View>
   );
 }

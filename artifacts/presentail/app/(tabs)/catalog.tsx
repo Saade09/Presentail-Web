@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Dimensions,
+  FlatList,
   Platform,
   Pressable,
   ScrollView,
@@ -71,12 +72,8 @@ function CatalogScreen() {
     return list;
   }, [products, activeCat, query, sort]);
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ paddingBottom: 120 }}
-      showsVerticalScrollIndicator={false}
-    >
+  const header = (
+    <>
       <View style={{ paddingHorizontal: 24, paddingTop: topPad + 12, gap: 18 }}>
         <Text
           style={{
@@ -215,33 +212,41 @@ function CatalogScreen() {
         </ScrollView>
       </View>
 
-      {filtered.length === 0 ? (
-        <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
-          <Feather name="search" size={28} color={colors.mutedForeground} />
-          <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
-            {t.noMatches}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
-            {t.noMatchesDesc}
-          </Text>
-        </View>
-      ) : (
-        <View
-          style={{
-            paddingHorizontal: 24,
-            paddingTop: 28,
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: 14,
-            rowGap: 26,
-          }}
-        >
-          {filtered.map((p) => (
-            <ProductCard key={p.id} product={p} width={CARD_W} />
-          ))}
-        </View>
+      {filtered.length > 0 ? <View style={{ height: 28 }} /> : null}
+    </>
+  );
+
+  const empty = (
+    <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
+      <Feather name="search" size={28} color={colors.mutedForeground} />
+      <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+        {t.noMatches}
+      </Text>
+      <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
+        {t.noMatchesDesc}
+      </Text>
+    </View>
+  );
+
+  return (
+    <FlatList
+      style={{ flex: 1, backgroundColor: colors.background }}
+      data={filtered}
+      keyExtractor={(p) => p.id}
+      numColumns={2}
+      ListHeaderComponent={header}
+      ListEmptyComponent={empty}
+      columnWrapperStyle={{ paddingHorizontal: 24, gap: 14 }}
+      contentContainerStyle={{ paddingBottom: 120, rowGap: 26 }}
+      showsVerticalScrollIndicator={false}
+      removeClippedSubviews
+      initialNumToRender={6}
+      maxToRenderPerBatch={6}
+      windowSize={5}
+      renderItem={({ item }) => (
+        <ProductCard product={item} width={CARD_W} />
       )}
-    </ScrollView>
+    />
   );
 }
 

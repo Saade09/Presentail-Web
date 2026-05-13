@@ -7,6 +7,8 @@ import { useFocusEffect, useRouter, type Href } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  AppState,
+  type AppStateStatus,
   Dimensions,
   FlatList,
   Platform,
@@ -404,8 +406,27 @@ function Hero() {
   const isRTLRef = useRef(isRTL);
   isRTLRef.current = isRTL;
 
+  const isFocusedRef = useRef(false);
+  const isForegroundRef = useRef(
+    AppState.currentState === undefined || AppState.currentState === "active",
+  );
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
   const restartTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    stopTimer();
+    // Skip the loop entirely when there's only a single slide — there's
+    // nothing to advance to and the wake-ups just keep the JS thread busy.
+    if (slides.length <= 1) return;
+    // Only run while the screen is focused AND the app is in the foreground.
+    // A backgrounded app doesn't need to scroll an off-screen carousel and
+    // the wake-ups noticeably contribute to battery drain / heat.
+    if (!isFocusedRef.current || !isForegroundRef.current) return;
     timerRef.current = setInterval(() => {
       const logicalNext = (currentIndex.current + 1) % slides.length;
       currentIndex.current = logicalNext;
@@ -415,19 +436,36 @@ function Hero() {
         : logicalNext;
       flatListRef.current?.scrollToIndex({ index: physIdx, animated: true });
     }, AUTO_ADVANCE_MS);
-  }, [slides.length]);
+  }, [slides.length, stopTimer]);
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       restartTimer();
       return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
+        isFocusedRef.current = false;
+        stopTimer();
       };
-    }, [restartTimer]),
+    }, [restartTimer, stopTimer]),
   );
+
+  // Pause the carousel timer whenever the app moves to background / inactive
+  // and resume it on return so we don't keep firing setInterval ticks (and
+  // re-rendering) while the user isn't even looking at the screen.
+  useEffect(() => {
+    const handleAppState = (next: AppStateStatus) => {
+      const nextForeground = next === "active";
+      if (nextForeground === isForegroundRef.current) return;
+      isForegroundRef.current = nextForeground;
+      if (nextForeground) {
+        restartTimer();
+      } else {
+        stopTimer();
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppState);
+    return () => sub.remove();
+  }, [restartTimer, stopTimer]);
 
   const restartTimerRef = useRef(restartTimer);
   restartTimerRef.current = restartTimer;
