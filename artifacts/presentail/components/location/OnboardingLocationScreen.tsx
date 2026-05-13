@@ -25,6 +25,16 @@ function activeCities(country: DeliveryCountry | null): DeliveryCity[] {
   return country.cities.filter((c) => c.isActive);
 }
 
+function defaultCityFor(country: DeliveryCountry | null): DeliveryCity | null {
+  if (!country) return null;
+  const active = activeCities(country);
+  if (country.preferredDefaultCityId) {
+    const preferred = active.find((c) => c.id === country.preferredDefaultCityId);
+    if (preferred) return preferred;
+  }
+  return active[0] ?? null;
+}
+
 export function OnboardingLocationScreen() {
   const colors = useColors();
   const t = useT();
@@ -50,8 +60,7 @@ export function OnboardingLocationScreen() {
     if (draftCountry || countries.length === 0) return;
     const first = countries[0];
     setDraftCountry(first);
-    const cities = activeCities(first);
-    setDraftCity(cities[0] ?? null);
+    setDraftCity(defaultCityFor(first));
   }, [countries, draftCountry]);
 
   const cities = useMemo(() => activeCities(draftCountry), [draftCountry]);
@@ -59,8 +68,7 @@ export function OnboardingLocationScreen() {
   const handlePickCountry = (country: DeliveryCountry) => {
     if (country.id === draftCountry?.id) return;
     setDraftCountry(country);
-    const list = activeCities(country);
-    setDraftCity(list[0] ?? null);
+    setDraftCity(defaultCityFor(country));
   };
 
   const handlePickCity = (city: DeliveryCity) => {
