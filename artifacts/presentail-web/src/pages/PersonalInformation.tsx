@@ -213,8 +213,10 @@ export default function PersonalInformation() {
   };
 
   const onSavePhone = async () => {
-    const local = phoneLocal.trim();
-    const phoneValue = local ? `${phoneCountry.dial} ${local}`.trim() : "";
+    // Normalise to strict E.164: dial code + digits-only national number,
+    // no spaces or punctuation. Empty national number clears the field.
+    const digits = phoneLocal.replace(/\D/g, "");
+    const phoneValue = digits ? `${phoneCountry.dial}${digits}` : "";
     setPhoneBusy(true);
     try {
       await apiFetch<MeResponse>("/auth/me", {
