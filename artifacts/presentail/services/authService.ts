@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import { API_BASE } from "@/lib/stripe";
 import type { AuthUser } from "@/contexts/AuthContext";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
+import { trackEvent } from "@/lib/analytics";
 
 export type AuthErrorCode =
   | "email_required"
@@ -296,10 +297,24 @@ export async function signInWithApple(
     if (e?.code === "ERR_REQUEST_CANCELED") {
       return { ok: false, code: "canceled" };
     }
-    return { ok: false, code: "apple_failed" };
+    const tag =
+      (typeof e?.code === "string" && e.code) ||
+      (typeof e?.message === "string" && e.message) ||
+      "unknown";
+    trackEvent({
+      name: "auth_social_failed",
+      action: "apple",
+      errorCode: String(tag).slice(0, 64),
+    });
+    return { ok: false, code: "apple_failed", serverMessage: String(tag) };
   }
   if (!credential.identityToken) {
-    return { ok: false, code: "apple_failed" };
+    trackEvent({
+      name: "auth_social_failed",
+      action: "apple",
+      errorCode: "no_identity_token",
+    });
+    return { ok: false, code: "apple_failed", serverMessage: "no_identity_token" };
   }
   return exchangeSocialToken(
     "apple",
@@ -326,9 +341,19 @@ export async function signInWithGoogle(
   try {
     const mod = loadGoogleModule();
     if (!mod) {
+      trackEvent({
+        name: "auth_social_failed",
+        action: "google",
+        errorCode: "module_load_failed",
+      });
       return { ok: false, code: "google_unavailable" };
     }
     if (!ensureGoogleConfigured(mod)) {
+      trackEvent({
+        name: "auth_social_failed",
+        action: "google",
+        errorCode: "configure_failed",
+      });
       return { ok: false, code: "google_unavailable" };
     }
     const { GoogleSignin, statusCodes, isErrorWithCode, isSuccessResponse } = mod;
@@ -336,7 +361,16 @@ export async function signInWithGoogle(
       if (Platform.OS === "android") {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
-    } catch {
+    } catch (e: any) {
+      const tag =
+        (typeof e?.code === "string" && e.code) ||
+        (typeof e?.message === "string" && e.message) ||
+        "play_services_unavailable";
+      trackEvent({
+        name: "auth_social_failed",
+        action: "google",
+        errorCode: String(tag).slice(0, 64),
+      });
       return { ok: false, code: "google_unavailable" };
     }
     let response;
@@ -363,6 +397,11 @@ export async function signInWithGoogle(
         });
       }
       const tag = nativeCode || nativeMessage || "unknown";
+      trackEvent({
+        name: "auth_social_failed",
+        action: "google",
+        errorCode: String(tag).slice(0, 64),
+      });
       return { ok: false, code: "google_failed", serverMessage: String(tag) };
     }
     if (!isSuccessResponse(response)) {
@@ -370,6 +409,11 @@ export async function signInWithGoogle(
     }
     const idToken = response.data?.idToken;
     if (!idToken) {
+      trackEvent({
+        name: "auth_social_failed",
+        action: "google",
+        errorCode: "no_id_token",
+      });
       return {
         ok: false,
         code: "google_failed",
@@ -385,6 +429,11 @@ export async function signInWithGoogle(
       (typeof e?.code === "string" && e.code) ||
       (typeof e?.message === "string" && e.message) ||
       "unknown";
+    trackEvent({
+      name: "auth_social_failed",
+      action: "google",
+      errorCode: String(tag).slice(0, 64),
+    });
     return { ok: false, code: "google_failed", serverMessage: String(tag) };
   }
 }

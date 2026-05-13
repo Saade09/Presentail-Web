@@ -88,6 +88,27 @@ module.exports = ({ config: _config }) => {
     );
   }
 
+  // iOS-only guard: even when EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID is
+  // set directly, the native module *also* needs EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+  // at runtime — `GoogleSignin.configure({ iosClientId })` is what tells the
+  // SDK which OAuth client owns the URL scheme. Without it, the sheet either
+  // fails to open or the resulting idToken's `aud` doesn't match what the
+  // API server's GOOGLE_CLIENT_IDS allowlist expects. Fail the iOS build
+  // loudly so we don't ship another binary that silently misroutes shoppers.
+  if (
+    isNonDevEasBuild &&
+    easBuildPlatform !== "android" &&
+    !process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+  ) {
+    throw new Error(
+      "Google sign-in is misconfigured for this iOS EAS build: " +
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is not set as an EAS secret. " +
+        "iOS needs both EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID (for native " +
+        "configure) and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (for idToken). " +
+        "Add it via `eas secret:create` and trigger a fresh build.",
+    );
+  }
+
   expo.plugins = [
     ...(expo.plugins ?? []),
     [

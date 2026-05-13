@@ -119,6 +119,7 @@ export const AnalyticsEventName = {
   checkout_started: "checkout_started",
   payment_method_selected: "payment_method_selected",
   order_placed: "order_placed",
+  auth_social_failed: "auth_social_failed",
 } as const;
 
 /**
@@ -196,6 +197,16 @@ the chosen payment method id.
   platform?: AnalyticsEventRequestPlatform;
   /** Optional app/build version string for debugging. */
   appVersion?: string;
+  /**
+   * For `auth_social_failed` events: the native SDK error code
+(e.g. iOS `-61440` = errSecMissingEntitlement, Android
+`DEVELOPER_ERROR`). Bounded length so we can never log
+unbounded user-controlled strings — the value is sourced
+from the native SDK, not the shopper.
+
+   * @maxLength 64
+   */
+  errorCode?: string;
 }
 
 export interface AnalyticsEventResponse {

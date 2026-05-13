@@ -738,6 +738,7 @@ components:
         - checkout_started
         - payment_method_selected
         - order_placed
+        - auth_social_failed
     AnalyticsEventRequest:
       type: object
       properties:
@@ -779,6 +780,15 @@ components:
         appVersion:
           type: string
           description: Optional app/build version string for debugging.
+        errorCode:
+          type: string
+          maxLength: 64
+          description: |
+            For `auth_social_failed` events: the native SDK error code
+            (e.g. iOS `-61440` = errSecMissingEntitlement, Android
+            `DEVELOPER_ERROR`). Bounded length so we can never log
+            unbounded user-controlled strings — the value is sourced
+            from the native SDK, not the shopper.
       required:
         - name
     AnalyticsEventResponse:

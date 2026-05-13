@@ -16,6 +16,7 @@ export const analyticsEventsTable = pgTable(
     action: text("action"),
     platform: text("platform"),
     appVersion: text("app_version"),
+    errorCode: text("error_code"),
     userId: text("user_id"),
     signedIn: boolean("signed_in").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })

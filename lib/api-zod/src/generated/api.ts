@@ -188,6 +188,8 @@ signed-in user (if any) is read from the session cookie instead.
 
  * @summary Record a client-side analytics event
  */
+export const recordAnalyticsEventBodyErrorCodeMax = 64;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -197,6 +199,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "checkout_started",
       "payment_method_selected",
       "order_placed",
+      "auth_social_failed",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
@@ -233,6 +236,13 @@ export const RecordAnalyticsEventBody = zod.object({
     .string()
     .optional()
     .describe("Optional app\/build version string for debugging."),
+  errorCode: zod
+    .string()
+    .max(recordAnalyticsEventBodyErrorCodeMax)
+    .optional()
+    .describe(
+      "For `auth_social_failed` events: the native SDK error code\n(e.g. iOS `-61440` = errSecMissingEntitlement, Android\n`DEVELOPER_ERROR`). Bounded length so we can never log\nunbounded user-controlled strings — the value is sourced\nfrom the native SDK, not the shopper.\n",
+    ),
 });
 
 export const RecordAnalyticsEventResponse = zod.object({

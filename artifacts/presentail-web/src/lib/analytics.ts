@@ -4,7 +4,8 @@ type AnalyticsEventName =
   | "cart_viewed"
   | "checkout_started"
   | "payment_method_selected"
-  | "order_placed";
+  | "order_placed"
+  | "auth_social_failed";
 
 type AnalyticsSurface = "cart" | "checkout-direct" | "cart-screen" | "checkout";
 
@@ -26,6 +27,7 @@ export type AnalyticsEvent = {
   surface?: AnalyticsSurface;
   action?: AnalyticsAction;
   appVersion?: string;
+  errorCode?: string;
 };
 
 export function trackEvent(event: AnalyticsEvent): void {
