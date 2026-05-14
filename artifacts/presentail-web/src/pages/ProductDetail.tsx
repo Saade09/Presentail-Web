@@ -7,8 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useProducts, useCategoryProducts } from "@/lib/queries";
-import { ProductCard } from "@/components/ProductCard";
+import { useProducts } from "@/lib/queries";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
 import { DeliveryOptions, type DeliveryChoice } from "@/components/product/DeliveryOptions";
@@ -52,11 +51,6 @@ export default function ProductDetail() {
   if (cityId) locParams.cityId = cityId;
   const { data: allData, isLoading } = useProducts(locParams);
   const product = allData?.products?.find((p) => p.id === slug);
-
-  const { data: categoryData } = useCategoryProducts(product?.category || "", locParams);
-  const similar = (categoryData?.products ?? [])
-    .filter((p) => p.id !== slug)
-    .slice(0, 4);
 
   const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>("express");
   const [qty, setQty] = useState(1);
@@ -287,16 +281,6 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {similar.length > 0 && (
-          <div className="pt-20 mt-20 border-t border-border">
-            <h2 className="text-3xl font-serif mb-10">{t("product.youMayLike")}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {similar.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
