@@ -1150,21 +1150,28 @@ function Card({ children, colors, title }: any) {
 
 // Loaded defensively: this asset was added after some shipping binaries
 // (e.g. build 22) were compiled. OTA updates can ship JS but not new
-// bundled assets, so on older binaries the asset registry lookup fails
-// and rendering an <Image> with the missing source crashes the app.
-// We resolve the asset id, then verify with AssetRegistry that the
-// binary actually has it before rendering. Falls back to a plain
-// coloured background otherwise.
-let CARD_STATIONERY: number | null = null;
-try {
-  const id = require("../assets/images/card-stationery.avif") as number;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const AssetRegistry = require("@react-native/assets-registry/registry");
-  const asset = AssetRegistry?.getAssetByID?.(id);
-  CARD_STATIONERY = asset ? id : null;
-} catch {
-  CARD_STATIONERY = null;
-}
+// bundled assets — Metro's JS-side AssetRegistry lookup will succeed
+// on the OTA bundle even when the native binary doesn't actually
+// contain the file, so the Image then crashes when its native side
+// tries to read the missing bytes. We instead gate strictly on the
+// running binary's build number: only the build that actually shipped
+// the asset (>=25) is allowed to render it.
+const NATIVE_BUILD_NUMBER = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Constants = require("expo-constants").default;
+    const raw =
+      Constants?.nativeBuildVersion ??
+      Constants?.expoConfig?.ios?.buildNumber ??
+      Constants?.manifest?.ios?.buildNumber;
+    const n = parseInt(String(raw ?? ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+})();
+const CARD_STATIONERY: number | null =
+  NATIVE_BUILD_NUMBER >= 25 ? require("../assets/images/card-stationery.avif") : null;
 
 function CardPreviewModal({
   visible,
