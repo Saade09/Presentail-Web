@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DeliveryCity } from "./deliveryCity";
+import type { LocalizedNames } from "./localizedNames";
 
 export interface DeliveryCountry {
   id: string;
@@ -18,4 +19,7 @@ export interface DeliveryCountry {
   currency: string;
   isActive: boolean;
   cities: DeliveryCity[];
+  /** Optional id of the city to highlight as the default. */
+  preferredDefaultCityId?: string;
+  localizedNames?: LocalizedNames;
 }

@@ -5,9 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LocalizedNames } from "./localizedNames";
 
 export interface DeliveryCity {
   id: string;
   name: string;
   isActive: boolean;
+  /** Delivery fee in the country's native currency. */
+  fee?: number;
+  localizedNames?: LocalizedNames;
 }

@@ -300,19 +300,14 @@ export default function Checkout() {
   }
 
   const currentCountryCities = locations?.countries.find((c) => c.code === countryCode)?.cities || [];
-  const WEB_DISTRICT_FEES: Record<string, number> = {
-    Akkar: 39, Aley: 19, Baabda: 11, Baalbeck: 39, Batroun: 19, Bcharee: 39,
-    Beirut: 8, "Bent Jbeil": 39, Chouf: 29, Hasbaya: 39, Hermel: 39, Jbail: 19,
-    Jezzine: 29, Kasserwan: 11, Koura: 29, Marjayoun: 39, Metn: 11,
-    "Minnieh-Dennaya": 39, Nabatieh: 39, Rechaya: 39, Saida: 29, Tripoli: 29,
-    Tyre: 39, "West Bekaa": 39, Zahle: 29, Zghorta: 39,
-    Dubai: 13.61, "Ras Al Khaimah": 13.61, "Umm Al Quwain": 13.61,
-    Fujairah: 13.61, Ajman: 13.61, Sharjah: 13.61, "Abu Dhabi": 13.61,
-    Larnaca: 11, Limassol: 11, Nicosia: 11, Paphos: 11,
-  };
   const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : countryCode === "CY" ? 120 : 130;
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
-  const baseFee = noAddress ? 35 : (WEB_DISTRICT_FEES[selectedDistrict] ?? 0);
+  // Per-city fees come from `@workspace/catalog-data` server-side (same
+  // source the mobile app reads), so the storefront never has to hard-code
+  // them. Falling back to 0 keeps the math safe if the API payload is ever
+  // missing — UI already renders "—" in that case.
+  const selectedCity = currentCountryCities.find((c) => c.name === selectedDistrict);
+  const baseFee = noAddress ? 35 : (selectedCity?.fee ?? 0);
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
   const total = subtotal + districtFee + expressFee;

@@ -21,8 +21,10 @@ import type {
   AnalyticsEventResponse,
   AuthMeResponse,
   AuthMeUpdateRequest,
+  CatalogMetadataResponse,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
+  CurrenciesResponse,
   CustomerAddressDeleteResponse,
   CustomerAddressInput,
   CustomerAddressListResponse,
@@ -1697,6 +1699,167 @@ export function useGetDeliveryLocations<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDeliveryLocationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the canonical list of supported display currencies (symbol,
+decimals, formatting hints, base USD rates) and the country → currency
+map used to auto-pick a currency for a visitor. The web storefront
+uses this as the single source of truth — the same list mobile ships.
+
+ * @summary List supported display currencies and FX metadata
+ */
+export const getGetCurrenciesUrl = () => {
+  return `/api/currencies`;
+};
+
+export const getCurrencies = async (
+  options?: RequestInit,
+): Promise<CurrenciesResponse> => {
+  return customFetch<CurrenciesResponse>(getGetCurrenciesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCurrenciesQueryKey = () => {
+  return [`/api/currencies`] as const;
+};
+
+export const getGetCurrenciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCurrencies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrencies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCurrenciesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrencies>>> = ({
+    signal,
+  }) => getCurrencies({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrencies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCurrenciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCurrencies>>
+>;
+export type GetCurrenciesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supported display currencies and FX metadata
+ */
+
+export function useGetCurrencies<
+  TData = Awaited<ReturnType<typeof getCurrencies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrencies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCurrenciesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the static catalog metadata that mobile bundles offline:
+category and occasion definitions (with localized-friendly slugs,
+icons and asset paths) and the curated brand list. Image fields
+carry an `asset` path (resolved by clients to their local
+`catalog/` tree) or a hosted `uri`.
+
+ * @summary Catalog metadata (categories, occasions, brands)
+ */
+export const getGetCatalogMetadataUrl = () => {
+  return `/api/catalog/metadata`;
+};
+
+export const getCatalogMetadata = async (
+  options?: RequestInit,
+): Promise<CatalogMetadataResponse> => {
+  return customFetch<CatalogMetadataResponse>(getGetCatalogMetadataUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCatalogMetadataQueryKey = () => {
+  return [`/api/catalog/metadata`] as const;
+};
+
+export const getGetCatalogMetadataQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCatalogMetadata>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogMetadata>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCatalogMetadataQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCatalogMetadata>>
+  > = ({ signal }) => getCatalogMetadata({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogMetadata>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCatalogMetadataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCatalogMetadata>>
+>;
+export type GetCatalogMetadataQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Catalog metadata (categories, occasions, brands)
+ */
+
+export function useGetCatalogMetadata<
+  TData = Awaited<ReturnType<typeof getCatalogMetadata>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogMetadata>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCatalogMetadataQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1189,61 +1189,25 @@ const LocaleContext = createContext<LocaleContextType | null>(null);
 const STORAGE_KEY = "presentail_lang_v1";
 const LEGACY_STORAGE_KEY = "presentail_language_v1";
 
-const COUNTRY_NAMES_AR: Record<string, string> = {
-  LB: "لبنان",
-  AE: "الإمارات العربية المتحدة",
-  CY: "قبرص",
-};
+// Country / city name localization is sourced at runtime from the API's
+// `/delivery-locations` payload (`localizedNames` on each country / city).
+import { useDeliveryLocations } from "@/lib/queries";
 
-const COUNTRY_NAMES_FR: Record<string, string> = {
-  LB: "Liban",
-  AE: "Émirats arabes unis",
-  CY: "Chypre",
-};
+type LocalizedNames = { en?: string; ar?: string; fr?: string };
 
-const CITY_NAMES_AR: Record<string, string> = {
-  "lb-beirut": "بيروت",
-  "lb-jounieh": "جونيه",
-  "lb-tripoli": "طرابلس",
-  "lb-saida": "صيدا",
-  "lb-tyre": "صور",
-  "lb-zahle": "زحلة",
-  "lb-byblos": "جبيل",
-  "lb-baalbek": "بعلبك",
-  "ae-dubai": "دبي",
-  "ae-abu-dhabi": "أبو ظبي",
-  "ae-sharjah": "الشارقة",
-  "ae-ajman": "عجمان",
-  "ae-ras-al-khaimah": "رأس الخيمة",
-  "ae-fujairah": "الفجيرة",
-  "ae-umm-al-quwain": "أم القيوين",
-  "cy-nicosia": "نيقوسيا",
-  "cy-limassol": "ليماسول",
-  "cy-larnaca": "لارنكا",
-  "cy-paphos": "بافوس",
-};
-
-const CITY_NAMES_FR: Record<string, string> = {
-  "lb-beirut": "Beyrouth",
-  "lb-jounieh": "Jounieh",
-  "lb-tripoli": "Tripoli",
-  "lb-saida": "Saïda",
-  "lb-tyre": "Tyr",
-  "lb-zahle": "Zahlé",
-  "lb-byblos": "Byblos",
-  "lb-baalbek": "Baalbek",
-  "ae-dubai": "Dubaï",
-  "ae-abu-dhabi": "Abou Dhabi",
-  "ae-sharjah": "Charjah",
-  "ae-ajman": "Ajman",
-  "ae-ras-al-khaimah": "Ras el Khaïmah",
-  "ae-fujairah": "Foujaïrah",
-  "ae-umm-al-quwain": "Oumm al Qaïwaïn",
-  "cy-nicosia": "Nicosie",
-  "cy-limassol": "Limassol",
-  "cy-larnaca": "Larnaca",
-  "cy-paphos": "Paphos",
-};
+function pickLocalized(
+  names: LocalizedNames | undefined,
+  language: Language,
+  fallback: string,
+): string {
+  if (!names) return fallback;
+  const exact = names[language];
+  if (typeof exact === "string" && exact.length > 0) return exact;
+  if (language !== "en" && typeof names.en === "string" && names.en.length > 0) {
+    return names.en;
+  }
+  return fallback;
+}
 
 function format(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
@@ -1284,6 +1248,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const parsed = parseLocalePath(path);
 
   const [stored, setStored] = useState<Language>(() => readStoredLang());
+
+  const { data: deliveryLocations } = useDeliveryLocations();
+  const { countryNames, cityNames } = useMemo(() => {
+    const cN = new Map<string, LocalizedNames>();
+    const cyN = new Map<string, LocalizedNames>();
+    for (const country of deliveryLocations?.countries ?? []) {
+      if (country.localizedNames) cN.set(country.code, country.localizedNames);
+      for (const city of country.cities ?? []) {
+        if (city.localizedNames) cyN.set(city.id, city.localizedNames);
+      }
+    }
+    return { countryNames: cN, cityNames: cyN };
+  }, [deliveryLocations]);
 
   const language: Language = parsed.lang ?? stored;
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
@@ -1351,18 +1328,12 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
         if (!entry) return format(k, params);
         return format(entry[language as "en" | "ar"], params);
       },
-      countryName: (code, fallback) => {
-        if (language === "ar") return COUNTRY_NAMES_AR[code] ?? fallback;
-        if (language === "fr") return COUNTRY_NAMES_FR[code] ?? fallback;
-        return fallback;
-      },
-      cityName: (id, fallback) => {
-        if (language === "ar") return CITY_NAMES_AR[id] ?? fallback;
-        if (language === "fr") return CITY_NAMES_FR[id] ?? fallback;
-        return fallback;
-      },
+      countryName: (code, fallback) =>
+        pickLocalized(countryNames.get(code), language, fallback),
+      cityName: (id, fallback) =>
+        pickLocalized(cityNames.get(id), language, fallback),
     }),
-    [language, dir, setLanguage],
+    [language, dir, setLanguage, countryNames, cityNames],
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

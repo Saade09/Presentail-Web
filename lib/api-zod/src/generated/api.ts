@@ -709,9 +709,150 @@ export const GetDeliveryLocationsResponse = zod.object({
           id: zod.string(),
           name: zod.string(),
           isActive: zod.boolean(),
+          fee: zod
+            .number()
+            .optional()
+            .describe("Delivery fee in the country's native currency."),
+          localizedNames: zod
+            .object({
+              ar: zod.string().optional(),
+              fr: zod.string().optional(),
+            })
+            .optional()
+            .describe(
+              'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
+            ),
         }),
       ),
+      preferredDefaultCityId: zod
+        .string()
+        .optional()
+        .describe("Optional id of the city to highlight as the default."),
+      localizedNames: zod
+        .object({
+          ar: zod.string().optional(),
+          fr: zod.string().optional(),
+        })
+        .optional()
+        .describe(
+          'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
+        ),
     }),
+  ),
+});
+
+/**
+ * Returns the canonical list of supported display currencies (symbol,
+decimals, formatting hints, base USD rates) and the country → currency
+map used to auto-pick a currency for a visitor. The web storefront
+uses this as the single source of truth — the same list mobile ships.
+
+ * @summary List supported display currencies and FX metadata
+ */
+export const GetCurrenciesResponse = zod.object({
+  currencies: zod.array(
+    zod.object({
+      code: zod.string(),
+      name: zod.string(),
+      flag: zod.string(),
+      symbol: zod.string(),
+      symbolPosition: zod.enum(["left", "right"]),
+      spaceBetween: zod.boolean(),
+      rate: zod
+        .number()
+        .describe(
+          "Static fallback FX rate vs USD; live rates come from \/fx\/rates.",
+        ),
+      decimals: zod.number(),
+    }),
+  ),
+  fallbackCode: zod.string(),
+  countryToCurrency: zod.record(zod.string(), zod.string()),
+});
+
+/**
+ * Returns the static catalog metadata that mobile bundles offline:
+category and occasion definitions (with localized-friendly slugs,
+icons and asset paths) and the curated brand list. Image fields
+carry an `asset` path (resolved by clients to their local
+`catalog/` tree) or a hosted `uri`.
+
+ * @summary Catalog metadata (categories, occasions, brands)
+ */
+export const GetCatalogMetadataResponse = zod.object({
+  categories: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      icon: zod.string(),
+      image: zod
+        .union([
+          zod
+            .object({
+              asset: zod.string().optional(),
+              uri: zod.string().optional(),
+            })
+            .describe(
+              "Reference to an image asset. Either `asset` (relative path under\nthe client's bundled `catalog\/` tree) or `uri` (hosted URL) is\npresent.\n",
+            ),
+          zod.null(),
+        ])
+        .optional(),
+    }),
+  ),
+  occasions: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      icon: zod.string(),
+      description: zod.string().optional(),
+      image: zod
+        .union([
+          zod
+            .object({
+              asset: zod.string().optional(),
+              uri: zod.string().optional(),
+            })
+            .describe(
+              "Reference to an image asset. Either `asset` (relative path under\nthe client's bundled `catalog\/` tree) or `uri` (hosted URL) is\npresent.\n",
+            ),
+          zod.null(),
+        ])
+        .optional(),
+    }),
+  ),
+  brands: zod.array(
+    zod.object({
+      name: zod.string(),
+      slug: zod.string(),
+    }),
+  ),
+  products: zod.array(
+    zod
+      .object({
+        id: zod.string(),
+        name: zod.string(),
+        tag: zod.string().optional(),
+        description: zod.string().optional(),
+        category: zod.string(),
+        occasions: zod.array(zod.string()).optional(),
+        image: zod
+          .union([
+            zod
+              .object({
+                asset: zod.string().optional(),
+                uri: zod.string().optional(),
+              })
+              .describe(
+                "Reference to an image asset. Either `asset` (relative path under\nthe client's bundled `catalog\/` tree) or `uri` (hosted URL) is\npresent.\n",
+              ),
+            zod.null(),
+          ])
+          .optional(),
+      })
+      .describe(
+        "Lightweight product entry from the bundled catalog. Used by clients\nas a fallback (image \/ tag \/ description \/ occasion tags) when the\nWooCommerce payload is missing those fields. The `id` matches the\nWooCommerce product slug.\n",
+      ),
   ),
 });
 

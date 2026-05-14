@@ -20,9 +20,26 @@ export type Product = {
 
 export type CategoryProductsResponse = { ok: boolean; products: Product[]; count: number; categoryName?: string };
 export type OccasionProductsResponse = { ok: boolean; groups: { slug: string; label: string; count: number; products: Product[] }[]; total: number };
-export type DeliveryLocationsResponse = { 
-  countries: { id: string; name: string; code: string; flag: string; cities: { id: string; name: string }[] }[] 
+export type DeliveryCity = {
+  id: string;
+  name: string;
+  isActive?: boolean;
+  /** Native delivery fee for this city, in the country's display currency. */
+  fee?: number;
+  localizedNames?: { ar?: string; fr?: string };
 };
+export type DeliveryCountry = {
+  id: string;
+  name: string;
+  code: string;
+  flag: string;
+  currency?: string;
+  isActive?: boolean;
+  cities: DeliveryCity[];
+  preferredDefaultCityId?: string;
+  localizedNames?: { ar?: string; fr?: string };
+};
+export type DeliveryLocationsResponse = { countries: DeliveryCountry[] };
 
 type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
@@ -76,77 +93,83 @@ export const useOccasionProducts = (
   });
 };
 
-// Hard allowlist (mirrors the mobile app): the storefront only delivers to
-// Lebanon, UAE, and Cyprus. Any country returned by the API outside this set
-// MUST be filtered out before reaching the country/city picker so a stale
-// upstream or future regression cannot reintroduce unsupported destinations.
-// We also reconcile per-country city lists against canonical fallbacks so
-// Lebanon always shows the full 26-district set even if the backend drifts.
-const ALLOWED_DELIVERY_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
-
-const FALLBACK_DELIVERY_CITIES: Record<string, { id: string; name: string }[]> = {
-  LB: [
-    { id: "lb-akkar", name: "Akkar" },
-    { id: "lb-aley", name: "Aley" },
-    { id: "lb-baabda", name: "Baabda" },
-    { id: "lb-baalbeck", name: "Baalbeck" },
-    { id: "lb-batroun", name: "Batroun" },
-    { id: "lb-bcharee", name: "Bcharee" },
-    { id: "lb-beirut", name: "Beirut" },
-    { id: "lb-bent-jbeil", name: "Bent Jbeil" },
-    { id: "lb-chouf", name: "Chouf" },
-    { id: "lb-hasbaya", name: "Hasbaya" },
-    { id: "lb-hermel", name: "Hermel" },
-    { id: "lb-jbail", name: "Jbail" },
-    { id: "lb-jezzine", name: "Jezzine" },
-    { id: "lb-kasserwan", name: "Kasserwan" },
-    { id: "lb-koura", name: "Koura" },
-    { id: "lb-marjayoun", name: "Marjayoun" },
-    { id: "lb-metn", name: "Metn" },
-    { id: "lb-minnieh-dennaya", name: "Minnieh-Dennaya" },
-    { id: "lb-nabatieh", name: "Nabatieh" },
-    { id: "lb-rechaya", name: "Rechaya" },
-    { id: "lb-saida", name: "Saida" },
-    { id: "lb-tripoli", name: "Tripoli" },
-    { id: "lb-tyre", name: "Tyre" },
-    { id: "lb-west-bekaa", name: "West Bekaa" },
-    { id: "lb-zahle", name: "Zahle" },
-    { id: "lb-zghorta", name: "Zghorta" },
-  ],
-  AE: [
-    { id: "ae-dubai", name: "Dubai" },
-    { id: "ae-ras-al-khaimah", name: "Ras Al Khaimah" },
-    { id: "ae-umm-al-quwain", name: "Umm Al Quwain" },
-    { id: "ae-fujairah", name: "Fujairah" },
-    { id: "ae-ajman", name: "Ajman" },
-    { id: "ae-sharjah", name: "Sharjah" },
-    { id: "ae-abu-dhabi", name: "Abu Dhabi" },
-  ],
-  CY: [
-    { id: "cy-larnaca", name: "Larnaca" },
-    { id: "cy-limassol", name: "Limassol" },
-    { id: "cy-nicosia", name: "Nicosia" },
-    { id: "cy-paphos", name: "Paphos" },
-  ],
-};
+// `/delivery-locations` is the single source of truth — the payload comes
+// straight from `@workspace/catalog-data` server-side and already includes
+// the canonical city list, per-city `fee`, and `localizedNames`. No
+// client-side allowlist or fallback city map is needed any more; the lib
+// itself only contains the supported destinations (LB / AE / CY).
 
 export const useDeliveryLocations = () => {
   return useQuery({
     queryKey: ["delivery-locations"],
     queryFn: async () => {
       const data = await apiFetch<DeliveryLocationsResponse>("/delivery-locations");
-      const filtered = (data.countries ?? [])
-        .filter((c) => ALLOWED_DELIVERY_COUNTRY_CODES.has(c.code?.toUpperCase()))
-        .map((c) => {
-          const code = c.code.toUpperCase();
-          const fallbackCities = FALLBACK_DELIVERY_CITIES[code];
-          if (!fallbackCities) return c;
-          // Use the canonical fallback district list as the source of truth
-          // for ids/names, regardless of what the backend returned.
-          return { ...c, code, cities: fallbackCities };
-        });
-      return { ...data, countries: filtered };
+      const countries = (data.countries ?? []).map((c) => ({
+        ...c,
+        code: c.code.toUpperCase(),
+      }));
+      return { ...data, countries };
     },
+  });
+};
+
+// Static catalog metadata (categories, occasions, brands) sourced from
+// `@workspace/catalog-data` server-side. Useful as a fallback for
+// descriptions and bundled imagery when the WooCommerce payload is
+// missing those fields. The endpoint is a flat snapshot — cache it for
+// the session. Type matches `CatalogMetadataResponse` in OpenAPI.
+export type CatalogImageRef = { asset?: string; uri?: string } | null;
+
+export type CatalogCategory = { id: string; name: string; icon: string; image?: CatalogImageRef };
+export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
+export type CatalogBrand = { name: string; slug: string };
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  tag?: string;
+  description?: string;
+  category: string;
+  occasions?: string[];
+  image?: CatalogImageRef;
+};
+
+export type CatalogMetadataResponse = {
+  categories: CatalogCategory[];
+  occasions: CatalogOccasion[];
+  brands: CatalogBrand[];
+  products: CatalogProduct[];
+};
+
+export const useCatalogMetadata = () => {
+  return useQuery({
+    queryKey: ["catalog-metadata"],
+    queryFn: () => apiFetch<CatalogMetadataResponse>("/catalog/metadata"),
+    staleTime: 60 * 60 * 1000,
+  });
+};
+
+// Display-currency metadata served by `/currencies`. Mirrors the
+// CurrenciesResponse OpenAPI schema.
+export type CurrenciesResponse = {
+  currencies: {
+    code: string;
+    name: string;
+    flag?: string;
+    symbol: string;
+    symbolPosition: "left" | "right";
+    spaceBetween: boolean;
+    rate?: number;
+    decimals: number;
+  }[];
+  fallbackCode: string;
+  countryToCurrency: Record<string, string>;
+};
+
+export const useCurrenciesData = () => {
+  return useQuery({
+    queryKey: ["currencies"],
+    queryFn: () => apiFetch<CurrenciesResponse>("/currencies"),
+    staleTime: 60 * 60 * 1000,
   });
 };
 

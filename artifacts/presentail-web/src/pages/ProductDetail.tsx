@@ -8,7 +8,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useProducts } from "@/lib/queries";
+import { useCatalogMetadata, useProducts } from "@/lib/queries";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
 import {
@@ -56,6 +56,20 @@ export default function ProductDetail() {
     () => (product ? buildProductViewModel(product) : null),
     [product],
   );
+
+  const { data: catalogMetadata } = useCatalogMetadata();
+  const effectiveDescription = useMemo(() => {
+    const wooDesc = product?.description?.trim() ?? "";
+    if (wooDesc.length > 0) return wooDesc;
+    const catProduct = catalogMetadata?.products.find((p) => p.id === product?.id);
+    if (catProduct?.description) return catProduct.description;
+    const tags = catProduct?.occasions ?? [];
+    for (const tag of tags) {
+      const occ = catalogMetadata?.occasions.find((o) => o.id === tag);
+      if (occ?.description) return occ.description;
+    }
+    return vm?.description ?? "";
+  }, [product, catalogMetadata, vm]);
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
   const scheduledRowSubtitle = useMemo(() => {
@@ -191,7 +205,7 @@ export default function ProductDetail() {
                 the right-column info block via the order-* override. */}
             <div className="order-2 lg:order-none">
               <ProductTabs
-                description={vm.description}
+                description={effectiveDescription}
                 bouquetIncludes={vm.bouquetIncludes}
                 careTips={vm.careTips}
               />

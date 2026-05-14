@@ -556,6 +556,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeliveryLocationsResponse"
+  /currencies:
+    get:
+      operationId: getCurrencies
+      tags: [catalog]
+      summary: List supported display currencies and FX metadata
+      description: |
+        Returns the canonical list of supported display currencies (symbol,
+        decimals, formatting hints, base USD rates) and the country → currency
+        map used to auto-pick a currency for a visitor. The web storefront
+        uses this as the single source of truth — the same list mobile ships.
+      responses:
+        "200":
+          description: Currencies metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrenciesResponse"
+  /catalog/metadata:
+    get:
+      operationId: getCatalogMetadata
+      tags: [catalog]
+      summary: Catalog metadata (categories, occasions, brands)
+      description: |
+        Returns the static catalog metadata that mobile bundles offline:
+        category and occasion definitions (with localized-friendly slugs,
+        icons and asset paths) and the curated brand list. Image fields
+        carry an `asset` path (resolved by clients to their local
+        `catalog/` tree) or a hosted `uri`.
+      responses:
+        "200":
+          description: Catalog metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogMetadataResponse"
   /loyalty/me:
     get:
       operationId: getLoyaltyMe
@@ -1058,6 +1093,18 @@ components:
       required:
         - ok
         - sent
+    LocalizedNames:
+      type: object
+      description: |
+        Optional translations of a display name. Keys are lowercase
+        ISO 639-1 language codes ("ar", "fr"). English is implicit in
+        the parent's `name` field. Missing translations should fall
+        back to `name`.
+      properties:
+        ar:
+          type: string
+        fr:
+          type: string
     DeliveryCity:
       type: object
       properties:
@@ -1067,6 +1114,11 @@ components:
           type: string
         isActive:
           type: boolean
+        fee:
+          type: number
+          description: Delivery fee in the country's native currency.
+        localizedNames:
+          $ref: "#/components/schemas/LocalizedNames"
       required:
         - id
         - name
@@ -1093,6 +1145,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeliveryCity"
+        preferredDefaultCityId:
+          type: string
+          description: Optional id of the city to highlight as the default.
+        localizedNames:
+          $ref: "#/components/schemas/LocalizedNames"
       required:
         - id
         - name
@@ -1409,6 +1466,164 @@ components:
             $ref: "#/components/schemas/DeliveryCountry"
       required:
         - countries
+    CurrencyInfo:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        flag:
+          type: string
+        symbol:
+          type: string
+        symbolPosition:
+          type: string
+          enum: [left, right]
+        spaceBetween:
+          type: boolean
+        rate:
+          type: number
+          description: Static fallback FX rate vs USD; live rates come from /fx/rates.
+        decimals:
+          type: integer
+      required:
+        - code
+        - name
+        - flag
+        - symbol
+        - symbolPosition
+        - spaceBetween
+        - rate
+        - decimals
+    CurrenciesResponse:
+      type: object
+      properties:
+        currencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CurrencyInfo"
+        fallbackCode:
+          type: string
+        countryToCurrency:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - currencies
+        - fallbackCode
+        - countryToCurrency
+    CatalogImageRef:
+      type: object
+      description: |
+        Reference to an image asset. Either `asset` (relative path under
+        the client's bundled `catalog/` tree) or `uri` (hosted URL) is
+        present.
+      properties:
+        asset:
+          type: string
+        uri:
+          type: string
+    CatalogCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        image:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogImageRef"
+            - type: "null"
+      required:
+        - id
+        - name
+        - icon
+    CatalogOccasion:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        image:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogImageRef"
+            - type: "null"
+      required:
+        - id
+        - name
+        - icon
+    CatalogBrand:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - name
+        - slug
+    CatalogProduct:
+      type: object
+      description: |
+        Lightweight product entry from the bundled catalog. Used by clients
+        as a fallback (image / tag / description / occasion tags) when the
+        WooCommerce payload is missing those fields. The `id` matches the
+        WooCommerce product slug.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tag:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        occasions:
+          type: array
+          items:
+            type: string
+        image:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogImageRef"
+            - type: "null"
+      required:
+        - id
+        - name
+        - category
+    CatalogMetadataResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogCategory"
+        occasions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogOccasion"
+        brands:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogBrand"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogProduct"
+      required:
+        - categories
+        - occasions
+        - brands
+        - products
 
     Gender:
       type: string

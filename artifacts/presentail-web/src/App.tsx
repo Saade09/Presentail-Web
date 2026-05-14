@@ -19,6 +19,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
 import { LocaleProvider, useLocale } from "@/contexts/LocaleContext";
+import { useCurrenciesData } from "@/lib/queries";
+import { setCurrencySnapshot } from "@/lib/currency";
 import {
   LocationProvider,
   useLocationSelection,
@@ -320,6 +322,15 @@ function ClerkRouterBridge({ children }: { children: React.ReactNode }) {
   );
 }
 
+function CurrencyDataLoader() {
+  const { data } = useCurrenciesData();
+  useEffect(() => {
+    if (!data) return;
+    setCurrencySnapshot(data);
+  }, [data]);
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -331,6 +342,7 @@ function App() {
                 <AuthProvider>
                   <CartProvider>
                     <DeliverySelectionProvider>
+                      <CurrencyDataLoader />
                       <DocumentMeta />
                       <SeoHead />
                       <RootRouter />

@@ -327,10 +327,25 @@ export interface PushOrderEventResponse {
   sent: number;
 }
 
+/**
+ * Optional translations of a display name. Keys are lowercase
+ISO 639-1 language codes ("ar", "fr"). English is implicit in
+the parent's `name` field. Missing translations should fall
+back to `name`.
+
+ */
+export interface LocalizedNames {
+  ar?: string;
+  fr?: string;
+}
+
 export interface DeliveryCity {
   id: string;
   name: string;
   isActive: boolean;
+  /** Delivery fee in the country's native currency. */
+  fee?: number;
+  localizedNames?: LocalizedNames;
 }
 
 export interface DeliveryCountry {
@@ -344,6 +359,9 @@ export interface DeliveryCountry {
   currency: string;
   isActive: boolean;
   cities: DeliveryCity[];
+  /** Optional id of the city to highlight as the default. */
+  preferredDefaultCityId?: string;
+  localizedNames?: LocalizedNames;
 }
 
 export type HomepageBannerMediaType =
@@ -501,6 +519,89 @@ export interface CustomerAddressDeleteResponse {
 
 export interface DeliveryLocationsResponse {
   countries: DeliveryCountry[];
+}
+
+export type CurrencyInfoSymbolPosition =
+  (typeof CurrencyInfoSymbolPosition)[keyof typeof CurrencyInfoSymbolPosition];
+
+export const CurrencyInfoSymbolPosition = {
+  left: "left",
+  right: "right",
+} as const;
+
+export interface CurrencyInfo {
+  code: string;
+  name: string;
+  flag: string;
+  symbol: string;
+  symbolPosition: CurrencyInfoSymbolPosition;
+  spaceBetween: boolean;
+  /** Static fallback FX rate vs USD; live rates come from /fx/rates. */
+  rate: number;
+  decimals: number;
+}
+
+export type CurrenciesResponseCountryToCurrency = { [key: string]: string };
+
+export interface CurrenciesResponse {
+  currencies: CurrencyInfo[];
+  fallbackCode: string;
+  countryToCurrency: CurrenciesResponseCountryToCurrency;
+}
+
+/**
+ * Reference to an image asset. Either `asset` (relative path under
+the client's bundled `catalog/` tree) or `uri` (hosted URL) is
+present.
+
+ */
+export interface CatalogImageRef {
+  asset?: string;
+  uri?: string;
+}
+
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  icon: string;
+  image?: CatalogImageRef | null;
+}
+
+export interface CatalogOccasion {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string;
+  image?: CatalogImageRef | null;
+}
+
+export interface CatalogBrand {
+  name: string;
+  slug: string;
+}
+
+/**
+ * Lightweight product entry from the bundled catalog. Used by clients
+as a fallback (image / tag / description / occasion tags) when the
+WooCommerce payload is missing those fields. The `id` matches the
+WooCommerce product slug.
+
+ */
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  tag?: string;
+  description?: string;
+  category: string;
+  occasions?: string[];
+  image?: CatalogImageRef | null;
+}
+
+export interface CatalogMetadataResponse {
+  categories: CatalogCategory[];
+  occasions: CatalogOccasion[];
+  brands: CatalogBrand[];
+  products: CatalogProduct[];
 }
 
 export type Gender = (typeof Gender)[keyof typeof Gender];

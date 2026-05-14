@@ -1,71 +1,34 @@
 import type { DeliveryCountry } from "@workspace/api-zod";
+import {
+  DELIVERY_COUNTRIES as LIB_DELIVERY_COUNTRIES,
+  feeForDistrict,
+  localizedNamesForCity,
+  localizedNamesForCountry,
+} from "@workspace/catalog-data";
 
-export const DELIVERY_COUNTRIES: DeliveryCountry[] = [
-  {
-    id: "lb",
-    name: "Lebanon",
-    code: "LB",
-    flag: "\u{1F1F1}\u{1F1E7}",
-    currency: "USD",
-    isActive: true,
-    cities: [
-      { id: "lb-akkar", name: "Akkar", isActive: true },
-      { id: "lb-aley", name: "Aley", isActive: true },
-      { id: "lb-baabda", name: "Baabda", isActive: true },
-      { id: "lb-baalbeck", name: "Baalbeck", isActive: true },
-      { id: "lb-batroun", name: "Batroun", isActive: true },
-      { id: "lb-bcharee", name: "Bcharee", isActive: true },
-      { id: "lb-beirut", name: "Beirut", isActive: true },
-      { id: "lb-bent-jbeil", name: "Bent Jbeil", isActive: true },
-      { id: "lb-chouf", name: "Chouf", isActive: true },
-      { id: "lb-hasbaya", name: "Hasbaya", isActive: true },
-      { id: "lb-hermel", name: "Hermel", isActive: true },
-      { id: "lb-jbail", name: "Jbail", isActive: true },
-      { id: "lb-jezzine", name: "Jezzine", isActive: true },
-      { id: "lb-kasserwan", name: "Kasserwan", isActive: true },
-      { id: "lb-koura", name: "Koura", isActive: true },
-      { id: "lb-marjayoun", name: "Marjayoun", isActive: true },
-      { id: "lb-metn", name: "Metn", isActive: true },
-      { id: "lb-minnieh-dennaya", name: "Minnieh-Dennaya", isActive: true },
-      { id: "lb-nabatieh", name: "Nabatieh", isActive: true },
-      { id: "lb-rechaya", name: "Rechaya", isActive: true },
-      { id: "lb-saida", name: "Saida", isActive: true },
-      { id: "lb-tripoli", name: "Tripoli", isActive: true },
-      { id: "lb-tyre", name: "Tyre", isActive: true },
-      { id: "lb-west-bekaa", name: "West Bekaa", isActive: true },
-      { id: "lb-zahle", name: "Zahle", isActive: true },
-      { id: "lb-zghorta", name: "Zghorta", isActive: true },
-    ],
-  },
-  {
-    id: "ae",
-    name: "United Arab Emirates",
-    code: "AE",
-    flag: "\u{1F1E6}\u{1F1EA}",
-    currency: "AED",
-    isActive: true,
-    cities: [
-      { id: "ae-dubai", name: "Dubai", isActive: true },
-      { id: "ae-ras-al-khaimah", name: "Ras Al Khaimah", isActive: true },
-      { id: "ae-umm-al-quwain", name: "Umm Al Quwain", isActive: true },
-      { id: "ae-fujairah", name: "Fujairah", isActive: true },
-      { id: "ae-ajman", name: "Ajman", isActive: true },
-      { id: "ae-sharjah", name: "Sharjah", isActive: true },
-      { id: "ae-abu-dhabi", name: "Abu Dhabi", isActive: true },
-    ],
-  },
-  {
-    id: "cy",
-    name: "Cyprus",
-    code: "CY",
-    flag: "\u{1F1E8}\u{1F1FE}",
-    currency: "EUR",
-    isActive: true,
-    cities: [
-      { id: "cy-larnaca", name: "Larnaca", isActive: true },
-      { id: "cy-limassol", name: "Limassol", isActive: true },
-      { id: "cy-nicosia", name: "Nicosia", isActive: true },
-      { id: "cy-paphos", name: "Paphos", isActive: true },
-    ],
-  },
-];
+// Single source of truth: `lib/catalog-data` ships the canonical list of
+// supported delivery countries / cities. We enrich each city with its
+// per-country delivery `fee` and any localized translations so the
+// `/delivery-locations` endpoint serves a complete payload to both the
+// mobile app and the web storefront.
+export const DELIVERY_COUNTRIES: DeliveryCountry[] = LIB_DELIVERY_COUNTRIES.map(
+  (country) => ({
+    id: country.id,
+    name: country.name,
+    code: country.code,
+    flag: country.flag,
+    currency: country.currency,
+    isActive: country.isActive,
+    ...(country.preferredDefaultCityId
+      ? { preferredDefaultCityId: country.preferredDefaultCityId }
+      : {}),
+    localizedNames: localizedNamesForCountry(country.code),
+    cities: country.cities.map((city) => ({
+      id: city.id,
+      name: city.name,
+      isActive: city.isActive,
+      fee: feeForDistrict(country.code, city.name),
+      localizedNames: localizedNamesForCity(city.id),
+    })),
+  }),
+);

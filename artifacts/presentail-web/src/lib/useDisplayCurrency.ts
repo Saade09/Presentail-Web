@@ -1,16 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   countryFromLocale,
   resolveDisplayCurrency,
 } from "@workspace/display-currency";
 import { apiFetch } from "./api";
-import { useFxRates } from "./queries";
+import { useCurrenciesData, useFxRates } from "./queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import {
   currencyForStoreCountry,
   formatPriceInCurrency,
+  getCurrencySnapshot,
+  subscribeCurrencySnapshot,
 } from "./currency";
+
+function useCurrencyTables() {
+  return useSyncExternalStore(
+    subscribeCurrencySnapshot,
+    getCurrencySnapshot,
+    getCurrencySnapshot,
+  );
+}
 
 // Legacy localStorage key for the auto-detected currency. We no longer write
 // to it (auto-detection runs fresh on every page load now), and on first
@@ -29,95 +39,13 @@ const MANUAL_CURRENCY_PERSISTENT_KEY =
 /**
  * Currencies the product-page switcher offers. Kept to a small, on-brand
  * set; all of these are also formattable via `formatPriceInCurrency` and
- * have rates in the server-side FX pipeline.
+ * have rates in the server-side FX pipeline. The picker's display names
+ * come from the runtime currency snapshot (i.e. the API's `/currencies`
+ * payload).
  */
-export const SUPPORTED_DISPLAY_CURRENCIES: { code: string; name: string }[] = [
-  { code: "USD", name: "US Dollar" },
-  { code: "AED", name: "UAE Dirham" },
-  { code: "EUR", name: "Euro" },
-  { code: "GBP", name: "Pound Sterling" },
-];
+const PICKER_CURRENCY_CODES = ["USD", "AED", "EUR", "GBP"] as const;
 
-const SUPPORTED_CODES = new Set(
-  SUPPORTED_DISPLAY_CURRENCIES.map((c) => c.code),
-);
-
-// Country → currency mapping that matches the server-side
-// `geoCurrency.ts`/mobile `data/currencies.ts` table. Anything not listed
-// here falls through to the next signal in the precedence chain (and
-// eventually to USD).
-const COUNTRY_TO_CURRENCY: Record<string, string> = {
-  AE: "AED",
-  US: "USD",
-  GB: "GBP",
-  IM: "GBP",
-  JE: "GBP",
-  GG: "GBP",
-  CA: "CAD",
-  AU: "AUD",
-  QA: "QAR",
-  SA: "SAR",
-  KW: "KWD",
-  OM: "OMR",
-  CH: "CHF",
-  LI: "CHF",
-  AT: "EUR",
-  BE: "EUR",
-  CY: "EUR",
-  DE: "EUR",
-  EE: "EUR",
-  ES: "EUR",
-  FI: "EUR",
-  FR: "EUR",
-  GR: "EUR",
-  HR: "EUR",
-  IE: "EUR",
-  IT: "EUR",
-  LT: "EUR",
-  LU: "EUR",
-  LV: "EUR",
-  MT: "EUR",
-  NL: "EUR",
-  PT: "EUR",
-  SI: "EUR",
-  SK: "EUR",
-  AD: "EUR",
-  MC: "EUR",
-  SM: "EUR",
-  VA: "EUR",
-  ME: "EUR",
-  XK: "EUR",
-};
-
-function countryToCurrency(country: string): string | null {
-  return COUNTRY_TO_CURRENCY[country] ?? null;
-}
-
-// The web formatter knows how to render any code in `CURRENCY_FORMAT`
-// (`currency.ts`); but the user-facing switcher only exposes a small set.
-// For auto-detected currencies we want the broader list (so e.g. an AE
-// visitor whose IP resolves to AED still sees AED), but the manual
-// override stays restricted to the picker's options. This single predicate
-// covers both: any currency the formatter can render is "supported".
-function isFormattable(currency: string): boolean {
-  // formatPriceInCurrency falls back to USD for unknown codes; keep the
-  // resolver strict to the codes we actively support so unknowns surface
-  // as USD instead of being silently re-mapped.
-  const known = new Set([
-    "USD",
-    "AED",
-    "EUR",
-    "GBP",
-    "CAD",
-    "AUD",
-    "QAR",
-    "SAR",
-    "KWD",
-    "OMR",
-    "CHF",
-  ]);
-  return known.has(currency);
-}
+const SUPPORTED_CODES = new Set<string>(PICKER_CURRENCY_CODES);
 
 type GeoCurrencyResponse = {
   countryCode: string | null;
@@ -221,7 +149,29 @@ export function useDisplayCurrency(): {
 } {
   const { countryCode } = useLocationSelection();
   const hasSelectedCountry = !!countryCode;
+  const snapshot = useCurrencyTables();
+  useCurrenciesData();
+
   const storeCurrency = currencyForStoreCountry(countryCode);
+
+  const countryToCurrency = useCallback(
+    (country: string): string | null =>
+      snapshot.countryToCurrency[country.toUpperCase()] ?? null,
+    [snapshot],
+  );
+  const isFormattable = useCallback(
+    (currency: string): boolean =>
+      snapshot.currencies.some((c) => c.code === currency),
+    [snapshot],
+  );
+  const supportedCurrencies = useMemo<{ code: string; name: string }[]>(
+    () =>
+      PICKER_CURRENCY_CODES.map((code) => {
+        const c = snapshot.currencies.find((cc) => cc.code === code);
+        return { code, name: c?.name ?? code };
+      }),
+    [snapshot],
+  );
 
   const [manual, setManual] = useState<ManualState>(() => readManualCurrency());
 
@@ -262,7 +212,7 @@ export function useDisplayCurrency(): {
         isSupported: isFormattable,
         fallback: "USD",
       }),
-    [manualCode, hasSelectedCountry, countryCode, data?.countryCode, localeCountry],
+    [manualCode, hasSelectedCountry, countryCode, data?.countryCode, localeCountry, countryToCurrency, isFormattable],
   );
 
   const currencyCode = resolved.finalCurrency;
@@ -361,7 +311,7 @@ export function useDisplayCurrency(): {
     setCurrencyCode,
     setManualPersistent,
     clearManualCurrency,
-    supportedCurrencies: SUPPORTED_DISPLAY_CURRENCIES,
+    supportedCurrencies,
     formatPrice,
   };
 }

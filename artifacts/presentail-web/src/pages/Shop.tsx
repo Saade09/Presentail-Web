@@ -1,4 +1,4 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useCatalogMetadata, type Product } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -91,11 +91,25 @@ export default function Shop() {
     return p;
   }, [sourceProducts, sort]);
 
+  const { data: catalogMetadata } = useCatalogMetadata();
+  const catalogCategory = category
+    ? catalogMetadata?.categories.find((c) => c.id === category)
+    : undefined;
+  const catalogOccasion = occasion
+    ? catalogMetadata?.occasions.find((o) => o.id === occasion)
+    : undefined;
+
   const pageTitle = category
-    ? t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category)
+    ? t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category, {})
+      || catalogCategory?.name
+      || category
     : occasion
-      ? t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion)
+      ? t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion, {})
+        || catalogOccasion?.name
+        || occasion
       : t("shop.allCollection");
+
+  const occasionDescription = catalogOccasion?.description;
 
   return (
     <div className="min-h-screen pt-24 pb-24">
@@ -104,7 +118,9 @@ export default function Shop() {
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">{pageTitle}</h1>
             <p className="text-muted-foreground text-lg max-w-xl">
-              {t("shop.subtitle", { country: country?.name ?? "Lebanon" })}
+              {occasion && occasionDescription
+                ? occasionDescription
+                : t("shop.subtitle", { country: country?.name ?? "Lebanon" })}
             </p>
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
