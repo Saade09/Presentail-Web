@@ -7,10 +7,31 @@ import {
 } from "@workspace/api-client-react";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { captureRef } from "react-native-view-shot";
+// react-native-view-shot and expo-sharing are NATIVE modules. They were
+// added in the build that ships as iOS build 25, but build 22 (currently
+// on TestFlight) doesn't include them. A static `import` triggers the
+// native bridge at module load and crashes the screen on older binaries.
+// Lazy-require with try/catch so build 22 still opens the checkout — the
+// Share button just becomes a no-op until the new build lands.
+let _captureRef: ((view: any, opts?: any) => Promise<string>) | null = null;
+let _Sharing: { isAvailableAsync: () => Promise<boolean>; shareAsync: (uri: string, opts?: any) => Promise<void> } | null = null;
+function loadShareModules() {
+  if (_captureRef && _Sharing) return { captureRef: _captureRef, Sharing: _Sharing };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const vs = require("react-native-view-shot");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sh = require("expo-sharing");
+    _captureRef = vs?.captureRef ?? null;
+    _Sharing = sh ?? null;
+  } catch {
+    _captureRef = null;
+    _Sharing = null;
+  }
+  return { captureRef: _captureRef, Sharing: _Sharing };
+}
 import {
   Alert,
   FlatList,
@@ -1157,29 +1178,36 @@ function CardPreviewModal({
   const stationeryInk = "#00414e";
   const exportRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
-  const canShare = trimmed.length > 0;
+  const shareModules = loadShareModules();
+  const shareNativeAvailable = !!(shareModules.captureRef && shareModules.Sharing);
+  const canShare = trimmed.length > 0 && shareNativeAvailable;
 
   const handleShare = async () => {
     if (!exportRef.current || sharing || !canShare) return;
+    const { captureRef: capture, Sharing: ShareMod } = shareModules;
+    if (!capture || !ShareMod) {
+      Alert.alert(t.previewCardShareUnavailableTitle, t.previewCardShareUnavailableMessage);
+      return;
+    }
     setSharing(true);
     try {
       const targetW = 1080;
       // Capture the off-screen export view (always mounted with the
       // watermark) so the live on-screen preview never flashes the
       // watermark.
-      const uri = await captureRef(exportRef, {
+      const uri = await capture(exportRef, {
         format: "png",
         quality: 1,
         result: "tmpfile",
         width: targetW,
         height: Math.round(targetW * (cardH / cardW)),
       });
-      const available = await Sharing.isAvailableAsync();
+      const available = await ShareMod.isAvailableAsync();
       if (!available) {
         Alert.alert(t.previewCardShareUnavailableTitle, t.previewCardShareUnavailableMessage);
         return;
       }
-      await Sharing.shareAsync(uri, {
+      await ShareMod.shareAsync(uri, {
         mimeType: "image/png",
         dialogTitle: t.previewCardShareDialogTitle,
         UTI: "public.png",
@@ -1304,25 +1332,27 @@ function CardPreviewModal({
           {renderCardBody(true)}
         </View>
         <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
-          <Pressable
-            onPress={handleShare}
-            disabled={!canShare || sharing}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 22,
-              paddingVertical: 11,
-              borderRadius: 999,
-              backgroundColor: colors.gold,
-              opacity: !canShare || sharing ? 0.5 : 1,
-            }}
-          >
-            <Feather name="share" size={14} color="#fff" />
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "#fff" }}>
-              {sharing ? t.previewCardSharing : t.previewCardShare}
-            </Text>
-          </Pressable>
+          {shareNativeAvailable ? (
+            <Pressable
+              onPress={handleShare}
+              disabled={!canShare || sharing}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: 22,
+                paddingVertical: 11,
+                borderRadius: 999,
+                backgroundColor: colors.gold,
+                opacity: !canShare || sharing ? 0.5 : 1,
+              }}
+            >
+              <Feather name="share" size={14} color="#fff" />
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "#fff" }}>
+                {sharing ? t.previewCardSharing : t.previewCardShare}
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={onClose}
             style={{ paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999, backgroundColor: "#fff" }}
