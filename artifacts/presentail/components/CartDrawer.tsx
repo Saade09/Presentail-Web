@@ -254,9 +254,11 @@ export function CartDrawer() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                  backgroundColor: colors.secondary,
+                  backgroundColor: "#fff",
                   borderRadius: 16,
                   padding: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
                 }}
               >
                 <View

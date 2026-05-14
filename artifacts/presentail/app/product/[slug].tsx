@@ -438,7 +438,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
           flexDirection: "row",
           alignItems: "center",
           gap: 10,
-          backgroundColor: colors.secondary,
+          backgroundColor: "#fff",
           padding: 12,
           borderRadius: 14,
           borderWidth: 1,
@@ -492,7 +492,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         />
 
         {delivery === "scheduled" ? (
-          <View style={{ gap: 12, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ gap: 12, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {days.map((d) => {
                 const a = d.iso === date;
@@ -651,7 +651,7 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge 
         borderRadius: 14,
         borderWidth: 1.5,
         borderColor: active ? colors.primary : colors.border,
-        backgroundColor: active ? colors.secondary : "#fff",
+        backgroundColor: "#fff",
       }}
     >
       <View

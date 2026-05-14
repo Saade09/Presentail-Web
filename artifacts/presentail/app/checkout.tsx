@@ -1806,7 +1806,7 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
         borderRadius: 10,
         borderWidth: 1.5,
         borderColor: disabled ? colors.border : active ? colors.primary : colors.border,
-        backgroundColor: disabled ? "#f5f5f5" : active ? colors.secondary : "#fff",
+        backgroundColor: disabled ? "#f5f5f5" : "#fff",
         gap: 4,
         opacity: disabled ? 0.55 : 1,
       }}
