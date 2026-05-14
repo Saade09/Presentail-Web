@@ -121,10 +121,11 @@ export function nextPayMethodForCurrency(
 }
 
 /**
- * Build the disabled/enabled state for the payment-method picker in the
- * checkout UI. The checkout requirement is to *disable* (not hide)
- * incompatible methods so the customer understands why a method they
- * recognise is unavailable in their current currency.
+ * Build the visible/hidden map for the payment-method picker in the
+ * checkout UI. The checkout requirement is to *hide* methods that
+ * aren't selectable in the active currency + country so shoppers only
+ * see real choices. Kept as `{ enabled }` for backwards compatibility
+ * with existing call sites / tests.
  */
 export function payMethodAvailability(
   currency: string,

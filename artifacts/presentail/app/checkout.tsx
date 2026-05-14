@@ -1949,25 +1949,13 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const { currencyCode } = useCurrency();
   const t = useT();
 
-  // Each method is enabled iff the active currency is in its supported
-  // list. Incompatible methods are shown disabled with a short reason
-  // so customers understand why they cannot pick them — rather than
-  // having the option silently disappear or override their selection.
+  // Only methods that are actually selectable for the active
+  // currency + country are rendered — incompatible methods are simply
+  // hidden (the parent's `nextPayMethodForCurrency` effect re-selects
+  // a valid default when currency/country changes).
   const supports = (m: PayMethodId) =>
     isPayMethodSupported(m, currencyCode, { country });
-  const reason = (m: PayMethodId): string | undefined => {
-    if (supports(m)) return undefined;
-    if (m === "mamo") return t.checkoutPayDisabledMamo;
-    if (m === "paypal" && country === "AE")
-      return t.checkoutPayDisabledPaypalUae ?? t.checkoutPayDisabledGeneric;
-    if ((m === "whish" || m === "western") && country !== "LB")
-      return t.checkoutPayDisabledLebanonOnly ?? t.checkoutPayDisabledUsdOnly;
-    if (m === "paypal" || m === "whish" || m === "western") return t.checkoutPayDisabledUsdOnly;
-    return t.checkoutPayDisabledGeneric;
-  };
-  const tap = (m: PayMethodId) => {
-    if (supports(m)) setPayMethod(m);
-  };
+  const tap = (m: PayMethodId) => setPayMethod(m);
 
   const fmtCardNumber = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 16);
@@ -1992,25 +1980,37 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           {t.secureAndEncrypted}
         </Text>
 
-        {country === "LB" && currencyCode !== "AED" ? null : (
-          <PayOption
-            colors={colors}
-            active={payMethod === "mamo"}
-            onPress={() => tap("mamo")}
-            disabled={!supports("mamo")}
-            disabledReason={reason("mamo")}
-            title={t.checkoutPayByCard}
-            payIcons="card"
-          >
-            {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
-          </PayOption>
-        )}
+        {(() => {
+          const visible = {
+            mamo: supports("mamo"),
+            card: supports("card"),
+            wallet: supports("wallet"),
+            paypal: supports("paypal"),
+            whish: supports("whish"),
+            western: supports("western"),
+          };
+          // Defensive fallback: if no method passes (shouldn't happen
+          // with the current tables), force-show card so the shopper
+          // isn't stuck on an empty list.
+          if (!Object.values(visible).some(Boolean)) visible.card = true;
+          return (
+            <>
+              {visible.mamo ? (
+                <PayOption
+                  colors={colors}
+                  active={payMethod === "mamo"}
+                  onPress={() => tap("mamo")}
+                  title={t.checkoutPayByCard}
+                  payIcons="card"
+                >
+                  {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
+                </PayOption>
+              ) : null}
+              {visible.card ? (
         <PayOption
           colors={colors}
           active={payMethod === "card"}
           onPress={() => tap("card")}
-          disabled={!supports("card")}
-          disabledReason={reason("card")}
           title={t.checkoutPayCard}
           payIcons="card"
         >
@@ -2057,12 +2057,12 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
               ) : null}
         </PayOption>
 
+              ) : null}
+              {visible.wallet ? (
         <PayOption
           colors={colors}
           active={payMethod === "wallet"}
           onPress={() => tap("wallet")}
-          disabled={!supports("wallet")}
-          disabledReason={reason("wallet")}
           title={t.checkoutPayWallet}
           payIcons="wallet"
         >
@@ -2081,36 +2081,39 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           ) : null}
         </PayOption>
 
+              ) : null}
+              {visible.paypal ? (
         <PayOption
           colors={colors}
           active={payMethod === "paypal"}
           onPress={() => tap("paypal")}
-          disabled={!supports("paypal")}
-          disabledReason={reason("paypal")}
           title="PayPal"
           payIcons="paypal"
         >
           {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
         </PayOption>
-
+              ) : null}
+              {visible.whish ? (
         <PayOption
           colors={colors}
           active={payMethod === "whish"}
           onPress={() => tap("whish")}
-          disabled={!supports("whish")}
-          disabledReason={reason("whish")}
           title="Whish Money"
           payIcons="whish"
         />
+              ) : null}
+              {visible.western ? (
         <PayOption
           colors={colors}
           active={payMethod === "western"}
           onPress={() => tap("western")}
-          disabled={!supports("western")}
-          disabledReason={reason("western")}
           title="Western Union"
           payIcons="western"
         />
+              ) : null}
+            </>
+          );
+        })()}
       </Card>
     </View>
   );
@@ -2118,12 +2121,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
 
 // CardIcons and WalletIcons moved to @/components/PaymentBadges
 
-function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children, disabled, disabledReason }: any) {
-  // When disabled we render the option in a dimmed state with a short
-  // reason underneath, instead of removing it from the list. Hiding
-  // would silently change the available choices when the customer
-  // switches currency, which is confusing and was the source of the
-  // "selection mysteriously moved" bug.
+function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons, children }: any) {
+  // Unsupported methods are filtered out by the parent picker — every
+  // option that reaches here is selectable.
   return (
     <View
       style={{
@@ -2132,12 +2132,10 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
         borderColor: active ? colors.primary : colors.border,
         backgroundColor: active ? colors.secondary : "#fff",
         overflow: "hidden",
-        opacity: disabled ? 0.45 : 1,
       }}
     >
       <Pressable
-        onPress={disabled ? undefined : onPress}
-        disabled={disabled}
+        onPress={onPress}
         style={{
           padding: 14,
           flexDirection: "row",
@@ -2180,13 +2178,6 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
           <WesternUnionBadge />
         ) : null}
       </Pressable>
-      {disabled && disabledReason ? (
-        <View style={{ paddingHorizontal: 14, paddingBottom: 12, marginTop: -4 }}>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-            {disabledReason}
-          </Text>
-        </View>
-      ) : null}
       {children ? <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View> : null}
     </View>
   );
