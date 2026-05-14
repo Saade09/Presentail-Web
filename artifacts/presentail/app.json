@@ -9,14 +9,14 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon-cream.png",
+      "image": "./assets/images/splash-native-blank.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFBF4"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "presentail",
-      "buildNumber": "22",
+      "buildNumber": "25",
       "usesAppleSignIn": true,
       "entitlements": {
         "keychain-access-groups": [
