@@ -14,23 +14,36 @@ const LABELS: Record<Lang, string> = {
   fr: "FR",
 };
 
-type Props = {
-  className?: string;
+const PILL_LABELS: Record<Lang, string> = {
+  en: "عربية",
+  ar: "English",
+  fr: "العربية",
 };
 
-export function LanguageSwitcher({ className = "" }: Props) {
+type Props = {
+  className?: string;
+  variant?: "default" | "pill";
+};
+
+export function LanguageSwitcher({ className = "", variant = "default" }: Props) {
   const { language, setLanguage, t, dir } = useLocale();
   const align = dir === "rtl" ? "start" : "end";
+  const isPill = variant === "pill";
+  const triggerClass = isPill
+    ? `flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors outline-none ${className}`
+    : `flex items-center gap-1.5 hover:text-foreground transition-colors outline-none ${className}`;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         type="button"
         aria-label={t(`lang.label.${language}`)}
         data-testid="language-switcher"
-        className={`flex items-center gap-1.5 hover:text-foreground transition-colors outline-none ${className}`}
+        className={triggerClass}
       >
-        <span className="font-medium text-foreground">{LABELS[language]}</span>
-        <ChevronDown className="w-3 h-3" />
+        <span className="font-medium text-foreground">
+          {isPill ? PILL_LABELS[language] : LABELS[language]}
+        </span>
+        {!isPill && <ChevronDown className="w-3 h-3" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[8rem]">
         {SUPPORTED_LANGS.map((lang) => {

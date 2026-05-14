@@ -10,7 +10,7 @@ type LogoProps = {
   inverse?: boolean;
 };
 
-export function Logo({ height = 32, className, inverse = false }: LogoProps) {
+export function Logo({ height, className, inverse = false }: LogoProps) {
   const { language } = useLocale();
   const isArabic = language === "ar";
   const src = isArabic
@@ -20,7 +20,7 @@ export function Logo({ height = 32, className, inverse = false }: LogoProps) {
     <img
       src={src}
       alt="Presentail"
-      style={{ height, width: "auto" }}
+      style={height !== undefined ? { height, width: "auto" } : undefined}
       className={className}
       draggable={false}
     />

@@ -24,6 +24,7 @@ const STRINGS: Dict = {
   // Top utility / nav
   "utility.deliverTo": { en: "Delivering to", ar: "التوصيل إلى" },
   "utility.help": { en: "Need help? We deliver across the GCC.", ar: "بحاجة إلى مساعدة؟ نوصّل في جميع أنحاء الخليج." },
+  "utility.fastCheckout": { en: "Fast Checkout", ar: "دفع سريع" },
   "nav.shop": { en: "Shop", ar: "تسوّق" },
   "nav.occasions": { en: "Occasions", ar: "المناسبات" },
   "nav.flowersPlants": { en: "Flowers & Plants", ar: "الأزهار والنباتات" },
@@ -669,6 +670,7 @@ const STRINGS: Dict = {
 const STRINGS_FR: Record<string, string> = {
   "utility.deliverTo": "Livraison à",
   "utility.help": "Besoin d'aide ? Nous livrons dans tout le Golfe.",
+  "utility.fastCheckout": "Paiement rapide",
   "nav.shop": "Boutique",
   "nav.occasions": "Occasions",
   "nav.flowersPlants": "Fleurs et plantes",

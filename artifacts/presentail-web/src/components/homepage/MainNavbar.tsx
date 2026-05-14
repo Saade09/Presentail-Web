@@ -21,7 +21,8 @@ export function MainNavbar() {
   const { user } = useAuth();
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
-  const NAV_LINKS = countryCode === "AE" ? ALL_NAV_LINKS.filter(l => l.key !== "nav.brands") : ALL_NAV_LINKS;
+  const MOBILE_NAV_LINKS = countryCode === "AE" ? ALL_NAV_LINKS.filter(l => l.key !== "nav.brands") : ALL_NAV_LINKS;
+  const NAV_LINKS = ALL_NAV_LINKS.filter(l => l.key !== "nav.brands");
   const [location] = useLocation();
   const isShopPage = location === "/shop" || location.startsWith("/shop?") || location.startsWith("/shop/");
 
@@ -38,7 +39,7 @@ export function MainNavbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-[300px] sm:w-[360px]">
               <nav className="flex flex-col gap-2 mt-8">
-                {NAV_LINKS.map((l) => (
+                {MOBILE_NAV_LINKS.map((l) => (
                   <Link
                     key={l.key}
                     href={l.href}
@@ -77,7 +78,7 @@ export function MainNavbar() {
             aria-label="Presentail"
             data-testid="link-logo"
           >
-            <Logo height={56} className="md:h-16" />
+            <Logo className="h-14 md:h-20 w-auto" />
           </Link>
         </div>
 
