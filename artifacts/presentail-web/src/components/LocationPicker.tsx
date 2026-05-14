@@ -10,31 +10,33 @@ type Props = {
   onComplete?: (selection: { countryCode: string; cityId: string }) => void;
   onClose?: () => void;
   initialCountryCode?: string | null;
+  forceCountryStep?: boolean;
 };
 
 export function LocationPicker({
   onComplete,
   onClose,
   initialCountryCode = null,
+  forceCountryStep = false,
 }: Props) {
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
   const { t, countryName, cityName, language } = useLocale();
   const isRtl = language === "ar";
   const [selectedCountry, setSelectedCountry] =
     useState<DeliveryCountry | null>(() => {
-      if (!initialCountryCode) return null;
+      if (forceCountryStep || !initialCountryCode) return null;
       return countries.find((c) => c.code === initialCountryCode) ?? null;
     });
   const userInteractedRef = useRef<boolean>(!!selectedCountry);
 
   useEffect(() => {
-    if (userInteractedRef.current || !initialCountryCode) return;
+    if (userInteractedRef.current || forceCountryStep || !initialCountryCode) return;
     const found = countries.find((c) => c.code === initialCountryCode);
     if (found) {
       setSelectedCountry(found);
       userInteractedRef.current = true;
     }
-  }, [countries, initialCountryCode]);
+  }, [countries, initialCountryCode, forceCountryStep]);
 
   const handleCountrySelect = (country: DeliveryCountry) => {
     userInteractedRef.current = true;
@@ -87,6 +89,26 @@ export function LocationPicker({
       <h2 className="text-2xl md:text-[26px] font-serif text-primary text-center mb-1">
         {t("locationPicker.sendGiftTo")}
       </h2>
+
+      {showCities && selectedCountry ? (
+        <div className="mt-3 mb-4 mx-1 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl leading-none">{selectedCountry.flag}</span>
+            <span className="text-sm font-semibold text-primary truncate">
+              {countryName(selectedCountry.code, selectedCountry.name)}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleBackToCountries}
+            data-testid="button-country-header-change"
+            className="text-xs font-semibold uppercase tracking-wider text-primary hover:opacity-80 transition-opacity"
+          >
+            {t("locationPicker.change")}
+          </button>
+        </div>
+      ) : null}
+
       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground text-center mb-5">
         {sectionLabel}
       </p>

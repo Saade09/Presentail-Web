@@ -13,8 +13,13 @@ type Props = {
 };
 
 export function LocationPickerGate({ children }: Props) {
-  const { isPickerOpen, openPicker, closePicker, countryCode } =
-    useLocationSelection();
+  const {
+    isPickerOpen,
+    openPicker,
+    closePicker,
+    countryCode,
+    pickerForceCountryStep,
+  } = useLocationSelection();
   const { t } = useLocale();
 
   // The picker now drives navigation through `setLocation` in LocationContext,
@@ -43,6 +48,7 @@ export function LocationPickerGate({ children }: Props) {
           </DialogDescription>
           <LocationPicker
             initialCountryCode={countryCode}
+            forceCountryStep={pickerForceCountryStep}
             onComplete={handleComplete}
             onClose={closePicker}
           />

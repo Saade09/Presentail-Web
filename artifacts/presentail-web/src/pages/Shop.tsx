@@ -211,7 +211,7 @@ export default function Shop() {
                         {t("shop.empty.descCountry", { country: country.name })}
                       </p>
                       <div className="flex flex-wrap items-center justify-center gap-3">
-                        <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
+                        <Button variant="outline" onClick={() => openPicker()} data-testid="button-change-country">
                           {t("shop.empty.changeCountry")}
                         </Button>
                         {(category || occasion) && (

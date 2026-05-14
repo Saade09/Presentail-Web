@@ -53,7 +53,8 @@ type LocationContextType = {
   setLocation: (countryCode: string, cityId: string) => void;
   clearLocation: () => void;
   isPickerOpen: boolean;
-  openPicker: () => void;
+  pickerForceCountryStep: boolean;
+  openPicker: (options?: { forceCountryStep?: boolean }) => void;
   closePicker: () => void;
 };
 
@@ -88,6 +89,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
   const [stored, setStored] = useState<StoredLocation | null>(() => readStored());
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerForceCountryStep, setPickerForceCountryStep] = useState(false);
   const { data, isLoading } = useDeliveryLocations();
 
   const countries = useMemo<DeliveryCountry[]>(() => {
@@ -176,8 +178,17 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const openPicker = useCallback(() => setIsPickerOpen(true), []);
-  const closePicker = useCallback(() => setIsPickerOpen(false), []);
+  const openPicker = useCallback(
+    (options?: { forceCountryStep?: boolean }) => {
+      setPickerForceCountryStep(!!options?.forceCountryStep);
+      setIsPickerOpen(true);
+    },
+    [],
+  );
+  const closePicker = useCallback(() => {
+    setIsPickerOpen(false);
+    setPickerForceCountryStep(false);
+  }, []);
 
   // Sync across tabs.
   useEffect(() => {
@@ -198,6 +209,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     setLocation,
     clearLocation,
     isPickerOpen,
+    pickerForceCountryStep,
     openPicker,
     closePicker,
   };

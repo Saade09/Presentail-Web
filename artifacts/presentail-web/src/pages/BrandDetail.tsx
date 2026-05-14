@@ -66,7 +66,7 @@ export default function BrandDetail() {
                 <p className="text-muted-foreground mb-6">
                   {t("brand.empty.descCountry", { name: brandName, country: country.name })}
                 </p>
-                <Button variant="outline" onClick={openPicker} data-testid="button-change-country">
+                <Button variant="outline" onClick={() => openPicker()} data-testid="button-change-country">
                   {t("brand.empty.changeCountry")}
                 </Button>
               </>

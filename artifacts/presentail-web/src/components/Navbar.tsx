@@ -67,7 +67,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 md:gap-4">
           <button
             type="button"
-            onClick={openPicker}
+            onClick={() => openPicker()}
             className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors"
             data-testid="button-open-location-picker"
           >

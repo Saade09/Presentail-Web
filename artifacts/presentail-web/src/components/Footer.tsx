@@ -251,7 +251,7 @@ export function Footer() {
               <ColumnHeading>{t("footer.currencySwitcher")}</ColumnHeading>
               <button
                 type="button"
-                onClick={openPicker}
+                onClick={() => openPicker()}
                 aria-label={t("footer.openCurrency")}
                 data-testid="footer-currency-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
@@ -275,7 +275,7 @@ export function Footer() {
               <ColumnHeading>{t("footer.country")}</ColumnHeading>
               <button
                 type="button"
-                onClick={openPicker}
+                onClick={() => openPicker({ forceCountryStep: true })}
                 aria-label={t("footer.openCountry")}
                 data-testid="footer-country-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"

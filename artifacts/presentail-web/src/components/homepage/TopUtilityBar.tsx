@@ -18,7 +18,7 @@ export function TopUtilityBar() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={openPicker}
+            onClick={() => openPicker()}
             className="flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors"
             data-testid="button-country-selector"
           >
