@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { resolveDisplayCurrency } from "@workspace/display-currency";
 
@@ -18,9 +19,17 @@ import {
 import { hydrateFxRatesFromCache, refreshFxRates } from "@/services/fxRatesService";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 
+const MANUAL_OVERRIDE_KEY = "@presentail/currency-manual-v1";
+
 type CurrencyContextValue = {
   currency: Currency;
   currencyCode: CurrencyCode;
+  /** Whether the active currency was picked manually by the shopper. */
+  isManualOverride: boolean;
+  /** Persist a manual currency pick — takes precedence over GPS/IP detection. */
+  setCurrency: (code: CurrencyCode) => void;
+  /** Clear the manual pick so GPS/IP detection takes over again. */
+  clearManualCurrency: () => void;
   /** Convert a USD amount into the active currency, formatted with symbol/position. */
   formatPrice: (usdValue: number) => string;
   /** Format an amount that is already in the active currency (no FX conversion). */
@@ -33,10 +42,12 @@ type CurrencyContextValue = {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  // Display currency is derived from the user's location every launch — never
-  // persisted and never manually overridable. Precedence: device-GPS country
-  // → IP-based detection → USD fallback.
+  // Display currency precedence: manual pick (persisted across launches) →
+  // device-GPS country → IP-based detection → USD fallback.
   const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(FALLBACK_CURRENCY_CODE);
+  const [manualOverride, setManualOverrideState] = useState<CurrencyCode | null>(null);
+  const manualOverrideRef = useRef<CurrencyCode | null>(null);
+  const [manualHydrated, setManualHydrated] = useState(false);
   // Bumped after live FX rates are applied so memoized convert/formatPrice
   // recompute against the refreshed CURRENCIES table.
   const [ratesVersion, setRatesVersion] = useState(0);
@@ -60,19 +71,45 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Hydrate the persisted manual override eagerly so the very first paint
+  // honours the shopper's earlier pick instead of flashing the auto-detected
+  // currency.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(MANUAL_OVERRIDE_KEY)
+      .then((raw) => {
+        if (cancelled) return;
+        if (raw && isSupportedCurrencyCode(raw)) {
+          manualOverrideRef.current = raw;
+          setManualOverrideState(raw);
+          setCurrencyCodeState(raw);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setManualHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const { needsOnboarding, hydrated: onboardingHydrated } = useOnboarding();
 
   useEffect(() => {
     // Don't trigger the device-location prompt before the first-run country
     // picker (Task #286) has been completed.
     if (!onboardingHydrated || needsOnboarding) return;
+    if (!manualHydrated) return;
+    // Skip GPS/IP detection entirely when a manual pick is already active —
+    // the override is authoritative, so there's no reason to issue a
+    // location prompt or hit the IP-geo upstream on launch.
+    if (manualOverrideRef.current) return;
     let cancelled = false;
     (async () => {
       try {
         // Gather every signal independently so the shared resolver — not
-        // this hook — owns the precedence rule. We read GPS first (it
-        // prompts the user once on first launch and is the most accurate),
-        // then fall back to IP, then to the device locale's region.
+        // this hook — owns the precedence rule.
         const deviceResult = await detectGeoFromDeviceLocation();
         if (cancelled) return;
         const ipResult = await detectGeoFromLocation();
@@ -86,7 +123,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         const localeCountry: string | null = null;
 
         const resolved = resolveDisplayCurrency({
-          manualOverride: null,
+          manualOverride: manualOverrideRef.current,
           savedCountry: null,
           gpsCountry: deviceResult?.countryCode ?? null,
           ipCountry: ipResult?.countryCode ?? null,
@@ -99,6 +136,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (__DEV__) {
           // eslint-disable-next-line no-console
           console.log("[display-currency:mobile]", {
+            manualOverride: manualOverrideRef.current,
             savedCountry: null,
             gpsCountry: deviceResult?.countryCode ?? null,
             ipCountry: ipResult?.countryCode ?? null,
@@ -109,6 +147,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             finalCurrency: resolved.finalCurrency,
           });
         }
+
+        // Don't overwrite a manual pick that may have been set while
+        // detection was in flight.
+        if (manualOverrideRef.current) return;
 
         const next = isSupportedCurrencyCode(resolved.finalCurrency)
           ? (resolved.finalCurrency as CurrencyCode)
@@ -121,7 +163,46 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [onboardingHydrated, needsOnboarding]);
+  }, [onboardingHydrated, needsOnboarding, manualHydrated]);
+
+  const setCurrency = useCallback((code: CurrencyCode) => {
+    if (!isSupportedCurrencyCode(code)) return;
+    manualOverrideRef.current = code;
+    setManualOverrideState(code);
+    setCurrencyCodeState(code);
+    AsyncStorage.setItem(MANUAL_OVERRIDE_KEY, code).catch(() => {});
+  }, []);
+
+  const clearManualCurrency = useCallback(() => {
+    manualOverrideRef.current = null;
+    setManualOverrideState(null);
+    AsyncStorage.removeItem(MANUAL_OVERRIDE_KEY).catch(() => {});
+    // Re-run detection so the resolved currency reverts to GPS/IP without
+    // requiring an app restart. Best-effort — falls back to USD on error.
+    (async () => {
+      try {
+        const deviceResult = await detectGeoFromDeviceLocation();
+        const ipResult = await detectGeoFromLocation();
+        const resolved = resolveDisplayCurrency({
+          manualOverride: null,
+          savedCountry: null,
+          gpsCountry: deviceResult?.countryCode ?? null,
+          ipCountry: ipResult?.countryCode ?? null,
+          localeCountry: null,
+          countryToCurrency: (c) => COUNTRY_TO_CURRENCY_MAP[c] ?? null,
+          isSupported: (c) => isSupportedCurrencyCode(c),
+          fallback: FALLBACK_CURRENCY_CODE,
+        });
+        if (manualOverrideRef.current) return;
+        const next = isSupportedCurrencyCode(resolved.finalCurrency)
+          ? (resolved.finalCurrency as CurrencyCode)
+          : FALLBACK_CURRENCY_CODE;
+        setCurrencyCodeState(next);
+      } catch {
+        if (!manualOverrideRef.current) setCurrencyCodeState(FALLBACK_CURRENCY_CODE);
+      }
+    })();
+  }, []);
 
   // Re-derive when live FX rates land so display amounts pick up the new rate.
   const currency = useMemo(() => getCurrency(currencyCode), [currencyCode, ratesVersion]);
@@ -162,12 +243,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     () => ({
       currency,
       currencyCode,
+      isManualOverride: manualOverride != null,
+      setCurrency,
+      clearManualCurrency,
       formatPrice,
       formatNative,
       convert,
       list: CURRENCIES,
     }),
-    [currency, currencyCode, formatPrice, formatNative, convert],
+    [currency, currencyCode, manualOverride, setCurrency, clearManualCurrency, formatPrice, formatNative, convert],
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
