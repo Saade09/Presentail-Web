@@ -1178,13 +1178,24 @@ function CardPreviewModal({
   const stationeryInk = "#00414e";
   const exportRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
-  const shareModules = loadShareModules();
-  const shareNativeAvailable = !!(shareModules.captureRef && shareModules.Sharing);
+  // Only attempt to resolve the native share modules when the user
+  // actually taps Share. Resolving them at modal mount-time is enough
+  // for some older binaries (build 22) to crash inside the JS shim.
+  const [shareNativeAvailable] = useState<boolean>(() => {
+    try {
+      const mods = loadShareModules();
+      return !!(mods.captureRef && mods.Sharing);
+    } catch {
+      return false;
+    }
+  });
   const canShare = trimmed.length > 0 && shareNativeAvailable;
 
   const handleShare = async () => {
     if (!exportRef.current || sharing || !canShare) return;
-    const { captureRef: capture, Sharing: ShareMod } = shareModules;
+    const mods = loadShareModules();
+    const capture = mods.captureRef;
+    const ShareMod = mods.Sharing;
     if (!capture || !ShareMod) {
       Alert.alert(t.previewCardShareUnavailableTitle, t.previewCardShareUnavailableMessage);
       return;
@@ -1311,26 +1322,30 @@ function CardPreviewModal({
         >
           {renderCardBody(false)}
         </Pressable>
-        {/* Off-screen export-only clone, always mounted with the watermark
-            baked in. captureRef snapshots this view so the on-screen
-            preview never shows the watermark. */}
-        <View
-          ref={exportRef}
-          collapsable={false}
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: -10000,
-            top: 0,
-            width: cardW,
-            height: cardH,
-            borderRadius: 14,
-            overflow: "hidden",
-            backgroundColor: "#0d3b3a",
-          }}
-        >
-          {renderCardBody(true)}
-        </View>
+        {/* Off-screen export-only clone, mounted only when the native
+            share modules are available (build 25+). captureRef snapshots
+            this view so the on-screen preview never shows the watermark.
+            Skipped on build 22 where the native modules aren't linked,
+            so we don't risk a duplicate Image render that could crash. */}
+        {shareNativeAvailable ? (
+          <View
+            ref={exportRef}
+            collapsable={false}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: -10000,
+              top: 0,
+              width: cardW,
+              height: cardH,
+              borderRadius: 14,
+              overflow: "hidden",
+              backgroundColor: "#0d3b3a",
+            }}
+          >
+            {renderCardBody(true)}
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
           {shareNativeAvailable ? (
             <Pressable
