@@ -27,7 +27,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { CardIcons, WalletIcons } from "@/components/PaymentBadges";
+import { CardIcons, PayPalBadge, WalletIcons, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2025,8 +2025,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           disabled={!supports("paypal")}
           disabledReason={reason("paypal")}
           title="PayPal"
-          badge="PP"
-          badgeColor="#003087"
+          payIcons="paypal"
         >
           {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
         </PayOption>
@@ -2038,8 +2037,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           disabled={!supports("whish")}
           disabledReason={reason("whish")}
           title="Whish Money"
-          badge="whish"
-          badgeColor="#E5302E"
+          payIcons="whish"
         />
         <PayOption
           colors={colors}
@@ -2048,8 +2046,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           disabled={!supports("western")}
           disabledReason={reason("western")}
           title="Western Union"
-          badge="WU"
-          badgeColor="#F8B400"
+          payIcons="western"
         />
       </Card>
     </View>
@@ -2108,7 +2105,17 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
             </Text>
           </View>
         ) : null}
-        {payIcons === "card" ? <CardIcons /> : payIcons === "wallet" ? <WalletIcons /> : null}
+        {payIcons === "card" ? (
+          <CardIcons />
+        ) : payIcons === "wallet" ? (
+          <WalletIcons />
+        ) : payIcons === "paypal" ? (
+          <PayPalBadge />
+        ) : payIcons === "whish" ? (
+          <WhishBadge />
+        ) : payIcons === "western" ? (
+          <WesternUnionBadge />
+        ) : null}
       </Pressable>
       {disabled && disabledReason ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 12, marginTop: -4 }}>

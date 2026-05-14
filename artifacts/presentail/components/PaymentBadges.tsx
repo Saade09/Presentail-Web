@@ -8,6 +8,7 @@ import { googlepayXml } from "./paymentLogos/googlepay";
 import { mastercardXml } from "./paymentLogos/mastercard";
 import { paypalXml } from "./paymentLogos/paypal";
 import { visaXml } from "./paymentLogos/visa";
+import { westernUnionXml } from "./paymentLogos/westernunion";
 import { whishXml } from "./paymentLogos/whish";
 
 const BADGE_HEIGHT = 26;
@@ -97,6 +98,14 @@ export function PayPalBadge() {
   return (
     <View style={lightChip}>
       <Logo xml={paypalXml} width={34} height={9} />
+    </View>
+  );
+}
+
+export function WesternUnionBadge() {
+  return (
+    <View style={[chipBase, { backgroundColor: "#FFDD00" }]}>
+      <Logo xml={westernUnionXml} width={40} height={9} />
     </View>
   );
 }
