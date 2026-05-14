@@ -7,8 +7,10 @@ import {
 } from "@workspace/api-client-react";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { captureRef } from "react-native-view-shot";
 import {
   Alert,
   FlatList,
@@ -1147,12 +1149,44 @@ function CardPreviewModal({
   const isRtl = lang === "AR";
   const { width: winW, height: winH } = useWindowDimensions();
   const cardW = Math.min(winW - 40, 360);
-  const cardH = Math.min(winH - 220, Math.round(cardW * 1.35));
+  const cardH = Math.min(winH - 260, Math.round(cardW * 1.35));
   const trimmed = (cardMessage ?? "").trim();
   const len = trimmed.length;
   const messageFont = len === 0 ? 18 : len > 280 ? 13 : len > 180 ? 15 : len > 100 ? 17 : 19;
   const writingDirection = isRtl ? "rtl" : "ltr";
   const stationeryInk = "#00414e";
+  const cardRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+  const canShare = trimmed.length > 0;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing || !canShare) return;
+    setSharing(true);
+    try {
+      const targetW = 1080;
+      const uri = await captureRef(cardRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+        width: targetW,
+        height: Math.round(targetW * (cardH / cardW)),
+      });
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert(t.previewCardShareUnavailableTitle, t.previewCardShareUnavailableMessage);
+        return;
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: t.previewCardShareDialogTitle,
+        UTI: "public.png",
+      });
+    } catch {
+      Alert.alert(t.previewCardShareErrorTitle, t.previewCardShareErrorMessage);
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -1162,6 +1196,8 @@ function CardPreviewModal({
       >
         <Pressable
           onPress={(e) => e.stopPropagation()}
+          ref={cardRef}
+          collapsable={false}
           style={{ width: cardW, height: cardH, borderRadius: 14, overflow: "hidden", backgroundColor: "#0d3b3a" }}
         >
           <Image
@@ -1216,14 +1252,35 @@ function CardPreviewModal({
             </View>
           </View>
         </Pressable>
-        <Pressable
-          onPress={onClose}
-          style={{ marginTop: 18, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999, backgroundColor: "#fff" }}
-        >
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-            {t.previewCardClose}
-          </Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
+          <Pressable
+            onPress={handleShare}
+            disabled={!canShare || sharing}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 22,
+              paddingVertical: 11,
+              borderRadius: 999,
+              backgroundColor: colors.gold,
+              opacity: !canShare || sharing ? 0.5 : 1,
+            }}
+          >
+            <Feather name="share" size={14} color="#fff" />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "#fff" }}>
+              {sharing ? t.previewCardSharing : t.previewCardShare}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onClose}
+            style={{ paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999, backgroundColor: "#fff" }}
+          >
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+              {t.previewCardClose}
+            </Text>
+          </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );

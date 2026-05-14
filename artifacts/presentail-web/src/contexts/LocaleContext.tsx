@@ -244,6 +244,12 @@ const STRINGS: Dict = {
   "checkout.previewCard": { en: "Preview card", ar: "معاينة البطاقة" },
   "checkout.previewCardTitle": { en: "Card preview", ar: "معاينة البطاقة" },
   "checkout.previewCardClose": { en: "Close", ar: "إغلاق" },
+  "checkout.previewCardSave": { en: "Save image", ar: "حفظ الصورة" },
+  "checkout.previewCardSaving": { en: "Preparing…", ar: "جارٍ التحضير…" },
+  "checkout.previewCardSaveError": {
+    en: "Couldn't save the image. Please try again.",
+    ar: "تعذّر حفظ الصورة. يرجى المحاولة مرة أخرى.",
+  },
   "checkout.previewCardPlaceholder": { en: "Your message will appear here", ar: "ستظهر رسالتك هنا" },
   "checkout.previewCardTo": { en: "To", ar: "إلى" },
   "checkout.previewCardFrom": { en: "From", ar: "من" },

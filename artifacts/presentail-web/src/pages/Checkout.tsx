@@ -878,6 +878,41 @@ function CardPreviewDialog({
   const ink = "#F5E9D7";
   const toLabel = t("checkout.previewCardTo");
   const fromLabel = t("checkout.previewCardFrom");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const canSave = trimmed.length > 0;
+
+  const handleSave = async () => {
+    if (!cardRef.current || saving || !canSave) return;
+    setSaving(true);
+    try {
+      const { toPng } = await import("html-to-image");
+      const node = cardRef.current;
+      const rect = node.getBoundingClientRect();
+      const targetW = 1080;
+      const pixelRatio = Math.max(1, targetW / Math.max(1, rect.width));
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio,
+        backgroundColor: "#0d3b3a",
+      });
+      const link = document.createElement("a");
+      link.download = "presentail-card.png";
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      toast({
+        title: t("checkout.previewCardSaveError"),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -887,6 +922,7 @@ function CardPreviewDialog({
         <DialogTitle className="sr-only">{t("checkout.previewCardTitle")}</DialogTitle>
         <div className="flex flex-col items-center gap-4">
           <div
+            ref={cardRef}
             className="relative w-full overflow-hidden rounded-2xl shadow-2xl"
             style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
             data-testid="card-preview-stationery"
@@ -926,13 +962,22 @@ function CardPreviewDialog({
               </div>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            data-testid="button-preview-card-close"
-          >
-            {t("checkout.previewCardClose")}
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              onClick={handleSave}
+              disabled={!canSave || saving}
+              data-testid="button-preview-card-save"
+            >
+              {saving ? t("checkout.previewCardSaving") : t("checkout.previewCardSave")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-preview-card-close"
+            >
+              {t("checkout.previewCardClose")}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
