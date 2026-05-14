@@ -50,6 +50,9 @@ import PersonalInformation from "@/pages/PersonalInformation";
 import SignInPage from "@/pages/SignIn";
 import SignUpPage from "@/pages/SignUp";
 import Unauthorized from "@/pages/Unauthorized";
+import About from "@/pages/About";
+import Careers from "@/pages/Careers";
+import Blog from "@/pages/Blog";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -125,6 +128,9 @@ function ShopShell() {
             <Route path="/cart" component={Cart} />
             <Route path="/checkout" component={Checkout} />
             <Route path="/order-confirmed" component={OrderConfirmed} />
+            <Route path="/about" component={About} />
+            <Route path="/careers" component={Careers} />
+            <Route path="/blog" component={Blog} />
             {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
                 factor-one, ...) so their routes need wildcard suffixes. */}
             <Route path="/sign-in/:rest*" component={SignInPage} />

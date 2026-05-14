@@ -29,14 +29,11 @@ function TikTokIcon({ className }: { className?: string }) {
 // Legacy WordPress URLs for destinations that don't yet exist in the new app.
 // TODO: replace these with in-app routes as the corresponding pages are migrated.
 const LEGACY = {
-  about: "https://presentail.com/lebanon/about-us/",
   partner: "https://presentail.com/lebanon/partner-with-us/",
   deliveryRates: "https://presentail.com/lebanon/delivery-rates/",
   investor: "https://presentail.com/lebanon/investor-relations/",
   weddings: "https://presentail.com/lebanon/weddings-events/",
   corporate: "https://presentail.com/lebanon/corporate-gifts/",
-  careers: "https://presentail.com/lebanon/careers/",
-  blogs: "https://presentail.com/lebanon/blog/",
   contact: "https://presentail.com/lebanon/contact-us/",
   faqs: "https://presentail.com/lebanon/faqs/",
   terms: "https://presentail.com/lebanon/terms-of-use/",
@@ -146,17 +143,17 @@ export function Footer() {
     testId: "footer-link-occasions",
   });
 
-  // "Get to Know Us" — every link is currently a legacy WordPress URL.
-  // TODO: swap each entry for an in-app route as the corresponding page is migrated.
-  const knowUs = [
-    { label: t("footer.know.about"), href: LEGACY.about, testId: "footer-link-about" },
-    { label: t("footer.know.partner"), href: LEGACY.partner, testId: "footer-link-partner" },
-    { label: t("footer.know.deliveryRates"), href: LEGACY.deliveryRates, testId: "footer-link-delivery" },
-    { label: t("footer.know.investor"), href: LEGACY.investor, testId: "footer-link-investor" },
-    { label: t("footer.know.weddings"), href: LEGACY.weddings, testId: "footer-link-weddings" },
-    { label: t("footer.know.corporate"), href: LEGACY.corporate, testId: "footer-link-corporate" },
-    { label: t("footer.know.careers"), href: LEGACY.careers, testId: "footer-link-careers" },
-    { label: t("footer.know.blogs"), href: LEGACY.blogs, testId: "footer-link-blogs" },
+  // "Get to Know Us" — mix of in-app routes and legacy WordPress URLs.
+  // TODO: swap remaining legacy entries for in-app routes as each page is migrated.
+  const knowUs: { label: string; href: string; testId: string; external?: boolean }[] = [
+    { label: t("footer.know.about"), href: "/about", testId: "footer-link-about" },
+    { label: t("footer.know.partner"), href: LEGACY.partner, testId: "footer-link-partner", external: true },
+    { label: t("footer.know.deliveryRates"), href: LEGACY.deliveryRates, testId: "footer-link-delivery", external: true },
+    { label: t("footer.know.investor"), href: LEGACY.investor, testId: "footer-link-investor", external: true },
+    { label: t("footer.know.weddings"), href: LEGACY.weddings, testId: "footer-link-weddings", external: true },
+    { label: t("footer.know.corporate"), href: LEGACY.corporate, testId: "footer-link-corporate", external: true },
+    { label: t("footer.know.careers"), href: "/careers", testId: "footer-link-careers" },
+    { label: t("footer.know.blogs"), href: "/blog", testId: "footer-link-blogs" },
   ];
 
   return (
@@ -250,9 +247,15 @@ export function Footer() {
             <ul className="space-y-2">
               {knowUs.map((item) => (
                 <li key={item.testId}>
-                  <ExtLink href={item.href} testId={item.testId}>
-                    {item.label}
-                  </ExtLink>
+                  {item.external ? (
+                    <ExtLink href={item.href} testId={item.testId}>
+                      {item.label}
+                    </ExtLink>
+                  ) : (
+                    <InLink href={item.href} testId={item.testId}>
+                      {item.label}
+                    </InLink>
+                  )}
                 </li>
               ))}
             </ul>

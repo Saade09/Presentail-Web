@@ -98,6 +98,9 @@ const TITLES = {
     orderConfirmed: "Order Confirmed | Presentail",
     auth: "Sign In | Presentail",
     account: "My Account | Presentail",
+    about: "About Presentail | Luxury Flowers & Gifts",
+    careers: "Careers at Presentail",
+    blog: "The Atelier Journal | Presentail",
   },
   ar: {
     landing: "Presentail | توصيل الأزهار والهدايا الفاخرة في الخليج",
@@ -111,6 +114,9 @@ const TITLES = {
     orderConfirmed: "تم تأكيد الطلب | Presentail",
     auth: "تسجيل الدخول | Presentail",
     account: "حسابي | Presentail",
+    about: "عن بريزانتيل | الأزهار والهدايا الفاخرة",
+    careers: "الوظائف في بريزانتيل",
+    blog: "يوميّات الأتيليه | Presentail",
   },
   fr: {
     landing: "Presentail | Livraison de fleurs et cadeaux de luxe dans le Golfe",
@@ -124,6 +130,9 @@ const TITLES = {
     orderConfirmed: "Commande confirmée | Presentail",
     auth: "Connexion | Presentail",
     account: "Mon compte | Presentail",
+    about: "À propos de Presentail | Fleurs et cadeaux de luxe",
+    careers: "Carrières chez Presentail",
+    blog: "Le Journal de l'Atelier | Presentail",
   },
 };
 
@@ -143,6 +152,9 @@ const DESCRIPTIONS = {
     orderConfirmed: "Thank you — your Presentail order has been confirmed.",
     auth: "Sign in or create a Presentail account to manage orders and addresses.",
     account: "Manage your Presentail profile, orders and saved addresses.",
+    about: "Presentail is a luxury flower and gift atelier delivering across Lebanon, the UAE and Cyprus. Meet the team and the craft behind every send.",
+    careers: "Join Presentail — we're hiring florists, designers, and engineers to build the most thoughtful gifting experience in the region.",
+    blog: "Notes from the Presentail studio: seasonal sourcing, partner makers, and gifting guides for life's most meaningful moments.",
   },
   ar: {
     landing:
@@ -158,6 +170,9 @@ const DESCRIPTIONS = {
     orderConfirmed: "شكراً لك — تم تأكيد طلب Presentail الخاص بك.",
     auth: "سجّل الدخول أو أنشئ حساب Presentail لإدارة الطلبات والعناوين.",
     account: "أدر بيانات حساب Presentail والطلبات والعناوين المحفوظة.",
+    about: "بريزانتيل أتيليه فاخر للأزهار والهدايا، يوصّل في لبنان والإمارات وقبرص. تعرّف على الفريق والحرفة وراء كل هدية.",
+    careers: "انضم إلى بريزانتيل — نوظّف منسّقي أزهار ومصمّمين ومهندسين لبناء أكثر تجارب الإهداء عناية في المنطقة.",
+    blog: "ملاحظات من استوديو بريزانتيل: مصادر موسمية، صنّاع شركاء، وأدلّة إهداء لأهمّ لحظات الحياة.",
   },
   fr: {
     landing:
@@ -174,6 +189,9 @@ const DESCRIPTIONS = {
     orderConfirmed: "Merci — votre commande Presentail a été confirmée.",
     auth: "Connectez-vous ou créez un compte Presentail pour gérer vos commandes et adresses.",
     account: "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
+    about: "Presentail est un atelier de fleurs et cadeaux de luxe livrant au Liban, aux Émirats arabes unis et à Chypre. Découvrez l'équipe et le savoir-faire derrière chaque envoi.",
+    careers: "Rejoignez Presentail — nous recrutons fleuristes, designers et ingénieurs pour bâtir la plus belle expérience cadeau de la région.",
+    blog: "Notes du studio Presentail : sourcing de saison, artisans partenaires et guides cadeaux pour les moments qui comptent.",
   },
 };
 
@@ -190,6 +208,9 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/order-confirmed", key: "orderConfirmed" },
   { test: (r) => r === "/auth", key: "auth" },
   { test: (r) => r === "/account", key: "account" },
+  { test: (r) => r === "/about", key: "about" },
+  { test: (r) => r === "/careers", key: "careers" },
+  { test: (r) => r === "/blog", key: "blog" },
 ];
 
 function detectRouteKey(rest) {
