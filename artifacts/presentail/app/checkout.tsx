@@ -58,7 +58,7 @@ import {
   isPayMethodSupported,
   nextPayMethodForCurrency,
   type PayMethodId,
-} from "@/lib/payMethods";
+} from "@workspace/pay-methods";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import { trackEvent } from "@/lib/analytics";
@@ -70,7 +70,7 @@ export {
   defaultPayMethodFor,
   nextPayMethodForCurrency,
   payMethodAvailability,
-} from "@/lib/payMethods";
+} from "@workspace/pay-methods";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const APP_SCHEME = "presentail";

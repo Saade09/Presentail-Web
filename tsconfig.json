@@ -26,6 +26,9 @@
     },
     {
       "path": "./lib/suggested-messages"
+    },
+    {
+      "path": "./lib/pay-methods"
     }
   ]
 }

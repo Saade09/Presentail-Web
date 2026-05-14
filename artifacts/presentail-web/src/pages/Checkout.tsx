@@ -34,8 +34,26 @@ import {
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
+import {
+  isPayMethodSupported,
+  nextPayMethodForCurrency,
+  type PayMethodId,
+} from "@workspace/pay-methods";
 
-type PaymentMethodId = "card" | "paypal" | "whish" | "mamo" | "wallet";
+// The web checkout supports a subset of the shared payment-method catalog
+// (no Western Union). All availability decisions still go through the
+// shared `isPayMethodSupported` helper, mirroring the mobile checkout.
+type PaymentMethodId = Extract<
+  PayMethodId,
+  "card" | "paypal" | "whish" | "mamo" | "wallet"
+>;
+const WEB_PAY_METHODS: PaymentMethodId[] = [
+  "card",
+  "paypal",
+  "mamo",
+  "wallet",
+  "whish",
+];
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -61,7 +79,7 @@ export default function Checkout() {
   const { toast } = useToast();
   const { t, dir } = useLocale();
   const { countryCode, country } = useLocationSelection();
-  const { formatPrice } = useDisplayCurrency();
+  const { formatPrice, currencyCode } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
@@ -474,66 +492,51 @@ export default function Checkout() {
     }
   };
 
-  // Mamo only settles in AED. For the Lebanon storefront we hide it
-  // whenever the active display currency is not AED (in practice always,
-  // since LB displays in USD), but the rule is written in full so that if
-  // a customer ever switches the LB display currency to AED, Mamo would
-  // reappear — matching the mobile behaviour. UAE/Cyprus keep showing it.
-  const mamoHidden = countryCode === "LB" && activeCurrency !== "AED";
-  // Whish Money is a Lebanon-only local transfer flow — only show it when
-  // the active country is Lebanon, so a UAE/Cyprus shopper browsing in USD
-  // doesn't see a payment option that doesn't apply to their region.
-  // PayPal is hidden in UAE because Mamo is the natural local option there;
-  // even a UAE shopper browsing in USD shouldn't see it.
-  const paypalHidden = countryCode === "AE";
-  // Stripe doesn't settle in AED, so the Stripe-backed "card" tile is
-  // hidden whenever the active currency is AED. UAE shoppers instead get
-  // the Mamo-backed "Pay by card" tile (rename below) plus the wallet
-  // tile that routes Apple Pay / Google Pay through Mamo's hosted page.
-  const stripeCardHidden = activeCurrency === "AED";
-  const walletViaMamoVisible = activeCurrency === "AED" && !mamoHidden;
-  // When the Mamo tile is the AED card option, rename it to "Pay by card"
-  // so UAE shoppers see a clean, branded label rather than "Mamo (UAE
-  // Wallets)" — mirrors the mobile checkout copy.
+  // Availability is decided by the shared `isPayMethodSupported` helper
+  // (same source of truth as the mobile checkout). Methods that aren't
+  // selectable for the active currency + country are hidden entirely so
+  // shoppers only see real choices — this mirrors mobile and replaces the
+  // previous bespoke per-method `*Hidden` flags / disabled-row UI.
+  //
+  // Mamo carries a context-sensitive label: when the active currency is
+  // AED the Mamo tile *is* the card option (Stripe doesn't settle in AED),
+  // so rename it to "Pay by card" — mirrors the mobile checkout copy.
   const mamoLabelKey =
-    activeCurrency === "AED" ? "checkout.pay.payByCard" : "checkout.pay.mamo";
-  const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
-    ...(stripeCardHidden ? [] : [{ id: "card" as const, labelKey: "checkout.pay.card" }]),
-    ...(paypalHidden ? [] : [{ id: "paypal" as const, labelKey: "checkout.pay.paypal" }]),
-    ...(mamoHidden ? [] : [{ id: "mamo" as const, labelKey: mamoLabelKey }]),
-    ...(walletViaMamoVisible
-      ? [{ id: "wallet" as const, labelKey: "checkout.pay.wallet" }]
-      : []),
-    ...(countryCode === "LB"
-      ? [{ id: "whish" as const, labelKey: "checkout.pay.whish" }]
-      : []),
-  ];
+    currencyCode === "AED" ? "checkout.pay.payByCard" : "checkout.pay.mamo";
+  const PAY_METHOD_LABELS: Record<PaymentMethodId, string> = {
+    card: "checkout.pay.card",
+    paypal: "checkout.pay.paypal",
+    mamo: mamoLabelKey,
+    wallet: "checkout.pay.wallet",
+    whish: "checkout.pay.whish",
+  };
+  const payCtxCountry = countryCode ?? undefined;
+  const paymentOptions = useMemo(() => {
+    const visible = WEB_PAY_METHODS.filter((id) =>
+      isPayMethodSupported(id, currencyCode, { country: payCtxCountry }),
+    );
+    // Defensive fallback: if the table ever excludes everything (shouldn't
+    // happen with the current rules), force-show card so the shopper isn't
+    // stuck on an empty list and unable to pay.
+    const ids = visible.length > 0 ? visible : (["card"] as PaymentMethodId[]);
+    return ids.map((id) => ({ id, labelKey: PAY_METHOD_LABELS[id] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyCode, countryCode]);
 
-  // If the currently selected payment method becomes unavailable (Whish on
-  // a non-LB country, Mamo when hidden, PayPal in UAE, the Stripe card
-  // tile in AED, or the wallet tile outside AED), fall back to a default
-  // that's actually visible so the pay button stays valid.
+  // If the currently selected payment method is no longer available for
+  // the active currency / country, re-select a sensible default through
+  // the same shared helper the mobile checkout uses.
   useEffect(() => {
-    const fallback: PaymentMethodId = stripeCardHidden ? "mamo" : "card";
-    if (paymentMethod === "whish" && countryCode !== "LB") {
-      setPaymentMethodState(fallback);
-    } else if (paymentMethod === "mamo" && mamoHidden) {
-      setPaymentMethodState(fallback);
-    } else if (paymentMethod === "paypal" && paypalHidden) {
-      setPaymentMethodState(fallback);
-    } else if (paymentMethod === "card" && stripeCardHidden) {
-      setPaymentMethodState(fallback);
-    } else if (paymentMethod === "wallet" && !walletViaMamoVisible) {
-      setPaymentMethodState(fallback);
-    }
-  }, [
-    countryCode,
-    paymentMethod,
-    mamoHidden,
-    paypalHidden,
-    stripeCardHidden,
-    walletViaMamoVisible,
-  ]);
+    const next = nextPayMethodForCurrency(paymentMethod, currencyCode, {
+      country: payCtxCountry,
+    }) as PayMethodId;
+    const fallback: PaymentMethodId = (
+      WEB_PAY_METHODS as readonly PayMethodId[]
+    ).includes(next)
+      ? (next as PaymentMethodId)
+      : "card";
+    if (fallback !== paymentMethod) setPaymentMethodState(fallback);
+  }, [currencyCode, countryCode, paymentMethod]);
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">

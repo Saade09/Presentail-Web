@@ -5,7 +5,7 @@ import {
   isPayMethodSupported,
   nextPayMethodForCurrency,
   payMethodAvailability,
-} from "./payMethods";
+} from "@workspace/pay-methods";
 
 describe("isPayMethodSupported", () => {
   it("AED supports Mamo (card flow) and wallet (Apple/Google Pay via Mamo); other methods disabled", () => {

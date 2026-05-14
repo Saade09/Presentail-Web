@@ -477,6 +477,9 @@ importers:
       '@workspace/homepage-icons':
         specifier: workspace:*
         version: link:../../lib/homepage-icons
+      '@workspace/pay-methods':
+        specifier: workspace:*
+        version: link:../../lib/pay-methods
       '@workspace/suggested-messages':
         specifier: workspace:*
         version: link:../../lib/suggested-messages
@@ -724,6 +727,9 @@ importers:
       '@workspace/homepage-icons':
         specifier: workspace:*
         version: link:../../lib/homepage-icons
+      '@workspace/pay-methods':
+        specifier: workspace:*
+        version: link:../../lib/pay-methods
       '@workspace/suggested-messages':
         specifier: workspace:*
         version: link:../../lib/suggested-messages
@@ -853,6 +859,8 @@ importers:
   lib/display-currency: {}
 
   lib/homepage-icons: {}
+
+  lib/pay-methods: {}
 
   lib/suggested-messages: {}
 
