@@ -35,7 +35,6 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
@@ -577,7 +576,13 @@ function CheckoutScreen() {
 
     const { deeplinkBase, successUrl, cancelUrl } = buildReturnUrls(orderId);
 
-    if (payMethod === "card" || payMethod === "wallet") {
+    // AED + wallet (Apple Pay / Google Pay) is served by Mamo's hosted
+    // checkout, which exposes the wallet buttons on its own page. Route it
+    // through the same Mamo flow as the "Pay by card" tile so we don't need
+    // a separate native wallet integration just for UAE.
+    const walletViaMamo = payMethod === "wallet" && currencyCode === "AED";
+
+    if ((payMethod === "card" || payMethod === "wallet") && !walletViaMamo) {
       const session = await createStripeCheckoutSession({
         items: detailed
           .filter(({ product }) => product.wcId != null)
@@ -623,7 +628,7 @@ function CheckoutScreen() {
       return;
     }
 
-    if (payMethod === "mamo") {
+    if (payMethod === "mamo" || walletViaMamo) {
       const session = await createMamoPayment({
         items: detailed
           .filter(({ product }) => product.wcId != null)
@@ -1931,9 +1936,8 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
             onPress={() => tap("mamo")}
             disabled={!supports("mamo")}
             disabledReason={reason("mamo")}
-            title="Mamo — UAE Wallets & Cards"
-            badge="AED"
-            badgeColor="#007C5B"
+            title={t.checkoutPayByCard}
+            payIcons="card"
           >
             {payMethod === "mamo" ? <SecurityNote colors={colors} /> : null}
           </PayOption>
@@ -2000,10 +2004,17 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           payIcons="wallet"
         >
           {payMethod === "wallet" ? (
-            <View style={{ gap: 12 }}>
-              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+            currencyCode === "AED" ? (
+              // AED wallet routes through Mamo's hosted page (no Stripe
+              // receipt-email step here — Mamo collects the email itself
+              // and we already have the sender email from the delivery step).
               <SecurityNote colors={colors} />
-            </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                <SecurityNote colors={colors} />
+              </View>
+            )
           ) : null}
         </PayOption>
 

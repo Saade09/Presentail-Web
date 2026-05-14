@@ -8,10 +8,14 @@ import {
 } from "./payMethods";
 
 describe("isPayMethodSupported", () => {
-  it("AED only routes through Mamo", () => {
+  it("AED supports Mamo (card flow) and wallet (Apple/Google Pay via Mamo); other methods disabled", () => {
+    // Wallet is allowed on AED because Mamo's hosted checkout exposes
+    // Apple Pay / Google Pay. The mobile checkout routes AED+wallet
+    // through Mamo's hosted link, not Stripe.
     expect(isPayMethodSupported("mamo", "AED")).toBe(true);
+    expect(isPayMethodSupported("wallet", "AED")).toBe(true);
+    expect(isPayMethodSupported("wallet", "AED", { country: "AE" })).toBe(true);
     expect(isPayMethodSupported("card", "AED")).toBe(false);
-    expect(isPayMethodSupported("wallet", "AED")).toBe(false);
     expect(isPayMethodSupported("paypal", "AED")).toBe(false);
     expect(isPayMethodSupported("whish", "AED")).toBe(false);
     expect(isPayMethodSupported("western", "AED")).toBe(false);
@@ -42,6 +46,7 @@ describe("isPayMethodSupported", () => {
     const ctx = { country: "AE" };
     expect(isPayMethodSupported("paypal", "AED", ctx)).toBe(false);
     expect(isPayMethodSupported("mamo", "AED", ctx)).toBe(true);
+    expect(isPayMethodSupported("wallet", "AED", ctx)).toBe(true);
   });
 
   it("USD + CY also disables Whish & Western (LB-only)", () => {
@@ -112,6 +117,13 @@ describe("nextPayMethodForCurrency — currency/country switch transition", () =
     expect(nextPayMethodForCurrency("whish", "AED")).toBe("mamo");
   });
 
+  it("preserves wallet on AED (routes through Mamo) instead of dropping back to mamo", () => {
+    // Wallet is now compatible with AED, so a shopper who already picked
+    // wallet should stay on it when the currency flips to AED.
+    expect(nextPayMethodForCurrency("wallet", "AED")).toBe("wallet");
+    expect(nextPayMethodForCurrency("wallet", "AED", { country: "AE" })).toBe("wallet");
+  });
+
   it("moves PayPal off when the country flips to UAE", () => {
     // Shopper picked PayPal in LB (USD), then switched country to UAE.
     // PayPal is hidden in UAE so we must not leave them on it.
@@ -155,11 +167,11 @@ describe("payMethodAvailability — disabled (not hidden) for incompatible", () 
     );
   });
 
-  it("AED enables only Mamo; everything else is disabled (still rendered)", () => {
+  it("AED enables Mamo and wallet (Apple/Google Pay via Mamo); other methods disabled", () => {
     const av = payMethodAvailability("AED");
     expect(av.mamo.enabled).toBe(true);
+    expect(av.wallet.enabled).toBe(true);
     expect(av.card.enabled).toBe(false);
-    expect(av.wallet.enabled).toBe(false);
     expect(av.paypal.enabled).toBe(false);
     expect(av.whish.enabled).toBe(false);
     expect(av.western.enabled).toBe(false);

@@ -21,7 +21,11 @@ export const PAY_METHOD_CURRENCIES: Record<
   // Stripe processes USD/EUR/GBP/etc. cards directly; card+wallet are the
   // safe default for any non-AED currency.
   card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // Wallet (Apple Pay / Google Pay) is supported by Stripe for the same
+  // currencies as `card`, and additionally by Mamo's hosted checkout for
+  // AED — the mobile checkout submit handler routes AED+wallet through the
+  // existing Mamo flow rather than Stripe.
+  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
   // PayPal: settle in USD only (we always send USD to the API).
   paypal: ["USD"],
   // Mamo is the UAE-only wallet/card processor; only AED.
