@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import {
   createMyAddress,
   getListMyAddressesQueryKey,
@@ -863,6 +863,9 @@ function CheckoutScreen() {
               applySavedAddress={applySavedAddress}
               saveAddress={saveAddress}
               setSaveAddress={setSaveAddress}
+            />
+            <DeliveryTimeCard
+              colors={colors}
               days={days}
               date={date}
               setDate={setDate}
@@ -1144,12 +1147,9 @@ function DeliveryDetailsStep(props: any) {
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
-    days, date, setDate, slot, setSlot, deliveryMode, setDeliveryMode,
-    expressAvailable, timeSlots, expressSurcharge, localHour,
   } = props;
   const { formatNative } = useCurrency();
   const t = useT();
-  const todayIso = days[0]?.iso;
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title={t.recipientDetailsTitle}>
@@ -1499,114 +1499,6 @@ function DeliveryDetailsStep(props: any) {
             {t.keepIdentitySecretLabel}
           </Text>
         </Pressable>
-
-        <View style={{ marginTop: 4 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <MaterialCommunityIcons name="truck-fast" size={16} color={colors.primary} />
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
-              {t.deliveryTimeTitle}
-            </Text>
-          </View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <DeliveryTile
-              colors={colors}
-              icon="zap"
-              title={t.expressDelivery}
-              subtitle={t.oneToThreeHrs}
-              footer={expressAvailable ? `+${formatNative(expressSurcharge)}` : t.opensAt8AM}
-              active={deliveryMode === "express"}
-              disabled={!expressAvailable}
-              onPress={() => setDeliveryMode("express")}
-            />
-            <DeliveryTile
-              colors={colors}
-              icon=""
-              title={t.todayDelivery}
-              subtitle={t.scheduledSlotLabel}
-              active={deliveryMode === "today_slot"}
-              onPress={() => {
-                setDeliveryMode("today_slot");
-                setDate(days[0].iso);
-                const firstAvail = timeSlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
-                setSlot(firstAvail);
-              }}
-            />
-            <DeliveryTile
-              colors={colors}
-              icon="calendar"
-              title={t.chooseAnotherDateLabel}
-              subtitle={t.andTimeSlotLabel}
-              active={deliveryMode === "schedule"}
-              onPress={() => setDeliveryMode("schedule")}
-            />
-          </View>
-          {(deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
-            <View style={{ marginTop: 12, gap: 10 }}>
-              {deliveryMode === "schedule" && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {days.map((d: any) => {
-                    const a = d.iso === date;
-                    return (
-                      <Pressable
-                        key={d.iso}
-                        onPress={() => { setDate(d.iso); setSlot(null); }}
-                        style={{
-                          width: 56,
-                          paddingVertical: 8,
-                          borderRadius: 10,
-                          alignItems: "center",
-                          backgroundColor: a ? colors.primary : "#fff",
-                          borderWidth: 1,
-                          borderColor: a ? colors.primary : colors.border,
-                        }}
-                      >
-                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
-                          {d.label}
-                        </Text>
-                        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
-                          {d.date}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              )}
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {timeSlots.map((s: TimeSlot) => {
-                  const isToday = date === todayIso;
-                  const past = isToday && localHour >= s.cutoffHour;
-                  const active = slot?.label === s.label;
-                  return (
-                    <Pressable
-                      key={s.label}
-                      onPress={() => { if (!past) setSlot(s); }}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 9,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: active ? colors.primary : past ? colors.border : colors.border,
-                        backgroundColor: active ? colors.primary : past ? "#f5f5f5" : "#fff",
-                        opacity: past ? 0.55 : 1,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: "Inter_500Medium",
-                          fontSize: 12,
-                          color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
-                          textDecorationLine: past ? "line-through" : "none",
-                        }}
-                      >
-                        {s.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
-        </View>
       </Card>
     </View>
   );
@@ -1642,6 +1534,118 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
         </Text>
       ) : null}
     </Pressable>
+  );
+}
+
+function DeliveryTimeCard({
+  colors, days, date, setDate, slot, setSlot,
+  deliveryMode, setDeliveryMode, expressAvailable, timeSlots, expressSurcharge, localHour,
+}: any) {
+  const { formatNative } = useCurrency();
+  const t = useT();
+  const todayIso = days[0]?.iso;
+  return (
+    <Card colors={colors} title={t.deliveryTimeTitle}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <DeliveryTile
+          colors={colors}
+          icon="zap"
+          title={t.expressDelivery}
+          subtitle={t.oneToThreeHrs}
+          footer={expressAvailable ? `+${formatNative(expressSurcharge)}` : t.opensAt8AM}
+          active={deliveryMode === "express"}
+          disabled={!expressAvailable}
+          onPress={() => setDeliveryMode("express")}
+        />
+        <DeliveryTile
+          colors={colors}
+          icon=""
+          title={t.todayDelivery}
+          subtitle={t.scheduledSlotLabel}
+          active={deliveryMode === "today_slot"}
+          onPress={() => {
+            setDeliveryMode("today_slot");
+            setDate(days[0].iso);
+            const firstAvail = timeSlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
+            setSlot(firstAvail);
+          }}
+        />
+        <DeliveryTile
+          colors={colors}
+          icon="calendar"
+          title={t.chooseAnotherDateLabel}
+          subtitle={t.andTimeSlotLabel}
+          active={deliveryMode === "schedule"}
+          onPress={() => setDeliveryMode("schedule")}
+        />
+      </View>
+      {(deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
+        <View style={{ gap: 10 }}>
+          {deliveryMode === "schedule" && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {days.map((d: any) => {
+                const a = d.iso === date;
+                return (
+                  <Pressable
+                    key={d.iso}
+                    onPress={() => { setDate(d.iso); setSlot(null); }}
+                    style={{
+                      width: 56,
+                      paddingVertical: 8,
+                      borderRadius: 10,
+                      alignItems: "center",
+                      backgroundColor: a ? colors.primary : "#fff",
+                      borderWidth: 1,
+                      borderColor: a ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
+                      {d.label}
+                    </Text>
+                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
+                      {d.date}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {timeSlots.map((s: TimeSlot) => {
+              const isToday = date === todayIso;
+              const past = isToday && localHour >= s.cutoffHour;
+              const active = slot?.label === s.label;
+              return (
+                <Pressable
+                  key={s.label}
+                  onPress={() => { if (!past) setSlot(s); }}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: active ? colors.primary : past ? colors.border : colors.border,
+                    backgroundColor: active ? colors.primary : past ? "#f5f5f5" : "#fff",
+                    opacity: past ? 0.55 : 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 12,
+                      color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
+                      textDecorationLine: past ? "line-through" : "none",
+                    }}
+                  >
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+    </Card>
   );
 }
 
