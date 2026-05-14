@@ -38,7 +38,8 @@ export function SuggestedMessagesDialog({
   maxLength,
 }: Props) {
   const { t, language } = useLocale();
-  const initialLang: SuggestedMessageLang = language === "ar" ? "ar" : "en";
+  const initialLang: SuggestedMessageLang =
+    language === "ar" ? "ar" : language === "fr" ? "fr" : "en";
 
   const [activeLang, setActiveLang] = useState<SuggestedMessageLang>(initialLang);
   const [activeCategory, setActiveCategory] =
@@ -79,7 +80,7 @@ export function SuggestedMessagesDialog({
         {/* Language toggle */}
         <div className="px-6 pb-3">
           <div className="flex gap-1 rounded-full bg-muted p-1">
-            {(["en", "ar"] as const).map((l) => {
+            {(["en", "ar", "fr"] as const).map((l) => {
               const active = activeLang === l;
               return (
                 <button

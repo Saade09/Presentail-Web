@@ -35,7 +35,8 @@ export function SuggestedMessagesSheet({
   const t = useT();
   const { lang } = useLanguage();
 
-  const initialLang: SuggestedMessageLang = lang === "AR" ? "ar" : "en";
+  const initialLang: SuggestedMessageLang =
+    lang === "AR" ? "ar" : lang === "FR" ? "fr" : "en";
   const [activeLang, setActiveLang] = useState<SuggestedMessageLang>(initialLang);
   const [activeCategory, setActiveCategory] =
     useState<SuggestedMessageCategoryId>("general");
@@ -134,7 +135,7 @@ export function SuggestedMessagesSheet({
             marginBottom: 14,
           }}
         >
-          {(["en", "ar"] as const).map((l) => {
+          {(["en", "ar", "fr"] as const).map((l) => {
             const active = activeLang === l;
             return (
               <Pressable
@@ -162,7 +163,9 @@ export function SuggestedMessagesSheet({
                 >
                   {l === "en"
                     ? t.suggestedMessagesLangEnglish
-                    : t.suggestedMessagesLangArabic}
+                    : l === "ar"
+                      ? t.suggestedMessagesLangArabic
+                      : t.suggestedMessagesLangFrench}
                 </Text>
               </Pressable>
             );

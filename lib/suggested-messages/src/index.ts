@@ -6,18 +6,20 @@
  *
  * Categories are language-neutral ids; per-language UI labels for the tab
  * strip live in each artifact's translations file. Message bodies stay
- * verbatim per language (English + Arabic only — the source site does not
- * provide French translations).
+ * verbatim per language. The source site only ships English + Arabic; the
+ * French copy below is brand-approved Presentail copy used by the mobile app
+ * (which exposes French as a UI language).
  *
  * Keep this file dependency-free so it works in both the React Native
  * (Hermes) and the Vite (browser) runtimes.
  */
 
-export type SuggestedMessageLang = "en" | "ar";
+export type SuggestedMessageLang = "en" | "ar" | "fr";
 
 export const SUGGESTED_MESSAGE_LANGS: readonly SuggestedMessageLang[] = [
   "en",
   "ar",
+  "fr",
 ] as const;
 
 export type SuggestedMessageCategoryId =
@@ -72,6 +74,18 @@ const CATALOG: Catalog = {
       "فقط لأنّك تستحق شيئاً جميلاً اليوم.",
       "هدية صغيرة مليئة بالدفء والحب والأفكار السعيدة.",
     ],
+    fr: [
+      "Un petit geste pour te rappeler combien tu comptes pour moi.",
+      "Une petite attention pour illuminer ta journée et te rappeler combien tu es spécial(e).",
+      "Pas d'occasion particulière, juste un petit rappel que tu es toujours dans mes pensées.",
+      "Sans raison, juste un peu d'amour qui vient vers toi.",
+      "Une petite surprise pour égayer ta journée, comme tu égaies les miennes.",
+      "Un cadeau choisi avec soin pour rendre ta journée un peu plus belle.",
+      "Un petit signe d'amour et de reconnaissance.",
+      "Une simple surprise pour te rappeler combien tu es aimé(e).",
+      "Parce que tu mérites quelque chose de beau aujourd'hui.",
+      "Un petit cadeau plein de chaleur, d'amour et de pensées joyeuses.",
+    ],
   },
   love: {
     en: [
@@ -97,6 +111,18 @@ const CATALOG: Catalog = {
       "معك، حتى أبسط اللحظات تبدو ساحرة.",
       "أقع في حبّك أكثر كل يوم.",
       "حتى الأبد ليس كافياً حين أكون معك.",
+    ],
+    fr: [
+      "Chaque jour à tes côtés est un véritable cadeau.",
+      "Tu es mon plus beau bonjour et mon plus difficile au revoir.",
+      "Un simple rappel que je t'aime, aujourd'hui et pour toujours.",
+      "Mon cœur est à toi, et le sera toujours.",
+      "Tu es la plus belle partie de chacune de mes journées.",
+      "T'aimer est la chose la plus simple au monde.",
+      "Merci d'être la personne qui partage ma vie.",
+      "Avec toi, même les instants les plus simples deviennent magiques.",
+      "Je tombe un peu plus amoureux(se) de toi chaque jour.",
+      "L'éternité ne suffira jamais quand je suis avec toi.",
     ],
   },
   birthday: {
@@ -124,6 +150,18 @@ const CATALOG: Catalog = {
       "عيد ميلاد سعيد — احتفل كثيراً، فأنت تستحق ذلك!",
       "أتمنى أن تتحقّق أمنية مع كل شمعة على كعكتك.",
     ],
+    fr: [
+      "Je te souhaite un anniversaire magique, rempli de joie et d'amour.",
+      "Joyeux anniversaire ! Que cette année t'apporte tout ce dont tu as rêvé.",
+      "Une année de plus à tes côtés — le plus beau cadeau qui soit.",
+      "À une nouvelle belle année auprès de la personne merveilleuse que tu es.",
+      "Joyeux anniversaire à quelqu'un qui mérite le monde entier.",
+      "Que ton anniversaire soit aussi spécial que tu l'es pour moi.",
+      "Je te souhaite un bonheur infini en ce jour si particulier.",
+      "À une année remplie de nouvelles aventures et de beaux souvenirs.",
+      "Joyeux anniversaire — fête-le en grand, tu le mérites !",
+      "Que chaque bougie sur ton gâteau exauce un de tes vœux.",
+    ],
   },
   graduation: {
     en: [
@@ -149,6 +187,18 @@ const CATALOG: Catalog = {
       "لقد فعلتها! أتمنى أن يكون هذا أول إنجاز من إنجازات كثيرة.",
       "ألف مبروك على هذا الإنجاز الرائع.",
       "المستقبل مشرق، وأنت كذلك. مبروك!",
+    ],
+    fr: [
+      "Félicitations, jeune diplômé(e) ! Le monde t'appartient.",
+      "Tous tes efforts ont enfin porté leurs fruits — tellement fier(e) de toi !",
+      "Aujourd'hui tu refermes un chapitre et en ouvres un encore plus lumineux.",
+      "Si fier(e) de tout ce que tu as accompli. Le meilleur reste à venir.",
+      "Bravo au/à la diplômé(e) ! De grandes choses t'attendent.",
+      "Ton engagement t'a mené(e) jusqu'ici — et te portera encore plus loin.",
+      "Je te souhaite plein de succès dans cette nouvelle aventure.",
+      "Tu l'as fait ! Que ce ne soit que le premier d'une longue série de succès.",
+      "Félicitations pour cette belle étape franchie.",
+      "L'avenir est radieux, et toi aussi. Félicitations !",
     ],
   },
   getWellSoon: {
@@ -176,6 +226,18 @@ const CATALOG: Catalog = {
       "أرسل لك القوّة والحب وعناقاً كبيراً.",
       "أتمنى لك الراحة والشفاء وأياماً أكثر إشراقاً.",
     ],
+    fr: [
+      "Je t'envoie de bonnes pensées et beaucoup d'amour.",
+      "Je te souhaite un rétablissement rapide et tout en douceur.",
+      "Prends tout le temps qu'il te faut pour te reposer — on pense à toi.",
+      "Prompt rétablissement ! J'ai hâte de revoir ton sourire.",
+      "Tous mes vœux sincères de prompt rétablissement.",
+      "Une petite attention pour illuminer ton repos.",
+      "J'espère que tu te sentiras un peu mieux chaque jour.",
+      "Repose-toi, guéris, et sache que tu es profondément aimé(e).",
+      "Je t'envoie courage, amour et un grand câlin virtuel.",
+      "Je te souhaite réconfort, guérison et des jours meilleurs.",
+    ],
   },
   newBabyBorn: {
     en: [
@@ -201,6 +263,18 @@ const CATALOG: Catalog = {
       "مبروك على الحب الجديد في حياتكم.",
       "أهلاً بك في العالم أيها الصغير. أنت محبوب من الآن.",
       "أتمنى لكم ليالي بلا نوم مليئة بأجمل العناقات.",
+    ],
+    fr: [
+      "Félicitations pour cette belle arrivée !",
+      "Bienvenue à votre petit(e) trésor dans ce monde, avec tout notre amour.",
+      "Je souhaite à votre famille qui s'agrandit beaucoup de joie et de tendres câlins.",
+      "Tellement heureux(se) pour vous — profitez de chaque petit moment précieux.",
+      "Un petit miracle est arrivé. Félicitations !",
+      "Tout mon amour à votre belle nouvelle famille.",
+      "Que vos cœurs et votre maison se remplissent des rires de bébé.",
+      "Félicitations pour ce nouvel amour de votre vie.",
+      "Bienvenue au monde, petit(e) être. Tu es déjà tellement aimé(e).",
+      "Je vous souhaite des nuits sans sommeil remplies des plus doux câlins.",
     ],
   },
   thankYou: {
@@ -228,6 +302,18 @@ const CATALOG: Catalog = {
       "شكراً لأنّك دائماً بجانبي حين يهمّ الأمر.",
       "بأعمق الامتنان — شكراً على كل شيء.",
     ],
+    fr: [
+      "Merci, du fond du cœur.",
+      "Les mots ne suffisent pas à exprimer ma gratitude.",
+      "Un petit merci pour tout ce que tu fais.",
+      "Ta gentillesse compte énormément pour moi.",
+      "Merci d'être toi — j'apprécie tellement ta présence.",
+      "Je suis tellement reconnaissant(e) de t'avoir dans ma vie.",
+      "Une petite attention pour te dire merci.",
+      "Ton soutien a compté plus que tu ne l'imagines.",
+      "Merci d'être toujours là quand ça compte vraiment.",
+      "Avec toute ma gratitude — merci pour tout.",
+    ],
   },
   sympathy: {
     en: [
@@ -253,6 +339,18 @@ const CATALOG: Catalog = {
       "نأسف لخسارتك. اعلم أنّنا هنا من أجلك.",
       "أتمنى أن تجد لحظات سلام وسط الحزن.",
       "نحملك وأحبّاءك في أفكارنا وصلواتنا.",
+    ],
+    fr: [
+      "Avec mes plus sincères condoléances.",
+      "Je pense à toi et à ta famille en ces moments difficiles.",
+      "Je t'envoie amour, force et réconfort.",
+      "Les mots manquent, seul l'amour reste. Je suis avec toi.",
+      "Que les beaux souvenirs t'apportent du réconfort dans les jours à venir.",
+      "Avec des pensées tendres et un amour discret.",
+      "Je te souhaite paix, réconfort et la force de traverser cette épreuve.",
+      "Nous sommes profondément désolés pour ta perte. Sache que nous sommes là pour toi.",
+      "Puisses-tu trouver des moments de paix au milieu du chagrin.",
+      "Toi et tes proches êtes dans nos pensées et nos prières.",
     ],
   },
 };
