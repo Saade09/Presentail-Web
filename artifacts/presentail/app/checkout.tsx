@@ -1152,7 +1152,7 @@ function CardPreviewModal({
   const len = trimmed.length;
   const messageFont = len === 0 ? 18 : len > 280 ? 13 : len > 180 ? 15 : len > 100 ? 17 : 19;
   const writingDirection = isRtl ? "rtl" : "ltr";
-  const stationeryInk = "#F5E9D7";
+  const stationeryInk = "#00414e";
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -1169,48 +1169,51 @@ function CardPreviewModal({
             style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
             contentFit="cover"
           />
-          <View style={{ flex: 1, padding: 26, justifyContent: "space-between" }}>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 18,
-                color: stationeryInk,
-                textAlign: "center",
-                writingDirection,
-                opacity: cardTo ? 1 : 0.55,
-              }}
-              numberOfLines={2}
-            >
-              {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
-            </Text>
-            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 12 }}>
+          <View style={{ flex: 1, padding: 26 }}>
+            <View style={{ flex: 0.42 }} />
+            <View style={{ flex: 0.58 }}>
               <Text
                 style={{
-                  fontFamily: "PlayfairDisplay_400Regular",
-                  fontSize: messageFont,
+                  fontFamily: "PlayfairDisplay_500Medium",
+                  fontSize: 18,
                   color: stationeryInk,
                   textAlign: "center",
-                  lineHeight: messageFont * 1.5,
                   writingDirection,
-                  opacity: trimmed.length > 0 ? 1 : 0.55,
+                  opacity: cardTo ? 1 : 0.55,
                 }}
+                numberOfLines={2}
               >
-                {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
+                {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
+              </Text>
+              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
+                <Text
+                  style={{
+                    fontFamily: "PlayfairDisplay_400Regular",
+                    fontSize: messageFont,
+                    color: stationeryInk,
+                    textAlign: "center",
+                    lineHeight: messageFont * 1.5,
+                    writingDirection,
+                    opacity: trimmed.length > 0 ? 1 : 0.55,
+                  }}
+                >
+                  {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: "PlayfairDisplay_500Medium",
+                  fontSize: 18,
+                  color: stationeryInk,
+                  textAlign: "center",
+                  writingDirection,
+                  opacity: cardFrom ? 1 : 0.55,
+                }}
+                numberOfLines={2}
+              >
+                {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
               </Text>
             </View>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_500Medium",
-                fontSize: 18,
-                color: stationeryInk,
-                textAlign: "center",
-                writingDirection,
-                opacity: cardFrom ? 1 : 0.55,
-              }}
-              numberOfLines={2}
-            >
-              {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
-            </Text>
           </View>
         </Pressable>
         <Pressable
