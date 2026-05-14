@@ -23,6 +23,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { trackEvent } from "@/lib/analytics";
 import {
   dayLabels,
@@ -67,6 +68,7 @@ export default function Checkout() {
   const { data: locations } = useDeliveryLocations();
 
   const [step, setStep] = useState(1);
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
 
   const [recipient, setRecipient] = useState({
     firstName: "",
@@ -562,8 +564,22 @@ export default function Checkout() {
 
                   <div className="space-y-2 mb-3">
                     <label className="text-sm font-medium">{t("checkout.cardMessage")}</label>
-                    <Input value={recipient.cardMessage} onChange={(e) => setRecipient({ ...recipient, cardMessage: e.target.value })} placeholder={t("checkout.cardMessagePh")} data-testid="input-card-message" />
+                    <Input value={recipient.cardMessage} onChange={(e) => setRecipient({ ...recipient, cardMessage: e.target.value })} placeholder={t("checkout.cardMessagePh")} maxLength={400} data-testid="input-card-message" />
+                    <button
+                      type="button"
+                      onClick={() => setSuggestedOpen(true)}
+                      className="text-xs text-primary underline underline-offset-2 hover:opacity-80"
+                      data-testid="button-open-suggested-messages"
+                    >
+                      {t("checkout.notSureWhatToSay")}
+                    </button>
                   </div>
+                  <SuggestedMessagesDialog
+                    open={suggestedOpen}
+                    onOpenChange={setSuggestedOpen}
+                    onSelect={(msg) => setRecipient({ ...recipient, cardMessage: msg })}
+                    maxLength={400}
+                  />
 
                   <button
                     type="button"

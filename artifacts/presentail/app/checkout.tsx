@@ -28,6 +28,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CardIcons, WalletIcons } from "@/components/PaymentBadges";
+import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -1171,12 +1172,7 @@ function CardPreviewModal({
 function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
   const t = useT();
   const [previewOpen, setPreviewOpen] = useState(false);
-  const presets = [
-    t.checkoutSuggestedMessages,
-    t.checkoutPresetMagicalBirthday,
-    t.checkoutPresetThinkingOfYou,
-    t.checkoutPresetWithLove,
-  ];
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
   return (
     <Card colors={colors} title={t.cardMessageTitle}>
       <Field colors={colors} label={t.toLabel} value={cardTo} onChangeText={setCardTo} placeholder="" />
@@ -1219,25 +1215,28 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         colors={colors}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {presets.map((p, i) => (
-          <Pressable
-            key={p}
-            onPress={() => (i === 0 ? null : setCardMessage(p))}
+        <Pressable
+          onPress={() => setSuggestedOpen(true)}
+          style={{ paddingHorizontal: 10, paddingVertical: 6 }}
+        >
+          <Text
             style={{
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: i === 0 ? "transparent" : colors.border,
-              backgroundColor: i === 0 ? "transparent" : "#fff",
+              fontFamily: "Inter_400Regular",
+              fontSize: 11,
+              color: colors.gold,
+              textDecorationLine: "underline",
             }}
           >
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: i === 0 ? colors.gold : colors.primary, textDecorationLine: i === 0 ? "underline" : "none" }}>
-              {i === 0 ? t.notSureWhatToSay : p}
-            </Text>
-          </Pressable>
-        ))}
+            {t.notSureWhatToSay}
+          </Text>
+        </Pressable>
       </View>
+      <SuggestedMessagesSheet
+        visible={suggestedOpen}
+        onClose={() => setSuggestedOpen(false)}
+        onSelect={setCardMessage}
+        maxLength={400}
+      />
 
       <Field colors={colors} label={t.fromLabel} value={cardFrom} onChangeText={setCardFrom} placeholder="" />
 

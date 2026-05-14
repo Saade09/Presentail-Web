@@ -23,6 +23,9 @@
     },
     {
       "path": "./lib/delivery"
+    },
+    {
+      "path": "./lib/suggested-messages"
     }
   ]
 }

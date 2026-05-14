@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
   Modal,
+  PanResponder,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -54,6 +55,45 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
     outputRange: [0, 1],
   });
 
+  // Swipe-down-to-dismiss: capture vertical drags on the sheet's grab
+  // handle area, drive the same `slideAnim` so the sheet follows the
+  // finger, and either snap back open or close fully on release based on
+  // distance + velocity. Only attaches to downward gestures so children
+  // remain scrollable.
+  const dragStart = useRef(0);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_evt, gesture) =>
+          Math.abs(gesture.dy) > 6 && gesture.dy > Math.abs(gesture.dx),
+        onPanResponderGrant: () => {
+          slideAnim.stopAnimation((v) => {
+            dragStart.current = v;
+          });
+        },
+        onPanResponderMove: (_evt, gesture) => {
+          if (gesture.dy <= 0) return;
+          const next = Math.max(0, dragStart.current - gesture.dy / 400);
+          slideAnim.setValue(next);
+        },
+        onPanResponderRelease: (_evt, gesture) => {
+          const shouldClose = gesture.dy > 80 || gesture.vy > 0.7;
+          if (shouldClose) {
+            onClose();
+          } else {
+            Animated.timing(slideAnim, {
+              toValue: 1,
+              duration: 160,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }).start();
+          }
+        },
+      }),
+    [onClose, slideAnim],
+  );
+
   return (
     <Modal
       visible={mounted}
@@ -90,7 +130,10 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
             elevation: 20,
           }}
         >
-          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 6 }}>
+          <View
+            {...panResponder.panHandlers}
+            style={{ alignItems: "center", paddingTop: 10, paddingBottom: 6 }}
+          >
             <View
               style={{
                 width: 40,
