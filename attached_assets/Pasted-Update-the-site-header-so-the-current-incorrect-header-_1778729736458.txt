@@ -1,0 +1,63 @@
+Update the site header so the current/incorrect header matches the attached correct reference image exactly.
+
+Use `Currect.png` as the source of truth and `Incorrect.png` as the current incorrect version.
+
+Scope:
+- Locate the existing header/navbar component and related CSS/Tailwind styles.
+- Update only the header layout, spacing, typography, and visible header content.
+- Do not change routing, product logic, cart logic, authentication logic, or dropdown behavior unless required to preserve the existing interactions.
+
+Required header changes:
+
+1. Top utility bar
+- Replace the current top bar text `Need help? We deliver across the GCC.` with the correct version: a clock icon followed by `Fast Checkout`.
+- The top bar should be light gray/off-white, clean, and minimal.
+- Position `Fast Checkout` toward the left side within the centered page width, matching the reference.
+- On the right side, show:
+  - A rounded gray country selector pill with the Lebanon flag, text `Lebanon`, and a down chevron.
+  - A rounded gray language button labeled `عربية`.
+- Remove the incorrect top-bar items:
+  - `Beirut`
+  - `EN`
+  - the vertical divider
+  - the “Need help” text
+- Remove the dark top border/line that appears in the incorrect header.
+
+2. Main navigation row
+- Match the correct header layout:
+  - Left navigation: `Occasions`, `Flowers & Plants`, `Gifts`
+  - Each left nav item should have a small downward chevron.
+  - Remove `Brands` from the main nav.
+  - Center the `Presentail` logo horizontally on the page.
+  - Make the logo size match the correct reference; it should be larger and more prominent than in the incorrect header.
+  - Right navigation/icons: `About Us`, search icon, account/user icon, shopping bag icon.
+- Keep spacing, alignment, and vertical centering consistent with the correct screenshot.
+- The header should have a clean white background and subtle bottom divider/shadow only if present in the correct reference.
+
+3. Visual matching
+- Match the correct screenshot’s:
+  - Header heights
+  - Horizontal spacing
+  - Font sizes and weights
+  - Icon sizes and stroke widths
+  - Logo size and vertical placement
+  - Rounded pill styling for the country and language buttons
+  - Colors, especially the Presentail teal logo color and the light gray top bar
+
+4. Responsiveness
+- Preserve the existing responsive/mobile behavior.
+- Make sure desktop matches the attached correct screenshot at wide viewport sizes.
+- On smaller screens, keep the header usable and do not break menus, search, account, or cart.
+
+5. Implementation requirements
+- Do not use the screenshot as a background image.
+- Implement the layout properly using HTML/React components and CSS/Tailwind.
+- Reuse existing icons/components where possible.
+- Keep existing links and dropdown handlers wired up.
+- Remove or hide only the incorrect visual/header elements listed above.
+
+Acceptance criteria:
+- At desktop width, the header visually matches `Currect.png`.
+- The old incorrect elements from `Incorrect.png` are gone: `Need help? We deliver across the GCC.`, `Beirut`, `EN`, `Brands`, and the dark top border.
+- The correct elements are visible: `Fast Checkout`, Lebanon pill, `عربية` pill, left nav with three items, centered large Presentail logo, About Us, search, account, and bag icons.
+- No unrelated page layout or functionality is changed.
