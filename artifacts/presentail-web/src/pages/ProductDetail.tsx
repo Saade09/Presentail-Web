@@ -7,25 +7,22 @@ import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useProducts } from "@/lib/queries";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
-import { DeliveryOptions, type DeliveryChoice } from "@/components/product/DeliveryOptions";
+import {
+  DeliveryOptions,
+  type DeliveryChoice,
+} from "@/components/product/DeliveryOptions";
 import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { ProductTabs } from "@/components/product/ProductTabs";
+import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { dayLabels, formatDeliveryRow } from "@workspace/delivery";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -34,30 +31,76 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const { addItem } = useCart();
   const delivery = useDeliveryConfig();
-  const {
-    currencyCode,
-    setCurrencyCode,
-    formatPrice: formatDisplayPrice,
-    supportedCurrencies,
-    isManual,
-    isManualPersistent,
-    setManualPersistent,
-    clearManualCurrency,
-  } = useDisplayCurrency();
+  const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
+  const deliverySelection = useDeliverySelection();
 
   const { countryCode, cityId } = useLocationSelection();
-  const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
+  const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
+    lang: language,
+  };
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
   const { data: allData, isLoading } = useProducts(locParams);
   const product = allData?.products?.find((p) => p.id === slug);
 
-  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>("express");
+  // Local UI choice for the radio. We default to "express" when no shared
+  // delivery selection exists so the page matches the previous behaviour;
+  // a persisted "today_slot"/"schedule" reflects back as the scheduled row.
+  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() =>
+    deliverySelection.mode && deliverySelection.mode !== "express"
+      ? "scheduled"
+      : "express",
+  );
   const [qty, setQty] = useState(1);
   const vm = useMemo(
     () => (product ? buildProductViewModel(product) : null),
     [product],
   );
+
+  const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
+  const scheduledRowSubtitle = useMemo(() => {
+    const formatted =
+      deliverySelection.mode && deliverySelection.mode !== "express"
+        ? formatDeliveryRow({
+            mode: deliverySelection.mode,
+            date: deliverySelection.date,
+            slotLabel: deliverySelection.slotLabel,
+            days,
+            expressLabel: delivery.expressDeliveryTimeLabel,
+          })
+        : null;
+    return formatted ?? "Pick a window that works for you";
+  }, [
+    deliverySelection.mode,
+    deliverySelection.date,
+    deliverySelection.slotLabel,
+    days,
+    delivery.expressDeliveryTimeLabel,
+  ]);
+
+  const handleSelectExpress = () => {
+    setDeliveryChoice("express");
+    deliverySelection.setSelection({
+      mode: "express",
+      date: new Date().toISOString().slice(0, 10),
+      slotLabel: null,
+    });
+  };
+
+  const handleSelectScheduled = () => {
+    setDeliveryChoice("scheduled");
+    // The inline picker below the row handles the actual date/slot
+    // selection; if the shopper has no persisted scheduled choice yet,
+    // seed today + first available slot so the row's subtitle and the
+    // checkout summary line up immediately.
+    if (!deliverySelection.mode || deliverySelection.mode === "express") {
+      deliverySelection.setSelection({
+        mode: "today_slot",
+        date: new Date().toISOString().slice(0, 10),
+        slotLabel: deliverySelection.slotLabel ?? null,
+      });
+    }
+  };
 
   const handleAdd = () => {
     if (!product) return;
@@ -73,20 +116,17 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     if (typeof window === "undefined" || !product || !slug) return;
-    // Mirror the mobile URL shape (`${origin}/product/<slug>`) so links
-    // shared from web and mobile look identical and have no tracking params.
     const url = `${window.location.origin}/product/${encodeURIComponent(String(slug))}`;
-    const nav = typeof navigator !== "undefined"
-      ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> })
-      : null;
+    const nav =
+      typeof navigator !== "undefined"
+        ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> })
+        : null;
     if (nav?.share) {
       try {
         await nav.share({ title: product.name, url });
         return;
       } catch (err) {
-        // AbortError = user cancelled — silently no-op, don't fall back.
         if (err instanceof DOMException && err.name === "AbortError") return;
-        // Other errors (NotAllowedError on insecure contexts, etc.) → fall through to clipboard.
       }
     }
     try {
@@ -99,7 +139,7 @@ export default function ProductDetail() {
         return;
       }
     } catch {
-      // fall through to unavailable toast
+      // fall through
     }
     toast({
       title: t("product.share.unavailable.title"),
@@ -110,7 +150,7 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 pt-12 pb-24">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-12 pb-24">
         <Skeleton className="h-4 w-64 mb-8" />
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           <Skeleton className="aspect-square rounded-3xl" />
@@ -127,7 +167,7 @@ export default function ProductDetail() {
 
   if (!product || !vm) {
     return (
-      <div className="container mx-auto px-4 pt-32 pb-24 text-center">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-32 pb-24 text-center">
         <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>
         <Button asChild variant="outline">
           <Link href="/shop">{t("product.returnShop")}</Link>
@@ -137,16 +177,28 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 pt-8 pb-20">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
-          <ProductGallery
-            images={vm.galleryImages}
-            productName={product.name}
-            onShare={handleShare}
-          />
+    <div className="bg-background min-h-screen relative z-0">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-6 sm:pt-8 pb-16 sm:pb-20">
+        <div className="grid lg:grid-cols-2 lg:items-start gap-6 sm:gap-8 lg:gap-16">
+          <div className="flex flex-col gap-6 sm:gap-8">
+            <ProductGallery
+              images={vm.galleryImages}
+              productName={product.name}
+              onShare={handleShare}
+            />
+            {/* Description / Care Tips sit directly under the image with
+                no large grid-row gap. On mobile the tabs render below
+                the right-column info block via the order-* override. */}
+            <div className="order-2 lg:order-none">
+              <ProductTabs
+                description={vm.description}
+                bouquetIncludes={vm.bouquetIncludes}
+                careTips={vm.careTips}
+              />
+            </div>
+          </div>
 
-          <div className="flex flex-col gap-7">
+          <div className="flex flex-col gap-6 sm:gap-7">
             <ProductInfo
               name={product.name}
               price={formatDisplayPrice(product.priceValue)}
@@ -156,20 +208,33 @@ export default function ProductDetail() {
 
             <DeliveryOptions
               value={deliveryChoice}
-              onChange={setDeliveryChoice}
+              onSelectExpress={handleSelectExpress}
+              onSelectScheduled={handleSelectScheduled}
               expressLabel={delivery.expressDeliveryTimeLabel}
+              scheduledSubtitle={scheduledRowSubtitle}
             />
+
+            {deliveryChoice === "scheduled" && (
+              <ScheduleInlinePanel
+                countryCode={countryCode}
+                initialDate={deliverySelection.date}
+                initialSlotLabel={deliverySelection.slotLabel}
+                onChange={({ mode, date, slotLabel }) => {
+                  deliverySelection.setSelection({ mode, date, slotLabel });
+                }}
+              />
+            )}
 
             <div className="flex flex-col sm:flex-row items-stretch gap-3">
               <div
-                className="flex items-center border border-border rounded-xl overflow-hidden bg-card shrink-0"
+                className="flex items-center justify-between sm:justify-start border border-border rounded-xl overflow-hidden bg-card shrink-0 h-14"
                 data-testid="product-quantity"
               >
                 <button
                   type="button"
                   onClick={() => setQty(Math.max(1, qty - 1))}
                   disabled={qty <= 1}
-                  className="px-3 h-14 text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                  className="px-4 sm:px-3 h-full text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
                   aria-label={t("cart.decreaseAria")}
                   data-testid="button-quantity-decrease"
                 >
@@ -184,7 +249,7 @@ export default function ProductDetail() {
                 <button
                   type="button"
                   onClick={() => setQty(qty + 1)}
-                  className="px-3 h-14 text-foreground hover:bg-secondary transition-colors"
+                  className="px-4 sm:px-3 h-full text-foreground hover:bg-secondary transition-colors"
                   aria-label={t("cart.increaseAria")}
                   data-testid="button-quantity-increase"
                 >
@@ -206,82 +271,15 @@ export default function ProductDetail() {
 
             <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
 
-            <PaymentMethods label={t("payments.waysToPay")} countryCode={countryCode} />
-          </div>
-        </div>
-
-        <ProductTabs
-          description={vm.description}
-          bouquetIncludes={vm.bouquetIncludes}
-          careTips={vm.careTips}
-        />
-
-        <div
-          className="mt-16 border-t border-border pt-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6"
-          data-testid="product-currency-switcher"
-        >
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Preview price in
-            </p>
-            <p className="text-sm text-foreground mt-1">
-              Choose a currency to see how this product is priced for you.
-            </p>
-          </div>
-          <div className="w-full sm:w-72 flex flex-col gap-3">
-            <Select
-              value={currencyCode}
-              onValueChange={(v) => setCurrencyCode(v)}
-            >
-              <SelectTrigger
-                className="h-12 rounded-xl"
-                data-testid="select-display-currency"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {supportedCurrencies.map((c) => (
-                  <SelectItem
-                    key={c.code}
-                    value={c.code}
-                    data-testid={`option-currency-${c.code}`}
-                  >
-                    {c.code} — {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="remember-currency"
-                  checked={isManualPersistent}
-                  disabled={!isManual}
-                  onCheckedChange={(checked) => setManualPersistent(!!checked)}
-                  data-testid="switch-remember-currency"
-                />
-                <Label
-                  htmlFor="remember-currency"
-                  className="text-xs text-muted-foreground cursor-pointer"
-                >
-                  Remember this choice
-                </Label>
-              </div>
-              {isManual && (
-                <button
-                  type="button"
-                  onClick={clearManualCurrency}
-                  className="text-xs uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-                  data-testid="button-reset-currency"
-                >
-                  Reset to auto
-                </button>
-              )}
-            </div>
+            <PaymentMethods
+              label={t("payments.waysToPay")}
+              countryCode={countryCode}
+            />
           </div>
         </div>
 
       </div>
+
     </div>
   );
 }

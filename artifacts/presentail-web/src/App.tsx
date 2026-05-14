@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
 import { LocaleProvider, useLocale } from "@/contexts/LocaleContext";
 import {
   LocationProvider,
@@ -328,10 +329,12 @@ function App() {
               <LocationProvider>
                 <AuthProvider>
                   <CartProvider>
-                    <DocumentMeta />
-                    <SeoHead />
-                    <RootRouter />
-                    <Toaster />
+                    <DeliverySelectionProvider>
+                      <DocumentMeta />
+                      <SeoHead />
+                      <RootRouter />
+                      <Toaster />
+                    </DeliverySelectionProvider>
                   </CartProvider>
                 </AuthProvider>
               </LocationProvider>

@@ -21,7 +21,7 @@ export function ProductGallery({ images, productName, onShare }: Props) {
   };
 
   return (
-    <div className="flex flex-col-reverse md:flex-row gap-4">
+    <div className="flex flex-col-reverse md:flex-row md:items-start gap-4 self-start w-full">
       {list.length > 1 && (
         <div
           className="flex md:flex-col gap-3 overflow-x-auto md:overflow-visible md:w-20 shrink-0"

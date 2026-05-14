@@ -28,9 +28,9 @@ export function ProductBenefits({ freeDeliveryThreshold }: Props) {
       {items.map((b) => (
         <div
           key={b.title}
-          className="flex items-center gap-4 rounded-2xl bg-secondary/60 px-4 py-3"
+          className="flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
         >
-          <span className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-primary shrink-0">
+          <span className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-primary shrink-0">
             {b.icon}
           </span>
           <div className="min-w-0">

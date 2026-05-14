@@ -56,5 +56,7 @@ externalPort = 5000
 PAYPAL_CLIENT_ID = "BAAm4Bv7_LMv19VEMB1We2VTaZuWx8dg2fL94_ECHXOijrN-cab-PcZmRiRU0rU3BcH4tXXrZdfirP2mhA"
 VITE_CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucHJlc2VudGFpbC5jb20k"
 
+[userenv.production]
+
 [nix]
 channel = "stable-25_05"

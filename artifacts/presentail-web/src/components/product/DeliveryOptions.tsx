@@ -5,11 +5,19 @@ export type DeliveryChoice = "express" | "scheduled";
 
 type Props = {
   value: DeliveryChoice;
-  onChange: (next: DeliveryChoice) => void;
+  onSelectExpress: () => void;
+  onSelectScheduled: () => void;
   expressLabel: string;
+  scheduledSubtitle?: string;
 };
 
-export function DeliveryOptions({ value, onChange, expressLabel }: Props) {
+export function DeliveryOptions({
+  value,
+  onSelectExpress,
+  onSelectScheduled,
+  expressLabel,
+  scheduledSubtitle,
+}: Props) {
   return (
     <div className="space-y-3" data-testid="delivery-options">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -18,7 +26,7 @@ export function DeliveryOptions({ value, onChange, expressLabel }: Props) {
 
       <DeliveryRow
         active={value === "express"}
-        onClick={() => onChange("express")}
+        onClick={onSelectExpress}
         icon={<Zap className="w-4 h-4" />}
         title="Express Delivery"
         subtitle={expressLabel}
@@ -34,10 +42,10 @@ export function DeliveryOptions({ value, onChange, expressLabel }: Props) {
 
       <DeliveryRow
         active={value === "scheduled"}
-        onClick={() => onChange("scheduled")}
+        onClick={onSelectScheduled}
         icon={<Calendar className="w-4 h-4" />}
         title="Select date and time of delivery"
-        subtitle="Pick a window that works for you"
+        subtitle={scheduledSubtitle ?? "Pick a window that works for you"}
         testId="delivery-option-scheduled"
       />
     </div>
@@ -81,7 +89,9 @@ function DeliveryRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-semibold text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground mt-0.5">{subtitle}</span>
+        <span className="block text-xs text-muted-foreground mt-0.5 truncate">
+          {subtitle}
+        </span>
       </span>
       {showInfo && (
         <Info className="w-4 h-4 text-muted-foreground shrink-0" />

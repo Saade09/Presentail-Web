@@ -23,6 +23,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
@@ -90,13 +91,22 @@ export default function Checkout() {
   const [step, setStep] = useState(1);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
 
+  // Seed `recipient.deliveryDate` from the shared delivery-selection
+  // store so a window the shopper picked from the product page lands
+  // in the checkout date input on first render. The same store is the
+  // single source of truth — `useDeliverySelection()` is called below
+  // for the mode/slot seeds.
+  const seededDeliverySelection = useDeliverySelection();
   const [recipient, setRecipient] = useState({
     firstName: "",
     lastName: "",
     phone: "",
     district: "",
     address: "",
-    deliveryDate: "",
+    deliveryDate:
+      seededDeliverySelection.date && seededDeliverySelection.mode !== "express"
+        ? seededDeliverySelection.date
+        : "",
     cardMessage: "",
   });
 
@@ -154,9 +164,24 @@ export default function Checkout() {
     }
   };
 
+  const deliverySelection = seededDeliverySelection;
   const timeSlots = timeSlotsForCountry(countryCode);
-  const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
-  const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">("schedule");
+  // Seed the in-checkout date/slot/mode from the shared delivery-selection
+  // store so a window the shopper picked from the product page survives
+  // into the checkout summary. Falls back to "schedule" + the first slot
+  // when there's no persisted choice (legacy behaviour).
+  const persistedScheduleMode =
+    deliverySelection.mode && deliverySelection.mode !== "express"
+      ? "schedule"
+      : deliverySelection.mode === "express"
+        ? "express"
+        : "schedule";
+  const [deliverySlot, setDeliverySlot] = useState<string>(
+    deliverySelection.slotLabel ?? timeSlots[0]?.label ?? "",
+  );
+  const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
+    persistedScheduleMode,
+  );
   const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("card");
   // Wrap the setter so user-driven payment-method picks emit a funnel
   // event. We deliberately do NOT instrument the auto-fallback effect
@@ -210,6 +235,37 @@ export default function Checkout() {
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
   }, [authLoading, showLoginGate]);
+
+  // Reflect any in-checkout edits to the delivery mode / date / slot back
+  // into the shared delivery-selection store so the next surface (cart,
+  // product page, support tools that read the same key) stays in sync.
+  // The first render is intentionally skipped — otherwise just visiting
+  // checkout would persist a "default" schedule selection that the
+  // shopper never explicitly chose, polluting the product page and cart
+  // for subsequent visits.
+  const didSyncDeliveryRef = useRef(false);
+  useEffect(() => {
+    if (!didSyncDeliveryRef.current) {
+      didSyncDeliveryRef.current = true;
+      return;
+    }
+    const mode: "express" | "today_slot" | "schedule" =
+      deliveryMode === "express"
+        ? "express"
+        : recipient.deliveryDate &&
+            recipient.deliveryDate === new Date().toISOString().slice(0, 10)
+          ? "today_slot"
+          : "schedule";
+    deliverySelection.setSelection({
+      mode,
+      date:
+        deliveryMode === "express"
+          ? new Date().toISOString().slice(0, 10)
+          : recipient.deliveryDate || null,
+      slotLabel: deliveryMode === "express" ? null : deliverySlot || null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryMode, deliverySlot, recipient.deliveryDate]);
 
   const prevCountryRef = useRef(countryCode);
   useEffect(() => {

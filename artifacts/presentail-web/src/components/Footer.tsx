@@ -310,21 +310,18 @@ export function Footer() {
             </InLink>
           </div>
 
-          {/* Payment logos */}
-          <div className="flex items-center flex-wrap gap-2 md:gap-3 md:ms-auto">
+          {/* Payment logos — single white pill, matches product page strip */}
+          <div className="flex h-9 items-center justify-center gap-3 rounded-xl bg-white px-3 md:ms-auto">
             {PAYMENT_LOGOS.map((logo) => (
-              <span
+              <img
                 key={logo.alt}
-                className="inline-flex items-center justify-center bg-white rounded px-1.5 py-1"
-              >
-                <img
-                  src={logo.src}
-                  alt={logo.alt}
-                  className="h-5 md:h-6 w-auto"
-                  loading="lazy"
-                  draggable={false}
-                />
-              </span>
+                src={logo.src}
+                alt={logo.alt}
+                title={logo.alt}
+                className="block h-4 w-auto max-w-[40px] object-contain"
+                loading="lazy"
+                draggable={false}
+              />
             ))}
           </div>
         </div>
