@@ -151,7 +151,7 @@ export function Footer() {
           {/* Brand + social + contact */}
           <div className="md:col-span-3">
             <div className="mb-6">
-              <Logo height={32} inverse />
+              <Logo inverse className="h-20 md:h-24 w-auto max-w-full" />
             </div>
 
             <ColumnHeading>{t("footer.socialMedia")}</ColumnHeading>
