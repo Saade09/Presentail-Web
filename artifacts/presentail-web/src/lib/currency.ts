@@ -53,7 +53,12 @@ export function formatPriceInCurrency(
 ): string {
   const cfg = configFor(currencyCode);
   const v = Number(amount) || 0;
-  const numStr = v.toFixed(cfg.decimals);
+  const rawNumStr = v.toFixed(cfg.decimals);
+  // Display-only: strip a trailing all-zero decimal block (e.g. ".00", ".000")
+  // so whole-currency amounts render as "$175" / "AED 80" / "KWD 1" instead
+  // of "$175.00" / "AED 80.00" / "KWD 1.000". Non-zero fractional digits are
+  // preserved verbatim ($12.50 stays $12.50, KWD 1.234 stays KWD 1.234).
+  const numStr = rawNumStr.replace(/\.0+$/, "");
   const sep = cfg.space ? " " : "";
   return cfg.position === "left"
     ? `${cfg.symbol}${sep}${numStr}`

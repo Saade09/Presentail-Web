@@ -647,7 +647,7 @@ export default function Checkout() {
                   <div className="flex gap-4">
                     <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(2)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
                     <Button size="lg" className="flex-1 h-14 rounded-xl" onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
-                      {isProcessing ? t("checkout.processing") : t("checkout.payAmount", { amount: total.toFixed(2) })}
+                      {isProcessing ? t("checkout.processing") : t("checkout.payAmount", { amount: fmt(total) })}
                     </Button>
                   </div>
                 </div>
