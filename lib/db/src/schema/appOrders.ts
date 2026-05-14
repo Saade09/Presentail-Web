@@ -33,6 +33,11 @@ export const appOrdersTable = pgTable(
     // currency on this codebase; presented currency is a display concern only.
     // Nullable for legacy rows created before the column existed.
     totalUsdCents: integer("total_usd_cents"),
+    // Canonical store key the order was placed against
+    // (lebanon|dubai|abudhabi|cyprus). Required for loyalty crediting because
+    // Dubai and Abu Dhabi share country code AE — using the country alone
+    // would let their wcOrderIds collide. Nullable for legacy rows.
+    storeKey: text("store_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -39,6 +39,8 @@ import type {
   HealthStatus,
   HomepageBannersResponse,
   HomepageCollectionResponse,
+  LoyaltyAdminResponse,
+  LoyaltyMeResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -1695,6 +1697,176 @@ export function useGetDeliveryLocations<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDeliveryLocationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the current points balance, tier, progress to the next tier
+and any active tier coupons for the signed-in customer.
+
+ * @summary Get the signed-in customer's loyalty summary
+ */
+export const getGetLoyaltyMeUrl = () => {
+  return `/api/loyalty/me`;
+};
+
+export const getLoyaltyMe = async (
+  options?: RequestInit,
+): Promise<LoyaltyMeResponse> => {
+  return customFetch<LoyaltyMeResponse>(getGetLoyaltyMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLoyaltyMeQueryKey = () => {
+  return [`/api/loyalty/me`] as const;
+};
+
+export const getGetLoyaltyMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLoyaltyMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLoyaltyMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLoyaltyMeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLoyaltyMe>>> = ({
+    signal,
+  }) => getLoyaltyMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLoyaltyMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLoyaltyMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLoyaltyMe>>
+>;
+export type GetLoyaltyMeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the signed-in customer's loyalty summary
+ */
+
+export function useGetLoyaltyMe<
+  TData = Awaited<ReturnType<typeof getLoyaltyMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLoyaltyMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLoyaltyMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Operator support view. Returns the customer's current summary plus the
+full points ledger and every coupon (active, used, replaced).
+Authenticated via the `x-push-admin-token` header (PUSH_ADMIN_TOKEN).
+
+ * @summary Admin — full loyalty history for a customer
+ */
+export const getGetAdminLoyaltyUrl = (customerId: number) => {
+  return `/api/admin/loyalty/${customerId}`;
+};
+
+export const getAdminLoyalty = async (
+  customerId: number,
+  options?: RequestInit,
+): Promise<LoyaltyAdminResponse> => {
+  return customFetch<LoyaltyAdminResponse>(getGetAdminLoyaltyUrl(customerId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminLoyaltyQueryKey = (customerId: number) => {
+  return [`/api/admin/loyalty/${customerId}`] as const;
+};
+
+export const getGetAdminLoyaltyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminLoyalty>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  customerId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminLoyalty>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminLoyaltyQueryKey(customerId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminLoyalty>>> = ({
+    signal,
+  }) => getAdminLoyalty(customerId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!customerId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminLoyalty>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminLoyaltyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminLoyalty>>
+>;
+export type GetAdminLoyaltyQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — full loyalty history for a customer
+ */
+
+export function useGetAdminLoyalty<
+  TData = Awaited<ReturnType<typeof getAdminLoyalty>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  customerId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminLoyalty>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminLoyaltyQueryOptions(customerId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

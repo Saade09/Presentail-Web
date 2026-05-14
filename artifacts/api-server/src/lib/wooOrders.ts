@@ -422,13 +422,12 @@ export async function recordSuccessfulWcOrder(input: {
   userId: number | null;
   customerId?: number | null;
   recipientName: string;
-  // Authoritative USD total in cents, computed by attemptCreateWcOrder. Stored
-  // on the app_orders row so the admin funnel dashboard can sum revenue per
-  // (day, platform) without re-deriving from line items.
   totalUsdCents?: number | null;
-  // Source platform that placed the order (one of "ios" / "android" / "web").
-  // Already normalized via normalizePlatform — anything else is null.
   platform?: string | null;
+  // Canonical store key (lebanon|dubai|abudhabi|cyprus). Persisted on the
+  // app_orders row so the loyalty engine can later credit the correct
+  // ledger source key (Dubai vs Abu Dhabi share country AE).
+  storeKey?: string | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
   const {
@@ -439,6 +438,7 @@ export async function recordSuccessfulWcOrder(input: {
     recipientName,
     totalUsdCents,
     platform,
+    storeKey,
     log,
   } = input;
   const rawDeviceId =
@@ -468,6 +468,7 @@ export async function recordSuccessfulWcOrder(input: {
         state: "confirmed",
         platform: platform ?? null,
         totalUsdCents: totalUsdCents ?? null,
+        storeKey: storeKey ?? null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -482,6 +483,7 @@ export async function recordSuccessfulWcOrder(input: {
           state: "confirmed",
           platform: platform ?? null,
           totalUsdCents: totalUsdCents ?? null,
+          storeKey: storeKey ?? null,
           updatedAt: new Date(),
         },
       });
@@ -688,6 +690,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       recipientName: result.recipientName,
       totalUsdCents: result.totalUsdCents,
       platform: storedPlatform,
+      storeKey: store.storeKey,
       log: logger,
     });
     logger.info(

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
+import { LoyaltyInfoModal } from "@/components/loyalty/LoyaltyInfoModal";
 
 type Props = {
   name: string;
@@ -8,6 +10,7 @@ type Props = {
 };
 
 export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -37,13 +40,16 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
           </span>
           <span data-testid="product-points">Earn {rewardPoints} Points</span>
         </div>
-        <a
-          href="#"
-          className="block mt-1 text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="block mt-1 text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline ml-auto"
+          data-testid="product-points-info"
         >
           Presentail Points
-        </a>
+        </button>
       </div>
+      <LoyaltyInfoModal open={open} onClose={() => setOpen(false)} />
     </div>
   );
 }

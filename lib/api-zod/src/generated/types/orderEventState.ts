@@ -13,4 +13,6 @@ export const OrderEventState = {
   confirmed: "confirmed",
   out_for_delivery: "out_for_delivery",
   delivered: "delivered",
+  cancelled: "cancelled",
+  refunded: "refunded",
 } as const;

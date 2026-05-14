@@ -9,6 +9,8 @@ import {
 } from "@workspace/api-zod";
 import { authenticate } from "../lib/auth";
 import { sendOrderEventPush } from "../lib/orderEvents";
+import { getCustomerByWcId } from "../lib/customers";
+import { creditDeliveredOrder, reverseDeliveredOrder } from "../lib/loyalty";
 
 const router: IRouter = Router();
 
@@ -227,12 +229,55 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
       customBody: body,
     });
 
+    const previousState = order.state;
     await db
       .update(appOrdersTable)
       .set({ state, updatedAt: new Date() })
       .where(eq(appOrdersTable.id, order.id));
 
-    res.json({ ok: true, sent });
+    // Loyalty side-effects: credit on first delivery, reverse on cancel /
+    // refund. All best-effort and idempotent — never fail the push response
+    // if the loyalty engine has trouble talking to WooCommerce.
+    let loyalty: { pointsAwarded?: number; pointsReversed?: number; coupons?: number } | undefined;
+    try {
+      if (order.userId != null && order.wcOrderId != null) {
+        const customer = await getCustomerByWcId(order.userId);
+        if (customer) {
+          if (state === "delivered" && previousState !== "delivered") {
+            const r = await creditDeliveredOrder({
+              customerId: customer.id,
+              wcOrderId: order.wcOrderId,
+              totalUsdCents: order.totalUsdCents ?? 0,
+              storeKey: order.storeKey ?? null,
+              log: req.log,
+            });
+            loyalty = {
+              pointsAwarded: r.pointsAwarded,
+              coupons: r.newCoupons.length,
+            };
+          } else if (
+            (state === "cancelled" || state === "refunded") &&
+            previousState === "delivered"
+          ) {
+            const r = await reverseDeliveredOrder({
+              customerId: customer.id,
+              wcOrderId: order.wcOrderId,
+              storeKey: order.storeKey ?? null,
+              reason: state,
+              log: req.log,
+            });
+            loyalty = { pointsReversed: r.pointsReversed };
+          }
+        }
+      }
+    } catch (err: any) {
+      req.log?.warn?.(
+        { err: err?.message, appOrderId: order.appOrderId },
+        "push.order-event: loyalty hook failed (non-fatal)",
+      );
+    }
+
+    res.json({ ok: true, sent, ...(loyalty ? { loyalty } : {}) });
   } catch (err: any) {
     req.log?.error?.({ err: err?.message }, "push.order-event failed");
     res

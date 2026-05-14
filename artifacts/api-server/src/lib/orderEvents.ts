@@ -3,7 +3,12 @@ import { eq, inArray, or } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendExpoPush, type ExpoPushMessage } from "./expoPush";
 
-export type OrderState = "confirmed" | "out_for_delivery" | "delivered";
+export type OrderState =
+  | "confirmed"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
 
 const COPY: Record<
   OrderState,
@@ -27,6 +32,16 @@ const COPY: Record<
       recipient
         ? `Your gift for ${recipient} (${id}) has been delivered. Thank you for choosing Presentail.`
         : `Your order ${id} has been delivered. Thank you for choosing Presentail.`,
+  },
+  cancelled: {
+    title: "Order cancelled",
+    body: (id) =>
+      `Your order ${id} has been cancelled. Any loyalty points credited for it have been reversed.`,
+  },
+  refunded: {
+    title: "Order refunded",
+    body: (id) =>
+      `Your order ${id} has been refunded. Any loyalty points credited for it have been reversed.`,
   },
 };
 

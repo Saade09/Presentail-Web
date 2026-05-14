@@ -4,3 +4,5 @@ export * from "./customerAddresses";
 export * from "./appOrders";
 export * from "./pendingWooOrders";
 export * from "./analyticsEvents";
+export * from "./loyaltyLedger";
+export * from "./loyaltyCoupons";

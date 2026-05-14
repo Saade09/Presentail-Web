@@ -84,7 +84,13 @@ PUSH_ADMIN_TOKEN.
  * @summary Trigger an order-event push notification (admin)
  */
 export const SendOrderEventPushBody = zod.object({
-  state: zod.enum(["confirmed", "out_for_delivery", "delivered"]),
+  state: zod.enum([
+    "confirmed",
+    "out_for_delivery",
+    "delivered",
+    "cancelled",
+    "refunded",
+  ]),
   appOrderId: zod
     .string()
     .optional()
@@ -705,6 +711,153 @@ export const GetDeliveryLocationsResponse = zod.object({
           isActive: zod.boolean(),
         }),
       ),
+    }),
+  ),
+});
+
+/**
+ * Returns the current points balance, tier, progress to the next tier
+and any active tier coupons for the signed-in customer.
+
+ * @summary Get the signed-in customer's loyalty summary
+ */
+export const GetLoyaltyMeResponse = zod.object({
+  ok: zod.boolean(),
+  loyalty: zod.object({
+    points: zod.number().describe("Current points balance for the customer."),
+    tier: zod.object({
+      key: zod.enum(["new", "regular", "loyal", "vip"]),
+      label: zod.string(),
+      threshold: zod.number().describe("Points required to enter this tier."),
+      discountPercent: zod
+        .number()
+        .describe(
+          "Percent off granted by this tier's coupon (0 for the entry tier).",
+        ),
+    }),
+    nextTier: zod
+      .union([
+        zod.object({
+          key: zod.enum(["new", "regular", "loyal", "vip"]),
+          label: zod.string(),
+          threshold: zod
+            .number()
+            .describe("Points required to enter this tier."),
+          discountPercent: zod
+            .number()
+            .describe(
+              "Percent off granted by this tier's coupon (0 for the entry tier).",
+            ),
+        }),
+        zod.null(),
+      ])
+      .optional(),
+    pointsToNext: zod
+      .number()
+      .nullable()
+      .describe(
+        "Points still needed to reach `nextTier`. Null when already at the top tier.",
+      ),
+    coupons: zod.array(
+      zod.object({
+        id: zod.number(),
+        tier: zod.enum(["new", "regular", "loyal", "vip"]),
+        tierLabel: zod.string(),
+        discountPercent: zod.number(),
+        code: zod.string(),
+        status: zod.enum(["active", "used", "replaced", "failed"]),
+        storeKey: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * Operator support view. Returns the customer's current summary plus the
+full points ledger and every coupon (active, used, replaced).
+Authenticated via the `x-push-admin-token` header (PUSH_ADMIN_TOKEN).
+
+ * @summary Admin — full loyalty history for a customer
+ */
+export const GetAdminLoyaltyParams = zod.object({
+  customerId: zod.coerce.number(),
+});
+
+export const GetAdminLoyaltyResponse = zod.object({
+  ok: zod.boolean(),
+  customerId: zod.number(),
+  summary: zod.object({
+    points: zod.number().describe("Current points balance for the customer."),
+    tier: zod.object({
+      key: zod.enum(["new", "regular", "loyal", "vip"]),
+      label: zod.string(),
+      threshold: zod.number().describe("Points required to enter this tier."),
+      discountPercent: zod
+        .number()
+        .describe(
+          "Percent off granted by this tier's coupon (0 for the entry tier).",
+        ),
+    }),
+    nextTier: zod
+      .union([
+        zod.object({
+          key: zod.enum(["new", "regular", "loyal", "vip"]),
+          label: zod.string(),
+          threshold: zod
+            .number()
+            .describe("Points required to enter this tier."),
+          discountPercent: zod
+            .number()
+            .describe(
+              "Percent off granted by this tier's coupon (0 for the entry tier).",
+            ),
+        }),
+        zod.null(),
+      ])
+      .optional(),
+    pointsToNext: zod
+      .number()
+      .nullable()
+      .describe(
+        "Points still needed to reach `nextTier`. Null when already at the top tier.",
+      ),
+    coupons: zod.array(
+      zod.object({
+        id: zod.number(),
+        tier: zod.enum(["new", "regular", "loyal", "vip"]),
+        tierLabel: zod.string(),
+        discountPercent: zod.number(),
+        code: zod.string(),
+        status: zod.enum(["active", "used", "replaced", "failed"]),
+        storeKey: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+  ledger: zod.array(
+    zod.object({
+      id: zod.number(),
+      points: zod.number(),
+      reason: zod.string(),
+      source: zod.string(),
+      wcOrderId: zod.number().nullish(),
+      storeKey: zod.string().nullish(),
+      note: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  coupons: zod.array(
+    zod.object({
+      id: zod.number(),
+      tier: zod.string(),
+      discountPercent: zod.number(),
+      code: zod.string(),
+      wcCouponId: zod.number().nullish(),
+      storeKey: zod.string().nullish(),
+      status: zod.string(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
     }),
   ),
 });

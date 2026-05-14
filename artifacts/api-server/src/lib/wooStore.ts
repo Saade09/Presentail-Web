@@ -1,5 +1,11 @@
 export type StoreCountry = "LB" | "AE" | "CY";
 
+// Canonical store identifier. UAE has two physically separate stores
+// (Dubai + Abu Dhabi) that both share country code `AE`, so this key — not
+// the country — is used wherever loyalty / ledger data needs to uniquely
+// identify the store.
+export type StoreKey = "lebanon" | "dubai" | "abudhabi" | "cyprus";
+
 export type WooStoreConfig = {
   baseUrl: string;
   wpBaseUrl: string;
@@ -10,6 +16,7 @@ export type WooStoreConfig = {
   // ISO country code of the regional WooCommerce instance this config points
   // at. Used for structured logging of the resolved store routing context.
   country: StoreCountry;
+  storeKey: StoreKey;
 };
 
 const STORE_LEBANON: () => WooStoreConfig = () => ({
@@ -20,6 +27,7 @@ const STORE_LEBANON: () => WooStoreConfig = () => ({
   currencySymbol: "$",
   currencyCode: "USD",
   country: "LB",
+  storeKey: "lebanon",
 });
 
 const STORE_DUBAI: () => WooStoreConfig = () => ({
@@ -30,6 +38,7 @@ const STORE_DUBAI: () => WooStoreConfig = () => ({
   currencySymbol: "AED",
   currencyCode: "AED",
   country: "AE",
+  storeKey: "dubai",
 });
 
 const STORE_ABUDHABI: () => WooStoreConfig = () => ({
@@ -40,6 +49,7 @@ const STORE_ABUDHABI: () => WooStoreConfig = () => ({
   currencySymbol: "AED",
   currencyCode: "AED",
   country: "AE",
+  storeKey: "abudhabi",
 });
 
 const STORE_CYPRUS: () => WooStoreConfig = () => ({
@@ -50,7 +60,29 @@ const STORE_CYPRUS: () => WooStoreConfig = () => ({
   currencySymbol: "€",
   currencyCode: "EUR",
   country: "CY",
+  storeKey: "cyprus",
 });
+
+const STORE_KEY_FACTORIES: Record<StoreKey, () => WooStoreConfig> = {
+  lebanon: STORE_LEBANON,
+  dubai: STORE_DUBAI,
+  abudhabi: STORE_ABUDHABI,
+  cyprus: STORE_CYPRUS,
+};
+
+export function resolveStoreByKey(key: StoreKey | string | null | undefined): WooStoreConfig {
+  if (key && Object.prototype.hasOwnProperty.call(STORE_KEY_FACTORIES, key)) {
+    return STORE_KEY_FACTORIES[key as StoreKey]();
+  }
+  return STORE_LEBANON();
+}
+
+export const ALL_STORE_KEYS: readonly StoreKey[] = [
+  "lebanon",
+  "dubai",
+  "abudhabi",
+  "cyprus",
+];
 
 const CITY_TO_STORE: Record<string, () => WooStoreConfig> = {
   "ae-dubai": STORE_DUBAI,

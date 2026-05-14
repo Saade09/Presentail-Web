@@ -28,6 +28,8 @@ tags:
     description: Account profile operations for the signed-in customer
   - name: meAddresses
     description: Saved delivery addresses owned by the signed-in customer
+  - name: loyalty
+    description: Loyalty points and tier coupons for the signed-in customer
 paths:
   /healthz:
     get:
@@ -554,6 +556,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeliveryLocationsResponse"
+  /loyalty/me:
+    get:
+      operationId: getLoyaltyMe
+      tags: [loyalty]
+      summary: Get the signed-in customer's loyalty summary
+      description: |
+        Returns the current points balance, tier, progress to the next tier
+        and any active tier coupons for the signed-in customer.
+      responses:
+        "200":
+          description: Loyalty summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoyaltyMeResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/loyalty/{customerId}:
+    get:
+      operationId: getAdminLoyalty
+      tags: [loyalty]
+      summary: Admin — full loyalty history for a customer
+      description: |
+        Operator support view. Returns the customer's current summary plus the
+        full points ledger and every coupon (active, used, replaced).
+        Authenticated via the `x-push-admin-token` header (PUSH_ADMIN_TOKEN).
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Loyalty history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoyaltyAdminResponse"
+        "401":
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/me:
     get:
       operationId: getAuthMe
@@ -800,7 +857,178 @@ components:
         - ok
     OrderEventState:
       type: string
-      enum: [confirmed, out_for_delivery, delivered]
+      enum: [confirmed, out_for_delivery, delivered, cancelled, refunded]
+    LoyaltyTierKey:
+      type: string
+      enum: [new, regular, loyal, vip]
+    LoyaltyTier:
+      type: object
+      properties:
+        key:
+          $ref: "#/components/schemas/LoyaltyTierKey"
+        label:
+          type: string
+        threshold:
+          type: integer
+          description: Points required to enter this tier.
+        discountPercent:
+          type: integer
+          description: Percent off granted by this tier's coupon (0 for the entry tier).
+      required:
+        - key
+        - label
+        - threshold
+        - discountPercent
+    LoyaltyCoupon:
+      type: object
+      properties:
+        id:
+          type: integer
+        tier:
+          $ref: "#/components/schemas/LoyaltyTierKey"
+        tierLabel:
+          type: string
+        discountPercent:
+          type: integer
+        code:
+          type: string
+        status:
+          type: string
+          enum: [active, used, replaced, failed]
+        storeKey:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - tier
+        - tierLabel
+        - discountPercent
+        - code
+        - status
+        - createdAt
+    LoyaltySummary:
+      type: object
+      properties:
+        points:
+          type: integer
+          description: Current points balance for the customer.
+        tier:
+          $ref: "#/components/schemas/LoyaltyTier"
+        nextTier:
+          oneOf:
+            - $ref: "#/components/schemas/LoyaltyTier"
+            - type: "null"
+        pointsToNext:
+          type: integer
+          nullable: true
+          description: Points still needed to reach `nextTier`. Null when already at the top tier.
+        coupons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoyaltyCoupon"
+      required:
+        - points
+        - tier
+        - pointsToNext
+        - coupons
+    LoyaltyMeResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        loyalty:
+          $ref: "#/components/schemas/LoyaltySummary"
+      required:
+        - ok
+        - loyalty
+    LoyaltyLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        points:
+          type: integer
+        reason:
+          type: string
+        source:
+          type: string
+        wcOrderId:
+          type: integer
+          nullable: true
+        storeKey:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - points
+        - reason
+        - source
+        - createdAt
+    LoyaltyAdminCoupon:
+      type: object
+      properties:
+        id:
+          type: integer
+        tier:
+          type: string
+        discountPercent:
+          type: integer
+        code:
+          type: string
+        wcCouponId:
+          type: integer
+          nullable: true
+        storeKey:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - tier
+        - discountPercent
+        - code
+        - status
+        - createdAt
+        - updatedAt
+    LoyaltyAdminResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        customerId:
+          type: integer
+        summary:
+          $ref: "#/components/schemas/LoyaltySummary"
+        ledger:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoyaltyLedgerEntry"
+        coupons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoyaltyAdminCoupon"
+      required:
+        - ok
+        - customerId
+        - summary
+        - ledger
+        - coupons
     PushOrderEventRequest:
       type: object
       properties:

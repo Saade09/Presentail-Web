@@ -220,7 +220,95 @@ export const OrderEventState = {
   confirmed: "confirmed",
   out_for_delivery: "out_for_delivery",
   delivered: "delivered",
+  cancelled: "cancelled",
+  refunded: "refunded",
 } as const;
+
+export type LoyaltyTierKey =
+  (typeof LoyaltyTierKey)[keyof typeof LoyaltyTierKey];
+
+export const LoyaltyTierKey = {
+  new: "new",
+  regular: "regular",
+  loyal: "loyal",
+  vip: "vip",
+} as const;
+
+export interface LoyaltyTier {
+  key: LoyaltyTierKey;
+  label: string;
+  /** Points required to enter this tier. */
+  threshold: number;
+  /** Percent off granted by this tier's coupon (0 for the entry tier). */
+  discountPercent: number;
+}
+
+export type LoyaltyCouponStatus =
+  (typeof LoyaltyCouponStatus)[keyof typeof LoyaltyCouponStatus];
+
+export const LoyaltyCouponStatus = {
+  active: "active",
+  used: "used",
+  replaced: "replaced",
+  failed: "failed",
+} as const;
+
+export interface LoyaltyCoupon {
+  id: number;
+  tier: LoyaltyTierKey;
+  tierLabel: string;
+  discountPercent: number;
+  code: string;
+  status: LoyaltyCouponStatus;
+  storeKey?: string | null;
+  createdAt: string;
+}
+
+export interface LoyaltySummary {
+  /** Current points balance for the customer. */
+  points: number;
+  tier: LoyaltyTier;
+  nextTier?: LoyaltyTier | null;
+  /** Points still needed to reach `nextTier`. Null when already at the top tier. */
+  pointsToNext: number | null;
+  coupons: LoyaltyCoupon[];
+}
+
+export interface LoyaltyMeResponse {
+  ok: boolean;
+  loyalty: LoyaltySummary;
+}
+
+export interface LoyaltyLedgerEntry {
+  id: number;
+  points: number;
+  reason: string;
+  source: string;
+  wcOrderId?: number | null;
+  storeKey?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface LoyaltyAdminCoupon {
+  id: number;
+  tier: string;
+  discountPercent: number;
+  code: string;
+  wcCouponId?: number | null;
+  storeKey?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoyaltyAdminResponse {
+  ok: boolean;
+  customerId: number;
+  summary: LoyaltySummary;
+  ledger: LoyaltyLedgerEntry[];
+  coupons: LoyaltyAdminCoupon[];
+}
 
 export interface PushOrderEventRequest {
   state: OrderEventState;

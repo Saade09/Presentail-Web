@@ -1,11 +1,12 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { User, Package, MapPin, LogOut } from "lucide-react";
+import { User, Package, MapPin, LogOut, Sparkles } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useMyOrders, type MyOrder } from "@/lib/queries";
+import { LoyaltyPanel } from "@/components/loyalty/LoyaltyPanel";
 
-type Tab = "profile" | "orders";
+type Tab = "profile" | "orders" | "loyalty";
 
 export default function Account() {
   const { user, token, logout, isLoading } = useAuth();
@@ -63,6 +64,19 @@ export default function Account() {
               <Package className="w-5 h-5 text-primary" />
               <span className="font-medium">{t("account.orders")}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setTab("loyalty")}
+              className={`w-full text-left p-4 rounded-xl border flex items-center gap-3 transition-colors ${
+                tab === "loyalty"
+                  ? "bg-secondary/50 border-primary/10"
+                  : "border-transparent hover:bg-secondary/30"
+              }`}
+              data-testid="account-tab-loyalty"
+            >
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span className="font-medium">{t("account.loyalty")}</span>
+            </button>
             <div
               className="p-4 rounded-xl flex items-center gap-3 opacity-60"
               aria-disabled="true"
@@ -86,6 +100,8 @@ export default function Account() {
           <div className="md:col-span-2">
             {tab === "profile" ? (
               <ProfilePanel user={user} t={t} />
+            ) : tab === "loyalty" ? (
+              <LoyaltyPanel t={t} />
             ) : (
               <OrdersPanel signedIn={!!token} t={t} />
             )}
