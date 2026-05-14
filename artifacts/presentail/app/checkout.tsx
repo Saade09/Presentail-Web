@@ -1155,16 +1155,19 @@ function CardPreviewModal({
   const messageFont = len === 0 ? 18 : len > 280 ? 13 : len > 180 ? 15 : len > 100 ? 17 : 19;
   const writingDirection = isRtl ? "rtl" : "ltr";
   const stationeryInk = "#00414e";
-  const cardRef = useRef<View>(null);
+  const exportRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
   const canShare = trimmed.length > 0;
 
   const handleShare = async () => {
-    if (!cardRef.current || sharing || !canShare) return;
+    if (!exportRef.current || sharing || !canShare) return;
     setSharing(true);
     try {
       const targetW = 1080;
-      const uri = await captureRef(cardRef, {
+      // Capture the off-screen export view (always mounted with the
+      // watermark) so the live on-screen preview never flashes the
+      // watermark.
+      const uri = await captureRef(exportRef, {
         format: "png",
         quality: 1,
         result: "tmpfile",
@@ -1188,6 +1191,86 @@ function CardPreviewModal({
     }
   };
 
+  const renderCardBody = (includeWatermark: boolean) => (
+    <>
+      <Image
+        source={CARD_STATIONERY}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
+        contentFit="cover"
+      />
+      <View style={{ flex: 1, padding: 26 }}>
+        <View style={{ flex: 0.42 }} />
+        <View style={{ flex: 0.58 }}>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 18,
+              color: stationeryInk,
+              textAlign: "center",
+              writingDirection,
+              opacity: cardTo ? 1 : 0.55,
+            }}
+            numberOfLines={2}
+          >
+            {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
+          </Text>
+          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_400Regular",
+                fontSize: messageFont,
+                color: stationeryInk,
+                textAlign: "center",
+                lineHeight: messageFont * 1.5,
+                writingDirection,
+                opacity: trimmed.length > 0 ? 1 : 0.55,
+              }}
+            >
+              {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
+            </Text>
+          </View>
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 18,
+              color: stationeryInk,
+              textAlign: "center",
+              writingDirection,
+              opacity: cardFrom ? 1 : 0.55,
+            }}
+            numberOfLines={2}
+          >
+            {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
+          </Text>
+        </View>
+      </View>
+      {includeWatermark ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 10,
+            // Bottom-end corner: right in LTR, left in RTL.
+            ...(isRtl ? { left: 14 } : { right: 14 }),
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 11,
+              color: colors.gold,
+              opacity: 0.6,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          >
+            presentail.com
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Pressable
@@ -1196,62 +1279,30 @@ function CardPreviewModal({
       >
         <Pressable
           onPress={(e) => e.stopPropagation()}
-          ref={cardRef}
-          collapsable={false}
           style={{ width: cardW, height: cardH, borderRadius: 14, overflow: "hidden", backgroundColor: "#0d3b3a" }}
         >
-          <Image
-            source={CARD_STATIONERY}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
-            contentFit="cover"
-          />
-          <View style={{ flex: 1, padding: 26 }}>
-            <View style={{ flex: 0.42 }} />
-            <View style={{ flex: 0.58 }}>
-              <Text
-                style={{
-                  fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: 18,
-                  color: stationeryInk,
-                  textAlign: "center",
-                  writingDirection,
-                  opacity: cardTo ? 1 : 0.55,
-                }}
-                numberOfLines={2}
-              >
-                {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
-              </Text>
-              <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
-                <Text
-                  style={{
-                    fontFamily: "PlayfairDisplay_400Regular",
-                    fontSize: messageFont,
-                    color: stationeryInk,
-                    textAlign: "center",
-                    lineHeight: messageFont * 1.5,
-                    writingDirection,
-                    opacity: trimmed.length > 0 ? 1 : 0.55,
-                  }}
-                >
-                  {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontFamily: "PlayfairDisplay_500Medium",
-                  fontSize: 18,
-                  color: stationeryInk,
-                  textAlign: "center",
-                  writingDirection,
-                  opacity: cardFrom ? 1 : 0.55,
-                }}
-                numberOfLines={2}
-              >
-                {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
-              </Text>
-            </View>
-          </View>
+          {renderCardBody(false)}
         </Pressable>
+        {/* Off-screen export-only clone, always mounted with the watermark
+            baked in. captureRef snapshots this view so the on-screen
+            preview never shows the watermark. */}
+        <View
+          ref={exportRef}
+          collapsable={false}
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: -10000,
+            top: 0,
+            width: cardW,
+            height: cardH,
+            borderRadius: 14,
+            overflow: "hidden",
+            backgroundColor: "#0d3b3a",
+          }}
+        >
+          {renderCardBody(true)}
+        </View>
         <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
           <Pressable
             onPress={handleShare}

@@ -944,20 +944,24 @@ function CardPreviewDialog({
   const toLabel = t("checkout.previewCardTo");
   const fromLabel = t("checkout.previewCardFrom");
   const cardRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const canSave = trimmed.length > 0;
 
   const handleSave = async () => {
-    if (!cardRef.current || saving || !canSave) return;
+    if (!exportRef.current || saving || !canSave) return;
     setSaving(true);
     try {
       const { toPng } = await import("html-to-image");
-      const node = cardRef.current;
-      const rect = node.getBoundingClientRect();
+      // Snapshot the off-screen export node (always rendered with the
+      // watermark) so the on-screen preview is never altered. Compute
+      // pixelRatio against the export node's own width so the output is
+      // ~1080px wide regardless of viewport.
+      const exportRect = exportRef.current.getBoundingClientRect();
       const targetW = 1080;
-      const pixelRatio = Math.max(1, targetW / Math.max(1, rect.width));
-      const dataUrl = await toPng(node, {
+      const pixelRatio = Math.max(1, targetW / Math.max(1, exportRect.width));
+      const dataUrl = await toPng(exportRef.current, {
         cacheBust: true,
         pixelRatio,
         backgroundColor: "#0d3b3a",
@@ -978,6 +982,64 @@ function CardPreviewDialog({
     }
   };
 
+  const renderCardBody = (includeWatermark: boolean) => (
+    <>
+      <img
+        src={cardStationery}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="relative flex h-full flex-col justify-between p-7 text-center">
+        <div
+          className="font-serif text-lg"
+          style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
+        >
+          {cardTo ? `${toLabel} ${cardTo}` : toLabel}
+        </div>
+        <div className="flex flex-1 items-center justify-center px-2 py-3">
+          <p
+            className="font-serif italic"
+            style={{
+              color: ink,
+              fontSize: `${messageFontPx}px`,
+              lineHeight: 1.5,
+              opacity: trimmed.length > 0 ? 1 : 0.55,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "break-word",
+            }}
+          >
+            {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
+          </p>
+        </div>
+        <div
+          className="font-serif text-lg"
+          style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
+        >
+          {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
+        </div>
+      </div>
+      {includeWatermark ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-2"
+          style={{
+            // Bottom-end corner: right in LTR, left in RTL.
+            ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontWeight: 500,
+            fontSize: "11px",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#c9a961",
+            opacity: 0.6,
+          }}
+        >
+          presentail.com
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -992,40 +1054,27 @@ function CardPreviewDialog({
             style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
             data-testid="card-preview-stationery"
           >
-            <img
-              src={cardStationery}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div className="relative flex h-full flex-col justify-between p-7 text-center">
-              <div
-                className="font-serif text-lg"
-                style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
-              >
-                {cardTo ? `${toLabel} ${cardTo}` : toLabel}
-              </div>
-              <div className="flex flex-1 items-center justify-center px-2 py-3">
-                <p
-                  className="font-serif italic"
-                  style={{
-                    color: ink,
-                    fontSize: `${messageFontPx}px`,
-                    lineHeight: 1.5,
-                    opacity: trimmed.length > 0 ? 1 : 0.55,
-                    whiteSpace: "pre-wrap",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
-                </p>
-              </div>
-              <div
-                className="font-serif text-lg"
-                style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
-              >
-                {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
-              </div>
-            </div>
+            {renderCardBody(false)}
+          </div>
+          {/* Off-screen export-only clone (always rendered with the
+              watermark). html-to-image snapshots this node so the
+              on-screen preview is never altered. Mirrors the visible
+              card's width so the captured pixel ratio stays consistent. */}
+          <div
+            aria-hidden
+            ref={exportRef}
+            className="pointer-events-none relative overflow-hidden rounded-2xl"
+            style={{
+              position: "fixed",
+              left: "-10000px",
+              top: 0,
+              width: "540px",
+              aspectRatio: "1 / 1.35",
+              backgroundColor: "#0d3b3a",
+            }}
+            dir={dir}
+          >
+            {renderCardBody(true)}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
