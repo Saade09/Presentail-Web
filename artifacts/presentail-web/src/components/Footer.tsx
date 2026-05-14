@@ -38,8 +38,6 @@ const LEGACY = {
   faqs: "https://presentail.com/lebanon/faqs/",
   terms: "https://presentail.com/lebanon/terms-of-use/",
   privacy: "https://presentail.com/lebanon/privacy-policy/",
-  bearsBalloons: "https://presentail.com/lebanon/product-category/bears-balloons/",
-  baskets: "https://presentail.com/lebanon/product-category/baskets/",
 } as const;
 
 const SOCIAL = {
@@ -126,9 +124,8 @@ export function Footer() {
     { label: t("footer.popular.plants"), href: "/shop?category=plants", testId: "footer-link-plants" },
     { label: t("footer.popular.giftBundles"), href: "/shop?category=bundles", testId: "footer-link-bundles" },
     { label: t("footer.popular.cakesSweets"), href: "/shop?category=cakes", testId: "footer-link-cakes" },
-    // No in-app category for these yet — point to the legacy storefront so links don't 404.
-    { label: t("footer.popular.baskets"), href: LEGACY.baskets, external: true, testId: "footer-link-baskets" },
-    { label: t("footer.popular.bearsBalloons"), href: LEGACY.bearsBalloons, external: true, testId: "footer-link-bears" },
+    { label: t("footer.popular.baskets"), href: "/shop?category=baskets", testId: "footer-link-baskets" },
+    { label: t("footer.popular.bearsBalloons"), href: "/shop?category=bears-balloons", testId: "footer-link-bears" },
   ];
   if (!isAE) {
     popularCategories.push({

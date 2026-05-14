@@ -157,6 +157,8 @@ const STRINGS: Dict = {
   "shop.cat.cakes": { en: "Cakes", ar: "الكعك" },
   "shop.cat.chocolate": { en: "Chocolate", ar: "الشوكولاتة" },
   "shop.cat.bundles": { en: "Bundles", ar: "الباقات المجمعة" },
+  "shop.cat.baskets": { en: "Baskets", ar: "السلال" },
+  "shop.cat.bearsBalloons": { en: "Bears & Balloons", ar: "الدببة والبالونات" },
 
   "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
   "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
@@ -779,6 +781,8 @@ const STRINGS_FR: Record<string, string> = {
   "shop.cat.cakes": "Gâteaux",
   "shop.cat.chocolate": "Chocolat",
   "shop.cat.bundles": "Coffrets",
+  "shop.cat.baskets": "Paniers",
+  "shop.cat.bearsBalloons": "Ours et ballons",
 
   "shop.occ.birthday": "Anniversaire",
   "shop.occ.loveRomance": "Amour et romance",
