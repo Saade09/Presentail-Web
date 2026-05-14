@@ -26,19 +26,7 @@ function TikTokIcon({ className }: { className?: string }) {
   );
 }
 
-// Legacy WordPress URLs for destinations that don't yet exist in the new app.
-// TODO: replace these with in-app routes as the corresponding pages are migrated.
-const LEGACY = {
-  partner: "https://presentail.com/lebanon/partner-with-us/",
-  deliveryRates: "https://presentail.com/lebanon/delivery-rates/",
-  investor: "https://presentail.com/lebanon/investor-relations/",
-  weddings: "https://presentail.com/lebanon/weddings-events/",
-  corporate: "https://presentail.com/lebanon/corporate-gifts/",
-  contact: "https://presentail.com/lebanon/contact-us/",
-  faqs: "https://presentail.com/lebanon/faqs/",
-  terms: "https://presentail.com/lebanon/terms-of-use/",
-  privacy: "https://presentail.com/lebanon/privacy-policy/",
-} as const;
+// All previously-legacy footer destinations now live in-app.
 
 const SOCIAL = {
   facebook: "https://www.facebook.com/Presentail",
@@ -140,15 +128,14 @@ export function Footer() {
     testId: "footer-link-occasions",
   });
 
-  // "Get to Know Us" — mix of in-app routes and legacy WordPress URLs.
-  // TODO: swap remaining legacy entries for in-app routes as each page is migrated.
+  // "Get to Know Us" — all in-app routes.
   const knowUs: { label: string; href: string; testId: string; external?: boolean }[] = [
     { label: t("footer.know.about"), href: "/about", testId: "footer-link-about" },
-    { label: t("footer.know.partner"), href: LEGACY.partner, testId: "footer-link-partner", external: true },
-    { label: t("footer.know.deliveryRates"), href: LEGACY.deliveryRates, testId: "footer-link-delivery", external: true },
-    { label: t("footer.know.investor"), href: LEGACY.investor, testId: "footer-link-investor", external: true },
-    { label: t("footer.know.weddings"), href: LEGACY.weddings, testId: "footer-link-weddings", external: true },
-    { label: t("footer.know.corporate"), href: LEGACY.corporate, testId: "footer-link-corporate", external: true },
+    { label: t("footer.know.partner"), href: "/partner", testId: "footer-link-partner" },
+    { label: t("footer.know.deliveryRates"), href: "/delivery-rates", testId: "footer-link-delivery" },
+    { label: t("footer.know.investor"), href: "/investor", testId: "footer-link-investor" },
+    { label: t("footer.know.weddings"), href: "/weddings", testId: "footer-link-weddings" },
+    { label: t("footer.know.corporate"), href: "/corporate", testId: "footer-link-corporate" },
     { label: t("footer.know.careers"), href: "/careers", testId: "footer-link-careers" },
     { label: t("footer.know.blogs"), href: "/blog", testId: "footer-link-blogs" },
   ];
@@ -206,14 +193,14 @@ export function Footer() {
             <ColumnHeading>{t("footer.getInTouch")}</ColumnHeading>
             <ul className="space-y-2">
               <li>
-                <ExtLink href={LEGACY.contact} testId="footer-link-contact">
+                <InLink href="/contact" testId="footer-link-contact">
                   {t("footer.contactUs")}
-                </ExtLink>
+                </InLink>
               </li>
               <li>
-                <ExtLink href={LEGACY.faqs} testId="footer-link-faqs">
+                <InLink href="/faqs" testId="footer-link-faqs">
                   {t("footer.faqs")}
-                </ExtLink>
+                </InLink>
               </li>
             </ul>
           </div>
@@ -314,21 +301,13 @@ export function Footer() {
 
           {/* Legal links */}
           <div className="flex items-center gap-4 text-xs">
-            <ExtLink
-              href={LEGACY.terms}
-              testId="footer-link-terms"
-              className="text-white/75 hover:text-white transition-colors"
-            >
+            <InLink href="/terms" testId="footer-link-terms">
               {t("footer.terms")}
-            </ExtLink>
+            </InLink>
             <span className="text-white/30" aria-hidden>|</span>
-            <ExtLink
-              href={LEGACY.privacy}
-              testId="footer-link-privacy"
-              className="text-white/75 hover:text-white transition-colors"
-            >
+            <InLink href="/privacy" testId="footer-link-privacy">
               {t("footer.privacy")}
-            </ExtLink>
+            </InLink>
           </div>
 
           {/* Payment logos */}
