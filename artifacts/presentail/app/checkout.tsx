@@ -22,6 +22,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +30,7 @@ import { CardIcons, WalletIcons } from "@/components/PaymentBadges";
 import { PhoneField } from "@/components/PhoneField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
@@ -1063,8 +1065,110 @@ function Card({ children, colors, title }: any) {
 
 // =============== Step 1: Customize ===============
 
+const CARD_STATIONERY = require("../assets/images/card-stationery.avif");
+
+function CardPreviewModal({
+  visible,
+  onClose,
+  cardTo,
+  cardMessage,
+  cardFrom,
+  colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  cardTo: string;
+  cardMessage: string;
+  cardFrom: string;
+  colors: any;
+}) {
+  const t = useT();
+  const { lang } = useLanguage();
+  const isRtl = lang === "AR";
+  const { width: winW, height: winH } = useWindowDimensions();
+  const cardW = Math.min(winW - 40, 360);
+  const cardH = Math.min(winH - 220, Math.round(cardW * 1.35));
+  const trimmed = (cardMessage ?? "").trim();
+  const len = trimmed.length;
+  const messageFont = len === 0 ? 18 : len > 280 ? 13 : len > 180 ? 15 : len > 100 ? 17 : 19;
+  const writingDirection = isRtl ? "rtl" : "ltr";
+  const stationeryInk = "#F5E9D7";
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center", padding: 20 }}
+      >
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{ width: cardW, height: cardH, borderRadius: 14, overflow: "hidden", backgroundColor: "#0d3b3a" }}
+        >
+          <Image
+            source={CARD_STATIONERY}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
+            contentFit="cover"
+          />
+          <View style={{ flex: 1, padding: 26, justifyContent: "space-between" }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 18,
+                color: stationeryInk,
+                textAlign: "center",
+                writingDirection,
+                opacity: cardTo ? 1 : 0.55,
+              }}
+              numberOfLines={2}
+            >
+              {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
+            </Text>
+            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 12 }}>
+              <Text
+                style={{
+                  fontFamily: "PlayfairDisplay_400Regular",
+                  fontSize: messageFont,
+                  color: stationeryInk,
+                  textAlign: "center",
+                  lineHeight: messageFont * 1.5,
+                  writingDirection,
+                  opacity: trimmed.length > 0 ? 1 : 0.55,
+                }}
+              >
+                {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 18,
+                color: stationeryInk,
+                textAlign: "center",
+                writingDirection,
+                opacity: cardFrom ? 1 : 0.55,
+              }}
+              numberOfLines={2}
+            >
+              {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={onClose}
+          style={{ marginTop: 18, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999, backgroundColor: "#fff" }}
+        >
+          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+            {t.previewCardClose}
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
   const t = useT();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const presets = [
     t.checkoutSuggestedMessages,
     t.checkoutPresetMagicalBirthday,
@@ -1083,6 +1187,34 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         multiline
         maxLength={400}
         characterCount
+      />
+      <Pressable
+        onPress={() => setPreviewOpen(true)}
+        style={{
+          alignSelf: "flex-start",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: colors.gold,
+          backgroundColor: "#fff",
+        }}
+      >
+        <Feather name="eye" size={14} color={colors.gold} />
+        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold }}>
+          {t.previewCardButton}
+        </Text>
+      </Pressable>
+      <CardPreviewModal
+        visible={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        cardTo={cardTo}
+        cardMessage={cardMessage}
+        cardFrom={cardFrom}
+        colors={colors}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {presets.map((p, i) => (

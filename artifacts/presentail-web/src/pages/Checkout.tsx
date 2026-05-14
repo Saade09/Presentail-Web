@@ -4,6 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Eye } from "lucide-react";
+import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -104,6 +107,7 @@ export default function Checkout() {
   };
   const [noAddress, setNoAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
+  const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
 
   // Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
   // the recipient country's local time, mirroring the mobile rule. When
@@ -556,10 +560,20 @@ export default function Checkout() {
                     </>
                   )}
 
-                  <div className="space-y-2 mb-8">
+                  <div className="space-y-2 mb-3">
                     <label className="text-sm font-medium">{t("checkout.cardMessage")}</label>
                     <Input value={recipient.cardMessage} onChange={(e) => setRecipient({ ...recipient, cardMessage: e.target.value })} placeholder={t("checkout.cardMessagePh")} data-testid="input-card-message" />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCardPreviewOpen(true)}
+                    className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-card px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+                    data-testid="button-preview-card"
+                  >
+                    <Eye className="h-4 w-4" />
+                    {t("checkout.previewCard")}
+                  </button>
 
                   <Button size="lg" className="w-full h-14 rounded-xl" onClick={() => setStep(2)} disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address)} data-testid="button-continue-to-sender">
                     {t("checkout.continueSender")}
@@ -703,6 +717,100 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+
+      <CardPreviewDialog
+        open={cardPreviewOpen}
+        onOpenChange={setCardPreviewOpen}
+        cardTo={`${recipient.firstName} ${recipient.lastName}`.trim()}
+        cardMessage={recipient.cardMessage}
+        cardFrom={`${sender.firstName} ${sender.lastName}`.trim()}
+        dir={dir}
+        t={t}
+      />
     </div>
+  );
+}
+
+function CardPreviewDialog({
+  open,
+  onOpenChange,
+  cardTo,
+  cardMessage,
+  cardFrom,
+  dir,
+  t,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  cardTo: string;
+  cardMessage: string;
+  cardFrom: string;
+  dir: "ltr" | "rtl";
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const trimmed = (cardMessage ?? "").trim();
+  const len = trimmed.length;
+  const messageFontPx = len === 0 ? 18 : len > 280 ? 14 : len > 180 ? 16 : len > 100 ? 18 : 20;
+  const ink = "#F5E9D7";
+  const toLabel = t("checkout.previewCardTo");
+  const fromLabel = t("checkout.previewCardFrom");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-md border-0 bg-transparent p-0 shadow-none sm:max-w-md"
+        dir={dir}
+      >
+        <DialogTitle className="sr-only">{t("checkout.previewCardTitle")}</DialogTitle>
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="relative w-full overflow-hidden rounded-2xl shadow-2xl"
+            style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
+            data-testid="card-preview-stationery"
+          >
+            <img
+              src={cardStationery}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="relative flex h-full flex-col justify-between p-7 text-center">
+              <div
+                className="font-serif text-lg"
+                style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
+              >
+                {cardTo ? `${toLabel} ${cardTo}` : toLabel}
+              </div>
+              <div className="flex flex-1 items-center justify-center px-2 py-3">
+                <p
+                  className="font-serif italic"
+                  style={{
+                    color: ink,
+                    fontSize: `${messageFontPx}px`,
+                    lineHeight: 1.5,
+                    opacity: trimmed.length > 0 ? 1 : 0.55,
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
+                </p>
+              </div>
+              <div
+                className="font-serif text-lg"
+                style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
+              >
+                {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            data-testid="button-preview-card-close"
+          >
+            {t("checkout.previewCardClose")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
