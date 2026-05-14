@@ -35,7 +35,7 @@ import {
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
-type PaymentMethodId = "card" | "paypal" | "whish" | "mamo";
+type PaymentMethodId = "card" | "paypal" | "whish" | "mamo" | "wallet";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -263,10 +263,23 @@ export default function Checkout() {
     mamoPayment.isPending ||
     paypalPayment.isPending;
 
+  // Active display currency derived from the active country. Used both
+  // by the payment-method picker (to hide unavailable methods) and by
+  // the submit handler (to route AED + wallet through Mamo's hosted page,
+  // mirroring mobile checkout).
+  const activeCurrency =
+    countryCode === "AE" ? "AED" : countryCode === "CY" ? "EUR" : "USD";
+
   // orderId is generated once per checkout attempt and threaded through the
   // payment session creation AND the WC order payload so the server can bind
   // them together and reject any replay of a paid session for a different order.
-  const buildOrderPayload = (overrides: { paymentRef?: string; orderId?: string } = {}) => ({
+  const buildOrderPayload = (
+    overrides: {
+      paymentRef?: string;
+      orderId?: string;
+      paymentMethod?: PaymentMethodId;
+    } = {},
+  ) => ({
     orderId: overrides.orderId ?? `web-${Date.now()}`,
     items: items.map((i) => ({
       name: i.product.name,
@@ -293,7 +306,7 @@ export default function Checkout() {
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
     cardMessage: recipient.cardMessage,
-    paymentMethod,
+    paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     currencyCode: "USD",
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
@@ -322,8 +335,15 @@ export default function Checkout() {
   // finalize the WC order using the SAME orderId that was bound to the payment
   // session. Passing orderId here ensures the paymentRef↔orderId binding
   // created by the server during session creation is preserved end-to-end.
-  const stashAndRedirect = (url: string, orderId: string) => {
-    const payload = buildOrderPayload({ orderId });
+  const stashAndRedirect = (
+    url: string,
+    orderId: string,
+    paymentMethodOverride?: PaymentMethodId,
+  ) => {
+    const payload = buildOrderPayload({
+      orderId,
+      paymentMethod: paymentMethodOverride,
+    });
     sessionStorage.setItem(
       PENDING_ORDER_KEY,
       JSON.stringify({ payload, createdAt: Date.now() }),
@@ -403,7 +423,24 @@ export default function Checkout() {
         return;
       }
 
-      if (paymentMethod === "mamo") {
+      // AED + wallet (Apple Pay / Google Pay) is served by Mamo's hosted
+      // checkout, which exposes the wallet buttons on its own page. Route it
+      // through the same Mamo flow as the "Pay by card" tile so we don't
+      // need a separate web wallet integration just for UAE — mirrors the
+      // mobile checkout behaviour.
+      const walletViaMamo =
+        paymentMethod === "wallet" && activeCurrency === "AED";
+
+      if (paymentMethod === "mamo" || walletViaMamo) {
+        // Wallet-via-Mamo carries `paymentMethod: "wallet"` in client
+        // state, but the WC finalizer treats `wallet` as a Stripe-verified
+        // method. Normalise to `"mamo"` in the stashed payload so the
+        // post-redirect order creation routes through the Mamo
+        // verification branch and matches the paymentRef we just got back
+        // from Mamo's hosted page.
+        const finalizedPaymentMethod: PaymentMethodId = walletViaMamo
+          ? "mamo"
+          : paymentMethod;
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
@@ -427,7 +464,7 @@ export default function Checkout() {
           });
           return;
         }
-        stashAndRedirect(res.url, orderId);
+        stashAndRedirect(res.url, orderId, finalizedPaymentMethod);
         return;
       }
 
@@ -442,8 +479,6 @@ export default function Checkout() {
   // since LB displays in USD), but the rule is written in full so that if
   // a customer ever switches the LB display currency to AED, Mamo would
   // reappear — matching the mobile behaviour. UAE/Cyprus keep showing it.
-  const activeCurrency =
-    countryCode === "AE" ? "AED" : countryCode === "CY" ? "EUR" : "USD";
   const mamoHidden = countryCode === "LB" && activeCurrency !== "AED";
   // Whish Money is a Lebanon-only local transfer flow — only show it when
   // the active country is Lebanon, so a UAE/Cyprus shopper browsing in USD
@@ -451,27 +486,54 @@ export default function Checkout() {
   // PayPal is hidden in UAE because Mamo is the natural local option there;
   // even a UAE shopper browsing in USD shouldn't see it.
   const paypalHidden = countryCode === "AE";
+  // Stripe doesn't settle in AED, so the Stripe-backed "card" tile is
+  // hidden whenever the active currency is AED. UAE shoppers instead get
+  // the Mamo-backed "Pay by card" tile (rename below) plus the wallet
+  // tile that routes Apple Pay / Google Pay through Mamo's hosted page.
+  const stripeCardHidden = activeCurrency === "AED";
+  const walletViaMamoVisible = activeCurrency === "AED" && !mamoHidden;
+  // When the Mamo tile is the AED card option, rename it to "Pay by card"
+  // so UAE shoppers see a clean, branded label rather than "Mamo (UAE
+  // Wallets)" — mirrors the mobile checkout copy.
+  const mamoLabelKey =
+    activeCurrency === "AED" ? "checkout.pay.payByCard" : "checkout.pay.mamo";
   const paymentOptions: { id: PaymentMethodId; labelKey: string }[] = [
-    { id: "card", labelKey: "checkout.pay.card" },
+    ...(stripeCardHidden ? [] : [{ id: "card" as const, labelKey: "checkout.pay.card" }]),
     ...(paypalHidden ? [] : [{ id: "paypal" as const, labelKey: "checkout.pay.paypal" }]),
-    ...(mamoHidden ? [] : [{ id: "mamo" as const, labelKey: "checkout.pay.mamo" }]),
+    ...(mamoHidden ? [] : [{ id: "mamo" as const, labelKey: mamoLabelKey }]),
+    ...(walletViaMamoVisible
+      ? [{ id: "wallet" as const, labelKey: "checkout.pay.wallet" }]
+      : []),
     ...(countryCode === "LB"
       ? [{ id: "whish" as const, labelKey: "checkout.pay.whish" }]
       : []),
   ];
 
   // If the currently selected payment method becomes unavailable (Whish on
-  // a non-LB country, Mamo when hidden, or PayPal in UAE), fall back to a
-  // default so the pay button stays valid.
+  // a non-LB country, Mamo when hidden, PayPal in UAE, the Stripe card
+  // tile in AED, or the wallet tile outside AED), fall back to a default
+  // that's actually visible so the pay button stays valid.
   useEffect(() => {
+    const fallback: PaymentMethodId = stripeCardHidden ? "mamo" : "card";
     if (paymentMethod === "whish" && countryCode !== "LB") {
-      setPaymentMethodState("card");
+      setPaymentMethodState(fallback);
     } else if (paymentMethod === "mamo" && mamoHidden) {
-      setPaymentMethodState("card");
+      setPaymentMethodState(fallback);
     } else if (paymentMethod === "paypal" && paypalHidden) {
-      setPaymentMethodState("card");
+      setPaymentMethodState(fallback);
+    } else if (paymentMethod === "card" && stripeCardHidden) {
+      setPaymentMethodState(fallback);
+    } else if (paymentMethod === "wallet" && !walletViaMamoVisible) {
+      setPaymentMethodState(fallback);
     }
-  }, [countryCode, paymentMethod, mamoHidden, paypalHidden]);
+  }, [
+    countryCode,
+    paymentMethod,
+    mamoHidden,
+    paypalHidden,
+    stripeCardHidden,
+    walletViaMamoVisible,
+  ]);
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">

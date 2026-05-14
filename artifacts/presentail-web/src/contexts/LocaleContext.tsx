@@ -283,6 +283,8 @@ const STRINGS: Dict = {
   "checkout.step3.title": { en: "Payment", ar: "الدفع" },
   "checkout.step3.desc": { en: "Choose how you'd like to pay securely. You'll be redirected to your provider to complete payment.", ar: "اختر طريقة الدفع الآمنة. ستتم إعادة توجيهك إلى مزوّد الدفع لإكمال العملية." },
   "checkout.pay.card": { en: "Credit / Debit Card (Stripe)", ar: "بطاقة ائتمان / خصم (Stripe)" },
+  "checkout.pay.payByCard": { en: "Pay by card", ar: "ادفع بالبطاقة" },
+  "checkout.pay.wallet": { en: "Apple Pay / Google Pay", ar: "Apple Pay / Google Pay" },
   "checkout.pay.paypal": { en: "PayPal", ar: "PayPal" },
   "checkout.pay.mamo": { en: "Mamo (UAE Wallets)", ar: "مامو (محافظ الإمارات)" },
   "checkout.pay.whish": { en: "Whish Money (pay on confirmation)", ar: "Whish Money (الدفع عند التأكيد)" },
@@ -903,6 +905,8 @@ const STRINGS_FR: Record<string, string> = {
   "checkout.step3.desc":
     "Choisissez votre mode de paiement sécurisé. Vous serez redirigé vers votre fournisseur pour finaliser le paiement.",
   "checkout.pay.card": "Carte bancaire (Stripe)",
+  "checkout.pay.payByCard": "Payer par carte",
+  "checkout.pay.wallet": "Apple Pay / Google Pay",
   "checkout.pay.paypal": "PayPal",
   "checkout.pay.mamo": "Mamo (portefeuilles UAE)",
   "checkout.pay.whish": "Whish Money (paiement à la confirmation)",
