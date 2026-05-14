@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartUpsells } from "@/components/CartUpsells";
 import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
+import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -39,6 +40,7 @@ export function CartDrawer() {
   const router = useRouter();
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
+  const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
@@ -93,9 +95,13 @@ export function CartDrawer() {
   });
 
   const goPickDeliveryTime = React.useCallback(() => {
+    if (isExpress) {
+      setRescheduleVisible(true);
+      return;
+    }
     closeCart();
     router.push({ pathname: "/checkout", params: { step: "1" } });
-  }, [closeCart, router]);
+  }, [closeCart, router, isExpress]);
 
   return (
     <>
@@ -459,6 +465,10 @@ export function CartDrawer() {
         )}
       </View>
     </Modal>
+    <RescheduleDeliverySheet
+      visible={rescheduleVisible}
+      onClose={() => setRescheduleVisible(false)}
+    />
     <CheckoutLoginSheet
       visible={loginSheetVisible}
       surface="cart"

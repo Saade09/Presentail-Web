@@ -423,6 +423,11 @@ const EN = {
   cartFreeDeliveryUnlocked: "You've unlocked Free Standard Delivery",
   cartDeliveryWhenLabel: "Delivery time",
   cartSelectDateTimePrompt: "Select date & time at checkout",
+  rescheduleSheetTitle: "Pick a delivery date",
+  rescheduleSheetSubtitle: "Switch from Express to a scheduled day & time slot.",
+  rescheduleSelectSlot: "Select a time slot",
+  rescheduleConfirm: "Confirm date & time",
+  rescheduleKeepExpress: "Keep Express Delivery",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1349,6 +1354,11 @@ const AR: typeof EN = {
   cartFreeDeliveryUnlocked: "لقد حصلت على توصيل قياسي مجاني",
   cartDeliveryWhenLabel: "وقت التوصيل",
   cartSelectDateTimePrompt: "اختر التاريخ والوقت عند الدفع",
+  rescheduleSheetTitle: "اختر تاريخ التوصيل",
+  rescheduleSheetSubtitle: "التحويل من التوصيل السريع إلى يوم ووقت مجدولين.",
+  rescheduleSelectSlot: "اختر الفترة الزمنية",
+  rescheduleConfirm: "تأكيد التاريخ والوقت",
+  rescheduleKeepExpress: "الاحتفاظ بالتوصيل السريع",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -2270,6 +2280,11 @@ const FR: typeof EN = {
   cartFreeDeliveryUnlocked: "Vous bénéficiez de la livraison standard offerte",
   cartDeliveryWhenLabel: "Heure de livraison",
   cartSelectDateTimePrompt: "Choisir la date et l'heure au paiement",
+  rescheduleSheetTitle: "Choisir une date de livraison",
+  rescheduleSheetSubtitle: "Passer de la livraison express à un jour et créneau programmés.",
+  rescheduleSelectSlot: "Choisissez un créneau horaire",
+  rescheduleConfirm: "Confirmer la date et l'heure",
+  rescheduleKeepExpress: "Conserver la livraison express",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

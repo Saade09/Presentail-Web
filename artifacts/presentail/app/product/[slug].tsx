@@ -303,6 +303,17 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
       ? "scheduled"
       : "express";
   const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
+  // Persist the implicit default ("express") into the shared delivery
+  // selection on first visit, so adding to cart without ever toggling
+  // the option still results in the cart correctly showing
+  // "Express Delivery" + applying the surcharge. Only fires when no
+  // selection has been made yet — never overwrites a real choice.
+  useEffect(() => {
+    if (deliverySelection.mode == null && initialDelivery === "express") {
+      deliverySelection.setMode("express");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setDelivery = (next: "express" | "scheduled") => {
     setDeliveryLocal(next);
     if (next === "express") {

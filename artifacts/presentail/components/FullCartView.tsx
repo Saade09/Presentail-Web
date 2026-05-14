@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CartUpsells } from "@/components/CartUpsells";
 import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
+import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -63,6 +64,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const [footerHeight, setFooterHeight] = React.useState(0);
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
+  const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const { detailed, total, setQty, remove, clear } = useCart();
   const { selectedCountry } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
@@ -111,8 +113,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   });
 
   const goPickDeliveryTime = React.useCallback(() => {
+    if (isExpress) {
+      setRescheduleVisible(true);
+      return;
+    }
     router.push({ pathname: "/checkout", params: { step: "1" } });
-  }, [router]);
+  }, [router, isExpress]);
 
   return (
     <>
@@ -483,6 +489,10 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         </>
       )}
     </View>
+    <RescheduleDeliverySheet
+      visible={rescheduleVisible}
+      onClose={() => setRescheduleVisible(false)}
+    />
     <CheckoutLoginSheet
       visible={loginSheetVisible}
       surface="cart"
