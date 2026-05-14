@@ -15,7 +15,8 @@ import {
   useMamoPayment,
   usePaypalPayment,
 } from "@/lib/queries";
-import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, MapPin } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -513,22 +514,42 @@ export default function Checkout() {
                     <Input value={recipient.phone} onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })} placeholder={t("checkout.phonePh")} data-testid="input-recipient-phone" />
                   </div>
 
-                  <label className="flex items-start gap-3 mb-4 cursor-pointer select-none" data-testid="check-no-address-label">
-                    <input
-                      type="checkbox"
+                  <div
+                    className={`flex items-center gap-3 mb-4 rounded-xl border bg-card px-3.5 py-3 transition-colors ${
+                      noAddress ? "border-primary" : "border-border"
+                    }`}
+                    data-testid="check-no-address-label"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setNoAddress(!noAddress)}
+                      className="flex flex-1 items-center gap-3 text-start cursor-pointer"
+                    >
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+                          noAddress ? "bg-primary text-primary-foreground" : "bg-muted text-primary"
+                        }`}
+                      >
+                        <MapPin className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-foreground">
+                          {t("checkout.askRecipientForAddressTitle")}
+                        </div>
+                        <div className="text-xs text-muted-foreground leading-snug mt-0.5">
+                          {t("checkout.askRecipientForAddressNote")}
+                        </div>
+                      </div>
+                    </button>
+                    <Switch
                       checked={noAddress}
-                      onChange={(e) => setNoAddress(e.target.checked)}
-                      className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                      onCheckedChange={setNoAddress}
                       data-testid="check-no-address"
+                      aria-label={t("checkout.askRecipientForAddressTitle")}
                     />
-                    <span className="text-sm">{t("checkout.dontKnowAddress")}</span>
-                  </label>
+                  </div>
 
-                  {noAddress ? (
-                    <p className="text-xs text-muted-foreground mb-4" data-testid="text-no-address-note">
-                      {t("checkout.dontKnowAddressNote")}
-                    </p>
-                  ) : (
+                  {!noAddress && (
                     <>
                       <div className="space-y-2 mb-4">
                         <label className="text-sm font-medium">{t("checkout.district")}</label>
