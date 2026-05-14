@@ -2,16 +2,26 @@ import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert, type AlertField } from "./alerts";
+import {
+  aggregateBuckets as aggregateFailureBuckets,
+  type SocialFailureRawRow,
+} from "./socialAuthFailureAggregator";
 
 // Watches the `auth_social_failed` rows that the mobile app emits
 // whenever the native Google / Apple SDK rejects a sign-in attempt
 // (Task #321 wired the persistence). The denominator is the matching
 // `checkout_login_prompt_action` rows for action=google/apple — i.e.
 // the number of shoppers who actually tapped "Continue with Google /
-// Apple" on the login prompt. When the failure rate against attempts
-// exceeds the configured threshold, Slack-alert with the top
-// `error_code` buckets so ops can immediately see e.g. `-61440`
-// (`errSecMissingEntitlement`) or Android `DEVELOPER_ERROR` spiking.
+// Apple" on the login prompt.
+//
+// Three independent breach reasons can fire on the previous full UTC
+// day, per (platform, provider) bucket:
+//   1. failure-rate vs attempts exceeds `SOCIAL_AUTH_FAILURE_RATE_MAX`
+//   2. absolute failure count exceeds `SOCIAL_AUTH_FAILURE_COUNT_MAX`
+//   3. a previously-unseen error code appears with non-trivial volume
+//      (≥ `SOCIAL_AUTH_NEW_ERROR_MIN_COUNT`), comparing against a
+//      historical baseline window of `SOCIAL_AUTH_NEW_ERROR_BASELINE_DAYS`
+//      preceding days (the evaluated day itself is excluded).
 //
 // Same shape as authExistsLookupMonitor / checkoutLoginFunnelMonitor:
 // hourly tick, evaluate the previous full UTC day exactly once,
@@ -44,6 +54,35 @@ function envRatio(name: string, fallback: number): number {
 // full UTC day means a config / signing / SDK regression rather than
 // noise.
 const FAILURE_RATE_MAX = envRatio("SOCIAL_AUTH_FAILURE_RATE_MAX", 0.2);
+
+function envPositiveInt(name: string, fallback: number): number {
+  const raw = Number(process.env[name]);
+  if (!Number.isFinite(raw) || raw <= 0) return fallback;
+  return Math.floor(raw);
+}
+
+// Absolute failure-count threshold per (platform, provider) per day. Catches
+// the case where a single platform racks up a lot of failures even though
+// the rate looks fine because attempts also spiked (e.g. a Black-Friday
+// volume day where 25 % rate is fine but 5 000 failures still warrants a
+// page).
+const FAILURE_COUNT_MAX = envPositiveInt("SOCIAL_AUTH_FAILURE_COUNT_MAX", 100);
+
+// "Previously unseen error code" detection. Compare the evaluated day's
+// error codes against the baseline window of preceding days (excluding the
+// evaluated day itself). Any code with at least
+// `SOCIAL_AUTH_NEW_ERROR_MIN_COUNT` failures that did not appear in the
+// baseline is treated as a regression — a fresh native SDK error often
+// means a config / signing change broke a path we've never seen fail
+// before.
+const NEW_ERROR_MIN_COUNT = envPositiveInt(
+  "SOCIAL_AUTH_NEW_ERROR_MIN_COUNT",
+  5,
+);
+const NEW_ERROR_BASELINE_DAYS = envPositiveInt(
+  "SOCIAL_AUTH_NEW_ERROR_BASELINE_DAYS",
+  14,
+);
 
 const SOCIAL_PROVIDERS = ["google", "apple"] as const;
 type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
@@ -85,6 +124,9 @@ export function startSocialAuthFailureMonitor(): void {
       tickMs: TICK_MS,
       minAttempts: MIN_ATTEMPTS,
       failureRateMax: FAILURE_RATE_MAX,
+      failureCountMax: FAILURE_COUNT_MAX,
+      newErrorMinCount: NEW_ERROR_MIN_COUNT,
+      newErrorBaselineDays: NEW_ERROR_BASELINE_DAYS,
     },
     "socialAuthFailureMonitor: started",
   );
@@ -104,7 +146,10 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     const day = previousUtcDay(now);
     if (lastEvaluatedDay === day.iso) return;
 
-    const buckets = await loadBuckets(day.start, day.end);
+    const [buckets, baselineCodes] = await Promise.all([
+      loadBuckets(day.start, day.end),
+      loadKnownErrorCodes(day.start, NEW_ERROR_BASELINE_DAYS),
+    ]);
     if (buckets.length === 0) {
       lastEvaluatedDay = day.iso;
       logger.info(
@@ -114,19 +159,66 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
       return;
     }
 
-    const breaches = evaluateBuckets(buckets);
+    const breaches = evaluateBuckets(buckets, baselineCodes);
     if (breaches.length > 0) {
       await sendBreachAlert(day.iso, breaches, buckets);
     } else {
       logger.info(
         { day: day.iso, buckets: buckets.length },
-        "socialAuthFailureMonitor: failure rate within band",
+        "socialAuthFailureMonitor: all checks within band",
       );
     }
     lastEvaluatedDay = day.iso;
   } finally {
     running = false;
   }
+}
+
+/**
+ * Returns a per-(platform, provider) set of `error_code`s seen in the
+ * `baselineDays` preceding the evaluated day. Used to flag previously
+ * unseen codes appearing on the evaluated day.
+ */
+export async function loadKnownErrorCodes(
+  evaluatedDayStart: Date,
+  baselineDays: number,
+): Promise<Map<string, Set<string>>> {
+  const start = new Date(
+    evaluatedDayStart.getTime() - baselineDays * 24 * 60 * 60 * 1000,
+  );
+  const rows = (await db
+    .selectDistinct({
+      platform: analyticsEventsTable.platform,
+      action: analyticsEventsTable.action,
+      errorCode: analyticsEventsTable.errorCode,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} = 'auth_social_failed'`,
+        gte(analyticsEventsTable.createdAt, start),
+        lt(analyticsEventsTable.createdAt, evaluatedDayStart),
+      )!,
+    )) as Array<{
+    platform: string | null;
+    action: string | null;
+    errorCode: string | null;
+  }>;
+
+  const out = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!isSocialProvider(r.action)) continue;
+    const platform = r.platform ?? "unknown";
+    const key = `${platform}::${r.action}`;
+    const code = r.errorCode ?? "unknown";
+    let set = out.get(key);
+    if (!set) {
+      set = new Set();
+      out.set(key, set);
+    }
+    set.add(code);
+  }
+  return out;
 }
 
 function previousUtcDay(now: Date): { iso: string; start: Date; end: Date } {
@@ -148,6 +240,12 @@ export type SocialAuthBucket = {
   provider: SocialProvider;
   attempts: number;
   failures: number;
+  // Full per-code breakdown (sorted by count desc, then code asc) — used by
+  // the new-error-code detector so a code ranked 4th+ for the day is still
+  // visible. Inherits the sort from `socialAuthFailureAggregator`.
+  errorCodes: ErrorCodeCount[];
+  // Convenience slice (top 3) used purely for alert presentation. Always a
+  // prefix of `errorCodes`.
   topErrorCodes: ErrorCodeCount[];
 };
 
@@ -190,78 +288,134 @@ function isSocialProvider(action: string | null): action is SocialProvider {
   return action === "google" || action === "apple";
 }
 
+const TOP_ERROR_CODES = 3;
+
 export function aggregateBuckets(rows: RawRow[]): SocialAuthBucket[] {
-  type Mut = {
-    platform: string;
-    provider: SocialProvider;
-    attempts: number;
-    failures: number;
-    errorCodes: Map<string, number>;
-  };
-  const map = new Map<string, Mut>();
-  const get = (platform: string, provider: SocialProvider): Mut => {
-    const key = `${platform}::${provider}`;
-    let b = map.get(key);
-    if (!b) {
-      b = {
-        platform,
-        provider,
-        attempts: 0,
-        failures: 0,
-        errorCodes: new Map(),
-      };
-      map.set(key, b);
-    }
-    return b;
-  };
+  // Failures go through the shared aggregator so the dashboard summary and
+  // this monitor can never disagree on per-(platform, provider) totals or
+  // top error codes.
+  const failureRows: SocialFailureRawRow[] = [];
+  const attempts = new Map<string, number>();
 
   for (const row of rows) {
     if (!isSocialProvider(row.action)) continue;
     const platform = row.platform ?? "unknown";
-    const b = get(platform, row.action);
-    if (row.name === "checkout_login_prompt_action") {
-      b.attempts += row.count;
-    } else if (row.name === "auth_social_failed") {
-      b.failures += row.count;
-      const code = row.errorCode ?? "unknown";
-      b.errorCodes.set(code, (b.errorCodes.get(code) ?? 0) + row.count);
+    const key = `${platform}::${row.action}`;
+    if (row.name === "auth_social_failed") {
+      failureRows.push({
+        platform,
+        action: row.action,
+        errorCode: row.errorCode,
+        count: row.count,
+      });
+    } else if (row.name === "checkout_login_prompt_action") {
+      attempts.set(key, (attempts.get(key) ?? 0) + row.count);
     }
   }
 
-  return Array.from(map.values())
-    .map((b) => ({
-      platform: b.platform,
-      provider: b.provider,
-      attempts: b.attempts,
-      failures: b.failures,
-      topErrorCodes: Array.from(b.errorCodes.entries())
-        .map(([errorCode, count]) => ({ errorCode, count }))
-        .sort((a, b2) =>
-          b2.count - a.count ||
-          (a.errorCode < b2.errorCode ? -1 : a.errorCode > b2.errorCode ? 1 : 0),
-        )
-        .slice(0, 3),
-    }))
-    .sort((a, b) => {
-      if (a.platform !== b.platform) return a.platform < b.platform ? -1 : 1;
-      return a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0;
+  const failureBuckets = aggregateFailureBuckets(failureRows);
+  const out = new Map<string, SocialAuthBucket>();
+
+  for (const fb of failureBuckets) {
+    if (!isSocialProvider(fb.provider)) continue;
+    const key = `${fb.platform}::${fb.provider}`;
+    out.set(key, {
+      platform: fb.platform,
+      provider: fb.provider,
+      attempts: attempts.get(key) ?? 0,
+      failures: fb.total,
+      errorCodes: fb.errorCodes,
+      topErrorCodes: fb.errorCodes.slice(0, TOP_ERROR_CODES),
     });
+  }
+
+  // Surface attempt-only buckets (no failures recorded) so the dashboard /
+  // alert footer can still show "android / google: 0 failures over N attempts".
+  for (const [key, count] of attempts) {
+    if (out.has(key)) continue;
+    const [platform, providerRaw] = key.split("::");
+    if (!isSocialProvider(providerRaw)) continue;
+    out.set(key, {
+      platform: platform!,
+      provider: providerRaw,
+      attempts: count,
+      failures: 0,
+      errorCodes: [],
+      topErrorCodes: [],
+    });
+  }
+
+  return Array.from(out.values()).sort((a, b) => {
+    if (a.platform !== b.platform) return a.platform < b.platform ? -1 : 1;
+    return a.provider < b.provider ? -1 : a.provider > b.provider ? 1 : 0;
+  });
 }
 
 export type SocialAuthBreach = {
   bucket: SocialAuthBucket;
   failureRate: number;
+  reasons: string[];
+  newErrorCodes: ErrorCodeCount[];
 };
 
+/**
+ * Evaluate the per-(platform, provider) buckets for the day under three
+ * independent rules. A bucket is reported as a breach if any reason fires.
+ *
+ * `knownErrorCodes` keys are `${platform}::${provider}`; values are the
+ * sets of error codes seen across the baseline window. An empty Map
+ * (or a missing key for a bucket) is treated as "no codes seen yet" —
+ * cold-start warmup, where every code with sufficient volume is treated
+ * as new. We accept the one-time first-deploy page in exchange for never
+ * silently missing a real regression.
+ */
 export function evaluateBuckets(
   buckets: SocialAuthBucket[],
+  knownErrorCodes: Map<string, Set<string>> = new Map(),
 ): SocialAuthBreach[] {
   const breaches: SocialAuthBreach[] = [];
   for (const b of buckets) {
-    if (b.attempts < MIN_ATTEMPTS) continue;
-    const rate = b.failures / b.attempts;
-    if (rate > FAILURE_RATE_MAX) {
-      breaches.push({ bucket: b, failureRate: rate });
+    const reasons: string[] = [];
+    const rate = b.attempts > 0 ? b.failures / b.attempts : 0;
+    // Evaluate against the FULL per-code list, not the top-3 alert slice,
+    // so a previously-unseen code ranked 4th+ for the day still trips.
+    const known = knownErrorCodes.get(`${b.platform}::${b.provider}`);
+    const newCodes = b.errorCodes.filter(
+      (c) => c.count >= NEW_ERROR_MIN_COUNT && !(known?.has(c.errorCode) ?? false),
+    );
+
+    // Rate check needs a meaningful denominator; tiny samples are
+    // suppressed so the % isn't dominated by a handful of outliers.
+    if (b.attempts >= MIN_ATTEMPTS && rate > FAILURE_RATE_MAX) {
+      reasons.push(
+        `failure-rate ${(rate * 100).toFixed(1)}% > ${(
+          FAILURE_RATE_MAX * 100
+        ).toFixed(0)}%`,
+      );
+    }
+    // Absolute failure-count check is intentionally INDEPENDENT of
+    // MIN_ATTEMPTS — if ops sets a low cap, they probably want to be
+    // paged on absolute pain even when attempts are small.
+    if (b.failures > FAILURE_COUNT_MAX) {
+      reasons.push(`failure-count ${b.failures} > ${FAILURE_COUNT_MAX}`);
+    }
+
+    // New-code detection runs even on small samples — a never-before-seen
+    // native SDK error code with ≥ NEW_ERROR_MIN_COUNT hits is a strong
+    // signal in its own right (e.g. a fresh `-61440` after a signing
+    // change). Note: an empty baseline (cold start, or first time we see
+    // this platform/provider) intentionally treats every code as new — we
+    // would rather page once on first deploy than miss a real regression.
+    if (newCodes.length > 0) {
+      reasons.push(
+        `new error code(s): ${newCodes
+          .map((c) => `${c.errorCode}×${c.count}`)
+          .join(", ")}`,
+      );
+    }
+
+    if (reasons.length > 0) {
+      breaches.push({ bucket: b, failureRate: rate, reasons, newErrorCodes: newCodes });
     }
   }
   return breaches;
@@ -272,27 +426,29 @@ async function sendBreachAlert(
   breaches: SocialAuthBreach[],
   allBuckets: SocialAuthBucket[],
 ): Promise<void> {
-  const fields: AlertField[] = breaches.map(({ bucket, failureRate }) => {
-    const codes =
-      bucket.topErrorCodes.length > 0
-        ? bucket.topErrorCodes
-            .map((c) => `${c.errorCode}×${c.count}`)
-            .join(", ")
-        : "no error codes recorded";
-    return {
-      title: `${bucket.platform} / ${bucket.provider}`,
-      value: `attempts ${bucket.attempts}, failures ${bucket.failures} (${(
-        failureRate * 100
-      ).toFixed(1)}%) — top codes: ${codes}`,
-    };
-  });
+  const fields: AlertField[] = breaches.map(
+    ({ bucket, failureRate, reasons }) => {
+      const codes =
+        bucket.topErrorCodes.length > 0
+          ? bucket.topErrorCodes
+              .map((c) => `${c.errorCode}×${c.count}`)
+              .join(", ")
+          : "no error codes recorded";
+      return {
+        title: `${bucket.platform} / ${bucket.provider}`,
+        value:
+          `attempts ${bucket.attempts}, failures ${bucket.failures} (${(
+            failureRate * 100
+          ).toFixed(1)}%) — top codes: ${codes} → ${reasons.join("; ")}`,
+      };
+    },
+  );
 
   const body =
-    `Social sign-in failure rate exceeded ${(FAILURE_RATE_MAX * 100).toFixed(
-      0,
-    )}% on ${day} (UTC). ${breaches.length} (platform, provider) bucket(s) ` +
-    `breached out of ${allBuckets.length} active. Check the top error codes ` +
-    `against the Google/Apple sign-in gotchas in replit.md.`;
+    `Social sign-in failure check tripped on ${day} (UTC). ` +
+    `${breaches.length} (platform, provider) bucket(s) breached out of ` +
+    `${allBuckets.length} active. Check the top error codes against the ` +
+    `Google/Apple sign-in gotchas in replit.md.`;
 
   await sendAlert({
     title: "Social sign-in failures spiking",
