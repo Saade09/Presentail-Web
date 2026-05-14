@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
 const LOGO = require("@/assets/images/splash-icon-cream.png");
+const LOGO_AR = require("@/assets/images/splash-icon-cream-ar.png");
 
 type Props = {
   fadingOut?: boolean;
@@ -25,7 +26,7 @@ type Props = {
 export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
   const c = useColors();
   const t = useT();
-  const { isReady: langReady } = useLanguage();
+  const { lang, isReady: langReady } = useLanguage();
 
   const containerOpacity = useSharedValue(1);
   const logoOpacity = useSharedValue(0);
@@ -34,14 +35,17 @@ export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
   const taglineTranslate = useSharedValue(6);
   const indicatorOpacity = useSharedValue(0);
 
+  // Defer the logo fade-in until the stored language preference has resolved
+  // so AR users never see a flash of the Latin wordmark first.
   useEffect(() => {
+    if (!langReady) return;
     logoOpacity.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.quad) });
     logoScale.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) });
     indicatorOpacity.value = withDelay(
       560,
       withTiming(1, { duration: 360, easing: Easing.out(Easing.quad) }),
     );
-  }, [logoOpacity, logoScale, indicatorOpacity]);
+  }, [langReady, logoOpacity, logoScale, indicatorOpacity]);
 
   // Defer the tagline animation until the stored language preference has
   // resolved so AR/FR users never see a flash of the default EN string.
@@ -85,7 +89,7 @@ export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
         <View style={styles.center}>
           <Animated.View style={logoStyle}>
             <Image
-              source={LOGO}
+              source={langReady && lang === "AR" ? LOGO_AR : LOGO}
               style={styles.logo}
               contentFit="contain"
               accessibilityIgnoresInvertColors
