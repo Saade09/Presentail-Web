@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead } from "../../seo-inject.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -365,6 +365,38 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
     expect(out).toContain(
       "<title>Partner Brands in Dubai | Presentail</title>",
     );
+  });
+});
+
+describe("buildSeoHead — city slug allowlist", () => {
+  it("emits localized canonical/hreflang for a supported AE city slug", () => {
+    const out = buildSeoHead("/en-ae/ras-al-khaimah/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(out.headSnippet).toContain(
+      'rel="canonical" href="https://presentail.test/en-ae/ras-al-khaimah/shop"',
+    );
+    expect(out.headSnippet).toContain('hreflang="en-AE"');
+    expect(out.headSnippet).toContain('hreflang="ar-AE"');
+    expect(out.headSnippet).toContain('hreflang="x-default"');
+    expect(out.cityLabel).toBe("Ras Al Khaimah");
+  });
+
+  it("treats /en-ae/al-ain/... as out-of-locale (no localized canonical/hreflang, no city label)", () => {
+    const out = buildSeoHead("/en-ae/al-ain/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    // Falls back to landing canonical at "/" since the city is unsupported.
+    expect(out.headSnippet).toContain(
+      'rel="canonical" href="https://presentail.test/"',
+    );
+    expect(out.headSnippet).not.toContain("/en-ae/al-ain");
+    expect(out.headSnippet).not.toContain("hreflang=");
+    expect(out.cityLabel).toBe("");
+    expect(out.titleTag).not.toContain("Al Ain");
+    expect(out.titleTag).not.toContain("Al-Ain");
   });
 });
 

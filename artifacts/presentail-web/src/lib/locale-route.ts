@@ -35,9 +35,12 @@ export const CITY_SLUGS_BY_COUNTRY: Record<CountrySlug, readonly string[]> = {
   ],
   ae: [
     "abu-dhabi",
-    "al-ain",
+    "ajman",
     "dubai",
+    "fujairah",
+    "ras-al-khaimah",
     "sharjah",
+    "umm-al-quwain",
   ],
   cy: ["larnaca", "limassol", "nicosia", "paphos"],
 };

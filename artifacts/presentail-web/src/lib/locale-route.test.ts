@@ -39,6 +39,24 @@ describe("isSupportedCity", () => {
     expect(isSupportedCity("cy", "nicosia")).toBe(true);
     expect(isSupportedCity("cy", "dubai")).toBe(false);
   });
+
+  it("accepts all 7 served UAE cities", () => {
+    for (const slug of [
+      "abu-dhabi",
+      "ajman",
+      "dubai",
+      "fujairah",
+      "ras-al-khaimah",
+      "sharjah",
+      "umm-al-quwain",
+    ]) {
+      expect(isSupportedCity("ae", slug)).toBe(true);
+    }
+  });
+
+  it("rejects al-ain (no longer served)", () => {
+    expect(isSupportedCity("ae", "al-ain")).toBe(false);
+  });
 });
 
 describe("parseLocalePath", () => {

@@ -6,6 +6,27 @@
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
 
+// Mirror of CITY_SLUGS_BY_COUNTRY in src/lib/locale-route.ts. Keep in sync
+// with that file — both lists must agree or shoppers get an SEO-rendered
+// page for a slug the SPA refuses to route to.
+const CITY_SLUGS_BY_COUNTRY = {
+  lb: [
+    "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
+    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbail", "jezzine",
+    "kasserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
+    "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta",
+  ],
+  ae: [
+    "abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah",
+    "umm-al-quwain",
+  ],
+  cy: ["larnaca", "limassol", "nicosia", "paphos"],
+};
+
+function isSupportedCity(country, city) {
+  return CITY_SLUGS_BY_COUNTRY[country]?.includes(city) ?? false;
+}
+
 const COUNTRY_NAMES = {
   en: { ae: "the UAE", lb: "Lebanon", cy: "Cyprus" },
   ar: {
@@ -25,7 +46,6 @@ const CITY_NAMES = {
     "ae-ras-al-khaimah": "Ras Al Khaimah",
     "ae-fujairah": "Fujairah",
     "ae-umm-al-quwain": "Umm Al Quwain",
-    "ae-al-ain": "Al Ain",
     "lb-beirut": "Beirut",
     "lb-jounieh": "Jounieh",
     "lb-tripoli": "Tripoli",
@@ -47,7 +67,6 @@ const CITY_NAMES = {
     "ae-ras-al-khaimah": "رأس الخيمة",
     "ae-fujairah": "الفجيرة",
     "ae-umm-al-quwain": "أم القيوين",
-    "ae-al-ain": "العين",
     "lb-beirut": "بيروت",
     "lb-jounieh": "جونيه",
     "lb-tripoli": "طرابلس",
@@ -69,7 +88,6 @@ const CITY_NAMES = {
     "ae-ras-al-khaimah": "Ras el Khaïmah",
     "ae-fujairah": "Foujaïrah",
     "ae-umm-al-quwain": "Oumm al Qaïwaïn",
-    "ae-al-ain": "Al-Aïn",
     "lb-beirut": "Beyrouth",
     "lb-jounieh": "Jounieh",
     "lb-tripoli": "Tripoli",
@@ -395,13 +413,22 @@ export function buildSeoHead(pathname, { origin = "", basePath = "" } = {}) {
 
 function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const parsed = parseLocalePath(pathname);
-  const inLocale = parsed.hasLocalePrefix && parsed.country;
+  const hasValidCity =
+    parsed.hasLocalePrefix &&
+    parsed.country &&
+    parsed.city &&
+    isSupportedCity(parsed.country, parsed.city);
+  // Treat unsupported city slugs (e.g. /en-ae/al-ain/...) as out-of-locale
+  // so we don't emit a localized canonical/hreflang for a route the SPA
+  // will redirect away from.
+  const inLocale =
+    parsed.hasLocalePrefix && parsed.country && (!parsed.city || hasValidCity);
   const lang = parsed.lang ?? "en";
   const dir = lang === "ar" ? "rtl" : "ltr";
   const routeKey = inLocale ? detectRouteKey(parsed.rest) : "landing";
 
   const cityKey =
-    parsed.country && parsed.city ? `${parsed.country}-${parsed.city}` : null;
+    hasValidCity ? `${parsed.country}-${parsed.city}` : null;
   const cityLabel = cityKey
     ? CITY_NAMES[lang]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityLabelFromSlug(parsed.city)
     : "";

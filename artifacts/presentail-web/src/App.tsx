@@ -28,6 +28,7 @@ import {
   buildLocalePath,
   cityIdToSlug,
   countryCodeToSlug,
+  isSupportedCity,
   isSupportedCountrySlug,
   type CountrySlug,
   type Lang,
@@ -263,7 +264,7 @@ function RootRouter() {
   }
 
   if (parsed.hasLocalePrefix && parsed.lang && parsed.country) {
-    if (!parsed.city) {
+    if (!parsed.city || !isSupportedCity(parsed.country, parsed.city)) {
       return (
         <CityFallbackRedirect lang={parsed.lang} country={parsed.country} />
       );

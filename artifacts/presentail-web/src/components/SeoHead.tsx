@@ -5,6 +5,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import {
   buildLanguageAlternates,
   hreflangCode,
+  isSupportedCity,
   parseLocalePath,
   type Lang,
 } from "@/lib/locale-route";
@@ -59,12 +60,17 @@ export function SeoHead() {
     const head = document.head;
 
     const parsed = parseLocalePath(path);
-    const inLocale = parsed.hasLocalePrefix && parsed.country;
+    const hasValidCity =
+      parsed.hasLocalePrefix &&
+      parsed.country &&
+      parsed.city &&
+      isSupportedCity(parsed.country, parsed.city);
+    const inLocale = parsed.hasLocalePrefix && parsed.country && (!parsed.city || hasValidCity);
     const routeKey = inLocale ? detectRouteKey(parsed.rest) : "landing";
 
     const cityLabel = city
       ? cityName(city.id, city.name)
-      : parsed.city
+      : hasValidCity && parsed.city
         ? parsed.city
             .split("-")
             .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
@@ -152,7 +158,7 @@ export function SeoHead() {
       head,
     );
 
-    const alternates = buildLanguageAlternates(path);
+    const alternates = inLocale ? buildLanguageAlternates(path) : [];
     if (alternates.length && parsed.country) {
       for (const alt of alternates) {
         const href = origin + basePrefix + alt.path + search;
