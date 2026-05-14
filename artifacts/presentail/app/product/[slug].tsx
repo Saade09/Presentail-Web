@@ -29,6 +29,12 @@ import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import {
+  getCountryHour,
+  isExpressDeliveryAvailable,
+  timeSlotsForCountry,
+} from "@workspace/delivery";
+import { useNow } from "@/lib/useNow";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -298,35 +304,6 @@ function ProductDetail() {
 
 function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   const deliverySelection = useDeliverySelection();
-  const initialDelivery: "express" | "scheduled" =
-    deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
-      ? "scheduled"
-      : "express";
-  const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
-  // Persist the implicit default ("express") into the shared delivery
-  // selection on first visit, so adding to cart without ever toggling
-  // the option still results in the cart correctly showing
-  // "Express Delivery" + applying the surcharge. Only fires when no
-  // selection has been made yet — never overwrites a real choice.
-  useEffect(() => {
-    if (deliverySelection.mode == null && initialDelivery === "express") {
-      deliverySelection.setMode("express");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const setDelivery = (next: "express" | "scheduled") => {
-    setDeliveryLocal(next);
-    if (next === "express") {
-      deliverySelection.setMode("express");
-    } else {
-      deliverySelection.setSelection({
-        mode: "schedule",
-        date: dateRef.current,
-        slotLabel: slotRef.current,
-      });
-    }
-  };
-  const [tab, setTab] = useState<"description" | "care">("description");
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   // Coerce to a string before `.toUpperCase()` / fallback comparisons so
@@ -342,6 +319,59 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   const cc = (typeof rawCc === "string" && rawCc.length > 0
     ? rawCc
     : currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "").toUpperCase();
+  const now = useNow();
+  const expressAvailable = isExpressDeliveryAvailable(cc, now);
+  const initialDelivery: "express" | "scheduled" =
+    deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
+      ? "scheduled"
+      : expressAvailable
+        ? "express"
+        : "scheduled";
+  const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
+  // Persist the implicit default ("express") into the shared delivery
+  // selection on first visit, so adding to cart without ever toggling
+  // the option still results in the cart correctly showing
+  // "Express Delivery" + applying the surcharge. Only fires when no
+  // selection has been made yet — never overwrites a real choice.
+  useEffect(() => {
+    if (
+      deliverySelection.mode == null &&
+      initialDelivery === "express" &&
+      expressAvailable
+    ) {
+      deliverySelection.setMode("express");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Auto-fall back to scheduled if Express is currently selected but
+  // unavailable for the recipient country (e.g. shopper sat across the
+  // 10 PM cutoff). Mirrors the web checkout behaviour and keeps the
+  // shared `isExpressDeliveryAvailable` rule the single source of truth.
+  useEffect(() => {
+    if (delivery === "express" && !expressAvailable) {
+      setDeliveryLocal("scheduled");
+      deliverySelection.setSelection({
+        mode: "schedule",
+        date: dateRef.current,
+        slotLabel: slotRef.current,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [delivery, expressAvailable]);
+  const setDelivery = (next: "express" | "scheduled") => {
+    if (next === "express" && !expressAvailable) return;
+    setDeliveryLocal(next);
+    if (next === "express") {
+      deliverySelection.setMode("express");
+    } else {
+      deliverySelection.setSelection({
+        mode: "schedule",
+        date: dateRef.current,
+        slotLabel: slotRef.current,
+      });
+    }
+  };
+  const [tab, setTab] = useState<"description" | "care">("description");
   const t = useT();
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const points = Math.max(1, Math.round(priceValue * 0.4));
@@ -360,30 +390,8 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
     }
     return out;
   }, []);
-  const LB_SLOTS = [
-    { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
-    { label: "2:00 PM – 6:00 PM", cutoffHour: 14 },
-    { label: "6:00 PM – 9:00 PM", cutoffHour: 18 },
-    { label: "9:00 PM – 11:00 PM", cutoffHour: 21 },
-  ];
-  const AE_SLOTS = [
-    { label: "7:00 AM – 1:00 PM", cutoffHour: 7 },
-    { label: "1:00 PM – 4:00 PM", cutoffHour: 13 },
-    { label: "4:00 PM – 8:00 PM", cutoffHour: 16 },
-    { label: "8:00 PM – 11:00 PM", cutoffHour: 20 },
-  ];
-  const PROD_SLOTS = cc === "AE" ? AE_SLOTS : LB_SLOTS;
-  function getCountryHourLocal() {
-    const tz = cc === "AE" ? "Asia/Dubai" : "Asia/Beirut";
-    try {
-      const h = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hour12: false }).format(new Date());
-      return parseInt(h, 10);
-    } catch {
-      const offset = cc === "AE" ? 4 : 2;
-      return (new Date().getUTCHours() + offset) % 24;
-    }
-  }
-  const localH = getCountryHourLocal();
+  const PROD_SLOTS = timeSlotsForCountry(cc);
+  const localH = getCountryHour(cc);
   const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > localH);
   // `days` is the source of truth for date chips; fall back to today's ISO
   // so accessing `days[0]`/`days[1]` cannot throw on first render.
@@ -470,8 +478,9 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
           onPress={() => setDelivery("express")}
           icon="flash-outline"
           title={t.expressDelivery}
-          subtitle={t.arrivesIn90}
-          badge={t.fastest}
+          subtitle={expressAvailable ? t.arrivesIn90 : t.opensAt8AM}
+          badge={expressAvailable ? t.fastest : undefined}
+          disabled={!expressAvailable}
         />
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -648,10 +657,11 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   );
 }
 
-function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge }: any) {
+function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge, disabled }: any) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      disabled={!!disabled}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -661,6 +671,7 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge 
         borderWidth: 1.5,
         borderColor: active ? colors.primary : colors.border,
         backgroundColor: "#fff",
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       <View

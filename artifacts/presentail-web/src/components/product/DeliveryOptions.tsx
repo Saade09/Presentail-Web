@@ -8,6 +8,8 @@ type Props = {
   onSelectExpress: () => void;
   onSelectScheduled: () => void;
   expressLabel: string;
+  expressAvailable?: boolean;
+  expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
 };
 
@@ -16,6 +18,8 @@ export function DeliveryOptions({
   onSelectExpress,
   onSelectScheduled,
   expressLabel,
+  expressAvailable = true,
+  expressUnavailableLabel,
   scheduledSubtitle,
 }: Props) {
   return (
@@ -27,9 +31,14 @@ export function DeliveryOptions({
       <DeliveryRow
         active={value === "express"}
         onClick={onSelectExpress}
+        disabled={!expressAvailable}
         icon={<Zap className="w-4 h-4" />}
         title="Express Delivery"
-        subtitle={expressLabel}
+        subtitle={
+          expressAvailable
+            ? expressLabel
+            : expressUnavailableLabel ?? "Available 8 AM – 10 PM"
+        }
         showInfo
         testId="delivery-option-express"
       />
@@ -60,6 +69,7 @@ function DeliveryRow({
   subtitle,
   showInfo,
   testId,
+  disabled,
 }: {
   active: boolean;
   onClick: () => void;
@@ -68,14 +78,18 @@ function DeliveryRow({
   subtitle: string;
   showInfo?: boolean;
   testId?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
       className={cn(
         "w-full flex items-center gap-3 rounded-2xl border bg-card text-left p-4 transition-colors",
         active ? "border-primary bg-secondary/60" : "border-border hover:border-foreground/20",
+        disabled && "opacity-50 cursor-not-allowed hover:border-border",
       )}
       data-testid={testId}
     >

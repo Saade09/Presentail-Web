@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,12 @@ import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { dayLabels, formatDeliveryRow } from "@workspace/delivery";
+import {
+  dayLabels,
+  formatDeliveryRow,
+  isExpressDeliveryAvailable,
+} from "@workspace/delivery";
+import { useNow } from "@/lib/useNow";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -43,14 +48,43 @@ export default function ProductDetail() {
   const { data: allData, isLoading } = useProducts(locParams);
   const product = allData?.products?.find((p) => p.id === slug);
 
-  // Local UI choice for the radio. We default to "express" when no shared
-  // delivery selection exists so the page matches the previous behaviour;
-  // a persisted "today_slot"/"schedule" reflects back as the scheduled row.
-  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() =>
-    deliverySelection.mode && deliverySelection.mode !== "express"
-      ? "scheduled"
-      : "express",
+  // Express Delivery is only offered between 8 AM and 10 PM in the
+  // recipient country's local time. The 10 PM cutoff lives in the shared
+  // delivery library so every surface (PDP, cart, checkout) agrees.
+  // `useNow` ticks every minute so the computed availability flips
+  // automatically when the cutoff passes mid-session.
+  const now = useNow();
+  const expressAvailable = useMemo(
+    () => isExpressDeliveryAvailable(countryCode, now),
+    [countryCode, now],
   );
+
+  // Local UI choice for the radio. We default to "express" when no shared
+  // delivery selection exists AND express is currently available; once the
+  // 10 PM cutoff hits, we default to "scheduled" so the row reflects what
+  // the shopper can actually pick. A persisted "today_slot"/"schedule"
+  // reflects back as the scheduled row.
+  const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() => {
+    if (deliverySelection.mode && deliverySelection.mode !== "express") {
+      return "scheduled";
+    }
+    return expressAvailable ? "express" : "scheduled";
+  });
+
+  // If the recipient-country clock crosses 10 PM while the shopper is on
+  // the page, fall back to scheduled and persist a sane default into the
+  // shared selection store so checkout doesn't reopen with Express.
+  useEffect(() => {
+    if (deliveryChoice === "express" && !expressAvailable) {
+      setDeliveryChoice("scheduled");
+      deliverySelection.setSelection({
+        mode: "today_slot",
+        date: new Date().toISOString().slice(0, 10),
+        slotLabel: deliverySelection.slotLabel ?? null,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryChoice, expressAvailable]);
   const [qty, setQty] = useState(1);
   const vm = useMemo(
     () => (product ? buildProductViewModel(product) : null),
@@ -93,6 +127,7 @@ export default function ProductDetail() {
   ]);
 
   const handleSelectExpress = () => {
+    if (!expressAvailable) return;
     setDeliveryChoice("express");
     deliverySelection.setSelection({
       mode: "express",
@@ -225,6 +260,8 @@ export default function ProductDetail() {
               onSelectExpress={handleSelectExpress}
               onSelectScheduled={handleSelectScheduled}
               expressLabel={delivery.expressDeliveryTimeLabel}
+              expressAvailable={expressAvailable}
+              expressUnavailableLabel={t("checkout.expressUnavailable")}
               scheduledSubtitle={scheduledRowSubtitle}
             />
 

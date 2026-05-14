@@ -28,6 +28,7 @@ import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { trackEvent } from "@/lib/analytics";
+import { useNow } from "@/lib/useNow";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -206,10 +207,13 @@ export default function Checkout() {
   // Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
   // the recipient country's local time, mirroring the mobile rule. When
   // it's no longer available we silently fall back to the scheduled flow
-  // so the order can still be placed.
+  // so the order can still be placed. `useNow` ticks every minute so the
+  // computed availability flips automatically when the cutoff passes
+  // mid-session, even without an unrelated re-render.
+  const now = useNow();
   const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode),
-    [countryCode],
+    () => isExpressDeliveryAvailable(countryCode, now),
+    [countryCode, now],
   );
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   useEffect(() => {

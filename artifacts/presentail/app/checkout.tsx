@@ -69,6 +69,7 @@ import {
   dayLabels,
   expressSurchargeForCountry,
   getCountryHour,
+  isExpressDeliveryAvailable,
   resolveSlotLabel,
   timeSlotsForCountry,
   type TimeSlot,
@@ -83,6 +84,7 @@ import {
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import { trackEvent } from "@/lib/analytics";
+import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { getDeviceId } from "@/services/notifications";
 
@@ -353,10 +355,11 @@ function CheckoutScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, savedAddresses, districts]);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
-  const expressAvailable = useMemo(() => {
-    const h = getCountryHour(effectiveCountry);
-    return h >= 8 && h < 22;
-  }, [effectiveCountry]);
+  const now = useNow();
+  const expressAvailable = useMemo(
+    () => isExpressDeliveryAvailable(effectiveCountry, now),
+    [effectiveCountry, now],
+  );
   const timeSlots = timeSlotsForCountry(effectiveCountry);
   const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
   const freeDeliveryThreshold = freeDeliveryThresholdForCountry(effectiveCountry);
@@ -410,6 +413,16 @@ function CheckoutScreen() {
   const setDeliveryMode = deliverySelection.setMode;
   const setDate = deliverySelection.setDate;
   const setSlot = deliverySelection.setSlot;
+
+  // Auto-fallback when the recipient-country clock crosses 10 PM while
+  // the shopper is sitting on the page with Express selected. Mirrors
+  // the web checkout behaviour so the order can still be placed (and
+  // matches the cutoff promised by the shared delivery library).
+  useEffect(() => {
+    if (deliveryMode === "express" && !expressAvailable) {
+      setDeliveryMode("today_slot");
+    }
+  }, [deliveryMode, expressAvailable, setDeliveryMode]);
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
