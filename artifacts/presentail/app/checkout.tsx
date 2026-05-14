@@ -1404,14 +1404,16 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
           {t.previewCardButton}
         </Text>
       </Pressable>
-      <CardPreviewModal
-        visible={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        cardTo={cardTo}
-        cardMessage={cardMessage}
-        cardFrom={cardFrom}
-        colors={colors}
-      />
+      {previewOpen ? (
+        <CardPreviewModal
+          visible={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          cardTo={cardTo}
+          cardMessage={cardMessage}
+          cardFrom={cardFrom}
+          colors={colors}
+        />
+      ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Pressable
           onPress={() => setSuggestedOpen(true)}
