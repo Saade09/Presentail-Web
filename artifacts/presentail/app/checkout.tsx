@@ -18,6 +18,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -33,6 +34,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
@@ -1282,6 +1284,7 @@ function DeliveryDetailsStep(props: any) {
   } = props;
   const { formatNative } = useCurrency();
   const t = useT();
+  const { isRTL } = useLanguage();
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title={t.recipientDetailsTitle}>
@@ -1388,43 +1391,76 @@ function DeliveryDetailsStep(props: any) {
           placeholder="3000000"
           required
         />
-        <Pressable
-          onPress={() => setNoAddress(!noAddress)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 12,
+            backgroundColor: "#fff",
+            borderWidth: 1,
+            borderColor: noAddress ? colors.primary : colors.border,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+          }}
         >
-          <View
+          <Pressable
+            onPress={() => setNoAddress(!noAddress)}
             style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              borderWidth: 1.5,
-              borderColor: noAddress ? colors.primary : colors.border,
-              backgroundColor: noAddress ? colors.primary : "#fff",
+              flex: 1,
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 12,
             }}
           >
-            {noAddress ? <Feather name="check" size={12} color="#fff" /> : null}
-          </View>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1 }}>
-            {t.dontKnowAddressCheck}
-          </Text>
-        </Pressable>
-
-        {noAddress ? (
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-              fontSize: 12,
-              lineHeight: 17,
-              color: colors.mutedForeground,
-              marginTop: 6,
-              marginLeft: 26,
-            }}
-          >
-            {t.dontKnowAddressNote}
-          </Text>
-        ) : null}
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: noAddress ? colors.primary : "#f5f1ea",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather
+                name="map-pin"
+                size={18}
+                color={noAddress ? "#fff" : colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 14,
+                  color: colors.primary,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {t.askRecipientForAddressTitle}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12,
+                  lineHeight: 17,
+                  color: colors.mutedForeground,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {t.askRecipientForAddressNote}
+              </Text>
+            </View>
+          </Pressable>
+          <Switch
+            value={noAddress}
+            onValueChange={setNoAddress}
+            trackColor={{ false: "#e5dcc9", true: colors.primary }}
+            thumbColor="#fff"
+            ios_backgroundColor="#e5dcc9"
+          />
+        </View>
 
         {!noAddress ? (
         <View>
