@@ -158,8 +158,21 @@ const collectionCache = new Map<
 // intentionally NOT used on a WC network/HTTP failure — that path
 // returns an empty array so the homepage hides the section rather
 // than risking stale curation.
+// Order mirrors the live presentail.com homepage. Empty/no-product
+// occasions are filtered out downstream by `categoryHasBuyableProduct`,
+// so an extra slug here is harmless when the WC store doesn't carry it.
 const DEFAULT_OCCASION_SLUGS = [
-  "birthday", "anniversary", "love-romance", "congratulations", "thank-you", "newborn",
+  "birthday",
+  "love-romance",
+  "thank-you",
+  "get-well-soon",
+  "anniversary",
+  "congratulations",
+  "graduation",
+  "funeral",
+  "newborn",
+  "im-sorry",
+  "wedding",
 ];
 
 // Categories that must never surface in homepage rails or all-categories

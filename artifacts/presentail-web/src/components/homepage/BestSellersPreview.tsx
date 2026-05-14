@@ -1,57 +1,67 @@
 import { useMemo } from "react";
-import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
-import { ProductCard } from "@/components/ProductCard";
 import { useCategoryProducts, useProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
+import { ProductCollectionCarousel } from "./ProductCollectionCarousel";
 
-export function BestSellersPreview() {
+type Props = {
+  /** Catalog category slug to feature; falls back to all products if empty. */
+  categorySlug?: string;
+  /** Optional override for the section title locale key. */
+  titleKey?: string;
+  /** Distinct seed key so multiple rails on the same page rotate independently. */
+  railKey?: string;
+  /** Where the "View All" link points. */
+  viewAllHref?: string;
+  /** Maximum number of cards to show. */
+  limit?: number;
+  testId?: string;
+};
+
+/**
+ * Themed product collection rail (e.g. "Summer Collection" on the live site).
+ * Pulls from `/woo/category-products?slug=…` and falls back to `/woo/products`
+ * when the category is empty so a curated row never disappears entirely. The
+ * candidate pool is reshuffled once per UTC day per (rail, store) so the
+ * featured items rotate over time without server changes.
+ */
+export function BestSellersPreview({
+  categorySlug = "hand-bouquets",
+  titleKey = "bestSellers.title",
+  railKey = "best-sellers",
+  viewAllHref,
+  limit = 8,
+  testId = "section-best-sellers",
+}: Props) {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
-  const catQuery = useCategoryProducts("hand-bouquets", locParams);
-  const allQuery = useProducts(locParams, catQuery.isSuccess && (catQuery.data?.products?.length ?? 0) === 0);
+
+  const catQuery = useCategoryProducts(categorySlug, locParams);
+  const allQuery = useProducts(
+    locParams,
+    catQuery.isSuccess && (catQuery.data?.products?.length ?? 0) === 0,
+  );
   const isLoading = catQuery.isLoading || allQuery.isLoading;
   const catProducts = catQuery.data?.products ?? [];
-  // Reshuffle the candidate pool once per UTC day per store so the four
-  // featured items rotate over time without changing the source data.
+
   const products = useMemo(() => {
     const pool = catProducts.length > 0 ? catProducts : allQuery.data?.products ?? [];
-    return seededShuffle(pool, homepageShuffleSeed("best-sellers", countryCode, cityId)).slice(0, 4);
-  }, [catProducts, allQuery.data?.products, countryCode, cityId]);
+    return seededShuffle(pool, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
+  }, [catProducts, allQuery.data?.products, countryCode, cityId, railKey, limit]);
+
+  const href = viewAllHref ?? `/shop?category=${encodeURIComponent(categorySlug)}`;
 
   return (
-    <section className="py-14 md:py-20" data-testid="section-best-sellers">
-      <div className="container mx-auto px-4">
-        <div className="flex items-end justify-between mb-8 md:mb-10">
-          <h2 className="text-2xl md:text-4xl font-serif">{t("bestSellers.title")}</h2>
-          <Link
-            href="/shop"
-            className="flex items-center gap-1.5 text-sm font-medium hover:text-primary/80 transition-colors"
-            data-testid="link-best-sellers-view-all"
-          >
-            {t("bestSellers.viewAll")} <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {isLoading
-            ? Array(4)
-                .fill(0)
-                .map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="aspect-square bg-muted rounded-2xl mb-4" />
-                    <div className="h-5 bg-muted rounded w-2/3 mb-2" />
-                    <div className="h-4 bg-muted rounded w-1/3" />
-                  </div>
-                ))
-            : products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-        </div>
-      </div>
-    </section>
+    <ProductCollectionCarousel
+      title={t(titleKey)}
+      viewAllHref={href}
+      products={products}
+      isLoading={isLoading}
+      testId={testId}
+    />
   );
 }

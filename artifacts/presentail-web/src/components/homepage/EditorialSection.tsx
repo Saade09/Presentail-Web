@@ -26,10 +26,6 @@ export function EditorialSection() {
                 loading="lazy"
               />
             </div>
-            <div className="hidden md:block absolute -bottom-6 -end-6 bg-gold text-primary rounded-2xl px-6 py-5 shadow-xl max-w-[220px]">
-              <p className="font-serif text-3xl leading-none">{t("editorial.badgeYears")}</p>
-              <p className="text-xs tracking-wider uppercase mt-1">{t("editorial.badgeLabel")}</p>
-            </div>
           </motion.div>
 
           <motion.div
