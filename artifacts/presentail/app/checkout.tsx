@@ -226,9 +226,6 @@ function CheckoutScreen() {
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
-  const [addressApartment, setAddressApartment] = useState("");
-  const [addressBuilding, setAddressBuilding] = useState("");
-  const [addressDirections, setAddressDirections] = useState("");
   const [senderFirst, setSenderFirst] = useState("");
   const [senderLast, setSenderLast] = useState("");
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
@@ -294,14 +291,22 @@ function CheckoutScreen() {
       districtManuallyEdited.current = true;
       setDistrict(districtMatch);
     }
+    // Merge any legacy building / apartment / directions detail into the
+    // combined address line so we don't silently drop information that
+    // was captured under the old multi-field form.
+    const baseLine = districtMatch
+      ? addr.addressLine
+      : [addr.addressLine, addr.district].filter(Boolean).join(" · ");
     setDeliveryDetails(
-      districtMatch
-        ? addr.addressLine
-        : [addr.addressLine, addr.district].filter(Boolean).join(" · "),
+      [
+        baseLine,
+        addr.building && `Bldg: ${addr.building}`,
+        addr.apartment && `Apt/Floor: ${addr.apartment}`,
+        addr.directions,
+      ]
+        .filter(Boolean)
+        .join(" · "),
     );
-    setAddressApartment(addr.apartment ?? "");
-    setAddressBuilding(addr.building ?? "");
-    setAddressDirections(addr.directions ?? "");
     setNoAddress(false);
     setSavedAddressPickerOpen(false);
   };
@@ -494,16 +499,7 @@ function CheckoutScreen() {
     // instead of a hardcoded LB.
     billingCountry: senderCountry.code,
     shippingCountry: recipientCountry.code,
-    deliveryDetails: noAddress
-      ? "To be confirmed"
-      : [
-          deliveryDetails,
-          addressBuilding && `Building: ${addressBuilding}`,
-          addressApartment && `Apt/Floor: ${addressApartment}`,
-          addressDirections && `Notes: ${addressDirections}`,
-        ]
-          .filter(Boolean)
-          .join(" · "),
+    deliveryDetails: noAddress ? "To be confirmed" : deliveryDetails,
     deliveryDate: deliveryMode === "express" ? days[0].iso : date,
     deliverySlot: deliveryMode === "express" ? t.checkoutExpressDeliveryLabel : (slot?.label ?? ""),
     cardMessage,
@@ -580,9 +576,9 @@ function CheckoutScreen() {
               countryCode: recipientCountry.code,
               district: district.name,
               addressLine: deliveryDetails.trim() || district.name,
-              apartment: addressApartment.trim() || null,
-              building: addressBuilding.trim() || null,
-              directions: addressDirections.trim() || null,
+              apartment: null,
+              building: null,
+              directions: null,
               recipientFirstName: recipientFirst.trim() || null,
               recipientLastName: recipientLast.trim() || null,
               recipientPhoneCountryCode: recipientPhone.trim()
@@ -901,12 +897,6 @@ function CheckoutScreen() {
               setNoAddress={setNoAddress}
               deliveryDetails={deliveryDetails}
               setDeliveryDetails={setDeliveryDetails}
-              addressApartment={addressApartment}
-              setAddressApartment={setAddressApartment}
-              addressBuilding={addressBuilding}
-              setAddressBuilding={setAddressBuilding}
-              addressDirections={addressDirections}
-              setAddressDirections={setAddressDirections}
               senderFirst={senderFirst}
               setSenderFirst={setSenderFirst}
               senderLast={senderLast}
@@ -1339,9 +1329,6 @@ function DeliveryDetailsStep(props: any) {
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
     districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
-    addressApartment, setAddressApartment,
-    addressBuilding, setAddressBuilding,
-    addressDirections, setAddressDirections,
     isSignedIn, savedAddresses, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
     saveAddress, setSaveAddress,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
@@ -1620,43 +1607,10 @@ function DeliveryDetailsStep(props: any) {
           value={deliveryDetails}
           onChangeText={setDeliveryDetails}
           placeholder={t.addressFormAddressLinePlaceholder}
+          helper={t.addressFormAddressLineHint}
           required
           multiline
         />
-        ) : null}
-
-        {!noAddress ? (
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Field
-                colors={colors}
-                label={t.addressFormBuilding}
-                value={addressBuilding}
-                onChangeText={setAddressBuilding}
-                placeholder={t.addressFormBuildingPlaceholder}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Field
-                colors={colors}
-                label={t.addressFormApartment}
-                value={addressApartment}
-                onChangeText={setAddressApartment}
-                placeholder={t.addressFormApartmentPlaceholder}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {!noAddress ? (
-          <Field
-            colors={colors}
-            label={t.addressFormDirections}
-            value={addressDirections}
-            onChangeText={setAddressDirections}
-            placeholder={t.addressFormDirectionsPlaceholder}
-            multiline
-          />
         ) : null}
 
         {isSignedIn && !noAddress ? (

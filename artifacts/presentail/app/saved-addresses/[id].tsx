@@ -68,9 +68,6 @@ export default function SavedAddressFormScreen() {
   );
   const [district, setDistrict] = useState<District | null>(null);
   const [addressLine, setAddressLine] = useState("");
-  const [building, setBuilding] = useState("");
-  const [apartment, setApartment] = useState("");
-  const [directions, setDirections] = useState("");
   const [recipientFirst, setRecipientFirst] = useState("");
   const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -103,10 +100,19 @@ export default function SavedAddressFormScreen() {
             existing.district.trim().toLowerCase(),
         ) ?? null;
       setDistrict(matchedDistrict);
-      setAddressLine(existing.addressLine);
-      setBuilding(existing.building ?? "");
-      setApartment(existing.apartment ?? "");
-      setDirections(existing.directions ?? "");
+      // Merge any legacy building / apartment / directions detail into the
+      // combined address line so editing an old saved address doesn't
+      // silently drop information captured under the old multi-field form.
+      setAddressLine(
+        [
+          existing.addressLine,
+          existing.building && `Bldg: ${existing.building}`,
+          existing.apartment && `Apt/Floor: ${existing.apartment}`,
+          existing.directions,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
       setRecipientFirst(existing.recipientFirstName ?? "");
       setRecipientLast(existing.recipientLastName ?? "");
       setRecipientPhone(existing.recipientPhone ?? "");
@@ -149,9 +155,9 @@ export default function SavedAddressFormScreen() {
       countryCode: country.code,
       district: district.name,
       addressLine: trimmedAddress,
-      apartment: apartment.trim() ? apartment.trim() : null,
-      building: building.trim() ? building.trim() : null,
-      directions: directions.trim() ? directions.trim() : null,
+      apartment: null,
+      building: null,
+      directions: null,
       recipientFirstName: recipientFirst.trim() ? recipientFirst.trim() : null,
       recipientLastName: recipientLast.trim() ? recipientLast.trim() : null,
       recipientPhoneCountryCode: trimmedPhone ? recipientPhoneCountry.dial : null,
@@ -293,7 +299,11 @@ export default function SavedAddressFormScreen() {
             </Pressable>
           </FieldGroup>
 
-          <FieldGroup label={t.addressFormAddressLine} required>
+          <FieldGroup
+            label={t.addressFormAddressLine}
+            hint={t.addressFormAddressLineHint}
+            required
+          >
             <Input
               value={addressLine}
               onChangeText={setAddressLine}
@@ -301,19 +311,6 @@ export default function SavedAddressFormScreen() {
               multiline
             />
           </FieldGroup>
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <FieldGroup label={t.addressFormBuilding}>
-                <Input value={building} onChangeText={setBuilding} placeholder={t.addressFormBuildingPlaceholder} />
-              </FieldGroup>
-            </View>
-            <View style={{ flex: 1 }}>
-              <FieldGroup label={t.addressFormApartment}>
-                <Input value={apartment} onChangeText={setApartment} placeholder={t.addressFormApartmentPlaceholder} />
-              </FieldGroup>
-            </View>
-          </View>
 
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
@@ -343,15 +340,6 @@ export default function SavedAddressFormScreen() {
             countryCode={recipientPhoneCountry.code}
             onChangeCountry={setRecipientPhoneCountry}
           />
-
-          <FieldGroup label={t.addressFormDirections} hint={t.addressFormDirectionsHint}>
-            <Input
-              value={directions}
-              onChangeText={setDirections}
-              placeholder={t.addressFormDirectionsPlaceholder}
-              multiline
-            />
-          </FieldGroup>
 
           <Pressable
             onPress={() => setIsDefault((v) => !v)}
