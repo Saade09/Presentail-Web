@@ -2,12 +2,17 @@ import { useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { translations } from "@/lib/translations";
+import { localizedCountryName } from "@/data/countryNamesLocalized";
 
 export function useT() {
   const { lang } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
 
-  const countryName = selectedCountry?.name ?? "Lebanon";
+  const countryName = localizedCountryName(
+    lang,
+    selectedCountry?.code,
+    selectedCountry?.name ?? "Lebanon",
+  );
   const cityName = selectedCity?.name ?? "Beirut";
 
   return useMemo(() => {

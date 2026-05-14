@@ -34,6 +34,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
+import { localizedCountryName } from "@/data/countryNamesLocalized";
 import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,10 +90,14 @@ function HomeHeader({
   const colors = useColors();
   const router = useRouter();
   const t = useT();
-  const { isRTL } = useLanguage();
+  const { lang, isRTL } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
 
-  const countryName = selectedCountry?.name ?? "Lebanon";
+  const countryName = localizedCountryName(
+    lang,
+    selectedCountry?.code,
+    selectedCountry?.name ?? "Lebanon",
+  );
   const countryFlag = selectedCountry?.flag ?? "🇱🇧";
   const deliveryPlaceName = selectedCity?.name ?? countryName;
 
@@ -640,9 +645,14 @@ function BestSellers() {
   const router = useRouter();
   const colors = useColors();
   const t = useT();
+  const { lang } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { products: wooProducts } = useWooProducts();
-  const countryName = selectedCountry?.name ?? "Lebanon";
+  const countryName = localizedCountryName(
+    lang,
+    selectedCountry?.code,
+    selectedCountry?.name ?? "Lebanon",
+  );
 
   // Reshuffle the candidate pool once per UTC day per store so repeat visitors
   // see a fresh order without items jumping around mid-session.
