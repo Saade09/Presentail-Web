@@ -531,7 +531,16 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
       </View>
 
       {/* Trust badges — informational, intentionally non-button */}
-      <View style={{ marginTop: 14 }}>
+      <View
+        style={{
+          marginTop: 14,
+          backgroundColor: "#fff",
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 16,
+          paddingHorizontal: 14,
+        }}
+      >
         {[
           { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(cc === "AE" ? 330 : cc === "CY" ? 120 : 130)}.` },
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
