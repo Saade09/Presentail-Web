@@ -1148,7 +1148,23 @@ function Card({ children, colors, title }: any) {
 
 // =============== Step 1: Customize ===============
 
-const CARD_STATIONERY = require("../assets/images/card-stationery.avif");
+// Loaded defensively: this asset was added after some shipping binaries
+// (e.g. build 22) were compiled. OTA updates can ship JS but not new
+// bundled assets, so on older binaries the asset registry lookup fails
+// and rendering an <Image> with the missing source crashes the app.
+// We resolve the asset id, then verify with AssetRegistry that the
+// binary actually has it before rendering. Falls back to a plain
+// coloured background otherwise.
+let CARD_STATIONERY: number | null = null;
+try {
+  const id = require("../assets/images/card-stationery.avif") as number;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const AssetRegistry = require("@react-native/assets-registry/registry");
+  const asset = AssetRegistry?.getAssetByID?.(id);
+  CARD_STATIONERY = asset ? id : null;
+} catch {
+  CARD_STATIONERY = null;
+}
 
 function CardPreviewModal({
   visible,
@@ -1232,11 +1248,13 @@ function CardPreviewModal({
 
   const renderCardBody = (includeWatermark: boolean) => (
     <>
-      <Image
-        source={CARD_STATIONERY}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
-        contentFit="cover"
-      />
+      {CARD_STATIONERY != null ? (
+        <Image
+          source={CARD_STATIONERY}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: cardW, height: cardH }}
+          contentFit="cover"
+        />
+      ) : null}
       <View style={{ flex: 1, padding: 26 }}>
         <View style={{ flex: 0.42 }} />
         <View style={{ flex: 0.58 }}>
