@@ -1424,35 +1424,42 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         maxLength={400}
         characterCount
       />
-      <Pressable
-        onPress={() => setPreviewOpen(true)}
-        style={{
-          alignSelf: "flex-start",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          borderRadius: 999,
-          borderWidth: 1,
-          borderColor: colors.gold,
-          backgroundColor: "#fff",
-        }}
-      >
-        <Feather name="eye" size={14} color={colors.gold} />
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold }}>
-          {t.previewCardButton}
-        </Text>
-      </Pressable>
-      {previewOpen ? (
-        <CardPreviewModal
-          visible={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          cardTo={cardTo}
-          cardMessage={cardMessage}
-          cardFrom={cardFrom}
-          colors={colors}
-        />
+      {/* Hide the entire preview flow on legacy build 22 — the stationery
+          asset isn't bundled there and the modal has been crashing. The
+          next binary (>=25) ships the asset and re-enables the button. */}
+      {NATIVE_BUILD_NUMBER >= 25 ? (
+        <>
+          <Pressable
+            onPress={() => setPreviewOpen(true)}
+            style={{
+              alignSelf: "flex-start",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: colors.gold,
+              backgroundColor: "#fff",
+            }}
+          >
+            <Feather name="eye" size={14} color={colors.gold} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold }}>
+              {t.previewCardButton}
+            </Text>
+          </Pressable>
+          {previewOpen ? (
+            <CardPreviewModal
+              visible={previewOpen}
+              onClose={() => setPreviewOpen(false)}
+              cardTo={cardTo}
+              cardMessage={cardMessage}
+              cardFrom={cardFrom}
+              colors={colors}
+            />
+          ) : null}
+        </>
       ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Pressable
