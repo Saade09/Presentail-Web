@@ -791,17 +791,6 @@ function CheckoutScreen() {
       >
         {step === 0 && (
           <>
-            <CustomizeStep
-              colors={colors}
-              cardTo={cardTo}
-              setCardTo={setCardTo}
-              cardMessage={cardMessage}
-              setCardMessage={setCardMessage}
-              cardFrom={cardFrom}
-              setCardFrom={setCardFrom}
-              qrLink={qrLink}
-              setQrLink={setQrLink}
-            />
             <OrderSummary
               colors={colors}
               detailed={detailed}
@@ -813,6 +802,17 @@ function CheckoutScreen() {
               couponOpen={couponOpen}
               setCouponOpen={setCouponOpen}
               showDeliveryFee={false}
+            />
+            <CustomizeStep
+              colors={colors}
+              cardTo={cardTo}
+              setCardTo={setCardTo}
+              cardMessage={cardMessage}
+              setCardMessage={setCardMessage}
+              cardFrom={cardFrom}
+              setCardFrom={setCardFrom}
+              qrLink={qrLink}
+              setQrLink={setQrLink}
             />
           </>
         )}
