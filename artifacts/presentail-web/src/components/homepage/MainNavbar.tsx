@@ -27,7 +27,7 @@ export function MainNavbar() {
   const isShopPage = location === "/shop" || location.startsWith("/shop?") || location.startsWith("/shop/");
 
   return (
-    <div className="bg-background border-b border-border/60">
+    <div className="bg-background">
       <div className="container mx-auto px-4 h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
         {/* Left: nav links */}
         <div className="flex items-center gap-2">
