@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,53 @@ export default function Checkout() {
     email: user?.email || "",
     phone: user?.phone || "",
   });
+
+  // Signed-in shoppers already gave us their identity at signup, so we
+  // hide the sender Name/Email inputs and only keep the WhatsApp field
+  // visible when the profile has no phone yet (so we can ask once and
+  // persist it back to the account). `hadProfilePhoneOnMountRef` is
+  // captured once so post-order we can decide whether to PUT the typed
+  // phone back to the profile — re-reading `user.phone` after a save
+  // would flip the flag and we'd skip future saves incorrectly.
+  const isSignedIn = !!user;
+  const profilePhone = (user?.phone ?? "").trim();
+  const hasProfilePhone = isSignedIn && profilePhone.length > 0;
+  const hadProfilePhoneOnMountRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    if (hadProfilePhoneOnMountRef.current === null) {
+      hadProfilePhoneOnMountRef.current = profilePhone.length > 0;
+    }
+    // Keep sender state in sync if the auth user resolves after mount
+    // (e.g. cookie hydration races the first render). We never overwrite
+    // a value the shopper already typed.
+    setSender((prev) => ({
+      firstName: prev.firstName || user.firstName || "",
+      lastName: prev.lastName || user.lastName || "",
+      email: prev.email || user.email || "",
+      phone: prev.phone || user.phone || "",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Best-effort: persist the typed WhatsApp number to the profile when
+  // a signed-in shopper had no phone on file before this checkout. Never
+  // blocks the order flow — failures are logged and swallowed.
+  const maybeSaveProfilePhone = async () => {
+    if (!isSignedIn) return;
+    if (hadProfilePhoneOnMountRef.current !== false) return;
+    const phoneToSave = sender.phone.trim();
+    if (!phoneToSave) return;
+    try {
+      await apiFetch("/auth/me", {
+        method: "PUT",
+        body: JSON.stringify({ phone: phoneToSave }),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[checkout] post-order phone save failed", err);
+    }
+  };
 
   const timeSlots = timeSlotsForCountry(countryCode);
   const [deliverySlot, setDeliverySlot] = useState<string>(timeSlots[0]?.label ?? "");
@@ -255,6 +303,9 @@ export default function Checkout() {
     const res = await createOrder.mutateAsync(payload);
     if (res.ok) {
       clearCart();
+      // Fire-and-forget — runs after the order is confirmed in WC so a
+      // profile-update failure never blocks order completion.
+      void maybeSaveProfilePhone();
       trackEvent({
         name: "order_placed",
         surface: "checkout",
@@ -276,6 +327,12 @@ export default function Checkout() {
       PENDING_ORDER_KEY,
       JSON.stringify({ payload, createdAt: Date.now() }),
     );
+    // Note: we do NOT persist the typed phone to the profile here. The
+    // order isn't placed yet — it gets finalized after the shopper
+    // returns from the hosted payment page — and saving the phone on a
+    // payment that ends up abandoned would silently mutate the profile.
+    // For hosted-payment flows the phone is only saved on a future
+    // checkout that finalizes via `finalizeOrderNow`.
     window.location.href = url;
   };
 
@@ -604,26 +661,56 @@ export default function Checkout() {
                   <h2 className="text-3xl font-serif mb-2">{t("checkout.step2.title")}</h2>
                   <p className="text-muted-foreground mb-8">{t("checkout.step2.desc")}</p>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("checkout.firstName")}</label>
-                      <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
+                  {isSignedIn ? (
+                    <div
+                      className="mb-4 rounded-xl border bg-secondary/40 p-4"
+                      data-testid="sender-summary"
+                    >
+                      <p className="text-sm">
+                        {t("checkout.sendingAs", {
+                          summary: [
+                            `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
+                            user?.email ?? "",
+                            profilePhone,
+                          ]
+                            .filter((s) => s && s.trim())
+                            .join(" · "),
+                        })}
+                      </p>
+                      <Link
+                        href="/account/personal-information"
+                        className="mt-1 inline-block text-xs underline"
+                        data-testid="link-edit-account"
+                      >
+                        {t("checkout.editInAccount")}
+                      </Link>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("checkout.lastName")}</label>
-                      <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} data-testid="input-sender-last-name" />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">{t("checkout.firstName")}</label>
+                          <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">{t("checkout.lastName")}</label>
+                          <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} data-testid="input-sender-last-name" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <label className="text-sm font-medium">{t("checkout.emailAddress")}</label>
+                        <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
+                      </div>
+                    </>
+                  )}
+
+                  {!hasProfilePhone && (
+                    <div className="space-y-2 mb-4">
+                      <label className="text-sm font-medium">{t("checkout.phoneNumber")}</label>
+                      <Input value={sender.phone} onChange={(e) => setSender({ ...sender, phone: e.target.value })} data-testid="input-sender-phone" />
                     </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.emailAddress")}</label>
-                    <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.phoneNumber")}</label>
-                    <Input value={sender.phone} onChange={(e) => setSender({ ...sender, phone: e.target.value })} data-testid="input-sender-phone" />
-                  </div>
+                  )}
 
                   <label className="flex items-start gap-3 mb-8 cursor-pointer select-none" data-testid="check-identity-secret-label">
                     <input
@@ -638,7 +725,7 @@ export default function Checkout() {
 
                   <div className="flex gap-4">
                     <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-recipient">{t("checkout.back")}</Button>
-                    <Button size="lg" className="flex-1 h-14 rounded-xl" onClick={() => setStep(3)} disabled={!sender.firstName || !sender.email} data-testid="button-continue-to-payment">
+                    <Button size="lg" className="flex-1 h-14 rounded-xl" onClick={() => setStep(3)} disabled={(!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())} data-testid="button-continue-to-payment">
                       {t("checkout.continuePayment")}
                     </Button>
                   </div>

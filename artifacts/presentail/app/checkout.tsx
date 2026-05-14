@@ -134,7 +134,7 @@ function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove } = useCart();
   const { formatNative, currencyCode } = useCurrency();
-  const { token: authToken, user: authUser } = useAuth();
+  const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
   const effectiveCountry = resolveCountryCode(selectedCountry?.code, currencyCode);
@@ -234,6 +234,33 @@ function CheckoutScreen() {
   const [senderWhatsapp, setSenderWhatsapp] = useState("");
   const [senderCountry, setSenderCountry] = useState<CountryDialCode>(defaultDialCode);
   const [senderEmail, setSenderEmail] = useState("");
+
+  // Signed-in shoppers already gave us their identity at signup, so we
+  // hide the sender Name/Email inputs and only keep the WhatsApp field
+  // visible when the profile has no phone yet (so we can ask once and
+  // persist it back to the account). We seed the sender state from the
+  // auth user so the order payload still carries those values even when
+  // the inputs aren't rendered. `hadProfilePhoneOnMount` is captured
+  // once so we can decide post-order whether to PUT the phone back to
+  // the profile — if we re-read `authUser.phone` after a successful
+  // save, the flag would flip and we'd skip the save next time.
+  const profilePhone = (authUser?.phone ?? "").trim();
+  const hasProfilePhone = !!authUser && profilePhone.length > 0;
+  const hadProfilePhoneOnMountRef = React.useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!authUser) return;
+    if (hadProfilePhoneOnMountRef.current === null) {
+      hadProfilePhoneOnMountRef.current = profilePhone.length > 0;
+    }
+    if (authUser.firstName && !senderFirst) setSenderFirst(authUser.firstName);
+    if (authUser.lastName && !senderLast) setSenderLast(authUser.lastName);
+    if (authUser.email && !senderEmail) setSenderEmail(authUser.email);
+    // Intentionally do not seed senderWhatsapp — when the profile has a
+    // phone we hide the field and use `profilePhone` directly in the
+    // billing payload, so a stale UI value can never silently overwrite
+    // the canonical profile value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser]);
   const [identitySecret, setIdentitySecret] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [savedAddressPickerOpen, setSavedAddressPickerOpen] = useState(false);
@@ -382,6 +409,11 @@ function CheckoutScreen() {
     return { subtotal, districtFee, expressFee, grand };
   }, [total, deliveryMode, district, freeDeliveryThreshold, expressSurcharge, noAddress]);
 
+  const isSignedIn = !!authUser;
+  const senderNameRequired = !isSignedIn;
+  const senderEmailRequired = !isSignedIn;
+  const senderPhoneRequired = !hasProfilePhone;
+
   const stepValid = (s: Step) => {
     if (s === 0) return true;
     if (s === 1)
@@ -390,10 +422,9 @@ function CheckoutScreen() {
         recipientLast.trim() &&
         recipientPhone.trim() &&
         (noAddress || deliveryDetails.trim()) &&
-        senderFirst.trim() &&
-        senderLast.trim() &&
-        senderWhatsapp.trim() &&
-        senderEmail.trim()
+        (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
+        (!senderPhoneRequired || senderWhatsapp.trim()) &&
+        (!senderEmailRequired || senderEmail.trim())
       );
     if (s === 2) return !!payMethod;
     return false;
@@ -406,10 +437,10 @@ function CheckoutScreen() {
     if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
     if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
-    if (!senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
-    if (!senderLast.trim()) missing.push(t.checkoutMfSenderLast);
-    if (!senderWhatsapp.trim()) missing.push(t.checkoutMfSenderWhatsapp);
-    if (!senderEmail.trim()) missing.push(t.checkoutMfSenderEmail);
+    if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
+    if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
+    if (senderPhoneRequired && !senderWhatsapp.trim()) missing.push(t.checkoutMfSenderWhatsapp);
+    if (senderEmailRequired && !senderEmail.trim()) missing.push(t.checkoutMfSenderEmail);
     return missing;
   };
 
@@ -441,7 +472,12 @@ function CheckoutScreen() {
       firstName: senderFirst,
       lastName: senderLast,
       email: senderEmail,
-      phone: `${senderCountry.dial} ${senderWhatsapp}`.trim(),
+      // For signed-in shoppers with a phone on file we hide the input and
+      // use the canonical profile phone, so a stale UI value can never
+      // overwrite it.
+      phone: hasProfilePhone
+        ? profilePhone
+        : `${senderCountry.dial} ${senderWhatsapp}`.trim(),
     },
     recipient: {
       firstName: recipientFirst,
@@ -559,6 +595,23 @@ function CheckoutScreen() {
             // Silent: the order itself succeeded; saving an address is
             // a convenience and must not surface an error to the user.
           }
+        }
+        // Best-effort phone save: when a signed-in shopper had no phone
+        // on file and just typed one in the WhatsApp field, persist it
+        // to their profile so the next checkout hides the field too.
+        // Never blocks order completion — failures are logged, swallowed.
+        if (
+          authUser &&
+          hadProfilePhoneOnMountRef.current === false &&
+          senderWhatsapp.trim()
+        ) {
+          const phoneToSave = `${senderCountry.dial} ${senderWhatsapp}`.trim();
+          updateProfile({ phone: phoneToSave }).catch((err) => {
+            console.warn("[checkout] post-order phone save failed", {
+              orderId,
+              err: err?.message ?? String(err),
+            });
+          });
         }
         // Funnel terminal step: only emit once the WC order has actually
         // been created, never just because a payment session resolved.
@@ -866,7 +919,16 @@ function CheckoutScreen() {
               setSenderEmail={setSenderEmail}
               identitySecret={identitySecret}
               setIdentitySecret={setIdentitySecret}
-              isSignedIn={!!authUser}
+              isSignedIn={isSignedIn}
+              hideSenderName={isSignedIn}
+              hideSenderEmail={isSignedIn}
+              hideSenderPhone={hasProfilePhone}
+              senderSummary={isSignedIn ? {
+                name: `${authUser?.firstName ?? ""} ${authUser?.lastName ?? ""}`.trim(),
+                email: authUser?.email ?? "",
+                phone: profilePhone,
+              } : null}
+              onEditAccount={() => router.push("/personal-information")}
               savedAddresses={savedAddresses}
               savedAddressPickerOpen={savedAddressPickerOpen}
               setSavedAddressPickerOpen={setSavedAddressPickerOpen}
@@ -1285,6 +1347,7 @@ function DeliveryDetailsStep(props: any) {
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
+    hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
   } = props;
   const { formatNative } = useCurrency();
   const t = useT();
@@ -1623,24 +1686,67 @@ function DeliveryDetailsStep(props: any) {
       </Card>
 
       <Card colors={colors} title={t.senderDetailsTitle}>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
+        {senderSummary ? (
+          <View
+            style={{
+              backgroundColor: colors.secondary,
+              padding: 12,
+              borderRadius: 10,
+              gap: 6,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 13,
+                color: colors.primary,
+              }}
+            >
+              {t.checkoutSendingAs.replace(
+                "{summary}",
+                [senderSummary.name, senderSummary.email, senderSummary.phone]
+                  .filter((s: string) => s && s.trim())
+                  .join(" · "),
+              )}
+            </Text>
+            <Pressable onPress={onEditAccount} hitSlop={8}>
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: colors.primary,
+                  textDecorationLine: "underline",
+                }}
+              >
+                {t.checkoutEditInAccount}
+              </Text>
+            </Pressable>
           </View>
-          <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required />
+        ) : null}
+        {!hideSenderName ? (
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required />
+            </View>
           </View>
-        </View>
-        <PhoneField
-          label={t.whatsappNumberLabel}
-          value={senderWhatsapp}
-          onChangeText={setSenderWhatsapp}
-          countryCode={senderCountry.code}
-          onChangeCountry={setSenderCountry}
-          placeholder="3000000"
-          required
-        />
-        <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
+        ) : null}
+        {!hideSenderPhone ? (
+          <PhoneField
+            label={t.whatsappNumberLabel}
+            value={senderWhatsapp}
+            onChangeText={setSenderWhatsapp}
+            countryCode={senderCountry.code}
+            onChangeCountry={setSenderCountry}
+            placeholder="3000000"
+            required
+          />
+        ) : null}
+        {!hideSenderEmail ? (
+          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
+        ) : null}
 
         <Pressable
           onPress={() => setIdentitySecret(!identitySecret)}

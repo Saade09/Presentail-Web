@@ -265,6 +265,8 @@ const STRINGS: Dict = {
   "checkout.step2.title": { en: "Sender Details", ar: "بيانات المُرسِل" },
   "checkout.step2.desc": { en: "We need this to send your receipt and updates.", ar: "نحتاج إلى هذه البيانات لإرسال الإيصال والتحديثات." },
   "checkout.keepIdentitySecret": { en: "Keep my identity secret.", ar: "إبقاء هويتي سرية." },
+  "checkout.sendingAs": { en: "Sending as {summary}", ar: "الإرسال باسم {summary}" },
+  "checkout.editInAccount": { en: "Edit in account", ar: "تعديل في الحساب" },
   "checkout.emailAddress": { en: "Email Address", ar: "البريد الإلكتروني" },
   "checkout.phoneNumber": { en: "Phone Number", ar: "رقم الهاتف" },
   "checkout.back": { en: "Back", ar: "رجوع" },
@@ -837,6 +839,8 @@ const STRINGS_FR: Record<string, string> = {
   "checkout.continueSender": "Continuer vers les coordonnées de l'expéditeur",
   "checkout.step2.title": "Coordonnées de l'expéditeur",
   "checkout.keepIdentitySecret": "Garder mon identité secrète.",
+  "checkout.sendingAs": "Envoi en tant que {summary}",
+  "checkout.editInAccount": "Modifier dans le compte",
   "checkout.step2.desc":
     "Nécessaires pour vous envoyer le reçu et les mises à jour.",
   "checkout.emailAddress": "Adresse email",
