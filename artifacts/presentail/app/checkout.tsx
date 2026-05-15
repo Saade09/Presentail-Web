@@ -1000,6 +1000,11 @@ function CheckoutScreen() {
               setEmail={setSenderEmail}
               country={effectiveCountry}
             />
+            <CardMessageReviewCard
+              colors={colors}
+              cardMessage={cardMessage}
+              setCardMessage={setCardMessage}
+            />
             <OrderSummary
               colors={colors}
               detailed={detailed}
@@ -1520,6 +1525,73 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
           </Text>
         </View>
       ) : null}
+    </Card>
+  );
+}
+
+// =============== Card Message Review (Step 3 / Payment) ===============
+
+function CardMessageReviewCard({
+  colors,
+  cardMessage,
+  setCardMessage,
+}: {
+  colors: any;
+  cardMessage: string;
+  setCardMessage: (v: string) => void;
+}) {
+  const t = useT();
+  const { isRTL } = useLanguage();
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
+  const trimmed = (cardMessage ?? "").trim();
+  return (
+    <Card colors={colors} title={t.cardMessageTitle}>
+      <View
+        style={{
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: "#faf7f2",
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 13,
+            lineHeight: 20,
+            color: trimmed ? colors.primary : colors.mutedForeground,
+            textAlign: isRTL ? "right" : "left",
+            writingDirection: isRTL ? "rtl" : "ltr",
+          }}
+        >
+          {trimmed || t.previewCardPlaceholder}
+        </Text>
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        <Pressable
+          onPress={() => setSuggestedOpen(true)}
+          style={{ paddingHorizontal: 10, paddingVertical: 6 }}
+        >
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 11,
+              color: colors.gold,
+              textDecorationLine: "underline",
+            }}
+          >
+            {t.notSureWhatToSay}
+          </Text>
+        </Pressable>
+      </View>
+      <SuggestedMessagesSheet
+        visible={suggestedOpen}
+        onClose={() => setSuggestedOpen(false)}
+        onSelect={setCardMessage}
+        maxLength={400}
+      />
     </Card>
   );
 }
