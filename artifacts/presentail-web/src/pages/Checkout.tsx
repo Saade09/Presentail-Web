@@ -37,25 +37,18 @@ import {
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import {
-  isPayMethodSupported,
-  nextPayMethodForCurrency,
-  type PayMethodId,
-} from "@workspace/pay-methods";
+  WEB_PAY_METHODS,
+  webNextPaymentMethod,
+  webPaymentMethodLabelKey,
+  webVisiblePayMethods,
+  type WebPaymentMethodId,
+} from "./checkoutPayMethods";
 
 // The web checkout supports a subset of the shared payment-method catalog
-// (no Western Union). All availability decisions still go through the
-// shared `isPayMethodSupported` helper, mirroring the mobile checkout.
-type PaymentMethodId = Extract<
-  PayMethodId,
-  "card" | "paypal" | "whish" | "mamo" | "wallet"
->;
-const WEB_PAY_METHODS: PaymentMethodId[] = [
-  "card",
-  "paypal",
-  "mamo",
-  "wallet",
-  "whish",
-];
+// (no Western Union). All availability / label / fallback decisions go
+// through the pure helpers in `./checkoutPayMethods`, which wrap the shared
+// `@workspace/pay-methods` table and mirror the mobile checkout.
+type PaymentMethodId = WebPaymentMethodId;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -547,34 +540,22 @@ export default function Checkout() {
     }
   };
 
-  // Availability is decided by the shared `isPayMethodSupported` helper
-  // (same source of truth as the mobile checkout). Methods that aren't
-  // selectable for the active currency + country are hidden entirely so
-  // shoppers only see real choices — this mirrors mobile and replaces the
-  // previous bespoke per-method `*Hidden` flags / disabled-row UI.
-  //
-  // Mamo carries a context-sensitive label: when the active currency is
-  // AED the Mamo tile *is* the card option (Stripe doesn't settle in AED),
-  // so rename it to "Pay by card" — mirrors the mobile checkout copy.
-  const mamoLabelKey =
-    currencyCode === "AED" ? "checkout.pay.payByCard" : "checkout.pay.mamo";
-  const PAY_METHOD_LABELS: Record<PaymentMethodId, string> = {
-    card: "checkout.pay.card",
-    paypal: "checkout.pay.paypal",
-    mamo: mamoLabelKey,
-    wallet: "checkout.pay.wallet",
-    whish: "checkout.pay.whish",
-  };
+  // Availability / label / fallback decisions all go through the pure
+  // helpers in `./checkoutPayMethods` (which wrap the shared
+  // `@workspace/pay-methods` table). Methods that aren't selectable for the
+  // active currency + country are hidden entirely so shoppers only see real
+  // choices — this mirrors mobile and replaces the previous bespoke
+  // per-method `*Hidden` flags / disabled-row UI.
   const payCtxCountry = countryCode ?? undefined;
   const paymentOptions = useMemo(() => {
-    const visible = WEB_PAY_METHODS.filter((id) =>
-      isPayMethodSupported(id, currencyCode, { country: payCtxCountry }),
-    );
-    // Defensive fallback: if the table ever excludes everything (shouldn't
-    // happen with the current rules), force-show card so the shopper isn't
-    // stuck on an empty list and unable to pay.
-    const ids = visible.length > 0 ? visible : (["card"] as PaymentMethodId[]);
-    return ids.map((id) => ({ id, labelKey: PAY_METHOD_LABELS[id] }));
+    const ids = webVisiblePayMethods({
+      activeCurrency: currencyCode,
+      countryCode: payCtxCountry,
+    });
+    return ids.map((id) => ({
+      id,
+      labelKey: webPaymentMethodLabelKey(id, currencyCode),
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currencyCode, countryCode]);
 
@@ -582,14 +563,10 @@ export default function Checkout() {
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
   useEffect(() => {
-    const next = nextPayMethodForCurrency(paymentMethod, currencyCode, {
-      country: payCtxCountry,
-    }) as PayMethodId;
-    const fallback: PaymentMethodId = (
-      WEB_PAY_METHODS as readonly PayMethodId[]
-    ).includes(next)
-      ? (next as PaymentMethodId)
-      : "card";
+    const fallback = webNextPaymentMethod(paymentMethod, {
+      activeCurrency: currencyCode,
+      countryCode: payCtxCountry,
+    });
     if (fallback !== paymentMethod) setPaymentMethodState(fallback);
   }, [currencyCode, countryCode, paymentMethod]);
 
