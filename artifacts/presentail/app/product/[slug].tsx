@@ -2,7 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
 import { Price } from "@/components/Price";
+import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -352,23 +353,45 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
       setDeliveryLocal("scheduled");
       deliverySelection.setSelection({
         mode: "schedule",
-        date: dateRef.current,
-        slotLabel: slotRef.current,
+        date: defaultDate,
+        slotLabel: defaultSlot,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [delivery, expressAvailable]);
+  // Keep the local delivery toggle in sync with the shared selection so
+  // that confirming the reschedule sheet (which writes
+  // `today_slot` / `schedule`) flips the PDP into the scheduled state,
+  // and an external switch back to express (e.g. from the cart) flips
+  // it back here too.
+  useEffect(() => {
+    if (deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot") {
+      if (delivery !== "scheduled") setDeliveryLocal("scheduled");
+    } else if (deliverySelection.mode === "express" && expressAvailable) {
+      if (delivery !== "express") setDeliveryLocal("express");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliverySelection.mode]);
   const setDelivery = (next: "express" | "scheduled") => {
     if (next === "express" && !expressAvailable) return;
     setDeliveryLocal(next);
     if (next === "express") {
       deliverySelection.setMode("express");
     } else {
-      deliverySelection.setSelection({
-        mode: "schedule",
-        date: dateRef.current,
-        slotLabel: slotRef.current,
-      });
+      // Seed a sensible default so adding to cart without opening the
+      // reschedule sheet still produces a valid schedule selection. The
+      // sheet overrides this with the shopper's pick on Confirm.
+      const hasExisting =
+        (deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot") &&
+        deliverySelection.date &&
+        deliverySelection.slotLabel;
+      if (!hasExisting) {
+        deliverySelection.setSelection({
+          mode: "schedule",
+          date: defaultDate,
+          slotLabel: defaultSlot,
+        });
+      }
     }
   };
   const [tab, setTab] = useState<"description" | "care">("description");
@@ -376,45 +399,21 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const points = Math.max(1, Math.round(priceValue * 0.4));
 
-  const days = useMemo(() => {
-    const out: { iso: string; label: string; date: string }[] = [];
-    const now = new Date();
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() + i);
-      out.push({
-        iso: d.toISOString().slice(0, 10),
-        label: i === 0 ? "Today" : i === 1 ? "Tom" : d.toLocaleDateString(undefined, { weekday: "short" }),
-        date: String(d.getDate()),
-      });
-    }
-    return out;
-  }, []);
+  // Seed defaults used when the shopper switches to scheduled delivery
+  // without opening the reschedule sheet (e.g. the express-unavailable
+  // auto-fallback). The sheet overwrites these on Confirm.
   const PROD_SLOTS = timeSlotsForCountry(cc);
   const localH = getCountryHour(cc);
   const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > localH);
-  // `days` is the source of truth for date chips; fall back to today's ISO
-  // so accessing `days[0]`/`days[1]` cannot throw on first render.
-  const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
-  const tomorrowIso = days[1]?.iso ?? todayIso;
-  const [date, setDateLocal] = useState(nextSlot ? todayIso : tomorrowIso);
-  const [slot, setSlotLocal] = useState(() => (nextSlot ?? PROD_SLOTS[0]).label);
-  const dateRef = useRef(date);
-  const slotRef = useRef(slot);
-  useEffect(() => { dateRef.current = date; }, [date]);
-  useEffect(() => { slotRef.current = slot; }, [slot]);
-  const setDate = (next: string) => {
-    setDateLocal(next);
-    if (delivery === "scheduled") {
-      deliverySelection.setSelection({ mode: "schedule", date: next, slotLabel: slotRef.current });
-    }
-  };
-  const setSlot = (next: string) => {
-    setSlotLocal(next);
-    if (delivery === "scheduled") {
-      deliverySelection.setSelection({ mode: "schedule", date: dateRef.current, slotLabel: next });
-    }
-  };
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const tomorrowIso = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const defaultDate = nextSlot ? todayIso : tomorrowIso;
+  const defaultSlot = (nextSlot ?? PROD_SLOTS[0]).label;
+  const [rescheduleVisible, setRescheduleVisible] = useState(false);
 
   const careTips: string[] = [
     "Trim 2cm off stems at a 45° angle every 2–3 days.",
@@ -494,50 +493,25 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         <DeliveryOption
           colors={colors}
           active={delivery === "scheduled"}
-          onPress={() => setDelivery("scheduled")}
+          onPress={() => {
+            // Open the sheet first; only flip to scheduled on Confirm.
+            // Dismissing the sheet leaves the current mode unchanged so
+            // "Keep Express" really does keep express on the PDP.
+            setRescheduleVisible(true);
+          }}
           icon="calendar-clock"
           title={t.selectDateAndTime}
-          subtitle={delivery === "scheduled" ? `${date} · ${slot}` : t.pickAWindow}
+          subtitle={
+            delivery === "scheduled" && deliverySelection.date && deliverySelection.slotLabel
+              ? `${deliverySelection.date} · ${deliverySelection.slotLabel}`
+              : t.pickAWindow
+          }
         />
-
-        {delivery === "scheduled" ? (
-          <View style={{ gap: 12, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {days.map((d) => {
-                const a = d.iso === date;
-                return (
-                  <Pressable key={d.iso} onPress={() => setDate(d.iso)} style={{ width: 56, paddingVertical: 8, borderRadius: 12, alignItems: "center", backgroundColor: a ? colors.primary : "#fff", borderWidth: 1, borderColor: a ? colors.primary : colors.border }}>
-                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
-                      {d.label}
-                    </Text>
-                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
-                      {d.date}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-              {PROD_SLOTS.map((s) => {
-                const isToday = date === todayIso;
-                const past = isToday && localH >= s.cutoffHour;
-                const a = s.label === slot;
-                return (
-                  <Pressable
-                    key={s.label}
-                    onPress={() => { if (!past) setSlot(s.label); }}
-                    style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: a ? colors.primary : colors.border, backgroundColor: a ? colors.primary : past ? "#f5f5f5" : "#fff", opacity: past ? 0.5 : 1 }}
-                  >
-                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: a ? "#fff" : past ? colors.mutedForeground : colors.primary, textDecorationLine: past ? "line-through" : "none" }}>
-                      {s.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
       </View>
+      <RescheduleDeliverySheet
+        visible={rescheduleVisible}
+        onClose={() => setRescheduleVisible(false)}
+      />
 
       {/* Trust badges — informational, intentionally non-button */}
       <View
