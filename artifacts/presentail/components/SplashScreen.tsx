@@ -88,12 +88,16 @@ export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.center}>
           <Animated.View style={logoStyle}>
-            <Image
-              source={langReady && lang === "AR" ? LOGO_AR : LOGO}
-              style={styles.logo}
-              contentFit="contain"
-              accessibilityIgnoresInvertColors
-            />
+            {langReady ? (
+              <Image
+                source={lang === "AR" ? LOGO_AR : LOGO}
+                style={styles.logo}
+                contentFit="contain"
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <View style={styles.logo} />
+            )}
           </Animated.View>
           <Animated.Text
             allowFontScaling={false}

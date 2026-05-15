@@ -47,18 +47,29 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     AsyncStorage.getItem("presentail_lang")
       .then((v) => {
+        if (cancelled) return;
         const next: Lang = v === "AR" || v === "EN" || v === "FR" ? v : "EN";
-        setLangState(next);
         const flipped = applyRTL(next);
+        // Set the resolved language and the ready flag in the same batch
+        // so the very first render with isReady=true already reflects the
+        // persisted lang. Otherwise downstream consumers (splash logo,
+        // tagline) momentarily render with the EN default.
+        setLangState(next);
+        setIsReady(true);
         if (flipped) {
           void reloadForRTL();
         }
       })
-      .finally(() => {
+      .catch(() => {
+        if (cancelled) return;
         setIsReady(true);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const setLang = (l: Lang) => {

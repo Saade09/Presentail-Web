@@ -1283,16 +1283,19 @@ function CardPreviewModal({
       {/* The stationery image's writable area sits below the
           "Presentail" header (~22% from top) and above the bottom
           decorative rule (~93% from top, i.e. ~7% from bottom). We
-          inset the To/From group with matching top and bottom breathing
-          gaps inside that area so neither line crowds a rule, then use
-          space-between so the message stays centred between them. */}
+          centre this group on the card's geometric midpoint (50%) so
+          the message itself sits at the visual centre of the card,
+          rather than at the midpoint of the writable strip (which is
+          biased low). To/From hug the top/bottom of the group with the
+          message stretched flex:1 between them, so the multi-line
+          message is centred around 50% of the card height. */}
       <View
         style={{
           position: "absolute",
           left: 26,
           right: 26,
-          top: cardH * 0.30,
-          bottom: cardH * 0.14,
+          top: cardH * 0.25,
+          bottom: cardH * 0.18,
           justifyContent: "space-between",
         }}
       >
