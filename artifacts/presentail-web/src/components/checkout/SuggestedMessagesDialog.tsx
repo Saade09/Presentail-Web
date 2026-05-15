@@ -12,6 +12,7 @@ import {
   type SuggestedMessageLang,
 } from "@workspace/suggested-messages";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 type Props = {
   open: boolean;
@@ -64,6 +65,10 @@ export function SuggestedMessagesDialog({
 
   const handlePick = (msg: string) => {
     const trimmed = maxLength && msg.length > maxLength ? msg.slice(0, maxLength) : msg;
+    // Track which category the shopper picked from. Category-only by
+    // design — we never log the message body to keep the event payload
+    // bounded and free of anything that could be mistaken for PII.
+    trackEvent({ name: "suggested_message_picked", action: activeCategory });
     onSelect(trimmed);
     onOpenChange(false);
   };

@@ -831,6 +831,7 @@ components:
         - payment_method_selected
         - order_placed
         - auth_social_failed
+        - suggested_message_picked
     AnalyticsEventRequest:
       type: object
       properties:
@@ -852,7 +853,13 @@ components:
           description: |
             For checkout-login-prompt action events, which choice the
             shopper picked. For payment_method_selected and order_placed,
-            the chosen payment method id.
+            the chosen payment method id. For suggested_message_picked,
+            the suggested-messages catalog category id whose card was
+            tapped (`general`, `love`, `birthday`, `graduation`,
+            `getWellSoon`, `newBabyBorn`, `thankYou`, `sympathy`). We
+            track category-only — not the message body — so we never log
+            user-controlled strings or anything that could be mistaken
+            for a card message.
           enum:
             - continue
             - google
@@ -865,6 +872,14 @@ components:
             - mamo
             - whish
             - western
+            - general
+            - love
+            - birthday
+            - graduation
+            - getWellSoon
+            - newBabyBorn
+            - thankYou
+            - sympathy
         platform:
           type: string
           enum: [ios, android, web]

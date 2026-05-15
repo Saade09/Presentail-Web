@@ -206,6 +206,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "payment_method_selected",
       "order_placed",
       "auth_social_failed",
+      "suggested_message_picked",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
@@ -229,10 +230,18 @@ export const RecordAnalyticsEventBody = zod.object({
       "mamo",
       "whish",
       "western",
+      "general",
+      "love",
+      "birthday",
+      "graduation",
+      "getWellSoon",
+      "newBabyBorn",
+      "thankYou",
+      "sympathy",
     ])
     .optional()
     .describe(
-      "For checkout-login-prompt action events, which choice the\nshopper picked. For payment_method_selected and order_placed,\nthe chosen payment method id.\n",
+      "For checkout-login-prompt action events, which choice the\nshopper picked. For payment_method_selected and order_placed,\nthe chosen payment method id. For suggested_message_picked,\nthe suggested-messages catalog category id whose card was\ntapped (`general`, `love`, `birthday`, `graduation`,\n`getWellSoon`, `newBabyBorn`, `thankYou`, `sympathy`). We\ntrack category-only — not the message body — so we never log\nuser-controlled strings or anything that could be mistaken\nfor a card message.\n",
     ),
   platform: zod
     .enum(["ios", "android", "web"])

@@ -9,7 +9,13 @@
 /**
  * For checkout-login-prompt action events, which choice the
 shopper picked. For payment_method_selected and order_placed,
-the chosen payment method id.
+the chosen payment method id. For suggested_message_picked,
+the suggested-messages catalog category id whose card was
+tapped (`general`, `love`, `birthday`, `graduation`,
+`getWellSoon`, `newBabyBorn`, `thankYou`, `sympathy`). We
+track category-only — not the message body — so we never log
+user-controlled strings or anything that could be mistaken
+for a card message.
 
  */
 export type AnalyticsEventRequestAction =
@@ -27,4 +33,12 @@ export const AnalyticsEventRequestAction = {
   mamo: "mamo",
   whish: "whish",
   western: "western",
+  general: "general",
+  love: "love",
+  birthday: "birthday",
+  graduation: "graduation",
+  getWellSoon: "getWellSoon",
+  newBabyBorn: "newBabyBorn",
+  thankYou: "thankYou",
+  sympathy: "sympathy",
 } as const;

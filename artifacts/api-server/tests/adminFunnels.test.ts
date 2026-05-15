@@ -31,6 +31,15 @@ vi.mock("../src/lib/socialAuthFailureAggregator", async () => {
     loadDailySocialFailureBuckets: vi.fn(),
   };
 });
+vi.mock("../src/lib/suggestedMessagesAggregator", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/lib/suggestedMessagesAggregator")
+  >("../src/lib/suggestedMessagesAggregator");
+  return {
+    ...actual,
+    loadDailySuggestedMessageBuckets: vi.fn(),
+  };
+});
 
 const { loadDailyPurchaseBuckets } = await import(
   "../src/lib/checkoutPurchaseFunnelMonitor"
@@ -44,6 +53,10 @@ const {
   aggregateDailySocialFailureBuckets,
   summariseDailyBuckets,
 } = await import("../src/lib/socialAuthFailureAggregator");
+const {
+  loadDailySuggestedMessageBuckets,
+  summariseSuggestedMessageBuckets,
+} = await import("../src/lib/suggestedMessagesAggregator");
 const adminFunnelsRouter = (await import("../src/routes/adminFunnels"))
   .default;
 
@@ -241,6 +254,29 @@ describe("summariseDailyBuckets", () => {
   });
 });
 
+describe("summariseSuggestedMessageBuckets", () => {
+  it("sums picks across days per (platform, category) and sorts by descending count", () => {
+    const summary = summariseSuggestedMessageBuckets([
+      { day: "2026-05-10", platform: "ios", category: "general", count: 3 },
+      { day: "2026-05-11", platform: "ios", category: "general", count: 5 },
+      { day: "2026-05-11", platform: "ios", category: "love", count: 9 },
+      { day: "2026-05-11", platform: "web", category: "birthday", count: 2 },
+    ]);
+    // Same platform: highest count first.
+    const ios = summary.filter((b) => b.platform === "ios");
+    expect(ios).toEqual([
+      { platform: "ios", category: "love", count: 9 },
+      { platform: "ios", category: "general", count: 8 },
+    ]);
+    const web = summary.filter((b) => b.platform === "web");
+    expect(web).toEqual([{ platform: "web", category: "birthday", count: 2 }]);
+  });
+
+  it("returns an empty array when there are no daily rows", () => {
+    expect(summariseSuggestedMessageBuckets([])).toEqual([]);
+  });
+});
+
 describe("admin funnels routes", () => {
   function makeApp() {
     const app = express();
@@ -305,12 +341,28 @@ describe("admin funnels routes", () => {
         ],
       },
     ]);
+    (loadDailySuggestedMessageBuckets as any).mockResolvedValueOnce([
+      { day: "2026-05-11", platform: "ios", category: "love", count: 4 },
+      { day: "2026-05-11", platform: "ios", category: "general", count: 2 },
+      { day: "2026-05-10", platform: "ios", category: "love", count: 1 },
+    ]);
     const app = makeApp();
     const res = await request(app)
       .get("/api/admin/funnels/data?days=999")
       .set("x-push-admin-token", "secret-test-token");
     expect(res.status).toBe(200);
     expect(res.body.days).toBe(30);
+    expect(res.body.suggestedMessages.daily).toEqual([
+      { day: "2026-05-11", platform: "ios", category: "love", count: 4 },
+      { day: "2026-05-11", platform: "ios", category: "general", count: 2 },
+      { day: "2026-05-10", platform: "ios", category: "love", count: 1 },
+    ]);
+    // Summary sums per-(platform, category) across all days, sorted by
+    // descending count within a platform.
+    expect(res.body.suggestedMessages.summary).toEqual([
+      { platform: "ios", category: "love", count: 5 },
+      { platform: "ios", category: "general", count: 2 },
+    ]);
     expect(res.body.socialFailures.daily[0]).toMatchObject({
       day: "2026-05-11",
       platform: "ios",
@@ -364,6 +416,7 @@ describe("admin funnels routes", () => {
     (loadDailyPurchaseBuckets as any).mockResolvedValueOnce([]);
     (loadDailyLoginBuckets as any).mockResolvedValueOnce([]);
     (loadDailySocialFailureBuckets as any).mockResolvedValueOnce([]);
+    (loadDailySuggestedMessageBuckets as any).mockResolvedValueOnce([]);
     const app = makeApp();
     const res = await request(app)
       .get("/api/admin/funnels/data")
@@ -373,6 +426,7 @@ describe("admin funnels routes", () => {
     expect(res.body.purchase).toEqual([]);
     expect(res.body.login).toEqual([]);
     expect(res.body.socialFailures).toEqual({ summary: [], daily: [] });
+    expect(res.body.suggestedMessages).toEqual({ summary: [], daily: [] });
   });
 
   it("serves the HTML dashboard shell without auth (no data is exposed)", async () => {

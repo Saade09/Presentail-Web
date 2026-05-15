@@ -17,6 +17,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { trackEvent } from "@/lib/analytics";
 
 type Props = {
   visible: boolean;
@@ -79,6 +80,11 @@ export function SuggestedMessagesSheet({
 
   const handlePick = (msg: string) => {
     const trimmed = maxLength && msg.length > maxLength ? msg.slice(0, maxLength) : msg;
+    // Track which category the shopper picked from so we can prune dull
+    // categories and expand popular ones. Category-only by design — we
+    // never log the message body to keep the event payload bounded and
+    // free of anything that could be mistaken for PII.
+    trackEvent({ name: "suggested_message_picked", action: activeCategory });
     onSelect(trimmed);
     onClose();
   };

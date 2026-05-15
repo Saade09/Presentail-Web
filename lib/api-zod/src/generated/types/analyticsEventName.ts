@@ -28,4 +28,5 @@ export const AnalyticsEventName = {
   payment_method_selected: "payment_method_selected",
   order_placed: "order_placed",
   auth_social_failed: "auth_social_failed",
+  suggested_message_picked: "suggested_message_picked",
 } as const;

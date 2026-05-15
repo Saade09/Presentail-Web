@@ -13,6 +13,12 @@ import {
   type SocialFailureBucket,
   type SocialFailureDailyBucket,
 } from "../lib/socialAuthFailureAggregator";
+import {
+  loadDailySuggestedMessageBuckets,
+  summariseSuggestedMessageBuckets,
+  type SuggestedMessageDailyBucket,
+  type SuggestedMessageSummaryBucket,
+} from "../lib/suggestedMessagesAggregator";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -68,11 +74,13 @@ router.get("/admin/funnels/data", async (req, res) => {
   const { start, end } = dayWindow(new Date(), days);
 
   try {
-    const [purchase, login, socialFailuresDaily] = await Promise.all([
-      loadDailyPurchaseBuckets(start, end),
-      loadDailyLoginBuckets(start, end),
-      loadDailySocialFailureBuckets(start, end),
-    ]);
+    const [purchase, login, socialFailuresDaily, suggestedMessagesDaily] =
+      await Promise.all([
+        loadDailyPurchaseBuckets(start, end),
+        loadDailyLoginBuckets(start, end),
+        loadDailySocialFailureBuckets(start, end),
+        loadDailySuggestedMessageBuckets(start, end),
+      ]);
     res.json({
       days,
       rangeStartUtc: start.toISOString(),
@@ -87,6 +95,15 @@ router.get("/admin/funnels/data", async (req, res) => {
           toSocialFailureSummaryRow,
         ),
         daily: socialFailuresDaily.map(toSocialFailureDailyRow),
+      },
+      suggestedMessages: {
+        // Per-(platform, category) totals across the whole window plus the
+        // per-day breakdown. Both derive from the same daily rows so the
+        // summary table and any per-day view never disagree.
+        summary: summariseSuggestedMessageBuckets(suggestedMessagesDaily).map(
+          toSuggestedMessageSummaryRow,
+        ),
+        daily: suggestedMessagesDaily.map(toSuggestedMessageDailyRow),
       },
     });
   } catch (err: any) {
@@ -154,6 +171,23 @@ function toSocialFailureDailyRow(b: SocialFailureDailyBucket) {
       errorCode: c.errorCode,
       count: c.count,
     })),
+  };
+}
+
+function toSuggestedMessageSummaryRow(b: SuggestedMessageSummaryBucket) {
+  return {
+    platform: b.platform,
+    category: b.category,
+    count: b.count,
+  };
+}
+
+function toSuggestedMessageDailyRow(b: SuggestedMessageDailyBucket) {
+  return {
+    day: b.day,
+    platform: b.platform,
+    category: b.category,
+    count: b.count,
   };
 }
 
@@ -247,6 +281,19 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Suggested card messages</h2>
+  <div class="sub">suggested_message_picked events grouped by (platform, category). Category-only — we never log the message body, just which tab the shopper picked from. Use this to prune dull categories and double down on the popular ones.</div>
+  <div id="suggestedMessagesSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="suggestedMessagesDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Category</th><th>Picks</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -273,6 +320,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var loginBody = document.querySelector('#login tbody');
   var socialDailyBody = document.querySelector('#socialFailuresDaily tbody');
   var socialSummary = document.getElementById('socialFailuresSummary');
+  var suggestedDailyBody = document.querySelector('#suggestedMessagesDaily tbody');
+  var suggestedSummary = document.getElementById('suggestedMessagesSummary');
   var purchaseTrends = document.getElementById('purchaseTrends');
   var purchaseLegend = document.getElementById('purchaseLegend');
   var loginTrends = document.getElementById('loginTrends');
@@ -445,6 +494,41 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function renderSuggestedMessages(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      suggestedSummary.innerHTML = '<div class="muted">No suggested-message picks in range.</div>';
+      suggestedDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    if (summary.length) {
+      suggestedSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Category</th><th>Picks (window)</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + escapeHtml(r.category) + '</td>' +
+            '<td>' + num(r.count) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      suggestedSummary.innerHTML = '<div class="muted">No suggested-message picks in range.</div>';
+    }
+    if (daily.length) {
+      suggestedDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + escapeHtml(r.category) + '</td>' +
+          '<td>' + num(r.count) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      suggestedDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+    }
+  }
+
   function renderLogin(rows) {
     if (!rows.length) {
       loginBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
@@ -487,9 +571,11 @@ const DASHBOARD_HTML = `<!doctype html>
         var purchase = data.purchase || [];
         var login = data.login || [];
         var socialFailures = data.socialFailures || { summary: [], daily: [] };
+        var suggestedMessages = data.suggestedMessages || { summary: [], daily: [] };
         renderPurchase(purchase);
         renderLogin(login);
         renderSocialFailures(socialFailures);
+        renderSuggestedMessages(suggestedMessages);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));

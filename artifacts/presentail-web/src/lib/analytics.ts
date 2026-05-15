@@ -5,7 +5,8 @@ type AnalyticsEventName =
   | "checkout_started"
   | "payment_method_selected"
   | "order_placed"
-  | "auth_social_failed";
+  | "auth_social_failed"
+  | "suggested_message_picked";
 
 type AnalyticsSurface = "cart" | "checkout-direct" | "cart-screen" | "checkout";
 
@@ -20,7 +21,15 @@ type AnalyticsAction =
   | "paypal"
   | "mamo"
   | "whish"
-  | "western";
+  | "western"
+  | "general"
+  | "love"
+  | "birthday"
+  | "graduation"
+  | "getWellSoon"
+  | "newBabyBorn"
+  | "thankYou"
+  | "sympathy";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;
