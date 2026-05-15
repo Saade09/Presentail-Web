@@ -1280,51 +1280,63 @@ function CardPreviewModal({
           contentFit="cover"
         />
       ) : null}
-      <View style={{ flex: 1, padding: 26 }}>
-        <View style={{ flex: 0.42 }} />
-        <View style={{ flex: 0.58 }}>
+      {/* The stationery image's writable area sits below the
+          "Presentail" header (~22% from top) and above the bottom
+          decorative rule (~93% from top, i.e. ~7% from bottom). We
+          inset the To/From group with matching top and bottom breathing
+          gaps inside that area so neither line crowds a rule, then use
+          space-between so the message stays centred between them. */}
+      <View
+        style={{
+          position: "absolute",
+          left: 26,
+          right: 26,
+          top: cardH * 0.30,
+          bottom: cardH * 0.14,
+          justifyContent: "space-between",
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: "PlayfairDisplay_500Medium",
+            fontSize: 18,
+            color: stationeryInk,
+            textAlign: "center",
+            writingDirection,
+            opacity: cardTo ? 1 : 0.55,
+          }}
+          numberOfLines={2}
+        >
+          {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
+        </Text>
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
           <Text
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
-              fontSize: 18,
+              fontFamily: "PlayfairDisplay_400Regular",
+              fontSize: messageFont,
               color: stationeryInk,
               textAlign: "center",
+              lineHeight: messageFont * 1.5,
               writingDirection,
-              opacity: cardTo ? 1 : 0.55,
+              opacity: trimmed.length > 0 ? 1 : 0.55,
             }}
-            numberOfLines={2}
           >
-            {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
-          </Text>
-          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
-            <Text
-              style={{
-                fontFamily: "PlayfairDisplay_400Regular",
-                fontSize: messageFont,
-                color: stationeryInk,
-                textAlign: "center",
-                lineHeight: messageFont * 1.5,
-                writingDirection,
-                opacity: trimmed.length > 0 ? 1 : 0.55,
-              }}
-            >
-              {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
-            </Text>
-          </View>
-          <Text
-            style={{
-              fontFamily: "PlayfairDisplay_500Medium",
-              fontSize: 18,
-              color: stationeryInk,
-              textAlign: "center",
-              writingDirection,
-              opacity: cardFrom ? 1 : 0.55,
-            }}
-            numberOfLines={2}
-          >
-            {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
+            {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
           </Text>
         </View>
+        <Text
+          style={{
+            fontFamily: "PlayfairDisplay_500Medium",
+            fontSize: 18,
+            color: stationeryInk,
+            textAlign: "center",
+            writingDirection,
+            opacity: cardFrom ? 1 : 0.55,
+          }}
+          numberOfLines={2}
+        >
+          {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
+        </Text>
       </View>
       {includeWatermark ? (
         <View
