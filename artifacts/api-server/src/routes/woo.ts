@@ -204,13 +204,19 @@ function readMetaList(meta: WcMeta[] | undefined, ...keys: string[]): string[] |
 // Slugs of WooCommerce categories that should never surface to clients.
 // Products belonging to any of these categories are dropped from every
 // product-listing response, even if they live in another category too.
-const HIDDEN_CATEGORY_SLUGS = new Set(["electronics"]);
+const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
 
 function isHiddenCategory(slug: string): boolean {
   return HIDDEN_CATEGORY_SLUGS.has(slug);
 }
 
 function isVisibleProduct(p: WcProduct): boolean {
+  // Treat anything that isn't explicitly in stock as hidden so out-of-
+  // stock products can never surface in any listing — direct product
+  // links and shared links also rely on this gate via /woo/product.
+  // Require an explicit `instock`: a missing / empty `stock_status`
+  // counts as hidden so we fail closed when WC doesn't return the field.
+  if (p.stock_status !== "instock") return false;
   const slugs = (p.categories ?? []).map((c) => c.slug);
   return !slugs.some((s) => HIDDEN_CATEGORY_SLUGS.has(s));
 }
@@ -408,7 +414,6 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "arabic-sweets", label: "Arabic Sweets" },
   { slug: "balloons", label: "Balloons" },
   { slug: "stuffed-animals", label: "Stuffed Animals" },
-  { slug: "board-games", label: "Board Games" },
   { slug: "plants", label: "Plants" },
   { slug: "baskets", label: "Baskets" },
   { slug: "beauty", label: "Beauty" },

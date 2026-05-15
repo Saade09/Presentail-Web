@@ -24,11 +24,9 @@ const cat = {
   cakes: { asset: "categories/cakes.webp" },
   chocolate: { asset: "categories/chocolate.webp" },
   "arabic-sweets": { asset: "categories/arabic-sweets.webp" },
-  coffee: { asset: "categories/coffee.webp" },
   plants: { asset: "categories/plants.webp" },
   bundles: { asset: "categories/bundles.webp" },
   "gift-cards": { asset: "categories/gift-cards.webp" },
-  "board-games": { asset: "categories/board-games.webp" },
 } as const;
 
 const occ = {
@@ -153,18 +151,6 @@ export const products: Product[] = [
   { id: "i-love-you-balloon-2", name: "I Love You Balloon", price: "$13", priceValue: 13, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/luv-bal.avif" }, category: "balloons", occasions: ["birthday"] },
   { id: "red-heart-balloon", name: "Red Heart Balloon", price: "$11", priceValue: 11, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/Red-Heart-Balloon.avif" }, category: "balloons", occasions: ["birthday"] },
   { id: "get-well-balloon", name: "Get Well Balloon", price: "$13", priceValue: 13, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/03/item-2.avif" }, category: "balloons", occasions: ["birthday"] },
-  { id: "hitster", name: "Hitster", price: "$30", priceValue: 30, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/09/hitsterr.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "kluster", name: "Kluster", price: "$33", priceValue: 33, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/kluster.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "le3beh-aa-krouteh", name: "Le3beh Aa Krouteh", price: "$41", priceValue: 41, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/cah.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "exploding-kittens-red", name: "Exploding Kittens Red", price: "$24", priceValue: 24, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/meow.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "123-cups-ar-en-fr", name: "123 cups Ar/En/Fr", price: "$29", priceValue: 29, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/123cupps.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "ubongo", name: "Ubongo!", price: "$53", priceValue: 53, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/09/ubunfo.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "risk", name: "Risk", price: "$69", priceValue: 69, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/riskk.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "yogi-guru-en", name: "Yogi Guru En", price: "$27", priceValue: 27, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/yugi.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "stratego-original", name: "Stratego Original", price: "$65", priceValue: 65, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/stategy.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "terraforming-mars-ar-en", name: "Terraforming Mars Ar/En", price: "$80", priceValue: 80, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/mars.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "sheriff-of-nottingham-en-ar-fr", name: "Sheriff of Nottingham En/Ar/Fr", price: "$59", priceValue: 59, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/sherif.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
-  { id: "machrou3-ra2is-a-game-of-corruption", name: "Machrou3 Ra2is &#8211; A Game of Corruption", price: "$50", priceValue: 50, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/mashrou3.avif" }, category: "board-games", occasions: ["birthday","thank-you"] },
   { id: "chocolate-rocher-cake", name: "Chocolate Rocher Cake", price: "$48", priceValue: 48, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/ferrero.avif" }, category: "cakes", occasions: ["birthday","thank-you"] },
   { id: "nutella-cake", name: "Nutella Cake", price: "$40", priceValue: 40, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/nutella-2.avif" }, category: "cakes", occasions: ["birthday","thank-you"] },
   { id: "choco-fraisier-cake", name: "Choco Fraisier Cake", price: "$40", priceValue: 40, image: { uri: "https://presentail.com/lebanon/wp-content/uploads/2025/07/nutella.avif" }, category: "cakes", occasions: ["birthday","thank-you"] },
@@ -243,11 +229,9 @@ export const categories: Category[] = [
   { id: "cakes", name: "Cakes", icon: "cake-variant", image: cat.cakes },
   { id: "chocolate", name: "Chocolate", icon: "candy", image: cat.chocolate },
   { id: "arabic-sweets", name: "Arabic Sweets", icon: "candy-outline", image: cat["arabic-sweets"] },
-  { id: "coffee", name: "Coffee", icon: "coffee", image: cat.coffee },
   { id: "plants", name: "Plants", icon: "leaf", image: cat.plants },
   { id: "bundles", name: "Bundles", icon: "gift", image: cat.bundles },
   { id: "gift-cards", name: "Gift Cards", icon: "card-giftcard", image: cat["gift-cards"] },
-  { id: "board-games", name: "Board Games", icon: "chess-knight", image: cat["board-games"] },
 ];
 
 export const occasions: Occasion[] = [

@@ -179,14 +179,14 @@ const DEFAULT_OCCASION_SLUGS = [
 // view, even when curated under a WC parent. Mirrors the server-side
 // product filter in `routes/woo.ts` so the category disappears without
 // requiring a WooCommerce-side curation change.
-const HIDDEN_CATEGORY_SLUGS = new Set(["electronics"]);
+const HIDDEN_CATEGORY_SLUGS = new Set(["electronics", "board-games", "coffee"]);
 
 const PRODUCT_TYPE_SLUGS = new Set([
   "hand-bouquets", "flower-boxes", "flower-vases", "flower-baskets",
   "flowers", "plants", "balloons", "cakes", "chocolate", "bundles",
   "stuffed-animals", "preserved-flowers", "dried-flowers",
   "lux-arrangements", "orchids", "roses", "roses-lebanon",
-  "arabic-sweets", "board-games", "personal-gifts", "beauty",
+  "arabic-sweets", "personal-gifts", "beauty",
   "gift-bundles", "baskets", "spirits", "gaming",
   "summer-collection",
 ]);

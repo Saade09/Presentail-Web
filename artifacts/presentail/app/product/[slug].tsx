@@ -149,7 +149,14 @@ function ProductDetail() {
   };
 
   const { products: allProducts } = useWooProducts();
-  const product = allProducts.find((p) => p.id === slug) ?? null;
+  const found = allProducts.find((p) => p.id === slug) ?? null;
+  // Hide products that the live WC payload reports as out-of-stock so the
+  // direct product URL behaves the same as the listings (which already
+  // filter OOS items out server-side). `inStock` is propagated from the
+  // WC payload by `WooProductsContext.mergeProducts`; a missing value
+  // means we have only the static seed for this product and we keep the
+  // existing fallback behaviour.
+  const product = found && found.inStock === false ? null : found;
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>

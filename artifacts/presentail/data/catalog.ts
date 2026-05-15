@@ -48,11 +48,9 @@ export type { Brand, CatalogReview };
 const ASSETS: Record<string, any> = {
   "categories/arabic-sweets.webp": require("@/assets/categories/arabic-sweets.webp"),
   "categories/balloons.webp": require("@/assets/categories/balloons.webp"),
-  "categories/board-games.webp": require("@/assets/categories/board-games.webp"),
   "categories/bundles.webp": require("@/assets/categories/bundles.webp"),
   "categories/cakes.webp": require("@/assets/categories/cakes.webp"),
   "categories/chocolate.webp": require("@/assets/categories/chocolate.webp"),
-  "categories/coffee.webp": require("@/assets/categories/coffee.webp"),
   "categories/flower-boxes.avif": require("@/assets/categories/flower-boxes.avif"),
   "categories/flower-vases.avif": require("@/assets/categories/flower-vases.avif"),
   "categories/gift-cards.webp": require("@/assets/categories/gift-cards.webp"),

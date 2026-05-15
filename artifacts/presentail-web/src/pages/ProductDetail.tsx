@@ -214,7 +214,7 @@ export default function ProductDetail() {
     );
   }
 
-  if (!product || !vm) {
+  if (!product || !vm || product.inStock === false) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-32 pb-24 text-center">
         <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>

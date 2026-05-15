@@ -5,7 +5,16 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
-type AnyProduct = (typeof CATALOG)[number] & { wcId?: number; popularity?: number };
+type AnyProduct = (typeof CATALOG)[number] & {
+  wcId?: number;
+  popularity?: number;
+  // Mirrors WooCommerce's stock_status. `undefined` means "no live data
+  // yet" (initial static seed) and is treated as in-stock by the UI; only
+  // an explicit `false` hides a product. The API server already filters
+  // out-of-stock products from listings, so a successful sync that omits
+  // a previously-static product implicitly makes it `false` after merge.
+  inStock?: boolean;
+};
 
 const SYNC_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
@@ -69,7 +78,12 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
       // the chosen location). With no filter, skip empty payloads so a
       // misconfigured backend doesn't blank the catalogue.
       if (!hasDeliveryFilter && !woo.length) return;
-      const merged = mergeProducts(CATALOG as AnyProduct[], woo, hasDeliveryFilter);
+      // Sync succeeded with a non-empty result — trust the WC payload as
+      // the source of truth for which products are currently visible. Any
+      // static seed item missing from WC is either undeliverable for the
+      // selected store, out of stock, or hidden by category, so it must
+      // not leak through the static fallback.
+      const merged = mergeProducts(CATALOG as AnyProduct[], woo, true);
       setProducts(merged);
       setLastSync(new Date());
     } finally {
@@ -145,10 +159,14 @@ function mergeProducts(
     if (seen.has(sp.id)) continue;
     seen.add(sp.id);
     const wp = wooById.get(sp.id);
-    // When the server has applied a delivery filter, drop static seed
-    // items that aren't in the filtered WC result so undeliverable
-    // products don't leak through the static catalogue.
+    // When we trust the WC payload (sync succeeded), drop any static
+    // seed item that isn't in the filtered WC result — that covers
+    // out-of-stock products, hidden categories, and undeliverable items
+    // for the selected store. They must not leak through the fallback.
     if (restrictToWoo && !wp) continue;
+    // Even without restrictToWoo, an explicit `inStock === false` on the
+    // matched WC payload must hide the static item.
+    if (wp && wp.inStock === false) continue;
     if (wp) {
       const nextPriceValue = wp.priceValue ?? sp.priceValue;
       result.push({
@@ -161,6 +179,7 @@ function mergeProducts(
         tag: sp.tag ?? wp.tag,
         wcId: wp.wcId,
         popularity: wp.popularity ?? 0,
+        inStock: wp.inStock,
       });
     } else {
       result.push(sp);
@@ -183,6 +202,7 @@ function mergeProducts(
       tag: wp.tag,
       occasions: [],
       popularity: wp.popularity ?? 0,
+      inStock: wp.inStock,
     });
   }
 
