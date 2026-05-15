@@ -1696,7 +1696,7 @@ function DeliveryDetailsStep(props: any) {
                     {item.district}, {item.countryCode}
                   </Text>
                   <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-                    {[item.addressLine, item.building, item.apartment].filter(Boolean).join(" · ")}
+                    {item.addressLine}
                   </Text>
                 </TouchableOpacity>
               )}

@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "backfill-customers": "tsx ./src/backfillCustomers.ts",
     "backfill-loyalty": "tsx ./src/backfillLoyalty.ts",
+    "backfill-address-lines": "tsx ./src/backfillAddressLines.ts",
     "import-customers-to-clerk": "tsx ./src/importCustomersToClerk.ts",
     "check-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts",
     "write-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts --write",
