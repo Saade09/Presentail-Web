@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { pool } from "@workspace/db";
 import { startReconcileWorker } from "./lib/wooOrders";
 import { startWooSyncWorker } from "./lib/wooSync";
 import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonitor";
@@ -7,6 +8,22 @@ import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnel
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
 import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
 import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
+
+// Prevent unhandled 'error' events on idle pg pool clients from crashing the
+// process. pg emits these when a connection is terminated unexpectedly (e.g. a
+// database restart or transient network drop). The pool will automatically
+// remove the dead client and create a fresh one on the next query, so the
+// correct recovery is to log and continue rather than exit.
+pool.on("error", (err) => {
+  logger.warn({ err }, "pg pool idle client error — connection will be replaced automatically");
+});
+
+// Belt-and-suspenders: log any other uncaught exception that slips through so
+// we get a structured record before the process exits.
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "uncaughtException — process will exit");
+  process.exit(1);
+});
 
 const rawPort = process.env["PORT"];
 
