@@ -26,16 +26,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem("presentail_cart_v1");
     if (saved) {
       try {
-        setItems(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse cart");
+        const parsed = JSON.parse(saved);
+        // Validate shape: only keep items whose priceValue is a finite number
+        // so stale/schema-mismatched entries never produce NaN subtotals.
+        if (Array.isArray(parsed)) {
+          setItems(
+            parsed.filter(
+              (i: any) =>
+                i &&
+                typeof i === "object" &&
+                i.product &&
+                Number.isFinite(i.product.priceValue) &&
+                typeof i.quantity === "number",
+            ),
+          );
+        }
+      } catch {
+        localStorage.removeItem("presentail_cart_v1");
       }
     }
   }, []);
 
   // Save to localStorage when items change
   useEffect(() => {
-    localStorage.setItem("presentail_cart_v1", JSON.stringify(items));
+    try {
+      localStorage.setItem("presentail_cart_v1", JSON.stringify(items));
+    } catch {
+      // Ignore write failures (e.g. Safari private mode QuotaExceededError).
+    }
   }, [items]);
 
   const addItem = (product: Product, quantity = 1) => {

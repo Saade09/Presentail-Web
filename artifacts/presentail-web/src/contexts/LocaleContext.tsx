@@ -311,6 +311,7 @@ const STRINGS: Dict = {
   "checkout.toast.mamoUnavailable": { en: "Mamo unavailable", ar: "مامو غير متوفر" },
   "checkout.toast.mamoUnavailableDesc": { en: "Mamo isn't available right now.", ar: "مامو غير متوفر حالياً." },
   "checkout.toast.errorTitle": { en: "Checkout Error", ar: "خطأ في الدفع" },
+  "checkout.toast.storageError": { en: "Couldn't save your order details. Please disable private browsing or free up storage space and try again.", ar: "تعذّر حفظ تفاصيل طلبك. يرجى تعطيل التصفح الخاص أو تحرير مساحة التخزين والمحاولة مجدداً." },
 
   // Account
   "account.loading": { en: "Loading...", ar: "جارٍ التحميل..." },
@@ -944,6 +945,8 @@ const STRINGS_FR: Record<string, string> = {
   "checkout.toast.mamoUnavailableDesc":
     "Mamo n'est pas disponible pour le moment.",
   "checkout.toast.errorTitle": "Erreur de paiement",
+  "checkout.toast.storageError":
+    "Impossible d'enregistrer vos informations de commande. Désactivez la navigation privée ou libérez de l'espace de stockage, puis réessayez.",
 
   "account.loading": "Chargement…",
   "account.title": "Mon compte",

@@ -81,7 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             setUser(JSON.parse(u));
           } catch {
-            // ignore parse errors
+            // Corrupted stored user — clear both keys so the next launch
+            // starts fresh instead of hitting the same parse error forever.
+            await secureStorage.deleteItemAsync(USER_KEY);
+            await secureStorage.deleteItemAsync(TOKEN_KEY);
           }
         }
       } finally {

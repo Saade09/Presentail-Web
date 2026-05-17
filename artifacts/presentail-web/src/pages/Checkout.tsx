@@ -410,10 +410,22 @@ export default function Checkout() {
       orderId,
       paymentMethod: paymentMethodOverride,
     });
-    sessionStorage.setItem(
-      PENDING_ORDER_KEY,
-      JSON.stringify({ payload, createdAt: Date.now() }),
-    );
+    // Guard against QuotaExceededError (Safari private mode, full storage).
+    // If we can't stash the pending order we must NOT redirect — the shopper
+    // would pay but OrderConfirmed would find nothing and show "failed".
+    try {
+      sessionStorage.setItem(
+        PENDING_ORDER_KEY,
+        JSON.stringify({ payload, createdAt: Date.now() }),
+      );
+    } catch {
+      toast({
+        title: t("checkout.toast.failTitle"),
+        description: t("checkout.toast.storageError"),
+        variant: "destructive",
+      });
+      return;
+    }
     // Note: we do NOT persist the typed phone to the profile here. The
     // order isn't placed yet — it gets finalized after the shopper
     // returns from the hosted payment page — and saving the phone on a
