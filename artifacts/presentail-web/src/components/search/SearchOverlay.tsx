@@ -51,7 +51,7 @@ export function SearchOverlay({ open, onClose }: Props) {
   const showEmpty = q.length >= 2 && !isFetching && !hasProducts && !hasCategories;
 
   return (
-    <CommandDialog open={open} onOpenChange={handleOpenChange}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Search products and categories…"
         value={q}
