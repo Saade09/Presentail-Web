@@ -5,12 +5,12 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { currencyForStoreCountry } from "@/lib/currency";
-import paypalLogo from "@/assets/payment-logos/paypal.svg";
 import amexLogo from "@/assets/payment-logos/amex.svg";
 import gpayLogo from "@/assets/payment-logos/googlepay.svg";
 import applepayLogo from "@/assets/payment-logos/applepay.svg";
 import visaLogo from "@/assets/payment-logos/visa.svg";
 import mastercardLogo from "@/assets/payment-logos/mastercard.svg";
+import whishLogo from "@/assets/payment-logos/whish.svg";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
 function TikTokIcon({ className }: { className?: string }) {
@@ -35,13 +35,13 @@ const SOCIAL = {
   linkedin: "https://www.linkedin.com/company/presentail",
 } as const;
 
-const PAYMENT_LOGOS: { src: string; alt: string }[] = [
-  { src: paypalLogo, alt: "PayPal" },
-  { src: amexLogo, alt: "American Express" },
-  { src: gpayLogo, alt: "Google Pay" },
-  { src: applepayLogo, alt: "Apple Pay" },
-  { src: visaLogo, alt: "Visa" },
-  { src: mastercardLogo, alt: "Mastercard" },
+const PAYMENT_LOGOS: { src: string; alt: string; bg: string }[] = [
+  { src: amexLogo, alt: "American Express", bg: "bg-[#016FD0]" },
+  { src: gpayLogo, alt: "Google Pay", bg: "bg-white" },
+  { src: applepayLogo, alt: "Apple Pay", bg: "bg-black" },
+  { src: visaLogo, alt: "Visa", bg: "bg-[#1A1F71]" },
+  { src: mastercardLogo, alt: "Mastercard", bg: "bg-[#252525]" },
+  { src: whishLogo, alt: "Whish", bg: "bg-[#FF003E]" },
 ];
 
 type ColumnHeadingProps = { children: React.ReactNode };
@@ -309,18 +309,22 @@ export function Footer() {
             </InLink>
           </div>
 
-          {/* Payment logos — single white pill, matches product page strip */}
-          <div className="flex h-9 items-center justify-center gap-3 rounded-xl bg-white px-3 md:ms-auto">
+          {/* Payment logos — individual brand cards on the dark teal background */}
+          <div className="flex items-center gap-1.5 md:ms-auto flex-wrap">
             {PAYMENT_LOGOS.map((logo) => (
-              <img
+              <div
                 key={logo.alt}
-                src={logo.src}
-                alt={logo.alt}
-                title={logo.alt}
-                className="block h-4 w-auto max-w-[40px] object-contain"
-                loading="lazy"
-                draggable={false}
-              />
+                className={`inline-flex items-center justify-center rounded-md h-8 px-2 ${logo.bg}`}
+              >
+                <img
+                  src={logo.src}
+                  alt={logo.alt}
+                  title={logo.alt}
+                  className="block h-4 w-auto max-w-[44px] object-contain"
+                  loading="lazy"
+                  draggable={false}
+                />
+              </div>
             ))}
           </div>
         </div>
