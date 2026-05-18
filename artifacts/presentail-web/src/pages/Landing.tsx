@@ -1,10 +1,11 @@
-import { useMemo } from "react";
-import { ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
   useLocationSelection,
   type DeliveryCountry,
+  type DeliveryCity,
 } from "@/contexts/LocationContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -14,9 +15,18 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
   { code: "CY", name: "Cyprus", flag: "🇨🇾" },
 ];
 
-export default function Landing() {
-  const { t, countryName, language } = useLocale();
+type LandingProps = {
+  initialCountryCode?: string | null;
+};
+
+export default function Landing({ initialCountryCode = null }: LandingProps) {
+  const { t, countryName, cityName, language } = useLocale();
   const { countries, isLoadingCountries, setLocation } = useLocationSelection();
+  const isRtl = language === "ar";
+
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
+    initialCountryCode
+  );
 
   const rows = useMemo(() => {
     const byCode = new Map<string, DeliveryCountry>();
@@ -28,24 +38,62 @@ export default function Landing() {
         code,
         flag: live?.flag ?? fallback.flag,
         name: live?.name ?? fallback.name,
-        firstCityId: live?.cities[0]?.id ?? null,
+        cities: live?.cities ?? [],
         ready: !!live && !!live.cities[0],
       };
     });
   }, [countries]);
 
-  const handleSelect = (code: string, firstCityId: string | null) => {
-    if (!firstCityId) return;
-    // setLocation handles persistence and locale-aware navigation.
-    setLocation(code, firstCityId);
+  const selectedRow = rows.find((r) => r.code === selectedCountryCode) ?? null;
+
+  const handleCountryClick = (code: string, ready: boolean) => {
+    if (!ready) return;
+    setSelectedCountryCode((prev) => (prev === code ? null : code));
   };
+
+  const handleCitySelect = (code: string, cityId: string) => {
+    setLocation(code, cityId);
+  };
+
+  const CityList = ({
+    cities,
+    countryCode,
+  }: {
+    cities: DeliveryCity[];
+    countryCode: string;
+  }) => (
+    <div className="flex flex-col overflow-y-auto" style={{ maxHeight: "min(60vh, 480px)" }}>
+      {cities.map((city, idx) => (
+        <button
+          key={city.id}
+          type="button"
+          onClick={() => handleCitySelect(countryCode, city.id)}
+          className={`w-full flex items-center justify-between px-4 py-4 min-h-[52px] text-start transition-colors hover:bg-secondary/40 ${
+            idx > 0 ? "border-t border-border/60" : ""
+          }`}
+          data-testid={`button-city-${city.id}`}
+        >
+          <span className="text-base font-medium text-foreground">
+            {cityName(city.id, city.name)}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+
+  const skeletonRows = Array.from({ length: 3 }).map((_, i) => (
+    <div key={i} className="h-16 my-1 rounded-md bg-muted/60 animate-pulse" />
+  ));
 
   return (
     <div
       className="min-h-screen bg-background flex flex-col"
       data-testid="page-landing"
     >
-      <div className="w-full max-w-[560px] mx-auto px-6 pt-10 pb-16 flex-1 flex flex-col">
+      <div className="w-full max-w-[800px] mx-auto px-6 pt-10 pb-16 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-10">
           <div className="flex-1" />
           <div
@@ -74,34 +122,131 @@ export default function Landing() {
           {t("locationPicker.selectCountry")}
         </p>
 
-        <div className="flex flex-col">
-          {isLoadingCountries && countries.length === 0
-            ? Array.from({ length: 3 }).map((_, i) => (
+        {/* Desktop two-column layout (md+) */}
+        <div className="hidden md:flex gap-0 border border-border/60 rounded-xl overflow-hidden">
+          {/* Left: country list */}
+          <div className="w-[220px] shrink-0 border-r border-border/60 flex flex-col">
+            {isLoadingCountries && countries.length === 0
+              ? skeletonRows
+              : rows.map((row, idx) => {
+                  const isActive = selectedCountryCode === row.code;
+                  return (
+                    <button
+                      key={row.code}
+                      type="button"
+                      onClick={() => handleCountryClick(row.code, row.ready)}
+                      disabled={!row.ready}
+                      className={`w-full flex items-center justify-between px-4 py-5 min-h-[64px] text-start transition-colors disabled:opacity-50 ${
+                        idx > 0 ? "border-t border-border/60" : ""
+                      } ${
+                        isActive
+                          ? "bg-secondary/60 font-semibold"
+                          : "hover:bg-secondary/30"
+                      }`}
+                      data-testid={`button-country-${row.code.toLowerCase()}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl leading-none">{row.flag}</span>
+                        <span className="text-sm font-medium leading-tight">
+                          {countryName(row.code, row.name)}
+                        </span>
+                      </div>
+                      <ChevronRight
+                        className={`w-4 h-4 shrink-0 transition-colors ${
+                          isActive ? "text-primary" : "text-muted-foreground"
+                        } ${isRtl ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  );
+                })}
+          </div>
+
+          {/* Right: city list */}
+          <div className="flex-1 flex flex-col">
+            {selectedRow ? (
+              <>
+                <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
+                  <span className="text-lg leading-none">{selectedRow.flag}</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {countryName(selectedRow.code, selectedRow.name)}
+                  </span>
+                </div>
                 <div
-                  key={i}
-                  className="h-16 my-1 rounded-md bg-muted/60 animate-pulse"
-                />
-              ))
-            : rows.map((row, idx) => (
-                <button
-                  key={row.code}
-                  type="button"
-                  onClick={() => handleSelect(row.code, row.firstCityId)}
-                  disabled={!row.ready}
-                  className={`w-full flex items-center justify-between px-2 py-5 min-h-[56px] text-start transition-colors hover:bg-secondary/40 disabled:opacity-50 ${
-                    idx > 0 ? "border-t border-border/60" : ""
-                  }`}
-                  data-testid={`button-country-${row.code.toLowerCase()}`}
+                  className="flex flex-col overflow-y-auto"
+                  style={{ maxHeight: "min(60vh, 480px)" }}
                 >
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl leading-none">{row.flag}</span>
-                    <span className="text-lg font-medium">
-                      {countryName(row.code, row.name)}
-                    </span>
+                  {selectedRow.cities.map((city, idx) => (
+                    <button
+                      key={city.id}
+                      type="button"
+                      onClick={() => handleCitySelect(selectedRow.code, city.id)}
+                      className={`w-full flex items-center justify-between px-5 py-4 min-h-[52px] text-start transition-colors hover:bg-secondary/40 ${
+                        idx > 0 ? "border-t border-border/60" : ""
+                      }`}
+                      data-testid={`button-city-${city.id}`}
+                    >
+                      <span className="text-base font-medium text-foreground">
+                        {cityName(city.id, city.name)}
+                      </span>
+                      <ChevronRight
+                        className={`w-4 h-4 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2 py-12">
+                <ChevronRight className="w-8 h-8 opacity-30" />
+                <p className="text-sm">{t("locationPicker.selectCountry")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile accordion layout (below md) */}
+        <div className="flex flex-col md:hidden">
+          {isLoadingCountries && countries.length === 0
+            ? skeletonRows
+            : rows.map((row, idx) => {
+                const isOpen = selectedCountryCode === row.code;
+                return (
+                  <div
+                    key={row.code}
+                    className={idx > 0 ? "border-t border-border/60" : ""}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleCountryClick(row.code, row.ready)}
+                      disabled={!row.ready}
+                      className={`w-full flex items-center justify-between px-2 py-5 min-h-[56px] text-start transition-colors hover:bg-secondary/40 disabled:opacity-50 ${
+                        isOpen ? "bg-secondary/30" : ""
+                      }`}
+                      data-testid={`button-country-${row.code.toLowerCase()}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl leading-none">{row.flag}</span>
+                        <span className="text-lg font-medium">
+                          {countryName(row.code, row.name)}
+                        </span>
+                      </div>
+                      {isOpen ? (
+                        <ChevronDown className="w-5 h-5 text-primary" />
+                      ) : (
+                        <ChevronRight
+                          className={`w-5 h-5 text-muted-foreground ${isRtl ? "rotate-180" : ""}`}
+                        />
+                      )}
+                    </button>
+
+                    {isOpen && row.cities.length > 0 && (
+                      <div className="bg-secondary/10 border-t border-border/40">
+                        <CityList cities={row.cities} countryCode={row.code} />
+                      </div>
+                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground rtl:rotate-180" />
-                </button>
-              ))}
+                );
+              })}
         </div>
       </div>
     </div>
