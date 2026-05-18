@@ -60,38 +60,37 @@ export function LocationPicker({
     : t("locationPicker.selectCountryLabel");
 
   return (
-    <div className="flex flex-col w-full">
-      <div className="relative flex items-center justify-center mb-5 min-h-[28px]">
-        {showCities ? (
-          <button
-            type="button"
-            onClick={handleBackToCountries}
-            aria-label={t("locationPicker.back")}
-            data-testid="button-picker-back"
-            className="absolute start-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
-          </button>
-        ) : null}
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("locationPicker.close")}
-            data-testid="button-picker-close"
-            className="absolute end-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+    <div className="relative flex flex-col w-full">
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("locationPicker.close")}
+          data-testid="button-picker-close"
+          className="absolute top-0 end-0 inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
 
-      <h2 className="text-2xl md:text-[26px] font-serif text-primary text-center mb-1">
+      {showCities && (
+        <button
+          type="button"
+          onClick={handleBackToCountries}
+          aria-label={t("locationPicker.back")}
+          data-testid="button-picker-back"
+          className="self-start inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors mb-3"
+        >
+          <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+        </button>
+      )}
+
+      <h2 className="text-2xl md:text-[26px] font-serif text-primary text-start mb-1">
         {t("locationPicker.sendGiftTo")}
       </h2>
 
       {showCities && selectedCountry ? (
-        <div className="mt-3 mb-4 mx-1 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
+        <div className="mt-3 mb-4 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xl leading-none">{selectedCountry.flag}</span>
             <span className="text-sm font-semibold text-primary truncate">
@@ -102,19 +101,19 @@ export function LocationPicker({
             type="button"
             onClick={handleBackToCountries}
             data-testid="button-country-header-change"
-            className="text-xs font-semibold uppercase tracking-wider text-primary hover:opacity-80 transition-opacity"
+            className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity shrink-0"
           >
             {t("locationPicker.change")}
           </button>
         </div>
       ) : null}
 
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground text-center mb-5">
+      <p className="text-sm font-bold text-foreground text-start mb-4 mt-3">
         {sectionLabel}
       </p>
 
       <div
-        className="flex flex-col overflow-y-auto -mx-1"
+        className="flex flex-col overflow-y-auto"
         style={{ maxHeight: "min(60vh, 480px)" }}
       >
         {isLoadingCountries && countries.length === 0 ? (
@@ -122,7 +121,7 @@ export function LocationPicker({
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[52px] mx-1 my-1 rounded-md bg-muted/60 animate-pulse"
+                className="h-[56px] my-1 rounded-md bg-muted/60 animate-pulse"
               />
             ))}
           </div>
@@ -132,19 +131,19 @@ export function LocationPicker({
               key={country.id}
               type="button"
               onClick={() => handleCountrySelect(country)}
-              className={`w-full flex items-center justify-between px-3 min-h-[52px] py-3 text-start transition-colors hover:bg-secondary/50 active:bg-secondary/70 ${
-                idx > 0 ? "border-t border-border/70" : ""
+              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 ${
+                idx > 0 ? "border-t border-border" : ""
               }`}
               data-testid={`button-country-${country.code.toLowerCase()}`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3.5">
                 <span className="text-xl leading-none">{country.flag}</span>
                 <span className="text-base font-medium text-foreground">
                   {countryName(country.code, country.name)}
                 </span>
               </div>
               <ChevronRight
-                className={`w-4 h-4 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-primary/70 shrink-0 ${isRtl ? "rotate-180" : ""}`}
               />
             </button>
           ))
@@ -154,8 +153,8 @@ export function LocationPicker({
               key={city.id}
               type="button"
               onClick={() => handleCitySelect(city.id)}
-              className={`w-full flex items-center justify-between px-3 min-h-[52px] py-3 text-start transition-colors hover:bg-secondary/50 active:bg-secondary/70 ${
-                idx > 0 ? "border-t border-border/70" : ""
+              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 ${
+                idx > 0 ? "border-t border-border" : ""
               }`}
               data-testid={`button-city-${city.id}`}
             >
@@ -163,7 +162,7 @@ export function LocationPicker({
                 {cityName(city.id, city.name)}
               </span>
               <ChevronRight
-                className={`w-4 h-4 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-primary/70 shrink-0 ${isRtl ? "rotate-180" : ""}`}
               />
             </button>
           ))
