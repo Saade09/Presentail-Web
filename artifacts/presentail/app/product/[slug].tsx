@@ -435,39 +435,21 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         {product.name}
       </Text>
 
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
-        <Price
-          value={priceValue}
-          native
-          style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
-        />
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
-          {t.taxInclusive}
-        </Text>
-      </View>
-
-      {/* Loyalty */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          backgroundColor: "#fff",
-          padding: 12,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
-          <MaterialCommunityIcons name="star-four-points" size={16} color="#fff" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
-            {t.earnPointsPrefix} {points} {t.earnPointsSuffix}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
+          <Price
+            value={priceValue}
+            native
+            style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
+          />
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
+            {t.taxInclusive}
           </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-            {t.presentailPointsDesc}
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <MaterialCommunityIcons name="star-four-points" size={14} color={colors.gold} />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.gold }}>
+            {t.earnPointsPrefix} {points} {t.earnPointsSuffix}
           </Text>
         </View>
       </View>
