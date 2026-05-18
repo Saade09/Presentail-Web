@@ -4,7 +4,7 @@ import { ChevronDown, Clock } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export function TopUtilityBar() {
-  const { country, openPicker } = useLocationSelection();
+  const { country, city, openPicker } = useLocationSelection();
   const { t, countryName } = useLocale();
 
   return (
@@ -24,9 +24,11 @@ export function TopUtilityBar() {
           >
             <span className="text-base leading-none">{country?.flag ?? "🌍"}</span>
             <span className="font-medium">
-              {country
-                ? countryName(country.code, country.name)
-                : t("locationPicker.selectCountry")}
+              {city
+                ? city.name
+                : country
+                  ? countryName(country.code, country.name)
+                  : t("locationPicker.selectCountry")}
             </span>
             <ChevronDown className="w-3 h-3 opacity-70" />
           </button>
