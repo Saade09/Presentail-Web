@@ -688,6 +688,26 @@ export interface AuthMeUpdateRequest {
   birthdayShareMonthDay?: boolean;
 }
 
+export interface FavoriteItem {
+  productSlug: string;
+  countryCode?: string | null;
+  createdAt: string;
+}
+
+export interface FavoritesListResponse {
+  ok: boolean;
+  favorites: FavoriteItem[];
+}
+
+export interface AddFavoriteRequest {
+  productSlug: string;
+  countryCode?: string | null;
+}
+
+export interface FavoriteToggleResponse {
+  ok: boolean;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

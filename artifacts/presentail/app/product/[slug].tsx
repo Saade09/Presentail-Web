@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -23,6 +23,7 @@ import { Price } from "@/components/Price";
 import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useFavorites } from "@/contexts/FavoritesContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useWooProducts } from "@/contexts/WooProductsContext";
@@ -89,6 +90,7 @@ function ProductDetail() {
   const insets = useSafeAreaInsets();
   const { add } = useCart();
   const t = useT();
+  const { isFavorited, toggleFavorite } = useFavorites();
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
@@ -208,14 +210,28 @@ function ProductDetail() {
             >
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
-            <Pressable
-              onPress={() => handleShareProduct(String(slug || product.id))}
-              accessibilityRole="button"
-              accessibilityLabel={t.shareProductAria}
-              style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
-            >
-              <Feather name="share-2" size={18} color={colors.primary} />
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                onPress={() => void toggleFavorite(product.id)}
+                accessibilityRole="button"
+                accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
+                style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+              >
+                <Ionicons
+                  name={isFavorited(product.id) ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFavorited(product.id) ? "#e11d48" : colors.primary}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => handleShareProduct(String(slug || product.id))}
+                accessibilityRole="button"
+                accessibilityLabel={t.shareProductAria}
+                style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+              >
+                <Feather name="share-2" size={18} color={colors.primary} />
+              </Pressable>
+            </View>
           </View>
         </View>
 

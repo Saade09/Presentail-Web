@@ -1,12 +1,12 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { User, Package, MapPin, LogOut, Sparkles } from "lucide-react";
+import { User, Package, MapPin, LogOut, Sparkles, Heart } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useMyOrders, type MyOrder } from "@/lib/queries";
 import { LoyaltyPanel } from "@/components/loyalty/LoyaltyPanel";
 
-type Tab = "profile" | "orders" | "loyalty";
+type Tab = "profile" | "orders" | "loyalty" | "favorites";
 
 export default function Account() {
   const { user, token, logout, isLoading } = useAuth();
@@ -77,6 +77,19 @@ export default function Account() {
               <Sparkles className="w-5 h-5 text-primary" />
               <span className="font-medium">{t("account.loyalty")}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setTab("favorites")}
+              className={`w-full text-left p-4 rounded-xl border flex items-center gap-3 transition-colors ${
+                tab === "favorites"
+                  ? "bg-secondary/50 border-primary/10"
+                  : "border-transparent hover:bg-secondary/30"
+              }`}
+              data-testid="account-tab-favorites"
+            >
+              <Heart className="w-5 h-5 text-rose-500" />
+              <span className="font-medium">{t("account.favorites")}</span>
+            </button>
             <div
               className="p-4 rounded-xl flex items-center gap-3 opacity-60"
               aria-disabled="true"
@@ -102,12 +115,32 @@ export default function Account() {
               <ProfilePanel user={user} t={t} />
             ) : tab === "loyalty" ? (
               <LoyaltyPanel t={t} />
+            ) : tab === "favorites" ? (
+              <FavoritesRedirectPanel t={t} />
             ) : (
               <OrdersPanel signedIn={!!token} t={t} />
             )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FavoritesRedirectPanel({ t }: { t: (k: string) => string }) {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="bg-secondary/30 rounded-3xl p-8 border border-border/50">
+      <h2 className="text-2xl font-serif mb-4">{t("account.favorites")}</h2>
+      <p className="text-muted-foreground mb-6">{t("account.favorites.desc")}</p>
+      <button
+        type="button"
+        onClick={() => setLocation("/favorites")}
+        className="inline-flex items-center gap-2 rounded-full border border-primary px-5 py-2.5 text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+      >
+        <Heart className="w-4 h-4" />
+        {t("account.favorites.view")}
+      </button>
     </div>
   );
 }

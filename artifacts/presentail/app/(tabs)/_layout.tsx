@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -104,6 +104,18 @@ function TabLayout() {
               />
             ) : (
               <Feather name="shopping-bag" size={20} color={count > 0 ? colors.gold : color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: t.favorites,
+          tabBarIcon: ({ color, focused }) =>
+            isIOS ? (
+              <SymbolView name={focused ? "heart.fill" : "heart"} tintColor={color} size={22} />
+            ) : (
+              <Ionicons name={focused ? "heart" : "heart-outline"} size={20} color={color} />
             ),
         }}
       />

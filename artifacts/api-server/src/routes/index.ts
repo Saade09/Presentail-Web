@@ -18,6 +18,7 @@ import clientErrorsRouter from "./clientErrors";
 import analyticsRouter from "./analytics";
 import adminFunnelsRouter from "./adminFunnels";
 import loyaltyRouter from "./loyalty";
+import favoritesRouter from "./favorites";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(clientErrorsRouter);
 router.use(analyticsRouter);
 router.use(adminFunnelsRouter);
 router.use(loyaltyRouter);
+router.use(favoritesRouter);
 
 export default router;

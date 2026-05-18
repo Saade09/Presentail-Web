@@ -30,6 +30,8 @@ tags:
     description: Saved delivery addresses owned by the signed-in customer
   - name: loyalty
     description: Loyalty points and tier coupons for the signed-in customer
+  - name: favorites
+    description: Saved favorite products for the signed-in customer
 paths:
   /healthz:
     get:
@@ -749,6 +751,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/favorites:
+    get:
+      operationId: getFavorites
+      tags: [favorites]
+      summary: List the signed-in customer's favorite products
+      responses:
+        "200":
+          description: Favorites list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoritesListResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addFavorite
+      tags: [favorites]
+      summary: Save a product to favorites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddFavoriteRequest"
+      responses:
+        "200":
+          description: Favorite saved (or already existed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteToggleResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/favorites/{slug}:
+    delete:
+      operationId: removeFavorite
+      tags: [favorites]
+      summary: Remove a product from favorites
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Favorite removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteToggleResponse"
         "401":
           description: Not signed in
           content:
@@ -1801,3 +1874,46 @@ components:
           description: ISO calendar date `YYYY-MM-DD`, or null to clear.
         birthdayShareMonthDay:
           type: boolean
+    FavoriteItem:
+      type: object
+      properties:
+        productSlug:
+          type: string
+        countryCode:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - productSlug
+        - createdAt
+    FavoritesListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        favorites:
+          type: array
+          items:
+            $ref: "#/components/schemas/FavoriteItem"
+      required:
+        - ok
+        - favorites
+    AddFavoriteRequest:
+      type: object
+      properties:
+        productSlug:
+          type: string
+        countryCode:
+          type: string
+          nullable: true
+      required:
+        - productSlug
+    FavoriteToggleResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok

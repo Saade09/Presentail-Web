@@ -6,6 +6,16 @@ const EN = {
   boutique: "Boutique",
   cart: "Cart",
   account: "Account",
+  favorites: "Favorites",
+
+  // Favorites screen
+  favoritesTitle: "My Favorites",
+  favoritesEmptyTitle: "No favorites yet",
+  favoritesEmptyDesc: "Tap the heart on any product to save it here.",
+  favoritesSignInTitle: "Sign in to save favorites",
+  favoritesSignInDesc: "Create an account or sign in to save products you love.",
+  favoritesSingular: "item saved",
+  favoritesPlural: "items saved",
 
   // Hero
   heroEyebrow: "THE MODERN FLOWER ATELIER",
@@ -959,6 +969,16 @@ const AR: typeof EN = {
   boutique: "البوتيك",
   cart: "السلة",
   account: "الحساب",
+  favorites: "المفضلة",
+
+  // Favorites screen
+  favoritesTitle: "مفضلتي",
+  favoritesEmptyTitle: "لا مفضلات بعد",
+  favoritesEmptyDesc: "اضغط على القلب على أي منتج لحفظه هنا.",
+  favoritesSignInTitle: "سجّل دخولك لحفظ المفضلات",
+  favoritesSignInDesc: "أنشئ حساباً أو سجّل دخولك لحفظ المنتجات التي تعجبك.",
+  favoritesSingular: "عنصر محفوظ",
+  favoritesPlural: "عناصر محفوظة",
 
   // Hero
   heroEyebrow: "بيت الزهور العصري",
@@ -1907,6 +1927,16 @@ const FR: typeof EN = {
   boutique: "Boutique",
   cart: "Panier",
   account: "Compte",
+  favorites: "Favoris",
+
+  // Favorites screen
+  favoritesTitle: "Mes favoris",
+  favoritesEmptyTitle: "Aucun favori pour l'instant",
+  favoritesEmptyDesc: "Appuyez sur le cœur d'un produit pour l'enregistrer ici.",
+  favoritesSignInTitle: "Connectez-vous pour sauvegarder vos favoris",
+  favoritesSignInDesc: "Créez un compte ou connectez-vous pour sauvegarder les produits que vous aimez.",
+  favoritesSingular: "article enregistré",
+  favoritesPlural: "articles enregistrés",
 
   // Hero
   heroEyebrow: "L'ATELIER FLORAL MODERNE",

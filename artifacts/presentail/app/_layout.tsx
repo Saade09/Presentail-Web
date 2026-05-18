@@ -29,6 +29,7 @@ import { OnboardingLocationScreen } from "@/components/location/OnboardingLocati
 import { AnimatedSplash } from "@/components/SplashScreen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationProvider";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
@@ -298,6 +299,7 @@ export default function RootLayout() {
                   <CurrencyProvider>
                     <DeliveryLocationProvider>
                       <AuthProvider>
+                        <FavoritesProvider>
                         <WooProductsProvider>
                           <CartProvider>
                             <DeliverySelectionProvider>
@@ -305,6 +307,7 @@ export default function RootLayout() {
                             </DeliverySelectionProvider>
                           </CartProvider>
                         </WooProductsProvider>
+                        </FavoritesProvider>
                       </AuthProvider>
                     </DeliveryLocationProvider>
                   </CurrencyProvider>

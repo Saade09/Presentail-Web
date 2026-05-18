@@ -1153,3 +1153,40 @@ export const UpdateAuthMeResponse = zod.object({
     ])
     .optional(),
 });
+
+/**
+ * @summary List the signed-in customer's favorite products
+ */
+export const GetFavoritesResponse = zod.object({
+  ok: zod.boolean(),
+  favorites: zod.array(
+    zod.object({
+      productSlug: zod.string(),
+      countryCode: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save a product to favorites
+ */
+export const AddFavoriteBody = zod.object({
+  productSlug: zod.string(),
+  countryCode: zod.string().nullish(),
+});
+
+export const AddFavoriteResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Remove a product from favorites
+ */
+export const RemoveFavoriteParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const RemoveFavoriteResponse = zod.object({
+  ok: zod.boolean(),
+});

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useRoute } from "wouter";
-import { ShoppingBag } from "lucide-react";
+import { Link, useLocation, useRoute } from "wouter";
+import { Heart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useCatalogMetadata, useProducts } from "@/lib/queries";
+import { useFavorites } from "@/contexts/FavoritesContext";
+import { useAuth as useClerkAuth } from "@clerk/react";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
 import {
@@ -36,6 +38,10 @@ export default function ProductDetail() {
   const { t, language } = useLocale();
   const { toast } = useToast();
   const { addItem } = useCart();
+  const { isSignedIn } = useClerkAuth();
+  const { isFavorited, toggleFavorite } = useFavorites();
+  const { countryCode: locationCountry } = useLocationSelection();
+  const [, navigate] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
   const delivery = useDeliveryConfig();
   const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
@@ -271,16 +277,40 @@ export default function ProductDetail() {
               />
             )}
 
-            <Button
-              size="lg"
-              className="w-full h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
-              onClick={handleAdd}
-              disabled={!vm.inStock}
-              data-testid="button-add-to-cart"
-            >
-              <ShoppingBag className="w-5 h-5 mr-2" />
-              {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                size="lg"
+                className="flex-1 h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
+                onClick={handleAdd}
+                disabled={!vm.inStock}
+                data-testid="button-add-to-cart"
+              >
+                <ShoppingBag className="w-5 h-5 mr-2" />
+                {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
+              </Button>
+              {product && (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 w-14 rounded-xl flex-shrink-0 p-0"
+                  onClick={() => {
+                    if (!isSignedIn) {
+                      navigate("/sign-in");
+                      return;
+                    }
+                    void toggleFavorite(product.id, locationCountry ?? null);
+                  }}
+                  aria-label={isFavorited(product.id) ? "Remove from favorites" : "Save to favorites"}
+                  data-testid="button-favorite-detail"
+                >
+                  <Heart
+                    className={`w-5 h-5 transition-colors duration-200 ${
+                      isFavorited(product.id) ? "fill-rose-500 text-rose-500" : "text-muted-foreground"
+                    }`}
+                  />
+                </Button>
+              )}
+            </div>
 
             <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
 

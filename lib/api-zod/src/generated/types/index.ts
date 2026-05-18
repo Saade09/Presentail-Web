@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./addFavoriteRequest";
 export * from "./analyticsEventName";
 export * from "./analyticsEventRequest";
 export * from "./analyticsEventRequestAction";
@@ -40,6 +41,9 @@ export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";
 export * from "./deliveryLocationsResponse";
 export * from "./errorResponse";
+export * from "./favoriteItem";
+export * from "./favoritesListResponse";
+export * from "./favoriteToggleResponse";
 export * from "./gender";
 export * from "./geoCurrencyResponse";
 export * from "./getDeliveryConfigParams";

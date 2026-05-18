@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, Menu, Search, ShoppingBag, User } from "lucide-react";
+import { ChevronDown, Heart, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -95,6 +95,13 @@ export function MainNavbar() {
           </Button>
           <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
 
+          {user && (
+            <Link href="/favorites" aria-label="Favorites">
+              <Button variant="ghost" size="icon" data-testid="button-favorites">
+                <Heart className="w-5 h-5" />
+              </Button>
+            </Link>
+          )}
           <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")}>
             <Button variant="ghost" size="icon" data-testid="button-account">
               <User className="w-5 h-5" />

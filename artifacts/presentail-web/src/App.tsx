@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
 import { LocaleProvider, useLocale } from "@/contexts/LocaleContext";
 import { useCurrenciesData } from "@/lib/queries";
@@ -65,6 +66,7 @@ import Contact from "@/pages/Contact";
 import Faqs from "@/pages/Faqs";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import Favorites from "@/pages/Favorites";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -166,6 +168,11 @@ function ShopShell() {
             <Route path="/account">
               <CustomerOnly>
                 <Account />
+              </CustomerOnly>
+            </Route>
+            <Route path="/favorites">
+              <CustomerOnly>
+                <Favorites />
               </CustomerOnly>
             </Route>
             <Route component={NotFound} />
@@ -319,6 +326,7 @@ function App() {
               <LocationProvider>
                 <AuthProvider>
                   <CartProvider>
+                    <FavoritesProvider>
                     <DeliverySelectionProvider>
                       <CurrencyDataLoader />
                       <DocumentMeta />
@@ -326,6 +334,7 @@ function App() {
                       <RootRouter />
                       <Toaster />
                     </DeliverySelectionProvider>
+                    </FavoritesProvider>
                   </CartProvider>
                 </AuthProvider>
               </LocationProvider>
