@@ -1,22 +1,54 @@
+import { useEffect, useState } from "react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { ChevronDown, Clock } from "lucide-react";
+import { ChevronDown, Clock, MapPin, Truck } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { CountryFlag } from "@/components/CountryFlag";
+import { AnimatePresence, motion } from "framer-motion";
+
+const TICKER_INTERVAL = 3500;
 
 export function TopUtilityBar() {
   const { country, city, openPicker } = useLocationSelection();
   const { t, countryName } = useLocale();
+  const [idx, setIdx] = useState(0);
+
+  const items = [
+    { icon: <Clock className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />, label: t("utility.fastCheckout") },
+    { icon: <Truck className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />, label: t("utility.sameDayDelivery") },
+    { icon: <MapPin className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />, label: t("utility.noHassle") },
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIdx((i) => (i + 1) % items.length);
+    }, TICKER_INTERVAL);
+    return () => clearInterval(timer);
+  }, [items.length]);
 
   return (
     <div className="bg-[#efefef] text-xs text-muted-foreground border-b border-border/60">
       <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5 text-foreground/80">
-          <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span className="font-medium">{t("utility.fastCheckout")}</span>
+
+        {/* Sliding ticker */}
+        <div className="flex items-center gap-1.5 text-foreground/80 overflow-hidden h-full min-w-0">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="flex items-center gap-1.5"
+            >
+              {items[idx].icon}
+              <span className="font-medium whitespace-nowrap">{items[idx].label}</span>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right side: country + language */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => openPicker()}
