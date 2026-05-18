@@ -1,27 +1,25 @@
+import { isPayMethodSupported } from "@workspace/pay-methods";
 import applePayLogo from "@/assets/payment-logos/applepay.svg";
 import googlePayLogo from "@/assets/payment-logos/googlepay.svg";
 import visaLogo from "@/assets/payment-logos/visa.svg";
 import mastercardLogo from "@/assets/payment-logos/mastercard.svg";
 import amexLogo from "@/assets/payment-logos/amex.svg";
 import whishLogo from "@/assets/payment-logos/whish.svg";
+import paypalLogo from "@/assets/payment-logos/paypal.svg";
 
 type Logo = { name: string; src: string; maxH: string };
-
-const BASE_LOGOS: Logo[] = [
-  { name: "American Express", src: amexLogo, maxH: "max-h-[18px]" },
-  { name: "Google Pay", src: googlePayLogo, maxH: "max-h-[14px]" },
-  { name: "Apple Pay", src: applePayLogo, maxH: "max-h-[14px]" },
-  { name: "Visa", src: visaLogo, maxH: "max-h-[14px]" },
-  { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
-];
-
-const WHISH_LOGO: Logo = { name: "Whish Money", src: whishLogo, maxH: "max-h-[14px]" };
 
 type PaymentMethodsProps = {
   label?: string | null;
   labelClassName?: string;
   className?: string;
   countryCode?: string | null;
+  /**
+   * Active display currency. Defaults to "USD" (the store's base currency).
+   * Controls which payment method logos are shown using the same
+   * `@workspace/pay-methods` rules as the checkout and mobile app.
+   */
+  currencyCode?: string | null;
 };
 
 export function PaymentMethods({
@@ -29,11 +27,42 @@ export function PaymentMethods({
   labelClassName,
   className,
   countryCode,
+  currencyCode,
 }: PaymentMethodsProps = {}) {
-  const logos: Logo[] =
-    countryCode?.toUpperCase() === "LB"
-      ? [...BASE_LOGOS, WHISH_LOGO]
-      : BASE_LOGOS;
+  const currency = currencyCode ?? "USD";
+  const ctx = { country: countryCode?.toUpperCase() ?? undefined };
+
+  // Card networks (Amex/Visa/MC) are shown when Stripe card OR Mamo is
+  // available — both process major card networks, just for different currencies.
+  const showCards =
+    isPayMethodSupported("card", currency, ctx) ||
+    isPayMethodSupported("mamo", currency, ctx);
+  const showWallet = isPayMethodSupported("wallet", currency, ctx);
+  const showWhish = isPayMethodSupported("whish", currency, ctx);
+  const showPayPal = isPayMethodSupported("paypal", currency, ctx);
+
+  // Ordered: Amex → GPay → Apple Pay → Visa → MC → Whish → PayPal
+  const logos: Logo[] = [
+    ...(showCards
+      ? [
+          { name: "American Express", src: amexLogo, maxH: "max-h-[18px]" },
+        ]
+      : []),
+    ...(showWallet
+      ? [
+          { name: "Google Pay", src: googlePayLogo, maxH: "max-h-[14px]" },
+          { name: "Apple Pay", src: applePayLogo, maxH: "max-h-[14px]" },
+        ]
+      : []),
+    ...(showCards
+      ? [
+          { name: "Visa", src: visaLogo, maxH: "max-h-[14px]" },
+          { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
+        ]
+      : []),
+    ...(showWhish ? [{ name: "Whish Money", src: whishLogo, maxH: "max-h-[14px]" }] : []),
+    ...(showPayPal ? [{ name: "PayPal", src: paypalLogo, maxH: "max-h-[16px]" }] : []),
+  ];
 
   return (
     <div

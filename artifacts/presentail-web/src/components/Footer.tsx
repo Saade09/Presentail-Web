@@ -4,6 +4,7 @@ import { Logo } from "@/components/Logo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CountryFlag } from "@/components/CountryFlag";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
@@ -87,6 +88,7 @@ function InLink({
 export function Footer() {
   const { t, language, countryName } = useLocale();
   const { country, countryCode, openPicker } = useLocationSelection();
+  const { currencyCode } = useDisplayCurrency();
   const isAE = countryCode?.toUpperCase() === "AE";
   const year = new Date().getFullYear();
   const countryLabel = country
@@ -288,7 +290,7 @@ export function Footer() {
 
           {/* Payment logos — flat logos on a single white rounded card */}
           <div className="md:ms-auto">
-            <PaymentMethods label={null} countryCode={countryCode} />
+            <PaymentMethods label={null} countryCode={countryCode} currencyCode={currencyCode} />
           </div>
         </div>
       </div>

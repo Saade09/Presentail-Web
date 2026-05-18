@@ -859,6 +859,7 @@ export default function Checkout() {
                   <PaymentMethods
                     label={t("payments.waysToPay")}
                     countryCode={countryCode}
+                    currencyCode={currencyCode}
                     className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6"
                   />
 
