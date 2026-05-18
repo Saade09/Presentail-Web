@@ -38,7 +38,7 @@ export function LanguageSwitcher({ className = "", variant = "default" }: Props)
         <span className="font-medium text-foreground">{LABELS[language]}</span>
         <ChevronDown className="w-3 h-3 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-[8rem]">
+      <DropdownMenuContent align={align} className="min-w-[8rem] z-[80] max-h-60">
         {SUPPORTED_LANGS.map((lang) => {
           const active = language === lang;
           return (
