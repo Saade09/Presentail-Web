@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { Minus, Plus, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -85,7 +85,6 @@ export default function ProductDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryChoice, expressAvailable]);
-  const [qty, setQty] = useState(1);
   const vm = useMemo(
     () => (product ? buildProductViewModel(product) : null),
     [product],
@@ -153,13 +152,10 @@ export default function ProductDetail() {
 
   const handleAdd = () => {
     if (!product) return;
-    addItem(product, qty);
+    addItem(product, 1);
     toast({
       title: t("product.toast.addedTitle"),
-      description:
-        qty > 1
-          ? t("product.toast.addedDescQty", { qty, name: product.name })
-          : t("product.toast.addedDesc", { name: product.name }),
+      description: t("product.toast.addedDesc", { name: product.name }),
     });
   };
 
@@ -276,49 +272,16 @@ export default function ProductDetail() {
               />
             )}
 
-            <div className="flex flex-col sm:flex-row items-stretch gap-3">
-              <div
-                className="flex items-center justify-between sm:justify-start border border-border rounded-xl overflow-hidden bg-card shrink-0 h-14"
-                data-testid="product-quantity"
-              >
-                <button
-                  type="button"
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  disabled={qty <= 1}
-                  className="px-4 sm:px-3 h-full text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
-                  aria-label={t("cart.decreaseAria")}
-                  data-testid="button-quantity-decrease"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span
-                  className="w-10 text-center font-medium text-sm select-none"
-                  data-testid="text-quantity"
-                >
-                  {qty}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setQty(qty + 1)}
-                  className="px-4 sm:px-3 h-full text-foreground hover:bg-secondary transition-colors"
-                  aria-label={t("cart.increaseAria")}
-                  data-testid="button-quantity-increase"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-
-              <Button
-                size="lg"
-                className="flex-1 h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
-                onClick={handleAdd}
-                disabled={!vm.inStock}
-                data-testid="button-add-to-cart"
-              >
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
-              </Button>
-            </div>
+            <Button
+              size="lg"
+              className="w-full h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
+              onClick={handleAdd}
+              disabled={!vm.inStock}
+              data-testid="button-add-to-cart"
+            >
+              <ShoppingBag className="w-5 h-5 mr-2" />
+              {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
+            </Button>
 
             <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
 
