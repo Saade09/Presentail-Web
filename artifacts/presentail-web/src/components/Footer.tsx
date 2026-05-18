@@ -130,7 +130,6 @@ export function Footer() {
 
   // "Get to Know Us" — all in-app routes.
   const knowUs: { label: string; href: string; testId: string; external?: boolean }[] = [
-    { label: t("footer.know.about"), href: "/about", testId: "footer-link-about" },
     { label: t("footer.know.partner"), href: "/partner", testId: "footer-link-partner" },
     { label: t("footer.know.deliveryRates"), href: "/delivery-rates", testId: "footer-link-delivery" },
     { label: t("footer.know.investor"), href: "/investor", testId: "footer-link-investor" },

@@ -55,7 +55,7 @@ export function EditorialSection() {
               </div>
             </div>
 
-            <Link href="/about">
+            <Link href="/shop">
               <Button
                 size="lg"
                 className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-7"

@@ -47,7 +47,6 @@ export function Navbar() {
                 <Link href="/shop" className="text-lg font-serif">{t("nav.shop")}</Link>
                 <Link href="/shop?occasion=birthday" className="text-lg font-serif">{t("nav.occasions")}</Link>
                 {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-lg font-serif">{t("nav.brands")}</Link>}
-                <Link href="/about" className="text-lg font-serif">{t("nav.about")}</Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -60,7 +59,6 @@ export function Navbar() {
             <Link href="/shop" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.shop")}</Link>
             <Link href="/shop?occasion=birthday" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.occasions")}</Link>
             {countryCode?.toUpperCase() !== "AE" && <Link href="/brands" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.brands")}</Link>}
-            <Link href="/about" className="text-sm font-medium hover:text-primary/80 transition-colors">{t("nav.about")}</Link>
           </nav>
         </div>
 

@@ -48,9 +48,6 @@ export function MainNavbar() {
                     {t(l.key)}
                   </Link>
                 ))}
-                <Link href="/about" className="text-lg font-serif py-2">
-                  {t("nav.about")}
-                </Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -84,13 +81,6 @@ export function MainNavbar() {
 
         {/* Right: icons */}
         <div className="flex items-center justify-end gap-1 md:gap-3">
-          <Link
-            href="/about"
-            className="hidden lg:inline text-sm font-medium hover:text-primary/80 transition-colors"
-          >
-            {t("nav.about")}
-          </Link>
-
           <Button variant="ghost" size="icon" aria-label={t("nav.searchAria")} data-testid="button-search">
             <Search className="w-5 h-5" />
           </Button>
