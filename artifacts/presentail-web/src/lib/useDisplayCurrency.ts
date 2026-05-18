@@ -37,13 +37,23 @@ const MANUAL_CURRENCY_PERSISTENT_KEY =
   "presentail_display_currency_manual_persistent_v1";
 
 /**
- * Currencies the product-page switcher offers. Kept to a small, on-brand
- * set; all of these are also formattable via `formatPriceInCurrency` and
- * have rates in the server-side FX pipeline. The picker's display names
- * come from the runtime currency snapshot (i.e. the API's `/currencies`
- * payload).
+ * All currencies supported by the mobile app (sourced from
+ * `@workspace/catalog-data`). The picker display names come from the
+ * runtime currency snapshot (i.e. the API's `/currencies` payload).
  */
-const PICKER_CURRENCY_CODES = ["USD", "AED", "EUR", "GBP"] as const;
+const PICKER_CURRENCY_CODES = [
+  "USD",
+  "AED",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "QAR",
+  "SAR",
+  "KWD",
+  "OMR",
+  "CHF",
+] as const;
 
 const SUPPORTED_CODES = new Set<string>(PICKER_CURRENCY_CODES);
 

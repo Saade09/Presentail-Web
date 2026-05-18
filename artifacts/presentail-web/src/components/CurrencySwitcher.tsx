@@ -14,10 +14,16 @@ const CURRENCY_FLAG: Record<string, string> = {
   AED: "AE",
   EUR: "EU",
   GBP: "GB",
+  CAD: "CA",
+  AUD: "AU",
+  QAR: "QA",
+  SAR: "SA",
+  KWD: "KW",
+  OMR: "OM",
+  CHF: "CH",
 };
 
 type Props = {
-  className?: string;
   triggerClassName?: string;
 };
 
@@ -46,7 +52,10 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="min-w-[10rem] z-[80]">
+      <DropdownMenuContent
+        align="start"
+        className="min-w-[11rem] max-h-72 overflow-y-auto z-[80]"
+      >
         {supportedCurrencies.map(({ code, name }) => {
           const active = code === currencyCode;
           const flagCode = CURRENCY_FLAG[code];
@@ -60,8 +69,8 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
               {flagCode && (
                 <CountryFlag code={flagCode} className="w-5 h-auto rounded-[2px] shrink-0" />
               )}
-              <span className="flex-1 text-sm">{code}</span>
-              <span className="text-xs text-muted-foreground truncate max-w-[80px]">{name}</span>
+              <span className="w-10 shrink-0 text-sm font-medium">{code}</span>
+              <span className="flex-1 text-xs text-muted-foreground truncate">{name}</span>
               {active && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
             </DropdownMenuItem>
           );
