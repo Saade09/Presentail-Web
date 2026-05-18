@@ -6,6 +6,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { currencyForStoreCountry } from "@/lib/currency";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
+import { CountryFlag } from "@/components/CountryFlag";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
 function TikTokIcon({ className }: { className?: string }) {
@@ -242,7 +243,7 @@ export function Footer() {
                 data-testid="footer-currency-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
               >
-                {country && <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">{country.code.toUpperCase()}</span>}
+                {country && <CountryFlag code={country.code} className="w-5 h-auto rounded-[2px]" />}
                 <span>{currencyCode}</span>
                 <ChevronDown className="w-3.5 h-3.5 opacity-70" />
               </button>
@@ -266,7 +267,7 @@ export function Footer() {
                 data-testid="footer-country-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
               >
-                {country && <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">{country.code.toUpperCase()}</span>}
+                {country && <CountryFlag code={country.code} className="w-5 h-auto rounded-[2px]" />}
                 <span>{countryLabel}</span>
                 <MapPin className="w-3.5 h-3.5 opacity-70" />
               </button>

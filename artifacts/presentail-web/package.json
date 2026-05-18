@@ -53,9 +53,9 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/clerk-types": "workspace:*",
     "@workspace/delivery": "workspace:*",
-    "@workspace/pay-methods": "workspace:*",
     "@workspace/display-currency": "workspace:*",
     "@workspace/homepage-icons": "workspace:*",
+    "@workspace/pay-methods": "workspace:*",
     "@workspace/suggested-messages": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
@@ -86,6 +86,7 @@
   "dependencies": {
     "@clerk/react": "^6.6.2",
     "@clerk/themes": "^2.4.57",
+    "country-flag-icons": "^1.6.17",
     "html-to-image": "^1.11.13"
   }
 }

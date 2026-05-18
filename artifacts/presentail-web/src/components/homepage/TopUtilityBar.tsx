@@ -2,6 +2,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ChevronDown, Clock } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { CountryFlag } from "@/components/CountryFlag";
 
 export function TopUtilityBar() {
   const { country, city, openPicker } = useLocationSelection();
@@ -23,7 +24,7 @@ export function TopUtilityBar() {
             data-testid="button-country-selector"
           >
             {country ? (
-              <span className="inline-flex items-center justify-center rounded bg-white/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest shrink-0">{country.code.toUpperCase()}</span>
+              <CountryFlag code={country.code} className="w-[18px] h-auto rounded-[2px]" />
             ) : (
               <span className="text-base leading-none">🌍</span>
             )}
