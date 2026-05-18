@@ -439,9 +439,13 @@ const EN = {
   cartSelectDateTimePrompt: "Select date & time at checkout",
   rescheduleSheetTitle: "Pick a delivery date",
   rescheduleSheetSubtitle: "Switch from Express to a scheduled day & time slot.",
+  rescheduleSheetSubtitleScheduled: "Choose Express or pick a scheduled date & slot.",
   rescheduleSelectSlot: "Select a time slot",
   rescheduleConfirm: "Confirm date & time",
   rescheduleKeepExpress: "Keep Express Delivery",
+  rescheduleCancel: "Cancel",
+  rescheduleExpressTile: "Express Delivery · 1–3 hrs",
+  rescheduleExpressUnavailable: "Not available right now",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1388,9 +1392,13 @@ const AR: typeof EN = {
   cartSelectDateTimePrompt: "اختر التاريخ والوقت عند الدفع",
   rescheduleSheetTitle: "اختر تاريخ التوصيل",
   rescheduleSheetSubtitle: "التحويل من التوصيل السريع إلى يوم ووقت مجدولين.",
+  rescheduleSheetSubtitleScheduled: "اختر التوصيل السريع أو حدد تاريخاً ووقتاً.",
   rescheduleSelectSlot: "اختر الفترة الزمنية",
   rescheduleConfirm: "تأكيد التاريخ والوقت",
   rescheduleKeepExpress: "الاحتفاظ بالتوصيل السريع",
+  rescheduleCancel: "إلغاء",
+  rescheduleExpressTile: "توصيل سريع · 1–3 ساعات",
+  rescheduleExpressUnavailable: "غير متاح الآن",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -2332,9 +2340,13 @@ const FR: typeof EN = {
   cartSelectDateTimePrompt: "Choisir la date et l'heure au paiement",
   rescheduleSheetTitle: "Choisir une date de livraison",
   rescheduleSheetSubtitle: "Passer de la livraison express à un jour et créneau programmés.",
+  rescheduleSheetSubtitleScheduled: "Choisissez Express ou sélectionnez une date et un créneau.",
   rescheduleSelectSlot: "Choisissez un créneau horaire",
   rescheduleConfirm: "Confirmer la date et l'heure",
   rescheduleKeepExpress: "Conserver la livraison express",
+  rescheduleCancel: "Annuler",
+  rescheduleExpressTile: "Livraison express · 1–3 h",
+  rescheduleExpressUnavailable: "Non disponible pour le moment",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

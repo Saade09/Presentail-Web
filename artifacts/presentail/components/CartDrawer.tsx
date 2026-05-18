@@ -28,6 +28,7 @@ import {
   expressSurchargeForCountry,
   formatDeliveryRow,
   getCountryHour,
+  isExpressDeliveryAvailable,
   resolveSlotLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
@@ -95,13 +96,8 @@ export function CartDrawer() {
   });
 
   const goPickDeliveryTime = React.useCallback(() => {
-    if (isExpress) {
-      setRescheduleVisible(true);
-      return;
-    }
-    closeCart();
-    router.push({ pathname: "/checkout", params: { step: "1" } });
-  }, [closeCart, router, isExpress]);
+    setRescheduleVisible(true);
+  }, []);
 
   return (
     <>
@@ -470,6 +466,9 @@ export function CartDrawer() {
     <RescheduleDeliverySheet
       visible={rescheduleVisible}
       onClose={() => setRescheduleVisible(false)}
+      initialMode={deliverySelection.mode}
+      expressAvailable={isExpressDeliveryAvailable(countryCode)}
+      expressSurchargeUsd={expressSurchargeForCountry(countryCode)}
     />
     <CheckoutLoginSheet
       visible={loginSheetVisible}

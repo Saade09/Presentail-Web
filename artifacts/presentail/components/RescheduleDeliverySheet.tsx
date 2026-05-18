@@ -26,24 +26,40 @@ import {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** The delivery mode that was active when the sheet was opened. */
+  initialMode?: "express" | "today_slot" | "schedule" | null;
+  /** Whether express delivery is currently available (8 AM – 10 PM window). */
+  expressAvailable?: boolean;
+  /** Express surcharge in USD for the current country. */
+  expressSurchargeUsd?: number;
 };
 
 /**
- * In-place reschedule sheet for the cart. Renders the same day picker +
- * time-slot picker shape as checkout step 1 but writes back to the shared
- * delivery selection so the cart total drops the express surcharge as
- * soon as the shopper confirms.
+ * In-place delivery-time picker for the cart. Works for all delivery modes:
  *
- * Confirming with today's date persists `today_slot`; any future date
- * persists `schedule`. "Keep Express" dismisses without changing state.
+ * - Opened from a scheduled slot: shows Express tile + day/slot picker.
+ *   Tapping Express immediately switches to express mode and closes.
+ *   Secondary button is "Cancel".
+ * - Opened from express: shows Express tile (pre-selected) + day/slot picker
+ *   to switch away. Secondary button is "Keep Express Delivery".
+ *
+ * Confirming any slot change writes back to DeliverySelectionContext so the
+ * cart total updates (express surcharge appears/disappears) without leaving
+ * the cart.
  */
-export function RescheduleDeliverySheet({ visible, onClose }: Props) {
+export function RescheduleDeliverySheet({
+  visible,
+  onClose,
+  initialMode,
+  expressAvailable = false,
+  expressSurchargeUsd = 0,
+}: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const t = useT();
   const deliverySelection = useDeliverySelection();
   const { selectedCountry } = useDeliveryLocation();
-  const { currencyCode } = useCurrency();
+  const { currencyCode, convert, formatNative } = useCurrency();
 
   const countryCode =
     selectedCountry?.code ||
@@ -63,13 +79,9 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
   );
   const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
 
-  // Local draft state — not persisted until the shopper hits Confirm.
   const [date, setDate] = React.useState<string>(todayIso);
   const [slotLabel, setSlotLabel] = React.useState<string | null>(null);
 
-  // Each time the sheet opens, seed the draft with a sensible default:
-  // today + the first slot whose cutoff hasn't passed. (Avoids carrying
-  // a stale slot from a previous open.)
   React.useEffect(() => {
     if (!visible) return;
     setDate(todayIso);
@@ -77,9 +89,6 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
     setSlotLabel(initial?.label ?? timeSlots[0]?.label ?? null);
   }, [visible, todayIso, timeSlots, localHour]);
 
-  // If the shopper picks a future date, all slots are bookable; if they
-  // jump back to today and their previously selected slot is now past,
-  // bump them to the next available one.
   React.useEffect(() => {
     if (!visible) return;
     const isToday = date === todayIso;
@@ -109,6 +118,21 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
     });
     onClose();
   };
+
+  const handlePickExpress = () => {
+    if (!expressAvailable) return;
+    deliverySelection.setSelection({ mode: "express", date: null, slotLabel: null });
+    onClose();
+  };
+
+  const openedFromExpress = initialMode === "express";
+  const subtitle = openedFromExpress
+    ? t.rescheduleSheetSubtitle
+    : t.rescheduleSheetSubtitleScheduled;
+
+  const expressSurchargeDisplay = expressSurchargeUsd > 0
+    ? ` · +${formatNative(convert(expressSurchargeUsd))}`
+    : "";
 
   return (
     <Modal
@@ -168,7 +192,7 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
                 marginTop: 2,
               }}
             >
-              {t.rescheduleSheetSubtitle}
+              {subtitle}
             </Text>
           </View>
           <Pressable onPress={onClose} hitSlop={12}>
@@ -176,7 +200,81 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
           </Pressable>
         </View>
 
+        {/* Express tile */}
         <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <Pressable
+            onPress={handlePickExpress}
+            disabled={!expressAvailable}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              padding: 14,
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: openedFromExpress ? colors.primary : colors.border,
+              backgroundColor: openedFromExpress
+                ? colors.primary
+                : expressAvailable
+                  ? "#fff"
+                  : "#f5f5f5",
+              opacity: !expressAvailable ? 0.5 : pressed ? 0.88 : 1,
+            })}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: openedFromExpress
+                  ? "rgba(255,255,255,0.15)"
+                  : colors.secondary,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather
+                name="zap"
+                size={18}
+                color={openedFromExpress ? "#fff" : colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                  color: openedFromExpress ? "#fff" : colors.primary,
+                }}
+              >
+                {t.rescheduleExpressTile}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 11,
+                  color: openedFromExpress
+                    ? "rgba(255,255,255,0.75)"
+                    : expressAvailable
+                      ? colors.mutedForeground
+                      : colors.mutedForeground,
+                  marginTop: 1,
+                }}
+              >
+                {expressAvailable
+                  ? expressSurchargeDisplay
+                    ? `${t.expressDelivery}${expressSurchargeDisplay}`
+                    : t.expressDelivery
+                  : t.rescheduleExpressUnavailable}
+              </Text>
+            </View>
+            {openedFromExpress && (
+              <Feather name="check" size={16} color="#fff" />
+            )}
+          </Pressable>
+        </View>
+
+        <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
           <View
             style={{
               gap: 12,
@@ -333,7 +431,7 @@ export function RescheduleDeliverySheet({ visible, onClose }: Props) {
                 textTransform: "uppercase",
               }}
             >
-              {t.rescheduleKeepExpress}
+              {openedFromExpress ? t.rescheduleKeepExpress : t.rescheduleCancel}
             </Text>
           </Pressable>
         </View>
