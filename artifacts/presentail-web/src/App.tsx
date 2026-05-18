@@ -232,27 +232,7 @@ function UnprefixedRedirect() {
 }
 
 function RootRedirectFromLanding() {
-  const { countryCode, cityId, countries, isLoadingCountries } =
-    useLocationSelection();
-  const { language } = useLocale();
-  if (!countryCode || !cityId) return <Landing />;
-  if (isLoadingCountries && countries.length === 0) {
-    return <div className="min-h-[60vh]" data-testid="root-loading" />;
-  }
-  const slug = countryCodeToSlug(countryCode);
-  if (!isSupportedCountrySlug(slug)) return <Landing />;
-  // Verify the saved city still exists for this country.
-  const country = countries.find((c) => c.code === countryCode);
-  if (!country || !country.cities.some((c) => c.id === cityId)) {
-    return <Landing />;
-  }
-  const citySlug = cityIdToSlug(cityId);
-  return (
-    <Redirect
-      to={buildLocalePath({ lang: language, country: slug, city: citySlug })}
-      replace
-    />
-  );
+  return <Landing />;
 }
 
 function RootRouter() {
