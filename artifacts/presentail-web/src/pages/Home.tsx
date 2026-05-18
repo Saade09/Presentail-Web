@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" data-testid="page-country-homepage">
-      <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} />
+      <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
       {/* First themed product rail — mirrors the live site's "Summer Collection". */}
       <BestSellersPreview
