@@ -155,7 +155,11 @@ export default function SignInPage() {
     }
     setEmailError(null);
     if (!isLoaded || !signIn) {
-      // Clerk script not yet ready — keep the user on the same step.
+      toast({
+        title: t("auth.toast.error"),
+        description: t("auth.checkFailed"),
+        variant: "destructive",
+      });
       return;
     }
     setBusy(true);
@@ -385,7 +389,7 @@ export default function SignInPage() {
               size="lg"
               className="w-full h-12 rounded-xl"
               onClick={() => void onContinueEmail()}
-              disabled={busy || !isLoaded}
+              disabled={busy}
               data-testid="button-signin-continue"
             >
               {busy ? t("checkout.processing") : t("auth.continue")}
