@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -143,7 +144,19 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
           {t.cartTitleBag}
         </Text>
-        <Pressable onPress={clear} hitSlop={10}>
+        <Pressable
+          onPress={() => {
+            Alert.alert(
+              t.cartClearConfirmTitle,
+              t.cartClearConfirmMessage,
+              [
+                { text: t.cartClearConfirmCancel, style: "cancel" },
+                { text: t.cartClearConfirmAction, style: "destructive", onPress: clear },
+              ]
+            );
+          }}
+          hitSlop={10}
+        >
           <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
             {t.cartClear}
           </Text>
