@@ -213,6 +213,8 @@ const STRINGS: Dict = {
   "cart.upsells.tab.plants": { en: "Plants", ar: "نباتات" },
   "cart.upsells.tab.bears": { en: "Bears", ar: "دببة" },
   "cart.upsells.tab.candles": { en: "Candles", ar: "شموع" },
+  "cart.upsells.modal.continueShopping": { en: "Continue Shopping", ar: "متابعة التسوق" },
+  "cart.upsells.modal.close": { en: "Close", ar: "إغلاق" },
   "auth.heroAlt": { en: "Presentail Atelier", ar: "أتيليه Presentail" },
   "checkout.payment.orderTitle": { en: "Presentail Order", ar: "طلب Presentail" },
   "checkout.payment.orderDesc": { en: "Order from {name}", ar: "طلب من {name}" },

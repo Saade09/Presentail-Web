@@ -3,9 +3,10 @@ import { Link, useRoute } from "wouter";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { AddToCartUpsellModal } from "@/components/cart/AddToCartUpsellModal";
+import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useCatalogMetadata, useProducts } from "@/lib/queries";
@@ -35,6 +36,7 @@ export default function ProductDetail() {
   const { t, language } = useLocale();
   const { toast } = useToast();
   const { addItem } = useCart();
+  const [upsellOpen, setUpsellOpen] = useState(false);
   const delivery = useDeliveryConfig();
   const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
   const deliverySelection = useDeliverySelection();
@@ -153,10 +155,7 @@ export default function ProductDetail() {
   const handleAdd = () => {
     if (!product) return;
     addItem(product, 1);
-    toast({
-      title: t("product.toast.addedTitle"),
-      description: t("product.toast.addedDesc", { name: product.name }),
-    });
+    setUpsellOpen(true);
   };
 
   const handleShare = async () => {
@@ -294,6 +293,10 @@ export default function ProductDetail() {
 
       </div>
 
+      <AddToCartUpsellModal
+        open={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+      />
     </div>
   );
 }
