@@ -1,6 +1,6 @@
 import { useLocale } from "@/contexts/LocaleContext";
 import { SUPPORTED_LANGS, type Lang } from "@/lib/locale-route";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Languages } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,12 +12,6 @@ const LABELS: Record<Lang, string> = {
   en: "EN",
   ar: "ع",
   fr: "FR",
-};
-
-const PILL_LABELS: Record<Lang, string> = {
-  en: "عربية",
-  ar: "English",
-  fr: "العربية",
 };
 
 type Props = {
@@ -40,10 +34,9 @@ export function LanguageSwitcher({ className = "", variant = "default" }: Props)
         data-testid="language-switcher"
         className={triggerClass}
       >
-        <span className="font-medium text-foreground">
-          {isPill ? PILL_LABELS[language] : LABELS[language]}
-        </span>
-        {!isPill && <ChevronDown className="w-3 h-3" />}
+        {isPill && <Languages className="w-3.5 h-3.5 opacity-70" />}
+        <span className="font-medium text-foreground">{LABELS[language]}</span>
+        <ChevronDown className="w-3 h-3 opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[8rem]">
         {SUPPORTED_LANGS.map((lang) => {
