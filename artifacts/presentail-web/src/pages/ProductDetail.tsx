@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { Heart, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
@@ -235,6 +235,8 @@ export default function ProductDetail() {
               images={vm.galleryImages}
               productName={product.name}
               onShare={handleShare}
+              onFavorite={isSignedIn && product ? () => void toggleFavorite(product.id, locationCountry ?? null) : undefined}
+              isFavorited={product ? isFavorited(product.id) : false}
             />
             {/* Description / Care Tips sit directly under the image with
                 no large grid-row gap. On mobile the tabs render below
@@ -288,28 +290,6 @@ export default function ProductDetail() {
                 <ShoppingBag className="w-5 h-5 mr-2" />
                 {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
               </Button>
-              {product && (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-14 rounded-xl flex-shrink-0 p-0"
-                  onClick={() => {
-                    if (!isSignedIn) {
-                      navigate("/sign-in");
-                      return;
-                    }
-                    void toggleFavorite(product.id, locationCountry ?? null);
-                  }}
-                  aria-label={isFavorited(product.id) ? "Remove from favorites" : "Save to favorites"}
-                  data-testid="button-favorite-detail"
-                >
-                  <Heart
-                    className={`w-5 h-5 transition-colors duration-200 ${
-                      isFavorited(product.id) ? "fill-rose-500 text-rose-500" : "text-muted-foreground"
-                    }`}
-                  />
-                </Button>
-              )}
             </div>
 
             <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />

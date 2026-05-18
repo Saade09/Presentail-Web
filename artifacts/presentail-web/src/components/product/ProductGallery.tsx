@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Maximize2, Share2 } from "lucide-react";
+import { Heart, Maximize2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ProductLightbox } from "./ProductLightbox";
@@ -8,9 +8,11 @@ type Props = {
   images: { uri: string }[];
   productName: string;
   onShare?: () => void;
+  onFavorite?: () => void;
+  isFavorited?: boolean;
 };
 
-export function ProductGallery({ images, productName, onShare }: Props) {
+export function ProductGallery({ images, productName, onShare, onFavorite, isFavorited }: Props) {
   const { t } = useLocale();
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -63,15 +65,32 @@ export function ProductGallery({ images, productName, onShare }: Props) {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={onShare}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/90 backdrop-blur flex items-center justify-center text-foreground shadow-sm hover:bg-background transition-colors"
-          aria-label={t("product.share.aria")}
-          data-testid="button-product-share"
-        >
-          <Share2 className="w-4 h-4" />
-        </button>
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {onFavorite && (
+            <button
+              type="button"
+              onClick={onFavorite}
+              className="w-10 h-10 rounded-full bg-background/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-background transition-colors"
+              aria-label={isFavorited ? "Remove from favorites" : "Save to favorites"}
+              data-testid="button-favorite-detail"
+            >
+              <Heart
+                className={`w-4 h-4 transition-colors duration-200 ${
+                  isFavorited ? "fill-rose-500 text-rose-500" : "text-foreground"
+                }`}
+              />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onShare}
+            className="w-10 h-10 rounded-full bg-background/90 backdrop-blur flex items-center justify-center text-foreground shadow-sm hover:bg-background transition-colors"
+            aria-label={t("product.share.aria")}
+            data-testid="button-product-share"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
 
         <button
           type="button"
