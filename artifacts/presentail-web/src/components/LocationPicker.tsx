@@ -60,7 +60,7 @@ export function LocationPicker({
     : t("locationPicker.selectCountryLabel");
 
   return (
-    <div className="relative flex flex-col w-full">
+    <div className="relative flex flex-col w-full min-h-0 flex-1">
       {onClose && (
         <button
           type="button"
@@ -112,10 +112,7 @@ export function LocationPicker({
         {sectionLabel}
       </p>
 
-      <div
-        className="flex flex-col overflow-y-auto"
-        style={{ maxHeight: "min(60vh, 480px)" }}
-      >
+      <div className="flex flex-col overflow-y-auto min-h-0 flex-1">
         {isLoadingCountries && countries.length === 0 ? (
           <div className="flex flex-col">
             {Array.from({ length: 3 }).map((_, i) => (

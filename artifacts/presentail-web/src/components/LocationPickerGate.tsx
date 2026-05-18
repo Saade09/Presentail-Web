@@ -37,7 +37,7 @@ export function LocationPickerGate({ children }: Props) {
         onOpenChange={(o) => (o ? openPicker() : closePicker())}
       >
         <DialogContent
-          className="w-[calc(100%-32px)] max-w-[480px] p-6 bg-card text-foreground rounded-[18px] border-0 shadow-xl gap-0 [&>button.absolute]:hidden max-h-[min(90dvh,640px)] overflow-y-auto"
+          className="w-[calc(100%-32px)] max-w-[480px] p-6 bg-card text-foreground rounded-[18px] border-0 shadow-xl gap-0 [&>button.absolute]:hidden flex flex-col max-h-[min(90dvh,640px)]"
           overlayClassName="bg-black/55"
         >
           <DialogTitle className="sr-only">
