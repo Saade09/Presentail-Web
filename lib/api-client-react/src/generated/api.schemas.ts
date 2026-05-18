@@ -648,6 +648,28 @@ export interface User {
   birthdayShareMonthDay: boolean;
 }
 
+export type WooSearchProductImage = {
+  uri: string;
+} | null;
+
+export interface WooSearchProduct {
+  slug: string;
+  name: string;
+  image?: WooSearchProductImage;
+  price: string;
+}
+
+export interface WooSearchCategory {
+  slug: string;
+  name: string;
+}
+
+export interface WooSearchResult {
+  ok: boolean;
+  products: WooSearchProduct[];
+  categories: WooSearchCategory[];
+}
+
 export interface AuthMeResponse {
   ok: boolean;
   user?: User | null;
@@ -713,4 +735,16 @@ export type GetGeoCurrencyByCoordsParams = {
    * WGS84 longitude in decimal degrees, range -180..180.
    */
   lng: number;
+};
+
+export type WooSearchParams = {
+  /**
+   * Search query string (2–100 characters).
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+  countryCode?: string;
+  cityId?: string;
+  lang?: string;
 };

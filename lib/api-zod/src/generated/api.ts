@@ -1013,6 +1013,53 @@ export const GetAdminLoyaltyResponse = zod.object({
 });
 
 /**
+ * Searches the in-memory product cache and the static category list for
+entries whose name contains `q` (case-insensitive substring match).
+`q` must be 2–100 characters. Returns up to 10 products and all
+matching categories. Intended for the web storefront's search overlay.
+
+ * @summary Search products and categories by name
+ */
+export const wooSearchQueryQMin = 2;
+export const wooSearchQueryQMax = 100;
+
+export const WooSearchQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .min(wooSearchQueryQMin)
+    .max(wooSearchQueryQMax)
+    .describe("Search query string (2–100 characters)."),
+  countryCode: zod.coerce.string().optional(),
+  cityId: zod.coerce.string().optional(),
+  lang: zod.coerce.string().optional(),
+});
+
+export const WooSearchResponse = zod.object({
+  ok: zod.boolean(),
+  products: zod.array(
+    zod.object({
+      slug: zod.string(),
+      name: zod.string(),
+      image: zod
+        .union([
+          zod.object({
+            uri: zod.string(),
+          }),
+          zod.null(),
+        ])
+        .optional(),
+      price: zod.string(),
+    }),
+  ),
+  categories: zod.array(
+    zod.object({
+      slug: zod.string(),
+      name: zod.string(),
+    }),
+  ),
+});
+
+/**
  * Returns the canonical profile for the currently signed-in customer,
 including the optional personal-information fields (gender,
 birthday, birthday-sharing preference). Requires a Bearer token.

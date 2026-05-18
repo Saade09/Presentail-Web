@@ -646,6 +646,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /woo/search:
+    get:
+      operationId: wooSearch
+      tags: [woo]
+      summary: Search products and categories by name
+      description: |
+        Searches the in-memory product cache and the static category list for
+        entries whose name contains `q` (case-insensitive substring match).
+        `q` must be 2–100 characters. Returns up to 10 products and all
+        matching categories. Intended for the web storefront's search overlay.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query string (2–100 characters).
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+        - name: countryCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching products and categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WooSearchResult"
+        "400":
+          description: Invalid query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: WooCommerce not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/me:
     get:
       operationId: getAuthMe
@@ -1677,6 +1730,46 @@ components:
         - firstName
         - lastName
         - birthdayShareMonthDay
+    WooSearchProduct:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        image:
+          oneOf:
+            - type: object
+              properties:
+                uri:
+                  type: string
+              required: [uri]
+            - type: "null"
+        price:
+          type: string
+      required: [slug, name, price]
+    WooSearchCategory:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required: [slug, name]
+    WooSearchResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/WooSearchProduct"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/WooSearchCategory"
+      required: [ok, products, categories]
     AuthMeResponse:
       type: object
       properties:

@@ -9,12 +9,14 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/Logo";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
 
 export function Navbar() {
   const { itemCount } = useCart();
   const { user } = useAuth();
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { city, countryCode, openPicker } = useLocationSelection();
   const { t } = useLocale();
 
@@ -73,9 +75,16 @@ export function Navbar() {
             <span>{t("utility.deliverTo")} <strong className="text-foreground font-medium">{cityLabel}</strong></span>
           </button>
 
-          <Button variant="ghost" size="icon" className="hidden sm:flex" aria-label={t("nav.searchAria")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden sm:flex"
+            aria-label={t("nav.searchAria")}
+            onClick={() => setSearchOpen(true)}
+          >
             <Search className="w-5 h-5" />
           </Button>
+          <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
 
           <Link href={user ? "/account" : "/sign-in"}>
             <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>

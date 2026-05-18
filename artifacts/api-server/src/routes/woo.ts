@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { authenticate } from "../lib/auth";
 import {
   WooOrderSchema,
@@ -1197,6 +1198,58 @@ router.post("/woo/order", async (req, res) => {
 // ---------------------------------------------------------------------------
 // Admin: list pending/exhausted reconciliation rows.
 // ---------------------------------------------------------------------------
+// GET /api/woo/search?q=...
+//
+// Real-time product and category search backed by the in-memory product cache
+// and the static OCCASION_TYPE_CATEGORIES list.  Only fields the UI actually
+// renders are returned so the payload stays small.  q must be 2–100 chars;
+// results are limited to 10 products and all matching categories.
+const SearchQuerySchema = z.object({
+  q: z.string().min(2).max(100),
+});
+
+router.get("/woo/search", async (req, res) => {
+  const parsed = SearchQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, message: "q must be 2–100 characters" });
+  }
+  const { q } = parsed.data;
+  const lower = q.toLowerCase();
+
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+  }
+  try {
+    const lang = readLang(req);
+    const allProducts = await fetchAllProducts(lang, store);
+    const filter = readDeliveryFilter(req);
+
+    const matchingProducts = allProducts
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter))
+      .filter((p) => (p.name ?? "").toLowerCase().includes(lower))
+      .slice(0, 10)
+      .map((p) => {
+        const transformed = transformProduct(p, store.currencySymbol);
+        return {
+          slug: transformed.id,
+          name: transformed.name,
+          image: transformed.image,
+          price: transformed.price,
+        };
+      });
+
+    const matchingCategories = OCCASION_TYPE_CATEGORIES
+      .filter((c) => c.label.toLowerCase().includes(lower))
+      .map((c) => ({ slug: c.slug, name: c.label }));
+
+    return res.json({ ok: true, products: matchingProducts, categories: matchingCategories });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, message: err?.message ?? "Search failed" });
+  }
+});
+
 router.get("/woo/pending-orders", async (req, res) => {
   const adminToken = process.env.PUSH_ADMIN_TOKEN;
   const supplied = req.header("x-admin-token") ?? req.header("x-push-admin-token");

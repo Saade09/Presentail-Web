@@ -49,6 +49,8 @@ import type {
   PushRegisterResponse,
   PushUnregisterRequest,
   PushUnregisterResponse,
+  WooSearchParams,
+  WooSearchResult,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2030,6 +2032,105 @@ export function useGetAdminLoyalty<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAdminLoyaltyQueryOptions(customerId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Searches the in-memory product cache and the static category list for
+entries whose name contains `q` (case-insensitive substring match).
+`q` must be 2–100 characters. Returns up to 10 products and all
+matching categories. Intended for the web storefront's search overlay.
+
+ * @summary Search products and categories by name
+ */
+export const getWooSearchUrl = (params: WooSearchParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/woo/search?${stringifiedParams}`
+    : `/api/woo/search`;
+};
+
+export const wooSearch = async (
+  params: WooSearchParams,
+  options?: RequestInit,
+): Promise<WooSearchResult> => {
+  return customFetch<WooSearchResult>(getWooSearchUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getWooSearchQueryKey = (params?: WooSearchParams) => {
+  return [`/api/woo/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getWooSearchQueryOptions = <
+  TData = Awaited<ReturnType<typeof wooSearch>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: WooSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof wooSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getWooSearchQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof wooSearch>>> = ({
+    signal,
+  }) => wooSearch(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof wooSearch>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type WooSearchQueryResult = NonNullable<
+  Awaited<ReturnType<typeof wooSearch>>
+>;
+export type WooSearchQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Search products and categories by name
+ */
+
+export function useWooSearch<
+  TData = Awaited<ReturnType<typeof wooSearch>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: WooSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof wooSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getWooSearchQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

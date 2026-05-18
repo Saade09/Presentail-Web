@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 
@@ -299,6 +300,46 @@ export const usePaypalPayment = () => {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  });
+};
+
+// Search result types
+export type SearchProduct = {
+  slug: string;
+  name: string;
+  image: { uri: string } | null;
+  price: string;
+};
+
+export type SearchCategory = {
+  slug: string;
+  name: string;
+};
+
+export type SearchResponse = {
+  ok: boolean;
+  products: SearchProduct[];
+  categories: SearchCategory[];
+};
+
+export const useSearch = (q: string, params: LocalizedParams = {}) => {
+  const [debouncedQ, setDebouncedQ] = useState(q);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q), 250);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const qs = new URLSearchParams({ q: debouncedQ });
+  if (params.countryCode) qs.set("countryCode", params.countryCode);
+  if (params.cityId) qs.set("cityId", params.cityId);
+  if (params.lang) qs.set("lang", params.lang);
+
+  return useQuery({
+    queryKey: ["search", debouncedQ, params],
+    queryFn: () => apiFetch<SearchResponse>(`/woo/search?${qs.toString()}`),
+    enabled: debouncedQ.length >= 2,
+    staleTime: 30 * 1000,
   });
 };
 

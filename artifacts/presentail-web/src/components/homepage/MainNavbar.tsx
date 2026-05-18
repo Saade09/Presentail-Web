@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +9,7 @@ import { ChevronDown, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
 
 const ALL_NAV_LINKS = [
   { key: "nav.occasions", href: "/shop?occasion=birthday" },
@@ -21,6 +23,7 @@ export function MainNavbar() {
   const { user } = useAuth();
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
+  const [searchOpen, setSearchOpen] = useState(false);
   const MOBILE_NAV_LINKS = countryCode === "AE" ? ALL_NAV_LINKS.filter(l => l.key !== "nav.brands") : ALL_NAV_LINKS;
   const NAV_LINKS = ALL_NAV_LINKS.filter(l => l.key !== "nav.brands");
   const [location] = useLocation();
@@ -81,9 +84,16 @@ export function MainNavbar() {
 
         {/* Right: icons */}
         <div className="flex items-center justify-end gap-1 md:gap-3">
-          <Button variant="ghost" size="icon" aria-label={t("nav.searchAria")} data-testid="button-search">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("nav.searchAria")}
+            data-testid="button-search"
+            onClick={() => setSearchOpen(true)}
+          >
             <Search className="w-5 h-5" />
           </Button>
+          <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
 
           <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")}>
             <Button variant="ghost" size="icon" data-testid="button-account">
