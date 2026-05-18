@@ -405,7 +405,7 @@ export default function SignInPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuth("apple")}
-                disabled={busy || !isLoaded || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null}
                 data-testid="button-signin-apple"
               >
                 <AppleLogo />
@@ -416,7 +416,7 @@ export default function SignInPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
                 onClick={() => void onOAuth("google")}
-                disabled={busy || !isLoaded || oauthBusy !== null}
+                disabled={busy || oauthBusy !== null}
                 data-testid="button-signin-google"
               >
                 <GoogleLogo />
