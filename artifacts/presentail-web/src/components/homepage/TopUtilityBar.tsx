@@ -22,7 +22,11 @@ export function TopUtilityBar() {
             className="flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors"
             data-testid="button-country-selector"
           >
-            <span className="text-base leading-none">{country?.flag ?? "🌍"}</span>
+            {country ? (
+              <span className="inline-flex items-center justify-center rounded bg-white/30 px-1.5 py-0.5 text-[10px] font-bold tracking-widest shrink-0">{country.code.toUpperCase()}</span>
+            ) : (
+              <span className="text-base leading-none">🌍</span>
+            )}
             <span className="font-medium">
               {city
                 ? city.name

@@ -12,6 +12,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useNow } from "@/lib/useNow";
 import {
+  dayLabels,
   expressSurchargeForCountry,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
@@ -22,6 +23,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+function dayMonthShort(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 export function DeliveryPickerModal({ open, onOpenChange }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
@@ -30,6 +37,10 @@ export function DeliveryPickerModal({ open, onOpenChange }: Props) {
   const deliverySelection = useDeliverySelection();
 
   const timeSlots = timeSlotsForCountry(countryCode);
+  const quickDays = useMemo(
+    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")).slice(0, 3),
+    [t],
+  );
   const expressAvailable = useMemo(
     () => isExpressDeliveryAvailable(countryCode, now),
     [countryCode, now],
@@ -124,10 +135,31 @@ export function DeliveryPickerModal({ open, onOpenChange }: Props) {
 
           {mode === "schedule" && (
             <>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-sm font-medium">
                   {t("checkout.deliveryDate")}
                 </label>
+
+                {/* Quick-pick chips: today / tomorrow / day after */}
+                <div className="grid grid-cols-3 gap-2">
+                  {quickDays.map((d) => (
+                    <button
+                      key={d.iso}
+                      type="button"
+                      onClick={() => setDate(d.iso)}
+                      className={`rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors ${
+                        date === d.iso
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-card text-foreground hover:border-foreground/20"
+                      }`}
+                    >
+                      <div className="font-semibold">{d.label}</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">{dayMonthShort(d.iso)}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Full date input for any other date */}
                 <Input
                   type="date"
                   value={date}

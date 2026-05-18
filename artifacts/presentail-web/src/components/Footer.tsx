@@ -5,12 +5,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { currencyForStoreCountry } from "@/lib/currency";
-import amexLogo from "@/assets/payment-logos/amex.svg";
-import gpayLogo from "@/assets/payment-logos/googlepay.svg";
-import applepayLogo from "@/assets/payment-logos/applepay.svg";
-import visaLogo from "@/assets/payment-logos/visa.svg";
-import mastercardLogo from "@/assets/payment-logos/mastercard.svg";
-import whishLogo from "@/assets/payment-logos/whish.svg";
+import { PaymentMethods } from "@/components/product/PaymentMethods";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
 function TikTokIcon({ className }: { className?: string }) {
@@ -35,14 +30,6 @@ const SOCIAL = {
   linkedin: "https://www.linkedin.com/company/presentail",
 } as const;
 
-const PAYMENT_LOGOS: { src: string; alt: string; bg: string }[] = [
-  { src: amexLogo, alt: "American Express", bg: "bg-[#016FD0]" },
-  { src: gpayLogo, alt: "Google Pay", bg: "bg-white" },
-  { src: applepayLogo, alt: "Apple Pay", bg: "bg-black" },
-  { src: visaLogo, alt: "Visa", bg: "bg-[#1A1F71]" },
-  { src: mastercardLogo, alt: "Mastercard", bg: "bg-[#252525]" },
-  { src: whishLogo, alt: "Whish", bg: "bg-[#FF003E]" },
-];
 
 type ColumnHeadingProps = { children: React.ReactNode };
 function ColumnHeading({ children }: ColumnHeadingProps) {
@@ -105,7 +92,7 @@ export function Footer() {
   const countryLabel = country
     ? countryName(country.code, country.name)
     : t("footer.selectCountry");
-  const flag = country?.flag ?? "🌍";
+
 
   const popularCategories: { label: string; href: string; external?: boolean; testId: string }[] = [
     { label: t("footer.popular.flowers"), href: "/shop?category=hand-bouquets", testId: "footer-link-flowers" },
@@ -255,7 +242,7 @@ export function Footer() {
                 data-testid="footer-currency-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
               >
-                <span className="text-base leading-none">{flag}</span>
+                {country && <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">{country.code.toUpperCase()}</span>}
                 <span>{currencyCode}</span>
                 <ChevronDown className="w-3.5 h-3.5 opacity-70" />
               </button>
@@ -279,7 +266,7 @@ export function Footer() {
                 data-testid="footer-country-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
               >
-                <span className="text-base leading-none">{flag}</span>
+                {country && <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tracking-widest">{country.code.toUpperCase()}</span>}
                 <span>{countryLabel}</span>
                 <MapPin className="w-3.5 h-3.5 opacity-70" />
               </button>
@@ -309,23 +296,9 @@ export function Footer() {
             </InLink>
           </div>
 
-          {/* Payment logos — individual brand cards on the dark teal background */}
-          <div className="flex items-center gap-1.5 md:ms-auto flex-wrap">
-            {PAYMENT_LOGOS.map((logo) => (
-              <div
-                key={logo.alt}
-                className={`inline-flex items-center justify-center rounded-md h-8 px-2 ${logo.bg}`}
-              >
-                <img
-                  src={logo.src}
-                  alt={logo.alt}
-                  title={logo.alt}
-                  className="block h-4 w-auto max-w-[44px] object-contain"
-                  loading="lazy"
-                  draggable={false}
-                />
-              </div>
-            ))}
+          {/* Payment logos — flat logos on a single white rounded card */}
+          <div className="md:ms-auto">
+            <PaymentMethods label={null} countryCode={countryCode} />
           </div>
         </div>
       </div>

@@ -92,7 +92,7 @@ export function LocationPicker({
       {showCities && selectedCountry ? (
         <div className="mt-3 mb-4 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-xl leading-none">{selectedCountry.flag}</span>
+            <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-primary shrink-0">{selectedCountry.code.toUpperCase()}</span>
             <span className="text-sm font-semibold text-primary truncate">
               {countryName(selectedCountry.code, selectedCountry.name)}
             </span>
@@ -137,7 +137,7 @@ export function LocationPicker({
               data-testid={`button-country-${country.code.toLowerCase()}`}
             >
               <div className="flex items-center gap-3.5">
-                <span className="text-xl leading-none">{country.flag}</span>
+                <span className="inline-flex items-center justify-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-muted-foreground shrink-0">{country.code.toUpperCase()}</span>
                 <span className="text-base font-medium text-foreground">
                   {countryName(country.code, country.name)}
                 </span>

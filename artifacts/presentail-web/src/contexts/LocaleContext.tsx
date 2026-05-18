@@ -1324,14 +1324,20 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       } catch {
         // ignore
       }
-      // If the URL has a locale prefix, replace just the language segment so
-      // the country, city, remaining path, query and hash all survive.
-      if (parsed.hasLocalePrefix) {
-        const next = switchLanguage(currentRelativeUrl(path), lang);
+      // Use window.location.pathname (stripped of Vite's BASE_URL) to get
+      // the full locale path regardless of any nested wouter router scope.
+      const rawPath =
+        typeof window !== "undefined"
+          ? window.location.pathname.slice(BASE_PREFIX.length) +
+            window.location.search +
+            window.location.hash
+          : currentRelativeUrl(path);
+      const next = switchLanguage(rawPath || "/", lang);
+      if (next !== (rawPath || "/")) {
         navigate(next);
       }
     },
-    [parsed.hasLocalePrefix, path, navigate],
+    [path, navigate],
   );
 
   const value = useMemo<LocaleContextType>(
