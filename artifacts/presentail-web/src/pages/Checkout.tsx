@@ -36,6 +36,7 @@ import {
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
+import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
   WEB_PAY_METHODS,
   webNextPaymentMethod,
@@ -720,33 +721,17 @@ export default function Checkout() {
                   </div>
 
                   {deliveryMode === "schedule" && (
-                    <>
-                      <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.deliveryDate")}</label>
-                        <Input type="date" value={recipient.deliveryDate} onChange={(e) => setRecipient({ ...recipient, deliveryDate: e.target.value })} min={new Date().toISOString().split("T")[0]} data-testid="input-delivery-date" />
-                      </div>
-
-                      <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.deliveryTime")}</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {timeSlots.map((s) => (
-                            <button
-                              key={s.label}
-                              type="button"
-                              onClick={() => setDeliverySlot(s.label)}
-                              className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                                deliverySlot === s.label
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-card text-foreground hover:border-foreground/20"
-                              }`}
-                              data-testid={`slot-${s.cutoffHour}`}
-                            >
-                              {s.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </>
+                    <div className="mb-4">
+                      <ScheduleInlinePanel
+                        countryCode={countryCode}
+                        initialDate={recipient.deliveryDate || undefined}
+                        initialSlotLabel={deliverySlot || undefined}
+                        onChange={({ date, slotLabel }) => {
+                          setRecipient((r) => ({ ...r, deliveryDate: date }));
+                          setDeliverySlot(slotLabel);
+                        }}
+                      />
+                    </div>
                   )}
 
                   <div className="space-y-2 mb-3">
