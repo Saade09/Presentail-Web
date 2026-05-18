@@ -14,13 +14,7 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1
-          className="font-serif text-3xl md:text-4xl leading-tight text-foreground"
-          data-testid="product-title"
-        >
-          {name}
-        </h1>
-        <div className="mt-3 flex items-baseline gap-3">
+        <div className="flex items-baseline gap-3">
           <span
             className="font-serif text-2xl md:text-3xl text-foreground"
             data-testid="product-price"
@@ -31,6 +25,12 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
             {taxLabel}
           </span>
         </div>
+        <h1
+          className="mt-1 font-serif text-3xl md:text-4xl leading-tight text-foreground"
+          data-testid="product-title"
+        >
+          {name}
+        </h1>
       </div>
 
       <div className="text-right shrink-0">
