@@ -32,11 +32,11 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
     ctaText: "Explore",
     desktopMediaType: "image",
     desktopMediaUrl:
-      "https://images.unsplash.com/photo-1490750967868-88df5691cc72?auto=format&fit=crop&w=2400&q=80",
+      "https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=2400&q=80",
     desktopLinkUrl: "/shop?occasion=summer-collection",
     mobileMediaType: "image",
     mobileMediaUrl:
-      "https://images.unsplash.com/photo-1490750967868-88df5691cc72?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=900&q=80",
     mobileLinkUrl: "/shop?occasion=summer-collection",
     sortOrder: 2,
     isActive: true,
