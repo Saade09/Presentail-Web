@@ -184,8 +184,21 @@ export function MainNavbar() {
 
   const activeDef = MEGA_MENUS.find((m) => m.key === activeMenu) ?? null;
 
+  // Close on click outside the navbar+panel wrapper
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handle = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setActiveMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [activeMenu]);
+
   return (
-    <div className="bg-background relative">
+    <div ref={wrapperRef} className="bg-background relative">
       <div className="container mx-auto px-4 h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
 
         {/* ── Left: nav ────────────────────────────────────── */}
@@ -329,15 +342,6 @@ export function MainNavbar() {
         )}
       </AnimatePresence>
 
-      {/* Invisible backdrop — closes menu on outside click */}
-      {activeMenu && (
-        <div
-          className="fixed inset-0 z-[65]"
-          aria-hidden
-          onClick={closeMenu}
-          onMouseEnter={scheduleClose}
-        />
-      )}
     </div>
   );
 }
