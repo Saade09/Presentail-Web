@@ -1,6 +1,6 @@
 import { useLocale } from "@/contexts/LocaleContext";
 import { SUPPORTED_LANGS, type Lang } from "@/lib/locale-route";
-import { Check, ChevronDown, Languages } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +34,6 @@ export function LanguageSwitcher({ className = "", variant = "default" }: Props)
         data-testid="language-switcher"
         className={triggerClass}
       >
-        {isPill && <Languages className="w-3.5 h-3.5 opacity-70" />}
         <span className="font-medium text-foreground">{LABELS[language]}</span>
         <ChevronDown className="w-3 h-3 opacity-70" />
       </DropdownMenuTrigger>
