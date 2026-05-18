@@ -22,7 +22,7 @@ type Props = {
 
 // Inline date + time-slot picker that appears right below the
 // "Select date and time of delivery" row on the product page. Shows a
-// scrollable pill row of the next 10 days plus a calendar icon chip that
+// pill row of the next 3 days plus a calendar icon chip that
 // opens a full month-view popover so shoppers can pick any future date.
 export function ScheduleInlinePanel({
   countryCode,
@@ -31,7 +31,7 @@ export function ScheduleInlinePanel({
   onChange,
 }: Props) {
   const code = (countryCode ?? "LB").toUpperCase();
-  const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
+  const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
   const timeSlots = useMemo(() => timeSlotsForCountry(code), [code]);
   const localHour = useMemo(() => getCountryHour(code), [code]);
   const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
