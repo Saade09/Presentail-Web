@@ -11,6 +11,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
@@ -130,17 +131,14 @@ export default function Cart() {
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>
                   <span className="font-medium">{fmt(subtotal)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery")}</span>
-                  <span className="text-muted-foreground">{t("cart.calculatedAtCheckout")}</span>
-                </div>
+                <DeliveryDateRow />
               </div>
               
               <div className="flex justify-between items-center mb-8">
                 <span className="font-medium">{t("cart.total")}</span>
                 <span className="text-2xl font-serif">{fmt(subtotal)}</span>
               </div>
-              
+
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
                 <Link
                   href="/checkout"

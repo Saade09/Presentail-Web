@@ -23,6 +23,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
@@ -85,6 +86,7 @@ export default function Checkout() {
 
   const [step, setStep] = useState(1);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
+  const deliverySectionRef = useRef<HTMLDivElement>(null);
 
   // Seed `recipient.deliveryDate` from the shared delivery-selection
   // store so a window the shopper picked from the product page lands
@@ -683,7 +685,7 @@ export default function Checkout() {
                     </>
                   )}
 
-                  <div className="space-y-2 mb-4">
+                  <div ref={deliverySectionRef} className="space-y-2 mb-4">
                     <label className="text-sm font-medium">{t("checkout.deliveryWhen")}</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -910,12 +912,20 @@ export default function Checkout() {
                   <span>{t("cart.subtotal")}</span>
                   <span data-testid="text-subtotal">{fmt(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground gap-4" data-testid="row-delivery-when">
-                  <span className="shrink-0">{t("checkout.summary.delivery")}</span>
-                  <span className="text-right text-foreground">
-                    {deliveryRowText ?? t("checkout.summary.deliveryNotSet")}
-                  </span>
-                </div>
+                <DeliveryDateRow
+                  rowText={deliveryRowText}
+                  onChangeClick={() => {
+                    setStep(1);
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        deliverySectionRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      });
+                    });
+                  }}
+                />
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("checkout.deliveryEstimated")}</span>
                   <span>{fmt(districtFee)}</span>
