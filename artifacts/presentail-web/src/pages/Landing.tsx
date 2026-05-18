@@ -8,6 +8,7 @@ import {
   type DeliveryCity,
 } from "@/contexts/LocationContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { CountryFlag } from "@/components/CountryFlag";
 
 const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = [
   { code: "LB", name: "Lebanon", flag: "🇱🇧" },
@@ -125,7 +126,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         {/* Desktop two-column layout (md+) */}
         <div className="hidden md:flex gap-0 border border-border/60 rounded-xl overflow-hidden">
           {/* Left: country list */}
-          <div className="w-[220px] shrink-0 border-r border-border/60 flex flex-col">
+          <div className="w-[260px] shrink-0 border-r border-border/60 flex flex-col">
             {isLoadingCountries && countries.length === 0
               ? skeletonRows
               : rows.map((row, idx) => {
@@ -146,7 +147,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       data-testid={`button-country-${row.code.toLowerCase()}`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xl leading-none">{row.flag}</span>
+                        <CountryFlag code={row.code} className="w-7 h-auto rounded-sm shrink-0" />
                         <span className="text-sm font-medium leading-tight">
                           {countryName(row.code, row.name)}
                         </span>
@@ -166,7 +167,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             {selectedRow ? (
               <>
                 <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
-                  <span className="text-lg leading-none">{selectedRow.flag}</span>
+                  <CountryFlag code={selectedRow.code} className="w-6 h-auto rounded-sm shrink-0" />
                   <span className="text-sm font-semibold text-primary">
                     {countryName(selectedRow.code, selectedRow.name)}
                   </span>
@@ -225,7 +226,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       data-testid={`button-country-${row.code.toLowerCase()}`}
                     >
                       <div className="flex items-center gap-4">
-                        <span className="text-2xl leading-none">{row.flag}</span>
+                        <CountryFlag code={row.code} className="w-8 h-auto rounded-sm shrink-0" />
                         <span className="text-lg font-medium">
                           {countryName(row.code, row.name)}
                         </span>
