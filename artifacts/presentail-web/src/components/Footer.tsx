@@ -4,9 +4,9 @@ import { Logo } from "@/components/Logo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { currencyForStoreCountry } from "@/lib/currency";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CountryFlag } from "@/components/CountryFlag";
+import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
 function TikTokIcon({ className }: { className?: string }) {
@@ -88,7 +88,6 @@ export function Footer() {
   const { t, language, countryName } = useLocale();
   const { country, countryCode, openPicker } = useLocationSelection();
   const isAE = countryCode?.toUpperCase() === "AE";
-  const currencyCode = currencyForStoreCountry(countryCode);
   const year = new Date().getFullYear();
   const countryLabel = country
     ? countryName(country.code, country.name)
@@ -236,17 +235,7 @@ export function Footer() {
           <div className="md:col-span-3 space-y-6">
             <div>
               <ColumnHeading>{t("footer.currencySwitcher")}</ColumnHeading>
-              <button
-                type="button"
-                onClick={() => openPicker()}
-                aria-label={t("footer.openCurrency")}
-                data-testid="footer-currency-trigger"
-                className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
-              >
-                {country && <CountryFlag code={country.code} className="w-5 h-auto rounded-[2px]" />}
-                <span>{currencyCode}</span>
-                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-              </button>
+              <CurrencySwitcher />
             </div>
 
             <div>
