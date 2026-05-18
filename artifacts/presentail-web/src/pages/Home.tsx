@@ -11,7 +11,7 @@ export default function Home() {
   const { data: banners, isLoading } = useHomepageBanners(countryCode);
 
   return (
-    <div className="min-h-screen" data-testid="page-country-homepage">
+    <div className="min-h-screen px-5" data-testid="page-country-homepage">
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
       {/* First themed product rail — mirrors the live site's "Summer Collection". */}
