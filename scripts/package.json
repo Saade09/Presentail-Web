@@ -13,6 +13,7 @@
     "write-presentail-native-modules": "tsx ./src/checkPresentailNativeModules.ts --write",
     "promote-ios-to-app-store": "tsx ./src/promoteToAppStore.ts",
     "bump-app-version": "tsx ./src/bumpAppVersion.ts",
+    "bump-android-version-code": "tsx ./src/bumpAndroidVersionCode.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
