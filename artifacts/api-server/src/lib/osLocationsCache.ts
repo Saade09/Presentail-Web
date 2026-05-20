@@ -381,16 +381,17 @@ export function invalidateOsLocationsCache(): void {
 
 /**
  * Validate required OS environment variables at startup.
- * Throws with a clear message if PRESENTAIL_OS_API_KEY is missing so ops
- * see the problem immediately rather than a silent fallback.
+ * Logs a warning if PRESENTAIL_OS_API_KEY is missing — the server will
+ * start and fall back to hardcoded city/delivery data until the secret
+ * is configured.
  *
  * Call this before startOsLocationSync() in the server entry point.
  */
 export function validateOsEnv(): void {
   if (!process.env.PRESENTAIL_OS_API_KEY) {
-    throw new Error(
-      "PRESENTAIL_OS_API_KEY is required but not set. " +
-        "Add this secret to enable live city/delivery config from Presentail OS.",
+    logger.warn(
+      "PRESENTAIL_OS_API_KEY is not set — live city/delivery config from " +
+        "Presentail OS is disabled. Falling back to hardcoded data.",
     );
   }
   if (!process.env.PRESENTAIL_OS_WEBHOOK_SECRET) {
