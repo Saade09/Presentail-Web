@@ -44,7 +44,7 @@
     "android": {
       "label": "Presentail",
       "package": "com.presentail.lb",
-      "versionCode": 3,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#00414E"
