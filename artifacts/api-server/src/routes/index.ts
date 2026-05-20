@@ -19,6 +19,7 @@ import analyticsRouter from "./analytics";
 import adminFunnelsRouter from "./adminFunnels";
 import loyaltyRouter from "./loyalty";
 import favoritesRouter from "./favorites";
+import osWebhookRouter from "./osWebhook";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(analyticsRouter);
 router.use(adminFunnelsRouter);
 router.use(loyaltyRouter);
 router.use(favoritesRouter);
+router.use(osWebhookRouter);
 
 export default router;

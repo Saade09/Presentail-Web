@@ -32,6 +32,9 @@
     },
     {
       "path": "./lib/catalog-data"
+    },
+    {
+      "path": "./lib/presentail-os"
     }
   ]
 }

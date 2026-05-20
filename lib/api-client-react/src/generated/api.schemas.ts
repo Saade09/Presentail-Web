@@ -360,12 +360,27 @@ export interface LocalizedNames {
   fr?: string;
 }
 
+export interface DeliveryTimeSlot {
+  /** Human-readable slot label (e.g. "Morning (9 AM – 12 PM)"). */
+  label: string;
+  /** Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. */
+  cutoffHour: number;
+}
+
 export interface DeliveryCity {
   id: string;
   name: string;
   isActive: boolean;
   /** Delivery fee in the country's native currency. */
   fee?: number;
+  /** Whether express/same-day delivery is available for this city. */
+  expressAvailable?: boolean;
+  /** Human-readable express delivery promise for this city (e.g. "Arrives in 90 minutes"). */
+  expressDeliveryLabel?: string;
+  /** Hour of day (0–23, local time) after which same-day delivery cannot be booked. */
+  sameDayCutoffHour?: number;
+  /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
+  timeSlots?: DeliveryTimeSlot[];
   localizedNames?: LocalizedNames;
 }
 

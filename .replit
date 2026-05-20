@@ -55,6 +55,7 @@ externalPort = 5000
 [userenv.shared]
 PAYPAL_CLIENT_ID = "BAAm4Bv7_LMv19VEMB1We2VTaZuWx8dg2fL94_ECHXOijrN-cab-PcZmRiRU0rU3BcH4tXXrZdfirP2mhA"
 VITE_CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucHJlc2VudGFpbC5jb20k"
+PRESENTAIL_OS_API_URL = "https://os.presentail.com"
 
 [userenv.production]
 

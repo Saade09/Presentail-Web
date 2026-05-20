@@ -40,6 +40,7 @@ export * from "./deliveryCity";
 export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";
 export * from "./deliveryLocationsResponse";
+export * from "./deliveryTimeSlot";
 export * from "./errorResponse";
 export * from "./favoriteItem";
 export * from "./favoritesListResponse";

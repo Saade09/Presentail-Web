@@ -1246,6 +1246,18 @@ components:
           type: string
         fr:
           type: string
+    DeliveryTimeSlot:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Human-readable slot label (e.g. "Morning (9 AM – 12 PM)").
+        cutoffHour:
+          type: number
+          description: Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.
+      required:
+        - label
+        - cutoffHour
     DeliveryCity:
       type: object
       properties:
@@ -1258,6 +1270,20 @@ components:
         fee:
           type: number
           description: Delivery fee in the country's native currency.
+        expressAvailable:
+          type: boolean
+          description: Whether express/same-day delivery is available for this city.
+        expressDeliveryLabel:
+          type: string
+          description: Human-readable express delivery promise for this city (e.g. "Arrives in 90 minutes").
+        sameDayCutoffHour:
+          type: number
+          description: Hour of day (0–23, local time) after which same-day delivery cannot be booked.
+        timeSlots:
+          type: array
+          description: Available delivery time slots for this city. Empty array means slots are not yet configured.
+          items:
+            $ref: "#/components/schemas/DeliveryTimeSlot"
         localizedNames:
           $ref: "#/components/schemas/LocalizedNames"
       required:

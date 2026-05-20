@@ -138,6 +138,8 @@ describe("GET /api/auth/me — local-first read with WooCommerce fallback", () =
         lastName: "User",
         username: "",
         phone: "+96170111111",
+        birthday: null,
+        gender: null,
       },
     });
     // The whole point of the local-first path: no WC roundtrip when we

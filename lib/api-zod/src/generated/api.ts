@@ -722,6 +722,43 @@ export const GetDeliveryLocationsResponse = zod.object({
             .number()
             .optional()
             .describe("Delivery fee in the country's native currency."),
+          expressAvailable: zod
+            .boolean()
+            .optional()
+            .describe(
+              "Whether express\/same-day delivery is available for this city.",
+            ),
+          expressDeliveryLabel: zod
+            .string()
+            .optional()
+            .describe(
+              'Human-readable express delivery promise for this city (e.g. \"Arrives in 90 minutes\").',
+            ),
+          sameDayCutoffHour: zod
+            .number()
+            .optional()
+            .describe(
+              "Hour of day (0–23, local time) after which same-day delivery cannot be booked.",
+            ),
+          timeSlots: zod
+            .array(
+              zod.object({
+                label: zod
+                  .string()
+                  .describe(
+                    'Human-readable slot label (e.g. \"Morning (9 AM – 12 PM)\").',
+                  ),
+                cutoffHour: zod
+                  .number()
+                  .describe(
+                    "Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.",
+                  ),
+              }),
+            )
+            .optional()
+            .describe(
+              "Available delivery time slots for this city. Empty array means slots are not yet configured.",
+            ),
           localizedNames: zod
             .object({
               ar: zod.string().optional(),

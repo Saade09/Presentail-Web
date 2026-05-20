@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryTimeSlot } from "./deliveryTimeSlot";
 import type { LocalizedNames } from "./localizedNames";
 
 export interface DeliveryCity {
@@ -13,5 +14,13 @@ export interface DeliveryCity {
   isActive: boolean;
   /** Delivery fee in the country's native currency. */
   fee?: number;
+  /** Whether express/same-day delivery is available for this city. */
+  expressAvailable?: boolean;
+  /** Human-readable express delivery promise for this city (e.g. "Arrives in 90 minutes"). */
+  expressDeliveryLabel?: string;
+  /** Hour of day (0–23, local time) after which same-day delivery cannot be booked. */
+  sameDayCutoffHour?: number;
+  /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
+  timeSlots?: DeliveryTimeSlot[];
   localizedNames?: LocalizedNames;
 }

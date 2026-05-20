@@ -1,17 +1,17 @@
 import { Router, type IRouter } from "express";
 import { GetDeliveryLocationsResponse } from "@workspace/api-zod";
-import { DELIVERY_COUNTRIES } from "../data/deliveryLocations";
+import { getLocations } from "../lib/osLocationsCache";
 
 const router: IRouter = Router();
 
 // Returns the canonical list of supported delivery countries and cities.
-// The mobile app fetches this on launch (with the static
-// `FALLBACK_DELIVERY_COUNTRIES` constant as offline fallback) so toggling
-// a country/city active in this data file (or, eventually, an admin UI)
-// is reflected on the next app launch without an OTA / store update.
+// Data is sourced from the Presentail OS cache (polled every 15 min) and
+// falls back automatically to the hardcoded catalog-data list when OS is
+// unreachable. Toggling a country/city active in Presentail OS propagates
+// within the polling interval without requiring a code deploy.
 router.get("/delivery-locations", (_req, res) => {
   const data = GetDeliveryLocationsResponse.parse({
-    countries: DELIVERY_COUNTRIES,
+    countries: getLocations(),
   });
   res.json(data);
 });

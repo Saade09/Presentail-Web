@@ -1,33 +1,22 @@
 /**
  * Delivery location service.
  *
- * Tries to fetch the canonical list of supported delivery countries + cities
- * from the Presentail OS Replit app. If the call fails (network error,
- * non-2xx, malformed response, or timeout) we fall back to the static list
- * in `constants/deliveryLocations.ts` so the app still functions offline.
+ * Fetches the canonical list of supported delivery countries + cities from
+ * the API server's /api/delivery-locations endpoint (which is backed by the
+ * Presentail OS cache). Falls back to the static list in
+ * `constants/deliveryLocations.ts` only when the network call fails.
  *
- * Expected Presentail OS contract:
- *   GET {EXPO_PUBLIC_DELIVERY_LOCATIONS_URL}
- *   200 OK
- *   { "countries": [
- *       {
- *         "id": "lb",
- *         "name": "Lebanon",
- *         "code": "LB",
- *         "flag": "🇱🇧",
- *         "currency": "USD",
- *         "isActive": true,
- *         "cities": [
- *           { "id": "lb-beirut", "name": "Beirut", "isActive": true },
- *           ...
- *         ]
- *       },
- *       ...
- *     ]
- *   }
- *
- * The base URL can be overridden with the `EXPO_PUBLIC_DELIVERY_LOCATIONS_URL`
- * env var. When unset, the service immediately uses the fallback list.
+ * City trust policy:
+ *   - When the API returns cities for a country, those cities are used as-is.
+ *     The server (osLocationsCache) is the source of truth; we no longer
+ *     overwrite remote cities with the hardcoded district list, because the
+ *     whole point of Phase 1 is to let Presentail OS drive city changes
+ *     without a code deploy.
+ *   - When the API returns zero cities for a country (e.g. data not yet
+ *     entered in OS), the fallback district list for that country is used
+ *     so the picker is never empty.
+ *   - Countries not present in the response at all are dropped; we do not
+ *     silently inject hardcoded countries (the server already handles that).
  */
 import {
   FALLBACK_DELIVERY_COUNTRIES,
@@ -38,12 +27,8 @@ import { isSupportedCurrencyCode } from "@/data/currencies";
 const TIMEOUT_MS = 4000;
 
 // Hard allowlist: this app only delivers to Lebanon, UAE, and Cyprus.
-// Any remote feed that returns extra countries (e.g. an unrelated upstream
-// like the legacy `lebanon-luxury-showcase` deployment) MUST be filtered
-// down to these codes so the country picker can never display unsupported
-// destinations. Reconcile each remote country's `cities` against the
-// fallback district list so the proper delivery districts are always used
-// even if the upstream returns wrong/legacy city names.
+// Any remote feed that returns extra countries must be filtered down to
+// these codes so the country picker can never display unsupported destinations.
 const ALLOWED_COUNTRY_CODES = new Set(["LB", "AE", "CY"]);
 
 function getEndpoint(): string | null {
@@ -74,6 +59,7 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
     const upperCode = code.trim().toUpperCase();
     if (!ALLOWED_COUNTRY_CODES.has(upperCode)) continue;
     const currency = isSupportedCurrencyCode(currencyRaw) ? currencyRaw : "USD";
+
     const remoteCities = citiesRaw
       .map((cc) => {
         if (!cc || typeof cc !== "object") return null;
@@ -88,25 +74,21 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
         };
       })
       .filter(Boolean) as DeliveryCountry["cities"];
-    // Reconcile cities against the fallback district list. The fallback is
-    // the source of truth for delivery districts (the upstream feed has
-    // historically returned legacy city names like Beirut/Jounieh/Tripoli
-    // for Lebanon instead of our 26 districts). If the remote returned a
-    // matching city (by id or name) we keep its `isActive`; otherwise we
-    // default to active.
+
+    // Trust OS cities when present. Fall back to hardcoded districts only
+    // when the server returned zero cities (data not yet entered in OS).
     const fallback = FALLBACK_DELIVERY_COUNTRIES.find(
       (fc) => fc.code.toUpperCase() === upperCode,
     );
-    const cities = fallback
-      ? fallback.cities.map((fc) => {
-          const match = remoteCities.find(
-            (rc) =>
-              rc.id === fc.id ||
-              rc.name.trim().toLowerCase() === fc.name.trim().toLowerCase(),
-          );
-          return { id: fc.id, name: fc.name, isActive: match ? match.isActive : true };
-        })
-      : remoteCities;
+    const cities =
+      remoteCities.length > 0
+        ? remoteCities
+        : (fallback?.cities ?? []).map((fc) => ({
+            id: fc.id,
+            name: fc.name,
+            isActive: fc.isActive,
+          }));
+
     out.push({
       id,
       name,
@@ -115,9 +97,8 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
       currency,
       isActive,
       cities,
-      // Preserve the static preferred-default-city hint (e.g. Lebanon →
-      // Beirut). The remote feed does not carry this field, but it is a
-      // local UX preference owned by the fallback list.
+      // Preserve the static preferred-default-city hint (UX preference
+      // owned by the fallback list; OS does not carry this field yet).
       preferredDefaultCityId: fallback?.preferredDefaultCityId,
     });
   }
