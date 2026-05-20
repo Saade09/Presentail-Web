@@ -27,6 +27,8 @@ export type DeliveryCity = {
   isActive?: boolean;
   /** Native delivery fee for this city, in the country's display currency. */
   fee?: number;
+  /** Whether express delivery is available for this city (from Presentail OS). */
+  expressAvailable?: boolean;
   localizedNames?: { ar?: string; fr?: string };
 };
 export type DeliveryCountry = {

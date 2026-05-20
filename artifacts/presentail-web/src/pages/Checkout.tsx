@@ -200,17 +200,42 @@ export default function Checkout() {
   const [identitySecret, setIdentitySecret] = useState(false);
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
 
+  // Active (isActive !== false) cities for the selected country — sourced
+  // from the OS cache so toggling a city off in Presentail OS removes it
+  // from the picker within the polling interval.
+  const activeCities = useMemo(
+    () =>
+      (locations?.countries.find((c) => c.code === countryCode)?.cities ?? []).filter(
+        (c) => c.isActive !== false,
+      ),
+    [locations, countryCode],
+  );
+
+  // Pre-compute the selected city so we can read its OS express flag below.
+  const selectedCityData = useMemo(
+    () =>
+      activeCities.find(
+        (c) => c.name === (recipient.district || activeCities[0]?.name || ""),
+      ),
+    [activeCities, recipient.district],
+  );
+
   // Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
-  // the recipient country's local time, mirroring the mobile rule. When
-  // it's no longer available we silently fall back to the scheduled flow
+  // the recipient country's local time, mirroring the mobile rule. Also
+  // gated by the OS per-city `expressAvailable` flag — when the OS marks
+  // a city as express-unavailable the button is disabled regardless of time.
+  // When no longer available we silently fall back to the scheduled flow
   // so the order can still be placed. `useNow` ticks every minute so the
   // computed availability flips automatically when the cutoff passes
   // mid-session, even without an unrelated re-render.
   const now = useNow();
-  const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode, now),
-    [countryCode, now],
-  );
+  const expressAvailable = useMemo(() => {
+    const timeOk = isExpressDeliveryAvailable(countryCode, now);
+    // Default to true when the OS hasn't set the flag (undefined) so
+    // existing behaviour is preserved for cities not yet in OS.
+    const cityOk = selectedCityData?.expressAvailable !== false;
+    return timeOk && cityOk;
+  }, [countryCode, now, selectedCityData]);
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   useEffect(() => {
     if (deliveryMode === "express" && !expressAvailable) {
@@ -299,14 +324,13 @@ export default function Checkout() {
     );
   }
 
-  const currentCountryCities = locations?.countries.find((c) => c.code === countryCode)?.cities || [];
+  const currentCountryCities = activeCities;
   const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : countryCode === "CY" ? 120 : 130;
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
-  // Per-city fees come from `@workspace/catalog-data` server-side (same
-  // source the mobile app reads), so the storefront never has to hard-code
-  // them. Falling back to 0 keeps the math safe if the API payload is ever
-  // missing — UI already renders "—" in that case.
-  const selectedCity = currentCountryCities.find((c) => c.name === selectedDistrict);
+  // Per-city fees come from the OS cache (via /api/delivery-locations) so
+  // toggling a fee in Presentail OS propagates within the polling interval.
+  // Falling back to 0 keeps the math safe if the API payload is missing.
+  const selectedCity = selectedCityData;
   const baseFee = noAddress ? 35 : (selectedCity?.fee ?? 0);
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? expressSurcharge : 0;

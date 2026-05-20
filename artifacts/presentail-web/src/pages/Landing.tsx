@@ -39,8 +39,8 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         code,
         flag: live?.flag ?? fallback.flag,
         name: live?.name ?? fallback.name,
-        cities: live?.cities ?? [],
-        ready: !!live && !!live.cities[0],
+        cities: (live?.cities ?? []).filter((c) => c.isActive !== false),
+        ready: !!live && !!(live.cities ?? []).filter((c) => c.isActive !== false)[0],
       };
     });
   }, [countries]);
