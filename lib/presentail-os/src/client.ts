@@ -35,12 +35,6 @@ export async function fetchOsLocations(
     );
   }
 
-  // Primary: /api/delivery-locations (successor of the deprecated /api/public/locations).
-  // The old endpoint returns `link: </api/delivery-locations>; rel="successor-version"`
-  // and `deprecation: true` headers, so we try the new one first and fall back.
-  const primaryPath = "/api/delivery-locations";
-  const fallbackPath = "/api/public/locations";
-
   async function tryFetch(path: string): Promise<Response> {
     const url = new URL(`${baseUrl}${path}`);
     url.searchParams.set("workspace", workspace);
@@ -55,23 +49,25 @@ export async function fetchOsLocations(
     });
   }
 
-  let res = await tryFetch(primaryPath);
-
-  // Fall back to the legacy endpoint if the new one returns no countries.
-  if (res.ok) {
-    const body = (await res.json()) as OSLocationsResponse;
-    if (body.countries && body.countries.length > 0) {
-      return body;
-    }
-    // New endpoint returned empty — try legacy
-    res = await tryFetch(fallbackPath);
+  // Primary: /api/delivery-locations (the current canonical endpoint).
+  // If it responds with 2xx, trust it — even if countries is empty (OS has no
+  // data published yet). Only fall back to the legacy path when the primary
+  // itself fails (non-2xx), which handles old OS instances that haven't
+  // deployed the new endpoint yet.
+  const primaryRes = await tryFetch("/api/delivery-locations");
+  if (primaryRes.ok) {
+    return primaryRes.json() as Promise<OSLocationsResponse>;
   }
 
-  if (!res.ok) {
+  // Primary failed — try the legacy endpoint (deprecated; some OS instances
+  // may still serve it). /api/public/locations returns 410 on updated instances,
+  // so a non-ok response here is a hard failure.
+  const legacyRes = await tryFetch("/api/public/locations");
+  if (!legacyRes.ok) {
     throw new Error(
-      `Presentail OS locations API returned HTTP ${res.status}`,
+      `Presentail OS locations API returned HTTP ${legacyRes.status} (primary: ${primaryRes.status})`,
     );
   }
 
-  return res.json() as Promise<OSLocationsResponse>;
+  return legacyRes.json() as Promise<OSLocationsResponse>;
 }
