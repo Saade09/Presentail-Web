@@ -32,6 +32,8 @@ const colors = {
     muted: "#F1ECE2",
     mutedForeground: palette.slate,
 
+    imagePlaceholder: "#EFEFEF",
+
     accent: palette.mint,
     accentForeground: palette.teal900,
 

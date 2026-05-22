@@ -43,7 +43,7 @@ export function ProductCard({ product, width, onPress }: Props) {
         style={[
           styles.imageWrap,
           {
-            backgroundColor: colors.muted,
+            backgroundColor: colors.imagePlaceholder,
             borderRadius: colors.radius,
             aspectRatio: 1,
           },

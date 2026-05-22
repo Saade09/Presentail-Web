@@ -334,7 +334,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 <Pressable onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: product.id } })}>
                   <Image
                     source={product.image}
-                    style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: colors.muted }}
+                    style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: colors.imagePlaceholder }}
                     contentFit="cover"
                   />
                 </Pressable>

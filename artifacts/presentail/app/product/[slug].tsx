@@ -192,7 +192,7 @@ function ProductDetail() {
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: SCREEN_W, backgroundColor: colors.muted }}>
+        <View style={{ height: SCREEN_W, backgroundColor: colors.imagePlaceholder }}>
           {safeImageSource ? (
             <Image source={safeImageSource} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : null}

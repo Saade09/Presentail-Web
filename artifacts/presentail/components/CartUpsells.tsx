@@ -232,7 +232,7 @@ export function CartUpsells() {
                   <View
                     style={{
                       aspectRatio: 1,
-                      backgroundColor: colors.muted,
+                      backgroundColor: colors.imagePlaceholder,
                       position: "relative",
                     }}
                   >
