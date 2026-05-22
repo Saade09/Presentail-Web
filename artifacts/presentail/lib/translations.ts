@@ -84,7 +84,7 @@ const EN = {
   cartEmpty: "Your cart is empty",
   cartEmptyDesc: "Add some beautiful things from our boutique.",
   shopNow: "Shop Now",
-  emptyCartTitle: "Your gift bag is waiting",
+  emptyCartTitle: "Your cart is waiting",
   emptyCartSubtitle: "Start adding thoughtful gifts and we'll keep them here until you're ready to send.",
   browseGifts: "Browse Gifts",
   subtotal: "Subtotal",
@@ -428,11 +428,11 @@ const EN = {
   noMatchesDesc: "Try a different category or search term.",
 
   // ── Cart ──
-  cartTitleBag: "Your Bag",
+  cartTitleBag: "Your Cart",
   cartClear: "Clear",
-  cartEmptyBag: "Your bag is empty",
-  cartClearConfirmTitle: "Clear your bag?",
-  cartClearConfirmMessage: "All items will be removed from your bag.",
+  cartEmptyBag: "Your cart is empty",
+  cartClearConfirmTitle: "Clear your cart?",
+  cartClearConfirmMessage: "All items will be removed from your cart.",
   cartClearConfirmCancel: "Cancel",
   cartClearConfirmAction: "Clear",
   cartEmptyBagDesc: "Add a bouquet, cake or boutique gift and it will appear here.",
@@ -501,7 +501,7 @@ const EN = {
   checkoutPaypalErrorTitle: "PayPal error",
   checkoutPaypalNotConfigured: "PayPal payments are being set up. Please choose another payment method.",
   checkoutBrandHeader: "Presentail",
-  checkoutBagEmpty: "Your bag is empty",
+  checkoutBagEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
   checkoutSuggestedMessages: "Try Suggested Messages",
   checkoutSubtotalLabel: "Subtotal",
@@ -960,7 +960,7 @@ const EN = {
   cartUpsellsTabPlants: "Plants",
   cartUpsellsTabBears: "Bears",
   cartUpsellsTabCandles: "Candles",
-  cartUpsellsAddedToast: "Added to your bag",
+  cartUpsellsAddedToast: "Added to your cart",
 };
 
 const AR: typeof EN = {
@@ -1047,7 +1047,7 @@ const AR: typeof EN = {
   cartEmpty: "سلتك فارغة",
   cartEmptyDesc: "أضف بعض الأشياء الجميلة من بوتيكنا.",
   shopNow: "تسوق الآن",
-  emptyCartTitle: "حقيبة هداياك بانتظارك",
+  emptyCartTitle: "عربة هداياك بانتظارك",
   emptyCartSubtitle: "ابدأ بإضافة هدايا مميزة وسنحتفظ بها هنا حتى تصبح جاهزاً لإرسالها.",
   browseGifts: "تصفح الهدايا",
   subtotal: "المجموع الفرعي",
@@ -1391,11 +1391,11 @@ const AR: typeof EN = {
   noMatchesDesc: "جرّب فئة مختلفة أو كلمة بحث أخرى.",
 
   // ── Cart ──
-  cartTitleBag: "حقيبتك",
+  cartTitleBag: "عربتك",
   cartClear: "مسح",
-  cartEmptyBag: "حقيبتك فارغة",
-  cartClearConfirmTitle: "مسح حقيبتك؟",
-  cartClearConfirmMessage: "ستتم إزالة جميع العناصر من حقيبتك.",
+  cartEmptyBag: "عربتك فارغة",
+  cartClearConfirmTitle: "مسح عربتك؟",
+  cartClearConfirmMessage: "ستتم إزالة جميع العناصر من عربتك.",
   cartClearConfirmCancel: "إلغاء",
   cartClearConfirmAction: "مسح",
   cartEmptyBagDesc: "أضف باقة أو كعكة أو هدية من البوتيك وستظهر هنا.",
@@ -1464,7 +1464,7 @@ const AR: typeof EN = {
   checkoutPaypalErrorTitle: "خطأ في PayPal",
   checkoutPaypalNotConfigured: "يتم إعداد مدفوعات PayPal. يرجى اختيار طريقة دفع أخرى.",
   checkoutBrandHeader: "Presentail",
-  checkoutBagEmpty: "حقيبتك فارغة",
+  checkoutBagEmpty: "عربتك فارغة",
   checkoutBrowseBoutique: "تصفّح البوتيك",
   checkoutSuggestedMessages: "جرّب الرسائل المقترحة",
   checkoutSubtotalLabel: "المجموع الفرعي",
@@ -1918,7 +1918,7 @@ const AR: typeof EN = {
   cartUpsellsTabPlants: "نباتات",
   cartUpsellsTabBears: "دببة",
   cartUpsellsTabCandles: "شموع",
-  cartUpsellsAddedToast: "تمت الإضافة إلى الحقيبة",
+  cartUpsellsAddedToast: "تمت الإضافة إلى العربة",
 };
 
 const FR: typeof EN = {
@@ -2005,7 +2005,7 @@ const FR: typeof EN = {
   cartEmpty: "Votre panier est vide",
   cartEmptyDesc: "Ajoutez de jolies choses depuis notre boutique.",
   shopNow: "Acheter maintenant",
-  emptyCartTitle: "Votre sac cadeau vous attend",
+  emptyCartTitle: "Votre panier vous attend",
   emptyCartSubtitle: "Commencez à ajouter des cadeaux attentionnés et nous les garderons ici jusqu'à ce que vous soyez prêt à les envoyer.",
   browseGifts: "Découvrir les cadeaux",
   subtotal: "Sous-total",
@@ -2349,11 +2349,11 @@ const FR: typeof EN = {
   noMatchesDesc: "Essayez une autre catégorie ou un autre terme.",
 
   // ── Cart ──
-  cartTitleBag: "Votre sac",
+  cartTitleBag: "Votre panier",
   cartClear: "Vider",
-  cartEmptyBag: "Votre sac est vide",
-  cartClearConfirmTitle: "Vider votre sac ?",
-  cartClearConfirmMessage: "Tous les articles seront retirés de votre sac.",
+  cartEmptyBag: "Votre panier est vide",
+  cartClearConfirmTitle: "Vider votre panier ?",
+  cartClearConfirmMessage: "Tous les articles seront retirés de votre panier.",
   cartClearConfirmCancel: "Annuler",
   cartClearConfirmAction: "Vider",
   cartEmptyBagDesc: "Ajoutez un bouquet, un gâteau ou un cadeau et il apparaîtra ici.",
@@ -2879,7 +2879,7 @@ const FR: typeof EN = {
   cartUpsellsTabPlants: "Plantes",
   cartUpsellsTabBears: "Ours",
   cartUpsellsTabCandles: "Bougies",
-  cartUpsellsAddedToast: "Ajouté à votre sac",
+  cartUpsellsAddedToast: "Ajouté à votre panier",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };
