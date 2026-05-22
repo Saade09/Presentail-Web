@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -6,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -30,7 +28,6 @@ export function ProductCard({ product, width, onPress }: Props) {
   const { selectedCountry } = useDeliveryLocation();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const threshold = freeDeliveryThresholdNative(cc);
-  const { isFavorited, toggleFavorite } = useFavorites();
 
   const handlePress = () => {
     if (onPress) return onPress();
@@ -58,22 +55,6 @@ export function ProductCard({ product, width, onPress }: Props) {
             <Text style={styles.tagText}>{product.tag}</Text>
           </View>
         ) : null}
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            void toggleFavorite(product.id, cc ?? null);
-          }}
-          style={styles.heartBtn}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Ionicons
-            name={isFavorited(product.id) ? "heart" : "heart-outline"}
-            size={18}
-            color={isFavorited(product.id) ? "#e11d48" : "#fff"}
-          />
-        </Pressable>
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
         <Text
@@ -107,17 +88,6 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
-  },
-  heartBtn: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.28)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   tag: {
     position: "absolute",
