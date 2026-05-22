@@ -111,6 +111,7 @@ function TabLayout() {
         name="favorites"
         options={{
           title: t.favorites,
+          tabBarButton: () => null,
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "heart.fill" : "heart"} tintColor={color} size={22} />
