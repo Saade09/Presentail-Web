@@ -296,7 +296,7 @@ export function OnboardingLocationScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
             style={{
-              backgroundColor: canContinue ? colors.primary : colors.muted,
+              backgroundColor: canContinue ? colors.primary : colors.background,
               borderRadius: 999,
               paddingVertical: 14,
               paddingHorizontal: 20,

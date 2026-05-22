@@ -280,7 +280,7 @@ export function RescheduleDeliverySheet({
               gap: 12,
               padding: 14,
               borderRadius: 14,
-              backgroundColor: colors.secondary,
+              backgroundColor: colors.background,
               borderWidth: 1,
               borderColor: colors.border,
             }}

@@ -198,7 +198,7 @@ export function CartDrawer() {
                           width: 28,
                           height: 28,
                           borderRadius: 999,
-                          backgroundColor: colors.secondary,
+                          backgroundColor: colors.background,
                           alignItems: "center",
                           justifyContent: "center",
                         }}
@@ -215,7 +215,7 @@ export function CartDrawer() {
                           width: 28,
                           height: 28,
                           borderRadius: 999,
-                          backgroundColor: colors.secondary,
+                          backgroundColor: colors.background,
                           alignItems: "center",
                           justifyContent: "center",
                         }}
@@ -363,7 +363,7 @@ export function CartDrawer() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                  backgroundColor: colors.secondary,
+                  backgroundColor: colors.background,
                   borderRadius: 14,
                   paddingVertical: 10,
                   paddingHorizontal: 12,

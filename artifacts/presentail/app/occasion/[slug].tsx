@@ -71,7 +71,7 @@ function OccasionScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
-        <View style={{ height: 260, backgroundColor: colors.muted }}>
+        <View style={{ height: 260, backgroundColor: colors.background }}>
           {occasion ? (
             <Image source={occasion.image} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : null}

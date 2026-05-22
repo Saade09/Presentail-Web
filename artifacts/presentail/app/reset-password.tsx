@@ -120,7 +120,7 @@ function ResetPasswordScreen() {
                   borderRadius: 32,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: colors.muted ?? "#F1ECE2",
+                  backgroundColor: colors.background,
                   alignSelf: isRTL ? "flex-end" : "flex-start",
                 }}
               >

@@ -666,7 +666,7 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge,
           borderRadius: 999,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: active ? colors.primary : colors.muted,
+          backgroundColor: active ? colors.primary : colors.background,
         }}
       >
         <MaterialCommunityIcons name={icon} size={18} color={active ? colors.goldSoft : colors.primary} />

@@ -1933,7 +1933,7 @@ function DeliveryDetailsStep(props: any) {
         {senderSummary ? (
           <View
             style={{
-              backgroundColor: colors.secondary,
+              backgroundColor: colors.background,
               padding: 12,
               borderRadius: 10,
               gap: 6,
@@ -1998,7 +1998,7 @@ function DeliveryDetailsStep(props: any) {
             flexDirection: "row",
             alignItems: "center",
             gap: 10,
-            backgroundColor: colors.secondary,
+            backgroundColor: colors.background,
             padding: 12,
             borderRadius: 10,
           }}
@@ -2211,7 +2211,7 @@ function SecurityNote({ colors }: { colors: any }) {
     <View
       style={{
         borderRadius: 10,
-        backgroundColor: colors.secondary,
+        backgroundColor: colors.background,
         padding: 12,
         borderWidth: 1,
         borderColor: colors.border,

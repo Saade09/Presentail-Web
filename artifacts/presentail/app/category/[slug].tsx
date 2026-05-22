@@ -121,7 +121,7 @@ function CategoryScreen() {
 
   const header = (
     <>
-        <View style={{ height: 240, backgroundColor: colors.muted }}>
+        <View style={{ height: 240, backgroundColor: colors.background }}>
           {category ? (
             <Image source={category.image} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : null}

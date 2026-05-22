@@ -286,7 +286,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               width: 80,
               height: 80,
               borderRadius: 999,
-              backgroundColor: colors.secondary,
+              backgroundColor: colors.background,
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -396,7 +396,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 12,
-                backgroundColor: colors.secondary,
+                backgroundColor: colors.background,
                 borderRadius: 14,
                 paddingVertical: 12,
                 paddingHorizontal: 14,

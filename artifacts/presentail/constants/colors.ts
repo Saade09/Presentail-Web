@@ -17,7 +17,7 @@ const colors = {
     text: palette.charcoal,
     tint: palette.teal900,
 
-    background: "#f2f2f2",
+    background: "#ffffff",
     foreground: palette.teal900,
 
     card: "#ffffff",

@@ -115,7 +115,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
             flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "center",
             justifyContent: "space-between",
-            backgroundColor: colors.muted,
+            backgroundColor: colors.background,
             marginHorizontal: 16,
             borderRadius: 14,
             gap: 10,
