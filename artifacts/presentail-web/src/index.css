@@ -82,8 +82,8 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* white */
-  --background: 0 0% 100%;
+  /* light grey */
+  --background: 220 14% 96%;
   /* charcoal */
   --foreground: 20 19% 13%;
   /* cream */
