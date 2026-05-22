@@ -132,7 +132,7 @@ function ProductDetail() {
     }
   };
 
-  const handleShareProduct = async (productSlug: string) => {
+  const handleShareProduct = async (productSlug: string, productName: string) => {
     // Use React Native's built-in Share API (native iOS/Android share sheet).
     // It is part of react-native core, so no extra native module is required —
     // this works on every shipped binary, unlike expo-clipboard which was
@@ -144,7 +144,13 @@ function ProductDetail() {
       // makes the share sheet preview "2 Links" and pastes the URL twice.
       // Pass only the field each platform actually uses: `url` on iOS,
       // `message` on Android (Android's Share API ignores `url`).
-      await Share.share(Platform.OS === "ios" ? { url } : { message: url });
+      // `title` is forwarded to UIActivityViewController on iOS, which displays
+      // it in the share sheet header and link preview label.
+      await Share.share(
+        Platform.OS === "ios"
+          ? { url, title: productName }
+          : { message: `${productName} – ${url}` },
+      );
     } catch {
       showToast(t.shareUnavailable);
     }
@@ -224,7 +230,7 @@ function ProductDetail() {
                 />
               </Pressable>
               <Pressable
-                onPress={() => handleShareProduct(String(slug || product.id))}
+                onPress={() => handleShareProduct(String(slug || product.id), product.name)}
                 accessibilityRole="button"
                 accessibilityLabel={t.shareProductAria}
                 style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
