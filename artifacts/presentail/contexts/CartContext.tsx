@@ -6,7 +6,10 @@ import { useWooProducts } from "./WooProductsContext";
 
 export type CartItem = { productId: string; qty: number };
 
+export type CartCardMessage = { to: string; from: string; body: string };
+
 const CART_STORAGE_KEY = "@presentail/cart-v1";
+const CART_MESSAGE_STORAGE_KEY = "@presentail/cart-message-v1";
 
 type CartContextValue = {
   items: CartItem[];
@@ -28,6 +31,8 @@ type CartContextValue = {
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
+  cartMessage: CartCardMessage | null;
+  setCartMessage: (msg: CartCardMessage | null) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -58,6 +63,7 @@ function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartMessage, setCartMessageState] = useState<CartCardMessage | null>(null);
   const hydrated = useRef(false);
   const pending = useRef<PendingMutation[]>([]);
   const clearListeners = useRef<Set<() => void>>(new Set());
@@ -115,6 +121,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Load persisted cart message on mount
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(CART_MESSAGE_STORAGE_KEY)
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object" && "to" in parsed && "from" in parsed && "body" in parsed) {
+            setCartMessageState(parsed as CartCardMessage);
+          }
+        } catch {}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!hydrated.current) return;
     AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(() => {});
@@ -154,8 +179,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } else {
       setItems([]);
     }
+    setCartMessageState(null);
+    AsyncStorage.removeItem(CART_MESSAGE_STORAGE_KEY).catch(() => {});
     fireClearListeners();
   }, [fireClearListeners]);
+
+  const setCartMessage = useCallback((msg: CartCardMessage | null) => {
+    setCartMessageState(msg);
+    if (msg) {
+      AsyncStorage.setItem(CART_MESSAGE_STORAGE_KEY, JSON.stringify(msg)).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(CART_MESSAGE_STORAGE_KEY).catch(() => {});
+    }
+  }, []);
 
   const detailed = useMemo(
     () =>
@@ -178,8 +214,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart }),
-    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart],
+    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, cartMessage, setCartMessage }),
+    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, cartMessage, setCartMessage],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

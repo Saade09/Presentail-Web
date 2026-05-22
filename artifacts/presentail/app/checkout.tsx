@@ -157,7 +157,7 @@ function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { detailed, total, clear, setQty, remove } = useCart();
+  const { detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
   const { formatNative, currencyCode } = useCurrency();
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
@@ -200,9 +200,9 @@ function CheckoutScreen() {
   const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientCountry, setRecipientCountry] = useState<CountryDialCode>(defaultDialCode);
-  const [cardTo, setCardTo] = useState("");
-  const [cardMessage, setCardMessage] = useState("");
-  const [cardFrom, setCardFrom] = useState("");
+  const [cardTo, setCardTo] = useState(cartMessageFromCart?.to ?? "");
+  const [cardMessage, setCardMessage] = useState(cartMessageFromCart?.body ?? "");
+  const [cardFrom, setCardFrom] = useState(cartMessageFromCart?.from ?? "");
   const [qrLink, setQrLink] = useState("");
   const [coupon, setCoupon] = useState("");
   const [couponOpen, setCouponOpen] = useState(false);

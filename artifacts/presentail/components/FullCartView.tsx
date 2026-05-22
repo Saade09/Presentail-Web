@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CartCardMessageSheet } from "@/components/CartCardMessageSheet";
 import { CartUpsells } from "@/components/CartUpsells";
 import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
@@ -67,7 +68,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
-  const { detailed, total, setQty, remove, clear } = useCart();
+  const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
+  const { detailed, total, setQty, remove, clear, cartMessage, setCartMessage } = useCart();
   const { selectedCountry } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
   const t = useT();
@@ -370,6 +372,79 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             <View style={{ marginTop: 10 }}>
               <CartUpsells />
             </View>
+
+            {/* Gift Card & Message row */}
+            <View style={{ marginTop: 6 }}>
+              <Pressable
+                onPress={() => setCardMessageSheetVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t.cartGiftCardLabel}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  backgroundColor: colors.background,
+                  borderRadius: 14,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderWidth: cartMessage ? 0 : 1,
+                  borderStyle: "dashed",
+                  borderColor: colors.border,
+                }}
+              >
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 999,
+                    backgroundColor: "#fff",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="mail" size={14} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 11,
+                      color: colors.mutedForeground,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                    }}
+                  >
+                    {t.cartGiftCardLabel}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: cartMessage ? "Inter_600SemiBold" : "Inter_400Regular",
+                      fontSize: 13,
+                      color: cartMessage ? colors.primary : colors.mutedForeground,
+                    }}
+                  >
+                    {cartMessage
+                      ? [cartMessage.to && `${t.toLabel}: ${cartMessage.to}`, cartMessage.from && `${t.fromLabel}: ${cartMessage.from}`]
+                          .filter(Boolean)
+                          .join(" · ") || cartMessage.body.slice(0, 40)
+                      : t.cartGiftCardPrompt}
+                  </Text>
+                </View>
+                {cartMessage ? (
+                  <Pressable
+                    onPress={() => setCartMessage(null)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove message"
+                  >
+                    <Feather name="x-circle" size={16} color={colors.mutedForeground} />
+                  </Pressable>
+                ) : (
+                  <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                )}
+              </Pressable>
+            </View>
           </ScrollView>
 
           <View
@@ -510,6 +585,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         </>
       )}
     </View>
+    <CartCardMessageSheet
+      visible={cardMessageSheetVisible}
+      onClose={() => setCardMessageSheetVisible(false)}
+      initial={cartMessage}
+      onSave={setCartMessage}
+    />
     <RescheduleDeliverySheet
       visible={rescheduleVisible}
       onClose={() => setRescheduleVisible(false)}
