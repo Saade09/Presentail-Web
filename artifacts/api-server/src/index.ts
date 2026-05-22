@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import { startReconcileWorker } from "./lib/wooOrders";
 import { startWooSyncWorker } from "./lib/wooSync";
 import { validateOsEnv, startOsLocationSync } from "./lib/osLocationsCache";
+import { startOsProductsSync } from "./lib/osProductsCache";
 import { startCheckoutLoginFunnelMonitor } from "./lib/checkoutLoginFunnelMonitor";
 import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnelMonitor";
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
@@ -49,6 +50,7 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   validateOsEnv();
   startOsLocationSync();
+  startOsProductsSync();
   startReconcileWorker();
   startWooSyncWorker();
   startCheckoutLoginFunnelMonitor();

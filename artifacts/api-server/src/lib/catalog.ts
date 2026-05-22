@@ -2,6 +2,7 @@
 // The client is never trusted as the source of truth for prices or fees.
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
+import { getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
 // server-side so the client cannot manipulate the delivery fee.
@@ -96,10 +97,38 @@ export function computeDistrictFeeUsd(
 
 type CatalogProduct = { price: number; name: string };
 
-// Fetch the WooCommerce catalog price (USD) for a single product by WC ID.
-// Returns null if the product is not found or WC is unreachable.
+// Fetch the authoritative catalog price (USD) for a single product by WC ID.
+//
+// Phase 2 price-verification hierarchy:
+//   1. Presentail OS cache (primary, O(1) by wcId within the store's country).
+//      When the OS cache is populated for this store, it is the sole authority
+//      for prices — WooCommerce is NOT consulted on a miss. This prevents a
+//      stale or mis-configured WC store from silently overriding OS prices and
+//      closes the window where an attacker could manipulate prices by requesting
+//      a WC product not yet in OS.
+//   2. WooCommerce REST API (fallback) — consulted ONLY when the OS cache has
+//      not yet been populated for this store (startup window before the first
+//      successful OS poll). Once OS data is available, this path is bypassed.
+//
+// Returns null if the product is not found in the active source.
 export async function fetchWcProductPrice(wcId: number, store?: WooStoreConfig): Promise<CatalogProduct | null> {
   const s = store ?? resolveStore();
+
+  // Primary: Presentail OS cache (O(1) lookup by wcId, country-scoped).
+  const osProduct = getOsProductByWcId(wcId, s.storeKey);
+  if (osProduct) {
+    if (osProduct.price > 0) {
+      return { price: osProduct.price, name: osProduct.name };
+    }
+    // OS has the product but price is zero/invalid — treat as not orderable.
+    return null;
+  }
+
+  // When OS is populated for this country, it is authoritative — do not fall
+  // through to WooCommerce for products not yet mirrored in OS.
+  if (hasOsProducts(s.storeKey)) return null;
+
+  // Fallback: WooCommerce REST API — only reached before OS has first populated.
   if (!s.consumerKey) return null;
   try {
     const r = await fetch(`${s.baseUrl}/products/${wcId}`, {
@@ -138,9 +167,10 @@ export async function resolveCartItems(
   store?: WooStoreConfig,
 ): Promise<{ ok: true; items: ResolvedCartItem[]; subtotalUsd: number } | { ok: false; message: string }> {
   const s = store ?? resolveStore();
-  if (!s.consumerKey) {
-    return { ok: false, message: "Product catalog unavailable — WooCommerce is not configured" };
-  }
+  // Do not require WC credentials here — fetchWcProductPrice checks the OS
+  // cache first (O(1), no network) and only falls back to the WC REST API
+  // when the OS cache has no entry for that wcId. Failing early when WC is
+  // unconfigured would break checkout for shops that are fully OS-backed.
   if (!Array.isArray(items) || items.length === 0) {
     return { ok: false, message: "Cart is empty" };
   }

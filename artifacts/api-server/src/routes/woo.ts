@@ -26,6 +26,19 @@ import {
   wooAuthHeader,
   type WooStoreConfig,
 } from "../lib/wooStore";
+import {
+  hasOsProducts,
+  getOsProducts,
+  getOsCategories,
+  getOsBrands,
+  getOsOccasions,
+  getOsProductBySlug,
+} from "../lib/osProductsCache";
+import type { OSProduct } from "@workspace/presentail-os";
+import {
+  products as STATIC_CATALOG_PRODUCTS,
+} from "@workspace/catalog-data";
+import type { Product as CatalogDataProduct } from "@workspace/catalog-data";
 
 const router: IRouter = Router();
 
@@ -82,6 +95,100 @@ type WcCategory = {
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
+
+// ── Static catalog → WcProduct adapter ────────────────────────────────────
+//
+// Converts a lib/catalog-data Product to the internal WcProduct shape so it
+// can flow through the isVisibleProduct / isDeliverable / transformProduct
+// pipeline unchanged. Used as the emergency fallback when OS is unreachable.
+// Static products are always shown as in-stock. CatalogImageRef of type
+// `{ asset }` has no absolute URL in the API server context, so those are
+// omitted from the images array (the client falls back to its bundled asset).
+function mapStaticProductToWcShape(p: CatalogDataProduct): WcProduct {
+  const imageRef = p.image;
+  const imageSrc =
+    imageRef && "uri" in imageRef && imageRef.uri ? imageRef.uri : undefined;
+
+  const categories: WcProductCategory[] = [
+    { id: 1, name: p.category, slug: p.category },
+    ...(p.occasions ?? []).map((slug: string, i: number) => ({
+      id: 10000 + i,
+      name: slug,
+      slug,
+    })),
+  ];
+
+  return {
+    id: p.wcId ?? 0,
+    slug: p.id,
+    name: p.name,
+    price: String(p.priceValue),
+    short_description: p.description,
+    stock_status: "instock",
+    featured: p.tag === "Bestseller" || p.tag === "Signature",
+    total_sales: 0,
+    images: imageSrc ? [{ src: imageSrc }] : [],
+    categories,
+    meta_data: [],
+  };
+}
+
+// Return a deduplicated copy of the static catalog as WcProducts (slug is
+// the stable key; first occurrence wins when slugs collide).
+function getStaticCatalogAsWcProducts(): WcProduct[] {
+  const seen = new Set<string>();
+  const result: WcProduct[] = [];
+  for (const p of STATIC_CATALOG_PRODUCTS) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    result.push(mapStaticProductToWcShape(p));
+  }
+  return result;
+}
+
+// ── Presentail OS → WcProduct adapter ─────────────────────────────────────
+//
+// Maps an OSProduct to the internal WcProduct shape so the existing
+// isVisibleProduct / isDeliverable / transformProduct pipeline works
+// without modification. This is the Phase 2 adapter; Phase 3 will clean
+// up the WcProduct type entirely.
+function mapOsProductToWcShape(p: OSProduct): WcProduct {
+  const meta: WcMeta[] = [];
+  if (p.deliverableCountries && p.deliverableCountries.length > 0) {
+    meta.push({
+      key: "_deliverable_countries",
+      value: p.deliverableCountries.join(","),
+    });
+  }
+  if (p.deliverableCities && p.deliverableCities.length > 0) {
+    meta.push({
+      key: "_deliverable_cities",
+      value: p.deliverableCities.join(","),
+    });
+  }
+
+  // Categories array: combine product categories + occasions so that the
+  // existing occasion-products and category-products filtering still works
+  // (both read from p.categories[].slug in the WcProduct shape).
+  const categories: WcProductCategory[] = [
+    ...p.categories.map((c: { name: string; slug: string }, i: number) => ({ id: i + 1, name: c.name, slug: c.slug })),
+    ...p.occasions.map((o: { name: string; slug: string }, i: number) => ({ id: 10000 + i, name: o.name, slug: o.slug })),
+  ];
+
+  return {
+    id: p.wcId ?? 0,
+    slug: p.id,
+    name: p.name,
+    price: String(p.price),
+    short_description: p.description,
+    stock_status: p.inStock ? "instock" : "outofstock",
+    featured: p.featured ?? false,
+    total_sales: p.totalSales ?? 0,
+    images: p.images.map((img: { url: string }) => ({ src: img.url })),
+    categories,
+    meta_data: meta,
+  };
+}
 
 function readLang(req: { query: any }): Lang {
   const raw = typeof req.query?.lang === "string" ? req.query.lang.toLowerCase() : "";
@@ -172,9 +279,22 @@ type DeliveryFilter = {
   cityId: string | null;
 };
 
-function readDeliveryFilter(req: { query: any }): DeliveryFilter {
-  const country = typeof req.query.countryCode === "string" ? req.query.countryCode.trim() : "";
-  const city = typeof req.query.cityId === "string" ? req.query.cityId.trim() : "";
+function readDeliveryFilter(req: { query: any; headers?: any }): DeliveryFilter {
+  // Read from query params first, then fall back to headers so that requests
+  // routed by x-store-country / x-store-city (same source as resolveStoreFromRequest)
+  // receive correct city-level product filtering.
+  const country =
+    typeof req.query.countryCode === "string"
+      ? req.query.countryCode.trim()
+      : typeof req.headers?.["x-store-country"] === "string"
+        ? req.headers["x-store-country"].trim()
+        : "";
+  const city =
+    typeof req.query.cityId === "string"
+      ? req.query.cityId.trim()
+      : typeof req.headers?.["x-store-city"] === "string"
+        ? req.headers["x-store-city"].trim()
+        : "";
   return {
     countryCode: country ? country.toUpperCase() : null,
     cityId: city || null,
@@ -265,6 +385,21 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
 }
 
 router.get("/woo/brands", async (req, res) => {
+  // Serve from OS cache when available.
+  const osBrands = getOsBrands();
+  if (osBrands) {
+    return res.json({
+      ok: true,
+      brands: osBrands.map((b) => ({
+        id: b.slug,
+        name: b.name,
+        slug: b.slug,
+        count: undefined,
+        image: b.image ?? null,
+      })),
+    });
+  }
+
   const store = resolveStoreFromRequest(req);
   if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
@@ -293,12 +428,30 @@ router.get("/woo/brands", async (req, res) => {
 });
 
 router.get("/woo/brand-products", async (req, res) => {
+  const brandSlug = String(req.query.slug ?? "");
+  if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
+
   const store = resolveStoreFromRequest(req);
+  // Serve from OS cache when available.
+  if (hasOsProducts(store.storeKey)) {
+    const osProducts = getOsProducts(store.storeKey)!;
+    const filter = readDeliveryFilter(req);
+    const osBrands = getOsBrands();
+    const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
+    const brandName = brandEntry?.name ?? brandSlug;
+
+    const products = osProducts
+      .filter((p) => p.brands.some((b) => b.slug === brandSlug))
+      .map(mapOsProductToWcShape)
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter))
+      .map((p) => transformProduct(p, store.currencySymbol));
+    return res.json({ ok: true, products, count: products.length, brandName });
+  }
+
   if (!store.consumerKey) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
-  const brandSlug = String(req.query.slug ?? "");
-  if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
   const lang = readLang(req);
 
   try {
@@ -422,14 +575,32 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
 ];
 
 router.get("/woo/category-products", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slug = String(req.query.slug ?? "");
   if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
   if (isHiddenCategory(slug)) {
     return res.json({ ok: true, products: [], count: 0 });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  // Serve from OS cache when available.
+  if (hasOsProducts(store.storeKey)) {
+    const osProducts = getOsProducts(store.storeKey)!;
+    const filter = readDeliveryFilter(req);
+    const osCategories = getOsCategories();
+    const catEntry = osCategories?.find((c) => c.slug === slug);
+    const catName = catEntry?.name ?? slug;
+
+    const products = osProducts
+      .filter((p) => p.categories.some((c) => c.slug === slug))
+      .map(mapOsProductToWcShape)
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter))
+      .map((p) => transformProduct(p, store.currencySymbol));
+    return res.json({ ok: true, products, count: products.length, categoryName: catName });
+  }
+
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const lang = readLang(req);
   try {
@@ -478,13 +649,54 @@ router.get("/woo/category-products", async (req, res) => {
 });
 
 router.get("/woo/occasion-products", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slug = String(req.query.slug ?? "");
   if (!slug || !OCCASION_SLUGS.includes(slug)) {
     return res.json({ ok: true, groups: [] });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  // Serve from OS cache when available.
+  if (hasOsProducts(store.storeKey)) {
+    const osProducts = getOsProducts(store.storeKey)!;
+    const filter = readDeliveryFilter(req);
+    const lang = readLang(req);
+
+    const deliverable = osProducts
+      .filter((p) => p.occasions.some((o) => o.slug === slug))
+      .map(mapOsProductToWcShape)
+      .filter(isVisibleProduct)
+      .filter((p) => isDeliverable(p, filter));
+
+    type TransformedProduct = ReturnType<typeof transformProduct>;
+    const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
+    const assigned = new Set<number>();
+
+    for (const typecat of OCCASION_TYPE_CATEGORIES) {
+      for (const p of deliverable) {
+        if (assigned.has(p.id)) continue;
+        const slugs = (p.categories ?? []).map((c) => c.slug);
+        if (slugs.includes(typecat.slug)) {
+          if (!groups.has(typecat.slug)) {
+            const label = translateOccasionLabel(typecat.slug, typecat.label, lang);
+            groups.set(typecat.slug, { label, products: [] });
+          }
+          groups.get(typecat.slug)!.products.push(transformProduct(p, store.currencySymbol));
+          assigned.add(p.id);
+        }
+      }
+    }
+
+    const result = Array.from(groups.entries()).map(([groupSlug, g]) => ({
+      slug: groupSlug,
+      label: g.label,
+      count: g.products.length,
+      products: g.products.slice(0, 10),
+    }));
+    return res.json({ ok: true, groups: result, total: deliverable.length });
+  }
+
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   const lang = readLang(req);
 
@@ -551,50 +763,91 @@ const ALL_PRODUCTS_TTL_MS = 5 * 60 * 1000;
 const allProductsCache: Map<string, { fetchedAt: number; products: WcProduct[] }> = new Map();
 const allProductsInflight: Map<string, Promise<WcProduct[]>> = new Map();
 
+// Fetch all in-stock published products.
+//
+// Phase 2 source-of-truth hierarchy (for non-forced calls):
+//   1. Presentail OS product cache (primary) — served when the OS poller has
+//      successfully fetched at least once for this store's country code.
+//   2. WooCommerce (secondary fallback) — consulted when OS has not yet
+//      populated for this store AND WC credentials are configured. WC products
+//      carry valid numeric wcIds so checkout price verification works correctly
+//      in the startup window before OS data is available.
+//   3. Static catalog (lib/catalog-data, emergency last-resort) — used only
+//      when both OS and WC are unavailable. Static products have no real wcIds
+//      so checkout will fail gracefully; they serve as browse-only fallback
+//      during a full outage.
+//
+// force=true path (wooSync warming pass only):
+//   Skips the hierarchy above and fetches directly from WooCommerce so the
+//   per-store WC product hash used for data_refresh change detection stays
+//   current.
 export async function fetchAllProducts(
   lang: Lang,
   store: WooStoreConfig,
   opts: { force?: boolean } = {},
 ): Promise<WcProduct[]> {
-  const cacheKey = `${store.baseUrl}::${lang}`;
-  const now = Date.now();
-  if (!opts.force) {
-    const cached = allProductsCache.get(cacheKey);
-    if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) {
-      return cached.products;
-    }
+  // ── 1. OS cache (primary, country-scoped) ───────────────────────────────
+  if (!opts.force && hasOsProducts(store.storeKey)) {
+    return getOsProducts(store.storeKey)!.map(mapOsProductToWcShape);
   }
-  const existing = allProductsInflight.get(cacheKey);
-  if (existing) return existing;
-  const promise = (async () => {
-    const collected: WcProduct[] = [];
-    let page = 1;
-    while (true) {
-      const r = await wooFetch(
-        `/products?per_page=100&page=${page}&status=publish&stock_status=instock`,
-        {},
-        lang,
-        store,
-      );
-      if (!r.ok) break;
-      const batch = (await r.json()) as WcProduct[];
-      if (!batch.length) break;
-      collected.push(...batch);
-      if (batch.length < 100) break;
-      page++;
+
+  // ── 2. WooCommerce (secondary fallback or force-refresh) ─────────────────
+  //
+  // The WC path handles both:
+  //  (a) non-forced reads when OS has not yet populated (startup window).
+  //  (b) force=true reads from wooSync for hash/cache warming.
+  if (store.consumerKey) {
+    const cacheKey = `${store.baseUrl}::${lang}`;
+    const now = Date.now();
+    // Only apply TTL cache for non-forced reads.
+    if (!opts.force) {
+      const cached = allProductsCache.get(cacheKey);
+      if (cached && now - cached.fetchedAt < ALL_PRODUCTS_TTL_MS) return cached.products;
     }
-    allProductsCache.set(cacheKey, { fetchedAt: Date.now(), products: collected });
-    return collected;
-  })().finally(() => {
-    allProductsInflight.delete(cacheKey);
-  });
-  allProductsInflight.set(cacheKey, promise);
-  return promise;
+    const existing = allProductsInflight.get(cacheKey);
+    if (existing) return existing;
+    const promise = (async () => {
+      const collected: WcProduct[] = [];
+      let page = 1;
+      while (true) {
+        const r = await wooFetch(
+          `/products?per_page=100&page=${page}&status=publish&stock_status=instock`,
+          {},
+          lang,
+          store,
+        );
+        if (!r.ok) break;
+        const batch = (await r.json()) as WcProduct[];
+        if (!batch.length) break;
+        collected.push(...batch);
+        if (batch.length < 100) break;
+        page++;
+      }
+      allProductsCache.set(cacheKey, { fetchedAt: Date.now(), products: collected });
+      return collected;
+    })().finally(() => {
+      allProductsInflight.delete(cacheKey);
+    });
+    allProductsInflight.set(cacheKey, promise);
+    return promise;
+  }
+
+  // ── 3. Static catalog (emergency last-resort: OS + WC both unavailable) ──
+  //
+  // Static products have wcId=0; they are display-only — checkout will reject
+  // them gracefully with "product not found in catalog". This path is only
+  // reached when WC credentials are not configured AND OS hasn't responded.
+  if (!opts.force) {
+    return getStaticCatalogAsWcProducts();
+  }
+
+  return []; // force=true, no WC configured — nothing to do
 }
 
 router.get("/woo/products", async (req, res) => {
   const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
+  // Allow request to proceed when OS has products, even if WC is not configured.
+  if (!store.consumerKey && !hasOsProducts(store.storeKey)) {
     return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
@@ -619,14 +872,31 @@ router.get("/woo/products", async (req, res) => {
 // (product name, description, image) instead of the generic site-wide one.
 // Reuses the cached `fetchAllProducts` result so this is cheap on a warm cache.
 router.get("/woo/product", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
     return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  // Fast path: look up directly from OS slug index when available.
+  if (hasOsProducts(store.storeKey)) {
+    const osProduct = getOsProductBySlug(slug, store.storeKey);
+    if (!osProduct) {
+      return res.status(404).json({ ok: false, message: "Product not found" });
+    }
+    const wcProduct = mapOsProductToWcShape(osProduct);
+    if (!isVisibleProduct(wcProduct)) {
+      return res.status(404).json({ ok: false, message: "Product not found" });
+    }
+    return res.json({
+      ok: true,
+      product: transformProduct(wcProduct, store.currencySymbol),
+    });
+  }
+
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
     const lang = readLang(req);
@@ -653,14 +923,32 @@ router.get("/woo/product", async (req, res) => {
 // to `/brand/<slug>` pasted into WhatsApp, iMessage, Slack, etc. show a rich
 // preview (brand name, blurb, image) instead of the generic site-wide one.
 router.get("/woo/brand", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
     return res.status(400).json({ ok: false, message: "Missing slug" });
+  }
+
+  // Serve from OS cache when available.
+  const osBrands = getOsBrands();
+  if (osBrands) {
+    const b = osBrands.find((brand) => brand.slug === slug);
+    if (!b) return res.status(404).json({ ok: false, message: "Brand not found" });
+    return res.json({
+      ok: true,
+      brand: {
+        id: b.slug,
+        name: b.name,
+        slug: b.slug,
+        description: b.description ?? "",
+        image: b.image ?? null,
+      },
+    });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
     const lang = readLang(req);
@@ -703,10 +991,6 @@ router.get("/woo/brand", async (req, res) => {
 // into WhatsApp, iMessage, Slack, etc. show a rich preview (category name,
 // blurb, image) instead of the generic site-wide one.
 router.get("/woo/category", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
@@ -714,6 +998,28 @@ router.get("/woo/category", async (req, res) => {
   }
   if (isHiddenCategory(slug)) {
     return res.status(404).json({ ok: false, message: "Category not found" });
+  }
+
+  // Serve from OS cache when available.
+  const osCategories = getOsCategories();
+  if (osCategories) {
+    const c = osCategories.find((cat) => cat.slug === slug);
+    if (!c) return res.status(404).json({ ok: false, message: "Category not found" });
+    return res.json({
+      ok: true,
+      category: {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        description: "",
+        image: null,
+      },
+    });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  if (!store.consumerKey) {
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
   }
   try {
     const lang = readLang(req);
@@ -760,10 +1066,6 @@ router.get("/woo/category", async (req, res) => {
 // `occasionIdCache` as a side effect so subsequent
 // `/api/woo/occasion-products` calls for the same slug are cheaper.
 router.get("/woo/occasion", async (req, res) => {
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
@@ -772,6 +1074,25 @@ router.get("/woo/occasion", async (req, res) => {
   if (!OCCASION_SLUGS.includes(slug)) {
     return res.status(404).json({ ok: false, message: "Occasion not found" });
   }
+
+  // Serve from OS cache when available.
+  const osOccasions = getOsOccasions();
+  if (osOccasions) {
+    const o = osOccasions.find((occ) => occ.slug === slug);
+    if (!o) return res.status(404).json({ ok: false, message: "Occasion not found" });
+    return res.json({
+      ok: true,
+      occasion: {
+        id: o.id,
+        name: o.name,
+        slug: o.slug,
+        description: "",
+        image: null,
+      },
+    });
+  }
+
+  const store = resolveStoreFromRequest(req);
   try {
     const lang = readLang(req);
     const r = await wooFetch(
@@ -1217,9 +1538,8 @@ router.get("/woo/search", async (req, res) => {
   const lower = q.toLowerCase();
 
   const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
-  }
+  // No WC credential guard here — fetchAllProducts handles OS → static
+  // catalog → WC without requiring WC credentials to be configured.
   try {
     const lang = readLang(req);
     const allProducts = await fetchAllProducts(lang, store);

@@ -1,4 +1,10 @@
-import type { OSLocationsResponse } from "./types";
+import type {
+  OSLocationsResponse,
+  OSProductsResponse,
+  OSCategoriesResponse,
+  OSBrandsResponse,
+  OSOccasionsResponse,
+} from "./types";
 
 const DEFAULT_BASE_URL = "https://os.presentail.com";
 const DEFAULT_WORKSPACE = "presentail";
@@ -70,4 +76,155 @@ export async function fetchOsLocations(
   }
 
   return legacyRes.json() as Promise<OSLocationsResponse>;
+}
+
+/**
+ * Fetch the full product catalog from Presentail OS.
+ *
+ * Tries `/api/products` first (primary endpoint). Falls back to
+ * `/api/stickers` for legacy OS deployments that use the older path.
+ *
+ * Throws if both endpoints fail or the API key is absent.
+ * The caller is responsible for graceful fallback (e.g. WooCommerce).
+ *
+ * @param countryCode  Optional ISO 3166-1 alpha-2 to filter by country (uppercase).
+ * @param cityId       Optional city id to filter by city.
+ * @param lang         BCP-47 language tag (default "en").
+ */
+export async function fetchOsProducts(
+  config: PresentailOsConfig,
+  opts: { countryCode?: string; cityId?: string; lang?: string } = {},
+): Promise<OSProductsResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+  const { lang = "en" } = opts;
+
+  if (!apiKey) {
+    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsProducts.");
+  }
+
+  async function tryProductFetch(path: string): Promise<Response> {
+    const url = new URL(`${baseUrl}${path}`);
+    url.searchParams.set("workspace", workspace);
+    url.searchParams.set("apiKey", apiKey);
+    if (opts.countryCode) url.searchParams.set("countryCode", opts.countryCode);
+    if (opts.cityId) url.searchParams.set("cityId", opts.cityId);
+    if (lang !== "en") url.searchParams.set("lang", lang);
+    return fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "PresentailApp/1.0",
+        "x-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  }
+
+  // Primary endpoint: /api/products
+  let res = await tryProductFetch("/api/products");
+  if (res.ok) {
+    const body = (await res.json()) as OSProductsResponse;
+    if (Array.isArray(body.products)) return body;
+  }
+
+  // Fallback: /api/stickers (legacy OS path)
+  res = await tryProductFetch("/api/stickers");
+  if (!res.ok) {
+    throw new Error(`Presentail OS products API returned HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as OSProductsResponse;
+  // The stickers endpoint may wrap products under a different key.
+  if (!Array.isArray(body.products)) {
+    throw new Error("Presentail OS products API: unexpected response shape");
+  }
+  return body;
+}
+
+/**
+ * Fetch product categories from Presentail OS.
+ * Throws on failure — caller handles graceful fallback.
+ */
+export async function fetchOsCategories(
+  config: PresentailOsConfig,
+): Promise<OSCategoriesResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey) {
+    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsCategories.");
+  }
+
+  const url = new URL(`${baseUrl}/api/categories`);
+  url.searchParams.set("workspace", workspace);
+  url.searchParams.set("apiKey", apiKey);
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Presentail OS categories API returned HTTP ${res.status}`);
+  }
+  return res.json() as Promise<OSCategoriesResponse>;
+}
+
+/**
+ * Fetch brands from Presentail OS.
+ * Throws on failure — caller handles graceful fallback.
+ */
+export async function fetchOsBrands(
+  config: PresentailOsConfig,
+): Promise<OSBrandsResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey) {
+    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsBrands.");
+  }
+
+  const url = new URL(`${baseUrl}/api/brands`);
+  url.searchParams.set("workspace", workspace);
+  url.searchParams.set("apiKey", apiKey);
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Presentail OS brands API returned HTTP ${res.status}`);
+  }
+  return res.json() as Promise<OSBrandsResponse>;
+}
+
+/**
+ * Fetch occasions from Presentail OS.
+ * Throws on failure — caller handles graceful fallback.
+ */
+export async function fetchOsOccasions(
+  config: PresentailOsConfig,
+): Promise<OSOccasionsResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey) {
+    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsOccasions.");
+  }
+
+  const url = new URL(`${baseUrl}/api/occasions`);
+  url.searchParams.set("workspace", workspace);
+  url.searchParams.set("apiKey", apiKey);
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Presentail OS occasions API returned HTTP ${res.status}`);
+  }
+  return res.json() as Promise<OSOccasionsResponse>;
 }

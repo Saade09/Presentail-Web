@@ -48,3 +48,79 @@ export type OSExpressConfig = {
   expressAvailable?: boolean;
   sameDayCutoffHour?: number;
 };
+
+// ── Product catalog types ──────────────────────────────────────────────────
+
+export type OSProductImage = {
+  url: string;
+  alt?: string;
+};
+
+export type OSProductCategory = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
+export type OSProductBrand = {
+  id: string;
+  slug: string;
+  name: string;
+  image?: string | null;
+  description?: string;
+};
+
+export type OSProductOccasion = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
+/**
+ * A product as returned by the Presentail OS catalog API.
+ *
+ * `id` is the slug used as the product identifier throughout the app.
+ * `wcId` is the WooCommerce numeric id — required for order line items
+ * until Phase 3 removes WooCommerce entirely.
+ * `price` is always in USD (the WC base currency).
+ */
+export type OSProduct = {
+  id: string;
+  wcId?: number;
+  name: string;
+  price: number;
+  description?: string;
+  images: OSProductImage[];
+  inStock: boolean;
+  featured?: boolean;
+  totalSales?: number;
+  categories: OSProductCategory[];
+  occasions: OSProductOccasion[];
+  brands: OSProductBrand[];
+  /**
+   * When present, product is only deliverable to these ISO country codes
+   * (uppercase, e.g. ["LB","AE"]). Absent means deliverable everywhere.
+   */
+  deliverableCountries?: string[];
+  /**
+   * When present, product is only deliverable to these city ids
+   * (e.g. ["lb-beirut","ae-dubai"]). Absent means all cities in the country.
+   */
+  deliverableCities?: string[];
+};
+
+export type OSProductsResponse = {
+  products: OSProduct[];
+};
+
+export type OSCategoriesResponse = {
+  categories: OSProductCategory[];
+};
+
+export type OSBrandsResponse = {
+  brands: OSProductBrand[];
+};
+
+export type OSOccasionsResponse = {
+  occasions: OSProductOccasion[];
+};

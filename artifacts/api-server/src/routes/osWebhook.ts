@@ -29,6 +29,7 @@ import {
   storeLocationsFromWebhook,
   invalidateOsLocationsCache,
 } from "../lib/osLocationsCache";
+import { invalidateOsProductsCache } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -54,19 +55,42 @@ router.post("/os/webhook", (req, res) => {
   const body = req.body as OSLocationsResponse | undefined;
 
   if (body && Array.isArray(body.countries) && body.countries.length > 0) {
-    // OS pushed a full payload — store it directly without a round-trip poll.
+    // OS pushed a full locations payload — store it directly without a round-trip poll.
     storeLocationsFromWebhook(body);
     req.log.info(
       { countryCount: body.countries.length },
       "osWebhook: locations stored from OS push",
     );
   } else {
-    // Empty body or ping-only notification — trigger a fresh pull instead.
+    // Empty body or ping-only notification — trigger a fresh pull for both
+    // locations and products.
     invalidateOsLocationsCache();
     req.log.info("osWebhook: empty body — cache invalidated, fresh fetch queued");
   }
 
+  // Always invalidate the products cache on any webhook call — product changes
+  // in OS emit the same webhook as location changes (or a standalone ping).
+  invalidateOsProductsCache();
+  req.log.info("osWebhook: products cache invalidated");
+
   return res.json({ ok: true });
+});
+
+router.post("/os/sync/products", (req, res) => {
+  const adminToken = process.env.PUSH_ADMIN_TOKEN ?? "";
+  const provided = req.headers["x-push-admin-token"] ?? "";
+
+  if (!adminToken) {
+    return res.status(503).json({ ok: false, message: "Admin token not configured" });
+  }
+
+  if (provided !== adminToken) {
+    return res.status(401).json({ ok: false, message: "Unauthorized" });
+  }
+
+  invalidateOsProductsCache();
+  req.log.info("osWebhook: products cache invalidated via manual sync trigger");
+  return res.json({ ok: true, message: "Products cache invalidated — fresh fetch queued" });
 });
 
 router.post("/os/sync/locations", (req, res) => {

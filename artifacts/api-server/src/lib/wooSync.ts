@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db, pushTokensTable } from "@workspace/db";
 import { logger } from "./logger";
-import { resolveStore, type WooStoreConfig } from "./wooStore";
+import { resolveStore, type StoreKey, type WooStoreConfig } from "./wooStore";
 import { sendExpoPush, type ExpoPushMessage } from "./expoPush";
 import { reconcileCustomersForStore } from "./customerSync";
 import {
@@ -10,6 +10,10 @@ import {
 } from "../routes/woo";
 import { refreshHomepageCollectionsForStore } from "../routes/homepage";
 import { refreshHomepageBanners } from "../data/homepageBanners";
+import {
+  invalidateOsProductsCache,
+  getOsProductHash,
+} from "./osProductsCache";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -37,14 +41,16 @@ type Lang = (typeof LANGS)[number];
 // scheduled refresh requirement at this time.
 type StoreSpec = {
   key: "LB" | "AE-DUBAI" | "AE-ABUDHABI";
+  storeKey: StoreKey;
   countryCode: "LB" | "AE";
   resolve: () => WooStoreConfig;
 };
 const STORES: StoreSpec[] = [
-  { key: "LB", countryCode: "LB", resolve: () => resolveStore("LB", null) },
-  { key: "AE-DUBAI", countryCode: "AE", resolve: () => resolveStore("AE", "ae-dubai") },
+  { key: "LB", storeKey: "lebanon", countryCode: "LB", resolve: () => resolveStore("LB", null) },
+  { key: "AE-DUBAI", storeKey: "dubai", countryCode: "AE", resolve: () => resolveStore("AE", "ae-dubai") },
   {
     key: "AE-ABUDHABI",
+    storeKey: "abudhabi",
     countryCode: "AE",
     resolve: () => resolveStore("AE", "ae-abu-dhabi"),
   },
@@ -56,6 +62,7 @@ type Snapshot = {
   productHash: string;
   categoryIds: string;
   occasionIds: string;
+  osProductHash: string;
 };
 const lastSnapshot = new Map<StoreSpec["key"], Snapshot>();
 let timer: NodeJS.Timeout | null = null;
@@ -209,6 +216,20 @@ async function syncOneStore(
       );
     }
 
+    // Trigger an OS products cache refresh once per sync cycle (only for the
+    // first store processed — invalidateOsProductsCache refetches all country
+    // product lists in one pass, so calling it once is sufficient).
+    if (spec.key === "LB") {
+      try {
+        invalidateOsProductsCache();
+      } catch (err: any) {
+        logger.warn(
+          { err: err?.message },
+          "wooSync: OS products cache invalidation failed",
+        );
+      }
+    }
+
     try {
       reconciledCustomers = await reconcileCustomersForStore(store);
     } catch (err: any) {
@@ -225,13 +246,17 @@ async function syncOneStore(
     return;
   }
 
-  const snapshot: Snapshot = { productHash, categoryIds, occasionIds };
+  // Use spec.storeKey ("lebanon"/"dubai"/"abudhabi") as the per-store OS
+  // cache key so Dubai and Abu Dhabi product changes are detected separately.
+  const osProductHash = getOsProductHash(spec.storeKey);
+  const snapshot: Snapshot = { productHash, categoryIds, occasionIds, osProductHash };
   const prev = lastSnapshot.get(spec.key);
   const contentChanged =
     !!prev &&
     (prev.productHash !== snapshot.productHash ||
       prev.categoryIds !== snapshot.categoryIds ||
-      prev.occasionIds !== snapshot.occasionIds);
+      prev.occasionIds !== snapshot.occasionIds ||
+      prev.osProductHash !== snapshot.osProductHash);
   lastSnapshot.set(spec.key, snapshot);
 
   const shouldPush =

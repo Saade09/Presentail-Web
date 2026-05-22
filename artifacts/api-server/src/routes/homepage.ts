@@ -58,6 +58,7 @@ type WcCategoryRaw = {
 
 import { resolveStore, type WooStoreConfig } from "../lib/wooStore";
 import { logger } from "../lib/logger";
+import { getOsCategories, getOsOccasions } from "../lib/osProductsCache";
 
 async function wooGet<T>(path: string, store?: WooStoreConfig): Promise<T> {
   const s = store ?? resolveStore();
@@ -190,6 +191,64 @@ const PRODUCT_TYPE_SLUGS = new Set([
   "gift-bundles", "baskets", "spirits", "gaming",
   "summer-collection",
 ]);
+
+// ── Presentail OS-backed collection builders ─────────────────────────────
+//
+// When the OS products cache is populated these functions build the homepage
+// categories / occasions carousel from OS data rather than WooCommerce. This
+// eliminates the WC network round-trips for every homepage load and makes the
+// navigation data consistent with the OS-sourced product listings.
+
+function buildOsCategories(): HomepageCollectionItem[] | null {
+  const osCategories = getOsCategories();
+  if (!osCategories || osCategories.length === 0) return null;
+  return osCategories
+    .filter((c) => PRODUCT_TYPE_SLUGS.has(c.slug) && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
+    .map((c, i) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      imageUrl: "",
+      sortOrder: i,
+      isActive: true,
+    }));
+}
+
+function buildOsOccasions(): HomepageCollectionItem[] | null {
+  const osOccasions = getOsOccasions();
+  if (!osOccasions || osOccasions.length === 0) return null;
+  // Preserve DEFAULT_OCCASION_SLUGS ordering and filter to known occasions.
+  const bySlug = new Map(osOccasions.map((o) => [o.slug, o]));
+  const result: HomepageCollectionItem[] = [];
+  for (const slug of DEFAULT_OCCASION_SLUGS) {
+    const o = bySlug.get(slug);
+    if (!o) continue;
+    result.push({
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      imageUrl: "",
+      sortOrder: result.length,
+      isActive: true,
+    });
+  }
+  // Append any OS occasions not in DEFAULT_OCCASION_SLUGS.
+  for (const o of osOccasions) {
+    if (bySlug.has(o.slug) && !DEFAULT_OCCASION_SLUGS.includes(o.slug)) {
+      result.push({
+        id: o.id,
+        name: o.name,
+        slug: o.slug,
+        imageUrl: "",
+        sortOrder: result.length,
+        isActive: true,
+      });
+    }
+  }
+  return result.length > 0 ? result : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function fetchTopLevelCategories(store: WooStoreConfig): Promise<HomepageCollectionItem[]> {
   if (!store.consumerKey) return [];
@@ -471,6 +530,20 @@ function mergeSummerCollection(
 
 router.get("/homepage/categories", async (req, res) => {
   const store = resolveStoreFromRequest(req);
+
+  // Phase 2: serve from OS categories cache when available. This is
+  // synchronous (no WC network call) and consistent with OS-sourced product
+  // listings on all other routes.
+  const osCats = buildOsCategories();
+  if (osCats && osCats.length > 0) {
+    const summer = await getSummerCollectionEntry(store, req.log);
+    const fallbackImageUrl = resolveAssetUrl(req, SUMMER_COLLECTION_FALLBACK_ASSET_PATH);
+    const merged = mergeSummerCollection(osCats, summer, fallbackImageUrl);
+    const data = GetHomepageCategoriesResponse.parse({ items: merged });
+    return res.json(data);
+  }
+
+  // Fallback: WooCommerce-backed path (used when OS is not yet populated).
   const [items, summer] = await Promise.all([
     getCollection(
       `categories::${store.baseUrl}`,
@@ -487,11 +560,20 @@ router.get("/homepage/categories", async (req, res) => {
   );
   const merged = mergeSummerCollection(items, summer, fallbackImageUrl);
   const data = GetHomepageCategoriesResponse.parse({ items: merged });
-  res.json(data);
+  return res.json(data);
 });
 
 router.get("/homepage/occasions", async (req, res) => {
   const store = resolveStoreFromRequest(req);
+
+  // Phase 2: serve from OS occasions cache when available.
+  const osOcc = buildOsOccasions();
+  if (osOcc && osOcc.length > 0) {
+    const data = GetHomepageOccasionsResponse.parse({ items: osOcc });
+    return res.json(data);
+  }
+
+  // Fallback: WooCommerce-backed path (used when OS is not yet populated).
   const items = await getCollection(
     `occasions::${store.baseUrl}`,
     "home-occasions",
@@ -500,7 +582,7 @@ router.get("/homepage/occasions", async (req, res) => {
     store,
   );
   const data = GetHomepageOccasionsResponse.parse({ items });
-  res.json(data);
+  return res.json(data);
 });
 
 // Force-refresh the homepage Categories + Occasions caches for a given

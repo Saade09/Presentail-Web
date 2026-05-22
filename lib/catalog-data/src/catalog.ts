@@ -1,3 +1,9 @@
+// @deprecated Phase 2 — this static product catalog is now the emergency
+// fallback only. The Presentail OS product cache (osProductsCache.ts) is the
+// primary source of truth for all product listings, categories, occasions,
+// and brands. This file is only consulted when OS is unreachable at startup
+// and the background poller has not yet made a successful fetch.
+// Do not add new products here; add them in Presentail OS instead.
 import type {
   Brand,
   CatalogReview,
