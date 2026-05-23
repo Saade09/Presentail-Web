@@ -12,8 +12,15 @@ type Props = {
 export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
+    <div>
+      <h1
+        className="font-serif text-3xl md:text-4xl leading-tight text-foreground mb-3"
+        data-testid="product-title"
+      >
+        {name}
+      </h1>
+
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-baseline gap-3">
           <span
             className="font-serif text-2xl md:text-3xl text-foreground"
@@ -25,30 +32,24 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
             {taxLabel}
           </span>
         </div>
-        <h1
-          className="mt-1 font-serif text-3xl md:text-4xl leading-tight text-foreground"
-          data-testid="product-title"
-        >
-          {name}
-        </h1>
-      </div>
 
-      <div className="text-right shrink-0">
-        <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-          <span className="w-7 h-7 rounded-full bg-gold flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-          </span>
-          <span data-testid="product-points">Earn {rewardPoints} Points</span>
-        </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="block mt-1 text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline ml-auto"
+          className="flex items-center gap-1.5 shrink-0"
           data-testid="product-points-info"
+          aria-label="Learn about Presentail Points"
         >
-          Presentail Points
+          <Sparkles className="w-3.5 h-3.5 text-gold" />
+          <span
+            className="text-xs font-semibold text-gold"
+            data-testid="product-points"
+          >
+            Earn {rewardPoints} Points
+          </span>
         </button>
       </div>
+
       <LoyaltyInfoModal open={open} onClose={() => setOpen(false)} />
     </div>
   );
