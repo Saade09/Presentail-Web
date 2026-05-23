@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.presentail.lb",
+      "sha256_cert_fingerprints": [
+        "08:18:59:7B:09:7B:63:B2:AE:C2:A6:2B:F6:79:F5:78:A7:CC:51:03:D2:39:39:70:6A:93:84:57:41:5A:BC:74"
+      ]
+    }
+  }
+]

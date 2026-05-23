@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "4DR9CS3387.presentail",
+        "paths": ["/product/*"]
+      }
+    ]
+  }
+}

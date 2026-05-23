@@ -1,9 +1,13 @@
 // Translates inbound URLs (custom-scheme deep links and universal/app links)
-// into Expo Router paths. WordPress's password-reset email links are of the
-// form `<wp-host>/wp-login.php?action=rp&key=...&login=...`. When such a URL
-// reaches the app (via the `presentail://` scheme, a paste-bridge route, or a
-// universal link configured for the WP host), forward it to the in-app reset
-// screen so the user never sees the WordPress web form.
+// into Expo Router paths.
+//
+// Handled patterns:
+//   1. Product universal links — `presentail.com/product/<slug>` (iOS Universal
+//      Links / Android App Links) → `/product/<slug>` so the recipient lands
+//      directly on the product detail screen when the app is installed.
+//   2. WordPress password-reset links — `<wp-host>/wp-login.php?action=rp&key=
+//      ...&login=...` → `/reset-password?key=...&login=...` so the user never
+//      sees the WordPress web form.
 
 export function redirectSystemPath({
   path,
@@ -13,6 +17,15 @@ export function redirectSystemPath({
 }): string {
   try {
     const url = new URL(path, "presentail://_/");
+
+    // Product universal/app links: presentail.com/product/<slug>
+    const productMatch = /^\/product\/([^/?#]+)/.exec(url.pathname);
+    if (productMatch) {
+      const slug = decodeURIComponent(productMatch[1]);
+      return `/product/${encodeURIComponent(slug)}`;
+    }
+
+    // WordPress password-reset links.
     const action = url.searchParams.get("action");
     const key = url.searchParams.get("key");
     const login = url.searchParams.get("login");

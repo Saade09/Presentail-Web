@@ -94,12 +94,23 @@ const server = http.createServer(async (req, res) => {
         baseName === "site.webmanifest" ||
         /^favicon-\d+x\d+\.png$/.test(baseName) ||
         /^android-chrome-\d+x\d+\.png$/.test(baseName);
-      const cacheControl = isIconAsset
-        ? "public, max-age=86400, must-revalidate"
-        : "public, max-age=31536000, immutable";
+      // .well-known files (AASA, assetlinks) must be re-fetched regularly so
+      // OS verifiers pick up updates; don't cache them for more than an hour.
+      const isWellKnown = filePath.includes(`${path.sep}.well-known${path.sep}`);
+      const cacheControl = isWellKnown
+        ? "public, max-age=3600, must-revalidate"
+        : isIconAsset
+          ? "public, max-age=86400, must-revalidate"
+          : "public, max-age=31536000, immutable";
+      // apple-app-site-association has no extension — serve it as JSON so
+      // Apple's CDN crawler accepts it. assetlinks.json already has .json.
+      const contentType =
+        baseName === "apple-app-site-association"
+          ? "application/json; charset=utf-8"
+          : (MIME[ext] ?? "application/octet-stream");
       const stream = fs.createReadStream(filePath);
       res.writeHead(200, {
-        "content-type": MIME[ext] ?? "application/octet-stream",
+        "content-type": contentType,
         "cache-control": cacheControl,
       });
       stream.pipe(res);
