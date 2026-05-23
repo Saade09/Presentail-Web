@@ -4,11 +4,6 @@ import { logger } from "./logger";
 import { resolveStore, type StoreKey, type WooStoreConfig } from "./wooStore";
 import { sendExpoPush, type ExpoPushMessage } from "./expoPush";
 import { reconcileCustomersForStore } from "./customerSync";
-import {
-  fetchAllProducts,
-  refreshOccasionIdsForStore,
-} from "../routes/woo";
-import { refreshHomepageCollectionsForStore } from "../routes/homepage";
 import { refreshHomepageBanners } from "../data/homepageBanners";
 import {
   invalidateOsProductsCache,
@@ -34,9 +29,6 @@ const INTERVAL_MS = (() => {
   return raw;
 })();
 
-const LANGS = ["en", "ar", "fr"] as const;
-type Lang = (typeof LANGS)[number];
-
 // Cyprus is intentionally excluded: it has its own catalogue and no
 // scheduled refresh requirement at this time.
 type StoreSpec = {
@@ -59,9 +51,6 @@ const STORES: StoreSpec[] = [
 // ── Module state ───────────────────────────────────────────────────────────
 
 type Snapshot = {
-  productHash: string;
-  categoryIds: string;
-  occasionIds: string;
   osProductHash: string;
 };
 const lastSnapshot = new Map<StoreSpec["key"], Snapshot>();
@@ -99,13 +88,6 @@ export async function runWooSyncOnce(
 
     for (const spec of STORES) {
       const store = spec.resolve();
-      if (!store.consumerKey) {
-        logger.warn(
-          { storeKey: spec.key },
-          "wooSync: store not configured (missing WC keys), skipping",
-        );
-        continue;
-      }
       await syncOneStore(spec, store, { bannersChanged, pushOnChange });
     }
 
@@ -164,58 +146,9 @@ async function syncOneStore(
   ctx: { bannersChanged: boolean; pushOnChange: boolean },
 ): Promise<void> {
   const t0 = Date.now();
-  let productCount = 0;
-  let categoryIds = "";
-  let occasionIds = "";
-  let productHash = "";
   let reconciledCustomers = 0;
 
   try {
-    // Refresh the all-products cache for every supported language so the
-    // next /api/woo/products read is warm regardless of locale.
-    for (const lang of LANGS) {
-      try {
-        const products = await fetchAllProducts(lang as Lang, store, {
-          force: true,
-        });
-        if (lang === "en") {
-          productCount = products.length;
-          productHash = products
-            .map(
-              (p: any) =>
-                `${p.id}:${p.price ?? ""}:${p.stock_status ?? ""}`,
-            )
-            .sort()
-            .join("|");
-        }
-      } catch (err: any) {
-        logger.warn(
-          { err: err?.message, storeKey: spec.key, lang },
-          "wooSync: fetchAllProducts failed",
-        );
-      }
-    }
-
-    try {
-      const refreshed = await refreshHomepageCollectionsForStore(store);
-      categoryIds = refreshed.categories.map((c) => c.id).sort().join(",");
-      occasionIds = refreshed.occasions.map((c) => c.id).sort().join(",");
-    } catch (err: any) {
-      logger.warn(
-        { err: err?.message, storeKey: spec.key },
-        "wooSync: refreshHomepageCollectionsForStore failed",
-      );
-    }
-
-    try {
-      await refreshOccasionIdsForStore(store);
-    } catch (err: any) {
-      logger.warn(
-        { err: err?.message, storeKey: spec.key },
-        "wooSync: refreshOccasionIdsForStore failed",
-      );
-    }
-
     // Trigger an OS products cache refresh once per sync cycle (only for the
     // first store processed — invalidateOsProductsCache refetches all country
     // product lists in one pass, so calling it once is sufficient).
@@ -230,13 +163,16 @@ async function syncOneStore(
       }
     }
 
-    try {
-      reconciledCustomers = await reconcileCustomersForStore(store);
-    } catch (err: any) {
-      logger.warn(
-        { err: err?.message, storeKey: spec.key },
-        "wooSync: reconcileCustomersForStore failed",
-      );
+    // Customer reconciliation still requires WooCommerce credentials.
+    if (store.consumerKey) {
+      try {
+        reconciledCustomers = await reconcileCustomersForStore(store);
+      } catch (err: any) {
+        logger.warn(
+          { err: err?.message, storeKey: spec.key },
+          "wooSync: reconcileCustomersForStore failed",
+        );
+      }
     }
   } catch (err: any) {
     logger.error(
@@ -249,14 +185,9 @@ async function syncOneStore(
   // Use spec.storeKey ("lebanon"/"dubai"/"abudhabi") as the per-store OS
   // cache key so Dubai and Abu Dhabi product changes are detected separately.
   const osProductHash = getOsProductHash(spec.storeKey);
-  const snapshot: Snapshot = { productHash, categoryIds, occasionIds, osProductHash };
+  const snapshot: Snapshot = { osProductHash };
   const prev = lastSnapshot.get(spec.key);
-  const contentChanged =
-    !!prev &&
-    (prev.productHash !== snapshot.productHash ||
-      prev.categoryIds !== snapshot.categoryIds ||
-      prev.occasionIds !== snapshot.occasionIds ||
-      prev.osProductHash !== snapshot.osProductHash);
+  const contentChanged = !!prev && prev.osProductHash !== snapshot.osProductHash;
   lastSnapshot.set(spec.key, snapshot);
 
   const shouldPush =
@@ -265,9 +196,6 @@ async function syncOneStore(
   logger.info(
     {
       storeKey: spec.key,
-      productCount,
-      categoryCount: categoryIds ? categoryIds.split(",").length : 0,
-      occasionCount: occasionIds ? occasionIds.split(",").length : 0,
       reconciledCustomers,
       contentChanged,
       bannersChanged: ctx.bannersChanged,

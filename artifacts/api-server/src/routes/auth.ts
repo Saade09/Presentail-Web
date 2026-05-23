@@ -222,6 +222,14 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
 
   const result = await classifyAuthExists({
     email,
+    localLookup: async (e) => {
+      const rows = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.email, e))
+        .limit(1);
+      return rows.length > 0;
+    },
     wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
     wcFetch: (path, init) => wcFetch(path, init, req),
     wpFetch: (path, init) => wpFetch(path, init, req),
@@ -296,6 +304,14 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
 
   const lookup = await classifyAuthExists({
     email,
+    localLookup: async (e) => {
+      const rows = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.email, e))
+        .limit(1);
+      return rows.length > 0;
+    },
     wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
     wcFetch: (path, init) => wcFetch(path, init, req),
     wpFetch: (path, init) => wpFetch(path, init, req),

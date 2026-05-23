@@ -35,10 +35,6 @@ import {
   getOsProductBySlug,
 } from "../lib/osProductsCache";
 import type { OSProduct } from "@workspace/presentail-os";
-import {
-  products as STATIC_CATALOG_PRODUCTS,
-} from "@workspace/catalog-data";
-import type { Product as CatalogDataProduct } from "@workspace/catalog-data";
 
 const router: IRouter = Router();
 
@@ -95,56 +91,6 @@ type WcCategory = {
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
-
-// ── Static catalog → WcProduct adapter ────────────────────────────────────
-//
-// Converts a lib/catalog-data Product to the internal WcProduct shape so it
-// can flow through the isVisibleProduct / isDeliverable / transformProduct
-// pipeline unchanged. Used as the emergency fallback when OS is unreachable.
-// Static products are always shown as in-stock. CatalogImageRef of type
-// `{ asset }` has no absolute URL in the API server context, so those are
-// omitted from the images array (the client falls back to its bundled asset).
-function mapStaticProductToWcShape(p: CatalogDataProduct): WcProduct {
-  const imageRef = p.image;
-  const imageSrc =
-    imageRef && "uri" in imageRef && imageRef.uri ? imageRef.uri : undefined;
-
-  const categories: WcProductCategory[] = [
-    { id: 1, name: p.category, slug: p.category },
-    ...(p.occasions ?? []).map((slug: string, i: number) => ({
-      id: 10000 + i,
-      name: slug,
-      slug,
-    })),
-  ];
-
-  return {
-    id: p.wcId ?? 0,
-    slug: p.id,
-    name: p.name,
-    price: String(p.priceValue),
-    short_description: p.description,
-    stock_status: "instock",
-    featured: p.tag === "Bestseller" || p.tag === "Signature",
-    total_sales: 0,
-    images: imageSrc ? [{ src: imageSrc }] : [],
-    categories,
-    meta_data: [],
-  };
-}
-
-// Return a deduplicated copy of the static catalog as WcProducts (slug is
-// the stable key; first occurrence wins when slugs collide).
-function getStaticCatalogAsWcProducts(): WcProduct[] {
-  const seen = new Set<string>();
-  const result: WcProduct[] = [];
-  for (const p of STATIC_CATALOG_PRODUCTS) {
-    if (seen.has(p.id)) continue;
-    seen.add(p.id);
-    result.push(mapStaticProductToWcShape(p));
-  }
-  return result;
-}
 
 // ── Presentail OS → WcProduct adapter ─────────────────────────────────────
 //
@@ -832,16 +778,7 @@ export async function fetchAllProducts(
     return promise;
   }
 
-  // ── 3. Static catalog (emergency last-resort: OS + WC both unavailable) ──
-  //
-  // Static products have wcId=0; they are display-only — checkout will reject
-  // them gracefully with "product not found in catalog". This path is only
-  // reached when WC credentials are not configured AND OS hasn't responded.
-  if (!opts.force) {
-    return getStaticCatalogAsWcProducts();
-  }
-
-  return []; // force=true, no WC configured — nothing to do
+  return []; // WC not configured and no force — nothing to return
 }
 
 router.get("/woo/products", async (req, res) => {
@@ -1538,8 +1475,8 @@ router.get("/woo/search", async (req, res) => {
   const lower = q.toLowerCase();
 
   const store = resolveStoreFromRequest(req);
-  // No WC credential guard here — fetchAllProducts handles OS → static
-  // catalog → WC without requiring WC credentials to be configured.
+  // No WC credential guard here — fetchAllProducts handles OS → WC
+  // without requiring WC credentials when OS products are available.
   try {
     const lang = readLang(req);
     const allProducts = await fetchAllProducts(lang, store);

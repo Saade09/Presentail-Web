@@ -6,12 +6,13 @@ import { logger } from "./logger";
 /**
  * The set of distinct outcomes the `/auth/exists` lookup can resolve to.
  *
+ *   - `exists_true_local`      → email found in the local `customers` table
+ *                                (fastest path — no upstream call needed).
  *   - `exists_true_wc`         → WooCommerce returned a customer row.
  *   - `exists_true_wp_probe`   → no WC row but the JWT plugin reported the
  *                                user exists (`incorrect_password`).
- *   - `exists_false`           → no WC row AND the JWT plugin confirmed the
- *                                user does not exist (`invalid_email` /
- *                                `invalid_username` / `invalid_user`).
+ *   - `exists_false`           → no local row, no WC row, AND the JWT plugin
+ *                                confirmed the user does not exist.
  *   - `invalid_email`          → input failed local validation.
  *   - `wc_not_configured`      → server has no WC consumer key — the lookup
  *                                cannot run at all (treated as inconclusive).
@@ -26,6 +27,7 @@ import { logger } from "./logger";
  * other than `exists_true_*` / `exists_false` / `invalid_email`.
  */
 export type AuthExistsOutcome =
+  | "exists_true_local"
   | "exists_true_wc"
   | "exists_true_wp_probe"
   | "exists_false"
@@ -72,6 +74,12 @@ export type FetchLike = (
 
 export type ClassifyAuthExistsDeps = {
   email: string;
+  /**
+   * Optional local DB check. When provided and it returns `true`, the
+   * classifier short-circuits with `exists_true_local` and skips all
+   * upstream calls — this is the fastest and most reliable path.
+   */
+  localLookup?: (email: string) => Promise<boolean>;
   /** WooCommerce REST configured? Pass `false` to skip the WC lookup. */
   wcConfigured: boolean;
   wcFetch: FetchLike;
@@ -89,6 +97,18 @@ export type ClassifyAuthExistsDeps = {
 export async function classifyAuthExists(
   deps: ClassifyAuthExistsDeps,
 ): Promise<AuthExistsResult> {
+  // 0) Local DB — fastest path, no upstream call needed.
+  if (deps.localLookup) {
+    try {
+      const found = await deps.localLookup(deps.email);
+      if (found) {
+        return { outcome: "exists_true_local", exists: true };
+      }
+    } catch {
+      // Non-fatal: fall through to WC lookup.
+    }
+  }
+
   if (!deps.wcConfigured) {
     return {
       outcome: "wc_not_configured",

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Presentail Lebanon is a luxury flower and gift delivery storefront with an Expo mobile app, a Vite web storefront, and an Express 5 API server in a pnpm TypeScript monorepo. The API proxies product, customer, and order operations to the production WooCommerce/WordPress store, creates hosted payment sessions with Stripe, Mamo, and PayPal, manages Expo push tokens in PostgreSQL via Drizzle ORM, and validates WordPress or server-issued JWTs for account operations.
+Presentail Lebanon is a luxury flower and gift delivery storefront with an Expo mobile app, a Vite web storefront, and an Express 5 API server in a pnpm TypeScript monorepo. Product catalog data (listings, categories, occasions, brands) is served from the Presentail OS API (`os.presentail.com`). The API submits orders to WooCommerce and validates customer identity via WordPress JWT for mobile auth; these WooCommerce/WordPress dependencies are retained pending Presentail OS order/auth endpoints. The API creates hosted payment sessions with Stripe, Mamo, and PayPal, manages Expo push tokens in PostgreSQL via Drizzle ORM, and validates WordPress or server-issued JWTs for account operations.
 
 ## Assets
 
@@ -15,7 +15,8 @@ Presentail Lebanon is a luxury flower and gift delivery storefront with an Expo 
 ## Trust Boundaries
 
 - **Browser/mobile client to Express API** -- all client requests are untrusted. The API must validate authentication, authorization, payment state, prices, quantities, URLs, and delivery fees server-side.
-- **Express API to WooCommerce/WordPress** -- the API calls WooCommerce and WordPress with privileged REST credentials. Any route that forwards client data to WooCommerce must prevent attackers from creating, modifying, or reading store records outside intended flows.
+- **Express API to Presentail OS** -- product listings, categories, occasions, and brands are fetched from `os.presentail.com` and cached in-process. The cache is the authoritative price/availability source; client-supplied product data must never override it for pricing or availability decisions.
+- **Express API to WooCommerce/WordPress** -- the API calls WooCommerce and WordPress for order submission and mobile JWT authentication. Any route that forwards client data to WooCommerce must prevent attackers from creating, modifying, or reading store records outside intended flows.
 - **Express API to payment providers** -- the API uses server-side payment secrets to create hosted sessions/orders. Amounts, currency, return URLs, and payment completion state must be derived or verified server-side rather than trusted from the client.
 - **Express API to PostgreSQL** -- push-token, app-order, and reconciliation tables store production operational data. Queries must remain parameterized and row ownership must be enforced in route handlers.
 - **Public to authenticated account boundary** -- `/auth/me`, push-token ownership changes, and account deletion require validated WordPress or server-issued JWTs. Public auth endpoints such as login/register/reset must not leak secrets or enable abuse.
@@ -40,7 +41,7 @@ Attackers may attempt to impersonate users by forging WordPress JWTs, server-iss
 
 ### Tampering
 
-Checkout and order creation cross a major trust boundary because clients send cart items, prices, delivery fees, currencies, payment references, and hosted-payment return URLs. The server must derive product prices and delivery fees from trusted catalog/location data, create payment sessions for those trusted totals, verify payment completion with the payment provider before marking a WooCommerce order paid, and restrict payment return/deep-link targets to expected schemes and hosts.
+Checkout and order creation cross a major trust boundary because clients send cart items, prices, delivery fees, currencies, payment references, and hosted-payment return URLs. The server must derive product prices and delivery fees from the Presentail OS product cache and trusted location data (never from client-supplied values), create payment sessions for those trusted totals, verify payment completion with the payment provider before marking a WooCommerce order paid, and restrict payment return/deep-link targets to expected schemes and hosts.
 
 ### Information Disclosure
 
@@ -48,7 +49,7 @@ The API handles customer PII, order payloads, payment references, and push token
 
 ### Denial of Service
 
-Public auth, product, checkout, payment, and order endpoints can be called by unauthenticated clients. The API should bound request body sizes, validate array lengths and numeric ranges, use caching/in-flight de-duplication for expensive WooCommerce reads, apply timeouts/backoff for external calls, and rate-limit high-abuse endpoints such as login, registration, reset, payment session creation, and order creation.
+Public auth, product, checkout, payment, and order endpoints can be called by unauthenticated clients. The API should bound request body sizes, validate array lengths and numeric ranges, use caching/in-flight de-duplication for Presentail OS and WooCommerce reads, apply timeouts/backoff for external calls, and rate-limit high-abuse endpoints such as login, registration, reset, payment session creation, and order creation.
 
 ### Elevation of Privilege
 
