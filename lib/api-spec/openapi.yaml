@@ -961,6 +961,7 @@ components:
         - upsell_tab_clicked
         - upsell_item_added
         - upsell_checkout_proceeded
+        - signin_page_action
     AnalyticsEventRequest:
       type: object
       properties:

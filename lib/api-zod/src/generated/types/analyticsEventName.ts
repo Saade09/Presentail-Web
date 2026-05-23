@@ -32,4 +32,5 @@ export const AnalyticsEventName = {
   upsell_tab_clicked: "upsell_tab_clicked",
   upsell_item_added: "upsell_item_added",
   upsell_checkout_proceeded: "upsell_checkout_proceeded",
+  signin_page_action: "signin_page_action",
 } as const;

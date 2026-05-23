@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
 
 // Mounted at `/{lang}-{country}/{city}/sign-in` (relative to wouter's
 // nested router base). This page implements a CUSTOM email-first flow
@@ -128,6 +129,7 @@ export default function SignInPage() {
 
   const onOAuth = async (provider: "apple" | "google") => {
     if (!isLoaded || !signIn) return;
+    trackEvent({ name: "signin_page_action", action: provider });
     try {
       setOauthBusy(provider);
       await signIn.authenticateWithRedirect({

@@ -9,7 +9,8 @@ type AnalyticsEventName =
   | "suggested_message_picked"
   | "upsell_tab_clicked"
   | "upsell_item_added"
-  | "upsell_checkout_proceeded";
+  | "upsell_checkout_proceeded"
+  | "signin_page_action";
 
 type AnalyticsSurface =
   | "cart"
