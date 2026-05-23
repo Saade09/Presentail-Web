@@ -679,10 +679,16 @@ export interface WooSearchCategory {
   name: string;
 }
 
+export interface WooSearchOccasion {
+  slug: string;
+  name: string;
+}
+
 export interface WooSearchResult {
   ok: boolean;
   products: WooSearchProduct[];
   categories: WooSearchCategory[];
+  occasions: WooSearchOccasion[];
 }
 
 export interface AuthMeResponse {

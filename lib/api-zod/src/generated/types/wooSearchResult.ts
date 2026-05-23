@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { WooSearchCategory } from "./wooSearchCategory";
+import type { WooSearchOccasion } from "./wooSearchOccasion";
 import type { WooSearchProduct } from "./wooSearchProduct";
 
 export interface WooSearchResult {
   ok: boolean;
   products: WooSearchProduct[];
   categories: WooSearchCategory[];
+  occasions: WooSearchOccasion[];
 }

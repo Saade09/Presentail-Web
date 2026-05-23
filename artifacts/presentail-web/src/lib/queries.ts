@@ -318,10 +318,16 @@ export type SearchCategory = {
   name: string;
 };
 
+export type SearchOccasion = {
+  slug: string;
+  name: string;
+};
+
 export type SearchResponse = {
   ok: boolean;
   products: SearchProduct[];
   categories: SearchCategory[];
+  occasions: SearchOccasion[];
 };
 
 export const useSearch = (q: string, params: LocalizedParams = {}) => {

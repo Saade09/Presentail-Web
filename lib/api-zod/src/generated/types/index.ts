@@ -77,6 +77,7 @@ export * from "./pushUnregisterRequest";
 export * from "./pushUnregisterResponse";
 export * from "./user";
 export * from "./wooSearchCategory";
+export * from "./wooSearchOccasion";
 export * from "./wooSearchParams";
 export * from "./wooSearchProduct";
 export * from "./wooSearchProductImage";

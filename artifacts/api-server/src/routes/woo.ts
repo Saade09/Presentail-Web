@@ -445,6 +445,29 @@ const OCCASION_SLUGS = [
   "colleague", "friend", "thinking-of-you", "im-sorry", "eid", "children",
 ];
 
+const OCCASION_LABELS: Record<string, string> = {
+  "birthday": "Birthday",
+  "housewarming": "Housewarming",
+  "new-job": "New Job",
+  "promotion": "Promotion",
+  "thank-you": "Thank You",
+  "love-romance": "Love & Romance",
+  "farewell": "Farewell",
+  "condolences": "Condolences",
+  "anniversary": "Anniversary",
+  "wedding": "Wedding",
+  "graduation": "Graduation",
+  "newborn": "Newborn",
+  "get-well-soon": "Get Well Soon",
+  "congratulations": "Congratulations",
+  "colleague": "Colleague",
+  "friend": "Friend",
+  "thinking-of-you": "Thinking of You",
+  "im-sorry": "I'm Sorry",
+  "eid": "Eid",
+  "children": "Children",
+};
+
 const occasionIdCache = new Map<string, { fetchedAt: number; map: Map<string, number> }>();
 const OCCASION_ID_TTL = 5 * 60 * 1000;
 
@@ -1501,7 +1524,11 @@ router.get("/woo/search", async (req, res) => {
       .filter((c) => c.label.toLowerCase().includes(lower))
       .map((c) => ({ slug: c.slug, name: c.label }));
 
-    return res.json({ ok: true, products: matchingProducts, categories: matchingCategories });
+    const matchingOccasions = OCCASION_SLUGS
+      .map((slug) => ({ slug, name: OCCASION_LABELS[slug] ?? slug }))
+      .filter((o) => o.name.toLowerCase().includes(lower));
+
+    return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Search failed" });
   }
