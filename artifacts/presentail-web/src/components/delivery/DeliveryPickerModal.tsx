@@ -18,9 +18,17 @@ import {
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
+export type DeliveryPickerSelection = {
+  mode: "express" | "today_slot" | "schedule";
+  date: string;
+  slotLabel: string | null;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called synchronously with the confirmed selection before the modal closes. */
+  onConfirm?: (selection: DeliveryPickerSelection) => void;
 }
 
 function dayMonthShort(iso: string): string {
@@ -29,7 +37,7 @@ function dayMonthShort(iso: string): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function DeliveryPickerModal({ open, onOpenChange }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
   const { formatPrice } = useDisplayCurrency();
@@ -72,22 +80,16 @@ export function DeliveryPickerModal({ open, onOpenChange }: Props) {
   }, [open]);
 
   const handleConfirm = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    let selection: DeliveryPickerSelection;
     if (mode === "express") {
-      deliverySelection.setSelection({
-        mode: "express",
-        date: new Date().toISOString().slice(0, 10),
-        slotLabel: null,
-      });
+      selection = { mode: "express", date: today, slotLabel: null };
     } else {
-      const today = new Date().toISOString().slice(0, 10);
-      const resolvedMode =
-        date && date === today ? "today_slot" : "schedule";
-      deliverySelection.setSelection({
-        mode: resolvedMode,
-        date: date || today,
-        slotLabel: slot || null,
-      });
+      const resolvedMode = date && date === today ? "today_slot" : "schedule";
+      selection = { mode: resolvedMode, date: date || today, slotLabel: slot || null };
     }
+    deliverySelection.setSelection(selection);
+    onConfirm?.(selection);
     onOpenChange(false);
   };
 

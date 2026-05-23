@@ -24,6 +24,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
+import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
@@ -199,6 +200,21 @@ export default function Checkout() {
   const [noAddress, setNoAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
+  const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
+
+  // Sync confirmed selection from the in-summary picker into checkout's
+  // local state. Called synchronously by DeliveryPickerModal.handleConfirm
+  // before the modal closes, so the confirmed values are available immediately
+  // and totals / deliveryRowText update on the same render cycle.
+  const handleDeliveryPickerConfirm = (sel: DeliveryPickerSelection) => {
+    if (sel.mode === "express") {
+      setDeliveryMode("express");
+    } else {
+      setDeliveryMode("schedule");
+      if (sel.date) setRecipient((r) => ({ ...r, deliveryDate: sel.date }));
+      if (sel.slotLabel) setDeliverySlot(sel.slotLabel);
+    }
+  };
 
   // Active (isActive !== false) cities for the selected country — sourced
   // from the OS cache so toggling a city off in Presentail OS removes it
@@ -939,17 +955,7 @@ export default function Checkout() {
                 </div>
                 <DeliveryDateRow
                   rowText={deliveryRowText}
-                  onChangeClick={() => {
-                    setStep(1);
-                    requestAnimationFrame(() => {
-                      requestAnimationFrame(() => {
-                        deliverySectionRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      });
-                    });
-                  }}
+                  onChangeClick={() => setDeliveryPickerOpen(true)}
                 />
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t("checkout.deliveryEstimated")}</span>
@@ -979,6 +985,12 @@ export default function Checkout() {
         cardFrom={`${sender.firstName} ${sender.lastName}`.trim()}
         dir={dir}
         t={t}
+      />
+
+      <DeliveryPickerModal
+        open={deliveryPickerOpen}
+        onOpenChange={setDeliveryPickerOpen}
+        onConfirm={handleDeliveryPickerConfirm}
       />
     </div>
   );
