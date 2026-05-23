@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
@@ -28,6 +29,7 @@ export function ProductCard({ product, width, onPress }: Props) {
   const { selectedCountry } = useDeliveryLocation();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const threshold = freeDeliveryThresholdNative(cc);
+  const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const handlePress = () => {
     if (onPress) return onPress();
@@ -49,7 +51,14 @@ export function ProductCard({ product, width, onPress }: Props) {
           },
         ]}
       >
-        <Image source={product.image} style={styles.image} contentFit="cover" transition={200} />
+        {!imageLoaded && <ShimmerPlaceholder />}
+        <Image
+          source={product.image}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+          onLoad={() => setImageLoaded(true)}
+        />
         {product.tag ? (
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
             <Text style={styles.tagText}>{product.tag}</Text>

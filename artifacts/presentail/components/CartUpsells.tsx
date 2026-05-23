@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { Price } from "@/components/Price";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useColors } from "@/hooks/useColors";
@@ -135,6 +136,58 @@ export function CartUpsells() {
 
   const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
 
+  // eslint-disable-next-line react/display-name
+  function UpsellCardImage({ image, isRTLVal, showExpress, expressLabel }: {
+    image: typeof active.products[number]["image"];
+    isRTLVal: boolean;
+    showExpress: boolean;
+    expressLabel: string;
+  }) {
+    const [loaded, setLoaded] = React.useState(false);
+    return (
+      <View style={{ aspectRatio: 1, backgroundColor: colors.imagePlaceholder, position: "relative" }}>
+        {!loaded && <ShimmerPlaceholder />}
+        {image ? (
+          <Image
+            source={image}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+            onLoad={() => setLoaded(true)}
+          />
+        ) : null}
+        {showExpress ? (
+          <View
+            style={{
+              position: "absolute",
+              top: 8,
+              [isRTLVal ? "right" : "left"]: 8,
+              backgroundColor: colors.primary,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 999,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Feather name="zap" size={9} color="#fff" />
+            <Text
+              style={{
+                color: "#fff",
+                fontFamily: "Inter_600SemiBold",
+                fontSize: 9,
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+              }}
+            >
+              {expressLabel}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View style={{ gap: 14 }}>
       <Text
@@ -229,50 +282,12 @@ export function CartUpsells() {
                     })
                   }
                 >
-                  <View
-                    style={{
-                      aspectRatio: 1,
-                      backgroundColor: colors.imagePlaceholder,
-                      position: "relative",
-                    }}
-                  >
-                    {product.image ? (
-                      <Image
-                        source={product.image}
-                        style={{ width: "100%", height: "100%" }}
-                        contentFit="cover"
-                      />
-                    ) : null}
-                    {showExpress ? (
-                      <View
-                        style={{
-                          position: "absolute",
-                          top: 8,
-                          [isRTL ? "right" : "left"]: 8,
-                          backgroundColor: colors.primary,
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 999,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Feather name="zap" size={9} color="#fff" />
-                        <Text
-                          style={{
-                            color: "#fff",
-                            fontFamily: "Inter_600SemiBold",
-                            fontSize: 9,
-                            letterSpacing: 0.5,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {t.cartUpsellsExpress}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
+                  <UpsellCardImage
+                    image={product.image}
+                    isRTLVal={isRTL}
+                    showExpress={showExpress}
+                    expressLabel={t.cartUpsellsExpress}
+                  />
                 </Pressable>
 
                 <View style={{ padding: 10, gap: 6 }}>

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartCardMessageSheet } from "@/components/CartCardMessageSheet";
 import { CartUpsells } from "@/components/CartUpsells";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { CheckoutLoginSheet } from "@/components/CheckoutLoginSheet";
 import { Price } from "@/components/Price";
 import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
@@ -36,6 +37,76 @@ import {
 } from "@workspace/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 import { trackEvent } from "@/lib/analytics";
+
+type CartItemRowProps = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  product: { id: string; name: string; image: any };
+  qty: number;
+  lineTotal: number;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  router: ReturnType<typeof import("expo-router").useRouter>;
+  setQty: (id: string, qty: number) => void;
+  remove: (id: string) => void;
+};
+
+function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }: CartItemRowProps) {
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 14,
+        backgroundColor: "#fff",
+        borderRadius: 18,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <Pressable onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: product.id } })}>
+        <View style={{ width: 84, height: 84, borderRadius: 12, overflow: "hidden", backgroundColor: colors.imagePlaceholder }}>
+          {!imageLoaded && <ShimmerPlaceholder />}
+          <Image
+            source={product.image}
+            style={{ width: 84, height: 84, borderRadius: 12 }}
+            contentFit="cover"
+            onLoad={() => setImageLoaded(true)}
+          />
+        </View>
+      </Pressable>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+          {product.name}
+        </Text>
+        <Price
+          value={lineTotal}
+          native
+          style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
+        />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
+            <Pressable onPress={() => setQty(product.id, qty - 1)} style={cartItemStyles.qtyBtn}>
+              <Feather name="minus" size={12} color={colors.primary} />
+            </Pressable>
+            <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 12, fontSize: 12 }}>
+              {qty}
+            </Text>
+            <Pressable onPress={() => setQty(product.id, qty + 1)} style={cartItemStyles.qtyBtn}>
+              <Feather name="plus" size={12} color={colors.primary} />
+            </Pressable>
+          </View>
+          <Pressable onPress={() => remove(product.id)} hitSlop={8}>
+            <Feather name="trash-2" size={16} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const cartItemStyles = StyleSheet.create({
+  qtyBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
+});
 
 type FullCartViewProps = {
   showBackButton?: boolean;
@@ -321,52 +392,16 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             }}
           >
             {detailed.map(({ product, qty, lineTotal }) => (
-              <View
+              <CartItemRow
                 key={product.id}
-                style={{
-                  flexDirection: "row",
-                  gap: 14,
-                  backgroundColor: "#fff",
-                  borderRadius: 18,
-                  padding: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Pressable onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: product.id } })}>
-                  <Image
-                    source={product.image}
-                    style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: colors.imagePlaceholder }}
-                    contentFit="cover"
-                  />
-                </Pressable>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-                    {product.name}
-                  </Text>
-                  <Price
-                    value={lineTotal}
-                    native
-                    style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
-                  />
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
-                      <Pressable onPress={() => setQty(product.id, qty - 1)} style={styles.qtyBtn}>
-                        <Feather name="minus" size={12} color={colors.primary} />
-                      </Pressable>
-                      <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 12, fontSize: 12 }}>
-                        {qty}
-                      </Text>
-                      <Pressable onPress={() => setQty(product.id, qty + 1)} style={styles.qtyBtn}>
-                        <Feather name="plus" size={12} color={colors.primary} />
-                      </Pressable>
-                    </View>
-                    <Pressable onPress={() => remove(product.id)} hitSlop={8}>
-                      <Feather name="trash-2" size={16} color={colors.mutedForeground} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
+                product={product}
+                qty={qty}
+                lineTotal={lineTotal}
+                colors={colors}
+                router={router}
+                setQty={setQty}
+                remove={remove}
+              />
             ))}
 
             <View style={{ marginTop: 10 }}>
@@ -615,6 +650,3 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   );
 }
 
-const styles = StyleSheet.create({
-  qtyBtn: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-});

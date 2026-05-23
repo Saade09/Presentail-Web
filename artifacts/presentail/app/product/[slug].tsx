@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge, VisaBadge, WhishBadge } from "@/components/PaymentBadges";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { Price } from "@/components/Price";
 import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
 import { useCart } from "@/contexts/CartContext";
@@ -93,6 +94,7 @@ function ProductDetail() {
   const { isFavorited, toggleFavorite } = useFavorites();
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
+  const [heroLoaded, setHeroLoaded] = useState(false);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -193,8 +195,14 @@ function ProductDetail() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ height: SCREEN_W, backgroundColor: colors.imagePlaceholder }}>
+          {!heroLoaded && <ShimmerPlaceholder />}
           {safeImageSource ? (
-            <Image source={safeImageSource} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+              source={safeImageSource}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              onLoad={() => setHeroLoaded(true)}
+            />
           ) : null}
           <LinearGradient
             colors={["rgba(0,0,0,0.25)", "transparent", "rgba(0,0,0,0.05)"]}
