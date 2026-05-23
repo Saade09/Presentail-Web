@@ -81,8 +81,6 @@ const EN = {
 
   // Cart & Checkout
   yourCart: "Your Cart",
-  cartEmpty: "Your cart is empty",
-  cartEmptyDesc: "Add some beautiful things from our boutique.",
   shopNow: "Shop Now",
   emptyCartTitle: "Your cart is waiting",
   emptyCartSubtitle: "Start adding thoughtful gifts and we'll keep them here until you're ready to send.",
@@ -428,14 +426,14 @@ const EN = {
   noMatchesDesc: "Try a different category or search term.",
 
   // ── Cart ──
-  cartTitleBag: "Your Cart",
+  cartTitle: "Your Cart",
   cartClear: "Clear",
-  cartEmptyBag: "Your cart is empty",
+  cartEmpty: "Your cart is empty",
   cartClearConfirmTitle: "Clear your cart?",
   cartClearConfirmMessage: "All items will be removed from your cart.",
   cartClearConfirmCancel: "Cancel",
   cartClearConfirmAction: "Clear",
-  cartEmptyBagDesc: "Add a bouquet, cake or boutique gift and it will appear here.",
+  cartEmptyDesc: "Add a bouquet, cake or boutique gift and it will appear here.",
   cartBrowseBoutique: "Browse the boutique",
   cartDelivery: "Delivery",
   cartFree: "Free",
@@ -504,7 +502,7 @@ const EN = {
   checkoutPaypalErrorTitle: "PayPal error",
   checkoutPaypalNotConfigured: "PayPal payments are being set up. Please choose another payment method.",
   checkoutBrandHeader: "Presentail",
-  checkoutBagEmpty: "Your cart is empty",
+  checkoutCartEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
   checkoutSuggestedMessages: "Try Suggested Messages",
   checkoutSubtotalLabel: "Subtotal",
@@ -1047,8 +1045,6 @@ const AR: typeof EN = {
 
   // Cart & Checkout
   yourCart: "سلتك",
-  cartEmpty: "سلتك فارغة",
-  cartEmptyDesc: "أضف بعض الأشياء الجميلة من بوتيكنا.",
   shopNow: "تسوق الآن",
   emptyCartTitle: "عربة هداياك بانتظارك",
   emptyCartSubtitle: "ابدأ بإضافة هدايا مميزة وسنحتفظ بها هنا حتى تصبح جاهزاً لإرسالها.",
@@ -1394,14 +1390,14 @@ const AR: typeof EN = {
   noMatchesDesc: "جرّب فئة مختلفة أو كلمة بحث أخرى.",
 
   // ── Cart ──
-  cartTitleBag: "عربتك",
+  cartTitle: "عربتك",
   cartClear: "مسح",
-  cartEmptyBag: "عربتك فارغة",
+  cartEmpty: "عربتك فارغة",
   cartClearConfirmTitle: "مسح عربتك؟",
   cartClearConfirmMessage: "ستتم إزالة جميع العناصر من عربتك.",
   cartClearConfirmCancel: "إلغاء",
   cartClearConfirmAction: "مسح",
-  cartEmptyBagDesc: "أضف باقة أو كعكة أو هدية من البوتيك وستظهر هنا.",
+  cartEmptyDesc: "أضف باقة أو كعكة أو هدية من البوتيك وستظهر هنا.",
   cartBrowseBoutique: "تصفّح البوتيك",
   cartDelivery: "التوصيل",
   cartFree: "مجاني",
@@ -1470,7 +1466,7 @@ const AR: typeof EN = {
   checkoutPaypalErrorTitle: "خطأ في PayPal",
   checkoutPaypalNotConfigured: "يتم إعداد مدفوعات PayPal. يرجى اختيار طريقة دفع أخرى.",
   checkoutBrandHeader: "Presentail",
-  checkoutBagEmpty: "عربتك فارغة",
+  checkoutCartEmpty: "عربتك فارغة",
   checkoutBrowseBoutique: "تصفّح البوتيك",
   checkoutSuggestedMessages: "جرّب الرسائل المقترحة",
   checkoutSubtotalLabel: "المجموع الفرعي",
@@ -2008,8 +2004,6 @@ const FR: typeof EN = {
 
   // Cart & Checkout
   yourCart: "Votre panier",
-  cartEmpty: "Votre panier est vide",
-  cartEmptyDesc: "Ajoutez de jolies choses depuis notre boutique.",
   shopNow: "Acheter maintenant",
   emptyCartTitle: "Votre panier vous attend",
   emptyCartSubtitle: "Commencez à ajouter des cadeaux attentionnés et nous les garderons ici jusqu'à ce que vous soyez prêt à les envoyer.",
@@ -2355,14 +2349,14 @@ const FR: typeof EN = {
   noMatchesDesc: "Essayez une autre catégorie ou un autre terme.",
 
   // ── Cart ──
-  cartTitleBag: "Votre panier",
+  cartTitle: "Votre panier",
   cartClear: "Vider",
-  cartEmptyBag: "Votre panier est vide",
+  cartEmpty: "Votre panier est vide",
   cartClearConfirmTitle: "Vider votre panier ?",
   cartClearConfirmMessage: "Tous les articles seront retirés de votre panier.",
   cartClearConfirmCancel: "Annuler",
   cartClearConfirmAction: "Vider",
-  cartEmptyBagDesc: "Ajoutez un bouquet, un gâteau ou un cadeau et il apparaîtra ici.",
+  cartEmptyDesc: "Ajoutez un bouquet, un gâteau ou un cadeau et il apparaîtra ici.",
   cartBrowseBoutique: "Parcourir la boutique",
   cartDelivery: "Livraison",
   cartFree: "Offerte",
@@ -2431,7 +2425,7 @@ const FR: typeof EN = {
   checkoutPaypalErrorTitle: "Erreur PayPal",
   checkoutPaypalNotConfigured: "Les paiements PayPal sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
   checkoutBrandHeader: "Presentail",
-  checkoutBagEmpty: "Votre panier est vide",
+  checkoutCartEmpty: "Votre panier est vide",
   checkoutBrowseBoutique: "Parcourir la boutique",
   checkoutSuggestedMessages: "Essayez nos suggestions",
   checkoutSubtotalLabel: "Sous-total",

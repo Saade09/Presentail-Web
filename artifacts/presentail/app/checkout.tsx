@@ -791,7 +791,7 @@ function CheckoutScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
-          {t.checkoutBagEmpty}
+          {t.checkoutCartEmpty}
         </Text>
         <Pressable onPress={() => router.replace("/(tabs)/catalog")} style={{ marginTop: 14 }}>
           <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>

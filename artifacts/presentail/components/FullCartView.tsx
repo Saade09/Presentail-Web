@@ -212,7 +212,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           <View style={{ width: 22 }} />
         )}
         <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-          {t.cartTitleBag}
+          {t.cartTitle}
         </Text>
         <Pressable
           onPress={() => {
@@ -367,10 +367,10 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             <Feather name="shopping-bag" size={28} color={colors.primary} />
           </View>
           <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
-            {t.cartEmptyBag}
+            {t.cartEmpty}
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
-            {t.cartEmptyBagDesc}
+            {t.cartEmptyDesc}
           </Text>
           <Pressable
             onPress={() => router.replace("/(tabs)/catalog")}
