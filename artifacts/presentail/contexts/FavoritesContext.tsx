@@ -13,6 +13,7 @@ type FavoritesContextType = {
   favorites: Set<string>;
   isFavorited: (slug: string) => boolean;
   toggleFavorite: (slug: string, countryCode?: string | null) => Promise<void>;
+  refreshFavorites: () => Promise<void>;
   isLoaded: boolean;
 };
 
@@ -62,12 +63,19 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  const refreshFavorites = useCallback(async () => {
+    await fetchFavorites(token);
+  }, [fetchFavorites, token]);
+
   const toggleFavorite = useCallback(
     async (slug: string, countryCode?: string | null) => {
       if (!token) return;
-      const wasFavorited = favorites.has(slug);
-      // Optimistic update
+      // Read current state inside the functional updater to avoid stale closure.
+      // This lets toggleFavorite remain stable (only depends on token) while still
+      // seeing the latest favorites value at call time.
+      let wasFavorited = false;
       setFavorites((prev) => {
+        wasFavorited = prev.has(slug);
         const next = new Set(prev);
         if (wasFavorited) {
           next.delete(slug);
@@ -109,7 +117,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [token, favorites],
+    [token],
   );
 
   const isFavorited = useCallback(
@@ -118,8 +126,8 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ favorites, isFavorited, toggleFavorite, isLoaded }),
-    [favorites, isFavorited, toggleFavorite, isLoaded],
+    () => ({ favorites, isFavorited, toggleFavorite, refreshFavorites, isLoaded }),
+    [favorites, isFavorited, toggleFavorite, refreshFavorites, isLoaded],
   );
 
   return (

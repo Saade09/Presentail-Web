@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -29,7 +29,16 @@ function FavoritesTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, ready } = useAuth();
-  const { favorites, isLoaded } = useFavorites();
+  const { favorites, isLoaded, refreshFavorites } = useFavorites();
+
+  // Re-fetch the server-side list whenever this tab comes into focus so that
+  // toggling a heart on the product detail screen (or anywhere else) is always
+  // reflected here without the user having to manually pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshFavorites();
+    }, [refreshFavorites]),
+  );
   const { products: allProducts } = useWooProducts();
   const { width: screenWidth } = useWindowDimensions();
 

@@ -58,9 +58,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const toggleFavorite = useCallback(
     async (slug: string, countryCode?: string | null) => {
       if (!isSignedIn) return;
-      const wasFavorited = favorites.has(slug);
-      // Optimistic update
+      // Read current state inside the functional updater to avoid stale closure.
+      // This lets toggleFavorite remain stable (only depends on isSignedIn/getToken)
+      // while still seeing the latest favorites value at call time.
+      let wasFavorited = false;
       setFavorites((prev) => {
+        wasFavorited = prev.has(slug);
         const next = new Set(prev);
         if (wasFavorited) {
           next.delete(slug);
@@ -103,7 +106,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [isSignedIn, favorites, getToken],
+    [isSignedIn, getToken],
   );
 
   const isFavorited = useCallback(

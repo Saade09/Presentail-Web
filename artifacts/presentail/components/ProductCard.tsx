@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -5,7 +6,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -27,13 +30,21 @@ export function ProductCard({ product, width, onPress }: Props) {
   const router = useRouter();
   const { currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
+  const { user } = useAuth();
+  const { isFavorited, toggleFavorite } = useFavorites();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const threshold = freeDeliveryThresholdNative(cc);
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  const favorited = isFavorited(product.id);
 
   const handlePress = () => {
     if (onPress) return onPress();
     router.push({ pathname: "/product/[slug]", params: { slug: product.id } });
+  };
+
+  const handleHeartPress = (e: { stopPropagation?: () => void }) => {
+    if (e.stopPropagation) e.stopPropagation();
+    void toggleFavorite(product.id, cc);
   };
 
   return (
@@ -63,6 +74,20 @@ export function ProductCard({ product, width, onPress }: Props) {
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
             <Text style={styles.tagText}>{product.tag}</Text>
           </View>
+        ) : null}
+        {user ? (
+          <Pressable
+            onPress={handleHeartPress}
+            style={styles.heartButton}
+            accessibilityLabel={favorited ? "Remove from favorites" : "Add to favorites"}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={favorited ? "heart" : "heart-outline"}
+              size={18}
+              color={favorited ? "#e11d48" : "#fff"}
+            />
+          </Pressable>
         ) : null}
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
@@ -112,5 +137,16 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+  heartButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
