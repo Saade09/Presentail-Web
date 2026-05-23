@@ -958,6 +958,9 @@ components:
         - order_placed
         - auth_social_failed
         - suggested_message_picked
+        - upsell_tab_clicked
+        - upsell_item_added
+        - upsell_checkout_proceeded
     AnalyticsEventRequest:
       type: object
       properties:
@@ -973,7 +976,7 @@ components:
             "cart-screen" is the standalone cart tab/page, and
             "checkout" covers checkout_started, payment_method_selected
             and order_placed.
-          enum: [cart, checkout-direct, cart-screen, checkout]
+          enum: [cart, checkout-direct, cart-screen, checkout, upsell_modal]
         action:
           type: string
           description: |
@@ -1006,6 +1009,13 @@ components:
             - newBabyBorn
             - thankYou
             - sympathy
+            - recommended
+            - single_balloons
+            - balloon_bundles
+            - chocolate
+            - plants
+            - bears
+            - candles
         platform:
           type: string
           enum: [ios, android, web]
@@ -1022,6 +1032,13 @@ components:
             `DEVELOPER_ERROR`). Bounded length so we can never log
             unbounded user-controlled strings — the value is sourced
             from the native SDK, not the shopper.
+        productId:
+          type: string
+          maxLength: 64
+          description: |
+            For `upsell_item_added` events: the product id of the upsell
+            item the shopper added. Sourced from the server-supplied
+            catalog, not from user input.
       required:
         - name
     AnalyticsEventResponse:

@@ -24,4 +24,5 @@ export const AnalyticsEventRequestSurface = {
   "checkout-direct": "checkout-direct",
   "cart-screen": "cart-screen",
   checkout: "checkout",
+  upsell_modal: "upsell_modal",
 } as const;

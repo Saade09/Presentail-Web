@@ -121,6 +121,9 @@ export const AnalyticsEventName = {
   order_placed: "order_placed",
   auth_social_failed: "auth_social_failed",
   suggested_message_picked: "suggested_message_picked",
+  upsell_tab_clicked: "upsell_tab_clicked",
+  upsell_item_added: "upsell_item_added",
+  upsell_checkout_proceeded: "upsell_checkout_proceeded",
 } as const;
 
 /**
@@ -141,6 +144,7 @@ export const AnalyticsEventRequestSurface = {
   "checkout-direct": "checkout-direct",
   "cart-screen": "cart-screen",
   checkout: "checkout",
+  upsell_modal: "upsell_modal",
 } as const;
 
 /**
@@ -178,6 +182,13 @@ export const AnalyticsEventRequestAction = {
   newBabyBorn: "newBabyBorn",
   thankYou: "thankYou",
   sympathy: "sympathy",
+  recommended: "recommended",
+  single_balloons: "single_balloons",
+  balloon_bundles: "balloon_bundles",
+  chocolate: "chocolate",
+  plants: "plants",
+  bears: "bears",
+  candles: "candles",
 } as const;
 
 /**
@@ -228,6 +239,14 @@ from the native SDK, not the shopper.
    * @maxLength 64
    */
   errorCode?: string;
+  /**
+   * For `upsell_item_added` events: the product id of the upsell
+item the shopper added. Sourced from the server-supplied
+catalog, not from user input.
+
+   * @maxLength 64
+   */
+  productId?: string;
 }
 
 export interface AnalyticsEventResponse {

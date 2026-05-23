@@ -29,4 +29,7 @@ export const AnalyticsEventName = {
   order_placed: "order_placed",
   auth_social_failed: "auth_social_failed",
   suggested_message_picked: "suggested_message_picked",
+  upsell_tab_clicked: "upsell_tab_clicked",
+  upsell_item_added: "upsell_item_added",
+  upsell_checkout_proceeded: "upsell_checkout_proceeded",
 } as const;

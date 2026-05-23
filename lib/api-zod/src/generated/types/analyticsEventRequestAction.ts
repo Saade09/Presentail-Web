@@ -41,4 +41,11 @@ export const AnalyticsEventRequestAction = {
   newBabyBorn: "newBabyBorn",
   thankYou: "thankYou",
   sympathy: "sympathy",
+  recommended: "recommended",
+  single_balloons: "single_balloons",
+  balloon_bundles: "balloon_bundles",
+  chocolate: "chocolate",
+  plants: "plants",
+  bears: "bears",
+  candles: "candles",
 } as const;

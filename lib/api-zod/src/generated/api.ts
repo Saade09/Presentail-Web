@@ -196,6 +196,8 @@ signed-in user (if any) is read from the session cookie instead.
  */
 export const recordAnalyticsEventBodyErrorCodeMax = 64;
 
+export const recordAnalyticsEventBodyProductIdMax = 64;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -207,12 +209,21 @@ export const RecordAnalyticsEventBody = zod.object({
       "order_placed",
       "auth_social_failed",
       "suggested_message_picked",
+      "upsell_tab_clicked",
+      "upsell_item_added",
+      "upsell_checkout_proceeded",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
     ),
   surface: zod
-    .enum(["cart", "checkout-direct", "cart-screen", "checkout"])
+    .enum([
+      "cart",
+      "checkout-direct",
+      "cart-screen",
+      "checkout",
+      "upsell_modal",
+    ])
     .optional()
     .describe(
       'Where the event was emitted from. For the checkout login\nprompt this is \"cart\" (cart\'s Proceed to Checkout button) or\n\"checkout-direct\" (a signed-out shopper hitting \/checkout).\nFor purchase-funnel events, \"cart\" is the cart drawer,\n\"cart-screen\" is the standalone cart tab\/page, and\n\"checkout\" covers checkout_started, payment_method_selected\nand order_placed.\n',
@@ -238,6 +249,13 @@ export const RecordAnalyticsEventBody = zod.object({
       "newBabyBorn",
       "thankYou",
       "sympathy",
+      "recommended",
+      "single_balloons",
+      "balloon_bundles",
+      "chocolate",
+      "plants",
+      "bears",
+      "candles",
     ])
     .optional()
     .describe(
@@ -257,6 +275,13 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `auth_social_failed` events: the native SDK error code\n(e.g. iOS `-61440` = errSecMissingEntitlement, Android\n`DEVELOPER_ERROR`). Bounded length so we can never log\nunbounded user-controlled strings — the value is sourced\nfrom the native SDK, not the shopper.\n",
+    ),
+  productId: zod
+    .string()
+    .max(recordAnalyticsEventBodyProductIdMax)
+    .optional()
+    .describe(
+      "For `upsell_item_added` events: the product id of the upsell\nitem the shopper added. Sourced from the server-supplied\ncatalog, not from user input.\n",
     ),
 });
 

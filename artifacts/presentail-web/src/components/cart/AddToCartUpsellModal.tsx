@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Zap } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 import {
   Dialog,
@@ -87,6 +88,12 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
 
   const handleAddUpsell = (product: ResolvedUpsellProduct) => {
     addItem(product, 1);
+    trackEvent({
+      name: "upsell_item_added",
+      surface: "upsell_modal",
+      action: activeId ?? undefined,
+      productId: String(product.id),
+    });
     toast({
       title: t("product.toast.addedTitle"),
       description: t("product.toast.addedDesc", { name: product.name }),
@@ -121,7 +128,14 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveId(tab.id)}
+                    onClick={() => {
+                      setActiveId(tab.id);
+                      trackEvent({
+                        name: "upsell_tab_clicked",
+                        surface: "upsell_modal",
+                        action: tab.id,
+                      });
+                    }}
                     aria-pressed={isActive}
                     data-testid={`upsell-modal-tab-${tab.id}`}
                     className={`relative whitespace-nowrap pb-2 text-sm transition-colors ${
@@ -223,6 +237,10 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
             <Button
               className="flex-1 sm:flex-none rounded-xl"
               onClick={() => {
+                trackEvent({
+                  name: "upsell_checkout_proceeded",
+                  surface: "upsell_modal",
+                });
                 onClose();
                 setLocation("/checkout");
               }}

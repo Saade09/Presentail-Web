@@ -46,4 +46,12 @@ from the native SDK, not the shopper.
    * @maxLength 64
    */
   errorCode?: string;
+  /**
+   * For `upsell_item_added` events: the product id of the upsell
+item the shopper added. Sourced from the server-supplied
+catalog, not from user input.
+
+   * @maxLength 64
+   */
+  productId?: string;
 }
