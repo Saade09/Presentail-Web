@@ -32,17 +32,24 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   const rows = useMemo(() => {
     const byCode = new Map<string, DeliveryCountry>();
     for (const c of countries) byCode.set(c.code, c);
-    return PICKER_COUNTRY_CODES.map((code) => {
-      const live = byCode.get(code);
-      const fallback = FALLBACK_COUNTRIES.find((f) => f.code === code)!;
-      return {
-        code,
-        flag: live?.flag ?? fallback.flag,
-        name: live?.name ?? fallback.name,
-        cities: (live?.cities ?? []).filter((c) => c.isActive !== false),
-        ready: !!live && !!(live.cities ?? []).filter((c) => c.isActive !== false)[0],
-      };
-    });
+    return PICKER_COUNTRY_CODES
+      .filter((code) => {
+        const live = byCode.get(code);
+        // Hide the country when OS data is loaded and explicitly marks it inactive.
+        // If live data hasn't arrived yet (undefined), keep showing it via fallback.
+        return live === undefined || live.isActive !== false;
+      })
+      .map((code) => {
+        const live = byCode.get(code);
+        const fallback = FALLBACK_COUNTRIES.find((f) => f.code === code)!;
+        return {
+          code,
+          flag: live?.flag ?? fallback.flag,
+          name: live?.name ?? fallback.name,
+          cities: (live?.cities ?? []).filter((c) => c.isActive !== false),
+          ready: !!live && !!(live.cities ?? []).filter((c) => c.isActive !== false)[0],
+        };
+      });
   }, [countries]);
 
   const handleCountryClick = (code: string, ready: boolean) => {

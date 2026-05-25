@@ -100,7 +100,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     const orderOf = (code: string): number =>
       isPickerCountryCode(code) ? (order.get(code) ?? 99) : 99;
     return all
-      .filter((c) => isPickerCountryCode(c.code))
+      .filter((c) => isPickerCountryCode(c.code) && c.isActive !== false)
       .sort((a, b) => orderOf(a.code) - orderOf(b.code));
   }, [data]);
 
