@@ -30,7 +30,7 @@ export function expressSurchargeForCountry(code?: string | null): number {
 // Time slots
 // ---------------------------------------------------------------------------
 
-export type TimeSlot = { label: string; cutoffHour: number };
+export type TimeSlot = { label: string; cutoffHour: number; extraFee?: number };
 
 const LB_TIME_SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },

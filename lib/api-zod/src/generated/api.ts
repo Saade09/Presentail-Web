@@ -779,6 +779,12 @@ export const GetDeliveryLocationsResponse = zod.object({
                   .describe(
                     "Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.",
                   ),
+                extraFee: zod
+                  .number()
+                  .optional()
+                  .describe(
+                    "Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.",
+                  ),
               }),
             )
             .optional()

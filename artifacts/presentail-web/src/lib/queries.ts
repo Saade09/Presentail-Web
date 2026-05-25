@@ -29,6 +29,8 @@ export type DeliveryCity = {
   fee?: number;
   /** Whether express delivery is available for this city (from Presentail OS). */
   expressAvailable?: boolean;
+  /** Per-city delivery time slots from Presentail OS. Empty means use hardcoded defaults. */
+  timeSlots?: Array<{ label: string; cutoffHour: number; extraFee?: number }>;
   localizedNames?: { ar?: string; fr?: string };
 };
 export type DeliveryCountry = {

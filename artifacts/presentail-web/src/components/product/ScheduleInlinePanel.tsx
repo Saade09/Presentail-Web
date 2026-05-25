@@ -6,6 +6,7 @@ import {
   firstAvailableSlot,
   getCountryHour,
   timeSlotsForCountry,
+  type TimeSlot,
 } from "@workspace/delivery";
 import { CalendarPopover } from "./CalendarPopover";
 
@@ -13,6 +14,8 @@ type Props = {
   countryCode?: string | null;
   initialDate?: string | null;
   initialSlotLabel?: string | null;
+  /** OS-sourced slots for the selected city. When provided, overrides the hardcoded per-country defaults. */
+  timeSlots?: TimeSlot[];
   onChange: (args: {
     mode: "today_slot" | "schedule";
     date: string;
@@ -28,11 +31,15 @@ export function ScheduleInlinePanel({
   countryCode,
   initialDate,
   initialSlotLabel,
+  timeSlots: propTimeSlots,
   onChange,
 }: Props) {
   const code = (countryCode ?? "LB").toUpperCase();
   const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
-  const timeSlots = useMemo(() => timeSlotsForCountry(code), [code]);
+  const timeSlots = useMemo(
+    () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code)),
+    [propTimeSlots, code],
+  );
   const localHour = useMemo(() => getCountryHour(code), [code]);
   const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
 
@@ -85,8 +92,8 @@ export function ScheduleInlinePanel({
     onChange({ mode, date, slotLabel });
   }, [date, slotLabel, todayIso, onChange]);
 
-  // Keep the slot valid when the date changes (e.g. switching from today
-  // to a future day, or vice-versa, where some slots may have lapsed).
+  // Keep the slot valid when the date or available slot list changes (e.g.
+  // switching from today to a future day, or the city's OS slots updating).
   useEffect(() => {
     const isToday = date === todayIso;
     if (!slotLabel) {
@@ -224,6 +231,11 @@ export function ScheduleInlinePanel({
                 <span className="block text-xs leading-tight">{from}</span>
                 {to ? (
                   <span className="block text-xs leading-tight">{to}</span>
+                ) : null}
+                {s.extraFee && s.extraFee > 0 ? (
+                  <span className="block text-[10px] leading-tight mt-0.5 opacity-80">
+                    +${s.extraFee}
+                  </span>
                 ) : null}
               </button>
             );

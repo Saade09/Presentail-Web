@@ -11,4 +11,6 @@ export interface DeliveryTimeSlot {
   label: string;
   /** Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. */
   cutoffHour: number;
+  /** Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee. */
+  extraFee?: number;
 }

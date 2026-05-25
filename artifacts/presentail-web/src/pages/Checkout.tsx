@@ -163,7 +163,6 @@ export default function Checkout() {
   };
 
   const deliverySelection = seededDeliverySelection;
-  const timeSlots = timeSlotsForCountry(countryCode);
   // Seed the in-checkout date/slot/mode from the shared delivery-selection
   // store so a window the shopper picked from the product page survives
   // into the checkout summary. Falls back to "schedule" + the first slot
@@ -175,7 +174,7 @@ export default function Checkout() {
         ? "express"
         : "schedule";
   const [deliverySlot, setDeliverySlot] = useState<string>(
-    deliverySelection.slotLabel ?? timeSlots[0]?.label ?? "",
+    deliverySelection.slotLabel ?? timeSlotsForCountry(countryCode)[0]?.label ?? "",
   );
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
@@ -253,6 +252,17 @@ export default function Checkout() {
     return timeOk && cityOk;
   }, [countryCode, now, selectedCityData]);
   const expressSurcharge = expressSurchargeForCountry(countryCode);
+
+  // Use OS city time slots when available; fall back to hardcoded per-country defaults.
+  // `selectedCityData?.timeSlots` is populated from /api/delivery-locations once loaded.
+  const timeSlots = useMemo(
+    () =>
+      selectedCityData?.timeSlots?.length
+        ? selectedCityData.timeSlots
+        : timeSlotsForCountry(countryCode),
+    [selectedCityData, countryCode],
+  );
+
   useEffect(() => {
     if (deliveryMode === "express" && !expressAvailable) {
       setDeliveryMode("schedule");
@@ -313,7 +323,10 @@ export default function Checkout() {
     if (countryCode !== prevCountryRef.current) {
       prevCountryRef.current = countryCode;
       setRecipient((r) => ({ ...r, district: "" }));
-      const newSlots = timeSlotsForCountry(countryCode);
+      // Use city OS slots when already loaded, otherwise fall back to hardcoded.
+      const newSlots = selectedCityData?.timeSlots?.length
+        ? selectedCityData.timeSlots
+        : timeSlotsForCountry(countryCode);
       setDeliverySlot(newSlots[0]?.label ?? "");
     }
   }, [countryCode]);
@@ -350,7 +363,13 @@ export default function Checkout() {
   const baseFee = noAddress ? 35 : (selectedCity?.fee ?? 0);
   const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
-  const total = subtotal + districtFee + expressFee;
+  // Slot extra fee: look up the selected slot in the city's OS slot list.
+  // Returns 0 when the city has no slot fees configured or express is chosen.
+  const slotFee =
+    deliveryMode !== "express"
+      ? (timeSlots.find((s) => s.label === deliverySlot)?.extraFee ?? 0)
+      : 0;
+  const total = subtotal + districtFee + expressFee + slotFee;
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
@@ -410,6 +429,8 @@ export default function Checkout() {
     district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
     districtFee: districtFee,
     expressFee,
+    slotFee,
+    cityId: selectedCityData?.id,
     noAddress,
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
@@ -768,6 +789,7 @@ export default function Checkout() {
                         countryCode={countryCode}
                         initialDate={recipient.deliveryDate || undefined}
                         initialSlotLabel={deliverySlot || undefined}
+                        timeSlots={timeSlots}
                         onChange={({ date, slotLabel }) => {
                           setRecipient((r) => ({ ...r, deliveryDate: date }));
                           setDeliverySlot(slotLabel);
@@ -967,6 +989,12 @@ export default function Checkout() {
                     <span>{fmt(expressFee)}</span>
                   </div>
                 )}
+                {slotFee > 0 && (
+                  <div className="flex justify-between text-muted-foreground" data-testid="row-slot-fee">
+                    <span>{t("checkout.nightDeliverySurcharge") || "Night Delivery"}</span>
+                    <span>{fmt(slotFee)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-medium text-lg pt-3 border-t">
                   <span>{t("cart.total")}</span>
                   <span data-testid="text-total">{fmt(total)}</span>
@@ -991,6 +1019,7 @@ export default function Checkout() {
         open={deliveryPickerOpen}
         onOpenChange={setDeliveryPickerOpen}
         onConfirm={handleDeliveryPickerConfirm}
+        timeSlots={timeSlots}
       />
     </div>
   );

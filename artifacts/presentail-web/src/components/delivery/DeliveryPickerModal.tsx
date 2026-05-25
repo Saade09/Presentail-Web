@@ -16,6 +16,7 @@ import {
   expressSurchargeForCountry,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
+  type TimeSlot,
 } from "@workspace/delivery";
 
 export type DeliveryPickerSelection = {
@@ -29,6 +30,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Called synchronously with the confirmed selection before the modal closes. */
   onConfirm?: (selection: DeliveryPickerSelection) => void;
+  /** OS-sourced slots for the selected city. When provided, overrides the hardcoded per-country defaults. */
+  timeSlots?: TimeSlot[];
 }
 
 function dayMonthShort(iso: string): string {
@@ -37,14 +40,17 @@ function dayMonthShort(iso: string): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
   const { formatPrice } = useDisplayCurrency();
   const now = useNow();
   const deliverySelection = useDeliverySelection();
 
-  const timeSlots = timeSlotsForCountry(countryCode);
+  const timeSlots = useMemo(
+    () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(countryCode)),
+    [propTimeSlots, countryCode],
+  );
   const quickDays = useMemo(
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")).slice(0, 3),
     [t],
@@ -180,13 +186,16 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm }: Props) {
                       key={s.label}
                       type="button"
                       onClick={() => setSlot(s.label)}
-                      className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
                         slot === s.label
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-card text-foreground hover:border-foreground/20"
                       }`}
                     >
-                      {s.label}
+                      <div>{s.label}</div>
+                      {s.extraFee && s.extraFee > 0 ? (
+                        <div className="text-xs opacity-75 mt-0.5">+${s.extraFee}</div>
+                      ) : null}
                     </button>
                   ))}
                 </div>

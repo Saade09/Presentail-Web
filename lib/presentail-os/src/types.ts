@@ -9,6 +9,8 @@
 export type OSTimeSlot = {
   label: string;
   cutoffHour: number;
+  /** Additional surcharge for booking this slot (USD). e.g. night-slot fee. */
+  extraFee?: number;
 };
 
 export type OSCity = {

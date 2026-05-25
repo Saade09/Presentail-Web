@@ -23,6 +23,7 @@ import {
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
+import { getDeliverySlots } from "./osLocationsCache";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -72,11 +73,15 @@ export const WooOrderSchema = z.object({
     phone: z.string().min(1),
   }),
   district: z.string().min(1),
-  // districtFee and expressFee are accepted for schema compatibility but the
-  // server recomputes them from trusted tables and ignores the client values
+  // cityId is used server-side to look up the booked slot's extraFee from the
+  // OS city cache. Ignored when absent (legacy payloads).
+  cityId: z.string().optional(),
+  // districtFee, expressFee, and slotFee are accepted for schema compatibility
+  // but the server recomputes them from trusted tables and ignores client values
   // for all financial calculations.
   districtFee: z.number().nonnegative(),
   expressFee: z.number().nonnegative(),
+  slotFee: z.number().nonnegative().optional(),
   // True when the customer ticked "I don't know the address" at checkout.
   // Causes the server to use the flat NO_ADDRESS_DELIVERY_FEE_USD instead of
   // the per-district fee (still subject to the free-delivery threshold).
@@ -314,15 +319,33 @@ export async function attemptCreateWcOrder(
     });
   }
 
+  // Slot surcharge: look up the booked slot's extraFee from the OS city cache
+  // using the client-supplied cityId. Computed server-side so the amount cannot
+  // be inflated or zeroed out by the client.
+  let slotFeeAppliedUsd = 0;
+  if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
+    const citySlots = getDeliverySlots(body.cityId);
+    const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
+    if (bookedSlot?.extraFee && bookedSlot.extraFee > 0) {
+      slotFeeAppliedUsd = bookedSlot.extraFee;
+      shippingLines.push({
+        method_id: "flat_rate",
+        method_title: "Night Delivery Surcharge",
+        total: fmt(await conv(slotFeeAppliedUsd)),
+      });
+    }
+  }
+
   // Final authoritative USD total persisted on the app_orders row. Mirrors
   // exactly the lines we send to WooCommerce above (catalog subtotal +
-  // non-catalog fee items + district fee + express surcharge), so the funnel
-  // dashboard's revenue numbers add up to what shoppers actually paid.
+  // non-catalog fee items + district fee + express surcharge + slot surcharge),
+  // so the funnel dashboard's revenue numbers add up to what shoppers paid.
   const totalUsd =
     catalogSubtotalUsd +
     nonCatalogFeesUsd +
     serverDistrictFeeUsd +
-    expressSurchargeAppliedUsd;
+    expressSurchargeAppliedUsd +
+    slotFeeAppliedUsd;
   const totalUsdCents = Math.max(0, Math.round(totalUsd * 100));
 
   // Determine set_paid: only true when payment has been verified with the

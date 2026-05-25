@@ -1273,6 +1273,9 @@ components:
         cutoffHour:
           type: number
           description: Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.
+        extraFee:
+          type: number
+          description: Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.
       required:
         - label
         - cutoffHour
