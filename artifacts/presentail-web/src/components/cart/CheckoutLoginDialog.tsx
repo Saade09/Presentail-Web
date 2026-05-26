@@ -183,92 +183,143 @@ export function CheckoutLoginDialog({
         </div>
 
         <div className="px-6 pb-6 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="checkout-login-email">
-              {t("auth.emailLabel")}
-            </label>
-            <Input
-              id="checkout-login-email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (emailError) setEmailError(null);
-              }}
-              placeholder={t("auth.emailPlaceholder")}
-              data-testid="input-checkout-login-email"
-            />
-            {emailError ? (
-              <p
-                className="text-xs text-destructive"
-                data-testid="text-checkout-login-email-error"
-              >
-                {emailError}
+          {!isLoaded ? (
+            <>
+              <p className="text-sm text-center text-muted-foreground" data-testid="text-clerk-unavailable">
+                {t("checkoutLogin.signInUnavailable")}
               </p>
-            ) : null}
-          </div>
+              <Button
+                size="lg"
+                className="w-full h-12 rounded-xl"
+                onClick={() => {
+                  recordAction("guest");
+                  onOpenChange(false);
+                  onContinueAsGuest();
+                }}
+                data-testid="button-checkout-as-guest"
+              >
+                {t("checkoutLogin.guest")}
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {t("auth.or")}
+                </span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                  disabled
+                  data-testid="button-checkout-login-apple"
+                >
+                  <AppleLogo />
+                  {t("auth.continueApple")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                  disabled
+                  data-testid="button-checkout-login-google"
+                >
+                  <GoogleLogo />
+                  {t("auth.continueGoogle")}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="checkout-login-email">
+                  {t("auth.emailLabel")}
+                </label>
+                <Input
+                  id="checkout-login-email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
+                  placeholder={t("auth.emailPlaceholder")}
+                  data-testid="input-checkout-login-email"
+                />
+                {emailError ? (
+                  <p
+                    className="text-xs text-destructive"
+                    data-testid="text-checkout-login-email-error"
+                  >
+                    {emailError}
+                  </p>
+                ) : null}
+              </div>
 
-          <Button
-            size="lg"
-            className="w-full h-12 rounded-xl"
-            onClick={onContinueEmail}
-            data-testid="button-checkout-login-continue"
-          >
-            {t("auth.continue")}
-          </Button>
+              <Button
+                size="lg"
+                className="w-full h-12 rounded-xl"
+                onClick={onContinueEmail}
+                data-testid="button-checkout-login-continue"
+              >
+                {t("auth.continue")}
+              </Button>
 
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">
-              {t("auth.or")}
-            </span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {t("auth.or")}
+                </span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
 
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-              onClick={() => onOAuth("apple")}
-              disabled={!isLoaded || oauthBusy !== null}
-              data-testid="button-checkout-login-apple"
-            >
-              <AppleLogo />
-              {oauthBusy === "apple"
-                ? t("checkout.processing")
-                : t("auth.continueApple")}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-              onClick={() => onOAuth("google")}
-              disabled={!isLoaded || oauthBusy !== null}
-              data-testid="button-checkout-login-google"
-            >
-              <GoogleLogo />
-              {oauthBusy === "google"
-                ? t("checkout.processing")
-                : t("auth.continueGoogle")}
-            </Button>
-          </div>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                  onClick={() => onOAuth("apple")}
+                  disabled={oauthBusy !== null}
+                  data-testid="button-checkout-login-apple"
+                >
+                  <AppleLogo />
+                  {oauthBusy === "apple"
+                    ? t("checkout.processing")
+                    : t("auth.continueApple")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                  onClick={() => onOAuth("google")}
+                  disabled={oauthBusy !== null}
+                  data-testid="button-checkout-login-google"
+                >
+                  <GoogleLogo />
+                  {oauthBusy === "google"
+                    ? t("checkout.processing")
+                    : t("auth.continueGoogle")}
+                </Button>
+              </div>
 
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full h-12 rounded-xl border border-primary/30 text-primary hover:bg-primary/5"
-            onClick={() => {
-              recordAction("guest");
-              onOpenChange(false);
-              onContinueAsGuest();
-            }}
-            data-testid="button-checkout-as-guest"
-          >
-            {t("checkoutLogin.guest")}
-          </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="w-full h-12 rounded-xl border border-primary/30 text-primary hover:bg-primary/5"
+                onClick={() => {
+                  recordAction("guest");
+                  onOpenChange(false);
+                  onContinueAsGuest();
+                }}
+                data-testid="button-checkout-as-guest"
+              >
+                {t("checkoutLogin.guest")}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -26,8 +26,12 @@ export default function Cart() {
   // shoppers (and the brief auth-loading window) bypass the prompt entirely.
   const [loginOpen, setLoginOpen] = useState(false);
   const handleProceed = (e: React.MouseEvent) => {
-    if (authLoading || user) return;
+    if (user) return;
     e.preventDefault();
+    if (authLoading) {
+      setLocation("/checkout");
+      return;
+    }
     setLoginOpen(true);
   };
   const goToCheckout = () => setLocation("/checkout?guest=1");
