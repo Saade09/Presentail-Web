@@ -1,9 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
 import React from "react";
 import {
-  InteractionManager,
   Modal,
   Pressable,
   ScrollView,
@@ -39,20 +37,18 @@ import { trackEvent } from "@/lib/analytics";
 export function CartDrawer() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
-  const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
-  // router.push inside a RN Modal is blocked while the slide animation plays.
-  // InteractionManager.runAfterInteractions waits for all registered animations
-  // to fully complete, then fires the push — this is the canonical RN pattern.
+  const { isCartOpen, closeCart, requestNavigation, detailed, count, total, remove, setQty } = useCart();
+  // CartDrawer is rendered outside RootLayoutNav (sibling), so router.push from
+  // here has no Stack navigator to push onto. Instead we call requestNavigation()
+  // which sets pendingNavigation in CartContext + closes the modal. The
+  // CartNavigationHandler component (inside the Stack in _layout.tsx) picks up
+  // that signal and fires router.push once the modal is gone.
   const goToCheckout = React.useCallback(() => {
-    closeCart();
-    InteractionManager.runAfterInteractions(() => {
-      router.push("/checkout");
-    });
-  }, [closeCart, router]);
+    requestNavigation("/checkout");
+  }, [requestNavigation]);
 
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
@@ -460,8 +456,7 @@ export function CartDrawer() {
               </Pressable>
               <Pressable
                 onPress={() => {
-                  closeCart();
-                  router.push("/cart");
+                  requestNavigation("/(tabs)/cart");
                 }}
                 style={{ alignItems: "center", paddingVertical: 4 }}
               >

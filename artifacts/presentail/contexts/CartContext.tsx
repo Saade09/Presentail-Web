@@ -31,6 +31,11 @@ type CartContextValue = {
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
+  /** Path to navigate to after the cart modal fully closes. Consumed by CartNavigationHandler inside the Stack. */
+  pendingNavigation: string | null;
+  /** Close the cart and schedule navigation to `path` once the modal is gone. */
+  requestNavigation: (path: string) => void;
+  clearPendingNavigation: () => void;
   cartMessage: CartCardMessage | null;
   setCartMessage: (msg: CartCardMessage | null) => void;
 };
@@ -63,6 +68,7 @@ function applyMutation(items: CartItem[], m: PendingMutation): CartItem[] {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [cartMessage, setCartMessageState] = useState<CartCardMessage | null>(null);
   const hydrated = useRef(false);
   const pending = useRef<PendingMutation[]>([]);
@@ -147,6 +153,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
+  const requestNavigation = useCallback((path: string) => {
+    setPendingNavigation(path);
+    setIsCartOpen(false);
+  }, []);
+  const clearPendingNavigation = useCallback(() => setPendingNavigation(null), []);
 
   const add = useCallback((productId: string, qty = 1) => {
     if (!hydrated.current) {
@@ -214,8 +225,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, cartMessage, setCartMessage }),
-    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, cartMessage, setCartMessage],
+    () => ({ items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage }),
+    [items, count, total, add, remove, setQty, clear, onClear, detailed, isCartOpen, openCart, closeCart, pendingNavigation, requestNavigation, clearPendingNavigation, cartMessage, setCartMessage],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

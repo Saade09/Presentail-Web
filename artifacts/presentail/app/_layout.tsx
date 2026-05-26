@@ -12,7 +12,7 @@ import {
 } from "@expo-google-fonts/playfair-display";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useCallback, useEffect, useState } from "react";
@@ -24,6 +24,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 import { CartDrawer } from "@/components/CartDrawer";
+import { useCart } from "@/contexts/CartContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OnboardingLocationScreen } from "@/components/location/OnboardingLocationScreen";
 import { AnimatedSplash } from "@/components/SplashScreen";
@@ -159,8 +160,29 @@ function PushTokenRotationListener() {
 
 const queryClient = new QueryClient();
 
+/**
+ * Handles cart → checkout navigation from within the Stack navigator.
+ * CartDrawer is mounted outside RootLayoutNav so router.push from there
+ * has no navigator to push onto. Instead, CartDrawer calls
+ * requestNavigation() on CartContext, which sets pendingNavigation and
+ * closes the modal. This component (inside the Stack) watches for that
+ * signal and fires the push once the modal is gone.
+ */
+function CartNavigationHandler() {
+  const router = useRouter();
+  const { isCartOpen, pendingNavigation, clearPendingNavigation } = useCart();
+  React.useEffect(() => {
+    if (!isCartOpen && pendingNavigation) {
+      clearPendingNavigation();
+      router.push(pendingNavigation as any);
+    }
+  }, [isCartOpen, pendingNavigation, clearPendingNavigation, router]);
+  return null;
+}
+
 function RootLayoutNav() {
   return (
+    <>
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="product/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
@@ -184,6 +206,8 @@ function RootLayoutNav() {
       <Stack.Screen name="saved-addresses/index" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="saved-addresses/[id]" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
+    <CartNavigationHandler />
+    </>
   );
 }
 
