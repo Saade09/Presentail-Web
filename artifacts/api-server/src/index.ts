@@ -10,6 +10,8 @@ import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnel
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
 import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
 import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
+import { fetchAllProducts } from "./routes/woo";
+import { resolveStore } from "./lib/wooStore";
 
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
@@ -53,6 +55,16 @@ app.listen(port, (err) => {
   startOsProductsSync();
   startReconcileWorker();
   startWooSyncWorker();
+
+  // Pre-warm the WooCommerce product cache for the default Lebanon store so
+  // the first mobile request hits the in-memory cache instead of paying the
+  // ~10 s cold-start cost of fetching all products from the WC API live.
+  // Fire-and-forget; errors are logged but never crash the server.
+  const lbStore = resolveStore("LB", null);
+  fetchAllProducts("en", lbStore).then(
+    (products) => logger.info({ count: products.length }, "startup: WC product cache warmed for Lebanon"),
+    (err: unknown) => logger.warn({ err: (err as Error)?.message }, "startup: WC product cache warm failed"),
+  );
   startCheckoutLoginFunnelMonitor();
   startCheckoutPurchaseFunnelMonitor();
   startClerkCatchupSync();

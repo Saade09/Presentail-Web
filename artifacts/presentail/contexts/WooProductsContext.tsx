@@ -47,7 +47,10 @@ const WooProductsContext = createContext<WooCtx>({
 
 export function WooProductsProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<AnyProduct[]>(INITIAL_CATALOG);
-  const [loading, setLoading] = useState(true);
+  // Start non-loading: INITIAL_CATALOG already has display-ready products so
+  // the UI shows them immediately. The background sync will silently update
+  // prices / availability when the API responds.
+  const [loading, setLoading] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const isSyncing = useRef(false);
   const syncSeq = useRef(0);
