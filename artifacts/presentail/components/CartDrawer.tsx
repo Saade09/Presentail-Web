@@ -433,8 +433,8 @@ export function CartDrawer() {
                     setLoginSheetVisible(true);
                     return;
                   }
-                  closeCart();
                   router.push("/checkout");
+                  closeCart();
                 }}
                 style={({ pressed }) => ({
                   backgroundColor: colors.primary,
@@ -477,13 +477,13 @@ export function CartDrawer() {
       onClose={() => setLoginSheetVisible(false)}
       onAuthSuccess={() => {
         setLoginSheetVisible(false);
-        closeCart();
         router.push("/checkout");
+        closeCart();
       }}
       onContinueAsGuest={() => {
         setLoginSheetVisible(false);
-        closeCart();
         router.push("/checkout");
+        closeCart();
       }}
     />
     </>
