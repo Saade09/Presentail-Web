@@ -22,6 +22,7 @@ import { AmexBadge, ApplePayBadge, GooglePayBadge, MastercardBadge, PayPalBadge,
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { Price } from "@/components/Price";
 import { RescheduleDeliverySheet } from "@/components/RescheduleDeliverySheet";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
@@ -86,6 +87,7 @@ function ProductDetail() {
   const insets = useSafeAreaInsets();
   const { add } = useCart();
   const t = useT();
+  const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
@@ -234,18 +236,20 @@ function ProductDetail() {
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
             <View style={{ flexDirection: "row", gap: 10 }}>
-              <Pressable
-                onPress={() => void toggleFavorite(product.id)}
-                accessibilityRole="button"
-                accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
-                style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
-              >
-                <Ionicons
-                  name={isFavorited(product.id) ? "heart" : "heart-outline"}
-                  size={20}
-                  color={isFavorited(product.id) ? "#e11d48" : colors.primary}
-                />
-              </Pressable>
+              {user && (
+                <Pressable
+                  onPress={() => void toggleFavorite(product.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
+                  style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+                >
+                  <Ionicons
+                    name={isFavorited(product.id) ? "heart" : "heart-outline"}
+                    size={20}
+                    color={isFavorited(product.id) ? "#e11d48" : colors.primary}
+                  />
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => handleShareProduct(String(slug || product.id), product.name)}
                 accessibilityRole="button"
