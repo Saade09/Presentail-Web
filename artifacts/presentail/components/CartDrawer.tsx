@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  InteractionManager,
   Modal,
   Pressable,
   ScrollView,
@@ -43,15 +44,15 @@ export function CartDrawer() {
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
-  // router.push doesn't work while a React Native Modal is mounted because the
-  // Modal renders outside the Expo Router navigator tree. Instead we set a flag,
-  // dismiss the modal (closeCart), and navigate once isCartOpen becomes false.
-  const pendingCheckout = React.useRef(false);
-
+  // router.push inside a RN Modal is blocked while the slide animation plays.
+  // InteractionManager.runAfterInteractions waits for all registered animations
+  // to fully complete, then fires the push — this is the canonical RN pattern.
   const goToCheckout = React.useCallback(() => {
-    pendingCheckout.current = true;
     closeCart();
-  }, [closeCart]);
+    InteractionManager.runAfterInteractions(() => {
+      router.push("/checkout");
+    });
+  }, [closeCart, router]);
 
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
@@ -62,12 +63,7 @@ export function CartDrawer() {
       trackEvent({ name: "cart_viewed", surface: "cart" });
     }
     wasOpenRef.current = isCartOpen;
-    // Navigate to checkout after the modal has fully dismissed
-    if (!isCartOpen && pendingCheckout.current) {
-      pendingCheckout.current = false;
-      router.push("/checkout");
-    }
-  }, [isCartOpen, router]);
+  }, [isCartOpen]);
   const { formatNative, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();
