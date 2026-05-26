@@ -42,15 +42,10 @@ import { useNow } from "@/lib/useNow";
 const { width: SCREEN_W } = Dimensions.get("window");
 
 // Public web storefront origin used to build shareable product links.
-// Mirrors the source used elsewhere for customer-facing links (see
-// `brandShareMessage` in lib/translations.ts and the EXPO_PUBLIC_DOMAIN
-// gotcha in replit.md). Falls back to the production marketing domain
-// so OTA bundles without env vars still produce a valid public URL.
-const WEB_BASE_URL = (() => {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
-  return "https://presentail.com";
-})();
+// Share URLs always point to the production web storefront so iOS/Android
+// can resolve OG tags (product name, logo) for the share sheet preview.
+// EXPO_PUBLIC_DOMAIN is the API server domain — do NOT use it here.
+const WEB_BASE_URL = "https://presentail.com";
 
 type ImageSource = number | { uri: string };
 
