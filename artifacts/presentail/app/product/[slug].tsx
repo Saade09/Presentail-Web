@@ -46,7 +46,9 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // Share URLs always point to the production web storefront so iOS/Android
 // can resolve OG tags (product name, logo) for the share sheet preview.
 // EXPO_PUBLIC_DOMAIN is the API server domain — do NOT use it here.
-const WEB_BASE_URL = "https://presentail.com";
+// presentail.com does not yet have locale-prefixed routes; new.presentail.com
+// is the deployed Replit storefront that serves them correctly.
+const WEB_BASE_URL = "https://new.presentail.com";
 
 type ImageSource = number | { uri: string };
 
@@ -153,17 +155,14 @@ function ProductDetail() {
         selectedCity?.id?.replace(/^[a-z]{2}-/, "") ?? "beirut";
       const encodedSlug = encodeURIComponent(String(productSlug ?? ""));
       const url = `${WEB_BASE_URL}/en-${countrySlug}/${citySlug}/product/${encodedSlug}`;
-      // iOS treats `message` and `url` as two separate shareable items, which
-      // makes the share sheet preview "2 Links" and pastes the URL twice.
-      // Pass only the field each platform actually uses: `url` on iOS,
-      // `message` on Android (Android's Share API ignores `url`).
-      // `title` is forwarded to UIActivityViewController on iOS, which displays
-      // it in the share sheet header and link preview label.
-      await Share.share(
-        Platform.OS === "ios"
-          ? { url, title: productName }
-          : { message: `${productName} – ${url}` },
-      );
+      // Both platforms use message-only to ensure the product name appears
+      // visibly in the share sheet preview. On iOS, passing only `url` (with
+      // `title`) does NOT display the title in the iOS 16+ share sheet — the
+      // link preview card shows only the domain fetched from the page's OG
+      // tags. Using `message` with the name on its own line ensures the name
+      // is shown as the share preview text and avoids the "2 Items" issue
+      // that occurs when both `message` (containing a URL) and `url` are set.
+      await Share.share({ message: `${productName}\n${url}` });
     } catch {
       showToast(t.shareUnavailable);
     }

@@ -1,2 +1,1 @@
-- [EAS CLI ASC env vars](eas-cli-asc-env-vars.md) — correct CI env var names for non-interactive builds; wrong names cause silent prompt failure
-- [Google Sign-In aud mismatch](google-signin-aud.md) — iOS token aud = iOS client ID; GOOGLE_CLIENT_IDS must include it or server returns 401
+- [iOS product share](share-product-ios.md) — title param invisible in iOS 16+ share sheet; use message format; WEB_BASE_URL must be new.presentail.com not presentail.com
