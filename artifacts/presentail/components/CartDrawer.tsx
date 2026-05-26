@@ -43,6 +43,16 @@ export function CartDrawer() {
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
+  // router.push doesn't work while a React Native Modal is mounted because the
+  // Modal renders outside the Expo Router navigator tree. Instead we set a flag,
+  // dismiss the modal (closeCart), and navigate once isCartOpen becomes false.
+  const pendingCheckout = React.useRef(false);
+
+  const goToCheckout = React.useCallback(() => {
+    pendingCheckout.current = true;
+    closeCart();
+  }, [closeCart]);
+
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
   // don't duplicate the entry-point event.
@@ -52,7 +62,12 @@ export function CartDrawer() {
       trackEvent({ name: "cart_viewed", surface: "cart" });
     }
     wasOpenRef.current = isCartOpen;
-  }, [isCartOpen]);
+    // Navigate to checkout after the modal has fully dismissed
+    if (!isCartOpen && pendingCheckout.current) {
+      pendingCheckout.current = false;
+      router.push("/checkout");
+    }
+  }, [isCartOpen, router]);
   const { formatNative, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();
@@ -433,8 +448,7 @@ export function CartDrawer() {
                     setLoginSheetVisible(true);
                     return;
                   }
-                  router.push("/checkout");
-                  closeCart();
+                  goToCheckout();
                 }}
                 style={({ pressed }) => ({
                   backgroundColor: colors.primary,
@@ -477,13 +491,11 @@ export function CartDrawer() {
       onClose={() => setLoginSheetVisible(false)}
       onAuthSuccess={() => {
         setLoginSheetVisible(false);
-        router.push("/checkout");
-        closeCart();
+        goToCheckout();
       }}
       onContinueAsGuest={() => {
         setLoginSheetVisible(false);
-        router.push("/checkout");
-        closeCart();
+        goToCheckout();
       }}
     />
     </>
