@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import React from "react";
 import {
   Modal,
@@ -40,15 +41,29 @@ export function CartDrawer() {
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
-  const { isCartOpen, closeCart, requestNavigation, detailed, count, total, remove, setQty } = useCart();
-  // CartDrawer is rendered outside RootLayoutNav (sibling), so router.push from
-  // here has no Stack navigator to push onto. Instead we call requestNavigation()
-  // which sets pendingNavigation in CartContext + closes the modal. The
-  // CartNavigationHandler component (inside the Stack in _layout.tsx) picks up
-  // that signal and fires router.push once the modal is gone.
-  const goToCheckout = React.useCallback(() => {
-    requestNavigation("/checkout");
-  }, [requestNavigation]);
+  const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
+
+  // Navigation from inside a Modal portal is unreliable — the native view
+  // sits above the Stack navigator and router.push is silently swallowed.
+  // Instead: store the destination in a ref, call closeCart(), then fire the
+  // navigation in a useEffect 350 ms after isCartOpen becomes false (giving
+  // the native slide-out animation time to fully complete).
+  const pendingNavRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!isCartOpen && pendingNavRef.current) {
+      const path = pendingNavRef.current;
+      pendingNavRef.current = null;
+      const t = setTimeout(() => {
+        router.navigate(path as any);
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [isCartOpen]);
+
+  const goToCart = React.useCallback(() => {
+    pendingNavRef.current = "/(tabs)/cart";
+    closeCart();
+  }, [closeCart]);
 
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
@@ -435,13 +450,7 @@ export function CartDrawer() {
                 </Text>
               </View>
               <Pressable
-                onPress={() => {
-                  if (!user) {
-                    setLoginSheetVisible(true);
-                    return;
-                  }
-                  goToCheckout();
-                }}
+                onPress={goToCart}
                 style={({ pressed }) => ({
                   backgroundColor: colors.primary,
                   borderRadius: 999,
@@ -451,17 +460,7 @@ export function CartDrawer() {
                 })}
               >
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                  CHECKOUT · {formatNative(grandTotalUsd)}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  requestNavigation("/(tabs)/cart");
-                }}
-                style={{ alignItems: "center", paddingVertical: 4 }}
-              >
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
-                  View full cart
+                  VIEW FULL CART
                 </Text>
               </Pressable>
             </View>
@@ -482,11 +481,11 @@ export function CartDrawer() {
       onClose={() => setLoginSheetVisible(false)}
       onAuthSuccess={() => {
         setLoginSheetVisible(false);
-        goToCheckout();
+        goToCart();
       }}
       onContinueAsGuest={() => {
         setLoginSheetVisible(false);
-        goToCheckout();
+        goToCart();
       }}
     />
     </>
