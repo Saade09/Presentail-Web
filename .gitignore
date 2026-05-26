@@ -50,3 +50,6 @@ Thumbs.db
 
 # Google Play service account key (never commit)
 artifacts/presentail/google-service-account.json
+
+# Apple App Store Connect API keys (never commit)
+*.p8
