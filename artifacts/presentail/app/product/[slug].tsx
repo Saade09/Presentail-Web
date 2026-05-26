@@ -155,14 +155,18 @@ function ProductDetail() {
         selectedCity?.id?.replace(/^[a-z]{2}-/, "") ?? "beirut";
       const encodedSlug = encodeURIComponent(String(productSlug ?? ""));
       const url = `${WEB_BASE_URL}/en-${countrySlug}/${citySlug}/product/${encodedSlug}`;
-      // Both platforms use message-only to ensure the product name appears
-      // visibly in the share sheet preview. On iOS, passing only `url` (with
-      // `title`) does NOT display the title in the iOS 16+ share sheet — the
-      // link preview card shows only the domain fetched from the page's OG
-      // tags. Using `message` with the name on its own line ensures the name
-      // is shown as the share preview text and avoids the "2 Items" issue
-      // that occurs when both `message` (containing a URL) and `url` are set.
-      await Share.share({ message: `${productName}\n${url}` });
+      // On iOS: pass `message` (product name only, no URL) and `url` as
+      // separate fields. iOS renders them as two distinct items — the name
+      // appears as visible text above the link card. Putting the URL inside
+      // `message` causes iOS to extract it and show only the domain card,
+      // hiding the product name entirely.
+      // On Android: `url` is not supported by Share.share, so combine name
+      // and URL into a single message string (Android shows it as plain text).
+      const sharePayload =
+        Platform.OS === "ios"
+          ? { message: productName, url }
+          : { message: `${productName}\n${url}` };
+      await Share.share(sharePayload);
     } catch {
       showToast(t.shareUnavailable);
     }
