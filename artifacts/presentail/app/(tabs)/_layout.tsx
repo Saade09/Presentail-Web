@@ -5,6 +5,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -19,6 +20,7 @@ function TabLayout() {
   const { count } = useCart();
   const { lang } = useLanguage();
   const t = translations[lang];
+  const { user } = useAuth();
 
   return (
     <Tabs
@@ -111,7 +113,7 @@ function TabLayout() {
         name="favorites"
         options={{
           title: t.favorites,
-          tabBarButton: () => null,
+          href: user ? undefined : null,
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "heart.fill" : "heart"} tintColor={color} size={22} />
