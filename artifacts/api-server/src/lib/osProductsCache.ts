@@ -207,8 +207,13 @@ async function fetchAndStore(): Promise<void> {
 /**
  * Whether the OS product cache is populated for the given store.
  * When no storeKey is provided, returns true when ANY store has data.
+ *
+ * Set OS_PRODUCTS_DISABLED=1 to force all product routes to use the
+ * WooCommerce fallback path (useful when the OS API key is broken or
+ * for local dev without an OS key).
  */
 export function hasOsProducts(storeKey?: string): boolean {
+  if (process.env.OS_PRODUCTS_DISABLED === "1") return false;
   if (storeKey) {
     const entry = storeCache.get(storeKey as StoreKey);
     return entry !== undefined && entry.products.length > 0;
