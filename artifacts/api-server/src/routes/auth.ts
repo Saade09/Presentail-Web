@@ -1093,8 +1093,21 @@ function randomPassword(): string {
   );
 }
 
-async function findCustomerByEmail(email: string, req?: { query: any; headers: any }) {
-  const r = await wcFetch(`/customers?email=${encodeURIComponent(email)}&per_page=1`, {}, req);
+async function findCustomerByEmail(
+  email: string,
+  req?: { query: any; headers: any },
+  { allRoles = false }: { allRoles?: boolean } = {},
+) {
+  // WC's /customers endpoint defaults to role=customer, which excludes
+  // WordPress admins, editors, and other non-customer roles. When allRoles
+  // is true (used as a fallback after a create-conflict) we pass role=all
+  // so we can locate any WP user by email regardless of their role.
+  const roleParam = allRoles ? "&role=all" : "";
+  const r = await wcFetch(
+    `/customers?email=${encodeURIComponent(email)}&per_page=1${roleParam}`,
+    {},
+    req,
+  );
   if (!r.ok) return null;
   const list = (await r.json().catch(() => [])) as any[];
   return Array.isArray(list) && list[0] ? list[0] : null;
@@ -1130,9 +1143,24 @@ async function ensureCustomerForSocial(input: {
   firstName: string;
   lastName: string;
 }, req?: { query: any; headers: any }) {
+  // First try: customer-role-only lookup (the fast path for normal shoppers).
   const existing = await findCustomerByEmail(input.email, req);
   if (existing) return existing;
-  return createCustomer(input, req);
+
+  try {
+    return await createCustomer(input, req);
+  } catch (createErr: any) {
+    // WooCommerce rejects account creation when the email already exists as
+    // any WordPress user (e.g. admins, editors). The error message contains
+    // "already registered". In that case, retry the lookup with role=all so
+    // we can find and return the existing WP user record instead of failing.
+    const msg: string = createErr?.message ?? "";
+    if (/already registered/i.test(msg)) {
+      const byAllRoles = await findCustomerByEmail(input.email, req, { allRoles: true });
+      if (byAllRoles) return byAllRoles;
+    }
+    throw createErr;
+  }
 }
 
 async function issueSocialSession(

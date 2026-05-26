@@ -15,3 +15,10 @@ On iOS 16+, `Share.share({ url, title })` does NOT display `title` in the share 
 
 ## SEO OG injection
 The `serve.mjs` for `presentail-web` calls `http://localhost:80/api/woo/product?slug=...` (via `INTERNAL_API_BASE_URL`). The `/api/woo/product` endpoint looks up products by the OS product `id` (which is the slug-like string, e.g. `gold-chrome-balloons`), NOT by the WooCommerce `slug` field (which is empty string on OS products). The slug in the share URL comes from `useLocalSearchParams()` in the product screen, which equals the OS product id.
+
+## WC social sign-in: role=all fallback
+`findCustomerByEmail` uses WC `/customers?email=...` which defaults to `role=customer`. WordPress admins/editors are excluded, causing `createCustomer` to throw "already registered". Fix: in `ensureCustomerForSocial`, catch that conflict error and retry `findCustomerByEmail` with `allRoles: true` (`role=all` query param) to locate any WP user by email.
+
+**Why:** WC REST API `/customers` endpoint role filter silently excludes non-customer WP users even though WC enforces email uniqueness globally.
+
+**How to apply:** Any code path that calls `/customers?email=...` to look up users for sign-in or upsert should consider that admins/editors won't appear without `role=all`.
