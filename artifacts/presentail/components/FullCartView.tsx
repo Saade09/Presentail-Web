@@ -396,12 +396,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               />
             ))}
 
-            <View style={{ marginTop: 10 }}>
-              <CartUpsells />
-            </View>
-
             {/* Gift Card & Message row */}
-            <View style={{ marginTop: 6 }}>
+            <View style={{ marginTop: 10 }}>
               <Pressable
                 onPress={() => setCardMessageSheetVisible(true)}
                 accessibilityRole="button"
@@ -471,6 +467,10 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
                 )}
               </Pressable>
+            </View>
+
+            <View style={{ marginTop: 6 }}>
+              <CartUpsells />
             </View>
           </ScrollView>
 
