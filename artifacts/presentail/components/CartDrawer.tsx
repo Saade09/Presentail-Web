@@ -163,88 +163,6 @@ export function CartDrawer() {
               contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
               showsVerticalScrollIndicator={false}
             >
-              {detailed.map(({ product, qty, lineTotal }) => (
-                <View
-                  key={product.id}
-                  style={{
-                    flexDirection: "row",
-                    gap: 14,
-                    backgroundColor: "#fff",
-                    borderRadius: 16,
-                    padding: 12,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <Image
-                    source={product.image}
-                    style={{ width: 70, height: 70, borderRadius: 10 }}
-                    contentFit="cover"
-                  />
-                  <View style={{ flex: 1, gap: 6 }}>
-                    <Text
-                      numberOfLines={1}
-                      style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}
-                    >
-                      {product.name}
-                    </Text>
-                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
-                      {formatNative(lineTotal)}
-                    </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                      <Pressable
-                        onPress={() => setQty(product.id, qty - 1)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 999,
-                          backgroundColor: colors.background,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        hitSlop={6}
-                      >
-                        <Feather name="minus" size={12} color={colors.primary} />
-                      </Pressable>
-                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, minWidth: 20, textAlign: "center" }}>
-                        {qty}
-                      </Text>
-                      <Pressable
-                        onPress={() => setQty(product.id, qty + 1)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 999,
-                          backgroundColor: colors.background,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        hitSlop={6}
-                      >
-                        <Feather name="plus" size={12} color={colors.primary} />
-                      </Pressable>
-                      <Pressable onPress={() => remove(product.id)} hitSlop={8} style={{ marginLeft: "auto" }}>
-                        <Feather name="trash-2" size={14} color={colors.mutedForeground} />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-              ))}
-
-              <View style={{ marginTop: 8 }}>
-                <CartUpsells />
-              </View>
-            </ScrollView>
-
-            <View
-              style={{
-                paddingHorizontal: 20,
-                paddingTop: 14,
-                borderTopWidth: 1,
-                borderTopColor: colors.border,
-                gap: 12,
-              }}
-            >
               <View
                 style={{
                   flexDirection: "row",
@@ -355,6 +273,89 @@ export function CartDrawer() {
                   </View>
                 </View>
               </View>
+
+              {detailed.map(({ product, qty, lineTotal }) => (
+                <View
+                  key={product.id}
+                  style={{
+                    flexDirection: "row",
+                    gap: 14,
+                    backgroundColor: "#fff",
+                    borderRadius: 16,
+                    padding: 12,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Image
+                    source={product.image}
+                    style={{ width: 70, height: 70, borderRadius: 10 }}
+                    contentFit="cover"
+                  />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}
+                    >
+                      {product.name}
+                    </Text>
+                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
+                      {formatNative(lineTotal)}
+                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <Pressable
+                        onPress={() => setQty(product.id, qty - 1)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 999,
+                          backgroundColor: colors.background,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        hitSlop={6}
+                      >
+                        <Feather name="minus" size={12} color={colors.primary} />
+                      </Pressable>
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, minWidth: 20, textAlign: "center" }}>
+                        {qty}
+                      </Text>
+                      <Pressable
+                        onPress={() => setQty(product.id, qty + 1)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 999,
+                          backgroundColor: colors.background,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        hitSlop={6}
+                      >
+                        <Feather name="plus" size={12} color={colors.primary} />
+                      </Pressable>
+                      <Pressable onPress={() => remove(product.id)} hitSlop={8} style={{ marginLeft: "auto" }}>
+                        <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              <View style={{ marginTop: 8 }}>
+                <CartUpsells />
+              </View>
+            </ScrollView>
+
+            <View
+              style={{
+                paddingHorizontal: 20,
+                paddingTop: 14,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+                gap: 12,
+              }}
+            >
               <Pressable
                 onPress={goPickDeliveryTime}
                 accessibilityRole="button"
