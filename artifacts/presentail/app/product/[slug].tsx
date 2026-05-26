@@ -134,6 +134,12 @@ function ProductDetail() {
     }
   };
 
+  // Read delivery location so we can build a locale-prefixed share URL.
+  // `selectedCountry.code` is e.g. "LB"; `selectedCity.id` is e.g. "lb-beirut".
+  // Both are used only inside handleShareProduct (not during render) so there
+  // is no risk of a synchronous throw on the critical product-detail path.
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+
   const handleShareProduct = async (productSlug: string, productName: string) => {
     // Use React Native's built-in Share API (native iOS/Android share sheet).
     // It is part of react-native core, so no extra native module is required —
@@ -141,7 +147,15 @@ function ProductDetail() {
     // added after TestFlight build 13 was compiled and previously crashed
     // the app at the native layer when invoked.
     try {
-      const url = `${WEB_BASE_URL}/product/${encodeURIComponent(String(productSlug ?? ""))}`;
+      // Build a locale-prefixed URL so the web server's injectSeoTagsAsync
+      // fires the per-product OG tag injection and iMessage / WhatsApp / iOS
+      // share sheet shows the product name instead of the bare domain.
+      // countryCode "LB" → country slug "lb"; city id "lb-beirut" → "beirut".
+      const countrySlug = selectedCountry?.code?.toLowerCase() ?? "lb";
+      const citySlug =
+        selectedCity?.id?.replace(/^[a-z]{2}-/, "") ?? "beirut";
+      const encodedSlug = encodeURIComponent(String(productSlug ?? ""));
+      const url = `${WEB_BASE_URL}/en-${countrySlug}/${citySlug}/product/${encodedSlug}`;
       // iOS treats `message` and `url` as two separate shareable items, which
       // makes the share sheet preview "2 Links" and pastes the URL twice.
       // Pass only the field each platform actually uses: `url` on iOS,

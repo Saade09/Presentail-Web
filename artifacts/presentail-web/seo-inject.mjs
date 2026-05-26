@@ -996,7 +996,42 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const { apiBaseUrl, search, ...rest } = opts;
   const generic = buildSeoHead(pathname, rest);
   const parsed = parseLocalePath(pathname);
-  if (!apiBaseUrl || !parsed.hasLocalePrefix) {
+  if (!apiBaseUrl) {
+    return assembleHtml(html, generic);
+  }
+  if (!parsed.hasLocalePrefix) {
+    // Fallback: handle bare /product/<slug> paths (e.g. links shared before
+    // the locale-prefix fix, or external integrations). Use default locale
+    // values so the web server can still inject per-product OG tags.
+    const bareProductSlug = extractProductSlug(pathname);
+    if (bareProductSlug) {
+      const product = await fetchEntityForSeoCached(
+        "product",
+        fetchProductForSeo,
+        {
+          slug: bareProductSlug,
+          lang: "en",
+          countryCode: "LB",
+          cityId: "lb-beirut",
+          apiBaseUrl,
+        },
+      );
+      if (product) {
+        const result = buildProductHead({
+          product,
+          lang: generic.lang,
+          basePath: rest.basePath ?? "",
+          origin: rest.origin ?? "",
+          pathname,
+        });
+        return assembleHtml(html, {
+          lang: generic.lang,
+          dir: generic.dir,
+          headSnippet: result.headSnippet,
+          titleTag: `<title>${escapeHtml(result.title)}</title>`,
+        });
+      }
+    }
     return assembleHtml(html, generic);
   }
 
