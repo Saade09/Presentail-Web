@@ -1,0 +1,1 @@
+- [EAS CLI ASC env vars](eas-cli-asc-env-vars.md) — correct CI env var names for non-interactive builds; wrong names cause silent prompt failure

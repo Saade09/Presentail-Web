@@ -65,9 +65,11 @@ jobs:
       - name: Build iOS and submit to TestFlight
         run: eas build --platform ios --profile production --auto-submit --non-interactive
         env:
-          EXPO_ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
           EXPO_ASC_API_KEY_PATH: ./asc-api-key.p8
+          EXPO_APPLE_TEAM_ID: 4DR9CS3387
+          EXPO_APPLE_TEAM_TYPE: COMPANY_OR_ORGANIZATION
 
       # The TestFlight binary that was just submitted contains the native
       # modules currently resolved in node_modules. Refresh the baseline
