@@ -233,125 +233,6 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         </Pressable>
       </View>
 
-      {detailed.length > 0 && (
-        <View
-          style={{
-            paddingHorizontal: 24,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              backgroundColor: "#fff",
-              borderRadius: 16,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 999,
-                backgroundColor: "#fff",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Feather name="truck" size={16} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1, gap: 6 }}>
-              {unlocked ? (
-                <Text
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 12,
-                    color: colors.primary,
-                  }}
-                >
-                  {t.cartFreeDeliveryUnlocked}
-                </Text>
-              ) : (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: "Inter_500Medium",
-                      fontSize: 12,
-                      color: colors.primary,
-                    }}
-                  >
-                    {t.cartFreeDeliveryRemainingPrefix}{" "}
-                  </Text>
-                  <Price
-                    value={convert(remainingUsd)}
-                    native
-                    style={{
-                      fontFamily: "Inter_600SemiBold",
-                      fontSize: 12,
-                      color: colors.primary,
-                    }}
-                    symbolSize={11}
-                  />
-                  <Text
-                    style={{
-                      fontFamily: "Inter_500Medium",
-                      fontSize: 12,
-                      color: colors.primary,
-                    }}
-                  >
-                    {" "}{t.cartFreeDeliveryRemainingSuffix}
-                  </Text>
-                </View>
-              )}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <View
-                  style={{
-                    flex: 1,
-                    height: 6,
-                    borderRadius: 999,
-                    backgroundColor: "#fff",
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      width: `${Math.round(progress * 100)}%`,
-                      height: "100%",
-                      backgroundColor: colors.gold,
-                    }}
-                  />
-                </View>
-                <Price
-                  value={total}
-                  native
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 11,
-                    color: colors.primary,
-                  }}
-                  symbolSize={10}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
-
       {detailed.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 36, gap: 14 }}>
           <View
@@ -391,6 +272,117 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               gap: 14,
             }}
           >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="truck" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 6 }}>
+                {unlocked ? (
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 12,
+                      color: colors.primary,
+                    }}
+                  >
+                    {t.cartFreeDeliveryUnlocked}
+                  </Text>
+                ) : (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                    >
+                      {t.cartFreeDeliveryRemainingPrefix}{" "}
+                    </Text>
+                    <Price
+                      value={convert(remainingUsd)}
+                      native
+                      style={{
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                      symbolSize={11}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        fontSize: 12,
+                        color: colors.primary,
+                      }}
+                    >
+                      {" "}{t.cartFreeDeliveryRemainingSuffix}
+                    </Text>
+                  </View>
+                )}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 6,
+                      borderRadius: 999,
+                      backgroundColor: "#fff",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${Math.round(progress * 100)}%`,
+                        height: "100%",
+                        backgroundColor: colors.gold,
+                      }}
+                    />
+                  </View>
+                  <Price
+                    value={total}
+                    native
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 11,
+                      color: colors.primary,
+                    }}
+                    symbolSize={10}
+                  />
+                </View>
+              </View>
+            </View>
+
             {detailed.map(({ product, qty, lineTotal }) => (
               <CartItemRow
                 key={product.id}
