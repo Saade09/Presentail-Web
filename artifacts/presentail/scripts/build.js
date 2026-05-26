@@ -160,7 +160,19 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
       cwd: projectRoot,
-      env,
+      // Give Metro (and its worker threads) 4 GB of heap so the minified
+      // production bundle compile doesn't hit the default ~1.5 GB limit and
+      // get OOM-killed silently. The previous failed build showed Metro ready
+      // but zero bundling progress — the signature of an OOM kill.
+      env: {
+        ...env,
+        NODE_OPTIONS: [
+          env.NODE_OPTIONS,
+          "--max-old-space-size=4096",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      },
     },
   );
 
