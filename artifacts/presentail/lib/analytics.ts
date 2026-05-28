@@ -11,9 +11,17 @@ type AnalyticsEventName =
   | "payment_method_selected"
   | "order_placed"
   | "auth_social_failed"
-  | "suggested_message_picked";
+  | "suggested_message_picked"
+  | "upsell_tab_clicked"
+  | "upsell_item_added"
+  | "upsell_checkout_proceeded";
 
-type AnalyticsSurface = "cart" | "checkout-direct" | "cart-screen" | "checkout";
+type AnalyticsSurface =
+  | "cart"
+  | "checkout-direct"
+  | "cart-screen"
+  | "checkout"
+  | "upsell_cart";
 
 type AnalyticsAction =
   | "continue"
@@ -34,13 +42,21 @@ type AnalyticsAction =
   | "getWellSoon"
   | "newBabyBorn"
   | "thankYou"
-  | "sympathy";
+  | "sympathy"
+  | "recommended"
+  | "single_balloons"
+  | "balloon_bundles"
+  | "chocolate"
+  | "plants"
+  | "bears"
+  | "candles";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;
   surface?: AnalyticsSurface;
   action?: AnalyticsAction;
   errorCode?: string;
+  productId?: string;
 };
 
 function resolvePlatform(): "ios" | "android" | "web" {

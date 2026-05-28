@@ -977,7 +977,7 @@ components:
             "cart-screen" is the standalone cart tab/page, and
             "checkout" covers checkout_started, payment_method_selected
             and order_placed.
-          enum: [cart, checkout-direct, cart-screen, checkout, upsell_modal]
+          enum: [cart, checkout-direct, cart-screen, checkout, upsell_modal, upsell_cart]
         action:
           type: string
           description: |

@@ -583,6 +583,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             </View>
             <Pressable
               onPress={() => {
+                trackEvent({ name: "upsell_checkout_proceeded", surface: "upsell_cart" });
                 if (!user) {
                   setLoginSheetVisible(true);
                   return;

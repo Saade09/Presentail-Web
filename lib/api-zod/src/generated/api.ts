@@ -224,6 +224,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "cart-screen",
       "checkout",
       "upsell_modal",
+      "upsell_cart",
     ])
     .optional()
     .describe(

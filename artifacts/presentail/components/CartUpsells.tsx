@@ -26,6 +26,7 @@ import {
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
+import { trackEvent } from "@/lib/analytics";
 
 function tabLabel(t: ReturnType<typeof useT>, id: UpsellTabId): string {
   switch (id) {
@@ -127,9 +128,15 @@ export function CartUpsells() {
   const handleAdd = React.useCallback(
     (productId: string, productName: string) => {
       add(productId, 1);
+      trackEvent({
+        name: "upsell_item_added",
+        surface: "upsell_cart",
+        action: activeId ?? undefined,
+        productId,
+      });
       showToast(`${productName} · ${t.cartUpsellsAddedToast}`);
     },
-    [add, showToast, t.cartUpsellsAddedToast],
+    [add, activeId, showToast, t.cartUpsellsAddedToast],
   );
 
   if (tabs.length === 0 || !activeId) return null;
@@ -215,7 +222,14 @@ export function CartUpsells() {
           return (
             <Pressable
               key={tab.id}
-              onPress={() => setActiveId(tab.id)}
+              onPress={() => {
+                setActiveId(tab.id);
+                trackEvent({
+                  name: "upsell_tab_clicked",
+                  surface: "upsell_cart",
+                  action: tab.id,
+                });
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}
               style={{ paddingVertical: 6 }}
