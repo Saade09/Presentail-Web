@@ -14,6 +14,7 @@
     "promote-ios-to-app-store": "tsx ./src/promoteToAppStore.ts",
     "bump-app-version": "tsx ./src/bumpAppVersion.ts",
     "bump-android-version-code": "tsx ./src/bumpAndroidVersionCode.ts",
+    "check-unused-translations": "tsx ./src/checkUnusedTranslationKeys.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

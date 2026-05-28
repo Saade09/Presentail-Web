@@ -7,7 +7,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck && pnpm --filter @workspace/presentail-web run test && pnpm --filter @workspace/delivery run test",
-    "test": "pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run test"
+    "test": "pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run test",
+    "check-unused-translations": "pnpm --filter @workspace/scripts run check-unused-translations"
   },
   "private": true,
   "devDependencies": {
