@@ -38,6 +38,7 @@ import {
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
+import { calcRewardPoints } from "@workspace/display-currency";
 import { useNow } from "@/lib/useNow";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -450,7 +451,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
   const [tab, setTab] = useState<"description" | "care">("description");
   const t = useT();
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
-  const points = Math.max(1, Math.round(priceValue * 0.4));
+  const points = calcRewardPoints(priceValue);
 
   // Seed defaults used when the shopper switches to scheduled delivery
   // without opening the reschedule sheet (e.g. the express-unavailable

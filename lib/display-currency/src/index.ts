@@ -136,6 +136,19 @@ export function resolveDisplayCurrency(
 }
 
 /**
+ * Calculate the reward points a shopper earns for a product.
+ *
+ * Single source of truth used by both the mobile app and the web storefront
+ * so shoppers see identical point totals regardless of platform.
+ *
+ * Rate: 0.4 points per USD, minimum 1 point.
+ */
+export function calcRewardPoints(priceValue: number): number {
+  if (!Number.isFinite(priceValue) || priceValue <= 0) return 1;
+  return Math.max(1, Math.round(priceValue * 0.4));
+}
+
+/**
  * Parse an ISO 3166-1 alpha-2 country code out of a BCP-47 locale tag like
  * `en-AE`, `fr_CH`, or `ar-SA`. Returns null when the tag has no region
  * subtag (e.g. plain `en`) or the region is not exactly two letters.

@@ -1,3 +1,4 @@
+import { calcRewardPoints } from "@workspace/display-currency";
 import type { Product } from "@/lib/queries";
 
 export type ProductViewModel = {
@@ -47,7 +48,7 @@ export function buildProductViewModel(product: Product): ProductViewModel {
   const parsed = parseIncludesFromDescription(description);
   const bouquetIncludes = parsed.length ? parsed : DEFAULT_INCLUDES;
 
-  const rewardPoints = Math.max(1, Math.floor(product.priceValue));
+  const rewardPoints = calcRewardPoints(product.priceValue);
 
   return {
     galleryImages,
