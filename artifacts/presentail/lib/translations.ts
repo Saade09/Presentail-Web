@@ -18,9 +18,7 @@ const EN = {
   favoritesPlural: "items saved",
 
   // Hero
-  heroEyebrow: "THE MODERN FLOWER ATELIER",
   heroTitle: "Send a feeling, wrapped in petals.",
-  heroSubtitle: "Hand-arranged in Beirut. Delivered the same day across {country}, with quiet care for every occasion.",
   heroCta: "SHOP THE COLLECTION",
   heroSlide2Title: "Sun is out",
   heroSlide2Subtitle: "Discover our summer collection",
@@ -55,13 +53,9 @@ const EN = {
 
   // Common UI
   seeAll: "See All",
-  back: "Back",
   search: "Search",
   searchPlaceholder: "Search bouquets, gifts, occasions",
-  pieces: "pieces",
   loading: "Loading…",
-  comingSoon: "Coming soon",
-  comingSoonDesc: "We're curating new pieces for this category. Check back shortly.",
   boutiqueSub: "{country}",
   featured: "Featured",
   name: "Name",
@@ -115,32 +109,13 @@ const EN = {
   occ_condolences_desc: "White and pastel arrangements to express quiet sympathy.",
 
   // Category names
-  cat_hand_bouquets: "Hand Bouquets",
-  cat_flower_boxes: "Flower Boxes",
-  cat_flower_vases: "Flower Vases",
-  cat_lux_arrangements: "Lux Arrangements",
-  cat_dried_flowers: "Dried Flowers",
-  cat_preserved_flowers: "Preserved Flowers",
-  cat_plants: "Plants",
-  cat_balloons: "Balloons",
-  cat_board_games: "Board Games",
-  cat_cakes: "Cakes",
-  cat_chocolate: "Chocolate",
-  cat_arabic_sweets: "Arabic Sweets",
-  cat_stuffed_animals: "Stuffed Animals",
-  cat_bundles: "Gift Bundles",
-  cat_baskets: "Baskets",
-  cat_beauty: "Beauty",
 
   contactUs: "Contact Us",
-  faqs: "FAQs",
-  language: "Language",
   currency: "Currency",
   selectCurrency: "Select Currency",
   currencyUseAutomatic: "Use automatic",
   currencyAutomaticHint: "Detects from your location",
   country: "Country",
-  detectCurrencyFromLocation: "Detect from my location",
 
   // ── Product page ──
   productNotFound: "Product not found",
@@ -148,11 +123,9 @@ const EN = {
   shareProductAria: "Share product link",
   shareLinkCopied: "Link copied to clipboard",
   shareUnavailable: "Sharing isn't available in this build",
-  youMayAlsoLove: "You may also love",
   taxInclusive: "Tax inclusive",
   earnPointsPrefix: "Earn",
   earnPointsSuffix: "Points",
-  presentailPointsDesc: "Presentail Points · redeem on future orders",
   deliveryOptionsLabel: "Delivery options",
   arrivesIn90: "Arrives in 90 minutes",
   fastest: "Fastest",
@@ -203,8 +176,6 @@ const EN = {
   askRecipientForAddressNote: "We'll collect the address from the recipient. Delivery time may be impacted if the recipient is unreachable.",
   districtLabel: "District",
   selectDistrictTitle: "Select District",
-  deliveryDetailsField: "Delivery details",
-  buildingFloorStreet: "Building, floor, street, area",
   senderDetailsTitle: "Sender Details",
   whatsappNumberLabel: "WhatsApp number",
   emailLabel: "Email",
@@ -363,8 +334,6 @@ const EN = {
   catalogFullTitle: "The full catalogue",
   catalogFullDesc: "Every flower, plant and gift from our atelier — refined by what you're looking for.",
   catalogAll: "All",
-  catalogFeaturedEyebrow: "Featured · Lux Arrangements",
-  catalogFeaturedTitle: "Sculpted Roses & Statement Stems",
   catalogSortLabel: "Sort",
   noMatches: "No matches",
   noMatchesDesc: "Try a different category or search term.",
@@ -407,9 +376,6 @@ const EN = {
   checkoutEnterCode: "Click here to enter your code",
   checkoutCouponPlaceholder: "Coupon code",
   checkoutFreeUpper: "FREE",
-  checkoutPresetMagicalBirthday: "Wishing you a magical birthday.",
-  checkoutPresetThinkingOfYou: "Thinking of you today.",
-  checkoutPresetWithLove: "With all my love.",
   suggestedMessagesTitle: "Suggested Messages",
   suggestedMessagesLangEnglish: "English",
   suggestedMessagesLangArabic: "Arabic",
@@ -445,7 +411,6 @@ const EN = {
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
-  checkoutSuggestedMessages: "Try Suggested Messages",
   checkoutSubtotalLabel: "Subtotal",
   checkoutDeliveryFeeLabel: "Delivery Fee",
   checkoutExpressDeliveryLabel: "Express Delivery",
@@ -639,8 +604,6 @@ const EN = {
   // ── Occasion page ──
   occasionForTheOccasion: "For the occasion",
   occasionFindingGifts: "Finding the perfect gifts…",
-  occasionCuratingTitle: "Curating new pieces",
-  occasionCuratingDesc: "We're hand-picking our favourites for this occasion.",
   occasionItem: "item",
   occasionItems: "items",
 
@@ -676,7 +639,6 @@ const EN = {
   authPasswordPlaceholder: "Your password",
   authSignIn: "Sign in",
   authForgotPassword: "Forgot password?",
-  authForgotPasswordSoon: "Password reset is coming soon. Please contact customer care for help.",
   authForgotTitle: "Reset your password",
   authForgotSubtitle: "Enter your email and we'll send you a link to set a new password.",
   authForgotEmailLabel: "Email",
@@ -704,8 +666,6 @@ const EN = {
   authForgotPasteLinkInvalid: "That doesn't look like a valid reset link. Make sure you copied the whole URL from the email.",
   authSignUpTitle: "Sign up",
   authSignUpSubtitle: "Enter your name and create a password.",
-  authNameLabel: "Full name",
-  authNamePlaceholder: "Please add your full name",
   authFirstNameLabel: "First name",
   authFirstNamePlaceholder: "First name",
   authLastNameLabel: "Last name",
@@ -733,7 +693,6 @@ const EN = {
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Privacy Policy",
-  legalComingSoon: "Coming soon. Please check back later.",
   splashTagline: "Gifts made personal",
 
   // ── Privacy Policy page ──
@@ -762,7 +721,6 @@ const EN = {
   privacy_sec10_body: "For any questions or concerns about this Privacy Policy or how your data is handled, please contact us at privacy@presentail.com or through the Customer Care section of the app. Our registered address is 3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon.",
 
   // ── Delivery location ──
-  deliverTo: "Deliver To",
   deliveryHeading: "Delivery",
   deliverySheetTitle: "Send your gift to...",
   deliverySelectCountry: "Select Country",
@@ -817,9 +775,7 @@ const AR: typeof EN = {
   favoritesPlural: "عناصر محفوظة",
 
   // Hero
-  heroEyebrow: "بيت الزهور العصري",
   heroTitle: "أهدِ شعوراً، ملفوفاً بالبتلات.",
-  heroSubtitle: "مرتبة يدوياً في بيروت. توصيل في نفس اليوم عبر {country}، باهتمام هادئ لكل مناسبة.",
   heroCta: "تسوق المجموعة",
   heroSlide2Title: "أشرقت الشمس",
   heroSlide2Subtitle: "اكتشف مجموعتنا الصيفية",
@@ -854,13 +810,9 @@ const AR: typeof EN = {
 
   // Common UI
   seeAll: "عرض الكل",
-  back: "رجوع",
   search: "بحث",
   searchPlaceholder: "ابحث عن باقات، هدايا، مناسبات",
-  pieces: "قطعة",
   loading: "جارٍ التحميل…",
-  comingSoon: "قريباً",
-  comingSoonDesc: "نحن نختار قطعاً جديدة لهذه الفئة. تحقق قريباً.",
   boutiqueSub: "{country}",
   featured: "مميز",
   name: "الاسم",
@@ -914,32 +866,13 @@ const AR: typeof EN = {
   occ_condolences_desc: "ترتيبات بيضاء وباستيل للتعبير عن تعاطف هادئ.",
 
   // Category names
-  cat_hand_bouquets: "باقات يدوية",
-  cat_flower_boxes: "صناديق زهور",
-  cat_flower_vases: "مزهريات",
-  cat_lux_arrangements: "تنسيقات فاخرة",
-  cat_dried_flowers: "زهور مجففة",
-  cat_preserved_flowers: "زهور محفوظة",
-  cat_plants: "نباتات",
-  cat_balloons: "بالونات",
-  cat_board_games: "ألعاب لوحية",
-  cat_cakes: "كعك",
-  cat_chocolate: "شوكولاتة",
-  cat_arabic_sweets: "حلويات عربية",
-  cat_stuffed_animals: "دمى محشوة",
-  cat_bundles: "حزم هدايا",
-  cat_baskets: "سلال",
-  cat_beauty: "جمال وعناية",
 
   contactUs: "اتصل بنا",
-  faqs: "الأسئلة الشائعة",
-  language: "اللغة",
   currency: "العملة",
   selectCurrency: "اختر العملة",
   currencyUseAutomatic: "تلقائي",
   currencyAutomaticHint: "يتم تحديدها من موقعك",
   country: "البلد",
-  detectCurrencyFromLocation: "اكتشف من موقعي",
 
   // ── Product page ──
   productNotFound: "المنتج غير موجود",
@@ -947,11 +880,9 @@ const AR: typeof EN = {
   shareProductAria: "مشاركة رابط المنتج",
   shareLinkCopied: "تم نسخ الرابط",
   shareUnavailable: "المشاركة غير متاحة في هذه النسخة",
-  youMayAlsoLove: "قد يعجبك أيضاً",
   taxInclusive: "شامل الضريبة",
   earnPointsPrefix: "اكسب",
   earnPointsSuffix: "نقطة",
-  presentailPointsDesc: "نقاط Presentail · استبدلها في الطلبات القادمة",
   deliveryOptionsLabel: "خيارات التوصيل",
   arrivesIn90: "يصل خلال 90 دقيقة",
   fastest: "الأسرع",
@@ -1002,8 +933,6 @@ const AR: typeof EN = {
   askRecipientForAddressNote: "سنحصل على العنوان من المستقبِل. قد يتأثر وقت التوصيل إذا تعذّر الوصول إليه.",
   districtLabel: "المنطقة",
   selectDistrictTitle: "اختر المنطقة",
-  deliveryDetailsField: "تفاصيل التوصيل",
-  buildingFloorStreet: "المبنى، الطابق، الشارع، المنطقة",
   senderDetailsTitle: "بيانات المُرسِل",
   whatsappNumberLabel: "رقم واتساب",
   emailLabel: "البريد الإلكتروني",
@@ -1162,8 +1091,6 @@ const AR: typeof EN = {
   catalogFullTitle: "الكتالوج الكامل",
   catalogFullDesc: "كل زهرة ونبتة وهدية من ورشتنا — مصنّفة وفق ما تبحث عنه.",
   catalogAll: "الكل",
-  catalogFeaturedEyebrow: "مميّز · تنسيقات فاخرة",
-  catalogFeaturedTitle: "ورود منحوتة وأزهار مميّزة",
   catalogSortLabel: "ترتيب",
   noMatches: "لا توجد نتائج",
   noMatchesDesc: "جرّب فئة مختلفة أو كلمة بحث أخرى.",
@@ -1206,9 +1133,6 @@ const AR: typeof EN = {
   checkoutEnterCode: "اضغط هنا لإدخال الرمز",
   checkoutCouponPlaceholder: "رمز القسيمة",
   checkoutFreeUpper: "مجاني",
-  checkoutPresetMagicalBirthday: "أتمنى لك عيد ميلاد ساحراً.",
-  checkoutPresetThinkingOfYou: "أفكّر بك اليوم.",
-  checkoutPresetWithLove: "مع كل حبّي.",
   suggestedMessagesTitle: "الرسائل المقترحة",
   suggestedMessagesLangEnglish: "الإنجليزية",
   suggestedMessagesLangArabic: "العربية",
@@ -1244,7 +1168,6 @@ const AR: typeof EN = {
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "عربتك فارغة",
   checkoutBrowseBoutique: "تصفّح البوتيك",
-  checkoutSuggestedMessages: "جرّب الرسائل المقترحة",
   checkoutSubtotalLabel: "المجموع الفرعي",
   checkoutDeliveryFeeLabel: "رسوم التوصيل",
   checkoutExpressDeliveryLabel: "توصيل سريع",
@@ -1433,8 +1356,6 @@ const AR: typeof EN = {
   // ── Occasion page ──
   occasionForTheOccasion: "للمناسبة",
   occasionFindingGifts: "نبحث عن الهدايا المثالية…",
-  occasionCuratingTitle: "نُعدّ قطعاً جديدة",
-  occasionCuratingDesc: "نختار يدوياً قطعنا المفضلة لهذه المناسبة.",
   occasionItem: "قطعة",
   occasionItems: "قطع",
 
@@ -1470,7 +1391,6 @@ const AR: typeof EN = {
   authPasswordPlaceholder: "كلمة المرور",
   authSignIn: "تسجيل الدخول",
   authForgotPassword: "هل نسيت كلمة المرور؟",
-  authForgotPasswordSoon: "ميزة استعادة كلمة المرور قريباً. يرجى التواصل مع خدمة العملاء للمساعدة.",
   authForgotTitle: "إعادة تعيين كلمة المرور",
   authForgotSubtitle: "أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور.",
   authForgotEmailLabel: "البريد الإلكتروني",
@@ -1498,8 +1418,6 @@ const AR: typeof EN = {
   authForgotPasteLinkInvalid: "هذا لا يبدو رابطاً صالحاً. تأكد من نسخ الرابط الكامل من البريد الإلكتروني.",
   authSignUpTitle: "إنشاء حساب",
   authSignUpSubtitle: "أدخل اسمك وأنشئ كلمة مرور.",
-  authNameLabel: "الاسم الكامل",
-  authNamePlaceholder: "يرجى إضافة اسمك الكامل",
   authFirstNameLabel: "الاسم الأول",
   authFirstNamePlaceholder: "الاسم الأول",
   authLastNameLabel: "اسم العائلة",
@@ -1527,7 +1445,6 @@ const AR: typeof EN = {
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "سياسة الخصوصية",
-  legalComingSoon: "قريباً. يرجى التحقق لاحقاً.",
   splashTagline: "هدايا بلمسة شخصية",
 
   // ── Privacy Policy page ──
@@ -1556,7 +1473,6 @@ const AR: typeof EN = {
   privacy_sec10_body: "لأي أسئلة أو مخاوف بشأن سياسة الخصوصية أو طريقة معالجة بياناتك، يرجى التواصل معنا على privacy@presentail.com أو عبر قسم خدمة العملاء في التطبيق. عنواننا المسجّل هو: الطابق الثالث، كرم ومونّس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان.",
 
   // ── Delivery location ──
-  deliverTo: "التوصيل إلى",
   deliveryHeading: "التوصيل",
   deliverySheetTitle: "أرسل هديتك إلى...",
   deliverySelectCountry: "اختر البلد",
@@ -1611,9 +1527,7 @@ const FR: typeof EN = {
   favoritesPlural: "articles enregistrés",
 
   // Hero
-  heroEyebrow: "L'ATELIER FLORAL MODERNE",
   heroTitle: "Offrez une émotion, enveloppée de pétales.",
-  heroSubtitle: "Composé à la main à Beyrouth. Livré le jour même partout au {country}, avec soin pour chaque occasion.",
   heroCta: "DÉCOUVRIR LA COLLECTION",
   heroSlide2Title: "Le soleil est là",
   heroSlide2Subtitle: "Découvrez notre collection d'été",
@@ -1648,13 +1562,9 @@ const FR: typeof EN = {
 
   // Common UI
   seeAll: "Voir tout",
-  back: "Retour",
   search: "Rechercher",
   searchPlaceholder: "Rechercher bouquets, cadeaux, occasions",
-  pieces: "pièces",
   loading: "Chargement…",
-  comingSoon: "Bientôt disponible",
-  comingSoonDesc: "Nous sélectionnons de nouvelles pièces pour cette catégorie. Revenez bientôt.",
   boutiqueSub: "{country}",
   featured: "En vedette",
   name: "Nom",
@@ -1708,32 +1618,13 @@ const FR: typeof EN = {
   occ_condolences_desc: "Compositions blanches et pastel pour exprimer une sympathie discrète.",
 
   // Category names
-  cat_hand_bouquets: "Bouquets à la main",
-  cat_flower_boxes: "Boîtes à fleurs",
-  cat_flower_vases: "Vases",
-  cat_lux_arrangements: "Compositions de luxe",
-  cat_dried_flowers: "Fleurs séchées",
-  cat_preserved_flowers: "Fleurs préservées",
-  cat_plants: "Plantes",
-  cat_balloons: "Ballons",
-  cat_board_games: "Jeux de société",
-  cat_cakes: "Gâteaux",
-  cat_chocolate: "Chocolat",
-  cat_arabic_sweets: "Pâtisseries arabes",
-  cat_stuffed_animals: "Peluches",
-  cat_bundles: "Coffrets cadeaux",
-  cat_baskets: "Paniers",
-  cat_beauty: "Beauté",
 
   contactUs: "Contactez-nous",
-  faqs: "FAQ",
-  language: "Langue",
   currency: "Devise",
   selectCurrency: "Choisir la devise",
   currencyUseAutomatic: "Automatique",
   currencyAutomaticHint: "Détectée selon votre emplacement",
   country: "Pays",
-  detectCurrencyFromLocation: "Détecter via ma position",
 
   // ── Product page ──
   productNotFound: "Produit introuvable",
@@ -1741,11 +1632,9 @@ const FR: typeof EN = {
   shareProductAria: "Partager le lien du produit",
   shareLinkCopied: "Lien copié dans le presse-papiers",
   shareUnavailable: "Le partage n'est pas disponible dans cette version",
-  youMayAlsoLove: "Vous aimerez aussi",
   taxInclusive: "Taxes incluses",
   earnPointsPrefix: "Gagnez",
   earnPointsSuffix: "Points",
-  presentailPointsDesc: "Points Presentail · à utiliser sur de prochaines commandes",
   deliveryOptionsLabel: "Options de livraison",
   arrivesIn90: "Arrive en 90 minutes",
   fastest: "Le plus rapide",
@@ -1796,8 +1685,6 @@ const FR: typeof EN = {
   askRecipientForAddressNote: "Nous obtiendrons l'adresse auprès du destinataire. Le délai de livraison peut être affecté s'il est injoignable.",
   districtLabel: "Région",
   selectDistrictTitle: "Choisir la région",
-  deliveryDetailsField: "Détails de livraison",
-  buildingFloorStreet: "Bâtiment, étage, rue, quartier",
   senderDetailsTitle: "Coordonnées de l'expéditeur",
   whatsappNumberLabel: "Numéro WhatsApp",
   emailLabel: "E-mail",
@@ -1956,8 +1843,6 @@ const FR: typeof EN = {
   catalogFullTitle: "Le catalogue complet",
   catalogFullDesc: "Chaque fleur, plante et cadeau de notre atelier — affiné selon ce que vous cherchez.",
   catalogAll: "Tout",
-  catalogFeaturedEyebrow: "À l'honneur · Compositions Lux",
-  catalogFeaturedTitle: "Roses sculptées & tiges d'exception",
   catalogSortLabel: "Trier",
   noMatches: "Aucun résultat",
   noMatchesDesc: "Essayez une autre catégorie ou un autre terme.",
@@ -2000,9 +1885,6 @@ const FR: typeof EN = {
   checkoutEnterCode: "Cliquez ici pour saisir votre code",
   checkoutCouponPlaceholder: "Code promo",
   checkoutFreeUpper: "OFFERTE",
-  checkoutPresetMagicalBirthday: "Je te souhaite un anniversaire magique.",
-  checkoutPresetThinkingOfYou: "Je pense à toi aujourd'hui.",
-  checkoutPresetWithLove: "Avec tout mon amour.",
   suggestedMessagesTitle: "Messages suggérés",
   suggestedMessagesLangEnglish: "Anglais",
   suggestedMessagesLangArabic: "Arabe",
@@ -2038,7 +1920,6 @@ const FR: typeof EN = {
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "Votre panier est vide",
   checkoutBrowseBoutique: "Parcourir la boutique",
-  checkoutSuggestedMessages: "Essayez nos suggestions",
   checkoutSubtotalLabel: "Sous-total",
   checkoutDeliveryFeeLabel: "Frais de livraison",
   checkoutExpressDeliveryLabel: "Livraison express",
@@ -2230,8 +2111,6 @@ const FR: typeof EN = {
   // ── Occasion page ──
   occasionForTheOccasion: "Pour l'occasion",
   occasionFindingGifts: "Recherche des cadeaux parfaits…",
-  occasionCuratingTitle: "Nouvelle sélection en préparation",
-  occasionCuratingDesc: "Nous choisissons à la main nos coups de cœur pour cette occasion.",
   occasionItem: "article",
   occasionItems: "articles",
 
@@ -2267,7 +2146,6 @@ const FR: typeof EN = {
   authPasswordPlaceholder: "Votre mot de passe",
   authSignIn: "Se connecter",
   authForgotPassword: "Mot de passe oublié ?",
-  authForgotPasswordSoon: "La réinitialisation du mot de passe arrive bientôt. Veuillez contacter le service client pour obtenir de l'aide.",
   authForgotTitle: "Réinitialiser votre mot de passe",
   authForgotSubtitle: "Entrez votre e-mail et nous vous enverrons un lien pour définir un nouveau mot de passe.",
   authForgotEmailLabel: "E-mail",
@@ -2295,8 +2173,6 @@ const FR: typeof EN = {
   authForgotPasteLinkInvalid: "Ce lien ne semble pas valide. Assurez-vous d'avoir copié l'URL complète depuis l'e-mail.",
   authSignUpTitle: "Inscription",
   authSignUpSubtitle: "Saisissez votre nom et créez un mot de passe.",
-  authNameLabel: "Nom complet",
-  authNamePlaceholder: "Veuillez saisir votre nom complet",
   authFirstNameLabel: "Prénom",
   authFirstNamePlaceholder: "Prénom",
   authLastNameLabel: "Nom",
@@ -2324,7 +2200,6 @@ const FR: typeof EN = {
 
   // ── Privacy & Terms placeholders ──
   privacyTitle: "Politique de confidentialité",
-  legalComingSoon: "Bientôt disponible. Revenez plus tard.",
   splashTagline: "Des cadeaux personnalisés",
 
   // ── Privacy Policy page ──
@@ -2353,7 +2228,6 @@ const FR: typeof EN = {
   privacy_sec10_body: "Pour toute question ou préoccupation concernant cette Politique de confidentialité ou le traitement de vos données, veuillez nous contacter à privacy@presentail.com ou via la section Service client de l'application. Notre adresse enregistrée est : 3e étage, Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban.",
 
   // ── Delivery location ──
-  deliverTo: "Livrer à",
   deliveryHeading: "Livraison",
   deliverySheetTitle: "Envoyez votre cadeau à...",
   deliverySelectCountry: "Sélectionner un pays",
