@@ -49,6 +49,8 @@ vi.mock("../src/lib/upsellAggregator", async () => {
     loadDailyUpsellTabBuckets: vi.fn().mockResolvedValue([]),
     loadDailyUpsellItemBuckets: vi.fn().mockResolvedValue([]),
     loadDailyUpsellCheckoutBuckets: vi.fn().mockResolvedValue([]),
+    loadDailyOrdersByPlatform: vi.fn().mockResolvedValue([]),
+    buildUpsellToOrderBySession: vi.fn().mockResolvedValue([]),
   };
 });
 vi.mock("../src/lib/osProductsCache", async () => {
@@ -108,6 +110,8 @@ const {
   loadDailyUpsellTabBuckets,
   loadDailyUpsellItemBuckets,
   loadDailyUpsellCheckoutBuckets,
+  loadDailyOrdersByPlatform,
+  buildUpsellToOrderBySession,
 } = await import("../src/lib/upsellAggregator");
 const { getOsProducts } = await import("../src/lib/osProductsCache");
 const adminFunnelsRouter = (await import("../src/routes/adminFunnels"))
@@ -525,6 +529,8 @@ describe("upsell per-store local-currency prices", () => {
     tabsDaily = [] as any[],
     itemsDaily = [] as any[],
     checkoutDaily = [] as any[],
+    ordersDaily = [] as any[],
+    sessionConversion = [] as any[],
   } = {}) {
     (loadDailyPurchaseBuckets as any).mockResolvedValueOnce([]);
     (loadDailyLoginBuckets as any).mockResolvedValueOnce([]);
@@ -533,6 +539,8 @@ describe("upsell per-store local-currency prices", () => {
     (loadDailyUpsellTabBuckets as any).mockResolvedValueOnce(tabsDaily);
     (loadDailyUpsellItemBuckets as any).mockResolvedValueOnce(itemsDaily);
     (loadDailyUpsellCheckoutBuckets as any).mockResolvedValueOnce(checkoutDaily);
+    (loadDailyOrdersByPlatform as any).mockResolvedValueOnce(ordersDaily);
+    (buildUpsellToOrderBySession as any).mockResolvedValueOnce(sessionConversion);
   }
 
   function makeApp() {
@@ -651,5 +659,152 @@ describe("upsell per-store local-currency prices", () => {
     expect(daily).toHaveLength(1);
     expect(daily[0].prices.lebanon).toMatchObject({ currency: "LBP", priceLocal: EXPECTED_LBP });
     expect(daily[0].prices.cyprus).toMatchObject({ currency: "EUR", priceLocal: EXPECTED_EUR });
+  });
+});
+
+// ── Session-level upsell → order conversion (route-level) ───────────────────
+
+describe("upsell sessionConversion route response", () => {
+  const PRODUCT_SLUG = "addon-flowers";
+
+  function makeProduct(overrides: Partial<{ id: string; name: string; price: number }> = {}) {
+    return {
+      id: overrides.id ?? PRODUCT_SLUG,
+      name: overrides.name ?? "Flowers",
+      price: overrides.price ?? 10,
+      images: [],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    };
+  }
+
+  function makeApp() {
+    const app = express();
+    app.use("/api", adminFunnelsRouter);
+    return app;
+  }
+
+  function setupSessionMocks(sessionConversion: any[]) {
+    (loadDailyPurchaseBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyLoginBuckets as any).mockResolvedValueOnce([]);
+    (loadDailySocialFailureBuckets as any).mockResolvedValueOnce([]);
+    (loadDailySuggestedMessageBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyUpsellTabBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyUpsellItemBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyUpsellCheckoutBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyOrdersByPlatform as any).mockResolvedValueOnce([]);
+    (buildUpsellToOrderBySession as any).mockResolvedValueOnce(sessionConversion);
+  }
+
+  it("surfaces sessionConversion.summary with correct fields when sessions converted > 0", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((storeKey: string) => {
+      if (storeKey === "lebanon") return [makeProduct()];
+      return null;
+    });
+    setupSessionMocks([
+      {
+        platform: "ios",
+        productId: PRODUCT_SLUG,
+        sessionsWithAdd: 20,
+        sessionsConverted: 8,
+        sessionConversionRatePct: 40,
+      },
+    ]);
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const summary = res.body.upsell.sessionConversion.summary;
+    expect(summary).toHaveLength(1);
+    expect(summary[0]).toMatchObject({
+      platform: "ios",
+      productId: PRODUCT_SLUG,
+      sessionsWithAdd: 20,
+      sessionsConverted: 8,
+      sessionConversionRatePct: 40,
+    });
+  });
+
+  it("surfaces sessionConversion.summary with null rate when sessionsWithAdd is 0", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockReturnValue(null);
+    setupSessionMocks([
+      {
+        platform: "web",
+        productId: "add-on-candle",
+        sessionsWithAdd: 0,
+        sessionsConverted: 0,
+        sessionConversionRatePct: null,
+      },
+    ]);
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const summary = res.body.upsell.sessionConversion.summary;
+    expect(summary).toHaveLength(1);
+    expect(summary[0].sessionConversionRatePct).toBeNull();
+    expect(summary[0].sessionsWithAdd).toBe(0);
+  });
+
+  it("returns an empty sessionConversion.summary when buildUpsellToOrderBySession returns []", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockReturnValue(null);
+    setupSessionMocks([]);
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    expect(res.body.upsell.sessionConversion.summary).toEqual([]);
+  });
+
+  it("attaches product name and price from the OS cache to sessionConversion rows", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((storeKey: string) => {
+      if (storeKey === "lebanon") return [makeProduct({ id: PRODUCT_SLUG, name: "Flowers", price: 10 })];
+      return null;
+    });
+    setupSessionMocks([
+      {
+        platform: "ios",
+        productId: PRODUCT_SLUG,
+        sessionsWithAdd: 5,
+        sessionsConverted: 2,
+        sessionConversionRatePct: 40,
+      },
+    ]);
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const row = res.body.upsell.sessionConversion.summary[0];
+    expect(row.productName).toBe("Flowers");
+    expect(row.priceUsd).toBe(10);
+    expect(row.prices.lebanon).toMatchObject({ currency: "LBP" });
+  });
+
+  it("uses null for productName/priceUsd when the product is not in the OS cache", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockReturnValue(null);
+    setupSessionMocks([
+      {
+        platform: "ios",
+        productId: "unknown-product",
+        sessionsWithAdd: 3,
+        sessionsConverted: 1,
+        sessionConversionRatePct: 33.3,
+      },
+    ]);
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const row = res.body.upsell.sessionConversion.summary[0];
+    expect(row.productName).toBeNull();
+    expect(row.priceUsd).toBeNull();
+    expect(row.prices).toEqual({});
   });
 });
