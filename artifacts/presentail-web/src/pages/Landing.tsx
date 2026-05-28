@@ -121,13 +121,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
         >
           {t("locationPicker.sendGiftTo")}
         </h1>
-        <p
-          className="text-sm text-foreground mb-10 text-center font-medium"
-          data-testid="text-subtitle"
-        >
-          {t("locationPicker.selectCountry")}
-        </p>
-
         {/* Accordion picker — all screen sizes */}
         <div className="border border-border/60 rounded-xl overflow-hidden">
           {isLoadingCountries && countries.length === 0

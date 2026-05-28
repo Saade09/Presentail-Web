@@ -65,7 +65,7 @@ export function TopUtilityBar() {
                 ? city.name
                 : country
                   ? countryName(country.code, country.name)
-                  : t("locationPicker.selectCountry")}
+                  : t("locationPicker.selectCountryLabel")}
             </span>
             <ChevronDown className="w-3 h-3 opacity-70" />
           </button>

@@ -122,7 +122,6 @@ const STRINGS: Dict = {
 
   // Location picker
   "locationPicker.sendGiftTo": { en: "Send your gift to:", ar: "أرسل هديتك إلى:" },
-  "locationPicker.selectCountry": { en: "Select the recipient's country", ar: "اختر بلد المستلم" },
   "locationPicker.selectCity": { en: "Select the recipient's city", ar: "اختر مدينة المستلم" },
   "locationPicker.changeCountry": { en: "Change country", ar: "تغيير البلد" },
   "locationPicker.change": { en: "Change", ar: "تغيير" },
@@ -769,7 +768,6 @@ const STRINGS_FR: Record<string, string> = {
   "newsletter.thanks": "Bienvenue — vérifiez votre boîte de réception sous peu.",
 
   "locationPicker.sendGiftTo": "Envoyez votre cadeau à :",
-  "locationPicker.selectCountry": "Sélectionnez le pays du destinataire",
   "locationPicker.selectCity": "Sélectionnez la ville du destinataire",
   "locationPicker.changeCountry": "Changer de pays",
   "locationPicker.change": "Changer",
