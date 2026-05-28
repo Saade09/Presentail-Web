@@ -1,0 +1,36 @@
+name: Check unused translation keys
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "artifacts/presentail/**"
+      - "scripts/src/checkUnusedTranslationKeys.ts"
+  pull_request:
+    paths:
+      - "artifacts/presentail/**"
+      - "scripts/src/checkUnusedTranslationKeys.ts"
+
+jobs:
+  check-translations:
+    name: Unused translation keys
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for unused translation keys
+        run: pnpm run check-unused-translations
