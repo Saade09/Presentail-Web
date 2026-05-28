@@ -64,30 +64,53 @@ function generateSessionId(): string {
   return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${(Math.floor(Math.random() * 4) + 8).toString(16)}${hex().slice(1)}-${hex()}${hex()}${hex()}`;
 }
 
-const SESSION_STORAGE_KEY = "@presentail/analytics-session-id";
+const SESSION_ID_KEY = "@presentail/analytics-session-id";
+const SESSION_LAST_SEEN_KEY = "@presentail/analytics-session-last-seen";
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
+let inMemoryFallbackId: string | null = null;
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
   try {
-    const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (existing) return existing;
+    const existing = localStorage.getItem(SESSION_ID_KEY);
+    const lastSeenRaw = localStorage.getItem(SESSION_LAST_SEEN_KEY);
+    const lastSeen = lastSeenRaw ? parseInt(lastSeenRaw, 10) : 0;
+    if (existing && Date.now() - lastSeen < SESSION_TTL_MS) {
+      return existing;
+    }
     const next = generateSessionId();
-    sessionStorage.setItem(SESSION_STORAGE_KEY, next);
+    localStorage.setItem(SESSION_ID_KEY, next);
+    localStorage.setItem(SESSION_LAST_SEEN_KEY, String(Date.now()));
+    inMemoryFallbackId = null;
     return next;
   } catch {
-    return generateSessionId();
+    if (!inMemoryFallbackId) inMemoryFallbackId = generateSessionId();
+    return inMemoryFallbackId;
   }
 }
 
-const SESSION_ID: string = getOrCreateSessionId();
+function touchSession(): void {
+  try {
+    localStorage.setItem(SESSION_LAST_SEEN_KEY, String(Date.now()));
+  } catch {
+    // best-effort
+  }
+}
+
+let SESSION_ID: string = getOrCreateSessionId();
 
 export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
+  SESSION_ID = getOrCreateSessionId();
   const payload = JSON.stringify({ ...event, platform: "web", sessionId: SESSION_ID });
   try {
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });
-      if (navigator.sendBeacon("/api/analytics/events", blob)) return;
+      if (navigator.sendBeacon("/api/analytics/events", blob)) {
+        touchSession();
+        return;
+      }
     }
   } catch {
     // fall through to fetch
@@ -100,6 +123,7 @@ export function trackEvent(event: AnalyticsEvent): void {
       credentials: "include",
       keepalive: true,
     }).catch(() => {});
+    touchSession();
   } catch {
     // best-effort; never block UI on analytics
   }
