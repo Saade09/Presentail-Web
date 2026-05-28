@@ -54,7 +54,8 @@ const EN = {
   // Common UI
   seeAll: "See All",
   search: "Search",
-  searchPlaceholder: "Search bouquets, gifts, occasions",
+  searchPlaceholder: "Search products, brands, occasions",
+  pieces: "pieces",
   loading: "Loading…",
   boutiqueSub: "{country}",
   featured: "Featured",
@@ -811,7 +812,8 @@ const AR: typeof EN = {
   // Common UI
   seeAll: "عرض الكل",
   search: "بحث",
-  searchPlaceholder: "ابحث عن باقات، هدايا، مناسبات",
+  searchPlaceholder: "ابحث عن منتجات، علامات، مناسبات",
+  pieces: "قطعة",
   loading: "جارٍ التحميل…",
   boutiqueSub: "{country}",
   featured: "مميز",
@@ -1563,7 +1565,8 @@ const FR: typeof EN = {
   // Common UI
   seeAll: "Voir tout",
   search: "Rechercher",
-  searchPlaceholder: "Rechercher bouquets, cadeaux, occasions",
+  searchPlaceholder: "Rechercher produits, marques, occasions",
+  pieces: "pièces",
   loading: "Chargement…",
   boutiqueSub: "{country}",
   featured: "En vedette",
