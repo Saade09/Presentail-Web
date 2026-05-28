@@ -10,6 +10,7 @@ import { startCheckoutPurchaseFunnelMonitor } from "./lib/checkoutPurchaseFunnel
 import { startClerkCatchupSync } from "./lib/clerkCatchupSync";
 import { startAuthExistsLookupMonitor } from "./lib/authExistsLookupMonitor";
 import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
+import { startUpsellConversionMonitor } from "./lib/upsellConversionMonitor";
 import { fetchAllProducts } from "./routes/woo";
 import { resolveStore } from "./lib/wooStore";
 
@@ -70,4 +71,5 @@ app.listen(port, (err) => {
   startClerkCatchupSync();
   startAuthExistsLookupMonitor();
   startSocialAuthFailureMonitor();
+  startUpsellConversionMonitor();
 });
