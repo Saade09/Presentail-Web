@@ -44,6 +44,7 @@ import {
   type SessionCoverageDailyBucket,
   type FunnelSessionCoverageDailyBucket,
 } from "../lib/sessionCoverageMonitor";
+import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getOsProducts } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
 import { logger } from "../lib/logger";
@@ -134,6 +135,10 @@ router.get("/admin/funnels/data", async (req, res) => {
       days,
       rangeStartUtc: start.toISOString(),
       rangeEndUtc: end.toISOString(),
+      // Item-add rate threshold used by the upsell funnel monitor. Expressed as
+      // a percentage (e.g. 10 for 10%) so the dashboard can highlight digest
+      // rows that breach the same threshold without duplicating the config.
+      upsellItemAddRateMinPct: Math.round(ITEM_ADD_RATE_MIN * 1000) / 10,
       purchase: purchase.map(toPurchaseRow),
       login: login.map(toLoginRow),
       socialFailures: {
@@ -691,6 +696,8 @@ const DASHBOARD_HTML = `<!doctype html>
   .wow-up { color: #109618; font-weight: 500; }
   .wow-down { color: #b00020; font-weight: 500; }
   .wow-new { color: #109618; font-weight: 500; }
+  tr.add-rate-low { background: rgba(176, 0, 32, 0.08); }
+  tr.add-rate-low:hover { background: rgba(176, 0, 32, 0.14); }
 </style>
 </head>
 <body>
@@ -1123,7 +1130,7 @@ const DASHBOARD_HTML = `<!doctype html>
     return '<span class="' + cls + '">' + sign + delta.toFixed(1) + '%</span>';
   }
 
-  function renderUpsellDailyDigest(tabClicksDaily, itemAddsDaily, checkoutProceededDaily, rangeStartDay) {
+  function renderUpsellDailyDigest(tabClicksDaily, itemAddsDaily, checkoutProceededDaily, rangeStartDay, itemAddRateMinPct) {
     // Aggregate all three daily arrays into per-(day, platform) totals so the
     // digest table gives a single at-a-glance row per day × platform.
     // The arrays include 7 extra prior-week days used only for WoW comparison.
@@ -1172,7 +1179,10 @@ const DASHBOARD_HTML = `<!doctype html>
       var priorAddRatePct = prior && prior.tabClicks > 0
         ? Math.round(prior.itemAdds / prior.tabClicks * 1000) / 10
         : null;
-      return '<tr>' +
+      // Highlight rows where the add rate is below the configured monitor threshold.
+      var rowCls = (addRatePct !== null && typeof itemAddRateMinPct === 'number' && addRatePct < itemAddRateMinPct)
+        ? ' class="add-rate-low"' : '';
+      return '<tr' + rowCls + '>' +
         '<td>' + r.day + '</td>' +
         '<td>' + escapeHtml(r.platform) + '</td>' +
         '<td>' + num(r.tabClicks) + '</td>' +
@@ -1587,7 +1597,8 @@ const DASHBOARD_HTML = `<!doctype html>
           digestWoW.tabClicksDaily || [],
           digestWoW.itemAddsDaily || [],
           digestWoW.checkoutProceededDaily || [],
-          (data.rangeStartUtc || '').slice(0, 10)
+          (data.rangeStartUtc || '').slice(0, 10),
+          data.upsellItemAddRateMinPct
         );
         renderUpsellPlatformBreakdown(
           upsell.platformSummary || [],

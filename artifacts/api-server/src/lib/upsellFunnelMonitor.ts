@@ -44,7 +44,9 @@ function envRatio(name: string, fallback: number): number {
 }
 
 // Minimum acceptable item-add rate (adds / tab clicks). Anything below ⇒ alert.
-const ITEM_ADD_RATE_MIN = envRatio("UPSELL_FUNNEL_ITEM_ADD_RATE_MIN", 0.1);
+// Exported so the admin funnels dashboard can highlight digest rows that breach
+// the same threshold the monitor evaluates (single source of truth).
+export const ITEM_ADD_RATE_MIN = envRatio("UPSELL_FUNNEL_ITEM_ADD_RATE_MIN", 0.1);
 
 // Minimum absolute checkout-proceeded count. Zero-or-near-zero on a day with
 // enough tab clicks is a strong signal the "proceed" CTA is broken.
