@@ -26,6 +26,9 @@ import {
   summariseUpsellItemBuckets,
   loadDailyUpsellCheckoutBuckets,
   summariseUpsellCheckoutBuckets,
+  loadDailyOrdersByPlatform,
+  buildUpsellToOrderDaily,
+  summariseUpsellToOrder,
   type UpsellTabDailyBucket,
   type UpsellTabSummaryBucket,
   type UpsellItemDailyBucket,
@@ -98,6 +101,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellTabsDaily,
       upsellItemsDaily,
       upsellCheckoutDaily,
+      upsellOrdersDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -106,6 +110,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyUpsellTabBuckets(start, end),
       loadDailyUpsellItemBuckets(start, end),
       loadDailyUpsellCheckoutBuckets(start, end),
+      loadDailyOrdersByPlatform(start, end),
     ]);
     res.json({
       days,
@@ -149,6 +154,7 @@ router.get("/admin/funnels/data", async (req, res) => {
           upsellTabsDaily,
           upsellItemsDaily,
           upsellCheckoutDaily,
+          upsellOrdersDaily,
         ),
       },
     });
@@ -327,6 +333,7 @@ async function buildUpsellPayload(
   tabsDaily: UpsellTabDailyBucket[],
   itemsDaily: UpsellItemDailyBucket[],
   checkoutDaily: UpsellCheckoutDailyBucket[],
+  ordersDaily: Awaited<ReturnType<typeof loadDailyOrdersByPlatform>>,
 ) {
   const rateCache = await getRates();
   const productNameMap = buildProductNameMap(rateCache.rates as Record<string, number>);
@@ -422,6 +429,28 @@ async function buildUpsellPayload(
       return b.addRatePct - a.addRatePct;
     });
 
+  // ── Upsell-to-order conversion ──────────────────────────────────────────
+  // Join item-add rows with order counts on the same (platform, day). This is
+  // a co-occurrence metric — session IDs don't exist in analytics_events, so
+  // we can't do true session-level attribution. See upsellAggregator.ts for
+  // the full methodology note.
+  const conversionDaily = buildUpsellToOrderDaily(itemsDaily, ordersDaily);
+  const conversionSummary = summariseUpsellToOrder(conversionDaily).map((b) => {
+    const info = productNameMap.get(b.productId) ?? null;
+    return {
+      platform: b.platform,
+      productId: b.productId,
+      productName: info?.productName ?? null,
+      priceUsd: info?.priceUsd ?? null,
+      prices: info?.prices ?? {},
+      totalUpsellAdds: b.totalUpsellAdds,
+      daysWithAdds: b.daysWithAdds,
+      daysWithAddsAndOrders: b.daysWithAddsAndOrders,
+      ordersOnAddDays: b.ordersOnAddDays,
+      orderDayRatePct: b.orderDayRatePct,
+    };
+  });
+
   return {
     platformSummary,
     tabClicks: {
@@ -459,6 +488,26 @@ async function buildUpsellPayload(
         platform: b.platform,
         count: b.count,
       })),
+    },
+    conversion: {
+      // Per-(platform, productId) upsell add-to-order co-occurrence report.
+      // summary rows are sorted best orderDayRatePct first so the top rows
+      // reveal which add-ons most reliably appear on high-order-volume days.
+      // daily rows are sorted newest-first for the per-day detail table.
+      summary: conversionSummary,
+      daily: conversionDaily.map((b) => {
+        const info = productNameMap.get(b.productId) ?? null;
+        return {
+          day: b.day,
+          platform: b.platform,
+          productId: b.productId,
+          productName: info?.productName ?? null,
+          priceUsd: info?.priceUsd ?? null,
+          prices: info?.prices ?? {},
+          upsellAdds: b.upsellAdds,
+          ordersOnSameDay: b.ordersOnSameDay,
+        };
+      }),
     },
   };
 }
@@ -595,6 +644,19 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Upsell add-on → order conversion</h2>
+  <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Order-day rate" = % of days the product was upsell-added on which at least one order was also placed. No session ID is recorded, so this is a correlation signal, not causal attribution — use it alongside total upsell adds to identify high-value add-ons.</div>
+  <div id="upsellConversionSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="upsellConversionDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Product</th><th>Upsell adds</th><th>Orders same day</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -636,6 +698,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellItemsDailyBody = document.querySelector('#upsellItemsDaily tbody');
   var upsellCheckoutSummary = document.getElementById('upsellCheckoutSummary');
   var upsellCheckoutDailyBody = document.querySelector('#upsellCheckoutDaily tbody');
+  var upsellConversionSummary = document.getElementById('upsellConversionSummary');
+  var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -1015,6 +1079,49 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function renderUpsellConversion(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
+      upsellConversionDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    if (summary.length) {
+      upsellConversionSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Product</th>' +
+        '<th>Upsell adds</th><th>Add days</th>' +
+        '<th>Add days w/ orders</th><th>Orders on add days</th>' +
+        '<th>Order-day rate</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + fmtProduct(r) + '</td>' +
+            '<td>' + num(r.totalUpsellAdds) + '</td>' +
+            '<td>' + num(r.daysWithAdds) + '</td>' +
+            '<td>' + num(r.daysWithAddsAndOrders) + '</td>' +
+            '<td>' + num(r.ordersOnAddDays) + '</td>' +
+            '<td>' + fmtPct(r.orderDayRatePct) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
+    }
+    if (daily.length) {
+      upsellConversionDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + fmtProduct(r) + '</td>' +
+          '<td>' + num(r.upsellAdds) + '</td>' +
+          '<td>' + num(r.ordersOnSameDay) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      upsellConversionDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+    }
+  }
+
   function renderLogin(rows) {
     if (!rows.length) {
       loginBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
@@ -1070,6 +1177,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
         renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
+        renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
