@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -59,12 +60,56 @@ export type AnalyticsEvent = {
   productId?: string;
 };
 
+const SESSION_STORAGE_KEY = "@presentail/analytics_session";
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
+type StoredSession = { id: string; lastSeen: number };
+
 function generateSessionId(): string {
   const hex = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
   return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${(Math.floor(Math.random() * 4) + 8).toString(16)}${hex().slice(1)}-${hex()}${hex()}${hex()}`;
 }
 
-const SESSION_ID: string = generateSessionId();
+async function loadOrCreateSessionId(): Promise<string> {
+  try {
+    const raw = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+    if (raw) {
+      const stored: StoredSession = JSON.parse(raw) as StoredSession;
+      if (
+        typeof stored.id === "string" &&
+        typeof stored.lastSeen === "number" &&
+        Date.now() - stored.lastSeen < SESSION_TTL_MS
+      ) {
+        return stored.id;
+      }
+    }
+  } catch {
+    // storage unavailable — fall through to generate a fresh id
+  }
+  const id = generateSessionId();
+  try {
+    await AsyncStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({ id, lastSeen: Date.now() } satisfies StoredSession),
+    );
+  } catch {
+    // best-effort
+  }
+  return id;
+}
+
+async function touchSession(id: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({ id, lastSeen: Date.now() } satisfies StoredSession),
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+const sessionIdPromise: Promise<string> = loadOrCreateSessionId();
 
 function resolvePlatform(): "ios" | "android" | "web" {
   if (Platform.OS === "ios") return "ios";
@@ -78,19 +123,23 @@ function resolveAppVersion(): string | undefined {
 }
 
 export function trackEvent(event: AnalyticsEvent): void {
-  const payload = JSON.stringify({
-    ...event,
-    platform: resolvePlatform(),
-    appVersion: resolveAppVersion(),
-    sessionId: SESSION_ID,
-  });
-  try {
-    void fetch(`${API_BASE}/api/analytics/events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-    }).catch(() => {});
-  } catch {
-    // best-effort; never block UI on analytics
-  }
+  void (async () => {
+    const sessionId = await sessionIdPromise;
+    void touchSession(sessionId);
+    const payload = JSON.stringify({
+      ...event,
+      platform: resolvePlatform(),
+      appVersion: resolveAppVersion(),
+      sessionId,
+    });
+    try {
+      void fetch(`${API_BASE}/api/analytics/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).catch(() => {});
+    } catch {
+      // best-effort; never block UI on analytics
+    }
+  })();
 }
