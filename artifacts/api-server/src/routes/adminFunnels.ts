@@ -33,6 +33,7 @@ import {
   type UpsellCheckoutDailyBucket,
   type UpsellCheckoutSummaryBucket,
 } from "../lib/upsellAggregator";
+import { getOsProducts } from "../lib/osProductsCache";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -263,11 +264,36 @@ function toLoginRow(b: LoginDailyBucket) {
 // signal — it answers "of shoppers who explored this tab, how many actually
 // added something?"
 
+type ProductInfo = { productName: string; priceUsd: number | null };
+
+/**
+ * Build a slug → { productName, priceUsd } lookup map from all in-memory
+ * OS product store caches in a single pass. First-occurrence wins when the
+ * same slug appears in multiple store caches (names are identical across
+ * stores; prices can differ but the USD base price is product-level).
+ * Returns an empty map when the OS cache is cold.
+ */
+function buildProductNameMap(): Map<string, ProductInfo> {
+  const map = new Map<string, ProductInfo>();
+  const storeKeys = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
+  for (const storeKey of storeKeys) {
+    const products = getOsProducts(storeKey);
+    if (!products) continue;
+    for (const p of products) {
+      if (!map.has(p.id)) {
+        map.set(p.id, { productName: p.name, priceUsd: p.price ?? null });
+      }
+    }
+  }
+  return map;
+}
+
 function buildUpsellPayload(
   tabsDaily: UpsellTabDailyBucket[],
   itemsDaily: UpsellItemDailyBucket[],
   checkoutDaily: UpsellCheckoutDailyBucket[],
 ) {
+  const productNameMap = buildProductNameMap();
   const tabSummary = summariseUpsellTabBuckets(tabsDaily);
   const itemSummary = summariseUpsellItemBuckets(itemsDaily);
   const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDaily);
@@ -281,13 +307,18 @@ function buildUpsellPayload(
   // Per-product add rate = product adds / tab clicks for that (platform, tab)
   // Sorted best-converting first; products on tabs with no recorded clicks get
   // null addRatePct (edge case: add event arrived before or without a tab click).
+  // productName and priceUsd are resolved from the OS product cache (one pass
+  // above); fall back to null when the product has aged out of the cache.
   const itemSummaryWithRate = itemSummary
     .map((b) => {
       const tabClicks = tabClickMap.get(`${b.platform}::${b.tab}`) ?? 0;
+      const info = productNameMap.get(b.productId) ?? null;
       return {
         platform: b.platform,
         tab: b.tab,
         productId: b.productId,
+        productName: info?.productName ?? null,
+        priceUsd: info?.priceUsd ?? null,
         adds: b.adds,
         addRatePct: pct(b.adds, tabClicks),
       };
@@ -338,13 +369,18 @@ function buildUpsellPayload(
     },
     itemAdds: {
       summary: itemSummaryWithRate,
-      daily: itemsDaily.map((b) => ({
-        day: b.day,
-        platform: b.platform,
-        tab: b.tab,
-        productId: b.productId,
-        adds: b.adds,
-      })),
+      daily: itemsDaily.map((b) => {
+        const info = productNameMap.get(b.productId) ?? null;
+        return {
+          day: b.day,
+          platform: b.platform,
+          tab: b.tab,
+          productId: b.productId,
+          productName: info?.productName ?? null,
+          priceUsd: info?.priceUsd ?? null,
+          adds: b.adds,
+        };
+      }),
     },
     checkoutProceeded: {
       summary: checkoutSummary.map((b) => ({
@@ -462,13 +498,13 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>Upsell modal — top add-ons</h2>
-  <div class="sub">upsell_item_added events per (tab, product id). "Add rate" = product adds / tab clicks — how well each product converts within its tab. Sorted best-converting first so the top rows show which add-ons to promote.</div>
+  <div class="sub">upsell_item_added events per (tab, product). "Add rate" = product adds / tab clicks — how well each product converts within its tab. Sorted best-converting first so the top rows show which add-ons to promote.</div>
   <div id="upsellItemsSummary"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="upsellItemsDaily">
     <thead>
       <tr>
-        <th>Day</th><th>Platform</th><th>Tab</th><th>Product ID</th><th>Adds</th>
+        <th>Day</th><th>Platform</th><th>Tab</th><th>Product</th><th>Adds</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -772,6 +808,14 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function fmtProduct(r) {
+    if (r.productName) {
+      var priceStr = r.priceUsd != null ? ' <span class="muted">$' + r.priceUsd.toFixed(2) + '</span>' : '';
+      return escapeHtml(r.productName) + priceStr + ' <span class="muted" style="font-size:11px">(' + escapeHtml(r.productId) + ')</span>';
+    }
+    return escapeHtml(r.productId);
+  }
+
   function renderUpsellItems(payload) {
     var summary = (payload && payload.summary) || [];
     var daily = (payload && payload.daily) || [];
@@ -782,12 +826,12 @@ const DASHBOARD_HTML = `<!doctype html>
     }
     if (summary.length) {
       upsellItemsSummary.innerHTML = '<table><thead><tr>' +
-        '<th>Platform</th><th>Tab</th><th>Product ID</th><th>Adds (window)</th><th>Add rate</th>' +
+        '<th>Platform</th><th>Tab</th><th>Product</th><th>Adds (window)</th><th>Add rate</th>' +
         '</tr></thead><tbody>' + summary.map(function (r) {
           return '<tr>' +
             '<td>' + escapeHtml(r.platform) + '</td>' +
             '<td>' + escapeHtml(r.tab) + '</td>' +
-            '<td>' + escapeHtml(r.productId) + '</td>' +
+            '<td>' + fmtProduct(r) + '</td>' +
             '<td>' + num(r.adds) + '</td>' +
             '<td>' + fmtPct(r.addRatePct) + '</td>' +
             '</tr>';
@@ -801,7 +845,7 @@ const DASHBOARD_HTML = `<!doctype html>
           '<td>' + r.day + '</td>' +
           '<td>' + escapeHtml(r.platform) + '</td>' +
           '<td>' + escapeHtml(r.tab) + '</td>' +
-          '<td>' + escapeHtml(r.productId) + '</td>' +
+          '<td>' + fmtProduct(r) + '</td>' +
           '<td>' + num(r.adds) + '</td>' +
           '</tr>';
       }).join('');
