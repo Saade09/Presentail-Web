@@ -662,6 +662,19 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Upsell — daily digest</h2>
+  <div class="sub">Per-day, per-platform upsell conversion at a glance: total tab clicks, total item adds, add rate (item adds / tab clicks), and checkout-proceeded count. Use this to spot day-over-day drops before the Slack alert fires.</div>
+  <div id="upsellDailyDigestTrends" class="trends"></div>
+  <table id="upsellDailyDigest">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th>
+        <th>Tab clicks</th><th>Item adds</th><th>Add rate</th><th>Checkout proceeded</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Upsell modal — platform breakdown</h2>
   <div class="sub">Per-platform upsell funnel for the whole window: tab clicks → item adds → checkout proceeded. "Add rate" = item adds / tab clicks. "Checkout rate" = checkout-proceeded / tab clicks. Lets you compare web vs. iOS vs. Android conversion at a glance.</div>
   <div id="upsellPlatformSummary"></div>
@@ -756,6 +769,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var purchaseLegend = document.getElementById('purchaseLegend');
   var loginTrends = document.getElementById('loginTrends');
   var loginLegend = document.getElementById('loginLegend');
+  var upsellDailyDigestBody = document.querySelector('#upsellDailyDigest tbody');
+  var upsellDailyDigestTrends = document.getElementById('upsellDailyDigestTrends');
   var upsellPlatformSummary = document.getElementById('upsellPlatformSummary');
   var upsellCheckoutTrends = document.getElementById('upsellCheckoutTrends');
   var upsellTabsSummary = document.getElementById('upsellTabsSummary');
@@ -969,6 +984,54 @@ const DASHBOARD_HTML = `<!doctype html>
     } else {
       suggestedDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
     }
+  }
+
+  function renderUpsellDailyDigest(tabClicksDaily, itemAddsDaily, checkoutProceededDaily) {
+    // Aggregate all three daily arrays into per-(day, platform) totals so the
+    // digest table gives a single at-a-glance row per day × platform.
+    var agg = {};
+    function ensureKey(day, platform) {
+      var k = day + '||' + platform;
+      if (!agg[k]) agg[k] = { day: day, platform: platform, tabClicks: 0, itemAdds: 0, checkoutProceeded: 0 };
+      return agg[k];
+    }
+    (tabClicksDaily || []).forEach(function (r) { ensureKey(r.day, r.platform).tabClicks += r.clicks; });
+    (itemAddsDaily || []).forEach(function (r) { ensureKey(r.day, r.platform).itemAdds += r.adds; });
+    (checkoutProceededDaily || []).forEach(function (r) { ensureKey(r.day, r.platform).checkoutProceeded += r.count; });
+
+    var rows = Object.keys(agg).map(function (k) { return agg[k]; });
+    // Sort: newest day first, then platform alphabetically
+    rows.sort(function (a, b) {
+      if (a.day !== b.day) return a.day < b.day ? 1 : -1;
+      return a.platform < b.platform ? -1 : 1;
+    });
+
+    if (!rows.length) {
+      upsellDailyDigestBody.innerHTML = '<tr><td colspan="6" class="muted">No upsell events in range.</td></tr>';
+      upsellDailyDigestTrends.innerHTML = '';
+      return;
+    }
+
+    upsellDailyDigestBody.innerHTML = rows.map(function (r) {
+      var addRatePct = r.tabClicks > 0 ? Math.round(r.itemAdds / r.tabClicks * 1000) / 10 : null;
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.platform) + '</td>' +
+        '<td>' + num(r.tabClicks) + '</td>' +
+        '<td>' + num(r.itemAdds) + '</td>' +
+        '<td>' + fmtPct(addRatePct) + '</td>' +
+        '<td>' + num(r.checkoutProceeded) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    renderTrends(upsellDailyDigestTrends, rows,
+      function (r) { return r.platform; },
+      [
+        { label: 'Tab clicks', valueFn: function (r) { return r.tabClicks; } },
+        { label: 'Item adds', valueFn: function (r) { return r.itemAdds; } },
+        { label: 'Checkout proceeded', valueFn: function (r) { return r.checkoutProceeded; } },
+      ]
+    );
   }
 
   function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows) {
@@ -1276,6 +1339,11 @@ const DASHBOARD_HTML = `<!doctype html>
         renderLogin(login);
         renderSocialFailures(socialFailures);
         renderSuggestedMessages(suggestedMessages);
+        renderUpsellDailyDigest(
+          (upsell.tabClicks || {}).daily || [],
+          (upsell.itemAdds || {}).daily || [],
+          (upsell.checkoutProceeded || {}).daily || []
+        );
         renderUpsellPlatformBreakdown(
           upsell.platformSummary || [],
           (upsell.checkoutProceeded || {}).daily || []
