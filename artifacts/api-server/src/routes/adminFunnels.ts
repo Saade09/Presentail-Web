@@ -1066,6 +1066,7 @@ const DASHBOARD_HTML = `<!doctype html>
       [
         { label: 'Tab clicks', valueFn: function (r) { return r.tabClicks; } },
         { label: 'Item adds', valueFn: function (r) { return r.itemAdds; } },
+        { label: 'Add rate (%)', valueFn: function (r) { return r.tabClicks > 0 ? Math.round(r.itemAdds / r.tabClicks * 1000) / 10 : null; }, max: 100 },
         { label: 'Checkout proceeded', valueFn: function (r) { return r.checkoutProceeded; } },
       ]
     );
