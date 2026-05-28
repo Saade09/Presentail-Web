@@ -17,7 +17,7 @@ import { SectionTitle } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { categories, occasions } from "@/data/catalog";
+import { brands, categories, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -111,6 +111,13 @@ function CatalogScreen() {
       return false;
     });
   }, [query, tRecord]);
+
+  const matchingBrands = useMemo(() => {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const lower = q.toLowerCase();
+    return brands.filter((b) => b.name.toLowerCase().includes(lower));
+  }, [query]);
 
   const header = (
     <>
@@ -292,6 +299,52 @@ function CatalogScreen() {
                   }}
                 >
                   {displayName}
+                </Text>
+                <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {matchingBrands.length > 0 && (
+        <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 10,
+              color: colors.gold,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              marginBottom: 10,
+            }}
+          >
+            {t.brandsEyebrow}
+          </Text>
+          {matchingBrands.map((brand, idx) => {
+            const isLast = idx === matchingBrands.length - 1;
+            return (
+              <Pressable
+                key={brand.slug}
+                onPress={() => router.push({ pathname: "/brand/[slug]", params: { slug: brand.slug } })}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 12,
+                  borderBottomWidth: isLast ? 0 : 1,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <Feather name="tag" size={14} color={colors.mutedForeground} style={{ marginRight: 10 }} />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 14,
+                    color: colors.primary,
+                  }}
+                >
+                  {brand.name}
                 </Text>
                 <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
               </Pressable>
