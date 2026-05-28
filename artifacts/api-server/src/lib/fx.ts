@@ -19,7 +19,8 @@ export type SupportedCurrency =
   | "SAR"
   | "KWD"
   | "OMR"
-  | "CHF";
+  | "CHF"
+  | "LBP";
 
 export const SUPPORTED_CURRENCIES: SupportedCurrency[] = [
   "USD",
@@ -33,10 +34,13 @@ export const SUPPORTED_CURRENCIES: SupportedCurrency[] = [
   "KWD",
   "OMR",
   "CHF",
+  "LBP",
 ];
 
 // Conservative fallback if the FX API is unreachable. Kept reasonably close
 // to the static rates the mobile app shipped with so prices don't lurch.
+// LBP: the Lebanese pound has been pegged informally at ~89,500 LBP/USD since
+// the 2023 monetary reform; update if the peg shifts.
 const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   USD: 1,
   AED: 3.673,
@@ -49,6 +53,7 @@ const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   KWD: 0.307,
   OMR: 0.384,
   CHF: 0.88,
+  LBP: 89_500,
 };
 
 // Number of decimals we charge in for each currency. Mirrors the WC display
@@ -65,6 +70,7 @@ export const CURRENCY_DECIMALS: Record<SupportedCurrency, number> = {
   KWD: 3,
   OMR: 3,
   CHF: 2,
+  LBP: 0,
 };
 
 type RateCache = {

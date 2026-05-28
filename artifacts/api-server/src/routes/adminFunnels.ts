@@ -34,6 +34,7 @@ import {
   type UpsellCheckoutSummaryBucket,
 } from "../lib/upsellAggregator";
 import { getOsProducts } from "../lib/osProductsCache";
+import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -144,7 +145,7 @@ router.get("/admin/funnels/data", async (req, res) => {
         // within the tab). Both rates are computed here at the route layer
         // so the aggregator stays query-only and the HTML just renders
         // what the API sends.
-        ...buildUpsellPayload(
+        ...await buildUpsellPayload(
           upsellTabsDaily,
           upsellItemsDaily,
           upsellCheckoutDaily,
@@ -264,36 +265,71 @@ function toLoginRow(b: LoginDailyBucket) {
 // signal — it answers "of shoppers who explored this tab, how many actually
 // added something?"
 
-type ProductInfo = { productName: string; priceUsd: number | null };
+// Display currency for each store. Lebanon prices are shown in LBP (the local
+// currency shoppers see quoted), UAE stores in AED, and Cyprus in EUR.
+const STORE_CURRENCY: Record<string, string> = {
+  lebanon: "LBP",
+  dubai: "AED",
+  abudhabi: "AED",
+  cyprus: "EUR",
+};
+
+type StorePriceEntry = { currency: string; priceLocal: number; decimals: number };
+type ProductInfo = {
+  productName: string;
+  priceUsd: number | null;
+  /** Per-store local-currency prices keyed by store key (lebanon/dubai/abudhabi/cyprus). */
+  prices: Partial<Record<string, StorePriceEntry>>;
+};
 
 /**
- * Build a slug → { productName, priceUsd } lookup map from all in-memory
- * OS product store caches in a single pass. First-occurrence wins when the
- * same slug appears in multiple store caches (names are identical across
- * stores; prices can differ but the USD base price is product-level).
- * Returns an empty map when the OS cache is cold.
+ * Build a slug → { productName, priceUsd, prices } lookup map from all
+ * in-memory OS product store caches. Each store contributes its own price
+ * entry (converted to the store's display currency using the supplied FX
+ * rates). First-occurrence wins for productName and priceUsd (USD base price).
+ * `prices` is keyed by store key and populated for every store that carries
+ * the product. Returns an empty map when the OS cache is cold.
  */
-function buildProductNameMap(): Map<string, ProductInfo> {
+function buildProductNameMap(
+  rates: Record<string, number>,
+): Map<string, ProductInfo> {
   const map = new Map<string, ProductInfo>();
   const storeKeys = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
   for (const storeKey of storeKeys) {
     const products = getOsProducts(storeKey);
     if (!products) continue;
+    const currency = STORE_CURRENCY[storeKey] ?? "USD";
+    const rate = rates[currency] ?? 1;
     for (const p of products) {
+      const priceUsd = typeof p.price === "number" ? p.price : null;
       if (!map.has(p.id)) {
-        map.set(p.id, { productName: p.name, priceUsd: p.price ?? null });
+        map.set(p.id, {
+          productName: p.name,
+          priceUsd,
+          prices: {},
+        });
+      }
+      const entry = map.get(p.id)!;
+      if (priceUsd !== null) {
+        const decimals = CURRENCY_DECIMALS[currency as SupportedCurrency] ?? 2;
+        entry.prices[storeKey] = {
+          currency,
+          priceLocal: roundForCurrency(priceUsd * rate, currency as SupportedCurrency),
+          decimals,
+        };
       }
     }
   }
   return map;
 }
 
-function buildUpsellPayload(
+async function buildUpsellPayload(
   tabsDaily: UpsellTabDailyBucket[],
   itemsDaily: UpsellItemDailyBucket[],
   checkoutDaily: UpsellCheckoutDailyBucket[],
 ) {
-  const productNameMap = buildProductNameMap();
+  const rateCache = await getRates();
+  const productNameMap = buildProductNameMap(rateCache.rates as Record<string, number>);
   const tabSummary = summariseUpsellTabBuckets(tabsDaily);
   const itemSummary = summariseUpsellItemBuckets(itemsDaily);
   const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDaily);
@@ -307,8 +343,8 @@ function buildUpsellPayload(
   // Per-product add rate = product adds / tab clicks for that (platform, tab)
   // Sorted best-converting first; products on tabs with no recorded clicks get
   // null addRatePct (edge case: add event arrived before or without a tab click).
-  // productName and priceUsd are resolved from the OS product cache (one pass
-  // above); fall back to null when the product has aged out of the cache.
+  // productName, priceUsd, and storePrices are resolved from the OS product
+  // cache (one pass above); fall back to null when the product has aged out.
   const itemSummaryWithRate = itemSummary
     .map((b) => {
       const tabClicks = tabClickMap.get(`${b.platform}::${b.tab}`) ?? 0;
@@ -319,6 +355,7 @@ function buildUpsellPayload(
         productId: b.productId,
         productName: info?.productName ?? null,
         priceUsd: info?.priceUsd ?? null,
+        prices: info?.prices ?? {},
         adds: b.adds,
         addRatePct: pct(b.adds, tabClicks),
       };
@@ -378,6 +415,7 @@ function buildUpsellPayload(
           productId: b.productId,
           productName: info?.productName ?? null,
           priceUsd: info?.priceUsd ?? null,
+          prices: info?.prices ?? {},
           adds: b.adds,
         };
       }),
@@ -811,6 +849,26 @@ const DASHBOARD_HTML = `<!doctype html>
   function fmtProduct(r) {
     if (r.productName) {
       var priceStr = r.priceUsd != null ? ' <span class="muted">$' + r.priceUsd.toFixed(2) + '</span>' : '';
+      // Append per-store local prices (LBP, AED, EUR) deduped by currency+amount
+      if (r.prices && typeof r.prices === 'object') {
+        var seen = {};
+        var localParts = [];
+        Object.keys(r.prices).forEach(function (storeKey) {
+          var sp = r.prices[storeKey];
+          if (!sp || !sp.currency || sp.priceLocal == null) return;
+          var key = sp.currency + ':' + sp.priceLocal;
+          if (seen[key]) return;
+          seen[key] = true;
+          var decimals = sp.decimals != null ? sp.decimals : 2;
+          var formatted = decimals === 0
+            ? Math.round(sp.priceLocal).toLocaleString()
+            : sp.priceLocal.toFixed(decimals);
+          localParts.push(sp.currency + '\u00a0' + formatted);
+        });
+        if (localParts.length) {
+          priceStr += ' <span class="muted">' + localParts.join(' / ') + '</span>';
+        }
+      }
       return escapeHtml(r.productName) + priceStr + ' <span class="muted" style="font-size:11px">(' + escapeHtml(r.productId) + ')</span>';
     }
     return escapeHtml(r.productId);

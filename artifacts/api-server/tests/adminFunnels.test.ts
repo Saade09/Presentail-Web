@@ -40,6 +40,53 @@ vi.mock("../src/lib/suggestedMessagesAggregator", async () => {
     loadDailySuggestedMessageBuckets: vi.fn(),
   };
 });
+vi.mock("../src/lib/upsellAggregator", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/lib/upsellAggregator")
+  >("../src/lib/upsellAggregator");
+  return {
+    ...actual,
+    loadDailyUpsellTabBuckets: vi.fn().mockResolvedValue([]),
+    loadDailyUpsellItemBuckets: vi.fn().mockResolvedValue([]),
+    loadDailyUpsellCheckoutBuckets: vi.fn().mockResolvedValue([]),
+  };
+});
+vi.mock("../src/lib/osProductsCache", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/lib/osProductsCache")
+  >("../src/lib/osProductsCache");
+  return {
+    ...actual,
+    getOsProducts: vi.fn().mockReturnValue(null),
+  };
+});
+vi.mock("../src/lib/fx", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/lib/fx")
+  >("../src/lib/fx");
+  return {
+    ...actual,
+    getRates: vi.fn().mockResolvedValue({
+      base: "USD",
+      source: "fallback",
+      fetchedAt: Date.now(),
+      rates: {
+        USD: 1,
+        AED: 3.673,
+        EUR: 0.92,
+        GBP: 0.78,
+        CAD: 1.37,
+        AUD: 1.5,
+        QAR: 3.64,
+        SAR: 3.75,
+        KWD: 0.307,
+        OMR: 0.384,
+        CHF: 0.88,
+        LBP: 89_500,
+      },
+    }),
+  };
+});
 
 const { loadDailyPurchaseBuckets } = await import(
   "../src/lib/checkoutPurchaseFunnelMonitor"
@@ -57,6 +104,12 @@ const {
   loadDailySuggestedMessageBuckets,
   summariseSuggestedMessageBuckets,
 } = await import("../src/lib/suggestedMessagesAggregator");
+const {
+  loadDailyUpsellTabBuckets,
+  loadDailyUpsellItemBuckets,
+  loadDailyUpsellCheckoutBuckets,
+} = await import("../src/lib/upsellAggregator");
+const { getOsProducts } = await import("../src/lib/osProductsCache");
 const adminFunnelsRouter = (await import("../src/routes/adminFunnels"))
   .default;
 
@@ -437,5 +490,166 @@ describe("admin funnels routes", () => {
     expect(res.text).toContain("Checkout Funnels");
     // Must not embed the admin token anywhere in the page.
     expect(res.text).not.toContain("secret-test-token");
+  });
+});
+
+// ── Per-store local-currency price tests ────────────────────────────────────
+
+describe("upsell per-store local-currency prices", () => {
+  // Shared test product with USD price $10.
+  const PRODUCT_SLUG = "addon-flowers";
+  const PRODUCT_USD = 10;
+
+  // Known FX rates (matches the mock installed at the top of the file).
+  // roundForCurrency(10 * 3.673, "AED") = 36.73
+  // roundForCurrency(10 * 0.92,  "EUR") = 9.20
+  // roundForCurrency(10 * 89500, "LBP") = 895000
+  const EXPECTED_AED = 36.73;
+  const EXPECTED_EUR = 9.20;
+  const EXPECTED_LBP = 895_000;
+
+  function makeProduct(overrides: Partial<{ id: string; name: string; price: number }> = {}) {
+    return {
+      id: overrides.id ?? PRODUCT_SLUG,
+      name: overrides.name ?? "Flowers",
+      price: overrides.price ?? PRODUCT_USD,
+      images: [],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    };
+  }
+
+  function setupUpsellMocks({
+    tabsDaily = [] as any[],
+    itemsDaily = [] as any[],
+    checkoutDaily = [] as any[],
+  } = {}) {
+    (loadDailyPurchaseBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyLoginBuckets as any).mockResolvedValueOnce([]);
+    (loadDailySocialFailureBuckets as any).mockResolvedValueOnce([]);
+    (loadDailySuggestedMessageBuckets as any).mockResolvedValueOnce([]);
+    (loadDailyUpsellTabBuckets as any).mockResolvedValueOnce(tabsDaily);
+    (loadDailyUpsellItemBuckets as any).mockResolvedValueOnce(itemsDaily);
+    (loadDailyUpsellCheckoutBuckets as any).mockResolvedValueOnce(checkoutDaily);
+  }
+
+  function makeApp() {
+    const app = express();
+    app.use("/api", adminFunnelsRouter);
+    return app;
+  }
+
+  it("emits LBP prices for products in the Lebanon store cache", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((storeKey: string) => {
+      if (storeKey === "lebanon") return [makeProduct()];
+      return null;
+    });
+    setupUpsellMocks({
+      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+    });
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const summary = res.body.upsell.itemAdds.summary;
+    const item = summary.find((r: any) => r.productId === PRODUCT_SLUG);
+    expect(item).toBeDefined();
+    expect(item.prices.lebanon).toMatchObject({
+      currency: "LBP",
+      priceLocal: EXPECTED_LBP,
+      decimals: 0,
+    });
+    // No AED/EUR entries when product is only in the Lebanon cache.
+    expect(item.prices.dubai).toBeUndefined();
+    expect(item.prices.cyprus).toBeUndefined();
+  });
+
+  it("emits AED prices for products in the UAE store caches", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((storeKey: string) => {
+      if (storeKey === "dubai" || storeKey === "abudhabi") return [makeProduct()];
+      return null;
+    });
+    setupUpsellMocks({
+      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+    });
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const item = res.body.upsell.itemAdds.summary.find(
+      (r: any) => r.productId === PRODUCT_SLUG,
+    );
+    expect(item).toBeDefined();
+    expect(item.prices.dubai).toMatchObject({ currency: "AED", priceLocal: EXPECTED_AED, decimals: 2 });
+    expect(item.prices.abudhabi).toMatchObject({ currency: "AED", priceLocal: EXPECTED_AED, decimals: 2 });
+    expect(item.prices.lebanon).toBeUndefined();
+    expect(item.prices.cyprus).toBeUndefined();
+  });
+
+  it("emits EUR prices for products in the Cyprus store cache", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((storeKey: string) => {
+      if (storeKey === "cyprus") return [makeProduct()];
+      return null;
+    });
+    setupUpsellMocks({
+      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+    });
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const item = res.body.upsell.itemAdds.summary.find(
+      (r: any) => r.productId === PRODUCT_SLUG,
+    );
+    expect(item).toBeDefined();
+    expect(item.prices.cyprus).toMatchObject({ currency: "EUR", priceLocal: EXPECTED_EUR, decimals: 2 });
+    expect(item.prices.lebanon).toBeUndefined();
+    expect(item.prices.dubai).toBeUndefined();
+  });
+
+  it("emits all store prices when product appears in every store cache", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((_storeKey: string) => [makeProduct()]);
+    setupUpsellMocks({
+      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+    });
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const item = res.body.upsell.itemAdds.summary.find(
+      (r: any) => r.productId === PRODUCT_SLUG,
+    );
+    expect(item).toBeDefined();
+    expect(item.prices.lebanon).toMatchObject({ currency: "LBP", priceLocal: EXPECTED_LBP, decimals: 0 });
+    expect(item.prices.dubai).toMatchObject({ currency: "AED", priceLocal: EXPECTED_AED, decimals: 2 });
+    expect(item.prices.abudhabi).toMatchObject({ currency: "AED", priceLocal: EXPECTED_AED, decimals: 2 });
+    expect(item.prices.cyprus).toMatchObject({ currency: "EUR", priceLocal: EXPECTED_EUR, decimals: 2 });
+  });
+
+  it("also populates prices on the daily item rows", async () => {
+    process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
+    (getOsProducts as any).mockImplementation((_storeKey: string) => [makeProduct()]);
+    setupUpsellMocks({
+      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 20 }],
+      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 2 }],
+    });
+    const res = await request(makeApp())
+      .get("/api/admin/funnels/data")
+      .set("x-push-admin-token", "secret-test-token");
+    expect(res.status).toBe(200);
+    const daily = res.body.upsell.itemAdds.daily;
+    expect(daily).toHaveLength(1);
+    expect(daily[0].prices.lebanon).toMatchObject({ currency: "LBP", priceLocal: EXPECTED_LBP });
+    expect(daily[0].prices.cyprus).toMatchObject({ currency: "EUR", priceLocal: EXPECTED_EUR });
   });
 });
