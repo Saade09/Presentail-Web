@@ -37,7 +37,7 @@ async function resolveCustomerId(
 // GET /api/me/favorites
 router.get(
   "/me/favorites",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -63,7 +63,7 @@ router.get(
 // POST /api/me/favorites
 router.post(
   "/me/favorites",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -94,7 +94,7 @@ router.post(
 // DELETE /api/me/favorites/:slug
 router.delete(
   "/me/favorites/:slug",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {

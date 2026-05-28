@@ -90,7 +90,7 @@ async function resolveCustomerId(
 // GET /api/me/addresses
 router.get(
   "/me/addresses",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -114,7 +114,7 @@ router.get(
 // POST /api/me/addresses
 router.post(
   "/me/addresses",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -184,7 +184,7 @@ router.post(
 // PATCH /api/me/addresses/:id
 router.patch(
   "/me/addresses/:id",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -276,7 +276,7 @@ router.patch(
 // DELETE /api/me/addresses/:id
 router.delete(
   "/me/addresses/:id",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
@@ -331,7 +331,7 @@ router.delete(
 // POST /api/me/addresses/:id/default
 router.post(
   "/me/addresses/:id/default",
-  requireUserType(["customer"]),
+  requireUserType(["customer", "team"]),
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {

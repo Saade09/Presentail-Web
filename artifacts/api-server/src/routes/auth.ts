@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
+import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull } from "drizzle-orm";
@@ -688,7 +689,60 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
 });
 
 // ── Get current user (auth via Bearer JWT, validated against WP) ─────────────
-router.get("/auth/me", requireUserType(["customer"]), async (req, res) => {
+router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) => {
+  // Team users have no WooCommerce account. When the Clerk session already
+  // tells us the user is "team", build the profile from their local customers
+  // row (upserted on first visit) and skip the WC lookup entirely.
+  const clerkSession = getAuth(req);
+  const clerkUserId = clerkSession?.userId;
+  const sessionUserType = (clerkSession?.sessionClaims as any)
+    ?.publicMetadata?.userType;
+  if (clerkUserId && sessionUserType === "team") {
+    try {
+      const secretKey = process.env.CLERK_SECRET_KEY;
+      if (!secretKey) {
+        res.status(503).json({ ok: false, message: "Clerk is not configured" });
+        return;
+      }
+      const clerk = createClerkClient({ secretKey });
+      const clerkUser = await clerk.users.getUser(clerkUserId);
+      const email =
+        clerkUser.emailAddresses.find(
+          (e) => e.id === clerkUser.primaryEmailAddressId,
+        )?.emailAddress ??
+        clerkUser.emailAddresses[0]?.emailAddress ??
+        null;
+      if (!email) {
+        res.status(401).json({ ok: false, message: "Clerk user has no email" });
+        return;
+      }
+      const { customer: local } = await upsertCustomer({
+        email,
+        firstName: clerkUser.firstName ?? "",
+        lastName: clerkUser.lastName ?? "",
+        authProvider: "clerk",
+        authUserId: clerkUserId,
+      });
+      res.json({
+        ok: true,
+        user: {
+          id: local.id,
+          email: local.email,
+          firstName: local.firstName ?? "",
+          lastName: local.lastName ?? "",
+          username: "",
+          phone: local.phoneE164 ?? "",
+          gender: local.gender ?? null,
+          birthday: local.birthday ?? null,
+          birthdayShareMonthDay: local.birthdayShareMonthDay,
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, message: e?.message ?? "Failed" });
+    }
+    return;
+  }
+
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
@@ -770,7 +824,124 @@ function parseBirthday(raw: unknown): { ok: true; value: string | null } | { ok:
   return { ok: true, value: trimmed };
 }
 
-router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
+router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) => {
+  // Team users: update the local customers row directly, skip WC mirror.
+  const clerkSession = getAuth(req);
+  const clerkPutUserId = clerkSession?.userId;
+  const sessionPutUserType = (clerkSession?.sessionClaims as any)
+    ?.publicMetadata?.userType;
+  if (clerkPutUserId && sessionPutUserType === "team") {
+    const body = (req.body ?? {}) as {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      gender?: string | null;
+      birthday?: string | null;
+      birthdayShareMonthDay?: boolean;
+    };
+    let validatedTeamPhone: string | undefined;
+    if (body.phone !== undefined) {
+      const phoneCheck = validateStoredPhone(
+        typeof body.phone === "string" ? body.phone : "",
+      );
+      if (!phoneCheck.ok) {
+        const message =
+          phoneCheck.reason === "too_short"
+            ? "Phone number is too short for the selected country"
+            : phoneCheck.reason === "too_long"
+              ? "Phone number is too long for the selected country"
+              : "Invalid phone number";
+        res.status(400).json({ ok: false, message, code: phoneCheck.reason });
+        return;
+      }
+      validatedTeamPhone = phoneCheck.normalized;
+    }
+    let normalizedTeamGender: string | null | undefined;
+    if (body.gender !== undefined) {
+      if (body.gender === null || body.gender === "") {
+        normalizedTeamGender = null;
+      } else if (
+        typeof body.gender === "string" &&
+        (CUSTOMER_GENDERS as readonly string[]).includes(body.gender)
+      ) {
+        normalizedTeamGender = body.gender;
+      }
+    }
+    let normalizedTeamBirthday: string | null | undefined;
+    if (body.birthday !== undefined) {
+      const parsed = parseBirthday(body.birthday);
+      if (!parsed.ok) {
+        res.status(400).json({ ok: false, message: "Invalid birthday" });
+        return;
+      }
+      normalizedTeamBirthday = parsed.value;
+    }
+    const normalizedTeamShare =
+      typeof body.birthdayShareMonthDay === "boolean"
+        ? body.birthdayShareMonthDay
+        : undefined;
+    try {
+      const secretKey = process.env.CLERK_SECRET_KEY;
+      if (!secretKey) {
+        res.status(503).json({ ok: false, message: "Clerk is not configured" });
+        return;
+      }
+      const clerk = createClerkClient({ secretKey });
+      const clerkUser = await clerk.users.getUser(clerkPutUserId);
+      const email =
+        clerkUser.emailAddresses.find(
+          (e) => e.id === clerkUser.primaryEmailAddressId,
+        )?.emailAddress ??
+        clerkUser.emailAddresses[0]?.emailAddress ??
+        null;
+      if (!email) {
+        res.status(401).json({ ok: false, message: "Clerk user has no email" });
+        return;
+      }
+      // Upsert to ensure the row exists, then apply the patch.
+      const { customer: existing } = await upsertCustomer({
+        email,
+        authProvider: "clerk",
+        authUserId: clerkPutUserId,
+      });
+      const patch: Partial<typeof customersTable.$inferInsert> = {};
+      if (typeof body.firstName === "string") patch.firstName = body.firstName.trim();
+      if (typeof body.lastName === "string") patch.lastName = body.lastName.trim();
+      if (validatedTeamPhone !== undefined) {
+        patch.phoneE164 = validatedTeamPhone ? normalizePhoneE164(validatedTeamPhone) : null;
+      }
+      if (normalizedTeamGender !== undefined) patch.gender = normalizedTeamGender;
+      if (normalizedTeamBirthday !== undefined) patch.birthday = normalizedTeamBirthday;
+      if (normalizedTeamShare !== undefined) patch.birthdayShareMonthDay = normalizedTeamShare;
+      let local = existing;
+      if (Object.keys(patch).length > 0) {
+        const [updated] = await db
+          .update(customersTable)
+          .set({ ...patch, updatedAt: new Date() })
+          .where(eq(customersTable.id, existing.id))
+          .returning();
+        local = updated;
+      }
+      res.json({
+        ok: true,
+        user: {
+          id: local.id,
+          email: local.email,
+          firstName: local.firstName ?? "",
+          lastName: local.lastName ?? "",
+          username: "",
+          phone: local.phoneE164 ?? "",
+          gender: local.gender ?? null,
+          birthday: local.birthday ?? null,
+          birthdayShareMonthDay: local.birthdayShareMonthDay,
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, message: e?.message ?? "Failed" });
+    }
+    return;
+  }
+
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
@@ -967,7 +1138,46 @@ router.put("/auth/me", requireUserType(["customer"]), async (req, res) => {
 //      sign in with their old credentials.
 //   3. Issue the WC REST DELETE so the row is dropped from the customer
 //      index. The wp_users row may persist but contains no PII.
-router.delete("/auth/me", requireUserType(["customer"]), async (req, res) => {
+router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res) => {
+  // Team accounts are managed in Clerk/Presentail OS — account deletion is
+  // not available to team users on the storefront.
+  //
+  // We resolve the effective role via a live Clerk lookup (not just session
+  // claims) so that stale JWTs cannot bypass the block. requireUserType may
+  // have admitted the request by fetching the live user when claims were
+  // absent; the same live fetch here ensures we always catch team members.
+  const clerkSession = getAuth(req);
+  const clerkDelUserId = clerkSession?.userId;
+  if (clerkDelUserId) {
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (secretKey) {
+      try {
+        const clerk = createClerkClient({ secretKey });
+        const liveUser = await clerk.users.getUser(clerkDelUserId);
+        const liveUserType = (liveUser.publicMetadata as { userType?: unknown })?.userType;
+        if (liveUserType === "team") {
+          res.status(403).json({
+            ok: false,
+            message: "Team accounts cannot be deleted through the storefront.",
+          });
+          return;
+        }
+      } catch (err: any) {
+        // If the Clerk lookup fails we must fail closed — do not proceed with
+        // deletion when we cannot confirm the user is a customer.
+        req.log?.error?.(
+          { err: err?.message, userId: clerkDelUserId },
+          "auth.delete: Clerk role lookup failed; blocking request",
+        );
+        res.status(502).json({
+          ok: false,
+          message: "Could not verify account type. Please try again.",
+        });
+        return;
+      }
+    }
+  }
+
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });

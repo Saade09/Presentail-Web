@@ -46,7 +46,7 @@ type WcOrder = {
 // guest and authenticated purchases through `upsertCustomer` — matching by
 // email and phone — orders placed before the customer signed up are stitched
 // onto the same canonical row and surface here automatically.
-router.get("/me/orders", requireUserType(["customer"]), async (req, res) => {
+router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });

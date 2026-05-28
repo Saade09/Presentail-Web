@@ -11,7 +11,7 @@ import {
 const router: IRouter = Router();
 
 // GET /api/loyalty/me — signed-in customer's loyalty summary.
-router.get("/loyalty/me", requireUserType(["customer"]), async (req, res) => {
+router.get("/loyalty/me", requireUserType(["customer", "team"]), async (req, res) => {
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });

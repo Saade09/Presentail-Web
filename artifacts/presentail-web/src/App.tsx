@@ -12,7 +12,7 @@ import {
   useAuth as useClerkAuth,
   useUser,
 } from "@clerk/react";
-import { isUserType } from "@workspace/clerk-types";
+import { isUserType, canShop } from "@workspace/clerk-types";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -121,7 +121,9 @@ function CustomerOnly({ children }: { children: React.ReactNode }) {
     return <Redirect to={target} replace />;
   }
   const userType = user?.publicMetadata?.userType;
-  if (isUserType(userType) && userType !== "customer") {
+  // Allow customers and team members to shop; drivers and unrecognised roles
+  // are redirected — we never silently downgrade them to customer privileges.
+  if (isUserType(userType) && !canShop(userType)) {
     return <Redirect to="/unauthorized" replace />;
   }
   return <>{children}</>;

@@ -19,6 +19,18 @@ export function isUserType(value: unknown): value is UserType {
   );
 }
 
+// Returns true when the user is allowed to shop on the storefront.
+// Both customers and internal team members can browse, add to cart, and
+// check out. Driver and unrecognised user types are redirected away.
+export function canShop(userType: UserType | unknown): boolean {
+  return userType === "customer" || userType === "team";
+}
+
+// Returns true when the user is an internal team/admin member.
+export function isAdminUser(userType: UserType | unknown): boolean {
+  return userType === "team";
+}
+
 declare global {
   interface ClerkAuthorization {
     permission: string;
