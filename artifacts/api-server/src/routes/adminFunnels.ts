@@ -19,6 +19,20 @@ import {
   type SuggestedMessageDailyBucket,
   type SuggestedMessageSummaryBucket,
 } from "../lib/suggestedMessagesAggregator";
+import {
+  loadDailyUpsellTabBuckets,
+  summariseUpsellTabBuckets,
+  loadDailyUpsellItemBuckets,
+  summariseUpsellItemBuckets,
+  loadDailyUpsellCheckoutBuckets,
+  summariseUpsellCheckoutBuckets,
+  type UpsellTabDailyBucket,
+  type UpsellTabSummaryBucket,
+  type UpsellItemDailyBucket,
+  type UpsellItemSummaryBucket,
+  type UpsellCheckoutDailyBucket,
+  type UpsellCheckoutSummaryBucket,
+} from "../lib/upsellAggregator";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -74,13 +88,23 @@ router.get("/admin/funnels/data", async (req, res) => {
   const { start, end } = dayWindow(new Date(), days);
 
   try {
-    const [purchase, login, socialFailuresDaily, suggestedMessagesDaily] =
-      await Promise.all([
-        loadDailyPurchaseBuckets(start, end),
-        loadDailyLoginBuckets(start, end),
-        loadDailySocialFailureBuckets(start, end),
-        loadDailySuggestedMessageBuckets(start, end),
-      ]);
+    const [
+      purchase,
+      login,
+      socialFailuresDaily,
+      suggestedMessagesDaily,
+      upsellTabsDaily,
+      upsellItemsDaily,
+      upsellCheckoutDaily,
+    ] = await Promise.all([
+      loadDailyPurchaseBuckets(start, end),
+      loadDailyLoginBuckets(start, end),
+      loadDailySocialFailureBuckets(start, end),
+      loadDailySuggestedMessageBuckets(start, end),
+      loadDailyUpsellTabBuckets(start, end),
+      loadDailyUpsellItemBuckets(start, end),
+      loadDailyUpsellCheckoutBuckets(start, end),
+    ]);
     res.json({
       days,
       rangeStartUtc: start.toISOString(),
@@ -104,6 +128,26 @@ router.get("/admin/funnels/data", async (req, res) => {
           toSuggestedMessageSummaryRow,
         ),
         daily: suggestedMessagesDaily.map(toSuggestedMessageDailyRow),
+      },
+      upsell: {
+        // Per-(platform, tab) click counts and per-(platform, tab, product)
+        // add counts for the upsell modal, plus a daily "proceeded to
+        // checkout" series. All three derive from their respective daily
+        // rows so summary and detail can never disagree.
+        //
+        // Rate computation: tab click totals act as the denominator for
+        // add-rate. A "tab add rate" = total product adds on that tab /
+        // tab clicks (i.e. how often a shopper who opened a tab also added
+        // something). A "product add rate" = adds for that product / tab
+        // clicks on the same tab (how well a specific product converts
+        // within the tab). Both rates are computed here at the route layer
+        // so the aggregator stays query-only and the HTML just renders
+        // what the API sends.
+        ...buildUpsellPayload(
+          upsellTabsDaily,
+          upsellItemsDaily,
+          upsellCheckoutDaily,
+        ),
       },
     });
   } catch (err: any) {
@@ -207,6 +251,115 @@ function toLoginRow(b: LoginDailyBucket) {
   };
 }
 
+// ── Upsell row shaping ──────────────────────────────────────────────────────
+//
+// `buildUpsellPayload` is the main entry point. It takes the three daily
+// bucket arrays and returns the full `upsell` JSON payload including computed
+// conversion rates so callers can determine which tabs and products "convert
+// best" without doing the arithmetic themselves.
+//
+// Denominators: tab clicks per (platform, tab) are used as the denominator
+// for both tab-level and product-level add rates. This is the most meaningful
+// signal — it answers "of shoppers who explored this tab, how many actually
+// added something?"
+
+function buildUpsellPayload(
+  tabsDaily: UpsellTabDailyBucket[],
+  itemsDaily: UpsellItemDailyBucket[],
+  checkoutDaily: UpsellCheckoutDailyBucket[],
+) {
+  const tabSummary = summariseUpsellTabBuckets(tabsDaily);
+  const itemSummary = summariseUpsellItemBuckets(itemsDaily);
+  const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDaily);
+
+  // Build a fast lookup: "platform::tab" → total clicks
+  const tabClickMap = new Map<string, number>();
+  for (const t of tabSummary) {
+    tabClickMap.set(`${t.platform}::${t.tab}`, t.clicks);
+  }
+
+  // Per-product add rate = product adds / tab clicks for that (platform, tab)
+  // Sorted best-converting first; products on tabs with no recorded clicks get
+  // null addRatePct (edge case: add event arrived before or without a tab click).
+  const itemSummaryWithRate = itemSummary
+    .map((b) => {
+      const tabClicks = tabClickMap.get(`${b.platform}::${b.tab}`) ?? 0;
+      return {
+        platform: b.platform,
+        tab: b.tab,
+        productId: b.productId,
+        adds: b.adds,
+        addRatePct: pct(b.adds, tabClicks),
+      };
+    })
+    .sort((a, b) => {
+      // Null rates sort last; otherwise descending rate, then descending adds
+      if (a.addRatePct == null && b.addRatePct == null) return 0;
+      if (a.addRatePct == null) return 1;
+      if (b.addRatePct == null) return -1;
+      if (b.addRatePct !== a.addRatePct) return b.addRatePct - a.addRatePct;
+      return b.adds - a.adds;
+    });
+
+  // Per-tab: total adds across all products on that tab + tab add rate
+  const tabAddsMap = new Map<string, number>();
+  for (const b of itemSummary) {
+    const key = `${b.platform}::${b.tab}`;
+    tabAddsMap.set(key, (tabAddsMap.get(key) ?? 0) + b.adds);
+  }
+
+  const tabSummaryWithRate = tabSummary
+    .map((b) => {
+      const totalAdds = tabAddsMap.get(`${b.platform}::${b.tab}`) ?? 0;
+      return {
+        platform: b.platform,
+        tab: b.tab,
+        clicks: b.clicks,
+        totalAdds,
+        addRatePct: pct(totalAdds, b.clicks),
+      };
+    })
+    .sort((a, b) => {
+      if (a.addRatePct == null && b.addRatePct == null) return 0;
+      if (a.addRatePct == null) return 1;
+      if (b.addRatePct == null) return -1;
+      return b.addRatePct - a.addRatePct;
+    });
+
+  return {
+    tabClicks: {
+      summary: tabSummaryWithRate,
+      daily: tabsDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        tab: b.tab,
+        clicks: b.clicks,
+      })),
+    },
+    itemAdds: {
+      summary: itemSummaryWithRate,
+      daily: itemsDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        tab: b.tab,
+        productId: b.productId,
+        adds: b.adds,
+      })),
+    },
+    checkoutProceeded: {
+      summary: checkoutSummary.map((b) => ({
+        platform: b.platform,
+        count: b.count,
+      })),
+      daily: checkoutDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        count: b.count,
+      })),
+    },
+  };
+}
+
 // ── HTML dashboard ─────────────────────────────────────────────────────────
 
 const DASHBOARD_HTML = `<!doctype html>
@@ -294,6 +447,46 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Upsell modal — tab clicks</h2>
+  <div class="sub">upsell_tab_clicked events per tab. "Add rate" = total product adds on that tab / tab clicks — how often a shopper who opened the tab actually added something. Sorted best-converting first.</div>
+  <div id="upsellTabsSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <div id="upsellTabsTrends" class="trends"></div>
+  <table id="upsellTabsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Tab</th><th>Clicks</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Upsell modal — top add-ons</h2>
+  <div class="sub">upsell_item_added events per (tab, product id). "Add rate" = product adds / tab clicks — how well each product converts within its tab. Sorted best-converting first so the top rows show which add-ons to promote.</div>
+  <div id="upsellItemsSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="upsellItemsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Tab</th><th>Product ID</th><th>Adds</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Upsell modal — checkout proceeded</h2>
+  <div class="sub">upsell_checkout_proceeded events. Each count represents a shopper who tapped "proceed to checkout" from inside the upsell modal — a strong signal that the upsell flow is influencing the purchase path.</div>
+  <div id="upsellCheckoutSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="upsellCheckoutDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Proceeded</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -326,6 +519,13 @@ const DASHBOARD_HTML = `<!doctype html>
   var purchaseLegend = document.getElementById('purchaseLegend');
   var loginTrends = document.getElementById('loginTrends');
   var loginLegend = document.getElementById('loginLegend');
+  var upsellTabsSummary = document.getElementById('upsellTabsSummary');
+  var upsellTabsDailyBody = document.querySelector('#upsellTabsDaily tbody');
+  var upsellTabsTrends = document.getElementById('upsellTabsTrends');
+  var upsellItemsSummary = document.getElementById('upsellItemsSummary');
+  var upsellItemsDailyBody = document.querySelector('#upsellItemsDaily tbody');
+  var upsellCheckoutSummary = document.getElementById('upsellCheckoutSummary');
+  var upsellCheckoutDailyBody = document.querySelector('#upsellCheckoutDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -529,6 +729,120 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function renderUpsellTabs(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      upsellTabsSummary.innerHTML = '<div class="muted">No tab-click events in range.</div>';
+      upsellTabsDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+      upsellTabsTrends.innerHTML = '';
+      return;
+    }
+    if (summary.length) {
+      upsellTabsSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Tab</th><th>Clicks (window)</th><th>Total adds</th><th>Add rate</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + escapeHtml(r.tab) + '</td>' +
+            '<td>' + num(r.clicks) + '</td>' +
+            '<td>' + num(r.totalAdds) + '</td>' +
+            '<td>' + fmtPct(r.addRatePct) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      upsellTabsSummary.innerHTML = '<div class="muted">No tab-click events in range.</div>';
+    }
+    if (daily.length) {
+      var tabKeyFn = function (r) { return r.platform + '/' + r.tab; };
+      renderTrends(upsellTabsTrends, daily, tabKeyFn, [
+        { label: 'Tab clicks', valueFn: function (r) { return r.clicks; } },
+      ]);
+      upsellTabsDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + escapeHtml(r.tab) + '</td>' +
+          '<td>' + num(r.clicks) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      upsellTabsDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+      upsellTabsTrends.innerHTML = '';
+    }
+  }
+
+  function renderUpsellItems(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      upsellItemsSummary.innerHTML = '<div class="muted">No item-add events in range.</div>';
+      upsellItemsDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    if (summary.length) {
+      upsellItemsSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Tab</th><th>Product ID</th><th>Adds (window)</th><th>Add rate</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + escapeHtml(r.tab) + '</td>' +
+            '<td>' + escapeHtml(r.productId) + '</td>' +
+            '<td>' + num(r.adds) + '</td>' +
+            '<td>' + fmtPct(r.addRatePct) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      upsellItemsSummary.innerHTML = '<div class="muted">No item-add events in range.</div>';
+    }
+    if (daily.length) {
+      upsellItemsDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + escapeHtml(r.tab) + '</td>' +
+          '<td>' + escapeHtml(r.productId) + '</td>' +
+          '<td>' + num(r.adds) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      upsellItemsDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+    }
+  }
+
+  function renderUpsellCheckout(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      upsellCheckoutSummary.innerHTML = '<div class="muted">No checkout-proceeded events in range.</div>';
+      upsellCheckoutDailyBody.innerHTML = '<tr><td colspan="3" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    if (summary.length) {
+      upsellCheckoutSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Proceeded (window)</th>' +
+        '</tr></thead><tbody>' + summary.map(function (r) {
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + num(r.count) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      upsellCheckoutSummary.innerHTML = '<div class="muted">No checkout-proceeded events in range.</div>';
+    }
+    if (daily.length) {
+      upsellCheckoutDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + num(r.count) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      upsellCheckoutDailyBody.innerHTML = '<tr><td colspan="3" class="muted">No events in range.</td></tr>';
+    }
+  }
+
   function renderLogin(rows) {
     if (!rows.length) {
       loginBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
@@ -572,10 +886,14 @@ const DASHBOARD_HTML = `<!doctype html>
         var login = data.login || [];
         var socialFailures = data.socialFailures || { summary: [], daily: [] };
         var suggestedMessages = data.suggestedMessages || { summary: [], daily: [] };
+        var upsell = data.upsell || {};
         renderPurchase(purchase);
         renderLogin(login);
         renderSocialFailures(socialFailures);
         renderSuggestedMessages(suggestedMessages);
+        renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
+        renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
+        renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
