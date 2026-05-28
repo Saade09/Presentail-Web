@@ -135,31 +135,59 @@ async function resolveClerkSession(
     return { ok: false, status: 503, message: "Clerk is not configured" };
   }
 
-  let clerkUser: {
-    id: string;
-    emailAddresses: { id: string; emailAddress: string }[];
-    primaryEmailAddressId: string | null;
-    firstName: string | null;
-    lastName: string | null;
-    publicMetadata: { userType?: unknown } & Record<string, unknown>;
-  };
-  try {
-    const clerk = createClerkClient({ secretKey });
-    clerkUser = (await clerk.users.getUser(userId)) as typeof clerkUser;
-  } catch (err: any) {
-    req.log?.warn?.(
-      { err: err?.message, userId },
-      "auth.clerk: failed to load user from Clerk",
-    );
-    return { ok: false, status: 401, message: "Clerk session is invalid" };
+  // Read email, name, and publicMetadata from the JWT claims first.
+  // Clerk embeds these when the session token template includes the fields,
+  // so the vast majority of requests can skip a round-trip to the Clerk API.
+  // We fall back to clerk.users.getUser() only when the claims are absent.
+  const claims = auth.sessionClaims as Record<string, unknown> | null | undefined;
+  const claimsEmail = typeof claims?.email === "string" ? claims.email : null;
+  const claimsFirstName =
+    typeof claims?.first_name === "string" ? claims.first_name : null;
+  const claimsLastName =
+    typeof claims?.last_name === "string" ? claims.last_name : null;
+  const claimsPublicMetadata =
+    claims?.public_metadata != null &&
+    typeof claims.public_metadata === "object"
+      ? (claims.public_metadata as Record<string, unknown>)
+      : null;
+
+  let primaryEmail: string | null = claimsEmail;
+  let firstName: string = claimsFirstName ?? "";
+  let lastName: string = claimsLastName ?? "";
+  let needsUserTypeLazyTag = !isUserType(claimsPublicMetadata?.userType);
+
+  if (!primaryEmail) {
+    // Claims are absent — fall back to a Clerk API call.
+    let clerkUser: {
+      id: string;
+      emailAddresses: { id: string; emailAddress: string }[];
+      primaryEmailAddressId: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      publicMetadata: { userType?: unknown } & Record<string, unknown>;
+    };
+    try {
+      const clerk = createClerkClient({ secretKey });
+      clerkUser = (await clerk.users.getUser(userId)) as typeof clerkUser;
+    } catch (err: any) {
+      req.log?.warn?.(
+        { err: err?.message, userId },
+        "auth.clerk: failed to load user from Clerk",
+      );
+      return { ok: false, status: 401, message: "Clerk session is invalid" };
+    }
+
+    primaryEmail =
+      clerkUser.emailAddresses.find(
+        (e) => e.id === clerkUser.primaryEmailAddressId,
+      )?.emailAddress ??
+      clerkUser.emailAddresses[0]?.emailAddress ??
+      null;
+    firstName = clerkUser.firstName ?? "";
+    lastName = clerkUser.lastName ?? "";
+    needsUserTypeLazyTag = !isUserType(clerkUser.publicMetadata?.userType);
   }
 
-  const primaryEmail =
-    clerkUser.emailAddresses.find(
-      (e) => e.id === clerkUser.primaryEmailAddressId,
-    )?.emailAddress ??
-    clerkUser.emailAddresses[0]?.emailAddress ??
-    null;
   if (!primaryEmail) {
     return { ok: false, status: 401, message: "Clerk user has no email" };
   }
@@ -169,10 +197,10 @@ async function resolveClerkSession(
   try {
     const upserted = await upsertCustomer({
       email: primaryEmail,
-      firstName: clerkUser.firstName ?? "",
-      lastName: clerkUser.lastName ?? "",
+      firstName,
+      lastName,
       authProvider: "clerk",
-      authUserId: clerkUser.id,
+      authUserId: userId,
       country: store.country,
       source: "presentail.com",
     });
@@ -219,7 +247,10 @@ async function resolveClerkSession(
 
   // Lazy userType tagging — covers the case where CLERK_WEBHOOK_SECRET
   // isn't configured yet and `user.created` was never delivered.
-  if (!isUserType(clerkUser.publicMetadata?.userType)) {
+  // When claims were present, `needsUserTypeLazyTag` was derived from
+  // `public_metadata.userType` in the JWT; the tag write is still needed
+  // so the next token refresh picks up the updated value.
+  if (needsUserTypeLazyTag) {
     try {
       const clerk = createClerkClient({ secretKey });
       await clerk.users.updateUserMetadata(userId, {
