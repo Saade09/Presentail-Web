@@ -4,7 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { ArrowUpRight, CalendarHeart, Loader2, Search, Tag, TrendingUp, X } from "lucide-react";
+import { ArrowUpRight, CalendarHeart, Loader2, Search, Store, Tag, TrendingUp, X } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -59,7 +59,8 @@ export function SearchOverlay({ open, onClose }: Props) {
   const hasProducts = (data?.products?.length ?? 0) > 0;
   const hasCategories = (data?.categories?.length ?? 0) > 0;
   const hasOccasions = (data?.occasions?.length ?? 0) > 0;
-  const showEmpty = q.length >= 2 && !isFetching && !hasProducts && !hasCategories && !hasOccasions;
+  const hasBrands = (data?.brands?.length ?? 0) > 0;
+  const showEmpty = q.length >= 2 && !isFetching && !hasProducts && !hasCategories && !hasOccasions && !hasBrands;
   const showTrending = q.length < 2;
 
   return (
@@ -237,6 +238,40 @@ export function SearchOverlay({ open, onClose }: Props) {
                         <CalendarHeart className="h-3.5 w-3.5 text-primary/55" />
                       </div>
                       <span className="font-medium text-primary/85">{occasion.name}</span>
+                      <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {/* Brands */}
+              {!isFetching && hasBrands && (
+                <Command.Group
+                  heading="Brands"
+                  className="[&_[cmdk-group-heading]]:px-4
+                             [&_[cmdk-group-heading]]:py-1.5
+                             [&_[cmdk-group-heading]]:text-[10px]
+                             [&_[cmdk-group-heading]]:font-semibold
+                             [&_[cmdk-group-heading]]:uppercase
+                             [&_[cmdk-group-heading]]:tracking-[0.16em]
+                             [&_[cmdk-group-heading]]:text-primary/35"
+                >
+                  {data!.brands.map((brand) => (
+                    <Command.Item
+                      key={brand.slug}
+                      value={`brand-${brand.slug}-${brand.name}`}
+                      onSelect={() => handleSelect(`/brand/${brand.slug}`)}
+                      className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
+                                 text-sm cursor-pointer select-none outline-none
+                                 aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
+                                 data-[selected=true]:bg-[#EDE9E3]
+                                 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-primary/[0.07] flex items-center
+                                      justify-center shrink-0">
+                        <Store className="h-3.5 w-3.5 text-primary/55" />
+                      </div>
+                      <span className="font-medium text-primary/85">{brand.name}</span>
                       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
                     </Command.Item>
                   ))}

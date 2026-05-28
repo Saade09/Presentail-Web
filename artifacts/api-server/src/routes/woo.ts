@@ -1530,7 +1530,13 @@ router.get("/woo/search", async (req, res) => {
       .map((slug) => ({ slug, name: OCCASION_LABELS[slug] ?? slug }))
       .filter((o) => o.name.toLowerCase().includes(lower));
 
-    return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions });
+    const osBrands = getOsBrands() ?? [];
+    const matchingBrands = osBrands
+      .filter((b) => b.name.toLowerCase().includes(lower))
+      .slice(0, 5)
+      .map((b) => ({ slug: b.slug, name: b.name }));
+
+    return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Search failed" });
   }
