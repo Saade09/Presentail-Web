@@ -328,6 +328,7 @@ export type SearchOccasion = {
 export type SearchBrand = {
   slug: string;
   name: string;
+  image?: string | null;
 };
 
 export type SearchResponse = {

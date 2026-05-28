@@ -1534,7 +1534,7 @@ router.get("/woo/search", async (req, res) => {
     const matchingBrands = osBrands
       .filter((b) => b.name.toLowerCase().includes(lower))
       .slice(0, 5)
-      .map((b) => ({ slug: b.slug, name: b.name }));
+      .map((b) => ({ slug: b.slug, name: b.name, image: b.image ?? null }));
 
     return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
   } catch (err: any) {

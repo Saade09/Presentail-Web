@@ -287,8 +287,16 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                                  transition-colors"
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/[0.07] flex items-center
-                                      justify-center shrink-0">
-                        <Store className="h-3.5 w-3.5 text-primary/55" />
+                                      justify-center shrink-0 overflow-hidden">
+                        {brand.image ? (
+                          <img
+                            src={brand.image}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Store className="h-3.5 w-3.5 text-primary/55" />
+                        )}
                       </div>
                       <span className="font-medium text-primary/85">{brand.name}</span>
                       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
