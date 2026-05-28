@@ -8,12 +8,14 @@ on:
       - "artifacts/presentail-web/**"
       - "scripts/src/checkUnusedTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
+      - "scripts/package.json"
   pull_request:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
       - "scripts/src/checkUnusedTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
+      - "scripts/package.json"
 
 jobs:
   check-translations:
@@ -37,7 +39,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check for unused and missing translation keys
-        run: pnpm run check-translations
+        run: pnpm --filter @workspace/scripts run check-unused-translations
 
   check-web-translations:
     name: Unused + missing translation keys (web)
