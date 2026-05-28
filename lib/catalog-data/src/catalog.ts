@@ -55,6 +55,10 @@ const occFallback = {
   eid: { asset: "categories/arabic-sweets.webp" },
   congratulations: { asset: "occasions/promotion.avif" },
   "thinking-of-you": { asset: "occasions/condolences.webp" },
+  colleague: { asset: "occasions/thank-you.webp" },
+  friend: { asset: "occasions/love-romance.webp" },
+  "im-sorry": { asset: "occasions/condolences.webp" },
+  children: { asset: "occasions/birthday.webp" },
 } as const;
 
 // Products retired in Phase 3 — Presentail OS is the sole source of truth.
@@ -109,6 +113,10 @@ export const occasions: Occasion[] = [
   { id: "thinking-of-you", name: "Thinking of You", icon: "cards-heart", image: occFallback["thinking-of-you"], description: "Let someone know they are in your thoughts with a heartfelt gift." },
   { id: "farewell", name: "Farewell", icon: "airplane", image: occ.farewell, description: "Send a tender goodbye with our most heartfelt arrangements." },
   { id: "condolences", name: "Condolences", icon: "flower", image: occ.condolences, description: "White and pastel arrangements to express quiet sympathy." },
+  { id: "colleague", name: "Colleague", icon: "briefcase-account", image: occFallback.colleague, description: "Thoughtful gifts for a valued colleague or work milestone." },
+  { id: "friend", name: "Friend", icon: "account-heart", image: occFallback.friend, description: "Show your friends how much you care with a heartfelt gift." },
+  { id: "im-sorry", name: "I'm Sorry", icon: "hand-heart", image: occFallback["im-sorry"], description: "A sincere apology, expressed through flowers and care." },
+  { id: "children", name: "Children", icon: "star", image: occFallback.children, description: "Bright and joyful gifts to delight the little ones." },
 ];
 
 export const brands: Brand[] = [

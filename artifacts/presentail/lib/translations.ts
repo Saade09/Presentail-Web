@@ -98,6 +98,10 @@ const EN = {
   occ_eid: "Eid Mubarak",
   occ_congratulations: "Congratulations",
   occ_thinking_of_you: "Thinking of You",
+  occ_colleague: "Colleague",
+  occ_friend: "Friend",
+  occ_im_sorry: "I'm Sorry",
+  occ_children: "Children",
 
   // Occasion descriptions
   occ_housewarming_desc: "Welcome them to a new chapter with blooms and home pieces.",
@@ -892,6 +896,10 @@ const AR: typeof EN = {
   occ_eid: "عيد مبارك",
   occ_congratulations: "تهانٍ",
   occ_thinking_of_you: "أفكر بك",
+  occ_colleague: "زميل",
+  occ_friend: "صديق",
+  occ_im_sorry: "أنا آسف",
+  occ_children: "أطفال",
 
   // Occasion descriptions
   occ_housewarming_desc: "رحّب بهم في فصل جديد بالزهور وقطع المنزل.",
@@ -1681,6 +1689,10 @@ const FR: typeof EN = {
   occ_eid: "Aïd Moubarak",
   occ_congratulations: "Félicitations",
   occ_thinking_of_you: "Je pense à toi",
+  occ_colleague: "Collègue",
+  occ_friend: "Ami(e)",
+  occ_im_sorry: "Je suis désolé(e)",
+  occ_children: "Enfants",
 
   // Occasion descriptions
   occ_housewarming_desc: "Souhaitez-leur la bienvenue dans une nouvelle étape avec des fleurs et des objets pour la maison.",

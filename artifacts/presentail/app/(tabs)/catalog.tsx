@@ -17,7 +17,7 @@ import { SectionTitle } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { categories } from "@/data/catalog";
+import { categories, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -28,6 +28,29 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 const ALL = "all";
 
 type SortKey = "featured" | "priceUp" | "priceDown" | "name";
+
+const OCC_NAME_KEY: Record<string, string> = {
+  birthday: "occ_birthday",
+  "love-romance": "occ_love_romance",
+  housewarming: "occ_housewarming",
+  anniversary: "occ_anniversary",
+  "new-job": "occ_new_job",
+  promotion: "occ_promotion",
+  graduation: "occ_graduation",
+  congratulations: "occ_congratulations",
+  "thank-you": "occ_thank_you",
+  "get-well-soon": "occ_get_well_soon",
+  newborn: "occ_newborn",
+  eid: "occ_eid",
+  wedding: "occ_wedding",
+  "thinking-of-you": "occ_thinking_of_you",
+  farewell: "occ_farewell",
+  condolences: "occ_condolences",
+  colleague: "occ_colleague",
+  friend: "occ_friend",
+  "im-sorry": "occ_im_sorry",
+  children: "occ_children",
+};
 
 function CatalogScreen() {
   const colors = useColors();
@@ -71,6 +94,23 @@ function CatalogScreen() {
     }
     return list;
   }, [products, activeCat, query, sort]);
+
+  const tRecord = t as unknown as Record<string, string>;
+
+  const matchingOccasions = useMemo(() => {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const lower = q.toLowerCase();
+    return occasions.filter((occ) => {
+      if (occ.name.toLowerCase().includes(lower)) return true;
+      const key = OCC_NAME_KEY[occ.id];
+      if (key) {
+        const localName = tRecord[key];
+        if (typeof localName === "string" && localName.toLowerCase().includes(lower)) return true;
+      }
+      return false;
+    });
+  }, [query, tRecord]);
 
   const header = (
     <>
@@ -211,6 +251,54 @@ function CatalogScreen() {
           })}
         </ScrollView>
       </View>
+
+      {matchingOccasions.length > 0 && (
+        <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 10,
+              color: colors.gold,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              marginBottom: 10,
+            }}
+          >
+            {t.occasionsEyebrow}
+          </Text>
+          {matchingOccasions.map((occ, idx) => {
+            const key = OCC_NAME_KEY[occ.id];
+            const displayName = (key && tRecord[key]) ? tRecord[key] : occ.name;
+            const isLast = idx === matchingOccasions.length - 1;
+            return (
+              <Pressable
+                key={occ.id}
+                onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: occ.id } })}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 12,
+                  borderBottomWidth: isLast ? 0 : 1,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <Feather name="gift" size={14} color={colors.mutedForeground} style={{ marginRight: 10 }} />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 14,
+                    color: colors.primary,
+                  }}
+                >
+                  {displayName}
+                </Text>
+                <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {filtered.length > 0 ? <View style={{ height: 28 }} /> : null}
     </>
