@@ -24,6 +24,7 @@ import { SectionTitle, Wordmark } from "@/components/Brand";
 import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
@@ -870,6 +871,77 @@ function BundlesSection() {
   );
 }
 
+type CategoryTileItem = {
+  id: string | number;
+  slug: string;
+  imageUrl?: string | null;
+  name: string;
+};
+
+type CategoryTileProps = {
+  item: CategoryTileItem;
+  tileWidth: number;
+  imageSize: number;
+  imageToLabelGap: number;
+  onPress: () => void;
+};
+
+function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: CategoryTileProps) {
+  const colors = useColors();
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ alignItems: "center", gap: imageToLabelGap, width: tileWidth }}
+    >
+      <View
+        style={{
+          width: imageSize,
+          height: imageSize,
+          borderRadius: 999,
+          overflow: "hidden",
+          backgroundColor: "#F3F3F3",
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        {item.imageUrl ? (
+          <>
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+              onLoad={() => setImageLoaded(true)}
+            />
+            {!imageLoaded && <ShimmerPlaceholder />}
+          </>
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <MaterialCommunityIcons
+              name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+        )}
+      </View>
+      <Text
+        numberOfLines={2}
+        style={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 11,
+          color: colors.primary,
+          textAlign: "center",
+          lineHeight: 14,
+        }}
+      >
+        {item.name}
+      </Text>
+    </Pressable>
+  );
+}
+
 function CategoryRail() {
   const colors = useColors();
   const router = useRouter();
@@ -909,59 +981,14 @@ function CategoryRail() {
   const COL_GAP = 14;
 
   const renderTile = (item: (typeof items)[number]) => (
-    <Pressable
+    <CategoryTile
       key={item.id}
-      onPress={() =>
-        router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })
-      }
-      style={{ alignItems: "center", gap: TILE_IMAGE_TO_LABEL_GAP, width: TILE_WIDTH }}
-    >
-      <View
-        style={{
-          width: TILE_IMAGE_SIZE,
-          height: TILE_IMAGE_SIZE,
-          borderRadius: 999,
-          overflow: "hidden",
-          backgroundColor: "#F3F3F3",
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        {item.imageUrl ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={{ width: "100%", height: "100%" }}
-            contentFit="cover"
-          />
-        ) : (
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialCommunityIcons
-              name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        )}
-      </View>
-      <Text
-        numberOfLines={2}
-        style={{
-          fontFamily: "Inter_500Medium",
-          fontSize: 11,
-          color: colors.primary,
-          textAlign: "center",
-          lineHeight: 14,
-        }}
-      >
-        {item.name}
-      </Text>
-    </Pressable>
+      item={item}
+      tileWidth={TILE_WIDTH}
+      imageSize={TILE_IMAGE_SIZE}
+      imageToLabelGap={TILE_IMAGE_TO_LABEL_GAP}
+      onPress={() => router.push({ pathname: "/category/[slug]", params: { slug: item.slug } })}
+    />
   );
 
   const renderSkeletonTile = (key: string | number) => (
