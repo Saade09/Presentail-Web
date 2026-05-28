@@ -6,13 +6,19 @@
  * `artifacts/presentail-web/src/contexts/LocaleContext.tsx` that is never
  * referenced.
  *
+ * It also checks translation coverage:
+ *   • Every key in STRINGS must have a matching entry in STRINGS_FR.
+ *   • Every key in STRINGS_FR must have a matching entry in STRINGS (i.e. no
+ *     orphaned French keys that don't exist in the base English/Arabic dict).
+ *
  * The check understands both static references (`t("some.key")`) and dynamic
  * template-literal references (`t(\`lang.label.${lang}\`)`). For dynamic
  * calls the static prefix before the first interpolation is extracted; any key
  * whose full name starts with that prefix is considered referenced.
  *
- * Exit code 0 → all keys are used.
- * Exit code 1 → at least one unused key was found (or the script errored).
+ * Exit code 0 → all keys are used and coverage is complete.
+ * Exit code 1 → at least one unused key or coverage gap was found (or the
+ *               script errored).
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-unused-web-translations
@@ -54,32 +60,60 @@ function collectFiles(dir: string, results: string[] = []): string[] {
 }
 
 /**
- * Extract all translation keys from LocaleContext.tsx.
- *
- * The file contains two dictionaries:
- *   const STRINGS: Dict = { "some.key": { en: "…", ar: "…" }, … }
- *   const STRINGS_FR: Record<string, string> = { "some.key": "…", … }
- *
- * Both use quoted dot-notation keys. We collect every distinct key that
- * appears in either object.
+ * Extract all dot-notation translation keys from a block of source text.
+ * Matches lines of the form:  "some.key.name": …
+ * Skips plain property names ("en", "ar") that don't contain a dot.
  */
-function extractWebKeys(src: string): string[] {
+function extractKeysFromSection(src: string): Set<string> {
   const keysSet = new Set<string>();
-
-  // Match any line of the form:  "some.key": (optionally indented).
-  // This covers both STRINGS and STRINGS_FR entries.
   const keyRe = /^\s+"([^"]+)":/gm;
   let m: RegExpExecArray | null;
   while ((m = keyRe.exec(src)) !== null) {
     const candidate = m[1];
-    // Keys always contain at least one dot (e.g. "utility.deliverTo").
-    // Skip plain value-level property names like "en", "ar".
     if (candidate.includes(".")) {
       keysSet.add(candidate);
     }
   }
+  return keysSet;
+}
 
-  return Array.from(keysSet);
+/**
+ * Extract all translation keys from LocaleContext.tsx, returning both the
+ * combined set (for the unused-key check) and the per-dictionary sets (for
+ * the coverage check).
+ *
+ * The file contains two dictionaries:
+ *   const STRINGS: Dict = { "some.key": { en: "…", ar: "…" }, … }
+ *   const STRINGS_FR: Record<string, string> = { "some.key": "…", … }
+ */
+function extractWebKeys(src: string): {
+  all: string[];
+  stringsKeys: Set<string>;
+  stringsFrKeys: Set<string>;
+} {
+  const stringsMarker = src.indexOf("const STRINGS: Dict = {");
+  const stringsFrMarker = src.indexOf("const STRINGS_FR:");
+
+  if (stringsMarker === -1 || stringsFrMarker === -1) {
+    console.error(
+      "ERROR: Could not locate STRINGS or STRINGS_FR in LocaleContext.tsx — aborting.",
+    );
+    process.exit(1);
+  }
+
+  const stringsSection = src.slice(stringsMarker, stringsFrMarker);
+  const stringsFrSection = src.slice(stringsFrMarker);
+
+  const stringsKeys = extractKeysFromSection(stringsSection);
+  const stringsFrKeys = extractKeysFromSection(stringsFrSection);
+
+  const allKeys = new Set([...stringsKeys, ...stringsFrKeys]);
+
+  return {
+    all: Array.from(allKeys),
+    stringsKeys,
+    stringsFrKeys,
+  };
 }
 
 /**
@@ -134,7 +168,7 @@ function isKeyReferenced(
 // ── main ─────────────────────────────────────────────────────────────────────
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const allKeys = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -154,14 +188,27 @@ const corpus = files.map((f) => fs.readFileSync(f, "utf8")).join("\n\0\n");
 
 const dynamicPrefixes = extractDynamicPrefixes(corpus);
 
+// ── 1. Unused-key check ───────────────────────────────────────────────────────
+
 const unusedKeys = allKeys.filter(
   (key) => !isKeyReferenced(key, corpus, dynamicPrefixes),
 );
 
-if (unusedKeys.length === 0) {
-  console.log(`✓ All ${allKeys.length} web translation keys are in use.`);
-  process.exit(0);
-} else {
+// ── 2. FR coverage check ─────────────────────────────────────────────────────
+// Every key in the base STRINGS dict must have a French translation in
+// STRINGS_FR. Keys present in STRINGS_FR but absent from STRINGS are also
+// flagged — they are unreachable orphans (and would have been caught by the
+// unused-key check above too).
+
+const missingFr = Array.from(stringsKeys).filter((k) => !stringsFrKeys.has(k));
+const orphanedFr = Array.from(stringsFrKeys).filter((k) => !stringsKeys.has(k));
+
+// ── report ────────────────────────────────────────────────────────────────────
+
+let failed = false;
+
+if (unusedKeys.length > 0) {
+  failed = true;
   console.error(
     `\n✗ Found ${unusedKeys.length} unused web translation key${unusedKeys.length === 1 ? "" : "s"} (out of ${allKeys.length}):\n`,
   );
@@ -171,5 +218,39 @@ if (unusedKeys.length === 0) {
   console.error(
     "\nRemove these keys from STRINGS and/or STRINGS_FR in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
   );
+}
+
+if (missingFr.length > 0) {
+  failed = true;
+  console.error(
+    `\n✗ Found ${missingFr.length} key${missingFr.length === 1 ? "" : "s"} in STRINGS with no French translation in STRINGS_FR:\n`,
+  );
+  for (const key of missingFr) {
+    console.error(`  - ${key}`);
+  }
+  console.error(
+    "\nAdd these keys to STRINGS_FR in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+  );
+}
+
+if (orphanedFr.length > 0) {
+  failed = true;
+  console.error(
+    `\n✗ Found ${orphanedFr.length} key${orphanedFr.length === 1 ? "" : "s"} in STRINGS_FR that do not exist in STRINGS:\n`,
+  );
+  for (const key of orphanedFr) {
+    console.error(`  - ${key}`);
+  }
+  console.error(
+    "\nRemove these orphaned keys from STRINGS_FR or add matching entries to STRINGS in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+  );
+}
+
+if (!failed) {
+  console.log(
+    `✓ All ${allKeys.length} web translation keys are in use and FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated).`,
+  );
+  process.exit(0);
+} else {
   process.exit(1);
 }
