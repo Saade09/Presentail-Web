@@ -59,7 +59,6 @@ const STRINGS: Dict = {
   "categories.plants": { en: "Plants", ar: "نباتات" },
   "categories.cakes": { en: "Cakes", ar: "كعك" },
   "categories.chocolate": { en: "Chocolate", ar: "شوكولاتة" },
-  "categories.gifts": { en: "Gift Sets", ar: "مجموعات هدايا" },
 
   "occasions.eyebrow": { en: "For Every Moment", ar: "لكل لحظة" },
   "occasions.title": { en: "Shop by Occasion", ar: "تسوّق حسب المناسبة" },
@@ -669,7 +668,6 @@ const STRINGS_FR: Record<string, string> = {
   "categories.plants": "Plantes",
   "categories.cakes": "Gâteaux",
   "categories.chocolate": "Chocolat",
-  "categories.gifts": "Coffrets cadeaux",
 
   "occasions.eyebrow": "Pour chaque moment",
   "occasions.title": "Acheter par occasion",
