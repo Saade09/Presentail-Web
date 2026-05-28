@@ -109,6 +109,20 @@ function BrandScreen() {
               {brandName}
             </Text>
           </View>
+          <Pressable
+            onPress={() => router.push({ pathname: "/(tabs)/catalog", params: { brand: String(slug), brandName } })}
+            hitSlop={10}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Feather name="search" size={18} color="#fff" />
+          </Pressable>
         </View>
       </View>
 

@@ -58,9 +58,12 @@ function CatalogScreen() {
   const router = useRouter();
   const { count } = useCart();
   const t = useT();
-  const params = useLocalSearchParams<{ category?: string; q?: string }>();
+  const params = useLocalSearchParams<{ category?: string; q?: string; brand?: string; brandName?: string }>();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
+
+  const activeBrandSlug = params.brand ?? "";
+  const activeBrandName = params.brandName ?? "";
 
   const { products } = useWooProducts();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
@@ -271,16 +274,21 @@ function CatalogScreen() {
               marginBottom: 10,
             }}
           >
-            {t.occasionsEyebrow}
+            {activeBrandName
+              ? `${t.occasionsEyebrow} · ${t.occasionFromBrand.replace("{brand}", activeBrandName)}`
+              : t.occasionsEyebrow}
           </Text>
           {matchingOccasions.map((occ, idx) => {
             const key = OCC_NAME_KEY[occ.id];
             const displayName = (key && tRecord[key]) ? tRecord[key] : occ.name;
             const isLast = idx === matchingOccasions.length - 1;
+            const occParams = activeBrandSlug
+              ? { slug: occ.id, brand: activeBrandSlug, brandName: activeBrandName }
+              : { slug: occ.id };
             return (
               <Pressable
                 key={occ.id}
-                onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: occ.id } })}
+                onPress={() => router.push({ pathname: "/occasion/[slug]", params: occParams })}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -290,16 +298,29 @@ function CatalogScreen() {
                 }}
               >
                 <Feather name="gift" size={14} color={colors.mutedForeground} style={{ marginRight: 10 }} />
-                <Text
-                  style={{
-                    flex: 1,
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 14,
-                    color: colors.primary,
-                  }}
-                >
-                  {displayName}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 14,
+                      color: colors.primary,
+                    }}
+                  >
+                    {displayName}
+                  </Text>
+                  {activeBrandName ? (
+                    <Text
+                      style={{
+                        fontFamily: "Inter_400Regular",
+                        fontSize: 11,
+                        color: colors.mutedForeground,
+                        marginTop: 1,
+                      }}
+                    >
+                      {t.occasionFromBrand.replace("{brand}", activeBrandName)}
+                    </Text>
+                  ) : null}
+                </View>
                 <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
               </Pressable>
             );

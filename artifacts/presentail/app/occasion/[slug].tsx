@@ -22,14 +22,18 @@ import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
-import { fetchOccasionProducts, type OccasionGroup } from "@/lib/woo";
+import { fetchOccasionProducts, fetchBrandProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = Math.min(160, (SCREEN_W - 48) / 2.3);
 
 function OccasionScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, brand: brandParam, brandName: brandNameParam } = useLocalSearchParams<{
+    slug: string;
+    brand?: string;
+    brandName?: string;
+  }>();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -37,7 +41,11 @@ function OccasionScreen() {
   const { count } = useCart();
   const occasion = getOccasion(String(slug));
 
+  const activeBrandSlug = Array.isArray(brandParam) ? brandParam[0] : (brandParam ?? "");
+  const activeBrandName = Array.isArray(brandNameParam) ? brandNameParam[0] : (brandNameParam ?? "");
+
   const [groups, setGroups] = useState<OccasionGroup[]>([]);
+  const [brandProducts, setBrandProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
@@ -47,14 +55,28 @@ function OccasionScreen() {
     let cancelled = false;
     setLoading(true);
     setGroups([]);
-    fetchOccasionProducts(String(slug), { countryCode, cityId }).then((g) => {
-      if (!cancelled) {
-        setGroups(g.filter((gr) => gr.products.length > 0));
-        setLoading(false);
-      }
-    });
+    setBrandProducts([]);
+    if (activeBrandSlug) {
+      fetchBrandProducts(activeBrandSlug, { countryCode, cityId }).then((res) => {
+        if (!cancelled) {
+          const occSlug = String(slug);
+          const filtered = res.products.filter(
+            (p) => p.image && p.occasions.includes(occSlug),
+          );
+          setBrandProducts(filtered);
+          setLoading(false);
+        }
+      });
+    } else {
+      fetchOccasionProducts(String(slug), { countryCode, cityId }).then((g) => {
+        if (!cancelled) {
+          setGroups(g.filter((gr) => gr.products.length > 0));
+          setLoading(false);
+        }
+      });
+    }
     return () => { cancelled = true; };
-  }, [slug, countryCode, cityId]);
+  }, [slug, countryCode, cityId, activeBrandSlug]);
 
   const { products: wooCatalog } = useWooProducts();
   const popularPicks = useMemo(() => {
@@ -103,12 +125,14 @@ function OccasionScreen() {
           </View>
           <View style={{ position: "absolute", bottom: 22, left: 24, right: 24 }}>
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.goldSoft, letterSpacing: 3, textTransform: "uppercase" }}>
-              {t.occasionForTheOccasion}
+              {activeBrandName
+                ? t.occasionFromBrand.replace("{brand}", activeBrandName)
+                : t.occasionForTheOccasion}
             </Text>
             <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, color: "#fff", marginTop: 6 }}>
               {occasion?.name ?? t.occasionFallback}
             </Text>
-            {occasion?.description ? (
+            {!activeBrandName && occasion?.description ? (
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.82)", marginTop: 6, lineHeight: 19 }}>
                 {occasion.description}
               </Text>
@@ -116,37 +140,72 @@ function OccasionScreen() {
           </View>
         </View>
 
-        {/* Occasion pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingTop: 18, paddingBottom: 4 }}
-        >
-          {occasions.map((o) => {
-            const active = o.id === slug;
-            return (
-              <Pressable
-                key={o.id}
-                onPress={() => router.replace({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary : "#fff",
-                }}
-              >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
-                  {o.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {/* Occasion pills — hidden when scoped to a brand to keep navigation consistent */}
+        {!activeBrandSlug && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingTop: 18, paddingBottom: 4 }}
+          >
+            {occasions.map((o) => {
+              const active = o.id === slug;
+              return (
+                <Pressable
+                  key={o.id}
+                  onPress={() => router.replace({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primary : "#fff",
+                  }}
+                >
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
+                    {o.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
-        {/* Category sections */}
-        {loading ? (
+        {/* Brand-scoped product grid */}
+        {activeBrandSlug ? (
+          loading ? (
+            <View style={{ paddingTop: 60, alignItems: "center", gap: 12 }}>
+              <ActivityIndicator color={colors.primary} size="large" />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+                {t.occasionFindingGifts}
+              </Text>
+            </View>
+          ) : brandProducts.length === 0 ? (
+            <View style={{ paddingHorizontal: 24, paddingTop: 40, alignItems: "center", gap: 10 }}>
+              <Feather name="inbox" size={28} color={colors.mutedForeground} />
+              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+                {t.occasionSoldOutTitle}
+              </Text>
+              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+                {t.occasionSoldOutDesc}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
+              {brandProducts.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p as any}
+                  width={CARD_W}
+                  onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
+                />
+              ))}
+            </View>
+          )
+        ) : null}
+
+        {/* Category sections (non-brand view) */}
+        {!activeBrandSlug && (loading ? (
           <View style={{ paddingTop: 60, alignItems: "center", gap: 12 }}>
             <ActivityIndicator color={colors.primary} size="large" />
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
@@ -210,7 +269,7 @@ function OccasionScreen() {
               />
             ))}
           </View>
-        )}
+        ))}
       </ScrollView>
     </View>
   );
