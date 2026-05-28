@@ -61,3 +61,26 @@ jobs:
 
       - name: Check for unused and missing web translation keys
         run: pnpm --filter @workspace/scripts run check-unused-web-translations
+
+  locale-dictionary-tests:
+    name: Locale dictionary unit tests (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run locale dictionary tests
+        run: pnpm --filter @workspace/presentail-web run test
