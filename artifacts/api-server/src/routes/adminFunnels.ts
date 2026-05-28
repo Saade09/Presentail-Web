@@ -340,6 +340,34 @@ async function buildUpsellPayload(
     tabClickMap.set(`${t.platform}::${t.tab}`, t.clicks);
   }
 
+  // ── Per-platform upsell funnel summary ──────────────────────────────────
+  // Aggregate tab clicks, item adds, and checkout-proceeded totals per
+  // platform so the dashboard can compare web vs. iOS vs. Android at a
+  // glance (conversion = item adds / tab clicks; checkout rate = checkout
+  // proceeded / tab clicks).
+  const platformTotals = new Map<
+    string,
+    { tabClicks: number; itemAdds: number; checkoutProceeded: number }
+  >();
+  const ensurePlatform = (p: string) => {
+    if (!platformTotals.has(p))
+      platformTotals.set(p, { tabClicks: 0, itemAdds: 0, checkoutProceeded: 0 });
+    return platformTotals.get(p)!;
+  };
+  for (const t of tabSummary) ensurePlatform(t.platform).tabClicks += t.clicks;
+  for (const it of itemSummary) ensurePlatform(it.platform).itemAdds += it.adds;
+  for (const c of checkoutSummary) ensurePlatform(c.platform).checkoutProceeded += c.count;
+  const platformSummary = Array.from(platformTotals.entries())
+    .map(([platform, totals]) => ({
+      platform,
+      tabClicks: totals.tabClicks,
+      itemAdds: totals.itemAdds,
+      checkoutProceeded: totals.checkoutProceeded,
+      addRatePct: pct(totals.itemAdds, totals.tabClicks),
+      checkoutRatePct: pct(totals.checkoutProceeded, totals.tabClicks),
+    }))
+    .sort((a, b) => a.platform.localeCompare(b.platform));
+
   // Per-product add rate = product adds / tab clicks for that (platform, tab)
   // Sorted best-converting first; products on tabs with no recorded clicks get
   // null addRatePct (edge case: add event arrived before or without a tab click).
@@ -395,6 +423,7 @@ async function buildUpsellPayload(
     });
 
   return {
+    platformSummary,
     tabClicks: {
       summary: tabSummaryWithRate,
       daily: tabsDaily.map((b) => ({
@@ -521,6 +550,11 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Upsell modal — platform breakdown</h2>
+  <div class="sub">Per-platform upsell funnel for the whole window: tab clicks → item adds → checkout proceeded. "Add rate" = item adds / tab clicks. "Checkout rate" = checkout-proceeded / tab clicks. Lets you compare web vs. iOS vs. Android conversion at a glance.</div>
+  <div id="upsellPlatformSummary"></div>
+  <div id="upsellCheckoutTrends" class="trends" style="margin-top:8px"></div>
+
   <h2>Upsell modal — tab clicks</h2>
   <div class="sub">upsell_tab_clicked events per tab. "Add rate" = total product adds on that tab / tab clicks — how often a shopper who opened the tab actually added something. Sorted best-converting first.</div>
   <div id="upsellTabsSummary"></div>
@@ -593,6 +627,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var purchaseLegend = document.getElementById('purchaseLegend');
   var loginTrends = document.getElementById('loginTrends');
   var loginLegend = document.getElementById('loginLegend');
+  var upsellPlatformSummary = document.getElementById('upsellPlatformSummary');
+  var upsellCheckoutTrends = document.getElementById('upsellCheckoutTrends');
   var upsellTabsSummary = document.getElementById('upsellTabsSummary');
   var upsellTabsDailyBody = document.querySelector('#upsellTabsDaily tbody');
   var upsellTabsTrends = document.getElementById('upsellTabsTrends');
@@ -803,6 +839,40 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows) {
+    if (!platformSummaryRows || !platformSummaryRows.length) {
+      upsellPlatformSummary.innerHTML = '<div class="muted">No upsell events in range.</div>';
+      upsellCheckoutTrends.innerHTML = '';
+      return;
+    }
+    upsellPlatformSummary.innerHTML = '<table><thead><tr>' +
+      '<th>Platform</th>' +
+      '<th>Tab clicks</th>' +
+      '<th>Item adds</th>' +
+      '<th>Checkout proceeded</th>' +
+      '<th>Add rate</th>' +
+      '<th>Checkout rate</th>' +
+      '</tr></thead><tbody>' + platformSummaryRows.map(function (r) {
+        return '<tr>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + num(r.tabClicks) + '</td>' +
+          '<td>' + num(r.itemAdds) + '</td>' +
+          '<td>' + num(r.checkoutProceeded) + '</td>' +
+          '<td>' + fmtPct(r.addRatePct) + '</td>' +
+          '<td>' + fmtPct(r.checkoutRatePct) + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+    // Sparkline: checkout-proceeded per platform over time
+    if (checkoutDailyRows && checkoutDailyRows.length) {
+      renderTrends(upsellCheckoutTrends, checkoutDailyRows,
+        function (r) { return r.platform; },
+        [{ label: 'Checkout proceeded', valueFn: function (r) { return r.count; } }]
+      );
+    } else {
+      upsellCheckoutTrends.innerHTML = '';
+    }
+  }
+
   function renderUpsellTabs(payload) {
     var summary = (payload && payload.summary) || [];
     var daily = (payload && payload.daily) || [];
@@ -993,6 +1063,10 @@ const DASHBOARD_HTML = `<!doctype html>
         renderLogin(login);
         renderSocialFailures(socialFailures);
         renderSuggestedMessages(suggestedMessages);
+        renderUpsellPlatformBreakdown(
+          upsell.platformSummary || [],
+          (upsell.checkoutProceeded || {}).daily || []
+        );
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
         renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
