@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { useBrands } from "@/lib/queries";
 
 type MegaItem = {
   label: string;
@@ -151,11 +152,22 @@ function MegaMenuPanel({
 export function MainNavbar() {
   const { itemCount } = useCart();
   const { user } = useAuth();
-  const { t } = useLocale();
-  const { countryCode } = useLocationSelection();
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
   const [searchOpen, setSearchOpen] = useState(false);
   const [location] = useLocation();
   const isShopPage = location === "/shop" || location.startsWith("/shop?") || location.startsWith("/shop/");
+
+  const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
+  const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
+  const { data: brandsData } = useBrands({
+    lang: language,
+    countryCode: countryCode ?? undefined,
+    cityId: cityId ?? undefined,
+  });
+  const activeBrand = activeBrandSlug
+    ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
+    : null;
 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -292,7 +304,12 @@ export function MainNavbar() {
           >
             <Search className="w-5 h-5" />
           </Button>
-          <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+          <SearchOverlay
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+            brandSlug={activeBrandSlug ?? undefined}
+            brandName={activeBrand?.name ?? undefined}
+          />
 
           {user && (
             <Link href="/favorites" aria-label="Favorites">

@@ -9,6 +9,8 @@ import { ArrowUpRight, CalendarHeart, Loader2, Search, Store, Tag, TrendingUp, X
 interface Props {
   open: boolean;
   onClose: () => void;
+  brandSlug?: string;
+  brandName?: string;
 }
 
 const TRENDING = [
@@ -19,7 +21,7 @@ const TRENDING = [
   "Congratulations",
 ];
 
-export function SearchOverlay({ open, onClose }: Props) {
+export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   const [, navigate] = useLocation();
   const { countryCode, city } = useLocationSelection();
   const [q, setQ] = useState("");
@@ -213,7 +215,11 @@ export function SearchOverlay({ open, onClose }: Props) {
               {/* Occasions */}
               {!isFetching && hasOccasions && (
                 <Command.Group
-                  heading="Occasions"
+                  heading={
+                    brandName
+                      ? `Occasions · from ${brandName}`
+                      : "Occasions"
+                  }
                   className="[&_[cmdk-group-heading]]:px-4
                              [&_[cmdk-group-heading]]:py-1.5
                              [&_[cmdk-group-heading]]:text-[10px]
@@ -226,7 +232,13 @@ export function SearchOverlay({ open, onClose }: Props) {
                     <Command.Item
                       key={occasion.slug}
                       value={`occasion-${occasion.slug}-${occasion.name}`}
-                      onSelect={() => handleSelect(`/shop?occasion=${occasion.slug}`)}
+                      onSelect={() =>
+                        handleSelect(
+                          brandSlug
+                            ? `/shop?occasion=${occasion.slug}&brand=${brandSlug}`
+                            : `/shop?occasion=${occasion.slug}`,
+                        )
+                      }
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm cursor-pointer select-none outline-none
                                  aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
@@ -237,7 +249,14 @@ export function SearchOverlay({ open, onClose }: Props) {
                                       justify-center shrink-0">
                         <CalendarHeart className="h-3.5 w-3.5 text-primary/55" />
                       </div>
-                      <span className="font-medium text-primary/85">{occasion.name}</span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-medium text-primary/85">{occasion.name}</span>
+                        {brandName && (
+                          <span className="text-[11px] text-primary/40 leading-tight">
+                            from {brandName}
+                          </span>
+                        )}
+                      </div>
                       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
                     </Command.Item>
                   ))}

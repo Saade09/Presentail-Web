@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/Logo";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { useBrands } from "@/lib/queries";
 
 export function Navbar() {
   const { itemCount } = useCart();
@@ -17,8 +18,19 @@ export function Navbar() {
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { city, countryCode, openPicker } = useLocationSelection();
-  const { t } = useLocale();
+  const { city, countryCode, cityId, openPicker } = useLocationSelection();
+  const { t, language } = useLocale();
+
+  const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
+  const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
+  const { data: brandsData } = useBrands({
+    lang: language,
+    countryCode: countryCode ?? undefined,
+    cityId: cityId ?? undefined,
+  });
+  const activeBrand = activeBrandSlug
+    ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
+    : null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -84,7 +96,12 @@ export function Navbar() {
           >
             <Search className="w-5 h-5" />
           </Button>
-          <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+          <SearchOverlay
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+            brandSlug={activeBrandSlug ?? undefined}
+            brandName={activeBrand?.name ?? undefined}
+          />
 
           <Link href={user ? "/account" : "/sign-in"}>
             <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")}>
