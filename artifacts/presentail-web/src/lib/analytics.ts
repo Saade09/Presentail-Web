@@ -64,8 +64,22 @@ function generateSessionId(): string {
   return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${(Math.floor(Math.random() * 4) + 8).toString(16)}${hex().slice(1)}-${hex()}${hex()}${hex()}`;
 }
 
-const SESSION_ID: string =
-  typeof window !== "undefined" ? generateSessionId() : "";
+const SESSION_STORAGE_KEY = "@presentail/analytics-session-id";
+
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const next = generateSessionId();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, next);
+    return next;
+  } catch {
+    return generateSessionId();
+  }
+}
+
+const SESSION_ID: string = getOrCreateSessionId();
 
 export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
