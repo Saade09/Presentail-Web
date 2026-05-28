@@ -98,6 +98,10 @@ router.get("/admin/funnels/data", async (req, res) => {
   const days = parseDays(req.query.days);
   const { start, end } = dayWindow(new Date(), days);
 
+  // Upsell queries fetch an extra 7 days before the display window so the
+  // frontend can compute week-over-week deltas without a second request.
+  const upsellPriorStart = new Date(start.getTime() - 7 * 24 * 60 * 60 * 1000);
+
   try {
     const [
       purchase,
@@ -115,9 +119,9 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyLoginBuckets(start, end),
       loadDailySocialFailureBuckets(start, end),
       loadDailySuggestedMessageBuckets(start, end),
-      loadDailyUpsellTabBuckets(start, end),
-      loadDailyUpsellItemBuckets(start, end),
-      loadDailyUpsellCheckoutBuckets(start, end),
+      loadDailyUpsellTabBuckets(upsellPriorStart, end),
+      loadDailyUpsellItemBuckets(upsellPriorStart, end),
+      loadDailyUpsellCheckoutBuckets(upsellPriorStart, end),
       loadDailyOrdersByPlatform(start, end),
       buildUpsellToOrderBySession(start, end),
       loadDailySessionCoverage(start, end),
@@ -167,6 +171,7 @@ router.get("/admin/funnels/data", async (req, res) => {
           upsellOrdersDaily,
           upsellSessionConversion,
           upsellSessionCoverageDaily,
+          start.toISOString().slice(0, 10),
         ),
       },
     });
@@ -348,12 +353,24 @@ async function buildUpsellPayload(
   ordersDaily: Awaited<ReturnType<typeof loadDailyOrdersByPlatform>>,
   sessionConversion: UpsellToOrderBySessionBucket[],
   sessionCoverageDaily: SessionCoverageDailyBucket[],
+  // YYYY-MM-DD of the display window start. The three daily arrays above may
+  // include up to 7 extra prior-week days for WoW computation in the digest.
+  // All summary/platform/conversion computations must be restricted to the
+  // display window so "window" totals remain accurate.
+  displayWindowStart: string,
 ) {
   const rateCache = await getRates();
   const productNameMap = buildProductNameMap(rateCache.rates as Record<string, number>);
-  const tabSummary = summariseUpsellTabBuckets(tabsDaily);
-  const itemSummary = summariseUpsellItemBuckets(itemsDaily);
-  const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDaily);
+
+  // Summary computations use only rows inside the display window so that
+  // summary tables labeled "(window)" never include the extra WoW history days.
+  const tabsDailyInWindow = tabsDaily.filter((r) => r.day >= displayWindowStart);
+  const itemsDailyInWindow = itemsDaily.filter((r) => r.day >= displayWindowStart);
+  const checkoutDailyInWindow = checkoutDaily.filter((r) => r.day >= displayWindowStart);
+
+  const tabSummary = summariseUpsellTabBuckets(tabsDailyInWindow);
+  const itemSummary = summariseUpsellItemBuckets(itemsDailyInWindow);
+  const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDailyInWindow);
 
   // Build a fast lookup: "platform::tab" → total clicks
   const tabClickMap = new Map<string, number>();
@@ -448,7 +465,7 @@ async function buildUpsellPayload(
   // a co-occurrence metric — it correlates upsell adds with order_placed on
   // the same day/platform but cannot confirm the same session placed the order.
   // See upsellAggregator.ts for the full methodology note.
-  const conversionDaily = buildUpsellToOrderDaily(itemsDaily, ordersDaily);
+  const conversionDaily = buildUpsellToOrderDaily(itemsDailyInWindow, ordersDaily);
   const conversionSummaryRaw = summariseUpsellToOrder(conversionDaily).map((b) => {
     const info = productNameMap.get(b.productId) ?? null;
     const priceUsd = info?.priceUsd ?? null;
@@ -516,7 +533,9 @@ async function buildUpsellPayload(
     platformSummary,
     tabClicks: {
       summary: tabSummaryWithRate,
-      daily: tabsDaily.map((b) => ({
+      // daily is restricted to the display window so per-day breakdown
+      // tables always show exactly the requested N days.
+      daily: tabsDailyInWindow.map((b) => ({
         day: b.day,
         platform: b.platform,
         tab: b.tab,
@@ -525,7 +544,7 @@ async function buildUpsellPayload(
     },
     itemAdds: {
       summary: itemSummaryWithRate,
-      daily: itemsDaily.map((b) => {
+      daily: itemsDailyInWindow.map((b) => {
         const info = productNameMap.get(b.productId) ?? null;
         return {
           day: b.day,
@@ -544,7 +563,28 @@ async function buildUpsellPayload(
         platform: b.platform,
         count: b.count,
       })),
-      daily: checkoutDaily.map((b) => ({
+      daily: checkoutDailyInWindow.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        count: b.count,
+      })),
+    },
+    // digestWoW contains the wider daily arrays (display window + 7 prior days)
+    // used exclusively by the digest renderer for week-over-week lookups.
+    // No other section should consume these arrays.
+    digestWoW: {
+      tabClicksDaily: tabsDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        tab: b.tab,
+        clicks: b.clicks,
+      })),
+      itemAddsDaily: itemsDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        adds: b.adds,
+      })),
+      checkoutProceededDaily: checkoutDaily.map((b) => ({
         day: b.day,
         platform: b.platform,
         count: b.count,
@@ -628,6 +668,9 @@ const DASHBOARD_HTML = `<!doctype html>
   .trend svg { display: block; width: 100%; height: 44px; background: rgba(127,127,127,0.04); border-radius: 4px; }
   .legend { font-size: 11px; color: #666; margin: 4px 0 6px; display: flex; flex-wrap: wrap; gap: 10px; }
   .legend .swatch { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 4px; }
+  .wow-up { color: #109618; font-weight: 500; }
+  .wow-down { color: #b00020; font-weight: 500; }
+  .wow-new { color: #109618; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -685,13 +728,16 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>Upsell — daily digest</h2>
-  <div class="sub">Per-day, per-platform upsell conversion at a glance: total tab clicks, total item adds, add rate (item adds / tab clicks), and checkout-proceeded count. Use this to spot day-over-day drops before the Slack alert fires.</div>
+  <div class="sub">Per-day, per-platform upsell conversion at a glance: total tab clicks, total item adds, add rate (item adds / tab clicks), and checkout-proceeded count. WoW columns compare each day to the same platform on the same weekday 7 days prior. Use this to spot day-over-day drops before the Slack alert fires.</div>
   <div id="upsellDailyDigestTrends" class="trends"></div>
   <table id="upsellDailyDigest">
     <thead>
       <tr>
         <th>Day</th><th>Platform</th>
-        <th>Tab clicks</th><th>Item adds</th><th>Add rate</th><th>Checkout proceeded</th>
+        <th>Tab clicks</th><th>WoW</th>
+        <th>Item adds</th><th>WoW</th>
+        <th>Add rate</th><th>WoW</th>
+        <th>Checkout proceeded</th><th>WoW</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -1023,9 +1069,29 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
-  function renderUpsellDailyDigest(tabClicksDaily, itemAddsDaily, checkoutProceededDaily) {
+  // Returns a YYYY-MM-DD string that is n days before dateStr (YYYY-MM-DD).
+  function shiftDay(dateStr, n) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Formats a week-over-week percentage change. Returns a coloured ±% string,
+  // "new" when prior was 0 and current > 0, or "—" when data is unavailable.
+  function fmtWoW(current, prior) {
+    if (current == null || prior == null) return '<span class="muted">—</span>';
+    if (prior === 0 && current === 0) return '<span class="muted">—</span>';
+    if (prior === 0) return '<span class="wow-new">new</span>';
+    var delta = Math.round((current - prior) / Math.abs(prior) * 1000) / 10;
+    var sign = delta >= 0 ? '+' : '';
+    var cls = delta >= 0 ? 'wow-up' : 'wow-down';
+    return '<span class="' + cls + '">' + sign + delta.toFixed(1) + '%</span>';
+  }
+
+  function renderUpsellDailyDigest(tabClicksDaily, itemAddsDaily, checkoutProceededDaily, rangeStartDay) {
     // Aggregate all three daily arrays into per-(day, platform) totals so the
     // digest table gives a single at-a-glance row per day × platform.
+    // The arrays include 7 extra prior-week days used only for WoW comparison.
     var agg = {};
     function ensureKey(day, platform) {
       var k = day + '||' + platform;
@@ -1036,32 +1102,56 @@ const DASHBOARD_HTML = `<!doctype html>
     (itemAddsDaily || []).forEach(function (r) { ensureKey(r.day, r.platform).itemAdds += r.adds; });
     (checkoutProceededDaily || []).forEach(function (r) { ensureKey(r.day, r.platform).checkoutProceeded += r.count; });
 
-    var rows = Object.keys(agg).map(function (k) { return agg[k]; });
-    // Sort: newest day first, then platform alphabetically
-    rows.sort(function (a, b) {
+    var allRows = Object.keys(agg).map(function (k) { return agg[k]; });
+
+    // Index ALL rows (display + prior week) for WoW lookups.
+    // We must not restrict this to pre-range rows only: for windows > 7 days
+    // "same day last week" lands inside the display window for days 8+ and
+    // would be missed if we only indexed rows before rangeStartDay.
+    var allRowsByKey = {};
+    allRows.forEach(function (r) { allRowsByKey[r.platform + '::' + r.day] = r; });
+
+    // Display rows are those inside the requested window.
+    var displayRows = rangeStartDay
+      ? allRows.filter(function (r) { return r.day >= rangeStartDay; })
+      : allRows;
+
+    // Sort display rows: newest day first, then platform alphabetically
+    displayRows.sort(function (a, b) {
       if (a.day !== b.day) return a.day < b.day ? 1 : -1;
       return a.platform < b.platform ? -1 : 1;
     });
 
-    if (!rows.length) {
-      upsellDailyDigestBody.innerHTML = '<tr><td colspan="6" class="muted">No upsell events in range.</td></tr>';
+    if (!displayRows.length) {
+      upsellDailyDigestBody.innerHTML = '<tr><td colspan="10" class="muted">No upsell events in range.</td></tr>';
       upsellDailyDigestTrends.innerHTML = '';
       return;
     }
 
-    upsellDailyDigestBody.innerHTML = rows.map(function (r) {
+    upsellDailyDigestBody.innerHTML = displayRows.map(function (r) {
       var addRatePct = r.tabClicks > 0 ? Math.round(r.itemAdds / r.tabClicks * 1000) / 10 : null;
+      // Look up the same platform on the same weekday 7 days prior using the
+      // full allRowsByKey map (covers both prior-week and in-window prior rows).
+      var priorDay = shiftDay(r.day, 7);
+      var prior = allRowsByKey[r.platform + '::' + priorDay] || null;
+      var priorAddRatePct = prior && prior.tabClicks > 0
+        ? Math.round(prior.itemAdds / prior.tabClicks * 1000) / 10
+        : null;
       return '<tr>' +
         '<td>' + r.day + '</td>' +
         '<td>' + escapeHtml(r.platform) + '</td>' +
         '<td>' + num(r.tabClicks) + '</td>' +
+        '<td>' + (prior ? fmtWoW(r.tabClicks, prior.tabClicks) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + num(r.itemAdds) + '</td>' +
+        '<td>' + (prior ? fmtWoW(r.itemAdds, prior.itemAdds) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + fmtPct(addRatePct) + '</td>' +
+        '<td>' + (prior ? fmtWoW(addRatePct, priorAddRatePct) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + num(r.checkoutProceeded) + '</td>' +
+        '<td>' + (prior ? fmtWoW(r.checkoutProceeded, prior.checkoutProceeded) : '<span class="muted">—</span>') + '</td>' +
         '</tr>';
     }).join('');
 
-    renderTrends(upsellDailyDigestTrends, rows,
+    renderTrends(upsellDailyDigestTrends, displayRows,
       function (r) { return r.platform; },
       [
         { label: 'Tab clicks', valueFn: function (r) { return r.tabClicks; } },
@@ -1407,10 +1497,12 @@ const DASHBOARD_HTML = `<!doctype html>
         renderLogin(login);
         renderSocialFailures(socialFailures);
         renderSuggestedMessages(suggestedMessages);
+        var digestWoW = upsell.digestWoW || {};
         renderUpsellDailyDigest(
-          (upsell.tabClicks || {}).daily || [],
-          (upsell.itemAdds || {}).daily || [],
-          (upsell.checkoutProceeded || {}).daily || []
+          digestWoW.tabClicksDaily || [],
+          digestWoW.itemAddsDaily || [],
+          digestWoW.checkoutProceededDaily || [],
+          (data.rangeStartUtc || '').slice(0, 10)
         );
         renderUpsellPlatformBreakdown(
           upsell.platformSummary || [],
