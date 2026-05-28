@@ -622,19 +622,23 @@ async function buildUpsellPayload(
       // most incremental revenue, not just the most adds. Rows without a price
       // in the OS cache (estUpsellRevenueUsd = null) sort last.
       // platformTotals gives a per-platform revenue subtotal for the window.
+      // daily rows include estUpsellRevenueUsd (upsellAdds × priceUsd) so the
+      // dashboard can plot a per-day revenue trend per product.
       summary: conversionSummary,
       platformTotals: conversionPlatformTotals,
       daily: conversionDaily.map((b) => {
         const info = productNameMap.get(b.productId) ?? null;
+        const priceUsd = info?.priceUsd ?? null;
         return {
           day: b.day,
           platform: b.platform,
           productId: b.productId,
           productName: info?.productName ?? null,
-          priceUsd: info?.priceUsd ?? null,
+          priceUsd,
           prices: info?.prices ?? {},
           upsellAdds: b.upsellAdds,
           ordersOnSameDay: b.ordersOnSameDay,
+          estUpsellRevenueUsd: priceUsd != null ? Math.round(b.upsellAdds * priceUsd) : null,
         };
       }),
     },
@@ -848,11 +852,14 @@ const DASHBOARD_HTML = `<!doctype html>
   <h2>Upsell add-on → order correlation (day-level)</h2>
   <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Est. upsell revenue" = total upsell adds × product price (USD) — a rough upper-bound on incremental revenue from each add-on. Sorted by estimated revenue descending. "Order-day rate" = % of add-days that also saw an order. Compare with the session-level rate above for a more exact attribution signal.</div>
   <div id="upsellConversionSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Estimated revenue trend (top products)</h3>
+  <div class="sub" style="margin-top:-4px">Daily estimated revenue (upsell adds × price) for the top products by total window revenue. One series per (product, platform).</div>
+  <div id="upsellConversionRevenueTrends" class="trends"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="upsellConversionDaily">
     <thead>
       <tr>
-        <th>Day</th><th>Platform</th><th>Product</th><th>Upsell adds</th><th>Orders same day</th>
+        <th>Day</th><th>Platform</th><th>Product</th><th>Upsell adds</th><th>Orders same day</th><th>Est. revenue</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -907,6 +914,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var funnelSessionCoverageDailyBody = document.querySelector('#funnelSessionCoverageDaily tbody');
   var upsellSessionConversionSummary = document.getElementById('upsellSessionConversionSummary');
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
+  var upsellConversionRevenueTrends = document.getElementById('upsellConversionRevenueTrends');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
@@ -1495,7 +1503,8 @@ const DASHBOARD_HTML = `<!doctype html>
     var daily = (payload && payload.daily) || [];
     if (!summary.length && !daily.length) {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
-      upsellConversionDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      upsellConversionRevenueTrends.innerHTML = '';
+      upsellConversionDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
       return;
     }
     if (summary.length) {
@@ -1529,6 +1538,36 @@ const DASHBOARD_HTML = `<!doctype html>
     } else {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
     }
+
+    // Revenue trend sparkline: top 6 products by total estimated revenue
+    if (daily.length) {
+      // Pick top products from summary (already sorted by estUpsellRevenueUsd desc)
+      var nameMap = {};
+      summary.forEach(function (r) {
+        if (r.productId) nameMap[r.productId] = r.productName || r.productId;
+      });
+      var topProductIds = {};
+      summary
+        .filter(function (r) { return r.estUpsellRevenueUsd != null; })
+        .slice(0, 6)
+        .forEach(function (r) { topProductIds[r.productId] = true; });
+
+      var revenueDailyRows = daily.filter(function (r) {
+        return topProductIds[r.productId] && r.estUpsellRevenueUsd != null;
+      });
+
+      if (revenueDailyRows.length) {
+        renderTrends(upsellConversionRevenueTrends, revenueDailyRows,
+          function (r) { return (nameMap[r.productId] || r.productId) + ' · ' + r.platform; },
+          [{ label: 'Est. revenue (USD)', valueFn: function (r) { return r.estUpsellRevenueUsd; } }]
+        );
+      } else {
+        upsellConversionRevenueTrends.innerHTML = '<div class="muted" style="font-size:12px">No priced products in range — revenue trend unavailable.</div>';
+      }
+    } else {
+      upsellConversionRevenueTrends.innerHTML = '';
+    }
+
     if (daily.length) {
       upsellConversionDailyBody.innerHTML = daily.map(function (r) {
         return '<tr>' +
@@ -1537,10 +1576,11 @@ const DASHBOARD_HTML = `<!doctype html>
           '<td>' + fmtProduct(r) + '</td>' +
           '<td>' + num(r.upsellAdds) + '</td>' +
           '<td>' + num(r.ordersOnSameDay) + '</td>' +
+          '<td>' + fmtRevenue(r.estUpsellRevenueUsd) + '</td>' +
           '</tr>';
       }).join('');
     } else {
-      upsellConversionDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      upsellConversionDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
     }
   }
 
