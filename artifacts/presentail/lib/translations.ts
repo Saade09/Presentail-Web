@@ -80,8 +80,6 @@ const EN = {
   tagTulips: "Tulips",
 
   // Cart & Checkout
-  yourCart: "Your Cart",
-  shopNow: "Shop Now",
   emptyCartTitle: "Your cart is waiting",
   emptyCartSubtitle: "Start adding thoughtful gifts and we'll keep them here until you're ready to send.",
   browseGifts: "Browse Gifts",
@@ -1044,8 +1042,6 @@ const AR: typeof EN = {
   tagTulips: "تيوليب",
 
   // Cart & Checkout
-  yourCart: "سلتك",
-  shopNow: "تسوق الآن",
   emptyCartTitle: "عربة هداياك بانتظارك",
   emptyCartSubtitle: "ابدأ بإضافة هدايا مميزة وسنحتفظ بها هنا حتى تصبح جاهزاً لإرسالها.",
   browseGifts: "تصفح الهدايا",
@@ -2003,8 +1999,6 @@ const FR: typeof EN = {
   tagTulips: "Tulipes",
 
   // Cart & Checkout
-  yourCart: "Votre panier",
-  shopNow: "Acheter maintenant",
   emptyCartTitle: "Votre panier vous attend",
   emptyCartSubtitle: "Commencez à ajouter des cadeaux attentionnés et nous les garderons ici jusqu'à ce que vous soyez prêt à les envoyer.",
   browseGifts: "Découvrir les cadeaux",
