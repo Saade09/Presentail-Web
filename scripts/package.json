@@ -16,6 +16,7 @@
     "bump-android-version-code": "tsx ./src/bumpAndroidVersionCode.ts",
     "check-unused-translations": "tsx ./src/checkUnusedTranslationKeys.ts",
     "check-unused-web-translations": "tsx ./src/checkUnusedWebTranslationKeys.ts",
+    "check-translations": "tsx ./src/checkUnusedTranslationKeys.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

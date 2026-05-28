@@ -1,4 +1,4 @@
-name: Check unused translation keys
+name: Check translation keys
 
 on:
   push:
@@ -17,7 +17,7 @@ on:
 
 jobs:
   check-translations:
-    name: Unused translation keys (mobile)
+    name: Unused + missing translation keys (mobile)
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -36,8 +36,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check for unused translation keys
-        run: pnpm run check-unused-translations
+      - name: Check for unused and missing translation keys
+        run: pnpm run check-translations
 
   check-web-translations:
     name: Unused translation keys (web)
