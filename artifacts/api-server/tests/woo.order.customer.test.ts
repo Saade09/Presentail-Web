@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import wooRouter from "../src/routes/woo";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 //
@@ -16,13 +17,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // the card-payment verification gate; that gate is the subject of separate
 // pre-existing tests and is not what we're exercising here.
 
-const insertChain = {
-  values: vi.fn().mockReturnThis(),
-  onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
-};
-const dbMock = {
-  insert: vi.fn().mockReturnValue(insertChain),
-};
+const { insertChain, dbMock, upsertCustomerMock, syncCustomerToWooMock } =
+  vi.hoisted(() => {
+    const insertChain = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+    };
+    const dbMock = { insert: vi.fn().mockReturnValue(insertChain) };
+    const upsertCustomerMock = vi.fn();
+    const syncCustomerToWooMock = vi.fn();
+    return { insertChain, dbMock, upsertCustomerMock, syncCustomerToWooMock };
+  });
 
 vi.mock("@workspace/db", () => ({
   db: dbMock,
@@ -35,8 +40,6 @@ vi.mock("../src/lib/orderEvents", () => ({
   sendOrderEventPush: vi.fn().mockResolvedValue(undefined),
 }));
 
-const upsertCustomerMock = vi.fn();
-const syncCustomerToWooMock = vi.fn();
 vi.mock("../src/lib/customers", () => ({
   upsertCustomer: (...args: unknown[]) => upsertCustomerMock(...args),
   syncCustomerToWoo: (...args: unknown[]) => syncCustomerToWooMock(...args),
@@ -99,15 +102,13 @@ beforeEach(async () => {
       );
     });
 
-  const mod = await import("../src/routes/woo");
   app = express();
   app.use(express.json());
-  app.use("/api", mod.default);
+  app.use("/api", wooRouter);
 });
 
 afterEach(() => {
   fetchSpy.mockRestore();
-  vi.resetModules();
 });
 
 function basePayload(overrides: Record<string, unknown> = {}) {

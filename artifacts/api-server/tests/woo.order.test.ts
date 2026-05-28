@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import wooRouter from "../src/routes/woo";
 
 // --- Module mocks ----------------------------------------------------------
 //
@@ -8,13 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // helper, and the FX rate fetcher. None of those should run for real in a
 // unit/integration test — we mock them so the suite is hermetic and fast.
 
-const insertChain = {
-  values: vi.fn().mockReturnThis(),
-  onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
-};
-const dbMock = {
-  insert: vi.fn().mockReturnValue(insertChain),
-};
+const { insertChain, dbMock, authenticateMock } = vi.hoisted(() => {
+  const insertChain = {
+    values: vi.fn().mockReturnThis(),
+    onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+  };
+  const dbMock = { insert: vi.fn().mockReturnValue(insertChain) };
+  const authenticateMock = vi.fn();
+  return { insertChain, dbMock, authenticateMock };
+});
 
 vi.mock("@workspace/db", () => ({
   db: dbMock,
@@ -37,7 +40,6 @@ vi.mock("../src/lib/customers", () => ({
   getCustomerByWcId: vi.fn().mockResolvedValue(null),
 }));
 
-const authenticateMock = vi.fn();
 vi.mock("../src/lib/auth", () => ({
   authenticate: (...args: unknown[]) => authenticateMock(...args),
 }));
@@ -56,7 +58,6 @@ vi.mock("../src/lib/fx", async () => {
 // --- App harness -----------------------------------------------------------
 
 let app: Express;
-let wooRouter: express.IRouter;
 let fetchSpy: ReturnType<typeof vi.spyOn>;
 let lastWcRequest: { url: string; init: RequestInit } | null = null;
 
@@ -86,10 +87,6 @@ beforeEach(async () => {
       );
     });
 
-  // Re-import the router fresh so the env var checks run with our setup.
-  const mod = await import("../src/routes/woo");
-  wooRouter = mod.default;
-
   app = express();
   app.use(express.json());
   app.use("/api", wooRouter);
@@ -97,7 +94,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   fetchSpy.mockRestore();
-  vi.resetModules();
 });
 
 // Minimal valid payload — every test starts from this and overrides only
