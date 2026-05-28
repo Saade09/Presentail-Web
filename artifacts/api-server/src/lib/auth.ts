@@ -158,6 +158,12 @@ async function resolveClerkSession(
 
   if (!primaryEmail) {
     // Claims are absent — fall back to a Clerk API call.
+    // This should not happen in production if the Clerk session token template
+    // includes `email`, `first_name`, `last_name`, and `public_metadata`.
+    req.log?.warn?.(
+      { userId },
+      "auth.clerk: session claims missing email/name — falling back to clerk.users.getUser(). Configure the Clerk session token template to include email, first_name, last_name, and public_metadata.",
+    );
     let clerkUser: {
       id: string;
       emailAddresses: { id: string; emailAddress: string }[];
