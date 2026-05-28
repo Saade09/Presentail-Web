@@ -699,27 +699,38 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     ?.publicMetadata?.userType;
   if (clerkUserId && sessionUserType === "team") {
     try {
-      const secretKey = process.env.CLERK_SECRET_KEY;
-      if (!secretKey) {
-        res.status(503).json({ ok: false, message: "Clerk is not configured" });
-        return;
+      const claims = clerkSession?.sessionClaims as any;
+      let email: string | null = claims?.email ?? null;
+      let firstName: string = claims?.first_name ?? "";
+      let lastName: string = claims?.last_name ?? "";
+
+      // Fall back to a live Clerk API call only when the JWT claims are absent.
+      if (!email) {
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" });
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
+        const clerkUser = await clerk.users.getUser(clerkUserId);
+        email =
+          clerkUser.emailAddresses.find(
+            (e) => e.id === clerkUser.primaryEmailAddressId,
+          )?.emailAddress ??
+          clerkUser.emailAddresses[0]?.emailAddress ??
+          null;
+        firstName = clerkUser.firstName ?? "";
+        lastName = clerkUser.lastName ?? "";
       }
-      const clerk = createClerkClient({ secretKey });
-      const clerkUser = await clerk.users.getUser(clerkUserId);
-      const email =
-        clerkUser.emailAddresses.find(
-          (e) => e.id === clerkUser.primaryEmailAddressId,
-        )?.emailAddress ??
-        clerkUser.emailAddresses[0]?.emailAddress ??
-        null;
+
       if (!email) {
         res.status(401).json({ ok: false, message: "Clerk user has no email" });
         return;
       }
       const { customer: local } = await upsertCustomer({
         email,
-        firstName: clerkUser.firstName ?? "",
-        lastName: clerkUser.lastName ?? "",
+        firstName,
+        lastName,
         authProvider: "clerk",
         authUserId: clerkUserId,
       });
@@ -881,26 +892,33 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
         ? body.birthdayShareMonthDay
         : undefined;
     try {
-      const secretKey = process.env.CLERK_SECRET_KEY;
-      if (!secretKey) {
-        res.status(503).json({ ok: false, message: "Clerk is not configured" });
-        return;
+      const putClaims = clerkSession?.sessionClaims as any;
+      let putEmail: string | null = putClaims?.email ?? null;
+
+      // Fall back to a live Clerk API call only when the JWT claims are absent.
+      if (!putEmail) {
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" });
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
+        const clerkUser = await clerk.users.getUser(clerkPutUserId);
+        putEmail =
+          clerkUser.emailAddresses.find(
+            (e) => e.id === clerkUser.primaryEmailAddressId,
+          )?.emailAddress ??
+          clerkUser.emailAddresses[0]?.emailAddress ??
+          null;
       }
-      const clerk = createClerkClient({ secretKey });
-      const clerkUser = await clerk.users.getUser(clerkPutUserId);
-      const email =
-        clerkUser.emailAddresses.find(
-          (e) => e.id === clerkUser.primaryEmailAddressId,
-        )?.emailAddress ??
-        clerkUser.emailAddresses[0]?.emailAddress ??
-        null;
-      if (!email) {
+
+      if (!putEmail) {
         res.status(401).json({ ok: false, message: "Clerk user has no email" });
         return;
       }
       // Upsert to ensure the row exists, then apply the patch.
       const { customer: existing } = await upsertCustomer({
-        email,
+        email: putEmail,
         authProvider: "clerk",
         authUserId: clerkPutUserId,
       });
