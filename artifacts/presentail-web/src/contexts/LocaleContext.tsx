@@ -656,6 +656,9 @@ const STRINGS_FR: Record<string, string> = {
   "collections.summer.title": "Collection d'été",
   "collections.boxes.title": "Boîtes de fleurs",
   "collections.cakes.title": "Gâteaux",
+  "lang.label.en": "English",
+  "lang.label.ar": "العربية",
+  "lang.label.fr": "Français",
 
   "categories.eyebrow": "Collections sélectionnées",
   "categories.title": "Acheter par catégorie",
@@ -800,6 +803,8 @@ const STRINGS_FR: Record<string, string> = {
   "cart.upsells.tab.plants": "Plantes",
   "cart.upsells.tab.bears": "Ours",
   "cart.upsells.tab.candles": "Bougies",
+  "cart.upsells.modal.continueShopping": "Continuer mes achats",
+  "cart.upsells.modal.close": "Fermer",
   "checkout.payment.orderTitle": "Commande Presentail",
   "checkout.payment.orderDesc": "Commande de {name}",
 
@@ -836,6 +841,10 @@ const STRINGS_FR: Record<string, string> = {
   "checkout.previewCard": "Aperçu de la carte",
   "checkout.previewCardTitle": "Aperçu de la carte",
   "checkout.previewCardClose": "Fermer",
+  "checkout.previewCardSave": "Enregistrer l'image",
+  "checkout.previewCardSaving": "Préparation…",
+  "checkout.previewCardSaveError":
+    "Impossible d'enregistrer l'image. Veuillez réessayer.",
   "checkout.previewCardPlaceholder": "Votre message apparaîtra ici",
   "checkout.previewCardTo": "À",
   "checkout.previewCardFrom": "De",
