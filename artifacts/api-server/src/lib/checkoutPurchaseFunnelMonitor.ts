@@ -2,6 +2,14 @@ import { and, gte, lt, sql } from "drizzle-orm";
 import { db, analyticsEventsTable, appOrdersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert, type AlertField } from "./alerts";
+import {
+  loadDailyUpsellTabBuckets,
+  loadDailyUpsellItemBuckets,
+  loadDailyUpsellCheckoutBuckets,
+  summariseUpsellTabBuckets,
+  summariseUpsellItemBuckets,
+  summariseUpsellCheckoutBuckets,
+} from "./upsellAggregator";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 //
@@ -124,8 +132,12 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     const day = previousUtcDay(now);
     if (lastEvaluatedDay === day.iso) return;
 
-    const buckets = await loadBuckets(day.start, day.end);
-    if (buckets.length === 0) {
+    const [buckets, upsellRows] = await Promise.all([
+      loadBuckets(day.start, day.end),
+      loadUpsellPlatformSummary(day.start, day.end),
+    ]);
+
+    if (buckets.length === 0 && upsellRows.length === 0) {
       lastEvaluatedDay = day.iso;
       logger.info(
         { day: day.iso },
@@ -136,12 +148,9 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
 
     const breaches = evaluateBuckets(buckets);
     if (breaches.length > 0) {
-      await sendBreachAlert(day.iso, breaches, buckets);
+      await sendBreachAlert(day.iso, breaches, buckets, upsellRows);
     } else {
-      logger.info(
-        { day: day.iso, buckets: buckets.length },
-        "checkoutPurchaseFunnelMonitor: all step conversions within band",
-      );
+      await sendDailyDigest(day.iso, buckets, upsellRows);
     }
     lastEvaluatedDay = day.iso;
   } finally {
@@ -459,12 +468,93 @@ export function evaluateBuckets(
   return breaches;
 }
 
+// ── Upsell platform summary ─────────────────────────────────────────────────
+
+export type UpsellPlatformRow = {
+  platform: string;
+  tabClicks: number;
+  itemAdds: number;
+  checkoutProceeded: number;
+  addRatePct: number | null;
+  checkoutRatePct: number | null;
+};
+
+/**
+ * Load tab clicks, item adds, and checkout-proceeded events for the given UTC
+ * window and aggregate them into a compact per-platform summary.  Uses the
+ * same upsellAggregator helpers that the admin dashboard uses so the numbers
+ * in Slack can never diverge from the dashboard view.
+ *
+ * addRatePct      = itemAdds / tabClicks × 100  (how often a tab click led to an add)
+ * checkoutRatePct = checkoutProceeded / tabClicks × 100  (how often a tab click led to checkout)
+ */
+export async function loadUpsellPlatformSummary(
+  start: Date,
+  end: Date,
+): Promise<UpsellPlatformRow[]> {
+  const [tabsDaily, itemsDaily, checkoutDaily] = await Promise.all([
+    loadDailyUpsellTabBuckets(start, end),
+    loadDailyUpsellItemBuckets(start, end),
+    loadDailyUpsellCheckoutBuckets(start, end),
+  ]);
+
+  const tabSummary = summariseUpsellTabBuckets(tabsDaily);
+  const itemSummary = summariseUpsellItemBuckets(itemsDaily);
+  const checkoutSummary = summariseUpsellCheckoutBuckets(checkoutDaily);
+
+  const totals = new Map<
+    string,
+    { tabClicks: number; itemAdds: number; checkoutProceeded: number }
+  >();
+  const ensure = (p: string) => {
+    if (!totals.has(p))
+      totals.set(p, { tabClicks: 0, itemAdds: 0, checkoutProceeded: 0 });
+    return totals.get(p)!;
+  };
+
+  for (const t of tabSummary) ensure(t.platform).tabClicks += t.clicks;
+  for (const it of itemSummary) ensure(it.platform).itemAdds += it.adds;
+  for (const c of checkoutSummary)
+    ensure(c.platform).checkoutProceeded += c.count;
+
+  return Array.from(totals.entries())
+    .map(([platform, t]) => ({
+      platform,
+      tabClicks: t.tabClicks,
+      itemAdds: t.itemAdds,
+      checkoutProceeded: t.checkoutProceeded,
+      addRatePct:
+        t.tabClicks > 0
+          ? Math.round((t.itemAdds / t.tabClicks) * 1000) / 10
+          : null,
+      checkoutRatePct:
+        t.tabClicks > 0
+          ? Math.round((t.checkoutProceeded / t.tabClicks) * 1000) / 10
+          : null,
+    }))
+    .sort((a, b) => a.platform.localeCompare(b.platform));
+}
+
+function formatUpsellFields(rows: UpsellPlatformRow[]): AlertField[] {
+  if (rows.length === 0) return [];
+  return rows.map((r) => ({
+    title: `upsell / ${r.platform}`,
+    value:
+      `${r.tabClicks} tab clicks, ` +
+      `${r.itemAdds} adds (${r.addRatePct !== null ? r.addRatePct.toFixed(1) : "n/a"}%), ` +
+      `${r.checkoutProceeded} checkout proceeded (${r.checkoutRatePct !== null ? r.checkoutRatePct.toFixed(1) : "n/a"}%)`,
+  }));
+}
+
+// ── Alert helpers ───────────────────────────────────────────────────────────
+
 async function sendBreachAlert(
   day: string,
   breaches: PurchaseFunnelBreach[],
   allBuckets: PurchaseFunnelBucket[],
+  upsellRows: UpsellPlatformRow[],
 ): Promise<void> {
-  const fields: AlertField[] = breaches.map(({ bucket, reasons }) => ({
+  const funnelFields: AlertField[] = breaches.map(({ bucket, reasons }) => ({
     title: bucket.platform,
     value:
       `cart ${bucket.cartViewed}, checkout ${bucket.checkoutStarted}, ` +
@@ -472,12 +562,42 @@ async function sendBreachAlert(
       reasons.join("; "),
   }));
 
+  const fields: AlertField[] = [...funnelFields, ...formatUpsellFields(upsellRows)];
+
   const body = `Purchase funnel collapsed at one or more steps on ${day} (UTC). ${breaches.length} platform(s) breached out of ${allBuckets.length} active.`;
 
   await sendAlert({
     title: "Checkout purchase funnel regression",
     body,
     severity: "warn",
+    fields,
+    source: "checkoutPurchaseFunnelMonitor",
+  });
+}
+
+async function sendDailyDigest(
+  day: string,
+  buckets: PurchaseFunnelBucket[],
+  upsellRows: UpsellPlatformRow[],
+): Promise<void> {
+  logger.info(
+    { day, buckets: buckets.length },
+    "checkoutPurchaseFunnelMonitor: all step conversions within band",
+  );
+
+  const funnelFields: AlertField[] = buckets.map((b) => ({
+    title: b.platform,
+    value:
+      `cart ${b.cartViewed} → checkout ${b.checkoutStarted} → ` +
+      `payment ${b.paymentMethodSelected} → orders ${b.orderPlaced}`,
+  }));
+
+  const fields: AlertField[] = [...funnelFields, ...formatUpsellFields(upsellRows)];
+
+  await sendAlert({
+    title: `Purchase funnel — ${day} (UTC)`,
+    body: `All step conversions within band across ${buckets.length} active platform(s).`,
+    severity: "info",
     fields,
     source: "checkoutPurchaseFunnelMonitor",
   });
