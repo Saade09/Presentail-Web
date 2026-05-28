@@ -56,9 +56,20 @@ export type AnalyticsEvent = {
   productId?: string;
 };
 
+function generateSessionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const hex = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
+  return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${(Math.floor(Math.random() * 4) + 8).toString(16)}${hex().slice(1)}-${hex()}${hex()}${hex()}`;
+}
+
+const SESSION_ID: string =
+  typeof window !== "undefined" ? generateSessionId() : "";
+
 export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
-  const payload = JSON.stringify({ ...event, platform: "web" });
+  const payload = JSON.stringify({ ...event, platform: "web", sessionId: SESSION_ID });
   try {
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });

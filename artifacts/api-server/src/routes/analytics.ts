@@ -49,7 +49,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -62,6 +62,7 @@ router.post(
     const clippedAppVersion = clip(appVersion, MAX_FIELD);
     const clippedErrorCode = clip(errorCode, 64);
     const clippedProductId = clip(productId, 64);
+    const clippedSessionId = clip(sessionId, 36);
 
     req.log.info(
       {
@@ -73,6 +74,7 @@ router.post(
         appVersion: clippedAppVersion,
         errorCode: clippedErrorCode,
         productId: clippedProductId,
+        sessionId: clippedSessionId,
         userId,
         signedIn: Boolean(userId),
       },
@@ -92,6 +94,7 @@ router.post(
         appVersion: clippedAppVersion ?? null,
         errorCode: clippedErrorCode ?? null,
         productId: clippedProductId ?? null,
+        sessionId: clippedSessionId ?? null,
         userId: userId ?? null,
         signedIn: Boolean(userId),
       })

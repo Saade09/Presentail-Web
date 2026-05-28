@@ -198,6 +198,8 @@ export const recordAnalyticsEventBodyErrorCodeMax = 64;
 
 export const recordAnalyticsEventBodyProductIdMax = 64;
 
+export const recordAnalyticsEventBodySessionIdMax = 36;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -284,6 +286,13 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `upsell_item_added` events: the product id of the upsell\nitem the shopper added. Sourced from the server-supplied\ncatalog, not from user input.\n",
+    ),
+  sessionId: zod
+    .string()
+    .max(recordAnalyticsEventBodySessionIdMax)
+    .optional()
+    .describe(
+      "Client-generated session identifier (UUID v4). Created once\nper app launch \/ page load and attached to every event so\nupsell-add → order_placed attribution can be computed at the\nsession level rather than the coarser (platform, day)\nco-occurrence level. Nullable — events from older clients\nthat predate this field will have no session_id.\n",
     ),
 });
 

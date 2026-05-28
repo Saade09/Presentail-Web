@@ -19,6 +19,7 @@ export const analyticsEventsTable = pgTable(
     errorCode: text("error_code"),
     productId: text("product_id"),
     userId: text("user_id"),
+    sessionId: text("session_id"),
     signedIn: boolean("signed_in").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

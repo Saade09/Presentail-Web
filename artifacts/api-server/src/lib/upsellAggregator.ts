@@ -258,8 +258,9 @@ export function summariseUpsellCheckoutBuckets(
 
 // ── Upsell-to-order correlation ───────────────────────────────────────────────
 //
-// Because analytics_events has no session identifier we approximate upsell→order
-// conversion at the (platform, day) granularity:
+// Two complementary views are provided:
+//
+// 1. Day-level co-occurrence (original approximation, no session_id required):
 //
 //   • `loadDailyOrdersByPlatform` returns total order_placed events per (day, platform).
 //
@@ -275,10 +276,104 @@ export function summariseUpsellCheckoutBuckets(
 //       orderDayRatePct        — daysWithAddsAndOrders / daysWithAdds × 100
 //                                (what % of add-days also generated orders; null when daysWithAdds=0)
 //
-// This is explicitly a co-occurrence / correlation metric, not a causal attribution.
-// A product with a high orderDayRatePct is frequently present on days orders are
-// placed; a product with a high ordersOnAddDays / totalUpsellAdds ratio implies
-// many orders relative to its upsell volume.
+//   This is explicitly a co-occurrence / correlation metric, not a causal attribution.
+//
+// 2. Session-level attribution (exact, requires session_id — see `buildUpsellToOrderBySession`):
+//
+//   Only events from clients that send session_id are counted. A session is considered
+//   "converted" when the same session_id appears in both an `upsell_item_added` event
+//   for the given product AND an `order_placed` event in the same window.
+//
+//       sessionsWithAdd        — distinct session_ids that added this product
+//       sessionsConverted      — of those sessions, how many also placed an order
+//       sessionConversionRatePct — sessionsConverted / sessionsWithAdd × 100
+//
+//   Events with NULL session_id (clients predating the field) are excluded so older
+//   traffic never artificially inflates or deflates the session metric.
+
+// ── Session-level upsell → order attribution ──────────────────────────────────
+
+export type UpsellToOrderBySessionBucket = {
+  platform: string;
+  productId: string;
+  sessionsWithAdd: number;
+  sessionsConverted: number;
+  sessionConversionRatePct: number | null;
+};
+
+type RawSessionRow = {
+  platform: string | null;
+  productId: string | null;
+  sessionsWithAdd: number;
+  sessionsConverted: number;
+};
+
+/**
+ * Returns per-(platform, productId) session-level attribution for the given
+ * window. Only sessions that supplied a session_id are counted — events with
+ * NULL session_id (clients predating the field) are excluded so old traffic
+ * doesn't dilute the metric.
+ *
+ * A session is "converted" when the same session_id appears in both an
+ * `upsell_item_added` row (for this product) AND an `order_placed` row
+ * anywhere in the window, regardless of day.
+ */
+export async function buildUpsellToOrderBySession(
+  startDayUtc: Date,
+  endDayUtcExclusive: Date,
+): Promise<UpsellToOrderBySessionBucket[]> {
+  const rows = (await db.execute(sql`
+    WITH adds AS (
+      SELECT DISTINCT session_id, platform, product_id
+      FROM analytics_events
+      WHERE name = 'upsell_item_added'
+        AND session_id IS NOT NULL
+        AND created_at >= ${startDayUtc}
+        AND created_at < ${endDayUtcExclusive}
+    ),
+    orders AS (
+      SELECT DISTINCT session_id
+      FROM analytics_events
+      WHERE name = 'order_placed'
+        AND session_id IS NOT NULL
+        AND created_at >= ${startDayUtc}
+        AND created_at < ${endDayUtcExclusive}
+    )
+    SELECT
+      a.platform,
+      a.product_id AS "productId",
+      COUNT(*)::int AS "sessionsWithAdd",
+      COUNT(o.session_id)::int AS "sessionsConverted"
+    FROM adds a
+    LEFT JOIN orders o ON a.session_id = o.session_id
+    GROUP BY a.platform, a.product_id
+    ORDER BY a.platform, a.product_id
+  `)) as { rows: RawSessionRow[] };
+
+  return (rows.rows ?? [])
+    .map((r) => {
+      const sessionsWithAdd = r.sessionsWithAdd ?? 0;
+      const sessionsConverted = r.sessionsConverted ?? 0;
+      return {
+        platform: r.platform ?? "unknown",
+        productId: r.productId ?? "unknown",
+        sessionsWithAdd,
+        sessionsConverted,
+        sessionConversionRatePct:
+          sessionsWithAdd > 0
+            ? Math.round((sessionsConverted / sessionsWithAdd) * 1000) / 10
+            : null,
+      };
+    })
+    .sort((a, b) => {
+      if (a.sessionConversionRatePct == null && b.sessionConversionRatePct == null) return 0;
+      if (a.sessionConversionRatePct == null) return 1;
+      if (b.sessionConversionRatePct == null) return -1;
+      if (b.sessionConversionRatePct !== a.sessionConversionRatePct)
+        return b.sessionConversionRatePct - a.sessionConversionRatePct;
+      return b.sessionsWithAdd - a.sessionsWithAdd;
+    });
+}
 
 export type OrdersByPlatformDailyBucket = {
   day: string;

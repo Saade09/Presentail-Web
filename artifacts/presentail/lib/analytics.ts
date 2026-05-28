@@ -59,6 +59,13 @@ export type AnalyticsEvent = {
   productId?: string;
 };
 
+function generateSessionId(): string {
+  const hex = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
+  return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${(Math.floor(Math.random() * 4) + 8).toString(16)}${hex().slice(1)}-${hex()}${hex()}${hex()}`;
+}
+
+const SESSION_ID: string = generateSessionId();
+
 function resolvePlatform(): "ios" | "android" | "web" {
   if (Platform.OS === "ios") return "ios";
   if (Platform.OS === "android") return "android";
@@ -75,6 +82,7 @@ export function trackEvent(event: AnalyticsEvent): void {
     ...event,
     platform: resolvePlatform(),
     appVersion: resolveAppVersion(),
+    sessionId: SESSION_ID,
   });
   try {
     void fetch(`${API_BASE}/api/analytics/events`, {

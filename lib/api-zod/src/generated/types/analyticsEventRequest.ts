@@ -54,4 +54,15 @@ catalog, not from user input.
    * @maxLength 64
    */
   productId?: string;
+  /**
+   * Client-generated session identifier (UUID v4). Created once
+per app launch / page load and attached to every event so
+upsell-add → order_placed attribution can be computed at the
+session level rather than the coarser (platform, day)
+co-occurrence level. Nullable — events from older clients
+that predate this field will have no session_id.
+
+   * @maxLength 36
+   */
+  sessionId?: string;
 }

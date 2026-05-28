@@ -29,12 +29,14 @@ import {
   loadDailyOrdersByPlatform,
   buildUpsellToOrderDaily,
   summariseUpsellToOrder,
+  buildUpsellToOrderBySession,
   type UpsellTabDailyBucket,
   type UpsellTabSummaryBucket,
   type UpsellItemDailyBucket,
   type UpsellItemSummaryBucket,
   type UpsellCheckoutDailyBucket,
   type UpsellCheckoutSummaryBucket,
+  type UpsellToOrderBySessionBucket,
 } from "../lib/upsellAggregator";
 import { getOsProducts } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -102,6 +104,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellItemsDaily,
       upsellCheckoutDaily,
       upsellOrdersDaily,
+      upsellSessionConversion,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -111,6 +114,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyUpsellItemBuckets(start, end),
       loadDailyUpsellCheckoutBuckets(start, end),
       loadDailyOrdersByPlatform(start, end),
+      buildUpsellToOrderBySession(start, end),
     ]);
     res.json({
       days,
@@ -155,6 +159,7 @@ router.get("/admin/funnels/data", async (req, res) => {
           upsellItemsDaily,
           upsellCheckoutDaily,
           upsellOrdersDaily,
+          upsellSessionConversion,
         ),
       },
     });
@@ -334,6 +339,7 @@ async function buildUpsellPayload(
   itemsDaily: UpsellItemDailyBucket[],
   checkoutDaily: UpsellCheckoutDailyBucket[],
   ordersDaily: Awaited<ReturnType<typeof loadDailyOrdersByPlatform>>,
+  sessionConversion: UpsellToOrderBySessionBucket[],
 ) {
   const rateCache = await getRates();
   const productNameMap = buildProductNameMap(rateCache.rates as Record<string, number>);
@@ -429,11 +435,11 @@ async function buildUpsellPayload(
       return b.addRatePct - a.addRatePct;
     });
 
-  // ── Upsell-to-order conversion ──────────────────────────────────────────
+  // ── Upsell-to-order conversion (day-level co-occurrence) ────────────────
   // Join item-add rows with order counts on the same (platform, day). This is
-  // a co-occurrence metric — session IDs don't exist in analytics_events, so
-  // we can't do true session-level attribution. See upsellAggregator.ts for
-  // the full methodology note.
+  // a co-occurrence metric — it correlates upsell adds with order_placed on
+  // the same day/platform but cannot confirm the same session placed the order.
+  // See upsellAggregator.ts for the full methodology note.
   const conversionDaily = buildUpsellToOrderDaily(itemsDaily, ordersDaily);
   const conversionSummaryRaw = summariseUpsellToOrder(conversionDaily).map((b) => {
     const info = productNameMap.get(b.productId) ?? null;
@@ -477,6 +483,26 @@ async function buildUpsellPayload(
   const conversionPlatformTotals = Array.from(platformRevenueMap.entries())
     .map(([platform, totalEstRevenueUsd]) => ({ platform, totalEstRevenueUsd }))
     .sort((a, b) => b.totalEstRevenueUsd - a.totalEstRevenueUsd);
+
+  // ── Upsell-to-order conversion (session-level attribution) ───────────────
+  // Only events from clients that send a session_id are counted. A session is
+  // "converted" when the same session_id appears in both an upsell_item_added
+  // event for this product AND an order_placed event in the same window.
+  // Events with NULL session_id (clients predating the field) are excluded.
+  const sessionConversionSummary = sessionConversion.map((b) => {
+    const info = productNameMap.get(b.productId) ?? null;
+    return {
+      platform: b.platform,
+      productId: b.productId,
+      productName: info?.productName ?? null,
+      priceUsd: info?.priceUsd ?? null,
+      prices: info?.prices ?? {},
+      sessionsWithAdd: b.sessionsWithAdd,
+      sessionsConverted: b.sessionsConverted,
+      sessionConversionRatePct: b.sessionConversionRatePct,
+    };
+  });
+
 
   return {
     platformSummary,
@@ -538,6 +564,13 @@ async function buildUpsellPayload(
           ordersOnSameDay: b.ordersOnSameDay,
         };
       }),
+    },
+    sessionConversion: {
+      // Per-(platform, productId) session-level upsell → order attribution.
+      // Only events from updated clients (those that supply a session_id) are
+      // counted. Rows sorted by session conversion rate descending so the most
+      // effectively converting add-ons appear first.
+      summary: sessionConversionSummary,
     },
   };
 }
@@ -674,8 +707,12 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
-  <h2>Upsell add-on → order conversion</h2>
-  <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Est. upsell revenue" = total upsell adds × product price (USD) — a rough upper-bound on incremental revenue from each add-on. Sorted by estimated revenue descending. "Order-day rate" = % of add-days that also saw an order. No session ID is recorded, so these are correlation signals, not causal attribution.</div>
+  <h2>Upsell add-on → order attribution (session-level)</h2>
+  <div class="sub">Exact session-level attribution: a session is "converted" when the same session ID appears in both an upsell_item_added event and an order_placed event in the window. Only events from updated clients that send a session ID are counted — events from older clients are excluded so stale traffic never dilutes the rate. "Session conversion rate" = converted sessions / sessions with add.</div>
+  <div id="upsellSessionConversionSummary"></div>
+
+  <h2>Upsell add-on → order correlation (day-level)</h2>
+  <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Est. upsell revenue" = total upsell adds × product price (USD) — a rough upper-bound on incremental revenue from each add-on. Sorted by estimated revenue descending. "Order-day rate" = % of add-days that also saw an order. Compare with the session-level rate above for a more exact attribution signal.</div>
   <div id="upsellConversionSummary"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="upsellConversionDaily">
@@ -728,6 +765,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellItemsDailyBody = document.querySelector('#upsellItemsDaily tbody');
   var upsellCheckoutSummary = document.getElementById('upsellCheckoutSummary');
   var upsellCheckoutDailyBody = document.querySelector('#upsellCheckoutDaily tbody');
+  var upsellSessionConversionSummary = document.getElementById('upsellSessionConversionSummary');
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
 
@@ -1114,6 +1152,27 @@ const DASHBOARD_HTML = `<!doctype html>
     return '$' + usd.toLocaleString();
   }
 
+  function renderUpsellSessionConversion(payload) {
+    var summary = (payload && payload.summary) || [];
+    if (!summary.length) {
+      upsellSessionConversionSummary.innerHTML = '<div class="muted">No session-attributed conversion data yet — requires updated client builds that send a session ID.</div>';
+      return;
+    }
+    upsellSessionConversionSummary.innerHTML = '<table><thead><tr>' +
+      '<th>Platform</th><th>Product</th>' +
+      '<th>Sessions w/ add</th><th>Sessions converted</th>' +
+      '<th>Session conversion rate</th>' +
+      '</tr></thead><tbody>' + summary.map(function (r) {
+        return '<tr>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + fmtProduct(r) + '</td>' +
+          '<td>' + num(r.sessionsWithAdd) + '</td>' +
+          '<td>' + num(r.sessionsConverted) + '</td>' +
+          '<td>' + fmtPct(r.sessionConversionRatePct) + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+  }
+
   function renderUpsellConversion(payload) {
     var summary = (payload && payload.summary) || [];
     var platformTotals = (payload && payload.platformTotals) || [];
@@ -1224,6 +1283,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
         renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
+        renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
         renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
