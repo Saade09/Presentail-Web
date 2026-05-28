@@ -718,11 +718,17 @@ export interface WooSearchOccasion {
   name: string;
 }
 
+export interface WooSearchBrand {
+  slug: string;
+  name: string;
+}
+
 export interface WooSearchResult {
   ok: boolean;
   products: WooSearchProduct[];
   categories: WooSearchCategory[];
   occasions: WooSearchOccasion[];
+  brands: WooSearchBrand[];
 }
 
 export interface AuthMeResponse {

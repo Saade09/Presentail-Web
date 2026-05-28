@@ -1894,6 +1894,14 @@ components:
         name:
           type: string
       required: [slug, name]
+    WooSearchBrand:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required: [slug, name]
     WooSearchResult:
       type: object
       properties:
@@ -1911,7 +1919,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WooSearchOccasion"
-      required: [ok, products, categories, occasions]
+        brands:
+          type: array
+          items:
+            $ref: "#/components/schemas/WooSearchBrand"
+      required: [ok, products, categories, occasions, brands]
     AuthMeResponse:
       type: object
       properties:

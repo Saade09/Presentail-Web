@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { getWooSearchQueryKey, useWooSearch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -16,9 +17,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SectionTitle } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { brands, categories, occasions } from "@/data/catalog";
+import { categories, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -66,9 +69,26 @@ function CatalogScreen() {
   const activeBrandName = params.brandName ?? "";
 
   const { products } = useWooProducts();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const { lang } = useLanguage();
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
   const [query, setQuery] = useState<string>(params.q ?? "");
   const [sort, setSort] = useState<SortKey>("featured");
+
+  const searchEnabled = query.trim().length >= 2;
+  const searchParams = {
+    q: searchEnabled ? query.trim() : "xx",
+    countryCode: selectedCountry?.code ?? undefined,
+    cityId: selectedCity?.id ?? undefined,
+    lang,
+  };
+  const { data: searchData } = useWooSearch(searchParams, {
+    query: {
+      queryKey: getWooSearchQueryKey(searchParams),
+      enabled: searchEnabled,
+      staleTime: 30_000,
+    },
+  });
 
   const sortOptions: { id: SortKey; label: string }[] = [
     { id: "featured", label: t.sortFeatured },
@@ -115,12 +135,7 @@ function CatalogScreen() {
     });
   }, [query, tRecord]);
 
-  const matchingBrands = useMemo(() => {
-    const q = query.trim();
-    if (q.length < 2) return [];
-    const lower = q.toLowerCase();
-    return brands.filter((b) => b.name.toLowerCase().includes(lower));
-  }, [query]);
+  const matchingBrands = searchData?.brands ?? [];
 
   const header = (
     <>

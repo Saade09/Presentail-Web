@@ -1142,6 +1142,12 @@ export const WooSearchResponse = zod.object({
       name: zod.string(),
     }),
   ),
+  brands: zod.array(
+    zod.object({
+      slug: zod.string(),
+      name: zod.string(),
+    }),
+  ),
 });
 
 /**
