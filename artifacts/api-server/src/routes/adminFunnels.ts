@@ -40,7 +40,9 @@ import {
 } from "../lib/upsellAggregator";
 import {
   loadDailySessionCoverage,
+  loadDailyFunnelSessionCoverage,
   type SessionCoverageDailyBucket,
+  type FunnelSessionCoverageDailyBucket,
 } from "../lib/sessionCoverageMonitor";
 import { getOsProducts } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -114,6 +116,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellOrdersDaily,
       upsellSessionConversion,
       upsellSessionCoverageDaily,
+      funnelSessionCoverageDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -125,6 +128,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyOrdersByPlatform(start, end),
       buildUpsellToOrderBySession(start, end),
       loadDailySessionCoverage(start, end),
+      loadDailyFunnelSessionCoverage(start, end),
     ]);
     res.json({
       days,
@@ -173,6 +177,22 @@ router.get("/admin/funnels/data", async (req, res) => {
           upsellSessionCoverageDaily,
           start.toISOString().slice(0, 10),
         ),
+      },
+      funnelSessionCoverage: {
+        // Per-(eventName, day, platform) session_id coverage for high-value
+        // funnel event types: cart_viewed, checkout_started, order_placed.
+        // A drop in coverage means a client build stopped sending session_id
+        // on that event type, silently degrading funnel attribution accuracy.
+        // The sessionCoverageMonitor fires a per-event-type Slack alert when
+        // aggregate day coverage drops below the configured threshold.
+        daily: funnelSessionCoverageDaily.map((b: FunnelSessionCoverageDailyBucket) => ({
+          eventName: b.eventName,
+          day: b.day,
+          platform: b.platform,
+          total: b.total,
+          withSessionId: b.withSessionId,
+          coveragePct: b.coveragePct,
+        })),
       },
     });
   } catch (err: any) {
@@ -801,6 +821,19 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Funnel session ID coverage</h2>
+  <div class="sub">What % of <strong>cart_viewed</strong>, <strong>checkout_started</strong>, and <strong>order_placed</strong> events carry a non-null session_id, per (event type, day, platform). A drop means a client build or code path stopped sending the field on that event type, silently degrading funnel attribution accuracy. The monitor fires a per-event-type Slack alert when aggregate day coverage drops below the configured threshold (default 80%).</div>
+  <div id="funnelSessionCoverageSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="funnelSessionCoverageDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Event type</th><th>Platform</th><th>Total events</th><th>With session ID</th><th>Coverage</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Upsell add-on → order attribution (session-level)</h2>
   <div class="sub">Exact session-level attribution: a session is "converted" when the same session ID appears in both an upsell_item_added event and an order_placed event in the window. Only events from updated clients that send a session ID are counted — events from older clients are excluded so stale traffic never dilutes the rate. "Session conversion rate" = converted sessions / sessions with add.</div>
   <div id="upsellSessionConversionSummary"></div>
@@ -863,6 +896,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellCheckoutDailyBody = document.querySelector('#upsellCheckoutDaily tbody');
   var upsellSessionCoverageSummary = document.getElementById('upsellSessionCoverageSummary');
   var upsellSessionCoverageDailyBody = document.querySelector('#upsellSessionCoverageDaily tbody');
+  var funnelSessionCoverageSummary = document.getElementById('funnelSessionCoverageSummary');
+  var funnelSessionCoverageDailyBody = document.querySelector('#funnelSessionCoverageDaily tbody');
   var upsellSessionConversionSummary = document.getElementById('upsellSessionConversionSummary');
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
@@ -1373,6 +1408,56 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  function renderFunnelSessionCoverage(payload) {
+    var daily = (payload && payload.daily) || [];
+    if (!daily.length) {
+      funnelSessionCoverageSummary.innerHTML = '<div class="muted">No funnel events (cart_viewed / checkout_started / order_placed) in range.</div>';
+      funnelSessionCoverageDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    // Aggregate totals per event type for the summary banner
+    var byEvent = {};
+    daily.forEach(function (r) {
+      var e = r.eventName;
+      if (!byEvent[e]) byEvent[e] = { total: 0, withSessionId: 0 };
+      byEvent[e].total += r.total;
+      byEvent[e].withSessionId += r.withSessionId;
+    });
+    var eventOrder = ['cart_viewed', 'checkout_started', 'order_placed'];
+    var eventNames = Object.keys(byEvent).sort(function (a, b) {
+      var ia = eventOrder.indexOf(a), ib = eventOrder.indexOf(b);
+      if (ia === -1 && ib === -1) return a < b ? -1 : 1;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    funnelSessionCoverageSummary.innerHTML =
+      '<table><thead><tr><th>Event type</th><th>Total events</th><th>With session ID</th><th>Coverage (window)</th></tr></thead><tbody>' +
+      eventNames.map(function (e) {
+        var agg = byEvent[e];
+        var pct = agg.total > 0 ? Math.round(agg.withSessionId / agg.total * 1000) / 10 : null;
+        var cls = pct !== null && pct < 80 ? 'low' : '';
+        return '<tr>' +
+          '<td>' + escapeHtml(e) + '</td>' +
+          '<td>' + num(agg.total) + '</td>' +
+          '<td>' + num(agg.withSessionId) + '</td>' +
+          '<td class="pct ' + cls + '">' + fmtPct(pct) + (pct !== null && pct < 80 ? ' <span class="low">⚠ below threshold</span>' : '') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+    funnelSessionCoverageDailyBody.innerHTML = daily.map(function (r) {
+      var cls = r.coveragePct !== null && r.coveragePct < 80 ? 'low' : '';
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.eventName) + '</td>' +
+        '<td>' + escapeHtml(r.platform) + '</td>' +
+        '<td>' + num(r.total) + '</td>' +
+        '<td>' + num(r.withSessionId) + '</td>' +
+        '<td class="pct ' + cls + '">' + fmtPct(r.coveragePct) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function renderUpsellSessionConversion(payload) {
     var summary = (payload && payload.summary) || [];
     if (!summary.length) {
@@ -1514,6 +1599,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellCoverage(upsell.sessionCoverage || { daily: [] });
         renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
         renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
+        renderFunnelSessionCoverage(data.funnelSessionCoverage || { daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
