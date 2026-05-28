@@ -1,4 +1,6 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -6,12 +8,14 @@ import {
   Dimensions,
   FlatList,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { brands } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -34,6 +38,8 @@ function BrandScreen() {
 
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [brandImage, setBrandImage] = useState<string | null>(null);
+  const [coverLoaded, setCoverLoaded] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
@@ -42,9 +48,12 @@ function BrandScreen() {
     let cancelled = false;
     setLoading(true);
     setProducts([]);
+    setBrandImage(null);
+    setCoverLoaded(false);
     fetchBrandProducts(String(slug), { countryCode, cityId }).then((res) => {
       if (!cancelled) {
-        setProducts(res.filter((p) => p.image));
+        setProducts(res.products.filter((p) => p.image));
+        setBrandImage(res.brandImage);
         setLoading(false);
       }
     });
@@ -59,8 +68,24 @@ function BrandScreen() {
           paddingTop: insets.top + 12,
           paddingBottom: 20,
           paddingHorizontal: 18,
+          overflow: "hidden",
         }}
       >
+        {brandImage ? (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.imagePlaceholder }]}>
+            {!coverLoaded && <ShimmerPlaceholder />}
+            <Image
+              source={{ uri: brandImage }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              onLoad={() => setCoverLoaded(true)}
+            />
+            <LinearGradient
+              colors={["rgba(0,65,78,0.25)", "rgba(0,65,78,0.85)"]}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
           <Pressable
             onPress={() => router.back()}

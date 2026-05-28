@@ -385,6 +385,7 @@ router.get("/woo/brand-products", async (req, res) => {
     const osBrands = getOsBrands();
     const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
     const brandName = brandEntry?.name ?? brandSlug;
+    const brandImage = brandEntry?.image ?? null;
 
     const products = osProducts
       .filter((p) => p.brands.some((b) => b.slug === brandSlug))
@@ -392,7 +393,7 @@ router.get("/woo/brand-products", async (req, res) => {
       .filter(isVisibleProduct)
       .filter((p) => isDeliverable(p, filter))
       .map((p) => transformProduct(p, store.currencySymbol));
-    return res.json({ ok: true, products, count: products.length, brandName });
+    return res.json({ ok: true, products, count: products.length, brandName, brandImage });
   }
 
   if (!store.consumerKey) {
@@ -416,6 +417,7 @@ router.get("/woo/brand-products", async (req, res) => {
     }
     const brandId = brandList[0].id;
     const brandName = brandList[0].name;
+    const brandImage = brandList[0].image?.src ?? null;
 
     const r = await wooFetch(
       `/products?brand=${brandId}&per_page=50&status=publish&stock_status=instock`,
@@ -432,7 +434,7 @@ router.get("/woo/brand-products", async (req, res) => {
       .filter(isVisibleProduct)
       .filter((p) => isDeliverable(p, filter))
       .map((p) => transformProduct(p, store.currencySymbol));
-    return res.json({ ok: true, products, count: products.length, brandName });
+    return res.json({ ok: true, products, count: products.length, brandName, brandImage });
   } catch (err: any) {
     return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
   }

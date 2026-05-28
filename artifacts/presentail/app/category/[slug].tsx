@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
@@ -57,6 +58,7 @@ function CategoryScreen() {
   const [wcProducts, setWcProducts] = useState<Product[]>([]);
   const [wcCategoryName, setWcCategoryName] = useState<string>("");
   const [wcLoading, setWcLoading] = useState(true);
+  const [coverLoaded, setCoverLoaded] = useState(false);
 
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
@@ -79,6 +81,7 @@ function CategoryScreen() {
   useEffect(() => {
     let cancelled = false;
     setWcLoading(true);
+    setCoverLoaded(false);
     // Clear stale rows from the previous slug / store immediately so the
     // virtualized list shows the loading state instead of flashing the
     // previous category's products while the new fetch is in flight.
@@ -121,10 +124,16 @@ function CategoryScreen() {
 
   const header = (
     <>
-        <View style={{ height: 240, backgroundColor: colors.background }}>
+        <View style={{ height: 240, backgroundColor: colors.imagePlaceholder }}>
           {category ? (
-            <Image source={category.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+              source={category.image}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              onLoad={() => setCoverLoaded(true)}
+            />
           ) : null}
+          {category && !coverLoaded && <ShimmerPlaceholder />}
           <LinearGradient
             colors={["rgba(0,65,78,0.25)", "rgba(0,65,78,0.85)"]}
             style={StyleSheet.absoluteFill}

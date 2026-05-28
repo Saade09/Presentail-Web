@@ -81,10 +81,15 @@ export async function fetchOccasionProducts(
   }
 }
 
+export type BrandProductsResult = {
+  products: WooProduct[];
+  brandImage: string | null;
+};
+
 export async function fetchBrandProducts(
   slug: string,
   filter?: DeliveryFilter,
-): Promise<WooProduct[]> {
+): Promise<BrandProductsResult> {
   try {
     const params = new URLSearchParams({ slug });
     appendDeliveryParams(params, filter);
@@ -93,10 +98,12 @@ export async function fetchBrandProducts(
       { headers: storeHeaders(filter) }
     );
     const json = await res.json();
-    if (json.ok && Array.isArray(json.products)) return json.products;
-    return [];
+    if (json.ok && Array.isArray(json.products)) {
+      return { products: json.products, brandImage: json.brandImage ?? null };
+    }
+    return { products: [], brandImage: null };
   } catch {
-    return [];
+    return { products: [], brandImage: null };
   }
 }
 
