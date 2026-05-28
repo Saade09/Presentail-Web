@@ -435,21 +435,48 @@ async function buildUpsellPayload(
   // we can't do true session-level attribution. See upsellAggregator.ts for
   // the full methodology note.
   const conversionDaily = buildUpsellToOrderDaily(itemsDaily, ordersDaily);
-  const conversionSummary = summariseUpsellToOrder(conversionDaily).map((b) => {
+  const conversionSummaryRaw = summariseUpsellToOrder(conversionDaily).map((b) => {
     const info = productNameMap.get(b.productId) ?? null;
+    const priceUsd = info?.priceUsd ?? null;
+    const estUpsellRevenueUsd =
+      priceUsd != null ? Math.round(b.totalUpsellAdds * priceUsd) : null;
     return {
       platform: b.platform,
       productId: b.productId,
       productName: info?.productName ?? null,
-      priceUsd: info?.priceUsd ?? null,
+      priceUsd,
       prices: info?.prices ?? {},
       totalUpsellAdds: b.totalUpsellAdds,
       daysWithAdds: b.daysWithAdds,
       daysWithAddsAndOrders: b.daysWithAddsAndOrders,
       ordersOnAddDays: b.ordersOnAddDays,
       orderDayRatePct: b.orderDayRatePct,
+      estUpsellRevenueUsd,
     };
   });
+
+  // Sort by estimated revenue descending (nulls last), then by total adds
+  const conversionSummary = conversionSummaryRaw.slice().sort((a, b) => {
+    if (a.estUpsellRevenueUsd == null && b.estUpsellRevenueUsd == null) return b.totalUpsellAdds - a.totalUpsellAdds;
+    if (a.estUpsellRevenueUsd == null) return 1;
+    if (b.estUpsellRevenueUsd == null) return -1;
+    if (b.estUpsellRevenueUsd !== a.estUpsellRevenueUsd) return b.estUpsellRevenueUsd - a.estUpsellRevenueUsd;
+    return b.totalUpsellAdds - a.totalUpsellAdds;
+  });
+
+  // Per-platform revenue subtotals (sum only rows with a computable price)
+  const platformRevenueMap = new Map<string, number>();
+  for (const r of conversionSummary) {
+    if (r.estUpsellRevenueUsd != null) {
+      platformRevenueMap.set(
+        r.platform,
+        (platformRevenueMap.get(r.platform) ?? 0) + r.estUpsellRevenueUsd,
+      );
+    }
+  }
+  const conversionPlatformTotals = Array.from(platformRevenueMap.entries())
+    .map(([platform, totalEstRevenueUsd]) => ({ platform, totalEstRevenueUsd }))
+    .sort((a, b) => b.totalEstRevenueUsd - a.totalEstRevenueUsd);
 
   return {
     platformSummary,
@@ -491,10 +518,13 @@ async function buildUpsellPayload(
     },
     conversion: {
       // Per-(platform, productId) upsell add-to-order co-occurrence report.
-      // summary rows are sorted best orderDayRatePct first so the top rows
-      // reveal which add-ons most reliably appear on high-order-volume days.
-      // daily rows are sorted newest-first for the per-day detail table.
+      // summary rows are sorted by estimated upsell revenue (totalUpsellAdds ×
+      // priceUsd) descending so the top rows reveal which add-ons generate the
+      // most incremental revenue, not just the most adds. Rows without a price
+      // in the OS cache (estUpsellRevenueUsd = null) sort last.
+      // platformTotals gives a per-platform revenue subtotal for the window.
       summary: conversionSummary,
+      platformTotals: conversionPlatformTotals,
       daily: conversionDaily.map((b) => {
         const info = productNameMap.get(b.productId) ?? null;
         return {
@@ -645,7 +675,7 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>Upsell add-on → order conversion</h2>
-  <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Order-day rate" = % of days the product was upsell-added on which at least one order was also placed. No session ID is recorded, so this is a correlation signal, not causal attribution — use it alongside total upsell adds to identify high-value add-ons.</div>
+  <div class="sub">Per-product co-occurrence of upsell_item_added and order_placed on the same platform/day. "Est. upsell revenue" = total upsell adds × product price (USD) — a rough upper-bound on incremental revenue from each add-on. Sorted by estimated revenue descending. "Order-day rate" = % of add-days that also saw an order. No session ID is recorded, so these are correlation signals, not causal attribution.</div>
   <div id="upsellConversionSummary"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="upsellConversionDaily">
@@ -1079,8 +1109,14 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function fmtRevenue(usd) {
+    if (usd === null || usd === undefined) return '<span class="muted">—</span>';
+    return '$' + usd.toLocaleString();
+  }
+
   function renderUpsellConversion(payload) {
     var summary = (payload && payload.summary) || [];
+    var platformTotals = (payload && payload.platformTotals) || [];
     var daily = (payload && payload.daily) || [];
     if (!summary.length && !daily.length) {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
@@ -1088,10 +1124,20 @@ const DASHBOARD_HTML = `<!doctype html>
       return;
     }
     if (summary.length) {
+      var subtotalRows = platformTotals.map(function (t) {
+        return '<tr style="font-weight:600;border-top:2px solid #ccc">' +
+          '<td>' + escapeHtml(t.platform) + '</td>' +
+          '<td class="muted" style="font-style:italic">Subtotal</td>' +
+          '<td></td><td></td><td></td><td></td>' +
+          '<td>' + fmtRevenue(t.totalEstRevenueUsd) + '</td>' +
+          '<td></td>' +
+          '</tr>';
+      }).join('');
       upsellConversionSummary.innerHTML = '<table><thead><tr>' +
         '<th>Platform</th><th>Product</th>' +
         '<th>Upsell adds</th><th>Add days</th>' +
         '<th>Add days w/ orders</th><th>Orders on add days</th>' +
+        '<th>Est. upsell revenue (USD)</th>' +
         '<th>Order-day rate</th>' +
         '</tr></thead><tbody>' + summary.map(function (r) {
           return '<tr>' +
@@ -1101,9 +1147,10 @@ const DASHBOARD_HTML = `<!doctype html>
             '<td>' + num(r.daysWithAdds) + '</td>' +
             '<td>' + num(r.daysWithAddsAndOrders) + '</td>' +
             '<td>' + num(r.ordersOnAddDays) + '</td>' +
+            '<td>' + fmtRevenue(r.estUpsellRevenueUsd) + '</td>' +
             '<td>' + fmtPct(r.orderDayRatePct) + '</td>' +
             '</tr>';
-        }).join('') + '</tbody></table>';
+        }).join('') + subtotalRows + '</tbody></table>';
     } else {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
     }
