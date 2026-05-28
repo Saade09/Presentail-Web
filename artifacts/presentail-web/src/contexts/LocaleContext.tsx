@@ -20,7 +20,7 @@ export type Language = Lang;
 type Entry = { en: string; ar: string };
 type Dict = Record<string, Entry>;
 
-const STRINGS: Dict = {
+export const STRINGS: Dict = {
   // Top utility / nav
   "utility.deliverTo": { en: "Delivering to", ar: "التوصيل إلى" },
   "utility.fastCheckout": { en: "Fast Checkout", ar: "دفع سريع" },
@@ -633,7 +633,7 @@ const STRINGS: Dict = {
 
 // French overlay. Keys not present here fall back to the English string from
 // STRINGS, so partial coverage is safe.
-const STRINGS_FR: Record<string, string> = {
+export const STRINGS_FR: Record<string, string> = {
   "utility.deliverTo": "Livraison à",
   "utility.fastCheckout": "Paiement rapide",
   "utility.sameDayDelivery": "Livraison le jour même jusqu'à 22h",
