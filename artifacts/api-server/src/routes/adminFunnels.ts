@@ -38,6 +38,10 @@ import {
   type UpsellCheckoutSummaryBucket,
   type UpsellToOrderBySessionBucket,
 } from "../lib/upsellAggregator";
+import {
+  loadDailySessionCoverage,
+  type SessionCoverageDailyBucket,
+} from "../lib/sessionCoverageMonitor";
 import { getOsProducts } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
 import { logger } from "../lib/logger";
@@ -105,6 +109,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellCheckoutDaily,
       upsellOrdersDaily,
       upsellSessionConversion,
+      upsellSessionCoverageDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -115,6 +120,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyUpsellCheckoutBuckets(start, end),
       loadDailyOrdersByPlatform(start, end),
       buildUpsellToOrderBySession(start, end),
+      loadDailySessionCoverage(start, end),
     ]);
     res.json({
       days,
@@ -160,6 +166,7 @@ router.get("/admin/funnels/data", async (req, res) => {
           upsellCheckoutDaily,
           upsellOrdersDaily,
           upsellSessionConversion,
+          upsellSessionCoverageDaily,
         ),
       },
     });
@@ -340,6 +347,7 @@ async function buildUpsellPayload(
   checkoutDaily: UpsellCheckoutDailyBucket[],
   ordersDaily: Awaited<ReturnType<typeof loadDailyOrdersByPlatform>>,
   sessionConversion: UpsellToOrderBySessionBucket[],
+  sessionCoverageDaily: SessionCoverageDailyBucket[],
 ) {
   const rateCache = await getRates();
   const productNameMap = buildProductNameMap(rateCache.rates as Record<string, number>);
@@ -572,6 +580,20 @@ async function buildUpsellPayload(
       // effectively converting add-ons appear first.
       summary: sessionConversionSummary,
     },
+    sessionCoverage: {
+      // What % of upsell_item_added events carry a non-null session_id per
+      // (day, platform). A drop in coverage means a client build stopped
+      // sending the field, degrading session-level conversion accuracy.
+      // The monitor fires a Slack alert when the aggregate day rate drops below
+      // UPSELL_SESSION_COVERAGE_MIN_RATE (default 80%).
+      daily: sessionCoverageDaily.map((b) => ({
+        day: b.day,
+        platform: b.platform,
+        total: b.total,
+        withSessionId: b.withSessionId,
+        coveragePct: b.coveragePct,
+      })),
+    },
   };
 }
 
@@ -720,6 +742,19 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Upsell session ID coverage</h2>
+  <div class="sub">What % of upsell_item_added events carry a non-null session_id, per (day, platform). Coverage below the configured threshold (default 80%) triggers a Slack alert from the sessionCoverageMonitor. A drop here means a client build or code path stopped sending the field, which silently degrades the session-level conversion metric above.</div>
+  <div id="upsellSessionCoverageSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="upsellSessionCoverageDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Total events</th><th>With session ID</th><th>Coverage</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Upsell add-on → order attribution (session-level)</h2>
   <div class="sub">Exact session-level attribution: a session is "converted" when the same session ID appears in both an upsell_item_added event and an order_placed event in the window. Only events from updated clients that send a session ID are counted — events from older clients are excluded so stale traffic never dilutes the rate. "Session conversion rate" = converted sessions / sessions with add.</div>
   <div id="upsellSessionConversionSummary"></div>
@@ -780,6 +815,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellItemsDailyBody = document.querySelector('#upsellItemsDaily tbody');
   var upsellCheckoutSummary = document.getElementById('upsellCheckoutSummary');
   var upsellCheckoutDailyBody = document.querySelector('#upsellCheckoutDaily tbody');
+  var upsellSessionCoverageSummary = document.getElementById('upsellSessionCoverageSummary');
+  var upsellSessionCoverageDailyBody = document.querySelector('#upsellSessionCoverageDaily tbody');
   var upsellSessionConversionSummary = document.getElementById('upsellSessionConversionSummary');
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
@@ -1215,6 +1252,36 @@ const DASHBOARD_HTML = `<!doctype html>
     return '$' + usd.toLocaleString();
   }
 
+  function renderUpsellCoverage(payload) {
+    var daily = (payload && payload.daily) || [];
+    if (!daily.length) {
+      upsellSessionCoverageSummary.innerHTML = '<div class="muted">No upsell_item_added events in range.</div>';
+      upsellSessionCoverageDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      return;
+    }
+    // Aggregate totals across the window for the summary banner
+    var totalAll = 0, totalWithSession = 0;
+    daily.forEach(function (r) { totalAll += r.total; totalWithSession += r.withSessionId; });
+    var overallPct = totalAll > 0 ? Math.round(totalWithSession / totalAll * 1000) / 10 : null;
+    var coverageClass = overallPct !== null && overallPct < 80 ? 'low' : '';
+    upsellSessionCoverageSummary.innerHTML =
+      '<p style="margin:0 0 8px">Overall coverage for window: ' +
+      '<span class="pct ' + coverageClass + '">' + (overallPct !== null ? overallPct.toFixed(1) + '%' : '—') + '</span>' +
+      ' (' + totalWithSession.toLocaleString() + ' / ' + totalAll.toLocaleString() + ' events have a session ID).' +
+      (overallPct !== null && overallPct < 80 ? ' <span class="low">Below 80% threshold.</span>' : '') +
+      '</p>';
+    upsellSessionCoverageDailyBody.innerHTML = daily.map(function (r) {
+      var cls = r.coveragePct !== null && r.coveragePct < 80 ? 'low' : '';
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.platform) + '</td>' +
+        '<td>' + num(r.total) + '</td>' +
+        '<td>' + num(r.withSessionId) + '</td>' +
+        '<td class="pct ' + cls + '">' + fmtPct(r.coveragePct) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function renderUpsellSessionConversion(payload) {
     var summary = (payload && payload.summary) || [];
     if (!summary.length) {
@@ -1351,6 +1418,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
         renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
+        renderUpsellCoverage(upsell.sessionCoverage || { daily: [] });
         renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
         renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
