@@ -74,6 +74,18 @@ const OS_STORE_SPECS: StoreOsFetchSpec[] = [
  */
 const storeCache = new Map<StoreKey, StoreProductCache>();
 
+/**
+ * Startup price snapshot — populated the very first time each store's cache
+ * is successfully filled. Never updated after that initial load, so it
+ * represents the prices at server boot time (a ~24 h baseline for the admin
+ * funnels dashboard). Keys are OS product IDs; values are priceUsd.
+ *
+ * Products absent from the snapshot (arrived after startup, or the OS was
+ * unavailable at boot) are excluded from change detection — they get
+ * `priceChanged: false` to avoid spurious warnings.
+ */
+const startupPriceSnapshot = new Map<string, number>();
+
 /** Global taxonomy data (not per-store). */
 let cachedCategories: OSProductCategory[] | null = null;
 let cachedBrands: OSProductBrand[] | null = null;
@@ -97,6 +109,23 @@ function getOsConfig(): PresentailOsConfig {
     apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
     baseUrl: process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com",
   };
+}
+
+// ── Startup price snapshot helpers ─────────────────────────────────────────
+
+/**
+ * Record prices for all products in `products` into the startup snapshot,
+ * but only when this is the very first fetch for `storeKey` (i.e. the store
+ * cache did not previously have data). Subsequent refreshes update the live
+ * cache but intentionally leave the snapshot untouched.
+ */
+function maybeRecordStartupSnapshot(products: OSProduct[], storeKey: StoreKey): void {
+  if (storeCache.has(storeKey)) return; // not first fetch for this store
+  for (const p of products) {
+    if (!startupPriceSnapshot.has(p.id) && typeof p.price === "number") {
+      startupPriceSnapshot.set(p.id, p.price);
+    }
+  }
 }
 
 // ── Index helpers ──────────────────────────────────────────────────────────
@@ -170,6 +199,7 @@ async function fetchAndStore(): Promise<void> {
         continue;
       }
       if (products.length > 0) {
+        maybeRecordStartupSnapshot(products, spec.storeKey);
         storeCache.set(spec.storeKey, buildStoreCache(products));
         logger.info(
           { storeKey: spec.storeKey, productCount: products.length },
@@ -294,6 +324,20 @@ export function getOsBrands(): OSProductBrand[] | null {
  */
 export function getOsOccasions(): OSProductOccasion[] | null {
   return cachedOccasions;
+}
+
+/**
+ * Returns the startup price snapshot: a product-id → priceUsd map recorded
+ * the first time each store's cache was successfully populated after boot.
+ * The snapshot is never updated, so it serves as a ~24 h baseline that the
+ * admin funnels dashboard uses to flag add-ons whose price has changed since
+ * the server last restarted.
+ *
+ * Products absent from the map were either not yet fetched at startup or
+ * had no numeric price in the OS response. Treat them as "no change known".
+ */
+export function getStartupPriceSnapshot(): ReadonlyMap<string, number> {
+  return startupPriceSnapshot;
 }
 
 /**

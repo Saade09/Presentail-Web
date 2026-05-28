@@ -45,7 +45,7 @@ import {
   type FunnelSessionCoverageDailyBucket,
 } from "../lib/sessionCoverageMonitor";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
-import { getOsProducts } from "../lib/osProductsCache";
+import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
 import { logger } from "../lib/logger";
 
@@ -328,20 +328,34 @@ type ProductInfo = {
   priceUsd: number | null;
   /** Per-store local-currency prices keyed by store key (lebanon/dubai/abudhabi/cyprus). */
   prices: Partial<Record<string, StorePriceEntry>>;
+  /**
+   * True when the product's current price in the OS cache differs from the
+   * price recorded at server startup (the ~24 h baseline). False when the
+   * price is unchanged, when the product was absent from the startup snapshot,
+   * or when there is no current price.
+   */
+  priceChangedSinceStartup: boolean;
 };
 
 /**
- * Build a slug → { productName, priceUsd, prices } lookup map from all
- * in-memory OS product store caches. Each store contributes its own price
- * entry (converted to the store's display currency using the supplied FX
- * rates). First-occurrence wins for productName and priceUsd (USD base price).
- * `prices` is keyed by store key and populated for every store that carries
- * the product. Returns an empty map when the OS cache is cold.
+ * Build a slug → { productName, priceUsd, prices, priceChangedSinceStartup }
+ * lookup map from all in-memory OS product store caches. Each store
+ * contributes its own price entry (converted to the store's display currency
+ * using the supplied FX rates). First-occurrence wins for productName and
+ * priceUsd (USD base price). `prices` is keyed by store key and populated for
+ * every store that carries the product. Returns an empty map when the OS cache
+ * is cold.
+ *
+ * `priceChangedSinceStartup` is true when the current priceUsd differs from
+ * the startup price snapshot recorded when the server first populated the
+ * cache. Products absent from the snapshot (or with no current price) get
+ * false to avoid spurious warnings.
  */
 function buildProductNameMap(
   rates: Record<string, number>,
 ): Map<string, ProductInfo> {
   const map = new Map<string, ProductInfo>();
+  const snapshot = getStartupPriceSnapshot();
   const storeKeys = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
   for (const storeKey of storeKeys) {
     const products = getOsProducts(storeKey);
@@ -351,9 +365,15 @@ function buildProductNameMap(
     for (const p of products) {
       const priceUsd = typeof p.price === "number" ? p.price : null;
       if (!map.has(p.id)) {
+        const snapshotPrice = snapshot.get(p.id);
+        const priceChangedSinceStartup =
+          priceUsd !== null &&
+          snapshotPrice !== undefined &&
+          priceUsd !== snapshotPrice;
         map.set(p.id, {
           productName: p.name,
           priceUsd,
+          priceChangedSinceStartup,
           prices: {},
         });
       }
@@ -447,6 +467,7 @@ async function buildUpsellPayload(
         productName: info?.productName ?? null,
         priceUsd: info?.priceUsd ?? null,
         prices: info?.prices ?? {},
+        priceChanged: info?.priceChangedSinceStartup ?? false,
         adds: b.adds,
         addRatePct: pct(b.adds, tabClicks),
       };
@@ -502,6 +523,7 @@ async function buildUpsellPayload(
       productName: info?.productName ?? null,
       priceUsd,
       prices: info?.prices ?? {},
+      priceChanged: info?.priceChangedSinceStartup ?? false,
       totalUpsellAdds: b.totalUpsellAdds,
       daysWithAdds: b.daysWithAdds,
       daysWithAddsAndOrders: b.daysWithAddsAndOrders,
@@ -547,6 +569,7 @@ async function buildUpsellPayload(
       productName: info?.productName ?? null,
       priceUsd: info?.priceUsd ?? null,
       prices: info?.prices ?? {},
+      priceChanged: info?.priceChangedSinceStartup ?? false,
       sessionsWithAdd: b.sessionsWithAdd,
       sessionsConverted: b.sessionsConverted,
       sessionConversionRatePct: b.sessionConversionRatePct,
@@ -691,6 +714,7 @@ const DASHBOARD_HTML = `<!doctype html>
   .err { color: #b00020; }
   .pct { font-weight: 500; }
   .low { color: #b00020; }
+  .price-warn { color: #b06000; font-size: 12px; cursor: default; vertical-align: middle; margin-left: 3px; }
   .trends { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
   .trend { flex: 1 1 160px; min-width: 140px; }
   .trend-title { font-size: 11px; color: #666; margin-bottom: 2px; }
@@ -1315,7 +1339,10 @@ const DASHBOARD_HTML = `<!doctype html>
           priceStr += ' <span class="muted">' + localParts.join(' / ') + '</span>';
         }
       }
-      return escapeHtml(r.productName) + priceStr + ' <span class="muted" style="font-size:11px">(' + escapeHtml(r.productId) + ')</span>';
+      var warnBadge = r.priceChanged
+        ? ' <span class="price-warn" title="Price has changed since server startup — historic adds may have occurred at a different price, so the estimated revenue total may be inaccurate.">\u26a0\ufe0f price changed</span>'
+        : '';
+      return escapeHtml(r.productName) + priceStr + warnBadge + ' <span class="muted" style="font-size:11px">(' + escapeHtml(r.productId) + ')</span>';
     }
     return escapeHtml(r.productId);
   }
@@ -1517,6 +1544,13 @@ const DASHBOARD_HTML = `<!doctype html>
           '<td></td>' +
           '</tr>';
       }).join('');
+      var hasPriceChanges = summary.some(function (r) { return r.priceChanged; });
+      var footnote = hasPriceChanges
+        ? '<p class="price-warn" style="font-size:12px;margin:6px 0 0">' +
+          '\u26a0\ufe0f One or more add-ons above are marked with a price-change warning. ' +
+          'Their \u201cEst. upsell revenue\u201d is computed using the current price, but historic adds in this window may have occurred at a different price \u2014 treat those revenue totals as approximate.' +
+          '</p>'
+        : '';
       upsellConversionSummary.innerHTML = '<table><thead><tr>' +
         '<th>Platform</th><th>Product</th>' +
         '<th>Upsell adds</th><th>Add days</th>' +
@@ -1534,7 +1568,7 @@ const DASHBOARD_HTML = `<!doctype html>
             '<td>' + fmtRevenue(r.estUpsellRevenueUsd) + '</td>' +
             '<td>' + fmtPct(r.orderDayRatePct) + '</td>' +
             '</tr>';
-        }).join('') + subtotalRows + '</tbody></table>';
+        }).join('') + subtotalRows + '</tbody></table>' + footnote;
     } else {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
     }
