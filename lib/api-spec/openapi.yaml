@@ -1260,6 +1260,10 @@ components:
           type: boolean
         sent:
           type: integer
+          description: Number of push notifications delivered.
+        smsSent:
+          type: integer
+          description: Number of SMS/WhatsApp messages sent (0 when Twilio is not configured or the state is not in SMS_NOTIFY_STATES).
       required:
         - ok
         - sent

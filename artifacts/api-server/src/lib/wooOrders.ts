@@ -451,6 +451,10 @@ export async function recordSuccessfulWcOrder(input: {
   // app_orders row so the loyalty engine can later credit the correct
   // ledger source key (Dubai vs Abu Dhabi share country AE).
   storeKey?: string | null;
+  // Billing phone (E.164) of the person who placed the order. Stored so
+  // the SMS/WhatsApp notifier can reach the sender on subsequent state changes
+  // without a round-trip to WooCommerce.
+  senderPhone?: string | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
   const {
@@ -462,6 +466,7 @@ export async function recordSuccessfulWcOrder(input: {
     totalUsdCents,
     platform,
     storeKey,
+    senderPhone,
     log,
   } = input;
   const rawDeviceId =
@@ -477,6 +482,14 @@ export async function recordSuccessfulWcOrder(input: {
   }
 
   try {
+    // Normalise the billing phone to E.164 (strip spaces/dashes) so Twilio
+    // accepts it. If the phone is missing or malformed, store null — the SMS
+    // notifier skips gracefully when senderPhone is null.
+    const rawPhone =
+      typeof body.billing?.phone === "string" ? body.billing.phone.replace(/[\s\-().]/g, "") : null;
+    const normalizedSenderPhone =
+      rawPhone && /^\+[1-9]\d{1,14}$/.test(rawPhone) ? rawPhone : (senderPhone ?? null);
+
     await db
       .insert(appOrdersTable)
       .values({
@@ -492,6 +505,7 @@ export async function recordSuccessfulWcOrder(input: {
         platform: platform ?? null,
         totalUsdCents: totalUsdCents ?? null,
         storeKey: storeKey ?? null,
+        senderPhone: normalizedSenderPhone,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -507,6 +521,7 @@ export async function recordSuccessfulWcOrder(input: {
           platform: platform ?? null,
           totalUsdCents: totalUsdCents ?? null,
           storeKey: storeKey ?? null,
+          senderPhone: normalizedSenderPhone,
           updatedAt: new Date(),
         },
       });

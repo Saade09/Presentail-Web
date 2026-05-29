@@ -113,7 +113,13 @@ export const SendOrderEventPushBody = zod.object({
 
 export const SendOrderEventPushResponse = zod.object({
   ok: zod.boolean(),
-  sent: zod.number(),
+  sent: zod.number().describe("Number of push notifications delivered."),
+  smsSent: zod
+    .number()
+    .optional()
+    .describe(
+      "Number of SMS\/WhatsApp messages sent (0 when Twilio is not configured or the state is not in SMS_NOTIFY_STATES).",
+    ),
 });
 
 /**

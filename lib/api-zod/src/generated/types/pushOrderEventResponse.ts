@@ -8,5 +8,8 @@
 
 export interface PushOrderEventResponse {
   ok: boolean;
+  /** Number of push notifications delivered. */
   sent: number;
+  /** Number of SMS/WhatsApp messages sent (0 when Twilio is not configured or the state is not in SMS_NOTIFY_STATES). */
+  smsSent?: number;
 }

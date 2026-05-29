@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { authenticate } from "../lib/auth";
 import { sendOrderEventPush } from "../lib/orderEvents";
+import { sendOrderEventSms } from "../lib/smsNotify";
 import { getCustomerByWcId } from "../lib/customers";
 import { creditDeliveredOrder, reverseDeliveredOrder } from "../lib/loyalty";
 
@@ -219,15 +220,24 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
       return;
     }
 
-    const sent = await sendOrderEventPush({
-      state,
-      appOrderId: order.appOrderId,
-      userId: order.userId,
-      deviceId: order.deviceId,
-      recipientName: order.recipientName,
-      customTitle: title,
-      customBody: body,
-    });
+    const [sent, { smsSent }] = await Promise.all([
+      sendOrderEventPush({
+        state,
+        appOrderId: order.appOrderId,
+        userId: order.userId,
+        deviceId: order.deviceId,
+        recipientName: order.recipientName,
+        customTitle: title,
+        customBody: body,
+      }),
+      sendOrderEventSms({
+        state,
+        appOrderId: order.appOrderId,
+        senderPhone: order.senderPhone,
+        recipientName: order.recipientName,
+        storeKey: order.storeKey,
+      }),
+    ]);
 
     const previousState = order.state;
     await db
@@ -277,7 +287,7 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
       );
     }
 
-    res.json({ ok: true, sent, ...(loyalty ? { loyalty } : {}) });
+    res.json({ ok: true, sent, smsSent, ...(loyalty ? { loyalty } : {}) });
   } catch (err: any) {
     req.log?.error?.({ err: err?.message }, "push.order-event failed");
     res

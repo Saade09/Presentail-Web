@@ -38,6 +38,11 @@ export const appOrdersTable = pgTable(
     // Dubai and Abu Dhabi share country code AE — using the country alone
     // would let their wcOrderIds collide. Nullable for legacy rows.
     storeKey: text("store_key"),
+    // Billing phone (E.164) of the person who placed the order. Stored so
+    // the SMS/WhatsApp delivery-update notifier can reach the sender without
+    // a round-trip to WooCommerce. Nullable for legacy rows and guest orders
+    // where no phone was captured.
+    senderPhone: text("sender_phone"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
