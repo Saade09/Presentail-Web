@@ -567,6 +567,7 @@ const EN = {
   ocStep2: "Boutique wrapping with your card",
   ocStep3: "Climate-controlled delivery to the door",
   ocBackToHome: "Back to home",
+  ocTrackOrder: "Track order",
 
   // ── Contact page ──
   contactTitle: "Contact Us",
@@ -1322,6 +1323,7 @@ const AR: typeof EN = {
   ocStep2: "تغليف من البوتيك مع بطاقتك",
   ocStep3: "توصيل بمركبة بدرجة حرارة مضبوطة",
   ocBackToHome: "العودة إلى الرئيسية",
+  ocTrackOrder: "تتبّع الطلب",
 
   // ── Contact page ──
   contactTitle: "تواصل معنا",
@@ -2080,6 +2082,7 @@ const FR: typeof EN = {
   ocStep2: "Emballage boutique avec votre carte",
   ocStep3: "Livraison à température maîtrisée jusqu'à la porte",
   ocBackToHome: "Retour à l'accueil",
+  ocTrackOrder: "Suivre la commande",
 
   // ── Contact page ──
   contactTitle: "Nous contacter",

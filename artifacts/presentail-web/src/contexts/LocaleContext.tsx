@@ -540,6 +540,7 @@ export const STRINGS: Dict = {
   "order.fail.couldntRead": { en: "Could not read pending order.", ar: "تعذّرت قراءة الطلب المعلّق." },
   "order.fail.couldntCreate": { en: "Order could not be created.", ar: "تعذّر إنشاء الطلب." },
   "order.fail.failed": { en: "Order finalization failed.", ar: "فشل إتمام الطلب." },
+  "order.trackOrder": { en: "Track order", ar: "تتبّع الطلب" },
 
   "payments.waysToPay": { en: "Ways to Pay", ar: "طرق الدفع" },
 
@@ -1118,6 +1119,7 @@ export const STRINGS_FR: Record<string, string> = {
   "order.fail.couldntRead": "Impossible de lire la commande en attente.",
   "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
   "order.fail.failed": "Échec de la finalisation de la commande.",
+  "order.trackOrder": "Suivre la commande",
 
   "payments.waysToPay": "Moyens de paiement",
 

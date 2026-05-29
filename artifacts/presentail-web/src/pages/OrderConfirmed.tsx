@@ -135,9 +135,20 @@ export default function OrderConfirmed() {
         </p>
 
         {isSuccess && (
-          <div className="bg-secondary/50 rounded-2xl p-6 my-8">
-            <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
-            <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
+          <div className="bg-secondary/50 rounded-2xl p-6 my-8 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
+              <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
+            </div>
+            <a
+              href={`https://orderstatus.presentail.com?order=${ref}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary underline underline-offset-4 hover:opacity-70 transition-opacity"
+              data-testid="link-track-order"
+            >
+              {t("order.trackOrder")} →
+            </a>
           </div>
         )}
 

@@ -114,6 +114,39 @@ function OrderConfirmed() {
         </View>
 
         {!isFailed ? (
+          <Pressable
+            onPress={() =>
+              Linking.openURL(`https://orderstatus.presentail.com?order=${orderId}`)
+            }
+            style={{
+              marginTop: 4,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 999,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+            }}
+          >
+            <Feather name="map-pin" size={14} color={colors.primary} />
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 12,
+                color: colors.primary,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+              }}
+            >
+              {t.ocTrackOrder}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {!isFailed ? (
           <View
             style={{
               width: "100%",
