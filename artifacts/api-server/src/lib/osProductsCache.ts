@@ -39,8 +39,8 @@ import type {
   OSProductBrand,
   OSProductOccasion,
 } from "@workspace/presentail-os";
-import { db, osPriceSnapshotsTable } from "@workspace/db";
-import { lt, sql } from "drizzle-orm";
+import { db, osPriceSnapshotsTable, osPriceAlertsTable } from "@workspace/db";
+import { gt, lt, sql } from "drizzle-orm";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
@@ -280,12 +280,81 @@ function utcDateString(d: Date): string {
 // ── Price-change alert helpers ─────────────────────────────────────────────
 
 /**
+ * Seed the in-memory `priceAlertedAt` deduplication map from the DB on
+ * startup. Loads only rows whose `alerted_at` timestamp falls within the
+ * past 24 h so we never suppress an alert that is already overdue.
+ *
+ * Must be called before the first OS product fetch (alongside
+ * `seedStartupSnapshotFromDb`) so the dedupe window carries across deploys
+ * and crashes — a reprice detected right before a restart won't re-fire
+ * its alert on the next sync tick after boot.
+ *
+ * Safe to call multiple times (no-op once the map is non-empty).
+ * No-op in test environments.
+ */
+export async function seedPriceAlertDedupeFromDb(): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
+  if (priceAlertedAt.size > 0) return; // already seeded
+  try {
+    const cutoff = new Date(Date.now() - PRICE_ALERT_DEDUPE_MS);
+    const rows = await db
+      .select({
+        productId: osPriceAlertsTable.productId,
+        alertedAt: osPriceAlertsTable.alertedAt,
+      })
+      .from(osPriceAlertsTable)
+      .where(gt(osPriceAlertsTable.alertedAt, cutoff));
+    let seeded = 0;
+    for (const row of rows) {
+      priceAlertedAt.set(row.productId, row.alertedAt.getTime());
+      seeded++;
+    }
+    if (seeded > 0) {
+      logger.info(
+        { seeded },
+        "osProductsCache: price-alert dedupe map seeded from DB",
+      );
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(
+      { err: msg },
+      "osProductsCache: failed to seed price-alert dedupe map from DB — mid-day restart may cause duplicate alerts",
+    );
+  }
+}
+
+/**
+ * Persist a single product's alert timestamp to the `os_price_alerts` table
+ * so the 24 h deduplication window survives restarts.
+ *
+ * Uses an upsert so the table stays small (one row per product ever alerted).
+ * Failures are logged as warnings and do not block the alert itself.
+ */
+function persistAlertTimestamp(productId: string, alertedAt: Date): void {
+  db.insert(osPriceAlertsTable)
+    .values({ productId, alertedAt })
+    .onConflictDoUpdate({
+      target: osPriceAlertsTable.productId,
+      set: { alertedAt },
+    })
+    .catch((err: unknown) => {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), productId },
+        "osProductsCache: failed to persist price-alert timestamp to DB",
+      );
+    });
+}
+
+/**
  * Compare the freshly-fetched `products` against the startup price snapshot
  * and fire a Slack alert for each product whose price has changed.
  *
  * Deduplication: at most one alert per product per 24 h, so the message
  * fires once when a repricing is first detected and stays silent on every
- * subsequent polling tick until the window resets.
+ * subsequent polling tick until the window resets. The deduplication state
+ * is persisted to the `os_price_alerts` table so it survives server restarts
+ * and deploys — a reprice just before a deploy won't re-fire after boot.
  *
  * Called only on refreshes that follow the initial snapshot load — on the
  * very first fetch, prices equal the snapshot by construction and no alert
@@ -296,6 +365,7 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
 
   const now = Date.now();
   const changed: Array<{
+    id: string;
     name: string;
     oldPrice: number;
     newPrice: number;
@@ -312,7 +382,7 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
     if (lastAlerted !== undefined && now - lastAlerted < PRICE_ALERT_DEDUPE_MS) continue;
 
     priceAlertedAt.set(p.id, now);
-    changed.push({ name: p.name, oldPrice: snapshotPrice, newPrice: p.price });
+    changed.push({ id: p.id, name: p.name, oldPrice: snapshotPrice, newPrice: p.price });
   }
 
   if (changed.length === 0) return;
@@ -321,7 +391,12 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
     (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/+$/, "") +
     "/api/admin/funnels";
 
+  const alertedAtDate = new Date(now);
   for (const item of changed) {
+    // Persist the alert timestamp before sending so even a Slack failure
+    // doesn't leave the dedupe window un-persisted.
+    persistAlertTimestamp(item.id, alertedAtDate);
+
     sendAlert({
       title: "Add-on price changed",
       body: `*${item.name}* price changed from $${item.oldPrice.toFixed(2)} to $${item.newPrice.toFixed(2)}. Revenue estimates in the funnel dashboard may be affected.`,
@@ -614,11 +689,15 @@ export function startOsProductsSync(): void {
   }
 
   const initTimer = setTimeout(() => {
-    // Seed the startup price snapshot from the DB before the first OS fetch
-    // so that `maybeRecordStartupSnapshot` uses the persisted prior-day baseline
-    // rather than the freshly fetched prices (which would make every product
-    // look "unchanged" immediately after a restart).
-    seedStartupSnapshotFromDb()
+    // Seed the startup price snapshot and the price-alert deduplication map
+    // from the DB before the first OS fetch. Both must be populated before
+    // `fetchAndStore` runs so that:
+    //   1. `maybeRecordStartupSnapshot` uses the persisted prior-day baseline
+    //      rather than treating the fresh prices as the baseline (which would
+    //      make every product look "unchanged" immediately after a restart).
+    //   2. `detectAndAlertPriceChanges` doesn't re-fire alerts that were
+    //      already sent within the past 24 h before the restart.
+    Promise.all([seedStartupSnapshotFromDb(), seedPriceAlertDedupeFromDb()])
       .then(() => fetchAndStore())
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
