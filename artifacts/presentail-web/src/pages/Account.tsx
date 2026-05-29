@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth as useClerkAuth } from "@clerk/react";
@@ -364,21 +365,29 @@ type AddressData = {
   label: string;
   nickname?: string | null;
   isDefault: boolean;
+  countryCode?: string | null;
   district?: string | null;
   addressLine?: string | null;
   building?: string | null;
   apartment?: string | null;
+  directions?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhone?: string | null;
+  recipientPhoneCountryCode?: string | null;
 };
 
 function AddressCard({
   address,
   onDelete,
   onSetDefault,
+  onEdit,
   t,
 }: {
   address: AddressData;
   onDelete: () => void;
   onSetDefault: () => void;
+  onEdit: () => void;
   t: (k: string) => string;
 }) {
   const labelChip: Record<string, string> = { home: "Home", work: "Work", other: "Other" };
@@ -412,13 +421,23 @@ function AddressCard({
             <div className="text-sm text-muted-foreground mt-0.5">{line2}</div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-secondary/60 transition-colors"
+            title="Edit address"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       {!address.isDefault && (
         <button
@@ -433,40 +452,68 @@ function AddressCard({
   );
 }
 
+function buildEmptyForm(defaultCountryCode?: string) {
+  return {
+    label: "home",
+    nickname: "",
+    countryCode: defaultCountryCode?.toUpperCase().slice(0, 2) || "LB",
+    area: "",
+    addressLine: "",
+    directions: "",
+    recipientFirstName: "",
+    recipientLastName: "",
+    recipientPhone: "",
+    recipientPhoneCountryCode: "+961",
+  };
+}
+
 function AddAddressModal({
   open,
   onClose,
   onSaved,
   defaultCountryCode,
+  editAddress,
   t,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   defaultCountryCode?: string;
+  editAddress?: AddressData | null;
   t: (k: string) => string;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    recipientName: "",
-    recipientPhone: "",
-    recipientPhoneCountryCode: "+961",
-    area: "",
-    addressLine: "",
-    details: "",
-    countryCode: defaultCountryCode?.toUpperCase().slice(0, 2) || "LB",
-    label: "home",
-  });
+  const isEdit = !!editAddress;
+
+  const [form, setForm] = useState(() => buildEmptyForm(defaultCountryCode));
 
   useEffect(() => {
-    if (defaultCountryCode) {
-      setForm((f) => ({
-        ...f,
-        countryCode: defaultCountryCode.toUpperCase().slice(0, 2),
-      }));
+    if (open) {
+      if (editAddress) {
+        const recipientPhone = editAddress.recipientPhone ?? "";
+        const recipientPhoneCountryCode = editAddress.recipientPhoneCountryCode ?? "+961";
+        setForm({
+          label: editAddress.label || "home",
+          nickname: editAddress.nickname ?? "",
+          countryCode: (editAddress.countryCode ?? defaultCountryCode ?? "LB").toUpperCase().slice(0, 2),
+          area: editAddress.district ?? "",
+          addressLine: [
+            editAddress.addressLine,
+            editAddress.building ? `Bldg: ${editAddress.building}` : null,
+            editAddress.apartment ? `Apt/Floor: ${editAddress.apartment}` : null,
+          ].filter(Boolean).join(" · "),
+          directions: editAddress.directions ?? "",
+          recipientFirstName: editAddress.recipientFirstName ?? "",
+          recipientLastName: editAddress.recipientLastName ?? "",
+          recipientPhone,
+          recipientPhoneCountryCode,
+        });
+      } else {
+        setForm(buildEmptyForm(defaultCountryCode));
+      }
     }
-  }, [defaultCountryCode]);
+  }, [open, editAddress, defaultCountryCode]);
 
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
@@ -486,53 +533,47 @@ function AddAddressModal({
       toast({ title: "Please select a country", variant: "destructive" });
       return;
     }
+    const trimmedPhone = form.recipientPhone.trim();
     setBusy(true);
     try {
-      await apiFetch("/me/addresses", {
-        method: "POST",
-        body: JSON.stringify({
-          label: form.label,
-          countryCode,
-          district: area,
-          addressLine,
-          building: null,
-          apartment: null,
-          directions: form.details.trim() || null,
-          nickname: form.recipientName.trim() || null,
-          recipientPhone: form.recipientPhone.trim() || null,
-          recipientPhoneCountryCode: form.recipientPhone.trim()
-            ? form.recipientPhoneCountryCode || null
-            : null,
-          isDefault: false,
-        }),
+      const body = JSON.stringify({
+        label: form.label,
+        countryCode,
+        district: area,
+        addressLine,
+        building: null,
+        apartment: null,
+        directions: form.directions.trim() || null,
+        nickname: form.nickname.trim() || null,
+        recipientFirstName: form.recipientFirstName.trim() || null,
+        recipientLastName: form.recipientLastName.trim() || null,
+        recipientPhone: trimmedPhone || null,
+        recipientPhoneCountryCode: trimmedPhone ? form.recipientPhoneCountryCode || null : null,
+        isDefault: false,
       });
-      toast({ title: "Address saved" });
+
+      if (isEdit && editAddress) {
+        await apiFetch(`/me/addresses/${editAddress.id}`, {
+          method: "PATCH",
+          body,
+        });
+        toast({ title: "Address updated" });
+      } else {
+        await apiFetch("/me/addresses", {
+          method: "POST",
+          body,
+        });
+        toast({ title: "Address saved" });
+      }
+
       onSaved();
       onClose();
-      setForm({
-        recipientName: "",
-        recipientPhone: "",
-        recipientPhoneCountryCode: "+961",
-        area: "",
-        addressLine: "",
-        details: "",
-        countryCode: defaultCountryCode?.toUpperCase().slice(0, 2) || "LB",
-        label: "home",
-      });
     } catch (err: any) {
-      const status = err?.status ?? err?.response?.status;
-      if (status === 404 || status === 501) {
-        toast({
-          title: "Address saving coming soon",
-          description: "We're working on this feature. It'll be available shortly.",
-        });
-      } else {
-        const msg =
-          err?.message ??
-          err?.response?.data?.message ??
-          "Couldn't save address. Please check your details and try again.";
-        toast({ title: "Couldn't save address", description: msg, variant: "destructive" });
-      }
+      const msg =
+        err?.message ??
+        err?.response?.data?.message ??
+        "Couldn't save address. Please check your details and try again.";
+      toast({ title: "Couldn't save address", description: msg, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -543,7 +584,7 @@ function AddAddressModal({
       <DialogContent className="max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
-            {t("account.addresses.add")}
+            {isEdit ? "Edit address" : t("account.addresses.add")}
           </DialogTitle>
         </DialogHeader>
 
@@ -567,14 +608,15 @@ function AddAddressModal({
 
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Recipient name
+              Nickname
             </Label>
             <Input
-              value={form.recipientName}
-              onChange={(e) => set("recipientName", e.target.value)}
-              placeholder="Full name"
+              value={form.nickname}
+              onChange={(e) => set("nickname", e.target.value)}
+              placeholder="e.g. Mom's place"
             />
           </div>
+
           <div className="grid grid-cols-[80px_1fr] gap-2">
             <div>
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
@@ -599,9 +641,10 @@ function AddAddressModal({
               />
             </div>
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Address <span className="text-destructive">*</span>
+              Street address <span className="text-destructive">*</span>
             </Label>
             <Input
               value={form.addressLine}
@@ -609,6 +652,30 @@ function AddAddressModal({
               placeholder="Street, building, floor..."
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                Recipient first name
+              </Label>
+              <Input
+                value={form.recipientFirstName}
+                onChange={(e) => set("recipientFirstName", e.target.value)}
+                placeholder="e.g. Layla"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                Recipient last name
+              </Label>
+              <Input
+                value={form.recipientLastName}
+                onChange={(e) => set("recipientLastName", e.target.value)}
+                placeholder="e.g. Haddad"
+              />
+            </div>
+          </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Recipient phone
@@ -620,13 +687,14 @@ function AddAddressModal({
               inputMode="tel"
             />
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Extra details
             </Label>
             <Input
-              value={form.details}
-              onChange={(e) => set("details", e.target.value)}
+              value={form.directions}
+              onChange={(e) => set("directions", e.target.value)}
               placeholder="Landmark, buzzer code..."
             />
           </div>
@@ -637,7 +705,7 @@ function AddAddressModal({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={busy} className="rounded-full">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save address"}
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : isEdit ? "Save changes" : "Save address"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -649,6 +717,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [editAddress, setEditAddress] = useState<AddressData | null>(null);
   const { toast } = useToast();
   const { countryCode: activeCountryCode } = useLocationSelection();
 
@@ -720,6 +789,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
               <AddressCard
                 key={addr.id}
                 address={addr}
+                onEdit={() => setEditAddress(addr)}
                 onDelete={() => handleDelete(addr.id)}
                 onSetDefault={() => handleSetDefault(addr.id)}
                 t={t}
@@ -734,6 +804,15 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
         onClose={() => setAddOpen(false)}
         onSaved={load}
         defaultCountryCode={activeCountryCode ?? "LB"}
+        t={t}
+      />
+
+      <AddAddressModal
+        open={!!editAddress}
+        onClose={() => setEditAddress(null)}
+        onSaved={load}
+        defaultCountryCode={activeCountryCode ?? "LB"}
+        editAddress={editAddress}
         t={t}
       />
     </>
