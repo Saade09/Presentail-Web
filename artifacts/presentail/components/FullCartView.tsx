@@ -80,7 +80,6 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
         </Text>
         <Price
           value={lineTotal}
-          native
           style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
         />
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
@@ -371,7 +370,6 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   </View>
                   <Price
                     value={total}
-                    native
                     style={{
                       fontFamily: "Inter_600SemiBold",
                       fontSize: 11,
@@ -547,7 +545,6 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </Text>
               <Price
                 value={total}
-                native
                 style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
               />
             </View>
@@ -566,7 +563,6 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 </Text>
                 <Price
                   value={expressFeeUsd}
-                  native
                   style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
                 />
               </View>
@@ -577,7 +573,6 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </Text>
               <Price
                 value={grandTotalUsd}
-                native
                 style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
               />
             </View>

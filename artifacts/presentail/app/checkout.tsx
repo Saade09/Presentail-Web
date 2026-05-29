@@ -158,7 +158,7 @@ function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
-  const { formatNative, currencyCode } = useCurrency();
+  const { formatPrice, currencyCode } = useCurrency();
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
@@ -1067,7 +1067,7 @@ function CheckoutScreen() {
                 ? t.continueToPayment
                 : paying
                   ? t.processingOrder
-                  : `${t.payLabel} ${formatNative(fees.grand)}`}
+                  : `${t.payLabel} ${formatPrice(fees.grand)}`}
           </Text>
           <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
         </Pressable>
@@ -1626,7 +1626,7 @@ function DeliveryDetailsStep(props: any) {
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
   } = props;
-  const { formatNative } = useCurrency();
+  const { formatPrice } = useCurrency();
   const t = useT();
   const { isRTL } = useLanguage();
   return (
@@ -1828,7 +1828,7 @@ function DeliveryDetailsStep(props: any) {
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                {formatNative(district.fee)} {t.checkoutDeliverySuffix}
+                {formatPrice(district.fee)} {t.checkoutDeliverySuffix}
               </Text>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </View>
@@ -1878,7 +1878,7 @@ function DeliveryDetailsStep(props: any) {
                         {item.name}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatNative(item.fee)}</Text>
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatPrice(item.fee)}</Text>
                         {selected && <Feather name="check" size={16} color={colors.gold} />}
                       </View>
                     </TouchableOpacity>
@@ -2063,7 +2063,7 @@ function DeliveryTimeCard({
   colors, days, date, setDate, slot, setSlot,
   deliveryMode, setDeliveryMode, expressAvailable, timeSlots, expressSurcharge, localHour,
 }: any) {
-  const { formatNative } = useCurrency();
+  const { formatPrice } = useCurrency();
   const t = useT();
   const todayIso = days[0]?.iso;
   return (
@@ -2074,7 +2074,7 @@ function DeliveryTimeCard({
           icon="zap"
           title={t.expressDelivery}
           subtitle={t.oneToThreeHrs}
-          footer={expressAvailable ? `+${formatNative(expressSurcharge)}` : t.opensAt8AM}
+          footer={expressAvailable ? `+${formatPrice(expressSurcharge)}` : t.opensAt8AM}
           active={deliveryMode === "express"}
           disabled={!expressAvailable}
           onPress={() => setDeliveryMode("express")}
@@ -2473,7 +2473,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 // =============== Order Summary ===============
 
 function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
-  const { formatNative } = useCurrency();
+  const { formatPrice } = useCurrency();
   const t = useT();
   return (
     <Card colors={colors} title={t.checkoutOrderSummaryCard}>
@@ -2497,7 +2497,7 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
             </View>
             <View style={{ alignItems: "flex-end", gap: 6 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
-                {formatNative(lineTotal)}
+                {formatPrice(lineTotal)}
               </Text>
               <Pressable onPress={() => remove(product.id)} hitSlop={6}>
                 <Feather name="x-circle" size={14} color={colors.mutedForeground} />
@@ -2517,22 +2517,22 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
       ) : null}
 
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label={t.checkoutSubtotalLabel} value={formatNative(fees.subtotal)} colors={colors} />
+      <SummaryRow label={t.checkoutSubtotalLabel} value={formatPrice(fees.subtotal)} colors={colors} />
       {showDeliveryFee ? (
         <>
           <SummaryRow
             label={t.checkoutDeliveryFeeLabel}
-            value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatNative(fees.districtFee)}
+            value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatPrice(fees.districtFee)}
             colors={colors}
             highlight={fees.districtFee === 0}
           />
           {fees.expressFee > 0 ? (
-            <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatNative(fees.expressFee)} colors={colors} />
+            <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatPrice(fees.expressFee)} colors={colors} />
           ) : null}
         </>
       ) : null}
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label={t.checkoutTotalLabel} value={formatNative(fees.grand)} colors={colors} bold />
+      <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />
     </Card>
   );
 }

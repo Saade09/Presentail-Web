@@ -75,7 +75,7 @@ export function CartDrawer() {
     }
     wasOpenRef.current = isCartOpen;
   }, [isCartOpen]);
-  const { formatNative, currencyCode, convert } = useCurrency();
+  const { formatNative, formatPrice, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();
   const deliverySelection = useDeliverySelection();
@@ -284,7 +284,6 @@ export function CartDrawer() {
                     </View>
                     <Price
                       value={total}
-                      native
                       style={{
                         fontFamily: "Inter_600SemiBold",
                         fontSize: 11,
@@ -322,7 +321,7 @@ export function CartDrawer() {
                       {product.name}
                     </Text>
                     <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
-                      {formatNative(lineTotal)}
+                      {formatPrice(lineTotal)}
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Pressable
@@ -436,7 +435,6 @@ export function CartDrawer() {
                   </Text>
                   <Price
                     value={expressFeeUsd}
-                    native
                     style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary }}
                   />
                 </View>
@@ -446,7 +444,7 @@ export function CartDrawer() {
                   Total
                 </Text>
                 <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
-                  {formatNative(grandTotalUsd)}
+                  {formatPrice(grandTotalUsd)}
                 </Text>
               </View>
               <Pressable

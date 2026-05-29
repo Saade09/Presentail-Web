@@ -486,7 +486,6 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Price
             value={priceValue}
-            native
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
           />
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>

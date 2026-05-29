@@ -307,7 +307,6 @@ export function CartUpsells() {
                 <View style={{ padding: 10, gap: 6 }}>
                   <Price
                     value={Number.isFinite(product.priceValue) ? product.priceValue : 0}
-                    native
                     style={{
                       fontFamily: "PlayfairDisplay_500Medium",
                       fontSize: 15,

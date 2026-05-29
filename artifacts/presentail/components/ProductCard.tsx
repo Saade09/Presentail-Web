@@ -100,7 +100,6 @@ export function ProductCard({ product, width, onPress }: Props) {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Price
             value={product.priceValue}
-            native
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
           />
           {product.priceValue >= threshold ? (
