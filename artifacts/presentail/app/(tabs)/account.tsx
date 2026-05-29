@@ -639,7 +639,7 @@ function AccountTab() {
             { icon: "package" as const, label: t.accountMyOrders, onPress: () => router.push("/orders" as never) },
             { icon: "star" as const, label: "Points", onPress: () => router.push("/loyalty" as never) },
             { icon: "map-pin" as const, label: t.savedAddressesTitle, onPress: () => router.push("/saved-addresses" as never) },
-            { icon: "bell" as const, label: t.notifications, onPress: onNotifRowPress },
+            { icon: "bell" as const, label: t.notifications, onPress: () => router.push("/notification-preferences" as never) },
           ] as const).map((item) => (
             <Pressable
               key={item.icon}

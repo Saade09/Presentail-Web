@@ -106,7 +106,7 @@ export default function Account() {
             {tab === "loyalty" && <LoyaltySection t={t} />}
             {tab === "favorites" && <FavoritesSection t={t} />}
             {tab === "addresses" && <AddressesSection t={t} />}
-            {tab === "notifications" && <NotificationsSection t={t} />}
+            {tab === "notifications" && <NotificationsSection signedIn={!!isSignedIn} t={t} />}
           </div>
         </div>
       </div>
@@ -740,14 +740,135 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   );
 }
 
-function NotificationsSection({ t }: { t: (k: string) => string }) {
+function NotificationsSection({ signedIn, t }: { signedIn: boolean; t: (k: string) => string }) {
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [, setLocation] = useLocation();
+  const { data: ordersData, isLoading: ordersLoading } = useMyOrders(signedIn);
+
+  useEffect(() => {
+    if (typeof Notification === "undefined") {
+      setPermission("unsupported");
+    } else {
+      setPermission(Notification.permission);
+    }
+  }, []);
+
+  const statusLabel =
+    permission === "granted"
+      ? t("account.notifications.statusEnabled")
+      : permission === "denied"
+      ? t("account.notifications.statusDisabled")
+      : permission === "unsupported"
+      ? t("account.notifications.statusDefault")
+      : t("account.notifications.statusDefault");
+
+  const statusColor =
+    permission === "granted"
+      ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+      : permission === "denied"
+      ? "text-destructive bg-destructive/8 border-destructive/20"
+      : "text-muted-foreground bg-secondary border-border/60";
+
+  const hint =
+    permission === "denied"
+      ? t("account.notifications.blockedHint")
+      : permission === "granted"
+      ? null
+      : t("account.notifications.enableHint");
+
   return (
-    <SectionCard title={t("account.notifications")}>
-      <EmptyState
-        icon={Bell}
-        title="No notifications yet"
-        description="You'll see order updates and special offers here once they're available."
-      />
-    </SectionCard>
+    <div className="space-y-5">
+      <SectionCard title={t("account.notifications")}>
+        <div className="space-y-5">
+          {/* Push permission status row */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-foreground">
+                {t("account.notifications.pushStatus")}
+              </span>
+            </div>
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor}`}
+            >
+              {statusLabel}
+            </span>
+          </div>
+
+          {/* Hint / action */}
+          {hint && (
+            <div className="text-sm text-muted-foreground leading-relaxed">
+              {hint}
+            </div>
+          )}
+
+          {permission === "denied" && (
+            <button
+              type="button"
+              onClick={() => {
+                window.open(
+                  "https://support.google.com/chrome/answer/3220216",
+                  "_blank",
+                  "noopener,noreferrer"
+                );
+              }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              {t("account.notifications.openSettings")}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* Order updates section — shows real recent orders */}
+      <SectionCard
+        title={t("account.notifications.orderUpdates")}
+        action={
+          ordersData?.orders && ordersData.orders.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setLocation("/orders")}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              {t("account.notifications.viewOrders")}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          ) : null
+        }
+      >
+        {ordersLoading ? (
+          <ul className="space-y-3">
+            {[1, 2].map((i) => (
+              <AccountOrderCardSkeleton key={i} />
+            ))}
+          </ul>
+        ) : ordersData?.orders && ordersData.orders.length > 0 ? (
+          <ul className="space-y-3">
+            {ordersData.orders.slice(0, 3).map((o) => (
+              <AccountOrderCard key={o.appOrderId} order={o} t={t} />
+            ))}
+            {ordersData.orders.length > 3 && (
+              <li className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setLocation("/orders")}
+                  className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  {t("account.notifications.viewOrders")}
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            )}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {t("account.notifications.orderUpdatesDesc")}
+          </p>
+        )}
+      </SectionCard>
+    </div>
   );
 }
