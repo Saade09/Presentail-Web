@@ -15,6 +15,23 @@
  */
 
 // ---------------------------------------------------------------------------
+// Free delivery threshold (native currency)
+// ---------------------------------------------------------------------------
+
+/**
+ * The free-delivery threshold in the store's native currency.
+ * AE → AED 330, CY → EUR 120, LB (default) → USD 130.
+ *
+ * Used for display on the product detail screen and product cards so the
+ * shopper sees the threshold in the currency they're already looking at.
+ */
+export function freeDeliveryThresholdNative(countryCode?: string | null): number {
+  if (countryCode === "AE") return 330;
+  if (countryCode === "CY") return 120;
+  return 130;
+}
+
+// ---------------------------------------------------------------------------
 // Express surcharge
 // ---------------------------------------------------------------------------
 

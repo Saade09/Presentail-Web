@@ -34,6 +34,7 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import {
+  freeDeliveryThresholdNative,
   getCountryHour,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
@@ -560,7 +561,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
         }}
       >
         {[
-          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(cc === "AE" ? 330 : cc === "CY" ? 120 : 130)}.` },
+          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative(cc))}.` },
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
         ].map((b, i, arr) => (

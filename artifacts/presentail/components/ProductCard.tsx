@@ -12,12 +12,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
-
-function freeDeliveryThresholdNative(code?: string | null): number {
-  if (code === "AE") return 330;
-  if (code === "CY") return 120;
-  return 130;
-}
+import { freeDeliveryThresholdNative } from "@workspace/delivery";
 
 type Props = {
   product: Product;
