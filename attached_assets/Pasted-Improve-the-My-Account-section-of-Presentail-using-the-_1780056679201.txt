@@ -1,0 +1,117 @@
+Improve the “My Account” section of Presentail using the attached reference screenshots as inspiration.
+
+Current issue:
+The existing My Account page feels too empty and basic. The layout has too much blank space, the sidebar is minimal, “Order History” only shows loading text, and key sections like profile details, saved addresses, favorites, and points do not feel polished.
+
+Goal:
+Redesign the My Account experience so it feels premium, clean, structured, and closer to the Floward-style account section in the reference screenshots, while keeping Presentail’s own branding, logo, colors, fonts, and overall visual identity. Do not copy Floward branding directly.
+
+Important:
+Do not hardcode any personal user data from the screenshots. Use the existing authenticated user data, order data, address data, favorites data, and points data from the app/state/API. If data is missing, show tasteful empty states.
+
+Design requirements:
+1. Keep the main site header/nav unchanged unless small spacing adjustments are needed.
+2. Create a centered account dashboard layout with a max-width container.
+3. Use a two-column desktop layout:
+   - Left column: account navigation sidebar.
+   - Right column: active account content.
+4. The left sidebar should feel like a polished account menu:
+   - Profile Details
+   - Order History
+   - Presentail Points
+   - Favorites
+   - Saved Addresses
+   - Sign Out
+5. Use card-like menu items with icons, rounded corners, subtle borders, and hover/active states.
+6. Add top shortcut cards similar to the reference:
+   - My Orders
+   - Notifications
+   - Presentail Points
+   - Saved Addresses
+   These should be compact, clickable cards with icons and small badges/counts where applicable.
+7. The right-side content should appear inside clean white cards with rounded corners, soft shadows or subtle borders, generous padding, and clear section headings.
+8. Improve visual hierarchy:
+   - Large “My Account” page title.
+   - Clear section headings.
+   - Labels in muted text.
+   - Values in stronger text.
+   - Consistent spacing between rows.
+9. Make the design fully responsive:
+   - Desktop: sidebar + content layout.
+   - Tablet: slightly narrower sidebar.
+   - Mobile: convert sidebar into horizontal scroll tabs or stacked cards above the content.
+
+Functional requirements:
+1. Profile Details:
+   - Show name, email, phone number, date of birth if available, and gender if available.
+   - Include an “Edit Profile” action.
+   - If a field is missing, show “Not added yet” instead of leaving blank.
+2. Order History:
+   - Replace plain “Loading your orders...” with a proper loading skeleton.
+   - If orders exist, show order cards with order number, date, status, delivery address, total, and “View Details”.
+   - If no orders exist, show a friendly empty state with a CTA to shop flowers.
+3. Presentail Points:
+   - Show current points balance.
+   - Include a simple explanation of how points work.
+   - Show recent point activity if data exists.
+   - Empty state if no activity exists.
+4. Favorites:
+   - Show favorite products in a clean grid.
+   - Include image, product name, price, and remove/view actions.
+   - Empty state if no favorites exist.
+5. Saved Addresses:
+   - Remove or replace the “SOON” label if address functionality already exists.
+   - Show saved address cards with recipient name, phone, area, address, and edit/delete actions.
+   - Add a prominent “Add Address” button.
+6. Add/Edit Address:
+   - Use a polished modal or side panel inspired by the reference.
+   - Fields:
+     - Recipient name
+     - Country code
+     - Recipient phone
+     - Recipient area
+     - Recipient address
+     - Extra address details
+   - Include validation for required fields.
+   - Keep the map/location picker if it already exists, but make it visually cleaner.
+   - If location is unavailable, show a clear non-blocking message instead of a confusing “Area not available” state.
+7. Notifications:
+   - If notification data exists, show unread count badges.
+   - If not implemented, keep the UI ready but show a clean empty state.
+
+UX details:
+1. Active sidebar item should be visually obvious.
+2. Avoid huge empty areas.
+3. Use consistent spacing, border radius, typography, and button styles.
+4. Add subtle hover states for cards and buttons.
+5. Buttons should match Presentail’s existing brand style.
+6. The page should feel premium and trustworthy, suitable for an online flower/gifting brand.
+7. Preserve existing routing and state management where possible.
+8. Do not break authentication, sign out, cart, checkout, or header behavior.
+
+Technical requirements:
+1. Inspect the existing codebase first and identify the current My Account components/routes.
+2. Reuse existing components where possible.
+3. Keep the implementation clean and maintainable.
+4. Avoid duplicate CSS. Use the app’s existing styling system, whether that is Tailwind, CSS modules, styled components, or global CSS.
+5. Add reusable components if helpful:
+   - AccountLayout
+   - AccountSidebar
+   - AccountShortcutCard
+   - AccountSectionCard
+   - EmptyState
+   - AddressCard
+   - OrderCard
+   - AddressModal
+6. Make sure there are no console errors.
+7. Test desktop and mobile layouts.
+8. Do not introduce new dependencies unless absolutely necessary.
+
+Acceptance criteria:
+- The My Account page looks polished and close in structure/quality to the attached reference account screenshots.
+- Presentail branding remains intact.
+- Sidebar navigation is clear and usable.
+- Profile, orders, points, favorites, and addresses all have proper content states.
+- Loading, empty, and error states are designed instead of appearing unfinished.
+- The page is responsive and works well on mobile.
+- No personal information from the screenshots is hardcoded.
