@@ -193,12 +193,113 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
  *   pct        = Σ(upsell_item_added × priceUsd) / totalOrderRevenue × 100
  *   orderCount = number of confirmed app_orders on that (day, platform)
  */
-type PlatformRevenuePct = {
+export type PlatformRevenuePct = {
   day: string;
   platform: string;
   pct: number;
   orderCount: number;
 };
+
+/**
+ * Result of evaluating one platform in the revenue % WoW check.
+ */
+export type PlatformRevenuePctBreach = {
+  platform: string;
+  currentPct: number;
+  trailingAvg: number;
+  drop: number;
+  baselineDays: number;
+};
+
+/**
+ * Pure, synchronous evaluation of the per-platform revenue % WoW check.
+ *
+ * Takes the pre-fetched current-day rows, the baseline window rows, the
+ * minimum-order-count guard, and the maximum acceptable drop (in pp) and
+ * returns:
+ *   breaches      — platforms whose drop exceeded `dropMax`
+ *   eligibleCount — number of platforms that passed the `minOrders` filter
+ *                   (0 means the whole check would be skipped)
+ *
+ * Skipping rules (mirrors `checkRevenuePctDropWoW`):
+ *   • A platform on the current day with orderCount < minOrders is excluded.
+ *   • A platform with fewer than 2 baseline-window days is skipped (continue).
+ *   • A platform whose drop ≤ dropMax is healthy — not added to breaches.
+ */
+/** Diagnostic snapshot for one evaluated platform (used in structured logs). */
+export type PlatformRevenuePctEval = {
+  platform: string;
+  currentPct: number;
+  trailingAvg: number;
+  drop: number;
+  orderCount: number;
+  baselineDays: number;
+  breached: boolean;
+};
+
+export function evaluateRevenuePctDropPerPlatform(
+  currentRows: PlatformRevenuePct[],
+  baselineRows: PlatformRevenuePct[],
+  minOrders: number,
+  dropMax: number,
+): {
+  breaches: PlatformRevenuePctBreach[];
+  eligibleCount: number;
+  evaluations: PlatformRevenuePctEval[];
+} {
+  const eligibleCurrent = currentRows.filter((r) => r.orderCount >= minOrders);
+
+  if (eligibleCurrent.length === 0) {
+    return { breaches: [], eligibleCount: 0, evaluations: [] };
+  }
+
+  const baselineByPlatform = new Map<string, PlatformRevenuePct[]>();
+  for (const r of baselineRows) {
+    let arr = baselineByPlatform.get(r.platform);
+    if (!arr) {
+      arr = [];
+      baselineByPlatform.set(r.platform, arr);
+    }
+    arr.push(r);
+  }
+
+  const breaches: PlatformRevenuePctBreach[] = [];
+  const evaluations: PlatformRevenuePctEval[] = [];
+
+  for (const current of eligibleCurrent) {
+    const platformBaseline = baselineByPlatform.get(current.platform) ?? [];
+
+    if (platformBaseline.length < 2) continue;
+
+    const trailingAvg =
+      platformBaseline.reduce((sum, r) => sum + r.pct, 0) /
+      platformBaseline.length;
+    const drop = trailingAvg - current.pct;
+    const breached = drop > dropMax;
+
+    evaluations.push({
+      platform: current.platform,
+      currentPct: current.pct,
+      trailingAvg,
+      drop,
+      orderCount: current.orderCount,
+      baselineDays: platformBaseline.length,
+      breached,
+    });
+
+    if (breached) {
+      breaches.push({
+        platform: current.platform,
+        currentPct: current.pct,
+        trailingAvg,
+        drop,
+        baselineDays: platformBaseline.length,
+      });
+    }
+  }
+
+  return { breaches, eligibleCount: eligibleCurrent.length, evaluations };
+}
 
 /**
  * Revenue + order-count row returned by `loadDailyRevenueWithCountsByPlatform`.
@@ -278,12 +379,18 @@ async function checkRevenuePctDropWoW(day: {
     computePlatformRevenuePcts(baselineStart, baselineEnd, priceMap),
   ]);
 
-  // Filter out platforms below the minimum order count on the prior day.
-  const eligibleCurrent = currentRows.filter(
-    (r) => r.orderCount >= REVENUE_PCT_MIN_ORDERS,
+  const {
+    breaches,
+    eligibleCount,
+    evaluations: evalList,
+  } = evaluateRevenuePctDropPerPlatform(
+    currentRows,
+    baselineRows,
+    REVENUE_PCT_MIN_ORDERS,
+    REVENUE_PCT_DROP_MAX,
   );
 
-  if (eligibleCurrent.length === 0) {
+  if (eligibleCount === 0) {
     logger.info(
       {
         day: day.iso,
@@ -295,70 +402,22 @@ async function checkRevenuePctDropWoW(day: {
     return;
   }
 
-  // Group baseline rows by platform, then by day (for the trailing average).
-  const baselineByPlatform = new Map<string, PlatformRevenuePct[]>();
-  for (const r of baselineRows) {
-    let arr = baselineByPlatform.get(r.platform);
-    if (!arr) {
-      arr = [];
-      baselineByPlatform.set(r.platform, arr);
-    }
-    arr.push(r);
-  }
-
-  type PlatformBreach = {
-    platform: string;
-    currentPct: number;
-    trailingAvg: number;
-    drop: number;
-    baselineDays: number;
-  };
-
-  const breaches: PlatformBreach[] = [];
-  const evaluations: Record<string, object> = {};
-
-  for (const current of eligibleCurrent) {
-    const platformBaseline = baselineByPlatform.get(current.platform) ?? [];
-
-    // Require at least 2 days of baseline data per platform.
-    if (platformBaseline.length < 2) {
-      logger.info(
-        {
-          day: day.iso,
-          platform: current.platform,
-          baselineDays: platformBaseline.length,
-        },
-        "upsellFunnelMonitor: insufficient baseline days for platform — skipping",
-      );
-      continue;
-    }
-
-    const trailingAvg =
-      platformBaseline.reduce((sum, r) => sum + r.pct, 0) /
-      platformBaseline.length;
-    const drop = trailingAvg - current.pct;
-
-    evaluations[current.platform] = {
-      currentPct: +current.pct.toFixed(2),
-      trailingAvg: +trailingAvg.toFixed(2),
-      drop: +drop.toFixed(2),
-      orderCount: current.orderCount,
-      baselineDays: platformBaseline.length,
+  // Log all evaluated platforms (not just those that breached) so ops can
+  // inspect the full per-platform diagnostics without waiting for a breach.
+  const evalLog: Record<string, object> = {};
+  for (const e of evalList) {
+    evalLog[e.platform] = {
+      currentPct: +e.currentPct.toFixed(2),
+      trailingAvg: +e.trailingAvg.toFixed(2),
+      drop: +e.drop.toFixed(2),
+      orderCount: e.orderCount,
+      baselineDays: e.baselineDays,
+      breached: e.breached,
     };
-
-    if (drop > REVENUE_PCT_DROP_MAX) {
-      breaches.push({
-        platform: current.platform,
-        currentPct: current.pct,
-        trailingAvg,
-        drop,
-        baselineDays: platformBaseline.length,
-      });
-    }
   }
 
   logger.info(
-    { day: day.iso, revenuePctDropMax: REVENUE_PCT_DROP_MAX, ...evaluations },
+    { day: day.iso, revenuePctDropMax: REVENUE_PCT_DROP_MAX, ...evalLog },
     "upsellFunnelMonitor: per-platform revenue % WoW evaluation",
   );
 
@@ -440,17 +499,9 @@ async function computePlatformRevenuePcts(
   return result;
 }
 
-type PlatformBreachEntry = {
-  platform: string;
-  currentPct: number;
-  trailingAvg: number;
-  drop: number;
-  baselineDays: number;
-};
-
-async function sendRevenuePctDropAlert(
+export async function sendRevenuePctDropAlert(
   day: string,
-  breaches: PlatformBreachEntry[],
+  breaches: PlatformRevenuePctBreach[],
 ): Promise<void> {
   const fields: AlertField[] = breaches.map((b) => ({
     title: b.platform,
