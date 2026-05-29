@@ -13,6 +13,7 @@ import { startSocialAuthFailureMonitor } from "./lib/socialAuthFailureMonitor";
 import { startUpsellConversionMonitor } from "./lib/upsellConversionMonitor";
 import { startUpsellFunnelMonitor } from "./lib/upsellFunnelMonitor";
 import { startSessionCoverageMonitor } from "./lib/sessionCoverageMonitor";
+import { startClerkSessionFallbackMonitor } from "./lib/clerkSessionFallbackMonitor";
 import { fetchAllProducts } from "./routes/woo";
 import { resolveStore } from "./lib/wooStore";
 
@@ -76,4 +77,5 @@ app.listen(port, (err) => {
   startUpsellConversionMonitor();
   startUpsellFunnelMonitor();
   startSessionCoverageMonitor();
+  startClerkSessionFallbackMonitor();
 });

@@ -7,6 +7,7 @@ import { resolveStore, resolveStoreFromRequest } from "./wooStore";
 import { upsertCustomer, getCustomerById } from "./customers";
 import { syncCustomerToWoo } from "./customers";
 import { logger } from "./logger";
+import { db, analyticsEventsTable } from "@workspace/db";
 
 const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
@@ -161,9 +162,26 @@ async function resolveClerkSession(
     // This should not happen in production if the Clerk session token template
     // includes `email`, `first_name`, `last_name`, and `public_metadata`.
     req.log?.warn?.(
-      { userId },
+      { userId, reason: "claims_missing_email" },
       "auth.clerk: session claims missing email/name — falling back to clerk.users.getUser(). Configure the Clerk session token template to include email, first_name, last_name, and public_metadata.",
     );
+    // Record a structured analytics event so the clerkSessionFallbackMonitor
+    // can alert when this happens consistently, signalling a misconfigured
+    // token template. Best-effort: never let a DB failure block auth.
+    void db
+      .insert(analyticsEventsTable)
+      .values({
+        name: "clerk_session_fallback",
+        action: "claims_missing_email",
+        userId,
+        signedIn: true,
+      })
+      .catch((err: unknown) => {
+        logger.warn(
+          { err: (err as Error)?.message },
+          "auth.clerk: failed to persist clerk_session_fallback event",
+        );
+      });
     let clerkUser: {
       id: string;
       emailAddresses: { id: string; emailAddress: string }[];

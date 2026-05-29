@@ -33,4 +33,5 @@ export const AnalyticsEventName = {
   upsell_item_added: "upsell_item_added",
   upsell_checkout_proceeded: "upsell_checkout_proceeded",
   signin_page_action: "signin_page_action",
+  clerk_session_fallback: "clerk_session_fallback",
 } as const;

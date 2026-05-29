@@ -215,6 +215,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "upsell_item_added",
       "upsell_checkout_proceeded",
       "signin_page_action",
+      "clerk_session_fallback",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
