@@ -8,7 +8,6 @@ import { apiFetch } from "./api";
 import { useCurrenciesData, useFxRates } from "./queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import {
-  currencyForStoreCountry,
   formatPriceInCurrency,
   getCurrencySnapshot,
   subscribeCurrencySnapshot,
@@ -155,14 +154,12 @@ export function useDisplayCurrency(): {
   setManualPersistent: (persistent: boolean) => void;
   clearManualCurrency: () => void;
   supportedCurrencies: { code: string; name: string }[];
-  formatPrice: (storeCurrencyValue: number) => string;
+  formatPrice: (usdValue: number) => string;
 } {
   const { countryCode } = useLocationSelection();
   const hasSelectedCountry = !!countryCode;
   const snapshot = useCurrencyTables();
   useCurrenciesData();
-
-  const storeCurrency = currencyForStoreCountry(countryCode);
 
   const countryToCurrency = useCallback(
     (country: string): string | null =>
@@ -285,32 +282,26 @@ export function useDisplayCurrency(): {
   }, []);
 
   const formatPrice = useCallback(
-    (storeCurrencyValue: number) => {
-      const v = Number(storeCurrencyValue) || 0;
-      // The currency `priceValue` is denominated in: when the visitor has
-      // picked a delivery country, that's the store's native currency;
-      // otherwise the default Lebanon store is used (USD).
-      const sourceCurrency = hasSelectedCountry ? storeCurrency : "USD";
-
-      if (currencyCode === sourceCurrency) {
-        return formatPriceInCurrency(v, currencyCode);
+    (usdValue: number) => {
+      const v = Number(usdValue) || 0;
+      // All product prices from the Presentail OS API are denominated in USD
+      // regardless of the delivery country or WooCommerce store. Always
+      // convert from USD → the visitor's display currency using live FX rates.
+      if (currencyCode === "USD") {
+        return formatPriceInCurrency(v, "USD");
       }
 
-      // Convert source -> USD -> target using live FX rates (server-supplied,
+      // Convert USD -> display currency using live FX rates (server-supplied,
       // same rates the mobile app and server use for billing).
-      const sourceRate =
-        sourceCurrency === "USD" ? 1 : Number(rates?.[sourceCurrency] ?? 0);
-      const targetRate =
-        currencyCode === "USD" ? 1 : Number(rates?.[currencyCode] ?? 0);
-      if (sourceRate > 0 && targetRate > 0) {
-        const usd = v / sourceRate;
-        return formatPriceInCurrency(usd * targetRate, currencyCode);
+      const targetRate = Number(rates?.[currencyCode] ?? 0);
+      if (targetRate > 0) {
+        return formatPriceInCurrency(v * targetRate, currencyCode);
       }
-      // FX rates not yet available — fall back to native source formatting
-      // rather than show a misleading converted number.
-      return formatPriceInCurrency(v, sourceCurrency);
+      // FX rates not yet available — show USD as fallback rather than a
+      // misleading converted number.
+      return formatPriceInCurrency(v, "USD");
     },
-    [currencyCode, hasSelectedCountry, rates, storeCurrency],
+    [currencyCode, rates],
   );
 
   return {
