@@ -327,6 +327,7 @@ export const STRINGS: Dict = {
   "account.orders.deliveryFor": { en: "Delivery for", ar: "تسليم إلى" },
   "account.orders.itemsCount": { en: "items", ar: "عناصر" },
   "account.orders.itemCount": { en: "item", ar: "عنصر" },
+  "account.orders.trackOrder": { en: "Track order", ar: "تتبّع الطلب" },
   "account.editPersonalInfo": {
     en: "Edit personal information",
     ar: "تعديل المعلومات الشخصية",
@@ -955,6 +956,7 @@ export const STRINGS_FR: Record<string, string> = {
   "account.orders.deliveryFor": "Livraison à",
   "account.orders.itemsCount": "articles",
   "account.orders.itemCount": "article",
+  "account.orders.trackOrder": "Suivre la commande",
   "account.editPersonalInfo": "Modifier mes informations personnelles",
   "account.notAddedYet": "Pas encore renseigné",
   "account.dateOfBirth": "Date de naissance",

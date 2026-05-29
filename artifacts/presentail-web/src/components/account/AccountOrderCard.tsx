@@ -1,4 +1,4 @@
-import { Package, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MyOrder } from "@/lib/queries";
@@ -94,13 +94,24 @@ export function AccountOrderCard({
         </div>
       </div>
 
-      {/* View details toggle */}
-      {hasItems && (
-        <>
+      {/* Footer row: track order + view details toggle */}
+      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-3 flex-wrap">
+        {order.wcOrderId != null && (
+          <a
+            href={`https://orderstatus.presentail.com?order=${order.wcOrderId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            {t("account.orders.trackOrder")}
+          </a>
+        )}
+        {hasItems && (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="mt-3 pt-3 border-t border-border/40 w-full flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className={`flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors${order.wcOrderId != null ? " ml-auto" : ""}`}
           >
             {expanded ? (
               <ChevronUp className="w-3.5 h-3.5" />
@@ -109,19 +120,19 @@ export function AccountOrderCard({
             )}
             {expanded ? "Hide details" : "View details"}
           </button>
-          {expanded && (
-            <ul className="mt-3 space-y-1.5">
-              {order.items.map((item, i) => (
-                <li key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">{item.name}</span>
-                  {item.quantity > 1 && (
-                    <span className="text-muted-foreground text-xs">×{item.quantity}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        )}
+      </div>
+      {hasItems && expanded && (
+        <ul className="mt-3 space-y-1.5">
+          {order.items.map((item, i) => (
+            <li key={i} className="flex items-center justify-between text-sm">
+              <span className="text-foreground">{item.name}</span>
+              {item.quantity > 1 && (
+                <span className="text-muted-foreground text-xs">×{item.quantity}</span>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
     </li>
   );

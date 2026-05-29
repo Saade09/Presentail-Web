@@ -546,6 +546,7 @@ const EN = {
   ordersDeliveryFor: "Delivery for",
   ordersItem: "item",
   ordersItems: "items",
+  ordersTrackOrder: "Track order",
 
   // ── Brand page ──
 
@@ -1300,6 +1301,7 @@ const AR: typeof EN = {
   ordersDeliveryFor: "تسليم إلى",
   ordersItem: "عنصر",
   ordersItems: "عناصر",
+  ordersTrackOrder: "تتبّع الطلب",
 
   // ── Brand page ──
 
@@ -2057,6 +2059,7 @@ const FR: typeof EN = {
   ordersDeliveryFor: "Livraison à",
   ordersItem: "article",
   ordersItems: "articles",
+  ordersTrackOrder: "Suivre la commande",
 
   // ── Brand page ──
 

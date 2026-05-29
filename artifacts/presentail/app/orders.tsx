@@ -5,8 +5,10 @@ import {
   ActivityIndicator,
   Animated,
   LayoutAnimation,
+  Linking,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   UIManager,
@@ -67,13 +69,14 @@ function OrdersScreen() {
   const { isRTL } = useLanguage();
   const { ready, user, token } = useAuth();
   const [state, setState] = useState<FetchState>({ kind: "loading" });
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isRefresh = false) => {
     if (!token) {
       setState({ kind: "ok", orders: [] });
       return;
     }
-    setState({ kind: "loading" });
+    if (!isRefresh) setState({ kind: "loading" });
     try {
       const res = await fetch(`${API_BASE}/api/me/orders`, {
         headers: { Authorization: `Bearer ${token}`, ...getStoredStoreHeaders() },
@@ -92,6 +95,12 @@ function OrdersScreen() {
       setState({ kind: "error", message: err?.message ?? t.ordersError });
     }
   }, [token, t.ordersError]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load(true);
+    setRefreshing(false);
+  }, [load]);
 
   useEffect(() => {
     if (ready) load();
@@ -182,7 +191,17 @@ function OrdersScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 18, gap: 14, paddingBottom: 80 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 18, gap: 14, paddingBottom: 80 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
           {state.orders.map((o) => (
             <OrderCard key={o.appOrderId} order={o} t={t} colors={colors} isRTL={isRTL} />
           ))}
@@ -384,77 +403,115 @@ function OrderCard({
         {t.ordersPlacedOn} {placed}
       </Text>
 
-      {/* View details toggle */}
-      {hasItems && (
-        <>
-          <Pressable
-            onPress={toggleExpand}
-            hitSlop={6}
-            style={({ pressed }) => ({
-              flexDirection: isRTL ? "row-reverse" : "row",
-              alignItems: "center",
-              gap: 4,
-              paddingTop: 10,
-              marginTop: 2,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Feather
-              name={expanded ? "chevron-up" : "chevron-down"}
-              size={14}
-              color={colors.mutedForeground}
-            />
-            <Text
+      {/* Footer row: track order + view details toggle */}
+      {(order.wcOrderId != null || hasItems) && (
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingTop: 10,
+            marginTop: 2,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            gap: 8,
+          }}
+        >
+          {order.wcOrderId != null ? (
+            <Pressable
+              hitSlop={6}
+              onPress={() =>
+                Linking.openURL(
+                  `https://orderstatus.presentail.com?order=${order.wcOrderId}`
+                )
+              }
+              style={({ pressed }) => ({
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 4,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Feather name="external-link" size={12} color={colors.primary} />
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: colors.primary,
+                }}
+              >
+                {t.ordersTrackOrder}
+              </Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
+          {hasItems && (
+            <Pressable
+              onPress={toggleExpand}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 4,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Feather
+                name={expanded ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={colors.mutedForeground}
+              />
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: colors.mutedForeground,
+                }}
+              >
+                {expanded ? "Hide details" : "View details"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+      {hasItems && expanded && (
+        <View style={{ gap: 6, paddingTop: 4 }}>
+          {order.items.map((item, i) => (
+            <View
+              key={i}
               style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 12,
-                color: colors.mutedForeground,
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              {expanded ? "Hide details" : "View details"}
-            </Text>
-          </Pressable>
-          {expanded && (
-            <View style={{ gap: 6, paddingTop: 4 }}>
-              {order.items.map((item, i) => (
-                <View
-                  key={i}
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.primary,
+                  flex: 1,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {item.name}
+              </Text>
+              {item.quantity > 1 && (
+                <Text
                   style={{
-                    flexDirection: isRTL ? "row-reverse" : "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 12,
+                    color: colors.mutedForeground,
+                    marginLeft: 8,
                   }}
                 >
-                  <Text
-                    style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 13,
-                      color: colors.primary,
-                      flex: 1,
-                      textAlign: isRTL ? "right" : "left",
-                    }}
-                  >
-                    {item.name}
-                  </Text>
-                  {item.quantity > 1 && (
-                    <Text
-                      style={{
-                        fontFamily: "Inter_500Medium",
-                        fontSize: 12,
-                        color: colors.mutedForeground,
-                        marginLeft: 8,
-                      }}
-                    >
-                      ×{item.quantity}
-                    </Text>
-                  )}
-                </View>
-              ))}
+                  ×{item.quantity}
+                </Text>
+              )}
             </View>
-          )}
-        </>
+          ))}
+        </View>
       )}
     </View>
   );

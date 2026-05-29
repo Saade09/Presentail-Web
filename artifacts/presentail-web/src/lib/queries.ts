@@ -223,6 +223,8 @@ export const useMyOrders = (enabled: boolean) => {
     queryKey: ["my-orders"],
     queryFn: () => apiFetch<{ ok: boolean; orders: MyOrder[] }>("/me/orders"),
     enabled,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 };
 
