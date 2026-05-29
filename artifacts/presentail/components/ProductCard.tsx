@@ -28,12 +28,13 @@ type Props = {
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
   const router = useRouter();
-  const { currencyCode } = useCurrency();
+  const { currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const threshold = freeDeliveryThresholdNative(cc);
+  const convertedPrice = convert(Number.isFinite(product.priceValue) ? product.priceValue : 0);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const favorited = isFavorited(product.id);
 
@@ -102,7 +103,7 @@ export function ProductCard({ product, width, onPress }: Props) {
             value={product.priceValue}
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
           />
-          {product.priceValue >= threshold ? (
+          {convertedPrice >= threshold ? (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               FREE DELIVERY
             </Text>
