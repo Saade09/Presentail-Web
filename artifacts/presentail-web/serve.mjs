@@ -48,6 +48,108 @@ function safeJoin(root, urlPath) {
 
 const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
+// ---------------------------------------------------------------------------
+// Dynamic sitemap.xml
+// ---------------------------------------------------------------------------
+
+// All cities per country — must mirror CITY_SLUGS_BY_COUNTRY in seo-inject.mjs.
+const SITEMAP_CITIES = {
+  lb: [
+    "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
+    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbail", "jezzine",
+    "kasserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
+    "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta",
+  ],
+  ae: ["abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah", "umm-al-quwain"],
+  cy: ["larnaca", "limassol", "nicosia", "paphos"],
+};
+const SITEMAP_LANGS = ["en", "ar", "fr"];
+// Representative city per country for product / brand canonical URLs.
+const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
+// Static sub-paths included for every lang / country / city combination.
+const SITEMAP_STATIC_PATHS = ["/", "/shop", "/brands", "/delivery-rates", "/contact", "/faqs"];
+
+let sitemapCache = null;
+let sitemapCacheTsMs = 0;
+const SITEMAP_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function escXml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+async function fetchSitemapJson(url) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 5000);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function generateSitemap(origin, basePath) {
+  const cleanBase = basePath.replace(/\/$/, "");
+  const urlEntry = (loc, priority, changefreq) =>
+    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+
+  const urls = [];
+
+  // 1. Static locale pages — all lang × country × city combinations.
+  for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+    for (const city of cities) {
+      for (const lang of SITEMAP_LANGS) {
+        const pfx = `/${lang}-${country}/${city}`;
+        for (const subpath of SITEMAP_STATIC_PATHS) {
+          const loc = pfx + (subpath === "/" ? "" : subpath);
+          const priority = subpath === "/" ? "0.9" : "0.7";
+          urls.push(urlEntry(loc, priority, "weekly"));
+        }
+      }
+    }
+  }
+
+  // 2. Products — fetch once (LB store) then emit canonical-city URLs per language × country.
+  const [productsData, brandsData] = await Promise.all([
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
+  ]);
+
+  for (const product of (productsData?.products ?? [])) {
+    if (!product?.slug) continue;
+    const encoded = encodeURIComponent(product.slug);
+    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      for (const lang of SITEMAP_LANGS) {
+        urls.push(urlEntry(`/${lang}-${country}/${city}/product/${encoded}`, "0.8", "weekly"));
+      }
+    }
+  }
+
+  // 3. Brand pages — same canonical-city pattern.
+  for (const brand of (brandsData?.brands ?? [])) {
+    if (!brand?.slug) continue;
+    const encoded = encodeURIComponent(brand.slug);
+    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      for (const lang of SITEMAP_LANGS) {
+        urls.push(urlEntry(`/${lang}-${country}/${city}/brand/${encoded}`, "0.6", "monthly"));
+      }
+    }
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join("\n")}
+</urlset>`;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const proto =
@@ -62,6 +164,23 @@ const server = http.createServer(async (req, res) => {
     if (BASE_PATH && pathname.startsWith(BASE_PATH)) {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
+
+    // Dynamic sitemap — intercept before file lookup so a missing
+    // dist/public/sitemap.xml doesn't fall through to the SPA shell.
+    if (pathname === "/sitemap.xml") {
+      const nowMs = Date.now();
+      if (!sitemapCache || nowMs - sitemapCacheTsMs > SITEMAP_CACHE_TTL_MS) {
+        sitemapCache = await generateSitemap(origin, BASE_PATH);
+        sitemapCacheTsMs = nowMs;
+      }
+      res.writeHead(200, {
+        "content-type": MIME[".xml"],
+        "cache-control": "public, max-age=900, must-revalidate",
+      });
+      res.end(sitemapCache);
+      return;
+    }
+
     let assetPath = pathname;
     if (assetPath === "/") assetPath = "/index.html";
 

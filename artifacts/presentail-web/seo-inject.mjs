@@ -468,6 +468,13 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
   );
+  // Default OG / Twitter image for generic (non-entity) pages.
+  const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
+  lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
+  lines.push(`<meta property="og:image:alt" content="Presentail" />`);
+  lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
+  // Organization JSON-LD on every generic page.
+  lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
 
   if (inLocale) {
     for (const altLang of SUPPORTED_LANGS) {
@@ -744,6 +751,58 @@ function clampDescription(s, max = 300) {
   return `${s.slice(0, max - 1).trimEnd()}…`;
 }
 
+// ---------------------------------------------------------------------------
+// JSON-LD (Schema.org) helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Safely serialise a schema.org object as an inline <script> tag.
+ * Escapes </script> sequences in the JSON to prevent XSS.
+ */
+function jsonLdTag(schema) {
+  return `<script type="application/ld+json">${JSON.stringify(schema).replace(/<\/script>/gi, "<\\/script>")}</script>`;
+}
+
+function buildOrganizationSchema(siteUrl) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Presentail",
+    url: siteUrl,
+    logo: `${siteUrl}/opengraph.jpg`,
+  };
+}
+
+/**
+ * Build a BreadcrumbList JSON-LD from an ordered array of { name, url? }
+ * items. The last item should omit `url` — it is the current page.
+ */
+function buildBreadcrumbListSchema(items) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map(({ name, url }, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name,
+      ...(url != null ? { item: url } : {}),
+    })),
+  };
+}
+
+/**
+ * Extract the locale+city base URL from a pathname like `/en-lb/beirut/...`
+ * for use in breadcrumb item URLs.
+ */
+function localeBaseUrl(pathname, origin, basePath) {
+  const cleanBase = basePath.replace(/\/$/, "");
+  const parsed = parseLocalePath(pathname);
+  if (!parsed.hasLocalePrefix) return `${origin}${cleanBase}`;
+  let pfx = `/${parsed.lang}-${parsed.country}`;
+  if (parsed.city) pfx += `/${parsed.city}`;
+  return `${origin}${cleanBase}${pfx}`;
+}
+
 function buildEntityHead({
   ogType,
   title,
@@ -786,6 +845,8 @@ function buildEntityHead({
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
   );
+  // Organization JSON-LD on every entity page.
+  lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
   for (const extra of extraLines) lines.push(extra);
   return { title, headSnippet: lines.join("\n    ") };
 }
@@ -825,6 +886,42 @@ function buildProductHead({
     );
     extraLines.push(`<meta property="product:price:currency" content="USD" />`);
   }
+
+  // Schema.org Product JSON-LD for Google rich results.
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: rawName || "Presentail",
+    ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
+    ...(imageUrl ? { image: imageUrl } : {}),
+    brand: { "@type": "Brand", name: "Presentail" },
+    ...(typeof product.priceValue === "number" &&
+    Number.isFinite(product.priceValue) &&
+    product.priceValue > 0
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: product.priceValue.toFixed(2),
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+        }
+      : {}),
+  };
+  extraLines.push(jsonLdTag(productSchema));
+
+  // BreadcrumbList JSON-LD — Home > Shop > Product Name.
+  const locBase = localeBaseUrl(pathname, origin, basePath);
+  extraLines.push(
+    jsonLdTag(
+      buildBreadcrumbListSchema([
+        { name: "Home", url: locBase },
+        { name: "Shop", url: `${locBase}/shop` },
+        { name: rawName || "Product" },
+      ]),
+    ),
+  );
+
   return buildEntityHead({
     ogType: "product",
     title,
@@ -903,6 +1000,8 @@ function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
     clampDescription(rawDesc) || genericFallbackDescription(lang, "brand");
   const imageUrl =
     typeof brand.image === "string" && brand.image ? brand.image : null;
+  // BreadcrumbList JSON-LD — Home > Brands > Brand Name.
+  const locBase = localeBaseUrl(pathname, origin, basePath);
   return buildEntityHead({
     ogType: "website",
     title,
@@ -914,6 +1013,15 @@ function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
     pathname,
     search: "",
     lang,
+    extraLines: [
+      jsonLdTag(
+        buildBreadcrumbListSchema([
+          { name: "Home", url: locBase },
+          { name: "Brands", url: `${locBase}/brands` },
+          { name: rawName || "Brand" },
+        ]),
+      ),
+    ],
   });
 }
 
@@ -971,6 +1079,8 @@ function buildShopEntityHead({
     clampDescription(rawDesc) || genericFallbackDescription(lang, "shop");
   const imageUrl =
     typeof entity.image === "string" && entity.image ? entity.image : null;
+  // BreadcrumbList JSON-LD — Home > Shop > Category/Occasion Name.
+  const locBase = localeBaseUrl(pathname, origin, basePath);
   return buildEntityHead({
     ogType: "website",
     title,
@@ -982,6 +1092,15 @@ function buildShopEntityHead({
     pathname,
     search,
     lang,
+    extraLines: [
+      jsonLdTag(
+        buildBreadcrumbListSchema([
+          { name: "Home", url: locBase },
+          { name: "Shop", url: `${locBase}/shop` },
+          { name: rawName || altText },
+        ]),
+      ),
+    ],
   });
 }
 
