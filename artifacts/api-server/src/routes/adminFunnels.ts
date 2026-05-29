@@ -886,6 +886,9 @@ const DASHBOARD_HTML = `<!doctype html>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Estimated revenue trend (top products)</h3>
   <div class="sub" style="margin-top:-4px">Daily estimated revenue (upsell adds × price) for the top products by total window revenue. One series per (product, platform).</div>
   <div id="upsellConversionRevenueTrends" class="trends"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Upsell revenue as % of confirmed order revenue</h3>
+  <div class="sub" style="margin-top:-4px">Daily ratio of total estimated upsell revenue to confirmed order revenue (revenueUsd from the purchase funnel), per platform. Shows how much of the day's revenue was contributed by upsell add-ons.</div>
+  <div id="upsellRevenuePctTrends" class="trends"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <table id="upsellConversionDaily">
     <thead>
@@ -946,6 +949,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellSessionConversionSummary = document.getElementById('upsellSessionConversionSummary');
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
   var upsellConversionRevenueTrends = document.getElementById('upsellConversionRevenueTrends');
+  var upsellRevenuePctTrends = document.getElementById('upsellRevenuePctTrends');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
   var coverageAlertBanner = document.getElementById('coverageAlertBanner');
 
@@ -1645,23 +1649,46 @@ const DASHBOARD_HTML = `<!doctype html>
       }).join('') + '</tbody></table>';
   }
 
-  function renderUpsellConversion(payload) {
+  function renderUpsellConversion(payload, purchase) {
     var summary = (payload && payload.summary) || [];
     var platformTotals = (payload && payload.platformTotals) || [];
     var daily = (payload && payload.daily) || [];
+
+    // Build per-platform confirmed revenue totals from the purchase funnel rows
+    var purchaseRevenueByPlatform = {};
+    (purchase || []).forEach(function (r) {
+      if (r.platform && r.revenueUsd != null) {
+        purchaseRevenueByPlatform[r.platform] = (purchaseRevenueByPlatform[r.platform] || 0) + r.revenueUsd;
+      }
+    });
+    // Build per-(day, platform) confirmed revenue map for the ratio sparkline
+    var purchaseRevenueByDayPlatform = {};
+    (purchase || []).forEach(function (r) {
+      if (r.day && r.platform && r.revenueUsd != null) {
+        var key = r.day + '|' + r.platform;
+        purchaseRevenueByDayPlatform[key] = (purchaseRevenueByDayPlatform[key] || 0) + r.revenueUsd;
+      }
+    });
+
     if (!summary.length && !daily.length) {
       upsellConversionSummary.innerHTML = '<div class="muted">No upsell add-on conversion data in range.</div>';
       upsellConversionRevenueTrends.innerHTML = '';
+      upsellRevenuePctTrends.innerHTML = '';
       upsellConversionDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
       return;
     }
     if (summary.length) {
       var subtotalRows = platformTotals.map(function (t) {
+        var confirmedRev = purchaseRevenueByPlatform[t.platform] || 0;
+        var pctCell = confirmedRev > 0
+          ? fmtPct(Math.round((t.totalEstRevenueUsd / confirmedRev) * 1000) / 10)
+          : '<span class="muted">—</span>';
         return '<tr style="font-weight:600;border-top:2px solid #ccc">' +
           '<td>' + escapeHtml(t.platform) + '</td>' +
           '<td class="muted" style="font-style:italic">Subtotal</td>' +
           '<td></td><td></td><td></td><td></td>' +
           '<td>' + fmtRevenue(t.totalEstRevenueUsd) + '</td>' +
+          '<td>' + pctCell + '</td>' +
           '<td></td>' +
           '</tr>';
       }).join('');
@@ -1677,6 +1704,7 @@ const DASHBOARD_HTML = `<!doctype html>
         '<th>Upsell adds</th><th>Add days</th>' +
         '<th>Add days w/ orders</th><th>Orders on add days</th>' +
         '<th>Est. upsell revenue (USD)</th>' +
+        '<th>% of confirmed revenue</th>' +
         '<th>Order-day rate</th>' +
         '</tr></thead><tbody>' + summary.map(function (r) {
           return '<tr>' +
@@ -1687,6 +1715,7 @@ const DASHBOARD_HTML = `<!doctype html>
             '<td>' + num(r.daysWithAddsAndOrders) + '</td>' +
             '<td>' + num(r.ordersOnAddDays) + '</td>' +
             '<td>' + fmtRevenue(r.estUpsellRevenueUsd) + '</td>' +
+            '<td></td>' +
             '<td>' + fmtPct(r.orderDayRatePct) + '</td>' +
             '</tr>';
         }).join('') + subtotalRows + '</tbody></table>' + footnote;
@@ -1719,8 +1748,45 @@ const DASHBOARD_HTML = `<!doctype html>
       } else {
         upsellConversionRevenueTrends.innerHTML = '<div class="muted" style="font-size:12px">No priced products in range — revenue trend unavailable.</div>';
       }
+
+      // Ratio sparkline: aggregate upsell revenue by (day, platform) then divide by confirmed revenue
+      var upsellByDayPlatform = {};
+      daily.forEach(function (r) {
+        if (r.estUpsellRevenueUsd != null) {
+          var key = r.day + '|' + r.platform;
+          upsellByDayPlatform[key] = (upsellByDayPlatform[key] || 0) + r.estUpsellRevenueUsd;
+        }
+      });
+      // Build ratio rows from ALL days that have confirmed purchase revenue so
+      // days with zero upsell adds appear as 0% rather than being dropped from
+      // the sparkline — which would otherwise overstate average contribution by
+      // hiding no-add days.
+      var ratioRows = [];
+      Object.keys(purchaseRevenueByDayPlatform).forEach(function (key) {
+        var parts = key.split('|');
+        var day = parts[0];
+        var platform = parts[1];
+        var confirmedRev = purchaseRevenueByDayPlatform[key] || 0;
+        if (confirmedRev > 0) {
+          var upsellRev = upsellByDayPlatform[key] || 0;
+          ratioRows.push({
+            day: day,
+            platform: platform,
+            upsellPctOfRevenue: Math.round((upsellRev / confirmedRev) * 1000) / 10,
+          });
+        }
+      });
+      if (ratioRows.length) {
+        renderTrends(upsellRevenuePctTrends, ratioRows,
+          function (r) { return r.platform; },
+          [{ label: 'Upsell % of revenue', valueFn: function (r) { return r.upsellPctOfRevenue; }, max: 100 }]
+        );
+      } else {
+        upsellRevenuePctTrends.innerHTML = '<div class="muted" style="font-size:12px">No matching purchase revenue rows — ratio unavailable.</div>';
+      }
     } else {
       upsellConversionRevenueTrends.innerHTML = '';
+      upsellRevenuePctTrends.innerHTML = '';
     }
 
     if (daily.length) {
@@ -1804,7 +1870,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellCheckout(upsell.checkoutProceeded || { summary: [], daily: [] });
         renderUpsellCoverage(upsell.sessionCoverage || { daily: [] });
         renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
-        renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
+        renderUpsellConversion(upsell.conversion || { summary: [], daily: [] }, purchase);
         var funnelCoverage = data.funnelSessionCoverage || { daily: [] };
         renderCoverageAlertBanner(funnelCoverage, upsell.sessionCoverage || { daily: [] });
         renderFunnelSessionCoverage(funnelCoverage);
