@@ -726,11 +726,18 @@ const DASHBOARD_HTML = `<!doctype html>
   .wow-new { color: #109618; font-weight: 500; }
   tr.add-rate-low { background: rgba(176, 0, 32, 0.08); }
   tr.add-rate-low:hover { background: rgba(176, 0, 32, 0.14); }
+  #coverageAlertBanner { display: none; position: sticky; top: 0; z-index: 100; background: #b00020; color: #fff; padding: 10px 16px; border-radius: 4px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+  #coverageAlertBanner .banner-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  #coverageAlertBanner .banner-items { margin: 4px 0 6px; padding-left: 16px; }
+  #coverageAlertBanner .banner-items li { margin: 2px 0; font-size: 13px; }
+  #coverageAlertBanner a.banner-link { color: #ffe0e0; font-size: 12px; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
   <h1>Checkout Funnels</h1>
   <div class="sub">Per-day, per-platform conversion. Numbers come from the same aggregator the Slack alerts use, so this view never disagrees with the alert thresholds.</div>
+
+  <div id="coverageAlertBanner" role="alert" aria-live="polite"></div>
 
   <div class="controls">
     <label>Days <input id="days" type="number" min="1" max="${MAX_DAYS}" value="${DEFAULT_DAYS}" style="width:64px"></label>
@@ -940,6 +947,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellConversionSummary = document.getElementById('upsellConversionSummary');
   var upsellConversionRevenueTrends = document.getElementById('upsellConversionRevenueTrends');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
+  var coverageAlertBanner = document.getElementById('coverageAlertBanner');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -1453,6 +1461,78 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  // Coverage threshold — mirrors the server-side monitor default (80%).
+  var COVERAGE_THRESHOLD = 80;
+
+  // Render a prominent sticky alert banner at the top of the page listing any
+  // funnel event type whose most-recent-day coverage is below threshold. Called
+  // every time the operator loads fresh data. Hides itself when all healthy.
+  function renderCoverageAlertBanner(funnelSessionCoveragePayload) {
+    var daily = (funnelSessionCoveragePayload && funnelSessionCoveragePayload.daily) || [];
+    if (!daily.length) {
+      coverageAlertBanner.style.display = 'none';
+      coverageAlertBanner.innerHTML = '';
+      return;
+    }
+
+    // Find the single most-recent day present in the data (across all event types).
+    var mostRecentDay = '';
+    daily.forEach(function (r) {
+      if (r.day > mostRecentDay) mostRecentDay = r.day;
+    });
+
+    // Aggregate totals per event type for that day only.
+    var byEvent = {};
+    daily.forEach(function (r) {
+      if (r.day !== mostRecentDay) return;
+      var e = r.eventName;
+      if (!byEvent[e]) byEvent[e] = { total: 0, withSessionId: 0 };
+      byEvent[e].total += r.total;
+      byEvent[e].withSessionId += r.withSessionId;
+    });
+
+    // Identify event types below threshold (only those with at least 1 event).
+    var eventOrder = ['cart_viewed', 'checkout_started', 'order_placed'];
+    var failing = Object.keys(byEvent)
+      .filter(function (e) {
+        var agg = byEvent[e];
+        if (!agg.total) return false;
+        var pct = Math.round(agg.withSessionId / agg.total * 1000) / 10;
+        return pct < COVERAGE_THRESHOLD;
+      })
+      .sort(function (a, b) {
+        var ia = eventOrder.indexOf(a), ib = eventOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a < b ? -1 : 1;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
+
+    if (!failing.length) {
+      coverageAlertBanner.style.display = 'none';
+      coverageAlertBanner.innerHTML = '';
+      return;
+    }
+
+    // Build banner HTML.
+    var items = failing.map(function (e) {
+      var agg = byEvent[e];
+      var pct = Math.round(agg.withSessionId / agg.total * 1000) / 10;
+      return '<li><strong>' + escapeHtml(e) + '</strong>: ' +
+        pct.toFixed(1) + '% session ID coverage on ' + escapeHtml(mostRecentDay) +
+        ' (' + agg.withSessionId.toLocaleString() + '\u202f/\u202f' + agg.total.toLocaleString() + ' events)' +
+        '</li>';
+    }).join('');
+
+    coverageAlertBanner.innerHTML =
+      '<div class="banner-title">\u26a0\ufe0f Session ID coverage regression detected</div>' +
+      '<ul class="banner-items">' + items + '</ul>' +
+      '<a class="banner-link" onclick="document.getElementById(\'funnelSessionCoverageDaily\').scrollIntoView({behavior:\'smooth\'});return false;" href="#">' +
+      'Jump to Funnel session ID coverage table \u2193' +
+      '</a>';
+    coverageAlertBanner.style.display = 'block';
+  }
+
   function renderFunnelSessionCoverage(payload) {
     var daily = (payload && payload.daily) || [];
     if (!daily.length) {
@@ -1684,7 +1764,9 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellCoverage(upsell.sessionCoverage || { daily: [] });
         renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
         renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
-        renderFunnelSessionCoverage(data.funnelSessionCoverage || { daily: [] });
+        var funnelCoverage = data.funnelSessionCoverage || { daily: [] };
+        renderCoverageAlertBanner(funnelCoverage);
+        renderFunnelSessionCoverage(funnelCoverage);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
