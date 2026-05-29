@@ -15,8 +15,8 @@ import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
-import React, { useCallback, useEffect, useState } from "react";
-import { Platform } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Linking, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -127,6 +127,66 @@ function DataRefreshPushListener() {
       sub.remove();
     };
   }, [qc]);
+  return null;
+}
+
+function openOrderTrackingUrl(url: string) {
+  Linking.openURL(url).catch(() => {});
+}
+
+function handleOrderEventResponse(
+  response: Notifications.NotificationResponse | null | undefined,
+) {
+  if (!response) return;
+  const data = (response.notification?.request?.content?.data ?? {}) as Record<string, unknown>;
+  if (data.type !== "order_event") return;
+  const url = typeof data.url === "string" ? data.url : null;
+  if (url) openOrderTrackingUrl(url);
+}
+
+function OrderEventPushHandler() {
+  const handledInitialRef = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    // Killed-state: when the app is cold-launched by a notification tap,
+    // getLastNotificationResponseAsync returns the triggering response.
+    // We handle it once on mount and mark it so the live listener won't
+    // double-open if the same response is emitted again.
+    let lastResponseIdentifier: string | null = null;
+    if (!handledInitialRef.current) {
+      handledInitialRef.current = true;
+      Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (!response) return;
+          lastResponseIdentifier = response.notification.request.identifier;
+          handleOrderEventResponse(response);
+        })
+        .catch(() => {});
+    }
+
+    // Foreground + background: fires whenever the user taps a notification
+    // while the app is running or resumes from background.
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        if (
+          lastResponseIdentifier &&
+          response.notification.request.identifier === lastResponseIdentifier
+        ) {
+          // Already handled via getLastNotificationResponseAsync — skip.
+          lastResponseIdentifier = null;
+          return;
+        }
+        handleOrderEventResponse(response);
+      },
+    );
+
+    return () => {
+      sub.remove();
+    };
+  }, []);
+
   return null;
 }
 
@@ -254,6 +314,7 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
       <ApiAuthTokenSync />
       <PushTokenRotationListener />
       <DataRefreshPushListener />
+      <OrderEventPushHandler />
       {/* Hard gate: until AsyncStorage has told us whether onboarding is
           required, render nothing under the splash. This prevents the home
           tab (and its product / homepage queries) from mounting on a fresh
