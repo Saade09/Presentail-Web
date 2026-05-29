@@ -9,9 +9,11 @@
  * instead of "AED 367") when formatPrice omitted the currency-rate conversion.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getCurrency } from "@workspace/catalog-data";
+import { CURRENCIES, getCurrency } from "@workspace/catalog-data";
+
+import { applyFxRates } from "../data/currencies";
 
 import {
   convertCurrency,
@@ -184,5 +186,96 @@ describe("cross-currency regression — formatCurrencyPrice must apply rate (not
       const c = getCurrency(code);
       expect(c.rate).not.toBe(1);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyFxRates — live rate mutation and guard behaviour
+// ---------------------------------------------------------------------------
+
+describe("applyFxRates", () => {
+  // Snapshot every static rate before each test and restore it afterwards so
+  // mutations never bleed across tests or into the suites above.
+  let savedRates: Map<string, number>;
+
+  beforeEach(() => {
+    savedRates = new Map(CURRENCIES.map((c) => [c.code, c.rate]));
+  });
+
+  afterEach(() => {
+    for (const c of CURRENCIES) {
+      const original = savedRates.get(c.code);
+      if (original !== undefined) c.rate = original;
+    }
+  });
+
+  it("applies a valid positive rate for a known currency", () => {
+    applyFxRates({ AED: 4.0 });
+    expect(getCurrency("AED").rate).toBe(4.0);
+  });
+
+  it("applies rates for multiple currencies in a single call", () => {
+    applyFxRates({ AED: 4.1, EUR: 0.9 });
+    expect(getCurrency("AED").rate).toBe(4.1);
+    expect(getCurrency("EUR").rate).toBe(0.9);
+  });
+
+  it("leaves unmentioned currencies at their previous rate", () => {
+    const originalEur = getCurrency("EUR").rate;
+    applyFxRates({ AED: 4.2 });
+    expect(getCurrency("EUR").rate).toBe(originalEur);
+  });
+
+  it("rejects a zero rate — currency keeps its prior value", () => {
+    const before = getCurrency("AED").rate;
+    applyFxRates({ AED: 0 });
+    expect(getCurrency("AED").rate).toBe(before);
+  });
+
+  it("rejects a negative rate — currency keeps its prior value", () => {
+    const before = getCurrency("AED").rate;
+    applyFxRates({ AED: -3.5 });
+    expect(getCurrency("AED").rate).toBe(before);
+  });
+
+  it("rejects NaN — currency keeps its prior value", () => {
+    const before = getCurrency("EUR").rate;
+    applyFxRates({ EUR: NaN });
+    expect(getCurrency("EUR").rate).toBe(before);
+  });
+
+  it("rejects Infinity — currency keeps its prior value", () => {
+    const before = getCurrency("AED").rate;
+    applyFxRates({ AED: Infinity });
+    expect(getCurrency("AED").rate).toBe(before);
+  });
+
+  it("ignores unknown currency codes without throwing", () => {
+    expect(() =>
+      applyFxRates({ XYZ: 1.5 } as Partial<Record<never, number>>),
+    ).not.toThrow();
+  });
+
+  it("round-trip: applied rate drives formatCurrencyPrice output", () => {
+    applyFxRates({ AED: 4.0 });
+    const aed = getCurrency("AED");
+    // 100 USD × 4.0 = 400 AED
+    expect(formatCurrencyPrice(aed, 100)).toBe("AED 400");
+  });
+
+  it("round-trip: updated EUR rate changes formatted output", () => {
+    applyFxRates({ EUR: 0.9 });
+    const eur = getCurrency("EUR");
+    // 100 USD × 0.9 = 90 EUR → '€ 90'
+    expect(formatCurrencyPrice(eur, 100)).toBe("€ 90");
+  });
+
+  it("round-trip: invalid rate leaves static fallback in effect", () => {
+    const staticRate = getCurrency("AED").rate;
+    applyFxRates({ AED: 0 });
+    const aed = getCurrency("AED");
+    expect(formatCurrencyPrice(aed, 100)).toBe(
+      `AED ${Math.round(staticRate * 100)}`,
+    );
   });
 });
