@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "@/components/BottomSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
+import { API_BASE } from "@/lib/stripe";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -39,7 +40,7 @@ function AccountTab() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
-  const { ready, user, logout, deleteAccount } = useAuth();
+  const { ready, user, token, logout, deleteAccount } = useAuth();
   const { currencyCode, isManualOverride, setCurrency, clearManualCurrency, list: currencyList } = useCurrency();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
@@ -47,6 +48,21 @@ function AccountTab() {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [loyaltyTierLabel, setLoyaltyTierLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/loyalty/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: { ok?: boolean; loyalty?: { tier?: { label?: string } } }) => {
+        if (data.ok && data.loyalty?.tier?.label) {
+          setLoyaltyTierLabel(data.loyalty.tier.label);
+        }
+      })
+      .catch(() => {});
+  }, [token]);
 
   const refreshNotifStatus = useCallback(async () => {
     const stored = await getNotificationStatus();
@@ -199,54 +215,75 @@ function AccountTab() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: 120, gap: 18 }}>
-          <Text
+          {/* Guest hero card */}
+          <View
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
-              fontSize: 28,
-              color: colors.primary,
-              textAlign: isRTL ? "right" : "left",
-              marginTop: 4,
-            }}
-          >
-            {t.profileTitle}
-          </Text>
-
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-              fontSize: 14,
-              color: colors.primary,
-              textAlign: isRTL ? "right" : "left",
-              opacity: 0.85,
-              lineHeight: 20,
-            }}
-          >
-            {t.profileSignInHelper}
-          </Text>
-
-          <Pressable
-            onPress={() => router.push("/auth")}
-            style={({ pressed }) => ({
-              borderWidth: 1.5,
-              borderColor: colors.primary,
-              borderRadius: 999,
-              paddingVertical: 18,
+              backgroundColor: colors.primary,
+              borderRadius: 20,
+              padding: 24,
               alignItems: "center",
-              marginTop: 4,
-              opacity: pressed ? 0.75 : 1,
-            })}
+              gap: 12,
+            }}
           >
-            <Text
+            <View
               style={{
-                fontFamily: "Inter_600SemiBold",
-                color: colors.primary,
-                letterSpacing: 1,
-                fontSize: 13,
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: "rgba(255,255,255,0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 4,
               }}
             >
-              {t.profileSignInBtn}
+              <Feather name="user" size={28} color="#fff" />
+            </View>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 22,
+                color: "#fff",
+                textAlign: "center",
+              }}
+            >
+              {t.profileTitle}
             </Text>
-          </Pressable>
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                color: "rgba(255,255,255,0.8)",
+                textAlign: "center",
+                lineHeight: 21,
+                paddingHorizontal: 8,
+              }}
+            >
+              {t.profileSignInHelper}
+            </Text>
+            <Pressable
+              onPress={() => router.push("/auth")}
+              style={({ pressed }) => ({
+                backgroundColor: "#fff",
+                borderRadius: 999,
+                paddingVertical: 14,
+                paddingHorizontal: 32,
+                alignItems: "center",
+                marginTop: 4,
+                opacity: pressed ? 0.9 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  color: colors.primary,
+                  letterSpacing: 1,
+                  fontSize: 13,
+                }}
+              >
+                {t.profileSignInBtn}
+              </Text>
+            </Pressable>
+          </View>
 
           <Card colors={colors}>
             <SettingsRow
@@ -509,28 +546,140 @@ function AccountTab() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 120 }}>
+        {/* Polished header card */}
         <View
           style={{
-            backgroundColor: "#fff",
-            borderRadius: 14,
-            padding: 18,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 4,
+            backgroundColor: colors.primary,
+            borderRadius: 20,
+            padding: 20,
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 16,
           }}
         >
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary }}>
-            {`${user.firstName} ${user.lastName}`.trim() || user.email}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-            {user.email}
-          </Text>
-          {user.phone ? (
-            <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-              {user.phone}
+          {/* Avatar initial */}
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 22,
+                color: "#fff",
+              }}
+            >
+              {(user.firstName?.[0] ?? user.email?.[0] ?? "?").toUpperCase()}
             </Text>
-          ) : null}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_500Medium",
+                fontSize: 19,
+                color: "#fff",
+                textAlign: isRTL ? "right" : "left",
+              }}
+              numberOfLines={1}
+            >
+              {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 13,
+                color: "rgba(255,255,255,0.72)",
+                textAlign: isRTL ? "right" : "left",
+                marginTop: 2,
+              }}
+              numberOfLines={1}
+            >
+              {user.email}
+            </Text>
+            {loyaltyTierLabel ? (
+              <View
+                style={{
+                  alignSelf: isRTL ? "flex-end" : "flex-start",
+                  marginTop: 8,
+                  backgroundColor: "rgba(255,255,255,0.18)",
+                  paddingHorizontal: 10,
+                  paddingVertical: 3,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.35)",
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 11,
+                    color: "#fff",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  ★ {loyaltyTierLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* 2×2 Shortcut cards */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {([
+            { icon: "package" as const, label: t.accountMyOrders, onPress: () => router.push("/orders" as never) },
+            { icon: "star" as const, label: "Points", onPress: () => router.push("/loyalty" as never) },
+            { icon: "map-pin" as const, label: t.savedAddressesTitle, onPress: () => router.push("/saved-addresses" as never) },
+            { icon: "bell" as const, label: t.notifications, onPress: onNotifRowPress },
+          ] as const).map((item) => (
+            <Pressable
+              key={item.icon}
+              onPress={item.onPress}
+              style={({ pressed }) => ({
+                width: "47.5%",
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 16,
+                alignItems: "center",
+                gap: 8,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: `${colors.primary}12`,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name={item.icon} size={18} color={colors.primary} />
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: colors.primary,
+                  textAlign: "center",
+                }}
+              >
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         <Section colors={colors} title={t.accountOrdersHistory}>

@@ -124,14 +124,33 @@ function FavoritesTab() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Ionicons name="heart-outline" size={56} color={colors.mutedForeground} style={{ marginBottom: 20 }} />
+        <View
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 44,
+            backgroundColor: "#fff",
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 20,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <Ionicons name="heart-outline" size={40} color={colors.primary} />
+        </View>
         <Text
           style={{
-            fontFamily: "PlayfairDisplay_400Regular",
-            fontSize: 24,
+            fontFamily: "PlayfairDisplay_500Medium",
+            fontSize: 22,
             color: colors.primary,
             textAlign: "center",
-            marginBottom: 12,
+            marginBottom: 10,
           }}
         >
           {t.favoritesEmptyTitle}
@@ -139,14 +158,37 @@ function FavoritesTab() {
         <Text
           style={{
             fontFamily: "Inter_400Regular",
-            fontSize: 15,
+            fontSize: 14,
             color: colors.mutedForeground,
             textAlign: "center",
             lineHeight: 22,
+            marginBottom: 28,
           }}
         >
           {t.favoritesEmptyDesc}
         </Text>
+        <Pressable
+          onPress={() => router.push("/(tabs)/" as never)}
+          style={({ pressed }) => ({
+            borderWidth: 1.5,
+            borderColor: colors.primary,
+            borderRadius: 999,
+            paddingVertical: 12,
+            paddingHorizontal: 28,
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Text
+            style={{
+              fontFamily: "Inter_600SemiBold",
+              color: colors.primary,
+              fontSize: 13,
+              letterSpacing: 0.8,
+            }}
+          >
+            Discover products
+          </Text>
+        </Pressable>
       </ScrollView>
     );
   }

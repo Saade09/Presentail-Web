@@ -1,14 +1,23 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
   Text,
+  UIManager,
   View,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -37,6 +46,18 @@ type FetchState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ok"; orders: MyOrder[] };
+
+function statusStyle(status: string | null): { bg: string; text: string } {
+  if (!status) return { bg: "transparent", text: "" };
+  const s = status.toLowerCase();
+  if (s === "completed" || s === "delivered")
+    return { bg: "#d1fae5", text: "#065f46" };
+  if (s === "processing" || s === "on-hold" || s === "pending")
+    return { bg: "#fef3c7", text: "#92400e" };
+  if (s === "cancelled" || s === "failed" || s === "refunded")
+    return { bg: "#fee2e2", text: "#991b1b" };
+  return { bg: "#f1f5f9", text: "#475569" };
+}
 
 function OrdersScreen() {
   const colors = useColors();
@@ -76,7 +97,6 @@ function OrdersScreen() {
     if (ready) load();
   }, [ready, load]);
 
-  // If the user signs out from another screen, bounce back.
   useEffect(() => {
     if (ready && !user) router.replace("/(tabs)/account");
   }, [ready, user, router]);
@@ -116,22 +136,17 @@ function OrdersScreen() {
       </View>
 
       {state.kind === "loading" || !ready ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.primary} />
+        <ScrollView contentContainerStyle={{ padding: 18, gap: 14, paddingBottom: 80 }}>
+          {[1, 2, 3].map((i) => (
+            <OrderSkeleton key={i} colors={colors} />
+          ))}
+        </ScrollView>
+      ) : state.kind === "error" ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
           <Text
             style={{
               marginTop: 12,
-              color: colors.mutedForeground,
-              fontFamily: "Inter_400Regular",
-            }}
-          >
-            {t.ordersLoading}
-          </Text>
-        </View>
-      ) : state.kind === "error" ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <Text
-            style={{
               color: colors.mutedForeground,
               fontFamily: "Inter_400Regular",
               textAlign: "center",
@@ -142,16 +157,28 @@ function OrdersScreen() {
         </View>
       ) : state.orders.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <Feather name="package" size={36} color={colors.mutedForeground} />
+          <Feather name="package" size={40} color={colors.mutedForeground} />
           <Text
             style={{
-              marginTop: 12,
-              color: colors.mutedForeground,
-              fontFamily: "Inter_400Regular",
+              marginTop: 14,
+              fontFamily: "PlayfairDisplay_500Medium",
+              fontSize: 18,
+              color: colors.primary,
               textAlign: "center",
             }}
           >
             {t.ordersEmpty}
+          </Text>
+          <Text
+            style={{
+              marginTop: 6,
+              color: colors.mutedForeground,
+              fontFamily: "Inter_400Regular",
+              textAlign: "center",
+              fontSize: 13,
+            }}
+          >
+            Your order history will appear here.
           </Text>
         </View>
       ) : (
@@ -161,6 +188,64 @@ function OrdersScreen() {
           ))}
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+function OrderSkeleton({ colors }: { colors: ReturnType<typeof useColors> }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+    return () => shimmer.stopAnimation();
+  }, [shimmer]);
+
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.9] });
+
+  return (
+    <View
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+        gap: 8,
+      }}
+    >
+      <Animated.View style={{ opacity }}>
+        <View
+          style={{
+            height: 10,
+            width: 80,
+            borderRadius: 5,
+            backgroundColor: colors.border,
+            marginBottom: 6,
+          }}
+        />
+        <View
+          style={{
+            height: 18,
+            width: "55%",
+            borderRadius: 5,
+            backgroundColor: colors.border,
+            marginBottom: 6,
+          }}
+        />
+        <View
+          style={{
+            height: 12,
+            width: "40%",
+            borderRadius: 5,
+            backgroundColor: colors.border,
+          }}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -176,19 +261,33 @@ function OrderCard({
   colors: ReturnType<typeof useColors>;
   isRTL: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const placed = formatDate(order.createdAt);
   const itemWord = order.itemsCount === 1 ? t.ordersItem : t.ordersItems;
   const totalLabel =
     order.total && order.currency ? `${order.currency} ${order.total}` : null;
+  const { bg: statusBg, text: statusText } = statusStyle(order.status);
+  const hasItems = Array.isArray(order.items) && order.items.length > 0;
+
+  const toggleExpand = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded((v) => !v);
+  };
+
   return (
     <View
       style={{
         backgroundColor: "#fff",
-        borderRadius: 16,
+        borderRadius: 18,
         borderWidth: 1,
         borderColor: colors.border,
-        padding: 16,
-        gap: 6,
+        padding: 18,
+        gap: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 1,
       }}
     >
       <View
@@ -224,12 +323,12 @@ function OrderCard({
             {order.itemsCount} {itemWord}
           </Text>
         </View>
-        <View style={{ alignItems: isRTL ? "flex-start" : "flex-end" }}>
+        <View style={{ alignItems: isRTL ? "flex-start" : "flex-end", gap: 6 }}>
           {totalLabel ? (
             <Text
               style={{
                 fontFamily: "Inter_600SemiBold",
-                fontSize: 15,
+                fontSize: 16,
                 color: colors.primary,
               }}
             >
@@ -237,18 +336,26 @@ function OrderCard({
             </Text>
           ) : null}
           {order.status ? (
-            <Text
+            <View
               style={{
-                marginTop: 2,
-                fontSize: 11,
-                letterSpacing: 1,
-                color: colors.mutedForeground,
-                fontFamily: "Inter_500Medium",
-                textTransform: "uppercase",
+                backgroundColor: statusBg,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
               }}
             >
-              {order.status}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                  color: statusText,
+                  textTransform: "capitalize",
+                }}
+              >
+                {order.status}
+              </Text>
+            </View>
           ) : null}
         </View>
       </View>
@@ -276,6 +383,79 @@ function OrderCard({
       >
         {t.ordersPlacedOn} {placed}
       </Text>
+
+      {/* View details toggle */}
+      {hasItems && (
+        <>
+          <Pressable
+            onPress={toggleExpand}
+            hitSlop={6}
+            style={({ pressed }) => ({
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 4,
+              paddingTop: 10,
+              marginTop: 2,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Feather
+              name={expanded ? "chevron-up" : "chevron-down"}
+              size={14}
+              color={colors.mutedForeground}
+            />
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 12,
+                color: colors.mutedForeground,
+              }}
+            >
+              {expanded ? "Hide details" : "View details"}
+            </Text>
+          </Pressable>
+          {expanded && (
+            <View style={{ gap: 6, paddingTop: 4 }}>
+              {order.items.map((item, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 13,
+                      color: colors.primary,
+                      flex: 1,
+                      textAlign: isRTL ? "right" : "left",
+                    }}
+                  >
+                    {item.name}
+                  </Text>
+                  {item.quantity > 1 && (
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        fontSize: 12,
+                        color: colors.mutedForeground,
+                        marginLeft: 8,
+                      }}
+                    >
+                      ×{item.quantity}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 }

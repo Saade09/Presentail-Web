@@ -331,6 +331,31 @@ export const STRINGS: Dict = {
     en: "Edit personal information",
     ar: "تعديل المعلومات الشخصية",
   },
+  "account.notAddedYet": { en: "Not added yet", ar: "لم يُضف بعد" },
+  "account.dateOfBirth": { en: "Date of Birth", ar: "تاريخ الميلاد" },
+  "account.gender": { en: "Gender", ar: "الجنس" },
+  "account.notifications": { en: "Notifications", ar: "الإشعارات" },
+  "account.orders.emptyDesc": {
+    en: "Your order history will appear here once you place your first order.",
+    ar: "سيظهر سجل طلباتك هنا عند تقديم طلبك الأول.",
+  },
+  "account.orders.shopCta": { en: "Browse the collection", ar: "تصفّح المجموعة" },
+  "account.addresses.add": { en: "Add Address", ar: "إضافة عنوان" },
+  "account.addresses.empty": { en: "No saved addresses yet", ar: "لا توجد عناوين محفوظة بعد" },
+  "account.addresses.emptyDesc": {
+    en: "Save your delivery addresses to check out faster next time.",
+    ar: "احفظ عناوين التوصيل لإتمام طلباتك بسرعة أكبر في المرة القادمة.",
+  },
+  "account.loyalty.howItWorks": { en: "How Presentail Points work", ar: "كيف تعمل نقاط برزنتيل" },
+  "account.loyalty.howItWorksDesc": {
+    en: "Earn points with every order and unlock exclusive discounts as you level up through our loyalty tiers.",
+    ar: "اكسب نقاطاً مع كل طلب واحصل على خصومات حصرية كلما ارتقيت في مستويات الولاء.",
+  },
+  "account.favorites.empty": { en: "No favorites yet", ar: "لا توجد مفضلة بعد" },
+  "account.favorites.emptyDesc": {
+    en: "Tap the heart on any product to save it here for later.",
+    ar: "اضغط على أيقونة القلب على أي منتج لحفظه هنا.",
+  },
 
   // ── Personal information page ────────────────────────────────────────────
   "pi.title": { en: "Personal Information", ar: "المعلومات الشخصية" },
@@ -931,6 +956,19 @@ export const STRINGS_FR: Record<string, string> = {
   "account.orders.itemsCount": "articles",
   "account.orders.itemCount": "article",
   "account.editPersonalInfo": "Modifier mes informations personnelles",
+  "account.notAddedYet": "Pas encore renseigné",
+  "account.dateOfBirth": "Date de naissance",
+  "account.gender": "Genre",
+  "account.notifications": "Notifications",
+  "account.orders.emptyDesc": "Votre historique de commandes apparaîtra ici dès votre première commande.",
+  "account.orders.shopCta": "Parcourir la collection",
+  "account.addresses.add": "Ajouter une adresse",
+  "account.addresses.empty": "Aucune adresse enregistrée",
+  "account.addresses.emptyDesc": "Enregistrez vos adresses de livraison pour commander plus vite la prochaine fois.",
+  "account.loyalty.howItWorks": "Comment fonctionnent les Points Presentail",
+  "account.loyalty.howItWorksDesc": "Gagnez des points à chaque commande et débloquez des remises exclusives en progressant dans nos niveaux de fidélité.",
+  "account.favorites.empty": "Aucun favori pour l'instant",
+  "account.favorites.emptyDesc": "Appuyez sur le cœur d'un produit pour le sauvegarder ici.",
 
   // Personal information page
   "pi.title": "Informations personnelles",
