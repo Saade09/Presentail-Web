@@ -28,6 +28,7 @@ import { AccountOrderCard, AccountOrderCardSkeleton } from "@/components/account
 import { AccountShortcutCards } from "@/components/account/AccountShortcutCards";
 import { AccountSidebar, MobileTabStrip } from "@/components/account/AccountSidebar";
 import { EmptyState } from "@/components/account/EmptyState";
+import { CountryFlag } from "@/components/CountryFlag";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -390,8 +391,13 @@ function AddressCard({
   onEdit: () => void;
   t: (k: string) => string;
 }) {
+  const COUNTRY_NAMES: Record<string, string> = { LB: "Lebanon", AE: "United Arab Emirates", CY: "Cyprus" };
   const labelChip: Record<string, string> = { home: "Home", work: "Work", other: "Other" };
   const line2 = [address.addressLine, address.building, address.apartment].filter(Boolean).join(" · ");
+  const recipientName = [address.recipientFirstName, address.recipientLastName].filter(Boolean).join(" ");
+  const recipientPhone = [address.recipientPhoneCountryCode, address.recipientPhone].filter(Boolean).join(" ");
+  const countryCode = address.countryCode?.toUpperCase();
+  const countryDisplayName = countryCode ? (COUNTRY_NAMES[countryCode] ?? countryCode) : null;
 
   return (
     <div
@@ -414,11 +420,29 @@ function AddressCard({
               </span>
             )}
           </div>
+          {countryCode && countryDisplayName && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <CountryFlag code={countryCode} className="w-4 h-auto rounded-[2px] shrink-0" />
+              <span className="text-xs text-muted-foreground">{countryDisplayName}</span>
+            </div>
+          )}
           {address.district && (
             <div className="font-medium text-sm">{address.district}</div>
           )}
           {line2 && (
             <div className="text-sm text-muted-foreground mt-0.5">{line2}</div>
+          )}
+          {recipientName && (
+            <div className="text-sm mt-1">
+              <span className="text-muted-foreground">For: </span>
+              <span>{recipientName}</span>
+            </div>
+          )}
+          {recipientPhone && (
+            <div className="text-sm text-muted-foreground mt-0.5">{recipientPhone}</div>
+          )}
+          {address.directions && (
+            <div className="text-xs text-muted-foreground/70 mt-1 italic">{address.directions}</div>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
