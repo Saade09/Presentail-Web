@@ -1465,35 +1465,51 @@ const DASHBOARD_HTML = `<!doctype html>
   var COVERAGE_THRESHOLD = 80;
 
   // Render a prominent sticky alert banner at the top of the page listing any
-  // funnel event type whose most-recent-day coverage is below threshold. Called
-  // every time the operator loads fresh data. Hides itself when all healthy.
-  function renderCoverageAlertBanner(funnelSessionCoveragePayload) {
-    var daily = (funnelSessionCoveragePayload && funnelSessionCoveragePayload.daily) || [];
-    if (!daily.length) {
+  // funnel event type or upsell session ID coverage whose most-recent-day
+  // coverage is below threshold. Both funnel (cart_viewed / checkout_started /
+  // order_placed) and upsell (upsell_item_added) regressions are consolidated
+  // into one list so the operator sees everything in one place. Hides itself
+  // when all healthy.
+  function renderCoverageAlertBanner(funnelSessionCoveragePayload, upsellSessionCoveragePayload) {
+    var funnelDaily = (funnelSessionCoveragePayload && funnelSessionCoveragePayload.daily) || [];
+    var upsellDaily = (upsellSessionCoveragePayload && upsellSessionCoveragePayload.daily) || [];
+
+    if (!funnelDaily.length && !upsellDaily.length) {
       coverageAlertBanner.style.display = 'none';
       coverageAlertBanner.innerHTML = '';
       return;
     }
 
-    // Find the single most-recent day present in the data (across all event types).
-    var mostRecentDay = '';
-    daily.forEach(function (r) {
-      if (r.day > mostRecentDay) mostRecentDay = r.day;
-    });
+    // Each dataset is evaluated against its own most-recent day independently.
+    // Using a shared latest day would suppress regressions from one stream
+    // whenever the other stream happens to have a newer date.
+    var mostRecentFunnelDay = '';
+    funnelDaily.forEach(function (r) { if (r.day > mostRecentFunnelDay) mostRecentFunnelDay = r.day; });
 
-    // Aggregate totals per event type for that day only.
+    var mostRecentUpsellDay = '';
+    upsellDaily.forEach(function (r) { if (r.day > mostRecentUpsellDay) mostRecentUpsellDay = r.day; });
+
+    // Aggregate funnel totals per event type for the funnel stream's latest day.
     var byEvent = {};
-    daily.forEach(function (r) {
-      if (r.day !== mostRecentDay) return;
+    funnelDaily.forEach(function (r) {
+      if (r.day !== mostRecentFunnelDay) return;
       var e = r.eventName;
       if (!byEvent[e]) byEvent[e] = { total: 0, withSessionId: 0 };
       byEvent[e].total += r.total;
       byEvent[e].withSessionId += r.withSessionId;
     });
 
-    // Identify event types below threshold (only those with at least 1 event).
+    // Aggregate upsell totals across all platforms for the upsell stream's latest day.
+    var upsellAgg = { total: 0, withSessionId: 0 };
+    upsellDaily.forEach(function (r) {
+      if (r.day !== mostRecentUpsellDay) return;
+      upsellAgg.total += r.total;
+      upsellAgg.withSessionId += r.withSessionId;
+    });
+
+    // Identify funnel event types below threshold (only those with at least 1 event).
     var eventOrder = ['cart_viewed', 'checkout_started', 'order_placed'];
-    var failing = Object.keys(byEvent)
+    var failingFunnel = Object.keys(byEvent)
       .filter(function (e) {
         var agg = byEvent[e];
         if (!agg.total) return false;
@@ -1508,28 +1524,53 @@ const DASHBOARD_HTML = `<!doctype html>
         return ia - ib;
       });
 
-    if (!failing.length) {
+    // Check whether upsell session ID coverage is below threshold.
+    var upsellPct = upsellAgg.total > 0
+      ? Math.round(upsellAgg.withSessionId / upsellAgg.total * 1000) / 10
+      : null;
+    var upsellFailing = upsellPct !== null && upsellPct < COVERAGE_THRESHOLD;
+
+    if (!failingFunnel.length && !upsellFailing) {
       coverageAlertBanner.style.display = 'none';
       coverageAlertBanner.innerHTML = '';
       return;
     }
 
-    // Build banner HTML.
-    var items = failing.map(function (e) {
+    // Build banner list items — funnel event types first, then upsell.
+    // Each item includes its own day label derived from its stream's latest day.
+    var items = failingFunnel.map(function (e) {
       var agg = byEvent[e];
       var pct = Math.round(agg.withSessionId / agg.total * 1000) / 10;
       return '<li><strong>' + escapeHtml(e) + '</strong>: ' +
-        pct.toFixed(1) + '% session ID coverage on ' + escapeHtml(mostRecentDay) +
+        pct.toFixed(1) + '% session ID coverage on ' + escapeHtml(mostRecentFunnelDay) +
         ' (' + agg.withSessionId.toLocaleString() + '\u202f/\u202f' + agg.total.toLocaleString() + ' events)' +
         '</li>';
     }).join('');
 
+    if (upsellFailing) {
+      items += '<li><strong>upsell_item_added</strong>: ' +
+        upsellPct.toFixed(1) + '% session ID coverage on ' + escapeHtml(mostRecentUpsellDay) +
+        ' (' + upsellAgg.withSessionId.toLocaleString() + '\u202f/\u202f' + upsellAgg.total.toLocaleString() + ' events)' +
+        '</li>';
+    }
+
+    // One jump link per failing category so the operator can navigate directly.
+    var links = [];
+    if (failingFunnel.length) {
+      links.push('<a class="banner-link" onclick="document.getElementById(\'funnelSessionCoverageDaily\').scrollIntoView({behavior:\'smooth\'});return false;" href="#">' +
+        'Jump to Funnel session ID coverage table \u2193' +
+        '</a>');
+    }
+    if (upsellFailing) {
+      links.push('<a class="banner-link" onclick="document.getElementById(\'upsellSessionCoverageDaily\').scrollIntoView({behavior:\'smooth\'});return false;" href="#">' +
+        'Jump to Upsell session ID coverage table \u2193' +
+        '</a>');
+    }
+
     coverageAlertBanner.innerHTML =
       '<div class="banner-title">\u26a0\ufe0f Session ID coverage regression detected</div>' +
       '<ul class="banner-items">' + items + '</ul>' +
-      '<a class="banner-link" onclick="document.getElementById(\'funnelSessionCoverageDaily\').scrollIntoView({behavior:\'smooth\'});return false;" href="#">' +
-      'Jump to Funnel session ID coverage table \u2193' +
-      '</a>';
+      links.join(' \u00a0\u00a0 ');
     coverageAlertBanner.style.display = 'block';
   }
 
@@ -1765,7 +1806,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderUpsellSessionConversion(upsell.sessionConversion || { summary: [] });
         renderUpsellConversion(upsell.conversion || { summary: [], daily: [] });
         var funnelCoverage = data.funnelSessionCoverage || { daily: [] };
-        renderCoverageAlertBanner(funnelCoverage);
+        renderCoverageAlertBanner(funnelCoverage, upsell.sessionCoverage || { daily: [] });
         renderFunnelSessionCoverage(funnelCoverage);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
