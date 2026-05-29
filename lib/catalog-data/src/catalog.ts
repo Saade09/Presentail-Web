@@ -119,18 +119,14 @@ export const occasions: Occasion[] = [
   { id: "children", name: "Children", icon: "star", image: occFallback.children, description: "Bright and joyful gifts to delight the little ones." },
 ];
 
-export const brands: Brand[] = [
-  { name: "Apple", slug: "apple" },
-  { name: "SuperHeated Neurons", slug: "superheated-neurons" },
-  { name: "Salma", slug: "salma" },
-  { name: "Hallab 1881", slug: "hallab" },
-  { name: "Rifai", slug: "rifai" },
-  { name: "Fujifilm", slug: "fujifilm" },
-  { name: "Samsung", slug: "samsung" },
-  { name: "Nintendo", slug: "nintendo" },
-  { name: "PlayStation", slug: "playstation-gifts-lebanon" },
-  { name: "Sablés Gourmets", slug: "sables-gourmets" },
-];
+// Brands retired from the static list in Phase 3 — Presentail OS is the
+// sole source of truth. The live list is served from `GET /api/woo/brands`
+// (backed by `getOsBrands()` in osProductsCache) and from the
+// `GET /api/catalog/metadata` `brands` field which also reads the OS cache.
+// This empty array is kept for backward compatibility with any import site
+// that still destructures it; it is never consulted at runtime.
+// Do NOT add brands here — add them in Presentail OS instead.
+export const brands: Brand[] = [];
 
 export const reviews: CatalogReview[] = [
   { id: "1", name: "Sarah K.", text: "A truly wonderful experience — the bouquet arrived exactly as pictured.", rating: 5 },

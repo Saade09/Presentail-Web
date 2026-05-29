@@ -4,7 +4,6 @@ import {
   GetCurrenciesResponse,
 } from "@workspace/api-zod";
 import {
-  brands,
   categories,
   COUNTRY_TO_CURRENCY_MAP,
   CURRENCIES,
@@ -12,6 +11,7 @@ import {
   occasions,
   products,
 } from "@workspace/catalog-data";
+import { getOsBrands } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -25,6 +25,11 @@ router.get("/currencies", (_req, res) => {
 });
 
 router.get("/catalog/metadata", (_req, res) => {
+  const osBrands = getOsBrands();
+  const brands = osBrands
+    ? osBrands.map((b) => ({ name: b.name, slug: b.slug }))
+    : [];
+
   const data = GetCatalogMetadataResponse.parse({
     categories,
     occasions,

@@ -84,6 +84,7 @@ export async function fetchOccasionProducts(
 export type BrandProductsResult = {
   products: WooProduct[];
   brandImage: string | null;
+  brandName: string | null;
 };
 
 export async function fetchBrandProducts(
@@ -99,11 +100,15 @@ export async function fetchBrandProducts(
     );
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
-      return { products: json.products, brandImage: json.brandImage ?? null };
+      return {
+        products: json.products,
+        brandImage: json.brandImage ?? null,
+        brandName: typeof json.brandName === "string" ? json.brandName : null,
+      };
     }
-    return { products: [], brandImage: null };
+    return { products: [], brandImage: null, brandName: null };
   } catch {
-    return { products: [], brandImage: null };
+    return { products: [], brandImage: null, brandName: null };
   }
 }
 

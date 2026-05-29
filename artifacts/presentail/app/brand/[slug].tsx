@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
-import { brands } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
@@ -33,12 +32,10 @@ function BrandScreen() {
   const insets = useSafeAreaInsets();
   const t = useT();
 
-  const brand = brands.find((b) => b.slug === slug);
-  const brandName = brand?.name ?? slug ?? "";
-
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [brandImage, setBrandImage] = useState<string | null>(null);
+  const [brandName, setBrandName] = useState<string>(String(slug ?? ""));
   const [coverLoaded, setCoverLoaded] = useState(false);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
@@ -49,11 +46,13 @@ function BrandScreen() {
     setLoading(true);
     setProducts([]);
     setBrandImage(null);
+    setBrandName(String(slug ?? ""));
     setCoverLoaded(false);
     fetchBrandProducts(String(slug), { countryCode, cityId }).then((res) => {
       if (!cancelled) {
         setProducts(res.products.filter((p) => p.image));
         setBrandImage(res.brandImage);
+        if (res.brandName) setBrandName(res.brandName);
         setLoading(false);
       }
     });

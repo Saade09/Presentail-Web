@@ -10,10 +10,8 @@
 // missing asset triggers a defensive `null` so the existing
 // product-detail / catalog screens don't crash.
 import {
-  type Brand,
   type CatalogImageRef,
   type CatalogReview,
-  brands as LIB_BRANDS,
   categories as LIB_CATEGORIES,
   occasions as LIB_OCCASIONS,
   products as LIB_PRODUCTS,
@@ -43,7 +41,7 @@ export type Occasion = {
   description?: string;
 };
 
-export type { Brand, CatalogReview };
+export type { CatalogReview };
 
 const ASSETS: Record<string, any> = {
   "categories/arabic-sweets.webp": require("@/assets/categories/arabic-sweets.webp"),
@@ -134,7 +132,6 @@ export const occasions: Occasion[] = LIB_OCCASIONS.map((o) => ({
   ...(o.description !== undefined ? { description: o.description } : {}),
 }));
 
-export const brands: Brand[] = LIB_BRANDS;
 export const reviews: CatalogReview[] = LIB_REVIEWS;
 export const bestSellerIds: readonly string[] = LIB_BEST_SELLER_IDS;
 export const bestSellers: Product[] = bestSellerIds
