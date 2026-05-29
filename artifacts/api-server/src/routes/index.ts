@@ -20,6 +20,7 @@ import adminFunnelsRouter from "./adminFunnels";
 import loyaltyRouter from "./loyalty";
 import favoritesRouter from "./favorites";
 import osWebhookRouter from "./osWebhook";
+import wooWebhookRouter from "./wooWebhook";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(adminFunnelsRouter);
 router.use(loyaltyRouter);
 router.use(favoritesRouter);
 router.use(osWebhookRouter);
+router.use(wooWebhookRouter);
 
 export default router;

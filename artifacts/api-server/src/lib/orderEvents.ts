@@ -48,6 +48,7 @@ const COPY: Record<
 export type SendOrderEventInput = {
   state: OrderState;
   appOrderId: string;
+  wcOrderId?: number | null;
   userId?: number | null;
   deviceId?: string | null;
   recipientName?: string | null;
@@ -60,7 +61,7 @@ export type SendOrderEventInput = {
 export async function sendOrderEventPush(
   input: SendOrderEventInput,
 ): Promise<number> {
-  const { state, appOrderId, userId, deviceId, recipientName } = input;
+  const { state, appOrderId, wcOrderId, userId, deviceId, recipientName } = input;
   if (userId == null && !deviceId) return 0;
 
   let tokens: { token: string }[] = [];
@@ -87,6 +88,11 @@ export async function sendOrderEventPush(
   const title = input.customTitle ?? copy.title;
   const body = input.customBody ?? copy.body(appOrderId, recipientName ?? null);
 
+  const trackingUrl =
+    wcOrderId != null
+      ? `https://orderstatus.presentail.com?order=${wcOrderId}`
+      : undefined;
+
   const messages: ExpoPushMessage[] = unique.map((to) => ({
     to,
     title,
@@ -97,6 +103,8 @@ export async function sendOrderEventPush(
       type: "order_event",
       state,
       appOrderId,
+      ...(wcOrderId != null ? { wcOrderId } : {}),
+      ...(trackingUrl ? { url: trackingUrl } : {}),
     },
   }));
 

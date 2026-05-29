@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import clerkWebhookRouter from "./routes/clerkWebhook";
+import wooWebhookRouter from "./routes/wooWebhook";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -57,6 +58,14 @@ app.use(
   "/api/clerk/webhook",
   express.raw({ type: "application/json", limit: "1mb" }),
   clerkWebhookRouter,
+);
+
+// WooCommerce order webhook: HMAC-SHA256 is computed over the raw request
+// bytes, so this must also be mounted BEFORE `express.json()`.
+app.use(
+  "/api/woo/webhook/order",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  wooWebhookRouter,
 );
 
 app.use(cors());
