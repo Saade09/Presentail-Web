@@ -1,11 +1,11 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, useCatalogMetadata, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, type Product } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { Filter, MapPin, SlidersHorizontal } from "lucide-react";
+import { Filter, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 
@@ -35,21 +35,25 @@ export default function Shop() {
 
   const category = searchParams.get("category") || "";
   const occasion = searchParams.get("occasion") || "";
+  const brand = searchParams.get("brand") || "";
 
   const { countryCode, cityId, country, openPicker } = useLocationSelection();
   const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) queryParams.countryCode = countryCode;
   if (cityId) queryParams.cityId = cityId;
 
-  const allProducts = useProducts(queryParams, !category && !occasion);
+  const allProducts = useProducts(queryParams, !category && !occasion && !brand);
   const categoryProducts = useCategoryProducts(category, queryParams);
   const occasionProducts = useOccasionProducts(occasion, queryParams);
+  const brandProducts = useBrandProducts(brand, queryParams);
 
   const isLoading = category
     ? categoryProducts.isLoading
     : occasion
-      ? occasionProducts.isLoading
-      : allProducts.isLoading;
+      ? occasionProducts.isLoading || (!!brand && brandProducts.isLoading)
+      : brand
+        ? brandProducts.isLoading
+        : allProducts.isLoading;
 
   const sourceProducts: Product[] = useMemo(() => {
     if (category) return categoryProducts.data?.products ?? [];
@@ -64,10 +68,15 @@ export default function Shop() {
           flat.push(p);
         }
       }
+      if (brand && brandProducts.data) {
+        const brandSet = new Set(brandProducts.data.products.map((p) => p.id));
+        return flat.filter((p) => brandSet.has(p.id));
+      }
       return flat;
     }
+    if (brand) return brandProducts.data?.products ?? [];
     return allProducts.data?.products ?? [];
-  }, [category, occasion, categoryProducts.data, occasionProducts.data, allProducts.data]);
+  }, [category, occasion, brand, categoryProducts.data, occasionProducts.data, allProducts.data, brandProducts.data]);
 
   // Always-on store catalog used to suggest popular picks when the user lands
   // on a sold-out category/occasion (so the page doesn't render an empty grid).
@@ -110,6 +119,13 @@ export default function Shop() {
       : t("shop.allCollection");
 
   const occasionDescription = catalogOccasion?.description;
+
+  const brandDisplayName = brandProducts.data?.brandName ?? brand;
+  const clearBrandHref = occasion
+    ? `/shop?occasion=${occasion}`
+    : category
+      ? `/shop?category=${category}`
+      : "/shop";
 
   return (
     <div className="min-h-screen pt-24 pb-24">
@@ -175,13 +191,26 @@ export default function Shop() {
                 ))}
               </ul>
             </div>
-            {(category || occasion) && (
+            {(category || occasion || brand) && (
               <Link href="/shop" className="text-sm font-medium text-primary hover:underline" data-testid="link-clear-filters">
                 {t("shop.clearAll")}
               </Link>
             )}
           </div>
           <div className="flex-1">
+            {brand && (
+              <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="active-brand-filter">
+                <Link
+                  href={clearBrandHref}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                  aria-label={t("shop.removeBrandFilter")}
+                  data-testid="chip-brand-filter"
+                >
+                  {brandDisplayName}
+                  <X className="w-3 h-3" />
+                </Link>
+              </div>
+            )}
             {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
                 {Array(6).fill(0).map((_, i) => (
@@ -193,7 +222,7 @@ export default function Shop() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              (category || occasion) ? (
+              (category || occasion || brand) ? (
                 <div data-testid="empty-state-sold-out">
                   <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed">
                     <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleSoldOut")}</h3>
@@ -230,7 +259,7 @@ export default function Shop() {
                         <Button variant="outline" onClick={() => openPicker()} data-testid="button-change-country">
                           {t("shop.empty.changeCountry")}
                         </Button>
-                        {(category || occasion) && (
+                        {(category || occasion || brand) && (
                           <Button asChild variant="ghost" data-testid="button-clear-filters">
                             <Link href="/shop">{t("shop.clearFiltersBtn")}</Link>
                           </Button>

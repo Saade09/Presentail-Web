@@ -147,6 +147,7 @@ export const STRINGS: Dict = {
   "shop.empty.descSoldOut": { en: "New pieces are on the way. In the meantime, here are a few popular picks our customers love.", ar: "قطع جديدة في الطريق. في هذه الأثناء، إليك بعض الاختيارات الشهيرة التي يحبها زبائننا." },
   "shop.popularPicks": { en: "Popular picks", ar: "اختيارات شائعة" },
   "shop.browseAll": { en: "Browse all collections", ar: "تصفح كل المجموعات" },
+  "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
 
   "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
   "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
@@ -751,6 +752,7 @@ export const STRINGS_FR: Record<string, string> = {
     "De nouvelles pièces arrivent bientôt. En attendant, voici quelques coups de cœur de nos clients.",
   "shop.popularPicks": "Coups de cœur",
   "shop.browseAll": "Parcourir toutes les collections",
+  "shop.removeBrandFilter": "Supprimer le filtre de marque",
 
   "shop.cat.handBouquets": "Bouquets à la main",
   "shop.cat.flowerBoxes": "Boîtes de fleurs",
