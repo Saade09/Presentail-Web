@@ -8,6 +8,7 @@ import { refreshHomepageBanners } from "../data/homepageBanners";
 import {
   invalidateOsProductsCache,
   getOsProductHash,
+  persistDailySnapshotIfNeeded,
 } from "./osProductsCache";
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -89,6 +90,14 @@ export async function runWooSyncOnce(
     for (const spec of STORES) {
       const store = spec.resolve();
       await syncOneStore(spec, store, { bannersChanged, pushOnChange });
+    }
+
+    // Persist today's product prices to the DB once per UTC day so the
+    // price-change baseline in the admin funnels dashboard survives restarts.
+    try {
+      await persistDailySnapshotIfNeeded();
+    } catch (err: any) {
+      logger.warn({ err: err?.message }, "wooSync: persistDailySnapshot crashed");
     }
 
     logger.info(

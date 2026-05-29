@@ -39,6 +39,8 @@ import type {
   OSProductBrand,
   OSProductOccasion,
 } from "@workspace/presentail-os";
+import { db, osPriceSnapshotsTable } from "@workspace/db";
+import { lt, sql } from "drizzle-orm";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
 
@@ -94,6 +96,9 @@ let cachedOccasions: OSProductOccasion[] | null = null;
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
+/** UTC date (YYYY-MM-DD) of the most recently persisted daily snapshot, or null. */
+let lastPersistedSnapshotDate: string | null = null;
+
 // ── Configuration ──────────────────────────────────────────────────────────
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
@@ -118,14 +123,149 @@ function getOsConfig(): PresentailOsConfig {
  * but only when this is the very first fetch for `storeKey` (i.e. the store
  * cache did not previously have data). Subsequent refreshes update the live
  * cache but intentionally leave the snapshot untouched.
+ *
+ * When `seedFromDb()` has already populated the snapshot from the DB, this
+ * function only fills in any products that were absent from that DB snapshot
+ * (newly added products that don't yet have a prior-day DB row). Those get
+ * `priceChangedSinceStartup: false` to avoid spurious warnings.
  */
 function maybeRecordStartupSnapshot(products: OSProduct[], storeKey: StoreKey): void {
   if (storeCache.has(storeKey)) return; // not first fetch for this store
   for (const p of products) {
+    // Only fill gaps — do not overwrite rows seeded from the DB.
     if (!startupPriceSnapshot.has(p.id) && typeof p.price === "number") {
       startupPriceSnapshot.set(p.id, p.price);
     }
   }
+}
+
+/**
+ * Seed the startup price snapshot from the most recent daily DB snapshot
+ * that predates today's UTC date. This makes the baseline survive server
+ * restarts: instead of comparing prices against "what the server saw at
+ * cold-boot", we compare against "what prices were yesterday (or the last
+ * day we recorded)".
+ *
+ * Must be called before the first OS product fetch so that when
+ * `maybeRecordStartupSnapshot` runs it sees the DB rows and leaves them
+ * untouched. Safe to call multiple times (no-op after the first successful
+ * seed).
+ *
+ * No-op in test environments.
+ */
+export async function seedStartupSnapshotFromDb(): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
+  if (startupPriceSnapshot.size > 0) return; // already seeded
+  try {
+    const todayUtc = utcDateString(new Date());
+    // Find the most recent snapshot_date that precedes today.
+    const [latestRow] = await db
+      .select({ snapshotDate: osPriceSnapshotsTable.snapshotDate })
+      .from(osPriceSnapshotsTable)
+      .where(lt(osPriceSnapshotsTable.snapshotDate, todayUtc))
+      .orderBy(sql`${osPriceSnapshotsTable.snapshotDate} desc`)
+      .limit(1);
+    if (!latestRow) {
+      logger.info(
+        "osProductsCache: no prior-day DB snapshot found — baseline will be built from the first in-memory fetch",
+      );
+      return;
+    }
+    const rows = await db
+      .select({
+        productId: osPriceSnapshotsTable.productId,
+        priceUsd: osPriceSnapshotsTable.priceUsd,
+      })
+      .from(osPriceSnapshotsTable)
+      .where(sql`${osPriceSnapshotsTable.snapshotDate} = ${latestRow.snapshotDate}`);
+    let seeded = 0;
+    for (const row of rows) {
+      startupPriceSnapshot.set(row.productId, row.priceUsd);
+      seeded++;
+    }
+    logger.info(
+      { snapshotDate: latestRow.snapshotDate, seeded },
+      "osProductsCache: startup price snapshot seeded from DB",
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(
+      { err: msg },
+      "osProductsCache: failed to seed startup snapshot from DB — baseline will be built from the first in-memory fetch",
+    );
+  }
+}
+
+/**
+ * Persist the current in-memory product prices to the `os_price_snapshots`
+ * table for today's UTC date, then prune rows older than 7 days.
+ *
+ * Idempotent within a UTC day: the unique index on (product_id, snapshot_date)
+ * causes duplicate inserts to be silently discarded. The in-process guard
+ * (`lastPersistedSnapshotDate`) avoids hitting the DB on every sync tick.
+ *
+ * Call this from the wooSync worker once per tick so that at least one
+ * snapshot is written during each UTC day the server runs.
+ *
+ * No-op in test environments.
+ */
+export async function persistDailySnapshotIfNeeded(): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
+  const todayUtc = utcDateString(new Date());
+  if (lastPersistedSnapshotDate === todayUtc) return; // already persisted today
+
+  const allProducts: Array<{ productId: string; priceUsd: number }> = [];
+  for (const spec of OS_STORE_SPECS) {
+    const entry = storeCache.get(spec.storeKey);
+    if (!entry) continue;
+    for (const p of entry.products) {
+      if (typeof p.price === "number") {
+        allProducts.push({ productId: p.id, priceUsd: p.price });
+      }
+    }
+  }
+
+  if (allProducts.length === 0) {
+    logger.info(
+      "osProductsCache: persistDailySnapshot skipped — OS cache is empty",
+    );
+    return;
+  }
+
+  // Deduplicate by productId (a product may appear in multiple store caches
+  // with the same price). Keep first occurrence.
+  const seen = new Set<string>();
+  const rows = allProducts.filter(({ productId }) => {
+    if (seen.has(productId)) return false;
+    seen.add(productId);
+    return true;
+  });
+
+  try {
+    await db
+      .insert(osPriceSnapshotsTable)
+      .values(rows.map((r) => ({ productId: r.productId, priceUsd: r.priceUsd, snapshotDate: todayUtc })))
+      .onConflictDoNothing();
+    lastPersistedSnapshotDate = todayUtc;
+    logger.info(
+      { snapshotDate: todayUtc, productCount: rows.length },
+      "osProductsCache: daily price snapshot persisted to DB",
+    );
+    // Prune snapshots older than 7 days so the table stays small.
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const cutoffStr = utcDateString(cutoff);
+    await db
+      .delete(osPriceSnapshotsTable)
+      .where(lt(osPriceSnapshotsTable.snapshotDate, cutoffStr));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn({ err: msg }, "osProductsCache: failed to persist daily price snapshot");
+  }
+}
+
+/** Returns a UTC date string in YYYY-MM-DD format. */
+function utcDateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 // ── Index helpers ──────────────────────────────────────────────────────────
@@ -399,10 +539,16 @@ export function startOsProductsSync(): void {
   }
 
   const initTimer = setTimeout(() => {
-    fetchAndStore().catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
-    });
+    // Seed the startup price snapshot from the DB before the first OS fetch
+    // so that `maybeRecordStartupSnapshot` uses the persisted prior-day baseline
+    // rather than the freshly fetched prices (which would make every product
+    // look "unchanged" immediately after a restart).
+    seedStartupSnapshotFromDb()
+      .then(() => fetchAndStore())
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn({ err: msg }, "osProductsCache: initial fetch failed");
+      });
   }, 8_000);
   initTimer.unref?.();
 

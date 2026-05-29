@@ -7,3 +7,4 @@ export * from "./analyticsEvents";
 export * from "./loyaltyLedger";
 export * from "./loyaltyCoupons";
 export * from "./favorites";
+export * from "./osPriceSnapshots";
