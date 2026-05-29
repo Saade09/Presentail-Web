@@ -1251,12 +1251,26 @@ const DASHBOARD_HTML = `<!doctype html>
     );
   }
 
-  function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows) {
+  function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows, purchaseRows, conversionPlatformTotals) {
     if (!platformSummaryRows || !platformSummaryRows.length) {
       upsellPlatformSummary.innerHTML = '<div class="muted">No upsell events in range.</div>';
       upsellCheckoutTrends.innerHTML = '';
       return;
     }
+    // Build per-platform confirmed revenue from the purchase funnel rows
+    var purchaseRevenueByPlatform = {};
+    (purchaseRows || []).forEach(function (r) {
+      if (r.platform && r.revenueUsd != null) {
+        purchaseRevenueByPlatform[r.platform] = (purchaseRevenueByPlatform[r.platform] || 0) + r.revenueUsd;
+      }
+    });
+    // Build per-platform total estimated upsell revenue from conversion platform totals
+    var upsellRevenueByPlatform = {};
+    (conversionPlatformTotals || []).forEach(function (t) {
+      if (t.platform && t.totalEstRevenueUsd != null) {
+        upsellRevenueByPlatform[t.platform] = t.totalEstRevenueUsd;
+      }
+    });
     upsellPlatformSummary.innerHTML = '<table><thead><tr>' +
       '<th>Platform</th>' +
       '<th>Tab clicks</th>' +
@@ -1264,7 +1278,13 @@ const DASHBOARD_HTML = `<!doctype html>
       '<th>Checkout proceeded</th>' +
       '<th>Add rate</th>' +
       '<th>Checkout rate</th>' +
+      '<th>Upsell rev % of confirmed</th>' +
       '</tr></thead><tbody>' + platformSummaryRows.map(function (r) {
+        var confirmedRev = purchaseRevenueByPlatform[r.platform] || 0;
+        var upsellRev = upsellRevenueByPlatform[r.platform];
+        var revPctCell = (confirmedRev > 0 && upsellRev != null)
+          ? fmtPct(Math.round((upsellRev / confirmedRev) * 1000) / 10)
+          : '<span class="muted">—</span>';
         return '<tr>' +
           '<td>' + escapeHtml(r.platform) + '</td>' +
           '<td>' + num(r.tabClicks) + '</td>' +
@@ -1272,6 +1292,7 @@ const DASHBOARD_HTML = `<!doctype html>
           '<td>' + num(r.checkoutProceeded) + '</td>' +
           '<td>' + fmtPct(r.addRatePct) + '</td>' +
           '<td>' + fmtPct(r.checkoutRatePct) + '</td>' +
+          '<td>' + revPctCell + '</td>' +
           '</tr>';
       }).join('') + '</tbody></table>';
     // Sparkline: checkout-proceeded per platform over time
@@ -1863,7 +1884,9 @@ const DASHBOARD_HTML = `<!doctype html>
         );
         renderUpsellPlatformBreakdown(
           upsell.platformSummary || [],
-          (upsell.checkoutProceeded || {}).daily || []
+          (upsell.checkoutProceeded || {}).daily || [],
+          purchase,
+          (upsell.conversion || {}).platformTotals || []
         );
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
