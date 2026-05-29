@@ -1,0 +1,46 @@
+/**
+ * Pure currency conversion and formatting helpers.
+ *
+ * Extracted from CurrencyContext so they can be unit-tested directly and
+ * shared with any non-React code that needs price formatting.
+ */
+
+import type { Currency } from "@workspace/catalog-data";
+
+/**
+ * Convert a USD amount into the given currency.
+ * Returns 0 for non-finite / non-numeric inputs.
+ */
+export function convertCurrency(currency: Currency, usdValue: number): number {
+  const v = Number(usdValue) || 0;
+  return v * currency.rate;
+}
+
+/**
+ * Format an amount that is already in the given currency (no FX conversion).
+ * Applies the currency's symbol, position, spacing, and decimal rules.
+ */
+export function formatNativeAmount(currency: Currency, amount: number): string {
+  const v = Number(amount) || 0;
+  const fixed =
+    currency.decimals > 0
+      ? v.toFixed(currency.decimals)
+      : Math.round(v).toString();
+  const [intPart, decPart] = fixed.split(".");
+  const withSep = Number(intPart).toLocaleString();
+  const numStr = decPart != null ? `${withSep}.${decPart}` : withSep;
+  const sep = currency.spaceBetween ? " " : "";
+  if (currency.symbolPosition === "left") {
+    return `${currency.symbol}${sep}${numStr}`;
+  }
+  return `${numStr}${sep}${currency.symbol}`;
+}
+
+/**
+ * Convert a USD amount to the given currency and format it with symbol.
+ * This is the canonical price display path — equivalent to
+ * formatNativeAmount(currency, convertCurrency(currency, usdValue)).
+ */
+export function formatCurrencyPrice(currency: Currency, usdValue: number): string {
+  return formatNativeAmount(currency, convertCurrency(currency, usdValue));
+}

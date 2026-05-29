@@ -13,6 +13,11 @@ import {
   type CurrencyCode,
 } from "@/data/currencies";
 import {
+  convertCurrency,
+  formatCurrencyPrice,
+  formatNativeAmount,
+} from "@/lib/currencyFormatting";
+import {
   detectGeoFromDeviceLocation,
   detectGeoFromLocation,
 } from "@/services/locationCurrencyService";
@@ -208,35 +213,18 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const currency = useMemo(() => getCurrency(currencyCode), [currencyCode, ratesVersion]);
 
   const convert = useCallback(
-    (usdValue: number) => {
-      const v = Number(usdValue) || 0;
-      return v * currency.rate;
-    },
-    [currency.rate],
+    (usdValue: number) => convertCurrency(currency, usdValue),
+    [currency],
   );
 
   const formatNative = useCallback(
-    (amount: number) => {
-      const v = Number(amount) || 0;
-      const fixed = currency.decimals > 0 ? v.toFixed(currency.decimals) : Math.round(v).toString();
-      const [intPart, decPart] = fixed.split(".");
-      const withSep = Number(intPart).toLocaleString();
-      const numStr = decPart != null ? `${withSep}.${decPart}` : withSep;
-      const sep = currency.spaceBetween ? " " : "";
-      if (currency.symbolPosition === "left") {
-        return `${currency.symbol}${sep}${numStr}`;
-      }
-      return `${numStr}${sep}${currency.symbol}`;
-    },
+    (amount: number) => formatNativeAmount(currency, amount),
     [currency],
   );
 
   const formatPrice = useCallback(
-    (usdValue: number) => {
-      const v = convert(usdValue);
-      return formatNative(v);
-    },
-    [convert, formatNative],
+    (usdValue: number) => formatCurrencyPrice(currency, usdValue),
+    [currency],
   );
 
   const value = useMemo<CurrencyContextValue>(
