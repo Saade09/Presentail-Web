@@ -1,9 +1,8 @@
 import { and, gte, lt, sql } from "drizzle-orm";
-import { db, analyticsEventsTable } from "@workspace/db";
+import { db, analyticsEventsTable, appOrdersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert, type AlertField } from "./alerts";
 import { loadDailyUpsellItemBuckets } from "./upsellAggregator";
-import { loadDailyRevenueRows } from "./checkoutPurchaseFunnelMonitor";
 import { getOsProducts } from "./osProductsCache";
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -78,6 +77,15 @@ export const REVENUE_PCT_DROP_MAX = (() => {
   return raw;
 })();
 
+// Minimum confirmed order count for a platform to be included in the revenue
+// % WoW check. Platforms with fewer confirmed orders on the prior day are
+// skipped to suppress noise from low-volume days. Default 5.
+const REVENUE_PCT_MIN_ORDERS = (() => {
+  const raw = Number(process.env.UPSELL_REVENUE_PCT_MIN_ORDERS);
+  if (!Number.isFinite(raw) || raw < 0) return 5;
+  return Math.floor(raw);
+})();
+
 // Number of trailing days used to compute the reference average for the
 // revenue % WoW check. Not user-configurable; internal constant.
 const REVENUE_PCT_TRAILING_DAYS = 7;
@@ -125,6 +133,7 @@ export function startUpsellFunnelMonitor(): void {
       itemAddRateMin: ITEM_ADD_RATE_MIN,
       checkoutProceededMin: CHECKOUT_PROCEEDED_MIN,
       revenuePctDropMax: REVENUE_PCT_DROP_MAX,
+      revenuePctMinOrders: REVENUE_PCT_MIN_ORDERS,
     },
     "upsellFunnelMonitor: started",
   );
@@ -177,24 +186,72 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
   }
 }
 
-// ── Revenue % WoW check ────────────────────────────────────────────────────
+// ── Revenue % WoW check (per platform) ─────────────────────────────────────
 
 /**
- * Computes the upsell revenue % for the prior day and the 7-day trailing
- * average immediately before it, then fires a Slack alert when the drop
- * exceeds REVENUE_PCT_DROP_MAX percentage points.
+ * Per-platform upsell revenue % record for a single day.
+ *   pct        = Σ(upsell_item_added × priceUsd) / totalOrderRevenue × 100
+ *   orderCount = number of confirmed app_orders on that (day, platform)
+ */
+type PlatformRevenuePct = {
+  day: string;
+  platform: string;
+  pct: number;
+  orderCount: number;
+};
+
+/**
+ * Revenue + order-count row returned by `loadDailyRevenueWithCountsByPlatform`.
+ * Separate from the exported `DailyRevenueRow` so we can add orderCount without
+ * changing the shared type used by `aggregateDailyPurchaseBuckets`.
+ */
+type RevenueCountRow = {
+  day: string;
+  platform: string;
+  revenueUsdCents: number;
+  orderCount: number;
+};
+
+/**
+ * Per-(UTC day, platform) confirmed purchase revenue and order count.
+ * Rows with `total_usd_cents IS NULL` are excluded (legacy, no stored total).
+ */
+async function loadDailyRevenueWithCountsByPlatform(
+  start: Date,
+  end: Date,
+): Promise<RevenueCountRow[]> {
+  return db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${appOrdersTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`,
+      platform: sql<string>`coalesce(${appOrdersTable.platform}, 'unknown')`,
+      revenueUsdCents: sql<number>`coalesce(sum(${appOrdersTable.totalUsdCents}), 0)::bigint::int`,
+      orderCount: sql<number>`count(*)::int`,
+    })
+    .from(appOrdersTable)
+    .where(
+      and(
+        gte(appOrdersTable.createdAt, start),
+        lt(appOrdersTable.createdAt, end),
+        sql`${appOrdersTable.totalUsdCents} is not null`,
+      )!,
+    )
+    .groupBy(
+      sql`date_trunc('day', ${appOrdersTable.createdAt} at time zone 'UTC')`,
+      appOrdersTable.platform,
+    ) as Promise<RevenueCountRow[]>;
+}
+
+/**
+ * Evaluates the upsell revenue % for the prior day per platform and fires a
+ * Slack alert for each platform where the drop exceeds REVENUE_PCT_DROP_MAX
+ * percentage points below that platform's own 7-day trailing average.
  *
  * upsellRevenuePct = Σ(upsell_item_added × priceUsd) / totalOrderRevenue × 100
  *
- * Uses the same two data sources as the admin funnels dashboard:
- *   • `loadDailyUpsellItemBuckets` for per-product add counts
- *   • `loadDailyRevenueRows` for confirmed app_orders revenue
- *
  * Silently skips when:
  *   • The OS product cache is cold (no prices available to estimate revenue)
- *   • The prior day has zero confirmed order revenue (can't compute a ratio)
- *   • Fewer than 2 of the 7 trailing days have usable revenue data (too
- *     little history to form a reliable baseline average)
+ *   • No platform on the prior day has ≥ REVENUE_PCT_MIN_ORDERS confirmed orders
+ *   • A platform has fewer than 2 days of baseline data (insufficient history)
  */
 async function checkRevenuePctDropWoW(day: {
   iso: string;
@@ -216,49 +273,97 @@ async function checkRevenuePctDropWoW(day: {
   );
 
   // Fetch the prior day and the 7 trailing days in parallel.
-  const [currentPcts, baselinePcts] = await Promise.all([
-    computeDailyRevenuePcts(day.start, day.end, priceMap),
-    computeDailyRevenuePcts(baselineStart, baselineEnd, priceMap),
+  const [currentRows, baselineRows] = await Promise.all([
+    computePlatformRevenuePcts(day.start, day.end, priceMap),
+    computePlatformRevenuePcts(baselineStart, baselineEnd, priceMap),
   ]);
 
-  if (currentPcts.length === 0) {
-    logger.info(
-      { day: day.iso },
-      "upsellFunnelMonitor: no confirmed revenue for day — skipping revenue % WoW check",
-    );
-    return;
-  }
-
-  const currentPct = currentPcts[0].pct;
-
-  // Require at least 2 days of baseline data so a single anomalous prior day
-  // doesn't skew the reference average into triggering a false alert.
-  if (baselinePcts.length < 2) {
-    logger.info(
-      { day: day.iso, baselineDays: baselinePcts.length },
-      "upsellFunnelMonitor: insufficient baseline days — skipping revenue % WoW check",
-    );
-    return;
-  }
-
-  const trailingAvg =
-    baselinePcts.reduce((sum, r) => sum + r.pct, 0) / baselinePcts.length;
-  const drop = trailingAvg - currentPct;
-
-  logger.info(
-    {
-      day: day.iso,
-      currentPct: +currentPct.toFixed(2),
-      trailingAvg: +trailingAvg.toFixed(2),
-      drop: +drop.toFixed(2),
-      revenuePctDropMax: REVENUE_PCT_DROP_MAX,
-      baselineDays: baselinePcts.length,
-    },
-    "upsellFunnelMonitor: revenue % WoW evaluation",
+  // Filter out platforms below the minimum order count on the prior day.
+  const eligibleCurrent = currentRows.filter(
+    (r) => r.orderCount >= REVENUE_PCT_MIN_ORDERS,
   );
 
-  if (drop > REVENUE_PCT_DROP_MAX) {
-    await sendRevenuePctDropAlert(day.iso, currentPct, trailingAvg, drop, baselinePcts.length);
+  if (eligibleCurrent.length === 0) {
+    logger.info(
+      {
+        day: day.iso,
+        totalPlatforms: currentRows.length,
+        minOrders: REVENUE_PCT_MIN_ORDERS,
+      },
+      "upsellFunnelMonitor: no platform met minimum order count — skipping revenue % WoW check",
+    );
+    return;
+  }
+
+  // Group baseline rows by platform, then by day (for the trailing average).
+  const baselineByPlatform = new Map<string, PlatformRevenuePct[]>();
+  for (const r of baselineRows) {
+    let arr = baselineByPlatform.get(r.platform);
+    if (!arr) {
+      arr = [];
+      baselineByPlatform.set(r.platform, arr);
+    }
+    arr.push(r);
+  }
+
+  type PlatformBreach = {
+    platform: string;
+    currentPct: number;
+    trailingAvg: number;
+    drop: number;
+    baselineDays: number;
+  };
+
+  const breaches: PlatformBreach[] = [];
+  const evaluations: Record<string, object> = {};
+
+  for (const current of eligibleCurrent) {
+    const platformBaseline = baselineByPlatform.get(current.platform) ?? [];
+
+    // Require at least 2 days of baseline data per platform.
+    if (platformBaseline.length < 2) {
+      logger.info(
+        {
+          day: day.iso,
+          platform: current.platform,
+          baselineDays: platformBaseline.length,
+        },
+        "upsellFunnelMonitor: insufficient baseline days for platform — skipping",
+      );
+      continue;
+    }
+
+    const trailingAvg =
+      platformBaseline.reduce((sum, r) => sum + r.pct, 0) /
+      platformBaseline.length;
+    const drop = trailingAvg - current.pct;
+
+    evaluations[current.platform] = {
+      currentPct: +current.pct.toFixed(2),
+      trailingAvg: +trailingAvg.toFixed(2),
+      drop: +drop.toFixed(2),
+      orderCount: current.orderCount,
+      baselineDays: platformBaseline.length,
+    };
+
+    if (drop > REVENUE_PCT_DROP_MAX) {
+      breaches.push({
+        platform: current.platform,
+        currentPct: current.pct,
+        trailingAvg,
+        drop,
+        baselineDays: platformBaseline.length,
+      });
+    }
+  }
+
+  logger.info(
+    { day: day.iso, revenuePctDropMax: REVENUE_PCT_DROP_MAX, ...evaluations },
+    "upsellFunnelMonitor: per-platform revenue % WoW evaluation",
+  );
+
+  if (breaches.length > 0) {
+    await sendRevenuePctDropAlert(day.iso, breaches);
   }
 }
 
@@ -283,86 +388,90 @@ function buildProductPriceMap(): Map<string, number> {
   return map;
 }
 
-type DailyRevenuePct = { day: string; pct: number };
-
 /**
- * For each day in [start, end) that has confirmed purchase revenue, returns the
- * upsell revenue % defined as:
+ * For each (day, platform) in [start, end) that has confirmed purchase revenue,
+ * returns the upsell revenue % defined as:
  *
  *   Σ(upsell_item_added × priceUsd) / totalOrderRevenue × 100
  *
- * Days with zero total revenue are omitted (ratio undefined).
- * Days with no upsell adds yield pct = 0 (upsell contributed nothing that day).
+ * (day, platform) pairs with zero revenue are omitted (ratio undefined).
+ * (day, platform) pairs with no upsell adds yield pct = 0.
  */
-async function computeDailyRevenuePcts(
+async function computePlatformRevenuePcts(
   start: Date,
   end: Date,
   priceMap: Map<string, number>,
-): Promise<DailyRevenuePct[]> {
+): Promise<PlatformRevenuePct[]> {
   const [itemBuckets, revenueRows] = await Promise.all([
     loadDailyUpsellItemBuckets(start, end),
-    loadDailyRevenueRows(start, end),
+    loadDailyRevenueWithCountsByPlatform(start, end),
   ]);
 
-  // Sum confirmed revenue per day across all platforms.
-  const revenueCentsByDay = new Map<string, number>();
+  // Index revenue and order counts by `${day}::${platform}`.
+  const revenueByKey = new Map<
+    string,
+    { revenueUsdCents: number; orderCount: number }
+  >();
   for (const r of revenueRows) {
-    revenueCentsByDay.set(
-      r.day,
-      (revenueCentsByDay.get(r.day) ?? 0) + (r.revenueUsdCents ?? 0),
-    );
+    revenueByKey.set(`${r.day}::${r.platform}`, {
+      revenueUsdCents: r.revenueUsdCents,
+      orderCount: r.orderCount,
+    });
   }
 
-  // Sum estimated upsell revenue per day across all platforms and products.
-  const upsellRevByDay = new Map<string, number>();
+  // Sum estimated upsell revenue per (day, platform).
+  const upsellRevByKey = new Map<string, number>();
   for (const b of itemBuckets) {
     const price = priceMap.get(b.productId);
     if (price != null && price > 0) {
-      upsellRevByDay.set(
-        b.day,
-        (upsellRevByDay.get(b.day) ?? 0) + b.adds * price,
-      );
+      const key = `${b.day}::${b.platform}`;
+      upsellRevByKey.set(key, (upsellRevByKey.get(key) ?? 0) + b.adds * price);
     }
   }
 
-  const result: DailyRevenuePct[] = [];
-  for (const [day, totalCents] of revenueCentsByDay) {
-    if (totalCents <= 0) continue;
-    const upsellRev = upsellRevByDay.get(day) ?? 0;
-    const pct = (upsellRev / (totalCents / 100)) * 100;
-    result.push({ day, pct });
+  const result: PlatformRevenuePct[] = [];
+  for (const [key, { revenueUsdCents, orderCount }] of revenueByKey) {
+    if (revenueUsdCents <= 0) continue;
+    const [day, platform] = key.split("::");
+    const upsellRev = upsellRevByKey.get(key) ?? 0;
+    const pct = (upsellRev / (revenueUsdCents / 100)) * 100;
+    result.push({ day, platform, pct, orderCount });
   }
   return result;
 }
 
+type PlatformBreachEntry = {
+  platform: string;
+  currentPct: number;
+  trailingAvg: number;
+  drop: number;
+  baselineDays: number;
+};
+
 async function sendRevenuePctDropAlert(
   day: string,
-  currentPct: number,
-  trailingAvg: number,
-  drop: number,
-  baselineDays: number,
+  breaches: PlatformBreachEntry[],
 ): Promise<void> {
-  const fields: AlertField[] = [
-    {
-      title: "Prior day upsell revenue %",
-      value: `${currentPct.toFixed(1)}%`,
-    },
-    {
-      title: `${baselineDays}-day trailing average`,
-      value: `${trailingAvg.toFixed(1)}%`,
-    },
-    {
-      title: "Drop (pp)",
-      value: `${drop.toFixed(1)} pp (threshold: ${REVENUE_PCT_DROP_MAX} pp)`,
-    },
-  ];
+  const fields: AlertField[] = breaches.map((b) => ({
+    title: b.platform,
+    value:
+      `${b.currentPct.toFixed(1)}% today, ` +
+      `${b.trailingAvg.toFixed(1)}% ${b.baselineDays}-day avg, ` +
+      `↓ ${b.drop.toFixed(1)} pp (threshold: ${REVENUE_PCT_DROP_MAX} pp)`,
+  }));
+
+  const platformList = breaches
+    .map(
+      (b) =>
+        `${b.platform} (${b.currentPct.toFixed(1)}% vs ${b.trailingAvg.toFixed(1)}% avg, ↓${b.drop.toFixed(1)} pp)`,
+    )
+    .join(", ");
 
   await sendAlert({
     title: "Upsell revenue contribution drop",
     body:
-      `Upsell revenue was ${currentPct.toFixed(1)}% of total purchase revenue on ` +
-      `${day} (UTC), which is ${drop.toFixed(1)} percentage points below the ` +
-      `${baselineDays}-day trailing average of ${trailingAvg.toFixed(1)}%. ` +
+      `Upsell revenue % of total purchase revenue dropped on ${day} (UTC) ` +
+      `for ${breaches.length} platform(s): ${platformList}. ` +
       `Threshold: ${REVENUE_PCT_DROP_MAX} pp. ` +
       `Check the upsell flow for broken add-to-cart or pricing issues.`,
     severity: "warn",
