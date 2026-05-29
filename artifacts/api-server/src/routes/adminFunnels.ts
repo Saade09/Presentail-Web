@@ -809,6 +809,7 @@ const DASHBOARD_HTML = `<!doctype html>
   <div class="sub">Per-platform upsell funnel for the whole window: tab clicks → item adds → checkout proceeded. "Add rate" = item adds / tab clicks. "Checkout rate" = checkout-proceeded / tab clicks. Lets you compare web vs. iOS vs. Android conversion at a glance.</div>
   <div id="upsellPlatformSummary"></div>
   <div id="upsellCheckoutTrends" class="trends" style="margin-top:8px"></div>
+  <div id="upsellRevenuePctSummaryTrends" class="trends" style="margin-top:8px"></div>
 
   <h2>Upsell modal — tab clicks</h2>
   <div class="sub">upsell_tab_clicked events per tab. "Add rate" = total product adds on that tab / tab clicks — how often a shopper who opened the tab actually added something. Sorted best-converting first.</div>
@@ -935,6 +936,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellDailyDigestTrends = document.getElementById('upsellDailyDigestTrends');
   var upsellPlatformSummary = document.getElementById('upsellPlatformSummary');
   var upsellCheckoutTrends = document.getElementById('upsellCheckoutTrends');
+  var upsellRevenuePctSummaryTrends = document.getElementById('upsellRevenuePctSummaryTrends');
   var upsellTabsSummary = document.getElementById('upsellTabsSummary');
   var upsellTabsDailyBody = document.querySelector('#upsellTabsDaily tbody');
   var upsellTabsTrends = document.getElementById('upsellTabsTrends');
@@ -1251,10 +1253,11 @@ const DASHBOARD_HTML = `<!doctype html>
     );
   }
 
-  function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows, purchaseRows, conversionPlatformTotals) {
+  function renderUpsellPlatformBreakdown(platformSummaryRows, checkoutDailyRows, purchaseRows, conversionPlatformTotals, conversionDailyRows) {
     if (!platformSummaryRows || !platformSummaryRows.length) {
       upsellPlatformSummary.innerHTML = '<div class="muted">No upsell events in range.</div>';
       upsellCheckoutTrends.innerHTML = '';
+      upsellRevenuePctSummaryTrends.innerHTML = '';
       return;
     }
     // Build per-platform confirmed revenue from the purchase funnel rows
@@ -1303,6 +1306,44 @@ const DASHBOARD_HTML = `<!doctype html>
       );
     } else {
       upsellCheckoutTrends.innerHTML = '';
+    }
+    // Sparkline: upsell revenue % of confirmed purchase revenue per platform over time
+    var purchaseRevenueByDayPlatform = {};
+    (purchaseRows || []).forEach(function (r) {
+      if (r.day && r.platform && r.revenueUsd != null) {
+        var key = r.day + '|' + r.platform;
+        purchaseRevenueByDayPlatform[key] = (purchaseRevenueByDayPlatform[key] || 0) + r.revenueUsd;
+      }
+    });
+    var upsellByDayPlatform = {};
+    (conversionDailyRows || []).forEach(function (r) {
+      if (r.day && r.platform && r.estUpsellRevenueUsd != null) {
+        var key = r.day + '|' + r.platform;
+        upsellByDayPlatform[key] = (upsellByDayPlatform[key] || 0) + r.estUpsellRevenueUsd;
+      }
+    });
+    var revPctRows = [];
+    Object.keys(purchaseRevenueByDayPlatform).forEach(function (key) {
+      var parts = key.split('|');
+      var day = parts[0];
+      var platform = parts[1];
+      var confirmedRev = purchaseRevenueByDayPlatform[key] || 0;
+      if (confirmedRev > 0) {
+        var upsellRev = upsellByDayPlatform[key] || 0;
+        revPctRows.push({
+          day: day,
+          platform: platform,
+          upsellPctOfRevenue: Math.round((upsellRev / confirmedRev) * 1000) / 10,
+        });
+      }
+    });
+    if (revPctRows.length) {
+      renderTrends(upsellRevenuePctSummaryTrends, revPctRows,
+        function (r) { return r.platform; },
+        [{ label: 'Upsell % of revenue', valueFn: function (r) { return r.upsellPctOfRevenue; }, max: 100 }]
+      );
+    } else {
+      upsellRevenuePctSummaryTrends.innerHTML = '';
     }
   }
 
@@ -1886,7 +1927,8 @@ const DASHBOARD_HTML = `<!doctype html>
           upsell.platformSummary || [],
           (upsell.checkoutProceeded || {}).daily || [],
           purchase,
-          (upsell.conversion || {}).platformTotals || []
+          (upsell.conversion || {}).platformTotals || [],
+          (upsell.conversion || {}).daily || []
         );
         renderUpsellTabs(upsell.tabClicks || { summary: [], daily: [] });
         renderUpsellItems(upsell.itemAdds || { summary: [], daily: [] });
