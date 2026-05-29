@@ -126,6 +126,8 @@ export const AnalyticsEventName = {
   upsell_checkout_proceeded: "upsell_checkout_proceeded",
   signin_page_action: "signin_page_action",
   clerk_session_fallback: "clerk_session_fallback",
+  sms_notify_sent: "sms_notify_sent",
+  sms_notify_failed: "sms_notify_failed",
 } as const;
 
 /**

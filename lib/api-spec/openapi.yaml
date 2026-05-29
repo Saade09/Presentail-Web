@@ -963,6 +963,8 @@ components:
         - upsell_checkout_proceeded
         - signin_page_action
         - clerk_session_fallback
+        - sms_notify_sent
+        - sms_notify_failed
     AnalyticsEventRequest:
       type: object
       properties:

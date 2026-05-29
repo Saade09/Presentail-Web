@@ -22,6 +22,7 @@
 //   SMS_TRACKING_URL_BASE — Base URL for the tracking deep-link included in
 //                          the message body (default: "https://new.presentail.com/orders").
 
+import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
 import type { OrderState } from "./orderEvents";
 
@@ -128,6 +129,47 @@ async function twilioSend(opts: {
 }
 
 // ---------------------------------------------------------------------------
+// Analytics event persistence
+//
+// Column mapping:
+//   name      → "sms_notify_sent" | "sms_notify_failed"
+//   action    → channel: "sms" | "whatsapp"
+//   platform  → storeKey (normalised to lowercase, e.g. "lebanon", "dubai")
+//   productId → appOrderId (reused as a short opaque identifier)
+//   errorCode → error message on failure (clipped to 200 chars)
+// ---------------------------------------------------------------------------
+
+function recordSmsEvent(opts: {
+  eventName: "sms_notify_sent" | "sms_notify_failed";
+  channel: "sms" | "whatsapp";
+  appOrderId: string;
+  storeKey: string | null | undefined;
+  error?: string;
+}): void {
+  const clippedError = opts.error
+    ? opts.error.length > 200
+      ? `${opts.error.slice(0, 200)}…`
+      : opts.error
+    : null;
+  void db
+    .insert(analyticsEventsTable)
+    .values({
+      name: opts.eventName,
+      action: opts.channel,
+      platform: opts.storeKey ? opts.storeKey.toLowerCase() : null,
+      productId: opts.appOrderId.slice(0, 64),
+      errorCode: clippedError,
+      signedIn: false,
+    })
+    .catch((err: unknown) => {
+      logger.warn(
+        { err: (err as Error)?.message, appOrderId: opts.appOrderId },
+        "smsNotify: failed to persist analytics event (non-fatal)",
+      );
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -211,11 +253,19 @@ export async function sendOrderEventSms(
       if (result.ok) {
         smsSent += 1;
         logger.info({ appOrderId, sid: result.sid }, "smsNotify: WhatsApp sent");
+        recordSmsEvent({ eventName: "sms_notify_sent", channel: "whatsapp", appOrderId, storeKey });
       } else {
         logger.warn(
           { appOrderId, error: result.error },
           "smsNotify: WhatsApp delivery failed (non-fatal)",
         );
+        recordSmsEvent({
+          eventName: "sms_notify_failed",
+          channel: "whatsapp",
+          appOrderId,
+          storeKey,
+          error: result.error,
+        });
       }
     } else {
       const from = senderForStore(storeKey);
@@ -231,11 +281,19 @@ export async function sendOrderEventSms(
       if (result.ok) {
         smsSent += 1;
         logger.info({ appOrderId, sid: result.sid }, "smsNotify: SMS sent");
+        recordSmsEvent({ eventName: "sms_notify_sent", channel: "sms", appOrderId, storeKey });
       } else {
         logger.warn(
           { appOrderId, error: result.error },
           "smsNotify: SMS delivery failed (non-fatal)",
         );
+        recordSmsEvent({
+          eventName: "sms_notify_failed",
+          channel: "sms",
+          appOrderId,
+          storeKey,
+          error: result.error,
+        });
       }
     }
   }
