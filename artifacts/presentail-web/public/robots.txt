@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://lebanon-luxury-showcase.replit.app/sitemap.xml
+Sitemap: https://new.presentail.com/sitemap.xml
