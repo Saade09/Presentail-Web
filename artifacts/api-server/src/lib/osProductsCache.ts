@@ -43,6 +43,7 @@ import { db, osPriceSnapshotsTable } from "@workspace/db";
 import { lt, sql } from "drizzle-orm";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
+import { sendAlert } from "./alerts";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,14 @@ const storeCache = new Map<StoreKey, StoreProductCache>();
  * `priceChanged: false` to avoid spurious warnings.
  */
 const startupPriceSnapshot = new Map<string, number>();
+
+/**
+ * Deduplication map for price-change Slack alerts.
+ * Maps product id → timestamp of last alert sent.
+ * An alert is suppressed when it was sent within the past 24 h.
+ */
+const priceAlertedAt = new Map<string, number>();
+const PRICE_ALERT_DEDUPE_MS = 24 * 60 * 60 * 1000; // 24 h
 
 /** Global taxonomy data (not per-store). */
 let cachedCategories: OSProductCategory[] | null = null;
@@ -268,6 +277,71 @@ function utcDateString(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ── Price-change alert helpers ─────────────────────────────────────────────
+
+/**
+ * Compare the freshly-fetched `products` against the startup price snapshot
+ * and fire a Slack alert for each product whose price has changed.
+ *
+ * Deduplication: at most one alert per product per 24 h, so the message
+ * fires once when a repricing is first detected and stays silent on every
+ * subsequent polling tick until the window resets.
+ *
+ * Called only on refreshes that follow the initial snapshot load — on the
+ * very first fetch, prices equal the snapshot by construction and no alert
+ * is fired.
+ */
+function detectAndAlertPriceChanges(products: OSProduct[]): void {
+  if (startupPriceSnapshot.size === 0) return; // snapshot not yet populated
+
+  const now = Date.now();
+  const changed: Array<{
+    name: string;
+    oldPrice: number;
+    newPrice: number;
+  }> = [];
+
+  for (const p of products) {
+    if (typeof p.price !== "number") continue;
+    const snapshotPrice = startupPriceSnapshot.get(p.id);
+    if (snapshotPrice === undefined) continue; // not in baseline — skip
+    if (snapshotPrice === p.price) continue; // unchanged
+
+    // Deduplicate within 24 h
+    const lastAlerted = priceAlertedAt.get(p.id);
+    if (lastAlerted !== undefined && now - lastAlerted < PRICE_ALERT_DEDUPE_MS) continue;
+
+    priceAlertedAt.set(p.id, now);
+    changed.push({ name: p.name, oldPrice: snapshotPrice, newPrice: p.price });
+  }
+
+  if (changed.length === 0) return;
+
+  const dashboardUrl =
+    (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/+$/, "") +
+    "/api/admin/funnels";
+
+  for (const item of changed) {
+    sendAlert({
+      title: "Add-on price changed",
+      body: `*${item.name}* price changed from $${item.oldPrice.toFixed(2)} to $${item.newPrice.toFixed(2)}. Revenue estimates in the funnel dashboard may be affected.`,
+      severity: "warn",
+      fields: [
+        { title: "Product", value: item.name },
+        { title: "Old price (USD)", value: `$${item.oldPrice.toFixed(2)}` },
+        { title: "New price (USD)", value: `$${item.newPrice.toFixed(2)}` },
+        { title: "Dashboard", value: dashboardUrl },
+      ],
+      source: "osProductsCache.priceChange",
+    }).catch((err: unknown) => {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "osProductsCache: price-change alert send failed",
+      );
+    });
+  }
+}
+
 // ── Index helpers ──────────────────────────────────────────────────────────
 
 function buildStoreCache(products: OSProduct[]): StoreProductCache {
@@ -340,6 +414,7 @@ async function fetchAndStore(): Promise<void> {
       }
       if (products.length > 0) {
         maybeRecordStartupSnapshot(products, spec.storeKey);
+        detectAndAlertPriceChanges(products);
         storeCache.set(spec.storeKey, buildStoreCache(products));
         logger.info(
           { storeKey: spec.storeKey, productCount: products.length },
