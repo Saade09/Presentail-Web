@@ -355,6 +355,12 @@ function AddressCard({
   const secondaryLine = [address.addressLine, address.building, address.apartment]
     .filter(Boolean)
     .join(" · ");
+  const recipientName = [address.recipientFirstName, address.recipientLastName]
+    .filter(Boolean)
+    .join(" ");
+  const recipientPhone = [address.recipientPhoneCountryCode, address.recipientPhone]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <View
@@ -475,6 +481,52 @@ function AddressCard({
         >
           {secondaryLine}
         </Text>
+      ) : null}
+
+      {recipientName ? (
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Feather name="user" size={12} color={colors.mutedForeground} />
+          <Text
+            style={{
+              color: colors.mutedForeground,
+              fontFamily: "Inter_400Regular",
+              fontSize: 13,
+              flex: 1,
+              textAlign: isRTL ? "right" : "left",
+            }}
+          >
+            {recipientName}
+          </Text>
+        </View>
+      ) : null}
+
+      {recipientPhone ? (
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Feather name="phone" size={12} color={colors.mutedForeground} />
+          <Text
+            style={{
+              color: colors.mutedForeground,
+              fontFamily: "Inter_400Regular",
+              fontSize: 13,
+              flex: 1,
+              textAlign: isRTL ? "right" : "left",
+            }}
+          >
+            {recipientPhone}
+          </Text>
+        </View>
       ) : null}
 
       {address.directions ? (
