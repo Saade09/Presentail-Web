@@ -1,4 +1,4 @@
-name: Check translation keys
+name: check-translations
 
 on:
   push:
@@ -7,17 +7,21 @@ on:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
       - "scripts/src/checkUnusedTranslationKeys.ts"
+      - "scripts/src/checkUnusedMobileTranslationKeys.ts"
+      - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/package.json"
   pull_request:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
       - "scripts/src/checkUnusedTranslationKeys.ts"
+      - "scripts/src/checkUnusedMobileTranslationKeys.ts"
+      - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/package.json"
 
 jobs:
   check-translations:
-    name: Unused + missing + undefined translation keys (mobile & web)
+    name: Unused + missing + undefined translation keys (mobile)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -43,11 +47,11 @@ jobs:
       - name: Run unit tests for translation checker logic
         run: pnpm --filter @workspace/scripts run test
 
-      - name: Check for unused, missing, and undefined translation keys (mobile + web)
+      - name: Check for unused, missing, and undefined mobile translation keys
         id: check
         run: |
           set +e
-          pnpm --filter @workspace/scripts run check-translations > /tmp/translation-check.txt 2>&1
+          pnpm --filter @workspace/scripts run check-unused-mobile-translations > /tmp/translation-check.txt 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Post translation check summary to PR
@@ -63,7 +67,7 @@ jobs:
               ? fs.readFileSync(outputFile, 'utf8').trim()
               : '(no output captured)';
             const failed = process.env.CHECK_EXIT_CODE !== '0';
-            const marker = '<!-- translation-check-bot -->';
+            const marker = '<!-- translation-check-bot-mobile -->';
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -75,7 +79,7 @@ jobs:
             if (failed) {
               const body = [
                 marker,
-                '## ❌ Translation key check failed',
+                '## ❌ Mobile translation key check failed',
                 '',
                 'The following issues were found — fix them before merging:',
                 '',
@@ -110,7 +114,101 @@ jobs:
       - name: Fail job if translation check found issues
         if: always() && steps.check.outputs.exit_code != '0'
         run: |
-          echo "Translation check failed. See output above or the PR comment for details."
+          echo "Mobile translation check failed. See output above or the PR comment for details."
+          exit 1
+
+  check-web-translations:
+    name: Unused + missing translation keys (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for unused and missing web translation keys
+        id: check
+        run: |
+          set +e
+          pnpm --filter @workspace/scripts run check-unused-web-translations > /tmp/web-translation-check.txt 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Post web translation check summary to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          CHECK_EXIT_CODE: ${{ steps.check.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const outputFile = '/tmp/web-translation-check.txt';
+            const output = fs.existsSync(outputFile)
+              ? fs.readFileSync(outputFile, 'utf8').trim()
+              : '(no output captured)';
+            const failed = process.env.CHECK_EXIT_CODE !== '0';
+            const marker = '<!-- translation-check-bot-web -->';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (failed) {
+              const body = [
+                marker,
+                '## ❌ Web translation key check failed',
+                '',
+                'The following issues were found — fix them before merging:',
+                '',
+                '```',
+                output,
+                '```',
+              ].join('\n');
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body,
+                });
+              }
+            } else if (existing) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+              });
+            }
+
+      - name: Fail job if web translation check found issues
+        if: always() && steps.check.outputs.exit_code != '0'
+        run: |
+          echo "Web translation check failed. See output above or the PR comment for details."
           exit 1
 
   locale-dictionary-tests:

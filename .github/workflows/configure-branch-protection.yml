@@ -1,0 +1,67 @@
+name: Configure branch protection
+
+# Run this workflow manually (once, as a repo admin) to register the required
+# status checks on the main branch.  It reads the existing protection settings
+# first so it never clobbers rules that were already in place.
+#
+# Required permissions: the GITHUB_TOKEN in this workflow is granted
+# `administration: write` so it can modify branch-protection rules.  GitHub
+# Actions grants that scope automatically when the permission is declared
+# below, as long as the runner has access (i.e. the triggering user is a repo
+# admin or the org allows it).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  administration: write
+
+jobs:
+  configure:
+    name: Add required status checks to main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Add translation checks as required status checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="main"
+
+          # Required check names (workflow name / job name as GitHub reports them).
+          # The workflow file check-translations.yml has name: check-translations,
+          # so GitHub prefixes every job with "check-translations /".
+          MOBILE_CHECK="check-translations / Unused + missing + undefined translation keys (mobile)"
+          WEB_CHECK="check-translations / Unused + missing translation keys (web)"
+
+          echo "Fetching current required-status-check config for ${BRANCH}…"
+
+          # The endpoint returns 404 when branch protection is not yet configured.
+          CURRENT=$(gh api "repos/${REPO}/branches/${BRANCH}/protection/required_status_checks" 2>/dev/null || echo '{}')
+
+          STRICT=$(echo "$CURRENT" | jq -r '.strict // false')
+
+          # Collect existing contexts and merge in the two required checks.
+          MERGED=$(echo "$CURRENT" | jq \
+            --arg mobile "$MOBILE_CHECK" \
+            --arg web    "$WEB_CHECK" \
+            '(.contexts // []) + [$mobile, $web] | unique')
+
+          echo "Resulting required contexts:"
+          echo "$MERGED" | jq -r '.[]'
+
+          # PATCH updates only required_status_checks without touching other rules.
+          PAYLOAD=$(jq -n \
+            --argjson strict   "$STRICT" \
+            --argjson contexts "$MERGED" \
+            '{strict: $strict, contexts: $contexts}')
+
+          gh api "repos/${REPO}/branches/${BRANCH}/protection/required_status_checks" \
+            --method PATCH \
+            --input - <<< "$PAYLOAD"
+
+          echo "Done. Both translation checks are now required on ${BRANCH}."
