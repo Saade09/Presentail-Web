@@ -14,6 +14,7 @@ interface BrandCardProps {
 
 function BrandCard({ brand, index, productLabel }: BrandCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const showImage = !!brand.image && !imgFailed;
 
   return (
@@ -26,18 +27,25 @@ function BrandCard({ brand, index, productLabel }: BrandCardProps) {
       <Link href={`/brand/${brand.slug}`} className="block group">
         <div
           className={[
-            "aspect-square rounded-2xl flex items-center justify-center mb-4 border border-transparent",
+            "relative aspect-square rounded-2xl flex items-center justify-center mb-4 border border-transparent",
             "transition-colors group-hover:border-primary/10 overflow-hidden",
             showImage
               ? "bg-white p-4 group-hover:bg-white/90"
               : "bg-secondary/50 p-8 group-hover:bg-secondary",
           ].join(" ")}
         >
+          {showImage && !imgLoaded && (
+            <div className="absolute inset-0 bg-primary/10 animate-pulse rounded-2xl" />
+          )}
           {showImage ? (
             <img
               src={brand.image!}
               alt={brand.name}
-              className="max-w-full max-h-full object-contain"
+              className={[
+                "max-w-full max-h-full object-contain transition-opacity duration-300",
+                imgLoaded ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+              onLoad={() => setImgLoaded(true)}
               onError={() => setImgFailed(true)}
             />
           ) : (

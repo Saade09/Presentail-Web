@@ -4,6 +4,55 @@ import { ArrowRight } from "lucide-react";
 import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useState } from "react";
+
+interface SpotlightCardProps {
+  brand: { id: number | string; slug: string; name: string; image?: string | null };
+  index: number;
+}
+
+function SpotlightCard({ brand, index }: SpotlightCardProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const showImage = !!brand.image && !imgFailed;
+
+  return (
+    <motion.div
+      key={brand.id}
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.4, delay: index * 0.04 }}
+    >
+      <Link
+        href={`/brand/${brand.slug}`}
+        className="group block aspect-square rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all p-4 flex items-center justify-center text-center relative overflow-hidden"
+        data-testid={`link-brand-${brand.slug}`}
+      >
+        {showImage && !imgLoaded && (
+          <div className="absolute inset-0 bg-primary/10 animate-pulse" />
+        )}
+        {showImage ? (
+          <img
+            src={brand.image!}
+            alt={brand.name}
+            className={[
+              "max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105",
+              imgLoaded ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <span className="font-serif text-base md:text-lg text-primary group-hover:text-gold transition-colors">
+            {brand.name}
+          </span>
+        )}
+      </Link>
+    </motion.div>
+  );
+}
 
 export function BrandSpotlight() {
   const { t, language } = useLocale();
@@ -44,32 +93,7 @@ export function BrandSpotlight() {
                   <div key={i} className="aspect-square bg-muted rounded-2xl animate-pulse" />
                 ))
             : brands.map((b, i) => (
-                <motion.div
-                  key={b.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ duration: 0.4, delay: i * 0.04 }}
-                >
-                  <Link
-                    href={`/brand/${b.slug}`}
-                    className="group block aspect-square rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all p-4 flex items-center justify-center text-center"
-                    data-testid={`link-brand-${b.slug}`}
-                  >
-                    {b.image ? (
-                      <img
-                        src={b.image}
-                        alt={b.name}
-                        className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="font-serif text-base md:text-lg text-primary group-hover:text-gold transition-colors">
-                        {b.name}
-                      </span>
-                    )}
-                  </Link>
-                </motion.div>
+                <SpotlightCard key={b.id} brand={b} index={i} />
               ))}
         </div>
       </div>
