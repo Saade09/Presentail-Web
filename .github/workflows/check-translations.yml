@@ -6,17 +6,17 @@ on:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
-      - "scripts/src/checkUnusedTranslationKeys.ts"
       - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
+      - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/package.json"
   pull_request:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
-      - "scripts/src/checkUnusedTranslationKeys.ts"
       - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
+      - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/package.json"
 
 jobs:
@@ -210,6 +210,29 @@ jobs:
         run: |
           echo "Web translation check failed. See output above or the PR comment for details."
           exit 1
+
+  check-hardcoded-web-strings:
+    name: Hardcoded English strings in web TSX
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for hardcoded English strings
+        run: pnpm --filter @workspace/scripts run check-hardcoded-web-strings
 
   locale-dictionary-tests:
     name: Locale dictionary unit tests (web)
