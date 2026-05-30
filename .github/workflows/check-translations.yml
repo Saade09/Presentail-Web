@@ -6,20 +6,20 @@ on:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
-      - "scripts/src/checkUnusedTranslationKeys.ts"
+      - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/package.json"
   pull_request:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
-      - "scripts/src/checkUnusedTranslationKeys.ts"
+      - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/package.json"
 
 jobs:
   check-translations:
-    name: Unused + missing + undefined translation keys (mobile)
+    name: Unused + missing + undefined translation keys (mobile & web)
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -39,32 +39,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check for unused and missing translation keys
-        run: pnpm --filter @workspace/scripts run check-unused-translations
-
-  check-web-translations:
-    name: Unused + missing translation keys (web)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check for unused and missing web translation keys
-        run: pnpm --filter @workspace/scripts run check-unused-web-translations
+      - name: Check for unused, missing, and undefined translation keys (mobile + web)
+        run: pnpm --filter @workspace/scripts run check-translations
 
   locale-dictionary-tests:
     name: Locale dictionary unit tests (web)
