@@ -1,7 +1,7 @@
 /**
  * checkUnusedTranslationKeys / checkMissingTranslationKeys
  *
- * Three complementary checks in one script:
+ * Four complementary checks in one script:
  *
  * 1. UNUSED keys — keys defined in the EN locale that are never referenced in
  *    any TypeScript/TSX source file under `artifacts/presentail`.
@@ -15,8 +15,13 @@
  *    in the EN object. These would silently resolve to `undefined` at runtime and
  *    render as blank strings.
  *
- * Exit code 0 → all EN keys are in use, AR/FR are complete, and no undefined
- *               key references were found.
+ * 4. ORPHAN locale keys — keys present in AR or FR but absent from EN. These
+ *    accumulate when a feature is partially rolled back or when a translator
+ *    adds keys ahead of the EN copy landing. They are unreachable at runtime
+ *    and indicate a drift between the locale objects.
+ *
+ * Exit code 0 → all EN keys are in use, AR/FR are complete, no undefined
+ *               key references were found, and no orphan AR/FR keys exist.
  * Exit code 1 → at least one check failed (or the script errored).
  *
  * Usage:
@@ -228,6 +233,23 @@ const enKeySet = new Set(enKeys);
 // Map from key name → all call sites (file + line) where it is referenced.
 const keyCallSites = new Map<string, CallSite[]>();
 
+// ── Check 4: orphan keys in AR / FR (present in non-EN locale but not in EN) ──
+// These accumulate when a feature is partially rolled back or when a translator
+// adds keys ahead of the EN copy landing. They are unreachable at runtime.
+type LocaleOrphans = { locale: string; orphanKeys: string[] };
+
+const localeOrphans: LocaleOrphans[] = [];
+
+for (const [locale, keySet] of [
+  ["AR", arKeys],
+  ["FR", frKeys],
+] as [string, Set<string>][]) {
+  const orphans = Array.from(keySet).filter((k) => !enKeySet.has(k));
+  if (orphans.length > 0) {
+    localeOrphans.push({ locale, orphanKeys: orphans.sort() });
+  }
+}
+
 for (const file of files) {
   const src = fs.readFileSync(file, "utf8");
   if (!usesTranslationObject(src)) continue;
@@ -338,9 +360,24 @@ if (undefinedKeys.length > 0) {
   );
 }
 
+if (localeOrphans.length > 0) {
+  failed = true;
+  for (const { locale, orphanKeys } of localeOrphans) {
+    console.error(
+      `\n✗ ${orphanKeys.length} key${orphanKeys.length === 1 ? "" : "s"} present in ${locale} but missing from EN:\n`,
+    );
+    for (const key of orphanKeys) {
+      console.error(`  - ${key}`);
+    }
+  }
+  console.error(
+    "\nEither add the missing keys to the EN block or remove the orphaned entries from the affected locale block(s) in artifacts/presentail/lib/translations.ts.\n",
+  );
+}
+
 if (!failed) {
   console.log(
-    `✓ All ${enKeys.length} EN keys are in use, AR/FR are complete, and no undefined key references were found.`,
+    `✓ All ${enKeys.length} EN keys are in use, AR/FR are complete, no undefined key references were found, and no orphan AR/FR keys exist.`,
   );
   process.exit(0);
 } else {
