@@ -1,3 +1,47 @@
+/**
+ * translations.ts — Three-language string catalogue for the Presentail mobile app.
+ *
+ * ─── Three-language contract ─────────────────────────────────────────────────
+ *
+ * Every user-facing string lives here in three locale blocks: EN, AR, and FR.
+ * The file enforces this at compile time: AR and FR are typed `typeof EN`, so
+ * TypeScript will report a type error if a key is present in EN but missing
+ * from one of the other locales.  A build (`pnpm run typecheck`) therefore
+ * catches EN → AR/FR gaps before they reach production.
+ *
+ * ─── Adding new strings ──────────────────────────────────────────────────────
+ *
+ * 1. Add the English string to the EN block, under the most relevant comment
+ *    section.
+ * 2. Add the matching Arabic string to the AR block (same key, same position).
+ * 3. Add the matching French string to the FR block (same key, same position).
+ *
+ * Skipping step 2 or 3 is a compile error — the missing key will surface as a
+ * TypeScript complaint on the `AR` or `FR` variable.
+ *
+ * ─── Belt-and-suspenders script ──────────────────────────────────────────────
+ *
+ * As an extra safety net (and to catch keys accidentally added only to AR/FR
+ * without a corresponding EN entry, or keys that are no longer referenced in
+ * source), run the translation-consistency script before opening a PR:
+ *
+ *   pnpm --filter @workspace/scripts run check-translations
+ *
+ * The script validates:
+ *   • Every EN key is referenced somewhere in the mobile source tree.
+ *   • AR and FR contain exactly the same keys as EN (no additions, no gaps).
+ *
+ * Exit 0 = all checks pass.  Exit 1 = details printed to stderr.
+ *
+ * ─── Template variables ──────────────────────────────────────────────────────
+ *
+ * Strings may contain `{country}` and `{city}` placeholders.  These are
+ * replaced at runtime by `useT()` (hooks/useT.ts) using the active delivery
+ * location.  Do not invent other placeholder names — they will be silently
+ * ignored and shown verbatim to shoppers.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 export type Lang = "EN" | "AR" | "FR";
 
 const EN = {
@@ -541,7 +585,6 @@ const EN = {
   checkoutSaveAddressToggle: "Save this address to my profile",
   ordersTitle: "My orders",
   ordersEmpty: "You haven't placed any orders yet.",
-  ordersLoading: "Loading your orders…",
   ordersError: "We couldn't load your orders right now.",
   ordersOrderNumber: "Order",
   ordersPlacedOn: "Placed on",
@@ -1299,7 +1342,6 @@ const AR: typeof EN = {
   checkoutSaveAddressToggle: "حفظ هذا العنوان في ملفي الشخصي",
   ordersTitle: "طلباتي",
   ordersEmpty: "لم تقم بأي طلبات بعد.",
-  ordersLoading: "جارٍ تحميل طلباتك…",
   ordersError: "تعذّر تحميل طلباتك الآن.",
   ordersOrderNumber: "طلب",
   ordersPlacedOn: "تم الطلب في",
@@ -2060,7 +2102,6 @@ const FR: typeof EN = {
   checkoutSaveAddressToggle: "Enregistrer cette adresse dans mon profil",
   ordersTitle: "Mes commandes",
   ordersEmpty: "Vous n'avez pas encore passé de commande.",
-  ordersLoading: "Chargement de vos commandes…",
   ordersError: "Impossible de charger vos commandes pour le moment.",
   ordersOrderNumber: "Commande",
   ordersPlacedOn: "Passée le",
