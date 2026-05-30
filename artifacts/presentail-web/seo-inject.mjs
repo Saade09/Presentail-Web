@@ -667,6 +667,59 @@ function extractOccasionSlugFromSearch(search) {
   return trimmed || null;
 }
 
+// Matches /favorites/share/<token>
+const SHARE_TOKEN_RE = /^\/favorites\/share\/([A-Za-z0-9_-]{8,})(?:\/)?$/;
+
+function extractShareToken(pathname) {
+  const m = pathname.match(SHARE_TOKEN_RE);
+  return m ? m[1] : null;
+}
+
+async function fetchSharedFavoritesForSeo({ token, apiBaseUrl }) {
+  if (!token) return null;
+  const url = `${apiBaseUrl.replace(/\/$/, "")}/api/favorites/share/${encodeURIComponent(token)}`;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body || body.ok !== true || !Array.isArray(body.favorites)) return null;
+    return body.favorites;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildWishlistHead({
+  count,
+  imageUrl,
+  basePath,
+  origin,
+  pathname,
+  lang,
+}) {
+  const title = `Gift Wishlist — ${count} ${count === 1 ? "item" : "items"} on Presentail`;
+  const description =
+    count === 1
+      ? "Someone shared a wishlist with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus."
+      : `Someone shared a wishlist of ${count} gifts with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus.`;
+  return buildEntityHead({
+    ogType: "website",
+    title,
+    description,
+    imageUrl: imageUrl ?? null,
+    imageAlt: "Presentail Gift Wishlist",
+    basePath,
+    origin,
+    pathname,
+    search: "",
+    lang: lang ?? "en",
+  });
+}
+
 async function fetchEntityForSeo({
   endpoint,
   responseKey,
@@ -1119,6 +1172,59 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     return assembleHtml(html, generic);
   }
   if (!parsed.hasLocalePrefix) {
+    // Handle shared wishlist links: /favorites/share/:token
+    const shareToken = extractShareToken(pathname);
+    if (shareToken) {
+      const cacheKey = entityCacheKey({ kind: "wishlist", slug: shareToken, lang: "en", countryCode: "", cityId: "" });
+      let wishlistResult = getCachedEntity(cacheKey);
+      if (!wishlistResult) {
+        const favorites = await fetchSharedFavoritesForSeo({ token: shareToken, apiBaseUrl });
+        if (favorites) {
+          const count = favorites.length;
+          let imageUrl = null;
+          if (count > 0 && favorites[0]?.productSlug) {
+            const countryCode = favorites[0].countryCode ?? "LB";
+            const product = await fetchEntityForSeoCached(
+              "product",
+              fetchProductForSeo,
+              {
+                slug: favorites[0].productSlug,
+                lang: "en",
+                countryCode,
+                cityId: `${countryCode.toLowerCase()}-beirut`,
+                apiBaseUrl,
+              },
+            );
+            if (product) {
+              imageUrl =
+                (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+                (Array.isArray(product.images) &&
+                  product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+                null;
+            }
+          }
+          wishlistResult = { count, imageUrl };
+          setCachedEntity(cacheKey, wishlistResult);
+        }
+      }
+      if (wishlistResult) {
+        const result = buildWishlistHead({
+          count: wishlistResult.count,
+          imageUrl: wishlistResult.imageUrl,
+          basePath: rest.basePath ?? "",
+          origin: rest.origin ?? "",
+          pathname,
+          lang: "en",
+        });
+        return assembleHtml(html, {
+          lang: "en",
+          dir: "ltr",
+          headSnippet: result.headSnippet,
+          titleTag: `<title>${escapeHtml(result.title)}</title>`,
+        });
+      }
+    }
+
     // Fallback: handle bare /product/<slug> paths (e.g. links shared before
     // the locale-prefix fix, or external integrations). Use default locale
     // values so the web server can still inject per-product OG tags.
