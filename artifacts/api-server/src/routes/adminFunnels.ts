@@ -52,6 +52,12 @@ import {
   loadDailyOrderPushTapBuckets,
   type OrderPushTapDailyBucket,
 } from "../lib/orderPushTapAggregator";
+import {
+  loadDailySignInMethodBuckets,
+  summariseSignInMethodBuckets,
+  type SignInMethodDailyBucket,
+  type SignInMethodSummaryBucket,
+} from "../lib/signInMethodAggregator";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -128,6 +134,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       funnelSessionCoverageDaily,
       smsDaily,
       orderPushTapsDaily,
+      signInMethodsDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -142,6 +149,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyFunnelSessionCoverage(start, end),
       loadDailySmsBuckets(start, end),
       loadDailyOrderPushTapBuckets(start, end),
+      loadDailySignInMethodBuckets(start, end),
     ]);
     res.json({
       days,
@@ -235,6 +243,28 @@ router.get("/admin/funnels/data", async (req, res) => {
           state: b.state,
           platform: b.platform,
           taps: b.taps,
+        })),
+      },
+      signInMethods: {
+        // Per-(platform, source, action) counts across signin_page_action and
+        // checkout_login_prompt_action events. `source` is "signin_page" or
+        // "checkout_prompt". `action` is the method tapped: google / apple /
+        // continue / guest / dismissed. Both tables share the same daily rows
+        // so the summary and per-day views can never disagree.
+        summary: summariseSignInMethodBuckets(signInMethodsDaily).map(
+          (b: SignInMethodSummaryBucket) => ({
+            platform: b.platform,
+            source: b.source,
+            action: b.action,
+            count: b.count,
+          }),
+        ),
+        daily: signInMethodsDaily.map((b: SignInMethodDailyBucket) => ({
+          day: b.day,
+          platform: b.platform,
+          source: b.source,
+          action: b.action,
+          count: b.count,
         })),
       },
     });
@@ -938,6 +968,20 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Sign-in method breakdown</h2>
+  <div class="sub">How shoppers choose to sign in, split by surface. <strong>signin_page</strong> = dedicated sign-in page (web); <strong>checkout_prompt</strong> = checkout login dialog (mobile + web). Actions: google / apple / continue (email) / guest / dismissed. Use this to compare which methods are preferred at each touchpoint and where to invest in sign-in UX.</div>
+  <div id="signInMethodsSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <div id="signInMethodsTrends" class="trends"></div>
+  <table id="signInMethodsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Surface</th><th>Action</th><th>Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -1027,6 +1071,9 @@ const DASHBOARD_HTML = `<!doctype html>
   var orderPushTapsSummary = document.getElementById('orderPushTapsSummary');
   var orderPushTapsTrends = document.getElementById('orderPushTapsTrends');
   var orderPushTapsDailyBody = document.querySelector('#orderPushTapsDaily tbody');
+  var signInMethodsSummary = document.getElementById('signInMethodsSummary');
+  var signInMethodsTrends = document.getElementById('signInMethodsTrends');
+  var signInMethodsDailyBody = document.querySelector('#signInMethodsDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -1940,6 +1987,67 @@ const DASHBOARD_HTML = `<!doctype html>
     }
   }
 
+  function renderSignInMethods(payload) {
+    var summary = (payload && payload.summary) || [];
+    var daily = (payload && payload.daily) || [];
+    if (!summary.length && !daily.length) {
+      signInMethodsSummary.innerHTML = '<div class="muted">No sign-in method events in range.</div>';
+      signInMethodsDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+      signInMethodsTrends.innerHTML = '';
+      return;
+    }
+    // Build per-(source, action) window totals across all platforms for the summary table.
+    var summaryMap = {};
+    summary.forEach(function (r) {
+      var k = r.platform + '::' + r.source + '::' + r.action;
+      if (!summaryMap[k]) summaryMap[k] = { platform: r.platform, source: r.source, action: r.action, count: 0 };
+      summaryMap[k].count += r.count;
+    });
+    // Compute per-(platform, source) totals for percentage columns
+    var sourceTotals = {};
+    summary.forEach(function (r) {
+      var k = r.platform + '::' + r.source;
+      sourceTotals[k] = (sourceTotals[k] || 0) + r.count;
+    });
+    var summaryRows = Object.keys(summaryMap).sort().map(function (k) { return summaryMap[k]; });
+    if (summaryRows.length) {
+      signInMethodsSummary.innerHTML = '<table><thead><tr>' +
+        '<th>Platform</th><th>Surface</th><th>Action</th><th>Count (window)</th><th>% of surface</th>' +
+        '</tr></thead><tbody>' + summaryRows.map(function (r) {
+          var total = sourceTotals[r.platform + '::' + r.source] || 0;
+          var pctOfSurface = total > 0 ? fmtPct(Math.round(r.count / total * 1000) / 10) : '<span class="muted">—</span>';
+          return '<tr>' +
+            '<td>' + escapeHtml(r.platform) + '</td>' +
+            '<td>' + escapeHtml(r.source) + '</td>' +
+            '<td>' + escapeHtml(r.action) + '</td>' +
+            '<td>' + num(r.count) + '</td>' +
+            '<td>' + pctOfSurface + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      signInMethodsSummary.innerHTML = '<div class="muted">No sign-in method events in range.</div>';
+    }
+    if (daily.length) {
+      // Sparklines: count per (platform/source/action) series over time.
+      renderTrends(signInMethodsTrends, daily,
+        function (r) { return r.platform + '/' + r.source + '/' + r.action; },
+        [{ label: 'Count', valueFn: function (r) { return r.count; } }]
+      );
+      signInMethodsDailyBody.innerHTML = daily.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.day + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + escapeHtml(r.source) + '</td>' +
+          '<td>' + escapeHtml(r.action) + '</td>' +
+          '<td>' + num(r.count) + '</td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      signInMethodsTrends.innerHTML = '';
+      signInMethodsDailyBody.innerHTML = '<tr><td colspan="5" class="muted">No events in range.</td></tr>';
+    }
+  }
+
   function renderLogin(rows) {
     if (!rows.length) {
       loginBody.innerHTML = '<tr><td colspan="9" class="muted">No events in range.</td></tr>';
@@ -2117,6 +2225,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderFunnelSessionCoverage(funnelCoverage);
         renderSmsDelivery(data.sms || { daily: [] });
         renderOrderPushTaps(data.orderPushTaps || { daily: [] });
+        renderSignInMethods(data.signInMethods || { summary: [], daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
