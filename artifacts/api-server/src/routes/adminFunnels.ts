@@ -48,6 +48,10 @@ import {
   loadDailySmsBuckets,
   type SmsDailyBucket,
 } from "../lib/smsFailureMonitor";
+import {
+  loadDailyOrderPushTapBuckets,
+  type OrderPushTapDailyBucket,
+} from "../lib/orderPushTapAggregator";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -123,6 +127,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellSessionCoverageDaily,
       funnelSessionCoverageDaily,
       smsDaily,
+      orderPushTapsDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -136,6 +141,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailySessionCoverage(start, end),
       loadDailyFunnelSessionCoverage(start, end),
       loadDailySmsBuckets(start, end),
+      loadDailyOrderPushTapBuckets(start, end),
     ]);
     res.json({
       days,
@@ -217,6 +223,18 @@ router.get("/admin/funnels/data", async (req, res) => {
           sent: b.sent,
           failed: b.failed,
           failureRatePct: pct(b.failed, b.sent + b.failed),
+        })),
+      },
+      orderPushTaps: {
+        // Per-(day, state, platform) tap counts for order_push_tapped events.
+        // `state` is the order state from the push payload (e.g. out_for_delivery,
+        // delivered). Tap-through rate is not computable here because push-sent
+        // counts are not currently persisted as analytics events.
+        daily: orderPushTapsDaily.map((b: OrderPushTapDailyBucket) => ({
+          day: b.day,
+          state: b.state,
+          platform: b.platform,
+          taps: b.taps,
         })),
       },
     });
@@ -950,6 +968,20 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Order push notification taps</h2>
+  <div class="sub">order_push_tapped events per (order state, platform). Shows how many shoppers opened the app by tapping a push notification, broken out by order state (e.g. out_for_delivery, delivered). Use this to compare engagement across notification types. Tap-through rate is not shown because push-sent counts are not currently tracked as analytics events.</div>
+  <div id="orderPushTapsSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <div id="orderPushTapsTrends" class="trends"></div>
+  <table id="orderPushTapsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Order state</th><th>Platform</th><th>Taps</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
 <script>
 (function () {
   var TOKEN_KEY = 'presentail.admin.pushToken';
@@ -992,6 +1024,9 @@ const DASHBOARD_HTML = `<!doctype html>
   var smsSummary = document.getElementById('smsSummary');
   var smsTrends = document.getElementById('smsTrends');
   var smsDailyBody = document.querySelector('#smsDaily tbody');
+  var orderPushTapsSummary = document.getElementById('orderPushTapsSummary');
+  var orderPushTapsTrends = document.getElementById('orderPushTapsTrends');
+  var orderPushTapsDailyBody = document.querySelector('#orderPushTapsDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -1984,6 +2019,50 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  function renderOrderPushTaps(payload) {
+    var daily = (payload && payload.daily) || [];
+    if (!daily.length) {
+      orderPushTapsSummary.innerHTML = '<div class="muted">No order push tap events in range.</div>';
+      orderPushTapsDailyBody.innerHTML = '<tr><td colspan="4" class="muted">No events in range.</td></tr>';
+      orderPushTapsTrends.innerHTML = '';
+      return;
+    }
+
+    // Build per-(state, platform) window totals for the summary table.
+    var summaryMap = {};
+    daily.forEach(function (r) {
+      var k = r.state + '::' + r.platform;
+      if (!summaryMap[k]) summaryMap[k] = { state: r.state, platform: r.platform, taps: 0 };
+      summaryMap[k].taps += r.taps;
+    });
+    var summaryRows = Object.keys(summaryMap).sort().map(function (k) { return summaryMap[k]; });
+
+    orderPushTapsSummary.innerHTML = '<table><thead><tr>' +
+      '<th>Order state</th><th>Platform</th><th>Taps (window)</th>' +
+      '</tr></thead><tbody>' + summaryRows.map(function (r) {
+        return '<tr>' +
+          '<td>' + escapeHtml(r.state) + '</td>' +
+          '<td>' + escapeHtml(r.platform) + '</td>' +
+          '<td>' + num(r.taps) + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+
+    // Sparklines: taps per (state, platform) over time.
+    var tapKeyFn = function (r) { return r.state + '/' + r.platform; };
+    renderTrends(orderPushTapsTrends, daily, tapKeyFn, [
+      { label: 'Taps', valueFn: function (r) { return r.taps; } },
+    ]);
+
+    orderPushTapsDailyBody.innerHTML = daily.map(function (r) {
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.state) + '</td>' +
+        '<td>' + escapeHtml(r.platform) + '</td>' +
+        '<td>' + num(r.taps) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function load() {
     var token = tokenEl.value.trim();
     var days = Math.max(1, Math.min(${MAX_DAYS}, parseInt(daysEl.value, 10) || ${DEFAULT_DAYS}));
@@ -2037,6 +2116,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderCoverageAlertBanner(funnelCoverage, upsell.sessionCoverage || { daily: [] });
         renderFunnelSessionCoverage(funnelCoverage);
         renderSmsDelivery(data.sms || { daily: [] });
+        renderOrderPushTaps(data.orderPushTaps || { daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
