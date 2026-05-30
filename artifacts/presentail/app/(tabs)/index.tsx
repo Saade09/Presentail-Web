@@ -1048,6 +1048,66 @@ function CategoryRail() {
   );
 }
 
+type OccasionTileItem = {
+  id: number | string;
+  slug: string;
+  name: string;
+  imageUrl?: string | null;
+};
+
+function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () => void }) {
+  const colors = useColors();
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+
+  return (
+    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 88 }}>
+      <View
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 999,
+          overflow: "hidden",
+          backgroundColor: "#F3F3F3",
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        {item.imageUrl ? (
+          <>
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+              onLoad={() => setImageLoaded(true)}
+            />
+            {!imageLoaded && <ShimmerPlaceholder />}
+          </>
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <MaterialCommunityIcons
+              name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+        )}
+      </View>
+      <Text
+        numberOfLines={2}
+        style={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 11,
+          color: colors.primary,
+          textAlign: "center",
+          lineHeight: 14,
+        }}
+      >
+        {item.name}
+      </Text>
+    </Pressable>
+  );
+}
+
 function OccasionsCarousel() {
   const colors = useColors();
   const router = useRouter();
@@ -1083,59 +1143,13 @@ function OccasionsCarousel() {
               </View>
             ))
           : items.map((item) => (
-              <Pressable
+              <OccasionTile
                 key={item.id}
+                item={item}
                 onPress={() =>
                   router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
                 }
-                style={{ alignItems: "center", gap: 10, width: 88 }}
-              >
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 999,
-                    overflow: "hidden",
-                    backgroundColor: "#F3F3F3",
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={{ width: "100%", height: "100%" }}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        flex: 1,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={MOBILE_ICON_GLYPH[getHomepageIconName(item.slug, item.name)]}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  numberOfLines={2}
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 11,
-                    color: colors.primary,
-                    textAlign: "center",
-                    lineHeight: 14,
-                  }}
-                >
-                  {item.name}
-                </Text>
-              </Pressable>
+              />
             ))}
       </ScrollView>
     </View>
