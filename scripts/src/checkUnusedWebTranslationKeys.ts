@@ -125,11 +125,16 @@ function extractKeysWithType(src: string): {
  *
  * Falls back to the original single-file approach when the locales/ directory
  * is absent (backwards compatibility).
+ *
+ * Also returns `stringsKeyToFile` — a map from each base key to the domain
+ * file it was defined in, used to produce per-file error messages when a
+ * French translation is missing.
  */
 function extractWebKeys(localeContextSrc: string): {
   all: string[];
   stringsKeys: Set<string>;
   stringsFrKeys: Set<string>;
+  stringsKeyToFile: Map<string, string>;
 } {
   // ── Split-file architecture: scan src/locales/*.ts ────────────────────────
   if (fs.existsSync(LOCALES_DIR)) {
@@ -149,11 +154,15 @@ function extractWebKeys(localeContextSrc: string): {
 
     const stringsKeys = new Set<string>();
     const stringsFrKeys = new Set<string>();
+    const stringsKeyToFile = new Map<string, string>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
       const { dictKeys, frKeys } = extractKeysWithType(content);
-      for (const k of dictKeys) stringsKeys.add(k);
+      for (const k of dictKeys) {
+        stringsKeys.add(k);
+        stringsKeyToFile.set(k, file);
+      }
       for (const k of frKeys) stringsFrKeys.add(k);
     }
 
@@ -168,6 +177,7 @@ function extractWebKeys(localeContextSrc: string): {
       all: Array.from(new Set([...stringsKeys, ...stringsFrKeys])),
       stringsKeys,
       stringsFrKeys,
+      stringsKeyToFile,
     };
   }
 
@@ -194,6 +204,7 @@ function extractWebKeys(localeContextSrc: string): {
     all: Array.from(allKeys),
     stringsKeys,
     stringsFrKeys,
+    stringsKeyToFile: new Map(),
   };
 }
 
@@ -276,7 +287,7 @@ function isKeyReferenced(
 // ── main ─────────────────────────────────────────────────────────────────────
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -355,11 +366,36 @@ if (missingFr.length > 0) {
   console.error(
     `\n✗ Found ${missingFr.length} key${missingFr.length === 1 ? "" : "s"} in STRINGS with no French translation in STRINGS_FR:\n`,
   );
+
+  // Group missing keys by the domain file they were defined in so the
+  // developer knows exactly which file to edit.
+  const byFile = new Map<string, string[]>();
+  const noFile: string[] = [];
   for (const key of missingFr) {
-    console.error(`  - ${key}`);
+    const file = stringsKeyToFile.get(key);
+    if (file) {
+      const rel = path.relative(REPO_ROOT, file);
+      if (!byFile.has(rel)) byFile.set(rel, []);
+      byFile.get(rel)!.push(key);
+    } else {
+      noFile.push(key);
+    }
+  }
+
+  for (const [file, keys] of [...byFile.entries()].sort()) {
+    console.error(`  In ${file} — add French translations for:`);
+    for (const key of keys.sort()) {
+      console.error(`    - ${key}`);
+    }
+  }
+  if (noFile.length > 0) {
+    console.error(`  (source file unknown):`);
+    for (const key of noFile.sort()) {
+      console.error(`    - ${key}`);
+    }
   }
   console.error(
-    "\nAdd these keys to the appropriate *StringsFr export in artifacts/presentail-web/src/locales/.\n",
+    "\nFor each file above, add the missing keys to the corresponding *StringsFr export.\n",
   );
 }
 
