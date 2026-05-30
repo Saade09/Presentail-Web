@@ -87,11 +87,20 @@ function AccountTab() {
 
   const onNotifRowPress = async () => {
     if (Platform.OS === "web") return;
-    if (notifStatus === "granted" || notifStatus === "denied") {
+    // skipped, granted and denied all go straight to the prefs screen.
+    // skipped means the user previously chose "Maybe Later" — respect that
+    // decision and don't re-show the modal unsolicited; the prefs screen
+    // has its own opt-in CTA for those users.
+    if (
+      notifStatus === "granted" ||
+      notifStatus === "denied" ||
+      notifStatus === "skipped"
+    ) {
       router.push("/notification-preferences");
       return;
     }
-    // not_determined / prompted / skipped → re-show modal
+    // Only truly undecided states (not_determined / prompted) trigger the
+    // in-app permission modal.
     setNotifModalOpen(true);
   };
 

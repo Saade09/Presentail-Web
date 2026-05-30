@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -22,6 +22,7 @@ import {
   getNativePermissionStatus,
   getNotificationStatus,
   openSystemSettings,
+  requestPermission,
   saveCategoryPreferences,
   saveNotificationStatus,
   type NotificationCategory,
@@ -72,7 +73,13 @@ function NotificationPreferencesScreen() {
     DEFAULT_CATEGORY_PREFS
   );
 
-  const refresh = useCallback(async () => {
+  // Track whether this is the first time the screen has gained focus in
+  // the current mount — used to auto-trigger the OS permission dialog for
+  // undecided users (not_determined / prompted) without re-prompting on
+  // every subsequent focus (e.g. after the OS dialog steals and returns focus).
+  const isFirstFocus = useRef(true);
+
+  const refresh = useCallback(async (shouldAutoPrompt: boolean) => {
     setLoading(true);
     const stored = await getNotificationStatus();
     let effective: NotificationStatus = stored;
@@ -85,15 +92,33 @@ function NotificationPreferencesScreen() {
         effective = native;
       }
     }
+
+    // Auto-trigger the OS permission dialog when the user lands here and
+    // hasn't been asked yet (not_determined) or was shown the in-app nudge
+    // card but the decision is still pending (prompted). We only do this on
+    // the first focus so that the dialog fires once — subsequent focus
+    // events (e.g. app-foreground after the OS dialog) simply re-read the
+    // now-resolved status.
+    if (
+      shouldAutoPrompt &&
+      Platform.OS !== "web" &&
+      (effective === "not_determined" || effective === "prompted")
+    ) {
+      const next = await requestPermission();
+      effective = next;
+    }
+
     setPermissionStatus(effective);
-    const next = await getCategoryPreferences();
-    setPrefs(next);
+    const nextPrefs = await getCategoryPreferences();
+    setPrefs(nextPrefs);
     setLoading(false);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      const autoPrompt = isFirstFocus.current;
+      isFirstFocus.current = false;
+      refresh(autoPrompt);
     }, [refresh])
   );
 
@@ -106,8 +131,30 @@ function NotificationPreferencesScreen() {
     await saveCategoryPreferences(next);
   };
 
-  const blocked =
-    Platform.OS !== "web" && permissionStatus !== "granted";
+  // "skipped" means the user explicitly dismissed the in-app permission
+  // prompt — respect that decision; show an opt-in CTA rather than treating
+  // them as blocked.
+  const deniedByOS =
+    Platform.OS !== "web" && permissionStatus === "denied";
+  const skippedByUser =
+    Platform.OS !== "web" && permissionStatus === "skipped";
+  const blocked = deniedByOS || skippedByUser;
+
+  const onEnablePress = async () => {
+    // If the OS has already denied permission, we can only open settings.
+    // Otherwise trigger the system dialog directly.
+    const native = await getNativePermissionStatus();
+    if (native === "denied") {
+      openSystemSettings();
+    } else {
+      const next = await requestPermission();
+      setPermissionStatus(next);
+      if (next === "granted") {
+        const nextPrefs = await getCategoryPreferences();
+        setPrefs(nextPrefs);
+      }
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -176,7 +223,8 @@ function NotificationPreferencesScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          {blocked ? (
+          {deniedByOS ? (
+            /* OS-level blocked: direct user to system settings */
             <View
               style={{
                 backgroundColor: colors.secondary,
@@ -239,6 +287,73 @@ function NotificationPreferencesScreen() {
                   }}
                 >
                   {t.openSettings}
+                </Text>
+              </Pressable>
+            </View>
+          ) : skippedByUser ? (
+            /* User skipped the in-app prompt — show a gentle opt-in CTA */
+            <View
+              style={{
+                backgroundColor: colors.secondary,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 18,
+                gap: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <Feather name="bell" size={18} color={colors.gold} />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: "PlayfairDisplay_600SemiBold",
+                    fontSize: 16,
+                    color: colors.primary,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {t.notifPrefsOptInTitle}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.mutedForeground,
+                  lineHeight: 20,
+                  textAlign: isRTL ? "right" : "left",
+                }}
+              >
+                {t.notifPrefsOptInBody}
+              </Text>
+              <Pressable
+                onPress={onEnablePress}
+                style={({ pressed }) => ({
+                  marginTop: 6,
+                  alignSelf: isRTL ? "flex-end" : "flex-start",
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                    color: "#fff",
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {t.enableNotifications}
                 </Text>
               </Pressable>
             </View>
