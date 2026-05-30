@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, RotateCcw } from "lucide-react";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { CountryFlag } from "@/components/CountryFlag";
 import {
@@ -35,6 +35,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
     currencyCode,
     setCurrencyCode,
     setManualPersistent,
+    clearManualCurrency,
     isManual,
     isManualPersistent,
     supportedCurrencies,
@@ -105,6 +106,21 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
         })}
 
         <Separator className="my-1" />
+
+        {/* "Use automatic" reset — only shown when a persistent manual currency is saved */}
+        {isManualPersistent && (
+          <DropdownMenuItem
+            onSelect={() => {
+              clearManualCurrency();
+              setRemember(true);
+            }}
+            data-testid="button-currency-auto"
+            className="flex items-center gap-2.5 cursor-pointer text-muted-foreground"
+          >
+            <RotateCcw className="w-4 h-4 shrink-0" />
+            <span className="text-xs">Use automatic (detected)</span>
+          </DropdownMenuItem>
+        )}
 
         {/* "Remember this choice" toggle — keep the dropdown open on click */}
         <DropdownMenuItem
