@@ -2,9 +2,17 @@
  * checkUnusedWebTranslationKeys
  *
  * Scans all TypeScript/TSX source files under `artifacts/presentail-web/src`
- * and reports any key defined in the STRINGS or STRINGS_FR dictionaries inside
- * `artifacts/presentail-web/src/contexts/LocaleContext.tsx` that is never
- * referenced.
+ * and reports any key defined in the STRINGS or STRINGS_FR dictionaries that
+ * is never referenced.
+ *
+ * Translation keys live in per-domain modules under
+ * `artifacts/presentail-web/src/locales/`. Each module exports two objects:
+ *   • `<domain>Strings`   — Dict with { en, ar } entries  (the STRINGS keys)
+ *   • `<domain>StringsFr` — Record<string, string>        (the STRINGS_FR keys)
+ *
+ * The script distinguishes them by value format:
+ *   • `"key": {`  → Dict entry  → STRINGS key
+ *   • `"key": "`  → FR string   → STRINGS_FR key
  *
  * It also checks translation coverage:
  *   • Every key in STRINGS must have a matching entry in STRINGS_FR.
@@ -36,6 +44,7 @@ const LOCALE_CONTEXT_FILE = path.join(
   "artifacts/presentail-web/src/contexts/LocaleContext.tsx",
 );
 const SCAN_ROOT = path.join(REPO_ROOT, "artifacts/presentail-web/src");
+const LOCALES_DIR = path.join(REPO_ROOT, "artifacts/presentail-web/src/locales");
 
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -78,21 +87,93 @@ function extractKeysFromSection(src: string): Set<string> {
 }
 
 /**
- * Extract all translation keys from LocaleContext.tsx, returning both the
- * combined set (for the unused-key check) and the per-dictionary sets (for
- * the coverage check).
+ * Extract keys from a locale domain file, distinguishing between Dict entries
+ * (STRINGS — value starts with `{`) and FR string entries (STRINGS_FR —
+ * value starts with `"`).
  *
- * The file contains two dictionaries:
- *   const STRINGS: Dict = { "some.key": { en: "…", ar: "…" }, … }
- *   const STRINGS_FR: Record<string, string> = { "some.key": "…", … }
+ * Both formats use the same key syntax `"dot.name": value` so we only need to
+ * inspect the first non-whitespace character after the colon.
  */
-function extractWebKeys(src: string): {
+function extractKeysWithType(src: string): {
+  dictKeys: Set<string>;
+  frKeys: Set<string>;
+} {
+  const dictKeys = new Set<string>();
+  const frKeys = new Set<string>();
+  // Match: "key.name": { (dict) or "key.name": " (fr string on same line)
+  const keyRe = /^\s+"([^"]+)":\s*(\{|")/gm;
+  let m: RegExpExecArray | null;
+  while ((m = keyRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+    if (m[2] === "{") {
+      dictKeys.add(key);
+    } else {
+      frKeys.add(key);
+    }
+  }
+  return { dictKeys, frKeys };
+}
+
+/**
+ * Extract all translation keys, returning both the combined set (for the
+ * unused-key check) and the per-dictionary sets (for the coverage check).
+ *
+ * When the `src/locales/` directory exists (split architecture) it is scanned
+ * instead of LocaleContext.tsx, using value-format heuristics to distinguish
+ * STRINGS vs STRINGS_FR keys.
+ *
+ * Falls back to the original single-file approach when the locales/ directory
+ * is absent (backwards compatibility).
+ */
+function extractWebKeys(localeContextSrc: string): {
   all: string[];
   stringsKeys: Set<string>;
   stringsFrKeys: Set<string>;
 } {
-  const stringsMarker = src.indexOf("const STRINGS: Dict = {");
-  const stringsFrMarker = src.indexOf("const STRINGS_FR:");
+  // ── Split-file architecture: scan src/locales/*.ts ────────────────────────
+  if (fs.existsSync(LOCALES_DIR)) {
+    const localeFiles = fs
+      .readdirSync(LOCALES_DIR)
+      .filter(
+        (f) => f.endsWith(".ts") && f !== "index.ts" && f !== "types.ts",
+      )
+      .map((f) => path.join(LOCALES_DIR, f));
+
+    if (localeFiles.length === 0) {
+      console.error(
+        "ERROR: src/locales/ directory exists but contains no domain files — aborting.",
+      );
+      process.exit(1);
+    }
+
+    const stringsKeys = new Set<string>();
+    const stringsFrKeys = new Set<string>();
+
+    for (const file of localeFiles) {
+      const content = fs.readFileSync(file, "utf8");
+      const { dictKeys, frKeys } = extractKeysWithType(content);
+      for (const k of dictKeys) stringsKeys.add(k);
+      for (const k of frKeys) stringsFrKeys.add(k);
+    }
+
+    if (stringsKeys.size === 0 && stringsFrKeys.size === 0) {
+      console.error(
+        "ERROR: No keys extracted from src/locales/ domain files — aborting.",
+      );
+      process.exit(1);
+    }
+
+    return {
+      all: Array.from(new Set([...stringsKeys, ...stringsFrKeys])),
+      stringsKeys,
+      stringsFrKeys,
+    };
+  }
+
+  // ── Legacy single-file approach: parse LocaleContext.tsx ──────────────────
+  const stringsMarker = localeContextSrc.indexOf("const STRINGS: Dict = {");
+  const stringsFrMarker = localeContextSrc.indexOf("const STRINGS_FR:");
 
   if (stringsMarker === -1 || stringsFrMarker === -1) {
     console.error(
@@ -101,8 +182,8 @@ function extractWebKeys(src: string): {
     process.exit(1);
   }
 
-  const stringsSection = src.slice(stringsMarker, stringsFrMarker);
-  const stringsFrSection = src.slice(stringsFrMarker);
+  const stringsSection = localeContextSrc.slice(stringsMarker, stringsFrMarker);
+  const stringsFrSection = localeContextSrc.slice(stringsFrMarker);
 
   const stringsKeys = extractKeysFromSection(stringsSection);
   const stringsFrKeys = extractKeysFromSection(stringsFrSection);
@@ -204,9 +285,11 @@ if (allKeys.length === 0) {
   process.exit(1);
 }
 
-// Collect every source file except LocaleContext.tsx itself.
+// Collect every source file except locale domain files themselves.
 const files = collectFiles(SCAN_ROOT).filter(
-  (f) => f !== LOCALE_CONTEXT_FILE,
+  (f) =>
+    f !== LOCALE_CONTEXT_FILE &&
+    !f.startsWith(LOCALES_DIR + path.sep),
 );
 
 // Build a combined corpus of all source content for fast substring scanning.
@@ -263,7 +346,7 @@ if (unusedKeys.length > 0) {
     console.error(`  - ${key}`);
   }
   console.error(
-    "\nRemove these keys from STRINGS and/or STRINGS_FR in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+    "\nRemove these keys from the appropriate locale domain file in artifacts/presentail-web/src/locales/.\n",
   );
 }
 
@@ -276,7 +359,7 @@ if (missingFr.length > 0) {
     console.error(`  - ${key}`);
   }
   console.error(
-    "\nAdd these keys to STRINGS_FR in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+    "\nAdd these keys to the appropriate *StringsFr export in artifacts/presentail-web/src/locales/.\n",
   );
 }
 
@@ -289,7 +372,7 @@ if (orphanedFr.length > 0) {
     console.error(`  - ${key}`);
   }
   console.error(
-    "\nRemove these orphaned keys from STRINGS_FR or add matching entries to STRINGS in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+    "\nRemove these orphaned keys from the appropriate *StringsFr export or add matching entries to the base *Strings export in artifacts/presentail-web/src/locales/.\n",
   );
 }
 
