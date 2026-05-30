@@ -136,6 +136,30 @@ async function loadRawRows(start: Date, end: Date): Promise<RawRow[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Shared fold helper — single source of truth for the event-name → sent/failed
+// mapping. Both aggregateBuckets (used by the monitor) and loadDailySmsBuckets
+// (used by the dashboard) call this, so the two views can never disagree on
+// which events count as a send vs. a failure.
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply one raw row's count to an existing SmsBucket in-place.
+ * Returns true when the row was recognised (sms_notify_sent or
+ * sms_notify_failed), false otherwise (caller may choose to ignore it).
+ */
+function applyRowToSmsCount(bucket: SmsBucket, name: string, count: number): boolean {
+  if (name === "sms_notify_sent") {
+    bucket.sent += count;
+    return true;
+  }
+  if (name === "sms_notify_failed") {
+    bucket.failed += count;
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Aggregate raw rows into per-(channel, storeKey) buckets
 // ---------------------------------------------------------------------------
 
@@ -150,13 +174,81 @@ export function aggregateBuckets(rows: RawRow[]): SmsBucket[] {
       bucket = { channel, storeKey, sent: 0, failed: 0 };
       map.set(key, bucket);
     }
-    if (row.name === "sms_notify_sent") {
-      bucket.sent += row.count;
-    } else if (row.name === "sms_notify_failed") {
-      bucket.failed += row.count;
-    }
+    applyRowToSmsCount(bucket, row.name, row.count);
   }
   return Array.from(map.values()).sort((a, b) => {
+    if (a.channel !== b.channel) return a.channel < b.channel ? -1 : 1;
+    return a.storeKey < b.storeKey ? -1 : a.storeKey > b.storeKey ? 1 : 0;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Per-day bucket type and loader (used by the admin dashboard)
+// ---------------------------------------------------------------------------
+
+export type SmsDailyBucket = {
+  day: string;
+  channel: string;
+  storeKey: string;
+  sent: number;
+  failed: number;
+};
+
+type DailyRawRow = {
+  day: string;
+  name: string;
+  channel: string | null;
+  storeKey: string | null;
+  count: number;
+};
+
+/**
+ * Load per-(day, channel, storeKey) SMS send/fail counts for the given window.
+ * Calls `applyRowToSmsCount` — the same shared fold helper used by
+ * `aggregateBuckets` and the monitor — so dashboard totals are guaranteed
+ * identical to the values the Slack alert evaluates.
+ */
+export async function loadDailySmsBuckets(start: Date, end: Date): Promise<SmsDailyBucket[]> {
+  const rows = (await db
+    .select({
+      day: sql<string>`date_trunc('day', ${analyticsEventsTable.createdAt})::date::text`,
+      name: analyticsEventsTable.name,
+      channel: analyticsEventsTable.action,
+      storeKey: analyticsEventsTable.platform,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} in ('sms_notify_sent', 'sms_notify_failed')`,
+        gte(analyticsEventsTable.createdAt, start),
+        lt(analyticsEventsTable.createdAt, end),
+      )!,
+    )
+    .groupBy(
+      sql`date_trunc('day', ${analyticsEventsTable.createdAt})::date::text`,
+      analyticsEventsTable.name,
+      analyticsEventsTable.action,
+      analyticsEventsTable.platform,
+    )) as DailyRawRow[];
+
+  // Re-use applyRowToSmsCount (same helper as aggregateBuckets) so the
+  // event-name → sent/failed mapping is defined in exactly one place.
+  const map = new Map<string, SmsDailyBucket>();
+  for (const row of rows) {
+    const day = String(row.day).slice(0, 10);
+    const channel = row.channel ?? "unknown";
+    const storeKey = row.storeKey ?? "unknown";
+    const key = `${day}::${channel}::${storeKey}`;
+    let bucket = map.get(key);
+    if (!bucket) {
+      bucket = { day, channel, storeKey, sent: 0, failed: 0 };
+      map.set(key, bucket);
+    }
+    applyRowToSmsCount(bucket, row.name, row.count);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.day !== b.day) return a.day < b.day ? -1 : 1;
     if (a.channel !== b.channel) return a.channel < b.channel ? -1 : 1;
     return a.storeKey < b.storeKey ? -1 : a.storeKey > b.storeKey ? 1 : 0;
   });

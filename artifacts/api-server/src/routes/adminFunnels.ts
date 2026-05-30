@@ -44,6 +44,10 @@ import {
   type SessionCoverageDailyBucket,
   type FunnelSessionCoverageDailyBucket,
 } from "../lib/sessionCoverageMonitor";
+import {
+  loadDailySmsBuckets,
+  type SmsDailyBucket,
+} from "../lib/smsFailureMonitor";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -118,6 +122,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       upsellSessionConversion,
       upsellSessionCoverageDaily,
       funnelSessionCoverageDaily,
+      smsDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -130,6 +135,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       buildUpsellToOrderBySession(start, end),
       loadDailySessionCoverage(start, end),
       loadDailyFunnelSessionCoverage(start, end),
+      loadDailySmsBuckets(start, end),
     ]);
     res.json({
       days,
@@ -197,6 +203,20 @@ router.get("/admin/funnels/data", async (req, res) => {
           total: b.total,
           withSessionId: b.withSessionId,
           coveragePct: b.coveragePct,
+        })),
+      },
+      sms: {
+        // Per-(day, channel, storeKey) SMS send/fail counts. Sourced from the
+        // same sms_notify_sent / sms_notify_failed analytics events the Slack
+        // monitor evaluates, so dashboard totals can never disagree with alerts.
+        // failureRatePct is null when total sends are zero.
+        daily: smsDaily.map((b: SmsDailyBucket) => ({
+          day: b.day,
+          channel: b.channel,
+          storeKey: b.storeKey,
+          sent: b.sent,
+          failed: b.failed,
+          failureRatePct: pct(b.failed, b.sent + b.failed),
         })),
       },
     });
@@ -915,6 +935,21 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>SMS / WhatsApp delivery</h2>
+  <div class="sub">sms_notify_sent and sms_notify_failed events per day, broken out by channel (sms / whatsapp) and store. "Failure rate" = failed / (sent + failed). Uses the same event buckets the Slack alert monitor evaluates so this view never disagrees with an alert.</div>
+  <div id="smsSummary"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <div id="smsTrends" class="trends"></div>
+  <table id="smsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Channel</th><th>Store</th>
+        <th>Sent</th><th>Failed</th><th>Failure rate</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
 <script>
 (function () {
   var TOKEN_KEY = 'presentail.admin.pushToken';
@@ -954,6 +989,9 @@ const DASHBOARD_HTML = `<!doctype html>
   var upsellRevenuePctTrends = document.getElementById('upsellRevenuePctTrends');
   var upsellConversionDailyBody = document.querySelector('#upsellConversionDaily tbody');
   var coverageAlertBanner = document.getElementById('coverageAlertBanner');
+  var smsSummary = document.getElementById('smsSummary');
+  var smsTrends = document.getElementById('smsTrends');
+  var smsDailyBody = document.querySelector('#smsDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -1887,6 +1925,65 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  function fmtFailureRate(pct) {
+    if (pct === null || pct === undefined) return '<span class="muted">—</span>';
+    var cls = pct > 20 ? ' low' : '';
+    return '<span class="pct' + cls + '">' + pct.toFixed(1) + '%</span>';
+  }
+
+  function renderSmsDelivery(payload) {
+    var daily = (payload && payload.daily) || [];
+    if (!daily.length) {
+      smsSummary.innerHTML = '<div class="muted">No SMS delivery events in range.</div>';
+      smsDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
+      smsTrends.innerHTML = '';
+      return;
+    }
+
+    // Build per-(channel, storeKey) window totals for the summary table.
+    var summaryMap = {};
+    daily.forEach(function (r) {
+      var k = r.channel + '::' + r.storeKey;
+      if (!summaryMap[k]) summaryMap[k] = { channel: r.channel, storeKey: r.storeKey, sent: 0, failed: 0 };
+      summaryMap[k].sent += r.sent;
+      summaryMap[k].failed += r.failed;
+    });
+    var summaryRows = Object.keys(summaryMap).sort().map(function (k) { return summaryMap[k]; });
+
+    smsSummary.innerHTML = '<table><thead><tr>' +
+      '<th>Channel</th><th>Store</th><th>Sent (window)</th><th>Failed (window)</th><th>Failure rate</th>' +
+      '</tr></thead><tbody>' + summaryRows.map(function (r) {
+        var total = r.sent + r.failed;
+        var ratePct = total > 0 ? Math.round(r.failed / total * 1000) / 10 : null;
+        return '<tr>' +
+          '<td>' + escapeHtml(r.channel) + '</td>' +
+          '<td>' + escapeHtml(r.storeKey) + '</td>' +
+          '<td>' + num(r.sent) + '</td>' +
+          '<td>' + num(r.failed) + '</td>' +
+          '<td>' + fmtFailureRate(ratePct) + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+
+    // Sparklines: sent and failure rate per (channel, storeKey) over time.
+    var smsKeyFn = function (r) { return r.channel + '/' + r.storeKey; };
+    renderTrends(smsTrends, daily, smsKeyFn, [
+      { label: 'Sent', valueFn: function (r) { return r.sent; } },
+      { label: 'Failed', valueFn: function (r) { return r.failed; } },
+      { label: 'Failure rate (%)', valueFn: function (r) { return r.failureRatePct; }, max: 100 },
+    ]);
+
+    smsDailyBody.innerHTML = daily.map(function (r) {
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.channel) + '</td>' +
+        '<td>' + escapeHtml(r.storeKey) + '</td>' +
+        '<td>' + num(r.sent) + '</td>' +
+        '<td>' + num(r.failed) + '</td>' +
+        '<td>' + fmtFailureRate(r.failureRatePct) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function load() {
     var token = tokenEl.value.trim();
     var days = Math.max(1, Math.min(${MAX_DAYS}, parseInt(daysEl.value, 10) || ${DEFAULT_DAYS}));
@@ -1939,6 +2036,7 @@ const DASHBOARD_HTML = `<!doctype html>
         var funnelCoverage = data.funnelSessionCoverage || { daily: [] };
         renderCoverageAlertBanner(funnelCoverage, upsell.sessionCoverage || { daily: [] });
         renderFunnelSessionCoverage(funnelCoverage);
+        renderSmsDelivery(data.sms || { daily: [] });
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
