@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { applyFxRates, type CurrencyCode } from "@/data/currencies";
 import { API_BASE } from "@/lib/stripe";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
+import { trackEvent } from "@/lib/analytics";
 
 type FxRatesResponse = {
   ok: boolean;
@@ -65,13 +66,19 @@ async function fetchLiveRates(): Promise<CachedFxRates | null> {
     if (!res.ok) return null;
     const json = (await res.json()) as FxRatesResponse;
     if (!json.ok || !json.rates) return null;
-    return {
+    const result: CachedFxRates = {
       base: json.base ?? "USD",
       rates: json.rates,
       fetchedAt: typeof json.fetchedAt === "number" ? json.fetchedAt : Date.now(),
       source: json.source ?? "live",
       cachedAt: Date.now(),
     };
+    if (result.source === "fallback") {
+      // Fire-and-forget: log to analytics so ops can see fallback exposure
+      // on the mobile side alongside the server-side Slack alert.
+      trackEvent({ name: "fx_rates_fallback" });
+    }
+    return result;
   } catch {
     return null;
   } finally {

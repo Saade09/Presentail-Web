@@ -966,6 +966,7 @@ components:
         - sms_notify_sent
         - sms_notify_failed
         - order_push_tapped
+        - fx_rates_fallback
     AnalyticsEventRequest:
       type: object
       properties:

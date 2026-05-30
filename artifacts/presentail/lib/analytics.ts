@@ -16,7 +16,8 @@ type AnalyticsEventName =
   | "upsell_tab_clicked"
   | "upsell_item_added"
   | "upsell_checkout_proceeded"
-  | "order_push_tapped";
+  | "order_push_tapped"
+  | "fx_rates_fallback";
 
 type AnalyticsSurface =
   | "cart"

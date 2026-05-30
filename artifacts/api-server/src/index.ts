@@ -15,6 +15,7 @@ import { startUpsellFunnelMonitor } from "./lib/upsellFunnelMonitor";
 import { startSessionCoverageMonitor } from "./lib/sessionCoverageMonitor";
 import { startClerkSessionFallbackMonitor } from "./lib/clerkSessionFallbackMonitor";
 import { startSmsFailureMonitor } from "./lib/smsFailureMonitor";
+import { startFxRatesFallbackMonitor } from "./lib/fxRatesFallbackMonitor";
 import { fetchAllProducts } from "./routes/woo";
 import { resolveStore } from "./lib/wooStore";
 
@@ -80,4 +81,5 @@ app.listen(port, (err) => {
   startSessionCoverageMonitor();
   startClerkSessionFallbackMonitor();
   startSmsFailureMonitor();
+  startFxRatesFallbackMonitor();
 });

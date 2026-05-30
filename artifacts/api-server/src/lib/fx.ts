@@ -80,7 +80,15 @@ type RateCache = {
   source: "live" | "fallback";
 };
 
-const TTL_MS = 6 * 60 * 60 * 1000; // 6h
+// Cache TTL for live rates — matches the historical 6h window.
+const LIVE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+
+// When live rates are unavailable the cache falls back to static rates.
+// Rather than retrying on *every* incoming request (which would hammer
+// open.er-api.com and make consecutiveFailures increment with traffic, not
+// with time), we cap retries to once every 5 minutes. This makes
+// consecutiveFailures a count of "refresh cycles", not "requests served".
+const FALLBACK_RETRY_MS = 5 * 60 * 1000; // 5 min
 
 let cache: RateCache = {
   base: "USD",
@@ -89,6 +97,28 @@ let cache: RateCache = {
   source: "fallback",
 };
 let inflight: Promise<RateCache> | null = null;
+
+// Timestamp of the last fetch that returned live data. 0 means live rates
+// have never been fetched in this process lifetime.
+let lastLiveAt = 0;
+
+// Count of consecutive refresh cycles that have returned fallback data.
+// Reset to 0 when any refresh cycle returns live data.
+// Because fallback results are cached for FALLBACK_RETRY_MS, this counter
+// increments at most once per 5 minutes regardless of request volume.
+let consecutiveFailures = 0;
+
+export type FxStatus = {
+  source: "live" | "fallback";
+  fetchedAt: number;
+  consecutiveFailures: number;
+  /** Timestamp of the last successful live fetch; 0 if never fetched live in this process. */
+  lastLiveAt: number;
+};
+
+export function getFxStatus(): FxStatus {
+  return { source: cache.source, fetchedAt: cache.fetchedAt, consecutiveFailures, lastLiveAt };
+}
 
 export function isSupportedCurrency(value: unknown): value is SupportedCurrency {
   return typeof value === "string" && (SUPPORTED_CURRENCIES as string[]).includes(value);
@@ -118,6 +148,8 @@ async function fetchLiveRates(): Promise<RateCache> {
       if (typeof r === "number" && r > 0) rates[code] = r;
     }
     rates.USD = 1;
+    consecutiveFailures = 0;
+    lastLiveAt = Date.now();
     return {
       base: "USD",
       rates,
@@ -125,7 +157,11 @@ async function fetchLiveRates(): Promise<RateCache> {
       source: "live",
     };
   } catch (err: any) {
-    logger.warn({ err: err?.message }, "fx: failed to fetch live rates, using fallback");
+    consecutiveFailures += 1;
+    logger.warn(
+      { err: err?.message, consecutiveFailures },
+      "fx: failed to fetch live rates, using fallback",
+    );
     return {
       base: "USD",
       rates: { ...FALLBACK_RATES },
@@ -136,7 +172,10 @@ async function fetchLiveRates(): Promise<RateCache> {
 }
 
 export async function getRates(): Promise<RateCache> {
-  const fresh = Date.now() - cache.fetchedAt < TTL_MS && cache.source === "live";
+  // Live rates are fresh for LIVE_TTL_MS; fallback results are cached for
+  // FALLBACK_RETRY_MS so we don't retry on every request (see above).
+  const ttl = cache.source === "live" ? LIVE_TTL_MS : FALLBACK_RETRY_MS;
+  const fresh = Date.now() - cache.fetchedAt < ttl;
   if (fresh) return cache;
   if (!inflight) {
     inflight = fetchLiveRates().then((next) => {

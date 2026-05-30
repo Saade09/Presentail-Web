@@ -129,6 +129,7 @@ export const AnalyticsEventName = {
   sms_notify_sent: "sms_notify_sent",
   sms_notify_failed: "sms_notify_failed",
   order_push_tapped: "order_push_tapped",
+  fx_rates_fallback: "fx_rates_fallback",
 } as const;
 
 /**
