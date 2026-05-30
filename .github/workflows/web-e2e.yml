@@ -1,0 +1,55 @@
+name: Web e2e tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web-e2e:
+    name: Playwright – currency persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
+
+      - name: Start Vite dev server
+        run: pnpm --filter @workspace/presentail-web run dev &
+        env:
+          PORT: 5173
+
+      - name: Wait for dev server
+        run: npx --yes wait-on http://localhost:5173 --timeout 60000
+
+      - name: Run Playwright tests
+        run: pnpm --filter @workspace/presentail-web run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: artifacts/presentail-web/playwright-report/
+          retention-days: 7
