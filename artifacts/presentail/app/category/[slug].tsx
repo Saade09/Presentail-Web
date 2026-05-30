@@ -22,7 +22,6 @@ import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
   categories,
   getCategory,
-  products as STATIC_CATALOG,
   type Product,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
@@ -65,19 +64,6 @@ function CategoryScreen() {
   const cityId = selectedCity?.id ?? null;
   const category = getCategory(String(slug));
 
-  // Always fetch the live category list from WooCommerce so the screen
-  // reflects exactly what is in stock and deliverable for the selected
-  // store. The static catalog is only used to enrich items with richer
-  // metadata (descriptions, occasion tags, fallback image, tag) — it
-  // never gates which items are shown.
-  const staticById = useMemo(() => {
-    const map = new Map<string, Product>();
-    for (const p of STATIC_CATALOG) {
-      if (!map.has(p.id)) map.set(p.id, p);
-    }
-    return map;
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     setWcLoading(true);
@@ -88,18 +74,15 @@ function CategoryScreen() {
     setWcProducts([]);
     fetchCategoryProducts(String(slug), { countryCode, cityId }).then(({ products, categoryName }) => {
       if (cancelled) return;
-      // Merge first so static metadata (including fallback image) can
-      // rescue live items whose Woo payload is missing an image. Only
-      // drop items that still have no usable image after the merge.
       const merged = products
-        .map((wp) => mergeWithStatic(wp, staticById.get(wp.id)))
+        .map((wp) => mergeWithStatic(wp))
         .filter((p) => p.image);
       setWcProducts(merged);
       setWcCategoryName(categoryName);
       setWcLoading(false);
     });
     return () => { cancelled = true; };
-  }, [slug, countryCode, cityId, staticById]);
+  }, [slug, countryCode, cityId]);
 
   const sourceProducts = wcProducts;
   const products = useMemo(() => {
@@ -351,30 +334,18 @@ function CategoryScreen() {
   );
 }
 
-function mergeWithStatic(wp: WooProduct, sp: Product | undefined): Product {
-  if (!sp) {
-    return {
-      id: wp.id,
-      wcId: wp.wcId,
-      name: wp.name,
-      price: wp.price,
-      priceValue: wp.priceValue,
-      image: wp.image,
-      category: wp.category,
-      description: wp.description,
-      tag: wp.tag,
-      occasions: [],
-    };
-  }
+function mergeWithStatic(wp: WooProduct): Product {
   return {
-    ...sp,
-    name: wp.name || sp.name,
-    price: wp.price ?? sp.price,
-    priceValue: wp.priceValue ?? sp.priceValue,
-    image: wp.image ?? sp.image,
-    description: sp.description ?? wp.description,
-    tag: sp.tag ?? wp.tag,
+    id: wp.id,
     wcId: wp.wcId,
+    name: wp.name,
+    price: wp.price,
+    priceValue: wp.priceValue,
+    image: wp.image,
+    category: wp.category,
+    description: wp.description,
+    tag: wp.tag,
+    occasions: wp.occasions,
   };
 }
 

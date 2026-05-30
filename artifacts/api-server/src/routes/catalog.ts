@@ -9,7 +9,6 @@ import {
   CURRENCIES,
   FALLBACK_CURRENCY_CODE,
   occasions,
-  products,
 } from "@workspace/catalog-data";
 import { getOsBrands } from "../lib/osProductsCache";
 
@@ -34,15 +33,7 @@ router.get("/catalog/metadata", (_req, res) => {
     categories,
     occasions,
     brands,
-    products: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      ...(p.tag !== undefined ? { tag: p.tag } : {}),
-      ...(p.description !== undefined ? { description: p.description } : {}),
-      category: p.category,
-      ...(p.occasions ? { occasions: p.occasions } : {}),
-      image: p.image ?? null,
-    })),
+    products: [],
   });
   res.json(data);
 });

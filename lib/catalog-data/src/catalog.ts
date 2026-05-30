@@ -1,22 +1,9 @@
-// Phase 3 — the static product catalog has been retired.
-// Presentail OS is the sole source of truth for all product listings,
-// categories, occasions, and brands. The `products` export below is kept as
-// an empty array for backward compatibility with any import site that
-// destructures it; it is never consulted at runtime.
-// Do NOT add products here — add them in Presentail OS instead.
 import type {
   Brand,
   CatalogReview,
   Category,
   Occasion,
-  Product,
 } from "./types";
-
-// Image refs in this file use relative asset paths (under each app's
-// bundled `catalog/` tree) so the data is platform-neutral. Mobile
-// resolves them via a static `require()` map; the web storefront
-// resolves them under `/catalog/` in its public directory. Hosted
-// images use `{ uri }` directly.
 
 const cat = {
   baskets: { uri: "https://presentail.com/lebanon/wp-content/uploads/2024/08/Birthday-Basket-copy.webp" },
@@ -61,24 +48,6 @@ const occFallback = {
   children: { asset: "occasions/birthday.webp" },
 } as const;
 
-// Products retired in Phase 3 — Presentail OS is the sole source of truth.
-
-export const products: Product[] = [
-];
-
-export const bestSellerIds = [
-  "sweet-scarlet-affair",
-  "rose-whisper",
-  "red-roses-box",
-  "chocolate-rocher-cake",
-  "super-you",
-  "birthday-bear",
-];
-
-export const bestSellers: Product[] = bestSellerIds
-  .map((id) => products.find((p) => p.id === id))
-  .filter((p): p is Product => Boolean(p));
-
 export const categories: Category[] = [
   { id: "lux-arrangements", name: "Lux Arrangements", icon: "flower-tulip", image: cat["lux-arrangements"] },
   { id: "baskets", name: "Gift Baskets", icon: "basket", image: cat.baskets },
@@ -119,12 +88,7 @@ export const occasions: Occasion[] = [
   { id: "children", name: "Children", icon: "star", image: occFallback.children, description: "Bright and joyful gifts to delight the little ones." },
 ];
 
-// Brands retired from the static list in Phase 3 — Presentail OS is the
-// sole source of truth. The live list is served from `GET /api/woo/brands`
-// (backed by `getOsBrands()` in osProductsCache) and from the
-// `GET /api/catalog/metadata` `brands` field which also reads the OS cache.
-// This empty array is kept for backward compatibility with any import site
-// that still destructures it; it is never consulted at runtime.
+// Brands are served from Presentail OS via `GET /api/woo/brands`.
 // Do NOT add brands here — add them in Presentail OS instead.
 export const brands: Brand[] = [];
 
@@ -135,22 +99,10 @@ export const reviews: CatalogReview[] = [
   { id: "4", name: "Sami A.", text: "Awesome service. The recipient was delighted from the first glance.", rating: 5 },
 ];
 
-export function getProduct(id: string): Product | undefined {
-  return products.find((p) => p.id === id);
-}
-
 export function getCategory(id: string): Category | undefined {
   return categories.find((c) => c.id === id);
 }
 
 export function getOccasion(id: string): Occasion | undefined {
   return occasions.find((o) => o.id === id);
-}
-
-export function getProductsByCategory(catId: string): Product[] {
-  return products.filter((p) => p.category === catId);
-}
-
-export function getProductsByOccasion(occId: string): Product[] {
-  return products.filter((p) => p.occasions?.includes(occId));
 }

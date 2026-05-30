@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { getProduct, type Product } from "@/data/catalog";
+import type { Product } from "@/data/catalog";
 import { useWooProducts } from "./WooProductsContext";
 
 export type CartItem = { productId: string; qty: number };
@@ -208,9 +208,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     () =>
       items
         .map((i) => {
-          // Prefer the live WooCommerce product (has current price); fall back to static catalog
           const wooProduct = wooProducts.find((p) => p.id === i.productId) as Product | undefined;
-          const product: Product | undefined = wooProduct ?? getProduct(i.productId);
+          const product: Product | undefined = wooProduct;
           if (!product) return null;
           return { product, qty: i.qty, lineTotal: product.priceValue * i.qty };
         })

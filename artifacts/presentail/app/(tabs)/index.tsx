@@ -28,7 +28,6 @@ import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
-  bestSellers,
   reviews,
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -662,9 +661,7 @@ function BestSellers() {
     () => seededShuffle(wooProducts, homepageShuffleSeed("best-sellers", selectedCountry?.code, selectedCity?.id)),
     [wooProducts, selectedCountry?.code, selectedCity?.id],
   );
-  const displayProducts = shuffledWooProducts.length > 0
-    ? shuffledWooProducts.slice(0, 4)
-    : bestSellers;
+  const displayProducts = shuffledWooProducts.slice(0, 4);
 
   if (displayProducts.length === 0) return null;
 

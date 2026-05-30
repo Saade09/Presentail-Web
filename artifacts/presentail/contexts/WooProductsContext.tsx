@@ -1,35 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
-import { products as CATALOG } from "@/data/catalog";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { fetchWooProducts, type WooProduct } from "@/lib/woo";
 
-type AnyProduct = (typeof CATALOG)[number] & {
-  wcId?: number;
-  popularity?: number;
-  // Mirrors WooCommerce's stock_status. `undefined` means "no live data
-  // yet" (initial static seed) and is treated as in-stock by the UI; only
-  // an explicit `false` hides a product. The API server already filters
-  // out-of-stock products from listings, so a successful sync that omits
-  // a previously-static product implicitly makes it `false` after merge.
-  inStock?: boolean;
-};
+type AnyProduct = WooProduct;
 
 const SYNC_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
 
-function dedupeById<T extends { id: string }>(arr: T[]): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const item of arr) {
-    if (seen.has(item.id)) continue;
-    seen.add(item.id);
-    out.push(item);
-  }
-  return out;
-}
-
-const INITIAL_CATALOG = dedupeById(CATALOG as AnyProduct[]);
+const INITIAL_CATALOG: AnyProduct[] = [];
 
 type WooCtx = {
   products: AnyProduct[];
@@ -86,7 +65,7 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
       // static seed item missing from WC is either undeliverable for the
       // selected store, out of stock, or hidden by category, so it must
       // not leak through the static fallback.
-      const merged = mergeProducts(CATALOG as AnyProduct[], woo, true);
+      const merged = mergeProducts([], woo, true);
       setProducts(merged);
       setLastSync(new Date());
     } finally {
