@@ -8,6 +8,7 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:i18n": "pnpm --filter @workspace/scripts run check-unused-web-translations",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
