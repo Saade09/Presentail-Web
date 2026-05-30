@@ -286,15 +286,48 @@ function CheckoutScreen() {
   const [identitySecret, setIdentitySecret] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [savedAddressPickerOpen, setSavedAddressPickerOpen] = useState(false);
+  const [activeAddressId, setActiveAddressId] = useState<number | null>(null);
+  // Mirror activeAddressId in a ref so the sync effect can read the current
+  // value without adding it as a reactive dependency (which would cause the
+  // effect to re-run — and potentially re-apply — every time the picker is used).
+  const activeAddressIdRef = React.useRef<number | null>(null);
+  activeAddressIdRef.current = activeAddressId;
+
   const savedAddressesQuery = useListMyAddresses({
     query: { queryKey: getListMyAddressesQueryKey(), enabled: !!authUser },
   });
   const savedAddresses = savedAddressesQuery.data?.addresses ?? [];
+
+  // Tracks the id of the default address that was most recently auto-applied
+  // by the sync effect. null means the effect has never fired.
+  const appliedDefaultIdRef = React.useRef<number | null>(null);
+
+  // Set to true when the shopper types directly into any recipient field.
+  // Prevents the sync effect from overwriting intentional edits.
+  const recipientManuallyEdited = React.useRef(false);
+
+  // Wrapped setters that mark the recipient section as manually edited.
+  // applySavedAddress calls the raw state setters below so it never
+  // accidentally sets this flag.
+  const setRecipientFirstTracked = React.useCallback((v: string) => {
+    recipientManuallyEdited.current = true;
+    setRecipientFirst(v);
+  }, []);
+  const setRecipientLastTracked = React.useCallback((v: string) => {
+    recipientManuallyEdited.current = true;
+    setRecipientLast(v);
+  }, []);
+  const setRecipientPhoneTracked = React.useCallback((v: string) => {
+    recipientManuallyEdited.current = true;
+    setRecipientPhone(v);
+  }, []);
+
   const applySavedAddress = (addr: CustomerAddress) => {
     const matchedCountry = COUNTRY_DIAL_CODES.find(
       (c) => c.code === addr.countryCode,
     );
     if (matchedCountry) setRecipientCountry(matchedCountry);
+    // Use the raw setters so applySavedAddress never marks the section dirty.
     if (addr.recipientFirstName) setRecipientFirst(addr.recipientFirstName);
     if (addr.recipientLastName) setRecipientLast(addr.recipientLastName);
     if (addr.recipientPhone) setRecipientPhone(addr.recipientPhone);
@@ -333,25 +366,48 @@ function CheckoutScreen() {
         .join(" · "),
     );
     setNoAddress(false);
+    setActiveAddressId(addr.id);
     setSavedAddressPickerOpen(false);
   };
 
-  // Auto-apply the customer's default saved address once after sign-in,
-  // when the picker hasn't been touched and the buyer hasn't started
-  // typing an address themselves. The shopper can still pick a different
-  // saved address (or clear and re-type) from the picker.
-  const defaultAppliedRef = React.useRef(false);
+  // Keeps the delivery address fields in sync with the shopper's saved default.
+  //
+  // First-time apply: fills empty fields from the default address on mount.
+  // Re-sync: when savedAddresses refreshes (e.g. after returning from the
+  //   saved-addresses screen and changing the default), re-applies the new
+  //   default — but only when the shopper has not made manual edits and has
+  //   not explicitly switched to a non-default address via the picker.
   React.useEffect(() => {
-    if (defaultAppliedRef.current) return;
     if (!authUser) return;
     if (savedAddresses.length === 0) return;
-    if (deliveryDetails.trim() || noAddress) return;
     const def = savedAddresses.find((a) => a.isDefault) ?? null;
     if (!def) return;
-    defaultAppliedRef.current = true;
+
+    // ── First-time apply ─────────────────────────────────────────────────
+    if (appliedDefaultIdRef.current === null) {
+      // Don't overwrite anything the shopper has already typed.
+      if (deliveryDetails.trim() || noAddress) return;
+      appliedDefaultIdRef.current = def.id;
+      applySavedAddress(def);
+      return;
+    }
+
+    // ── Re-sync when the default address changes ──────────────────────────
+    if (def.id === appliedDefaultIdRef.current) return; // default unchanged
+
+    // Respect manual edits — never overwrite what the shopper typed directly.
+    if (recipientManuallyEdited.current) return;
+
+    // Respect an explicit picker selection — if the shopper chose a different
+    // (non-default) address from the picker, honour that choice.
+    const currentActive = activeAddressIdRef.current;
+    if (currentActive !== null && currentActive !== appliedDefaultIdRef.current) return;
+
+    appliedDefaultIdRef.current = def.id;
     applySavedAddress(def);
-    // applySavedAddress is stable enough for this one-shot effect; we
-    // intentionally key only on the inputs that decide whether to apply.
+    // applySavedAddress and the ref/state reads are intentionally omitted from
+    // the deps array: we only want to re-run when the address list or districts
+    // change, not on every intermediate state update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, savedAddresses, districts]);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
@@ -916,11 +972,11 @@ function CheckoutScreen() {
             <DeliveryDetailsStep
               colors={colors}
               recipientFirst={recipientFirst}
-              setRecipientFirst={setRecipientFirst}
+              setRecipientFirst={setRecipientFirstTracked}
               recipientLast={recipientLast}
-              setRecipientLast={setRecipientLast}
+              setRecipientLast={setRecipientLastTracked}
               recipientPhone={recipientPhone}
-              setRecipientPhone={setRecipientPhone}
+              setRecipientPhone={setRecipientPhoneTracked}
               recipientCountry={recipientCountry}
               setRecipientCountry={setRecipientCountry}
               districts={districts}
@@ -956,6 +1012,7 @@ function CheckoutScreen() {
               } : null}
               onEditAccount={() => router.push("/personal-information")}
               savedAddresses={savedAddresses}
+              activeAddressId={activeAddressId}
               savedAddressPickerOpen={savedAddressPickerOpen}
               setSavedAddressPickerOpen={setSavedAddressPickerOpen}
               applySavedAddress={applySavedAddress}
@@ -1619,7 +1676,7 @@ function DeliveryDetailsStep(props: any) {
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
     districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
-    isSignedIn, savedAddresses, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
+    isSignedIn, savedAddresses, activeAddressId, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
     saveAddress, setSaveAddress,
     senderFirst, setSenderFirst, senderLast, setSenderLast, senderWhatsapp, setSenderWhatsapp,
     senderCountry, setSenderCountry,
@@ -1629,6 +1686,12 @@ function DeliveryDetailsStep(props: any) {
   const { formatPrice } = useCurrency();
   const t = useT();
   const { isRTL } = useLanguage();
+  const activeAddress = activeAddressId != null
+    ? (savedAddresses as CustomerAddress[]).find((a) => a.id === activeAddressId) ?? null
+    : null;
+  const activeAddressLabel = activeAddress
+    ? (activeAddress.nickname || activeAddress.label || t.checkoutUseSavedAddress)
+    : t.checkoutUseSavedAddress;
   return (
     <View style={{ gap: 18 }}>
       <Card colors={colors} title={t.recipientDetailsTitle}>
@@ -1642,14 +1705,14 @@ function DeliveryDetailsStep(props: any) {
               paddingHorizontal: 14,
               paddingVertical: 12,
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: activeAddressId != null ? colors.primary : colors.border,
               borderRadius: 10,
               backgroundColor: "#faf7f2",
             }}
           >
             <Feather name="map-pin" size={16} color={colors.gold} />
-            <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
-              {t.checkoutUseSavedAddress}
+            <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }} numberOfLines={1}>
+              {activeAddressLabel}
             </Text>
             <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
           </Pressable>
@@ -1686,35 +1749,42 @@ function DeliveryDetailsStep(props: any) {
             <FlatList
               data={savedAddresses}
               keyExtractor={(item) => String(item.id)}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => applySavedAddress(item)}
-                  style={{
-                    paddingHorizontal: 20,
-                    paddingVertical: 14,
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#f7f4ef",
-                    gap: 4,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary }}>
-                      {item.nickname || item.label}
-                    </Text>
-                    {item.isDefault ? (
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
-                        ★
+              renderItem={({ item }) => {
+                const isActive = item.id === activeAddressId;
+                return (
+                  <TouchableOpacity
+                    onPress={() => applySavedAddress(item)}
+                    style={{
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#f7f4ef",
+                      gap: 4,
+                      backgroundColor: isActive ? "#fdf9f3" : "#fff",
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, flex: 1 }}>
+                        {item.nickname || item.label}
                       </Text>
-                    ) : null}
-                  </View>
-                  <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13 }}>
-                    {item.district}, {item.countryCode}
-                  </Text>
-                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-                    {item.addressLine}
-                  </Text>
-                </TouchableOpacity>
-              )}
+                      {item.isDefault ? (
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
+                          ★
+                        </Text>
+                      ) : null}
+                      {isActive ? (
+                        <Feather name="check" size={14} color={colors.gold} />
+                      ) : null}
+                    </View>
+                    <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                      {item.district}, {item.countryCode}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                      {item.addressLine}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </Modal>
