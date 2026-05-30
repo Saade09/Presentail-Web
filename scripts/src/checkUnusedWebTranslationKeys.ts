@@ -404,6 +404,39 @@ function isKeyReferenced(
   return false;
 }
 
+// ── GitHub Actions helpers ────────────────────────────────────────────────────
+
+const IS_GHA = process.env["GITHUB_ACTIONS"] === "true";
+const SUMMARY_FILE = process.env["GITHUB_STEP_SUMMARY"] ?? "";
+
+/**
+ * Emit a `::error` workflow command so the key appears as an inline annotation
+ * on the PR diff.  Also writes to stderr for local readability.
+ *
+ * Annotation format: `::error file=<path>,title=<title>::<message>`
+ */
+function annotateError(file: string, title: string, message: string): void {
+  if (IS_GHA) {
+    const escapeValue = (s: string) =>
+      s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    const escapeProp = (s: string) =>
+      escapeValue(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
+    process.stdout.write(
+      `::error file=${escapeProp(file)},title=${escapeProp(title)}::${escapeValue(message)}\n`,
+    );
+  }
+}
+
+/**
+ * Append a line of markdown to $GITHUB_STEP_SUMMARY when running in CI.
+ * No-op when the env var is absent (local runs).
+ */
+function appendSummary(line: string): void {
+  if (SUMMARY_FILE) {
+    fs.appendFileSync(SUMMARY_FILE, line + "\n");
+  }
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 // Guard lets unit tests import the exported functions without triggering I/O
 // or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
@@ -481,6 +514,11 @@ if (unusedKeys.length > 0) {
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
+    annotateError(
+      "artifacts/presentail-web/src/locales",
+      "Unused web translation key",
+      `Key "${key}" is defined but never referenced in the web source — remove it from the appropriate locale domain file.`,
+    );
   }
   console.error(
     "\nRemove these keys from the appropriate locale domain file in artifacts/presentail-web/src/locales/.\n",
@@ -501,37 +539,47 @@ if (verbose && dynamicPrefixes.length > 0) {
   }
 }
 
+// Group missing-FR keys by domain file (used for both stderr and summary).
+const missingFrByFile = new Map<string, string[]>();
+const missingFrNoFile: string[] = [];
+
 if (missingFr.length > 0) {
   failed = true;
   console.error(
     `\n✗ Found ${missingFr.length} key${missingFr.length === 1 ? "" : "s"} in STRINGS with no French translation in STRINGS_FR:\n`,
   );
 
-  // Group missing keys by the domain file they were defined in so the
-  // developer knows exactly which file to edit.
-  const byFile = new Map<string, string[]>();
-  const noFile: string[] = [];
   for (const key of missingFr) {
     const file = stringsKeyToFile.get(key);
     if (file) {
       const rel = path.relative(REPO_ROOT, file);
-      if (!byFile.has(rel)) byFile.set(rel, []);
-      byFile.get(rel)!.push(key);
+      if (!missingFrByFile.has(rel)) missingFrByFile.set(rel, []);
+      missingFrByFile.get(rel)!.push(key);
     } else {
-      noFile.push(key);
+      missingFrNoFile.push(key);
     }
   }
 
-  for (const [file, keys] of [...byFile.entries()].sort()) {
+  for (const [file, keys] of [...missingFrByFile.entries()].sort()) {
     console.error(`  In ${file} — add French translations for:`);
     for (const key of keys.sort()) {
       console.error(`    - ${key}`);
+      annotateError(
+        file,
+        "Missing French translation",
+        `Key "${key}" has no French translation in STRINGS_FR — add it to the corresponding *StringsFr export.`,
+      );
     }
   }
-  if (noFile.length > 0) {
+  if (missingFrNoFile.length > 0) {
     console.error(`  (source file unknown):`);
-    for (const key of noFile.sort()) {
+    for (const key of missingFrNoFile.sort()) {
       console.error(`    - ${key}`);
+      annotateError(
+        "artifacts/presentail-web/src/locales",
+        "Missing French translation",
+        `Key "${key}" has no French translation in STRINGS_FR — add it to the corresponding *StringsFr export.`,
+      );
     }
   }
   console.error(
@@ -546,6 +594,11 @@ if (orphanedFr.length > 0) {
   );
   for (const key of orphanedFr) {
     console.error(`  - ${key}`);
+    annotateError(
+      "artifacts/presentail-web/src/locales",
+      "Orphaned French translation key",
+      `Key "${key}" exists in STRINGS_FR but has no matching entry in STRINGS — remove it or add a base entry.`,
+    );
   }
   console.error(
     "\nRemove these orphaned keys from the appropriate *StringsFr export or add matching entries to the base *Strings export in artifacts/presentail-web/src/locales/.\n",
@@ -563,6 +616,11 @@ if (missingFromStrings.length > 0) {
     for (const { file, line } of sites) {
       console.error(`      ${path.relative(REPO_ROOT, file)}:${line}`);
     }
+    annotateError(
+      "artifacts/presentail-web/src/locales",
+      "Undefined web translation key",
+      `Key "${key}" is used in a t() call but does not exist in STRINGS — add it (with 'en' and 'ar' values) to the appropriate *Strings export.`,
+    );
   }
   console.error(
     "\nAdd these keys (with both 'en' and 'ar' values) to the appropriate *Strings export in artifacts/presentail-web/src/locales/.\n",
@@ -590,11 +648,119 @@ if (missingArByFile.size > 0) {
     console.error(`  In ${file} — missing Arabic for:`);
     for (const key of keys.sort()) {
       console.error(`    - ${key}`);
+      annotateError(
+        file,
+        "Missing Arabic translation",
+        `Key "${key}" has no \`ar\` field in its Dict entry — add an Arabic value alongside the existing \`en\` value.`,
+      );
     }
   }
   console.error(
     "\nFor each key above, add an \`ar\` field to its Dict entry in the locale file.\n",
   );
+}
+
+// ── GitHub Step Summary ───────────────────────────────────────────────────────
+if (SUMMARY_FILE) {
+  if (!failed) {
+    appendSummary(
+      `## ✅ Web translation keys — all checks passed\n\n` +
+        `All ${allKeys.length} web translation keys are in use, AR coverage is complete, ` +
+        `FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), ` +
+        `and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
+    );
+  } else {
+    appendSummary("## ❌ Web translation key checks failed\n");
+
+    if (unusedKeys.length > 0) {
+      appendSummary(
+        `### Unused keys (${unusedKeys.length} of ${allKeys.length})\n\n` +
+          `These keys are defined in the locale files but never referenced in the web source.\n` +
+          `Remove them from the appropriate locale domain file in \`artifacts/presentail-web/src/locales/\`.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of unusedKeys) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    if (missingFr.length > 0) {
+      appendSummary(
+        `### Missing French translations (${missingFr.length})\n\n` +
+          `These keys are in \`STRINGS\` but have no entry in \`STRINGS_FR\`.\n` +
+          `Add the missing keys to the corresponding \`*StringsFr\` export.\n`,
+      );
+      for (const [file, keys] of [...missingFrByFile.entries()].sort()) {
+        appendSummary(`\n**\`${file}\`**\n`);
+        appendSummary("| Key |");
+        appendSummary("| --- |");
+        for (const key of keys.sort()) {
+          appendSummary(`| \`${key}\` |`);
+        }
+      }
+      if (missingFrNoFile.length > 0) {
+        appendSummary("\n**(source file unknown)**\n");
+        appendSummary("| Key |");
+        appendSummary("| --- |");
+        for (const key of missingFrNoFile.sort()) {
+          appendSummary(`| \`${key}\` |`);
+        }
+      }
+      appendSummary("");
+    }
+
+    if (orphanedFr.length > 0) {
+      appendSummary(
+        `### Orphaned French-only keys (${orphanedFr.length})\n\n` +
+          `These keys exist in \`STRINGS_FR\` but have no matching entry in \`STRINGS\`.\n` +
+          `Remove them or add a base entry in the appropriate \`*Strings\` export.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of orphanedFr) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    if (missingFromStrings.length > 0) {
+      appendSummary(
+        `### Undefined keys used in t() (${missingFromStrings.length})\n\n` +
+          `These keys appear in static \`t("key")\` calls but do not exist in \`STRINGS\`.\n` +
+          `Add them (with both \`en\` and \`ar\` values) to the appropriate \`*Strings\` export.\n` +
+          `> Dynamic calls such as \`t(\`prefix.\${expr}\`)\` are excluded from this check.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of missingFromStrings.sort()) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    if (missingArByFile.size > 0) {
+      const totalMissingAr = Array.from(missingArByFile.values()).reduce(
+        (sum, keys) => sum + keys.length,
+        0,
+      );
+      appendSummary(
+        `### Missing Arabic translations (${totalMissingAr})\n\n` +
+          `These Dict entries have an \`en\` value but are missing an \`ar\` field.\n` +
+          `Add an \`ar\` value to each entry in the locale file.\n`,
+      );
+      for (const [file, keys] of [...missingArByFile.entries()].sort()) {
+        appendSummary(`\n**\`${file}\`**\n`);
+        appendSummary("| Key |");
+        appendSummary("| --- |");
+        for (const key of keys.sort()) {
+          appendSummary(`| \`${key}\` |`);
+        }
+      }
+      appendSummary("");
+    }
+  }
 }
 
 if (!failed) {

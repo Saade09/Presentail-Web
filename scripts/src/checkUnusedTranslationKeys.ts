@@ -269,6 +269,7 @@ const undefinedKeys = Array.from(keyCallSites.keys())
 // local runs remain readable.
 
 const IS_GHA = process.env["GITHUB_ACTIONS"] === "true";
+const SUMMARY_FILE = process.env["GITHUB_STEP_SUMMARY"] ?? "";
 
 /**
  * Emit a GitHub Actions `::error` annotation pointing at the translations file,
@@ -286,6 +287,16 @@ function annotateError(title: string, message: string): void {
     process.stdout.write(
       `::error file=${escapeProp("artifacts/presentail/lib/translations.ts")},title=${escapeProp(title)}::${escapeValue(message)}\n`,
     );
+  }
+}
+
+/**
+ * Append a line of markdown to $GITHUB_STEP_SUMMARY when running in CI.
+ * No-op when the env var is absent (local runs).
+ */
+function appendSummary(line: string): void {
+  if (SUMMARY_FILE) {
+    fs.appendFileSync(SUMMARY_FILE, line + "\n");
   }
 }
 
@@ -368,11 +379,83 @@ if (localeOrphans.length > 0) {
     );
     for (const key of orphanKeys) {
       console.error(`  - ${key}`);
+      annotateError(
+        "Orphan locale key",
+        `Key "${key}" is present in the ${locale} locale block but does not exist in EN — either add it to the EN block or remove it from ${locale}.`,
+      );
     }
   }
   console.error(
     "\nEither add the missing keys to the EN block or remove the orphaned entries from the affected locale block(s) in artifacts/presentail/lib/translations.ts.\n",
   );
+}
+
+// ── GitHub Step Summary ───────────────────────────────────────────────────────
+if (SUMMARY_FILE) {
+  if (!failed) {
+    appendSummary(
+      `## ✅ Mobile translation keys — all checks passed\n\n` +
+        `All ${enKeys.length} EN keys are in use, AR/FR are complete, and no undefined key references were found.`,
+    );
+  } else {
+    appendSummary("## ❌ Mobile translation key checks failed\n");
+
+    if (unusedKeys.length > 0) {
+      appendSummary(
+        `### Unused keys (${unusedKeys.length} of ${enKeys.length})\n\n` +
+          `These keys are defined in \`EN\` but never referenced in the mobile source.\n` +
+          `Remove them from all three locale blocks in \`artifacts/presentail/lib/translations.ts\`.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of unusedKeys) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    for (const { locale, missingKeys } of localeGaps) {
+      appendSummary(
+        `### Missing ${locale} translations (${missingKeys.length})\n\n` +
+          `These keys are present in \`EN\` but absent from the \`${locale}\` locale block.\n` +
+          `Add translations in \`artifacts/presentail/lib/translations.ts\`.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of missingKeys) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    if (undefinedKeys.length > 0) {
+      appendSummary(
+        `### Undefined key references (${undefinedKeys.length})\n\n` +
+          `These keys are accessed via \`t.key\` or \`t["key"]\` in source but do not exist in \`EN\`.\n` +
+          `Add them to all three locale blocks or fix the references.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of undefinedKeys) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+
+    for (const { locale, orphanKeys } of localeOrphans) {
+      appendSummary(
+        `### Orphan ${locale} keys (${orphanKeys.length})\n\n` +
+          `These keys are present in the \`${locale}\` locale block but do not exist in \`EN\`.\n` +
+          `Either add them to the EN block or remove them from \`${locale}\` in \`artifacts/presentail/lib/translations.ts\`.\n`,
+      );
+      appendSummary("| Key |");
+      appendSummary("| --- |");
+      for (const key of orphanKeys) {
+        appendSummary(`| \`${key}\` |`);
+      }
+      appendSummary("");
+    }
+  }
 }
 
 if (!failed) {
