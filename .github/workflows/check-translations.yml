@@ -22,6 +22,9 @@ jobs:
     name: Unused + missing + undefined translation keys (mobile & web)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -43,7 +46,74 @@ jobs:
         run: pnpm --filter @workspace/scripts run test
 
       - name: Check for unused, missing, and undefined translation keys (mobile + web)
-        run: pnpm --filter @workspace/scripts run check-translations
+        id: check
+        run: |
+          set +e
+          pnpm --filter @workspace/scripts run check-translations > /tmp/translation-check.txt 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Post translation check summary to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          CHECK_EXIT_CODE: ${{ steps.check.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const outputFile = '/tmp/translation-check.txt';
+            const output = fs.existsSync(outputFile)
+              ? fs.readFileSync(outputFile, 'utf8').trim()
+              : '(no output captured)';
+            const failed = process.env.CHECK_EXIT_CODE !== '0';
+            const marker = '<!-- translation-check-bot -->';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (failed) {
+              const body = [
+                marker,
+                '## ❌ Translation key check failed',
+                '',
+                'The following issues were found — fix them before merging:',
+                '',
+                '```',
+                output,
+                '```',
+              ].join('\n');
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body,
+                });
+              }
+            } else if (existing) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+              });
+            }
+
+      - name: Fail job if translation check found issues
+        if: always() && steps.check.outputs.exit_code != '0'
+        run: |
+          echo "Translation check failed. See output above or the PR comment for details."
+          exit 1
 
   locale-dictionary-tests:
     name: Locale dictionary unit tests (web)
