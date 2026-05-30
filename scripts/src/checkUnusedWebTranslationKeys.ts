@@ -116,6 +116,54 @@ function extractKeysWithType(src: string): {
 }
 
 /**
+ * Scan a locale file's source and return the keys of every Dict entry that is
+ * missing an Arabic (`ar`) value.
+ *
+ * For each dict entry (`"key.name": { … }`) the function extracts the balanced
+ * brace block and checks whether it contains an `ar:` field.  Both single-line
+ * and multi-line entry formats are handled.
+ */
+function extractMissingArKeys(src: string): string[] {
+  const missing: string[] = [];
+  // Match the opening of every dict entry: "key.name": {
+  const keyStartRe = /^\s+"([^"]+)":\s*\{/gm;
+  let m: RegExpExecArray | null;
+  while ((m = keyStartRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+
+    // The opening brace is the last character of the match.
+    const braceStart = m.index + m[0].length - 1;
+
+    // Walk forward to find the matching closing brace.
+    let depth = 0;
+    let blockEnd = -1;
+    for (let i = braceStart; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          blockEnd = i;
+          break;
+        }
+      }
+    }
+
+    if (blockEnd === -1) continue; // malformed entry — skip
+
+    const block = src.slice(braceStart, blockEnd + 1);
+
+    // Accept either bare `ar:` or quoted `"ar":` / `'ar':` followed by a
+    // string delimiter.  The \b boundary prevents matching e.g. `car:`.
+    const hasAr = /\bar\s*:\s*["'`]/.test(block) || /["']ar["']\s*:\s*["'`]/.test(block);
+    if (!hasAr) {
+      missing.push(key);
+    }
+  }
+  return missing;
+}
+
+/**
  * Extract all translation keys, returning both the combined set (for the
  * unused-key check) and the per-dictionary sets (for the coverage check).
  *
@@ -128,13 +176,17 @@ function extractKeysWithType(src: string): {
  *
  * Also returns `stringsKeyToFile` — a map from each base key to the domain
  * file it was defined in, used to produce per-file error messages when a
- * French translation is missing.
+ * French or Arabic translation is missing.
+ *
+ * Also returns `missingArByFile` — a map from relative file path to the list
+ * of Dict keys in that file that are missing an Arabic (`ar`) value.
  */
 function extractWebKeys(localeContextSrc: string): {
   all: string[];
   stringsKeys: Set<string>;
   stringsFrKeys: Set<string>;
   stringsKeyToFile: Map<string, string>;
+  missingArByFile: Map<string, string[]>;
 } {
   // ── Split-file architecture: scan src/locales/*.ts ────────────────────────
   if (fs.existsSync(LOCALES_DIR)) {
@@ -155,6 +207,7 @@ function extractWebKeys(localeContextSrc: string): {
     const stringsKeys = new Set<string>();
     const stringsFrKeys = new Set<string>();
     const stringsKeyToFile = new Map<string, string>();
+    const missingArByFile = new Map<string, string[]>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
@@ -164,6 +217,13 @@ function extractWebKeys(localeContextSrc: string): {
         stringsKeyToFile.set(k, file);
       }
       for (const k of frKeys) stringsFrKeys.add(k);
+
+      // Arabic coverage: find dict entries missing the `ar` field.
+      const missingAr = extractMissingArKeys(content);
+      if (missingAr.length > 0) {
+        const rel = path.relative(REPO_ROOT, file);
+        missingArByFile.set(rel, missingAr);
+      }
     }
 
     if (stringsKeys.size === 0 && stringsFrKeys.size === 0) {
@@ -178,6 +238,7 @@ function extractWebKeys(localeContextSrc: string): {
       stringsKeys,
       stringsFrKeys,
       stringsKeyToFile,
+      missingArByFile,
     };
   }
 
@@ -200,11 +261,22 @@ function extractWebKeys(localeContextSrc: string): {
 
   const allKeys = new Set([...stringsKeys, ...stringsFrKeys]);
 
+  // Arabic coverage for the legacy single-file format.
+  const missingArByFile = new Map<string, string[]>();
+  const legacyMissingAr = extractMissingArKeys(stringsSection);
+  if (legacyMissingAr.length > 0) {
+    missingArByFile.set(
+      path.relative(REPO_ROOT, LOCALE_CONTEXT_FILE),
+      legacyMissingAr,
+    );
+  }
+
   return {
     all: Array.from(allKeys),
     stringsKeys,
     stringsFrKeys,
     stringsKeyToFile: new Map(),
+    missingArByFile,
   };
 }
 
@@ -287,7 +359,7 @@ function isKeyReferenced(
 // ── main ─────────────────────────────────────────────────────────────────────
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, missingArByFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -428,9 +500,34 @@ if (missingFromStrings.length > 0) {
   );
 }
 
+// ── 4. Arabic coverage check ──────────────────────────────────────────────────
+// Every Dict entry must have an `ar` field alongside its `en` field.  A key
+// added with only English text silently renders English for Arabic-locale
+// visitors; this check catches that at CI time.
+
+if (missingArByFile.size > 0) {
+  failed = true;
+  const totalMissingAr = Array.from(missingArByFile.values()).reduce(
+    (sum, keys) => sum + keys.length,
+    0,
+  );
+  console.error(
+    `\n✗ Found ${totalMissingAr} Dict entr${totalMissingAr === 1 ? "y" : "ies"} missing an Arabic (\`ar\`) value:\n`,
+  );
+  for (const [file, keys] of [...missingArByFile.entries()].sort()) {
+    console.error(`  In ${file} — missing Arabic for:`);
+    for (const key of keys.sort()) {
+      console.error(`    - ${key}`);
+    }
+  }
+  console.error(
+    "\nFor each key above, add an \`ar\` field to its Dict entry in the locale file.\n",
+  );
+}
+
 if (!failed) {
   console.log(
-    `✓ All ${allKeys.length} web translation keys are in use, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
+    `✓ All ${allKeys.length} web translation keys are in use, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
   );
   process.exit(0);
 } else {
