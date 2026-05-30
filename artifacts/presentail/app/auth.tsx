@@ -31,6 +31,7 @@ import {
 } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { trackEvent } from "@/lib/analytics";
 
 type Step =
   | "email"
@@ -138,6 +139,7 @@ function AuthScreen() {
       setEmailError(t.authInvalidEmail);
       return;
     }
+    trackEvent({ name: "signin_page_action", action: "continue" });
     setEmailError(null);
     setSocialError(null);
     setEmailBusy(true);
@@ -189,6 +191,7 @@ function AuthScreen() {
   };
 
   const onApple = async () => {
+    trackEvent({ name: "signin_page_action", action: "apple" });
     setSocialError(null);
     setSocialBusy("apple");
     const r = await signInWithApple(applySession);
@@ -202,6 +205,7 @@ function AuthScreen() {
   };
 
   const onGoogle = async () => {
+    trackEvent({ name: "signin_page_action", action: "google" });
     setSocialError(null);
     setSocialBusy("google");
     const r = await signInWithGoogle(applySession);

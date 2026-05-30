@@ -7,6 +7,7 @@ import { API_BASE } from "@/lib/stripe";
 type AnalyticsEventName =
   | "checkout_login_prompt_viewed"
   | "checkout_login_prompt_action"
+  | "signin_page_action"
   | "cart_viewed"
   | "checkout_started"
   | "payment_method_selected"
