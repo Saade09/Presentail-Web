@@ -206,6 +206,12 @@ export const recordAnalyticsEventBodyProductIdMax = 64;
 
 export const recordAnalyticsEventBodySessionIdMax = 36;
 
+export const recordAnalyticsEventBodyStateMax = 64;
+
+export const recordAnalyticsEventBodyAppOrderIdMax = 64;
+
+export const recordAnalyticsEventBodyWcOrderIdMax = 64;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -224,6 +230,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "clerk_session_fallback",
       "sms_notify_sent",
       "sms_notify_failed",
+      "order_push_tapped",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
@@ -302,6 +309,27 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "Client-generated session identifier (UUID v4). Created once\nper app launch \/ page load and attached to every event so\nupsell-add → order_placed attribution can be computed at the\nsession level rather than the coarser (platform, day)\nco-occurrence level. Nullable — events from older clients\nthat predate this field will have no session_id.\n",
+    ),
+  state: zod
+    .string()
+    .max(recordAnalyticsEventBodyStateMax)
+    .optional()
+    .describe(
+      "For `order_push_tapped` events: the order state string from\nthe push notification payload (e.g. `out_for_delivery`,\n`delivered`). Sourced from the server-controlled push payload,\nnot from user input.\n",
+    ),
+  appOrderId: zod
+    .string()
+    .max(recordAnalyticsEventBodyAppOrderIdMax)
+    .optional()
+    .describe(
+      "For `order_push_tapped` events: the internal app_orders row id\nfrom the push notification payload.\n",
+    ),
+  wcOrderId: zod
+    .string()
+    .max(recordAnalyticsEventBodyWcOrderIdMax)
+    .optional()
+    .describe(
+      "For `order_push_tapped` events: the WooCommerce order id from\nthe push notification payload.\n",
     ),
 });
 

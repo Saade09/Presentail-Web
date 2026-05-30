@@ -965,6 +965,7 @@ components:
         - clerk_session_fallback
         - sms_notify_sent
         - sms_notify_failed
+        - order_push_tapped
     AnalyticsEventRequest:
       type: object
       properties:
@@ -1053,6 +1054,26 @@ components:
             session level rather than the coarser (platform, day)
             co-occurrence level. Nullable — events from older clients
             that predate this field will have no session_id.
+        state:
+          type: string
+          maxLength: 64
+          description: |
+            For `order_push_tapped` events: the order state string from
+            the push notification payload (e.g. `out_for_delivery`,
+            `delivered`). Sourced from the server-controlled push payload,
+            not from user input.
+        appOrderId:
+          type: string
+          maxLength: 64
+          description: |
+            For `order_push_tapped` events: the internal app_orders row id
+            from the push notification payload.
+        wcOrderId:
+          type: string
+          maxLength: 64
+          description: |
+            For `order_push_tapped` events: the WooCommerce order id from
+            the push notification payload.
       required:
         - name
     AnalyticsEventResponse:

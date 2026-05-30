@@ -36,4 +36,5 @@ export const AnalyticsEventName = {
   clerk_session_fallback: "clerk_session_fallback",
   sms_notify_sent: "sms_notify_sent",
   sms_notify_failed: "sms_notify_failed",
+  order_push_tapped: "order_push_tapped",
 } as const;

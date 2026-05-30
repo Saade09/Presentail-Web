@@ -15,7 +15,8 @@ type AnalyticsEventName =
   | "suggested_message_picked"
   | "upsell_tab_clicked"
   | "upsell_item_added"
-  | "upsell_checkout_proceeded";
+  | "upsell_checkout_proceeded"
+  | "order_push_tapped";
 
 type AnalyticsSurface =
   | "cart"
@@ -58,6 +59,9 @@ export type AnalyticsEvent = {
   action?: AnalyticsAction;
   errorCode?: string;
   productId?: string;
+  state?: string;
+  appOrderId?: string;
+  wcOrderId?: string;
 };
 
 const SESSION_STORAGE_KEY = "@presentail/analytics_session";

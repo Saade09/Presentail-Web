@@ -21,6 +21,9 @@ export const analyticsEventsTable = pgTable(
     userId: text("user_id"),
     sessionId: text("session_id"),
     signedIn: boolean("signed_in").notNull().default(false),
+    state: text("state"),
+    appOrderId: text("app_order_id"),
+    wcOrderId: text("wc_order_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

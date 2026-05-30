@@ -39,6 +39,7 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext"
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE } from "@/lib/stripe";
+import { trackEvent } from "@/lib/analytics";
 import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
 
@@ -141,7 +142,17 @@ function handleOrderEventResponse(
   const data = (response.notification?.request?.content?.data ?? {}) as Record<string, unknown>;
   if (data.type !== "order_event") return;
   const url = typeof data.url === "string" ? data.url : null;
-  if (url) openOrderTrackingUrl(url);
+  if (url) {
+    const toStr = (v: unknown): string | undefined =>
+      typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined;
+    trackEvent({
+      name: "order_push_tapped",
+      state: toStr(data.state),
+      appOrderId: toStr(data.appOrderId),
+      wcOrderId: toStr(data.wcOrderId),
+    });
+    openOrderTrackingUrl(url);
+  }
 }
 
 function OrderEventPushHandler() {

@@ -49,7 +49,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -63,6 +63,9 @@ router.post(
     const clippedErrorCode = clip(errorCode, 64);
     const clippedProductId = clip(productId, 64);
     const clippedSessionId = clip(sessionId, 36);
+    const clippedState = clip(state, 64);
+    const clippedAppOrderId = clip(appOrderId, 64);
+    const clippedWcOrderId = clip(wcOrderId, 64);
 
     req.log.info(
       {
@@ -75,6 +78,9 @@ router.post(
         errorCode: clippedErrorCode,
         productId: clippedProductId,
         sessionId: clippedSessionId,
+        state: clippedState,
+        appOrderId: clippedAppOrderId,
+        wcOrderId: clippedWcOrderId,
         userId,
         signedIn: Boolean(userId),
       },
@@ -95,6 +101,9 @@ router.post(
         errorCode: clippedErrorCode ?? null,
         productId: clippedProductId ?? null,
         sessionId: clippedSessionId ?? null,
+        state: clippedState ?? null,
+        appOrderId: clippedAppOrderId ?? null,
+        wcOrderId: clippedWcOrderId ?? null,
         userId: userId ?? null,
         signedIn: Boolean(userId),
       })

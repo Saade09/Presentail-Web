@@ -65,4 +65,27 @@ that predate this field will have no session_id.
    * @maxLength 36
    */
   sessionId?: string;
+  /**
+   * For `order_push_tapped` events: the order state string from
+the push notification payload (e.g. `out_for_delivery`,
+`delivered`). Sourced from the server-controlled push payload,
+not from user input.
+
+   * @maxLength 64
+   */
+  state?: string;
+  /**
+   * For `order_push_tapped` events: the internal app_orders row id
+from the push notification payload.
+
+   * @maxLength 64
+   */
+  appOrderId?: string;
+  /**
+   * For `order_push_tapped` events: the WooCommerce order id from
+the push notification payload.
+
+   * @maxLength 64
+   */
+  wcOrderId?: string;
 }
