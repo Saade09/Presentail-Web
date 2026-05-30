@@ -181,6 +181,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Redirect bare `/product/<slug>` (shared links from the mobile app) to the
+    // default locale-prefixed canonical URL so mobile share links land correctly
+    // when the app is not installed. Uses 301 (permanent) for SEO value.
+    const productRedirectMatch = pathname.match(/^\/product\/([^/]+)\/?$/);
+    if (productRedirectMatch) {
+      const slug = productRedirectMatch[1];
+      const target = `${BASE_PATH}/en-lb/beirut/product/${slug}`;
+      res.writeHead(301, { location: target });
+      res.end();
+      return;
+    }
+
     let assetPath = pathname;
     if (assetPath === "/") assetPath = "/index.html";
 
