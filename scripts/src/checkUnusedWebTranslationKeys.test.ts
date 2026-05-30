@@ -15,6 +15,7 @@ import { describe, it, expect } from "vitest";
 import {
   extractStaticTCallKeys,
   extractDynamicPrefixes,
+  extractEmptyValueKeys,
 } from "./checkUnusedWebTranslationKeys.js";
 
 describe("extractStaticTCallKeys", () => {
@@ -64,6 +65,100 @@ describe("extractDynamicPrefixes", () => {
   it("ignores template literals with no static prefix (interpolation first)", () => {
     const corpus = "t(`${key}`)";
     expect(extractDynamicPrefixes(corpus)).toHaveLength(0);
+  });
+});
+
+describe("extractEmptyValueKeys", () => {
+  it("returns nothing for entries with non-empty en and ar", () => {
+    const src = `
+      "cart.title": { en: "Cart", ar: "عربة التسوق" },
+    `;
+    expect(extractEmptyValueKeys(src)).toHaveLength(0);
+  });
+
+  it("flags an entry with an empty en value", () => {
+    const src = `
+      "cart.title": { en: "", ar: "عربة التسوق" },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe("cart.title");
+    expect(results[0].fields).toContain("en");
+    expect(results[0].fields).not.toContain("ar");
+  });
+
+  it("flags an entry with an empty ar value", () => {
+    const src = `
+      "checkout.button": { en: "Proceed", ar: "" },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe("checkout.button");
+    expect(results[0].fields).toContain("ar");
+    expect(results[0].fields).not.toContain("en");
+  });
+
+  it("flags both fields when both are empty", () => {
+    const src = `
+      "nav.home": { en: "", ar: "" },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe("nav.home");
+    expect(results[0].fields).toContain("en");
+    expect(results[0].fields).toContain("ar");
+  });
+
+  it("flags whitespace-only values (treated as empty after trim)", () => {
+    const src = `
+      "footer.text": { en: "   ", ar: "  " },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(1);
+    expect(results[0].fields).toContain("en");
+    expect(results[0].fields).toContain("ar");
+  });
+
+  it("does not flag a missing ar field (that is caught by extractMissingArKeys)", () => {
+    // ar field is absent — extractEmptyValueKeys should not flag it
+    const src = `
+      "product.name": { en: "Rose Bouquet" },
+    `;
+    expect(extractEmptyValueKeys(src)).toHaveLength(0);
+  });
+
+  it("handles multi-line dict entries", () => {
+    const src = `
+      "order.status": {
+        en: "",
+        ar: "حالة الطلب",
+      },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(1);
+    expect(results[0].key).toBe("order.status");
+    expect(results[0].fields).toEqual(["en"]);
+  });
+
+  it("ignores keys without a dot (non-translation keys like 'en' or 'ar' themselves)", () => {
+    const src = `
+      "nodot": { en: "", ar: "" },
+    `;
+    expect(extractEmptyValueKeys(src)).toHaveLength(0);
+  });
+
+  it("handles multiple entries, reporting only the offending ones", () => {
+    const src = `
+      "nav.home": { en: "Home", ar: "الرئيسية" },
+      "nav.cart": { en: "", ar: "السلة" },
+      "nav.about": { en: "About", ar: "" },
+    `;
+    const results = extractEmptyValueKeys(src);
+    expect(results).toHaveLength(2);
+    const keys = results.map((r) => r.key);
+    expect(keys).toContain("nav.cart");
+    expect(keys).toContain("nav.about");
+    expect(keys).not.toContain("nav.home");
   });
 });
 

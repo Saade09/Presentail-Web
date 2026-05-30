@@ -14,6 +14,10 @@
  *      are excluded from this hard check because the full key is only known at
  *      runtime; their static prefix is still used by check #1 so STRINGS keys
  *      reachable through dynamic calls are never reported as unused.
+ *   4. Arabic-field check — every Dict entry must contain an `ar` field.
+ *   5. Empty-value check — every Dict entry's `en` and `ar` values must be
+ *      non-empty after trimming.  An empty string silently renders as blank
+ *      text for visitors of the corresponding locale.
  *
  * Translation keys live in per-domain modules under
  * `artifacts/presentail-web/src/locales/`. Each module exports two objects:
@@ -185,6 +189,92 @@ function extractMissingArKeys(src: string): string[] {
 }
 
 /**
+ * Extract the raw string value for a named field (`en` or `ar`) from a Dict
+ * entry's brace block.
+ *
+ * Handles the two formats present in the locale files:
+ *   • bare identifier:  en: "value"
+ *   • quoted key:       "en": "value"
+ *
+ * Returns `null` when the field cannot be found or its value cannot be parsed
+ * as a string literal (e.g. a template-literal expression — very rare in
+ * locale files).
+ */
+function extractFieldValue(block: string, field: string): string | null {
+  // Match  <field>: "..."  or  "<field>": "..."  (double-quoted value)
+  // then   <field>: '...'  (single-quoted value)
+  // then   <field>: `...`  (backtick, no expressions — plain empty/whitespace)
+  const fieldPat = `(?:\\b${field}\\b|["']${field}["'])\\s*:\\s*`;
+  for (const [open, close] of [
+    ['"', '"'],
+    ["'", "'"],
+    ["`", "`"],
+  ] as [string, string][]) {
+    const re = new RegExp(`${fieldPat}${escapeRegExp(open)}([^${escapeRegExp(close)}]*)${escapeRegExp(close)}`);
+    const fm = re.exec(block);
+    if (fm !== null) return fm[1];
+  }
+  return null;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Scan a locale file's source and return every Dict entry whose `en` or `ar`
+ * value is empty (or whitespace-only) after trimming.
+ *
+ * These entries have a field present but blank, which silently renders as
+ * empty text for visitors of that locale.  They are distinct from keys that
+ * are entirely missing an `ar` field (caught by `extractMissingArKeys`).
+ */
+export function extractEmptyValueKeys(
+  src: string,
+): { key: string; fields: string[] }[] {
+  const results: { key: string; fields: string[] }[] = [];
+  const keyStartRe = /^\s+"([^"]+)":\s*\{/gm;
+  let m: RegExpExecArray | null;
+  while ((m = keyStartRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+
+    // Extract the balanced brace block for this entry.
+    const braceStart = m.index + m[0].length - 1;
+    let depth = 0;
+    let blockEnd = -1;
+    for (let i = braceStart; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          blockEnd = i;
+          break;
+        }
+      }
+    }
+    if (blockEnd === -1) continue; // malformed — skip
+
+    const block = src.slice(braceStart, blockEnd + 1);
+    const emptyFields: string[] = [];
+
+    for (const field of ["en", "ar"] as const) {
+      const value = extractFieldValue(block, field);
+      // Only flag when the field is present (value !== null) but empty.
+      // Missing `ar` fields are already caught by extractMissingArKeys.
+      if (value !== null && value.trim() === "") {
+        emptyFields.push(field);
+      }
+    }
+
+    if (emptyFields.length > 0) {
+      results.push({ key, fields: emptyFields });
+    }
+  }
+  return results;
+}
+
+/**
  * Extract all translation keys, returning both the combined set (for the
  * unused-key check) and the per-dictionary sets (for the coverage check).
  *
@@ -201,6 +291,9 @@ function extractMissingArKeys(src: string): string[] {
  *
  * Also returns `missingArByFile` — a map from relative file path to the list
  * of Dict keys in that file that are missing an Arabic (`ar`) value.
+ *
+ * Also returns `emptyValuesByFile` — a map from relative file path to the list
+ * of Dict keys whose `en` or `ar` value is present but empty after trimming.
  */
 function extractWebKeys(localeContextSrc: string): {
   all: string[];
@@ -208,6 +301,7 @@ function extractWebKeys(localeContextSrc: string): {
   stringsFrKeys: Set<string>;
   stringsKeyToFile: Map<string, string>;
   missingArByFile: Map<string, string[]>;
+  emptyValuesByFile: Map<string, { key: string; fields: string[] }[]>;
 } {
   // ── Split-file architecture: scan src/locales/*.ts ────────────────────────
   if (fs.existsSync(LOCALES_DIR)) {
@@ -229,6 +323,7 @@ function extractWebKeys(localeContextSrc: string): {
     const stringsFrKeys = new Set<string>();
     const stringsKeyToFile = new Map<string, string>();
     const missingArByFile = new Map<string, string[]>();
+    const emptyValuesByFile = new Map<string, { key: string; fields: string[] }[]>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
@@ -245,6 +340,13 @@ function extractWebKeys(localeContextSrc: string): {
         const rel = path.relative(REPO_ROOT, file);
         missingArByFile.set(rel, missingAr);
       }
+
+      // Empty-value coverage: find dict entries where en or ar is blank.
+      const emptyValues = extractEmptyValueKeys(content);
+      if (emptyValues.length > 0) {
+        const rel = path.relative(REPO_ROOT, file);
+        emptyValuesByFile.set(rel, emptyValues);
+      }
     }
 
     if (stringsKeys.size === 0 && stringsFrKeys.size === 0) {
@@ -260,6 +362,7 @@ function extractWebKeys(localeContextSrc: string): {
       stringsFrKeys,
       stringsKeyToFile,
       missingArByFile,
+      emptyValuesByFile,
     };
   }
 
@@ -292,12 +395,23 @@ function extractWebKeys(localeContextSrc: string): {
     );
   }
 
+  // Empty-value coverage for the legacy single-file format.
+  const emptyValuesByFile = new Map<string, { key: string; fields: string[] }[]>();
+  const legacyEmptyValues = extractEmptyValueKeys(stringsSection);
+  if (legacyEmptyValues.length > 0) {
+    emptyValuesByFile.set(
+      path.relative(REPO_ROOT, LOCALE_CONTEXT_FILE),
+      legacyEmptyValues,
+    );
+  }
+
   return {
     all: Array.from(allKeys),
     stringsKeys,
     stringsFrKeys,
     stringsKeyToFile: new Map(),
     missingArByFile,
+    emptyValuesByFile,
   };
 }
 
@@ -444,7 +558,7 @@ function appendSummary(line: string): void {
 if (!process.env.VITEST) {
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, missingArByFile } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, missingArByFile, emptyValuesByFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -660,12 +774,42 @@ if (missingArByFile.size > 0) {
   );
 }
 
+// ── 5. Empty-value check ──────────────────────────────────────────────────────
+// A Dict entry may have both `en` and `ar` fields present but set to an empty
+// string (or whitespace only).  These render as blank text for visitors of
+// that locale and are caught here rather than at runtime.
+
+if (emptyValuesByFile.size > 0) {
+  failed = true;
+  const totalEmpty = Array.from(emptyValuesByFile.values()).reduce(
+    (sum, entries) => sum + entries.length,
+    0,
+  );
+  console.error(
+    `\n✗ Found ${totalEmpty} Dict entr${totalEmpty === 1 ? "y" : "ies"} with an empty \`en\` or \`ar\` value (blank after trimming):\n`,
+  );
+  for (const [file, entries] of [...emptyValuesByFile.entries()].sort()) {
+    console.error(`  In ${file}:`);
+    for (const { key, fields } of [...entries].sort((a, b) => a.key.localeCompare(b.key))) {
+      console.error(`    - ${key}  (empty: ${fields.join(", ")})`);
+      annotateError(
+        file,
+        "Empty translation value",
+        `Key "${key}" has an empty value for: ${fields.join(", ")}. Fill in the missing text in the locale file.`,
+      );
+    }
+  }
+  console.error(
+    "\nFor each key above, fill in the empty value(s) in the locale file.\n",
+  );
+}
+
 // ── GitHub Step Summary ───────────────────────────────────────────────────────
 if (SUMMARY_FILE) {
   if (!failed) {
     appendSummary(
       `## ✅ Web translation keys — all checks passed\n\n` +
-        `All ${allKeys.length} web translation keys are in use, AR coverage is complete, ` +
+        `All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, ` +
         `FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), ` +
         `and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
     );
@@ -760,12 +904,33 @@ if (SUMMARY_FILE) {
       }
       appendSummary("");
     }
+
+    if (emptyValuesByFile.size > 0) {
+      const totalEmpty = Array.from(emptyValuesByFile.values()).reduce(
+        (sum, entries) => sum + entries.length,
+        0,
+      );
+      appendSummary(
+        `### Empty translation values (${totalEmpty})\n\n` +
+          `These Dict entries have a blank \`en\` or \`ar\` value (empty or whitespace-only after trimming).\n` +
+          `Fill in the missing text in the locale file.\n`,
+      );
+      for (const [file, entries] of [...emptyValuesByFile.entries()].sort()) {
+        appendSummary(`\n**\`${file}\`**\n`);
+        appendSummary("| Key | Empty fields |");
+        appendSummary("| --- | --- |");
+        for (const { key, fields } of [...entries].sort((a, b) => a.key.localeCompare(b.key))) {
+          appendSummary(`| \`${key}\` | ${fields.join(", ")} |`);
+        }
+      }
+      appendSummary("");
+    }
   }
 }
 
 if (!failed) {
   console.log(
-    `✓ All ${allKeys.length} web translation keys are in use, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
+    `✓ All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
   );
   process.exit(0);
 } else {
