@@ -37,6 +37,7 @@ import {
   formatDeliveryRow,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
+  freeDeliveryThresholdUsd,
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
@@ -354,7 +355,7 @@ export default function Checkout() {
   }
 
   const currentCountryCities = activeCities;
-  const FREE_DELIVERY_THRESHOLD = countryCode === "AE" ? 89.84 : countryCode === "CY" ? 120 : 130;
+  const FREE_DELIVERY_THRESHOLD = freeDeliveryThresholdUsd(countryCode);
   const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
   // Per-city fees come from the OS cache (via /api/delivery-locations) so
   // toggling a fee in Presentail OS propagates within the polling interval.

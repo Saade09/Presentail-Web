@@ -31,6 +31,19 @@ export function freeDeliveryThresholdNative(countryCode?: string | null): number
   return 130;
 }
 
+/**
+ * The free-delivery threshold in USD (the cart's internal currency).
+ * AE → 89.84, CY → 120, LB (default) → 130.
+ *
+ * Used for fee calculation at checkout where all prices are stored in USD.
+ * Single source of truth — both web and mobile checkout use this helper.
+ */
+export function freeDeliveryThresholdUsd(countryCode?: string | null): number {
+  if (countryCode === "AE") return 89.84;
+  if (countryCode === "CY") return 120;
+  return 130;
+}
+
 // ---------------------------------------------------------------------------
 // Express surcharge
 // ---------------------------------------------------------------------------
