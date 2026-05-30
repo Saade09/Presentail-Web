@@ -3,7 +3,15 @@ name: Web e2e tests
 on:
   push:
     branches: [main]
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/display-currency/**"
+      - ".github/workflows/web-e2e.yml"
   pull_request:
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/display-currency/**"
+      - ".github/workflows/web-e2e.yml"
 
 jobs:
   web-e2e:
