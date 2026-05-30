@@ -315,6 +315,7 @@ export type SearchProduct = {
   name: string;
   image: { uri: string } | null;
   price: string;
+  priceValue: number;
 };
 
 export type SearchCategory = {

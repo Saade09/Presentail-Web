@@ -1519,6 +1519,7 @@ router.get("/woo/search", async (req, res) => {
           name: transformed.name,
           image: transformed.image,
           price: transformed.price,
+          priceValue: transformed.priceValue,
         };
       });
 

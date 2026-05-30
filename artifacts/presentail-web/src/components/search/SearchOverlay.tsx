@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { ArrowUpRight, CalendarHeart, Loader2, Search, Store, Tag, TrendingUp, X } from "lucide-react";
 
 interface Props {
@@ -24,6 +25,7 @@ const TRENDING = [
 export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   const [, navigate] = useLocation();
   const { countryCode, city } = useLocationSelection();
+  const { formatPrice } = useDisplayCurrency();
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -341,7 +343,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         <span className="truncate text-sm font-medium text-primary/85">
                           {product.name}
                         </span>
-                        <span className="text-xs text-primary/45 mt-0.5">{product.price}</span>
+                        <span className="text-xs text-primary/45 mt-0.5">{formatPrice(product.priceValue)}</span>
                       </div>
                       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-primary/25 shrink-0" />
                     </Command.Item>
