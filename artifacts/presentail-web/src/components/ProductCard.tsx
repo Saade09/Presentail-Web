@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { catalogAssetUrl } from "@/lib/catalogAssets";
+import { useState } from "react";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { formatPrice } = useDisplayCurrency();
@@ -10,6 +11,8 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
   const fallback = catalog?.products?.find((p) => p.id === product.id);
   const imageUrl = product.image?.uri || catalogAssetUrl(fallback?.image ?? null);
   const tag = product.tag ?? fallback?.tag;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <motion.div
@@ -21,13 +24,23 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
     >
       <Link href={`/product/${product.id}`}>
         <div className="aspect-square bg-secondary/50 rounded-2xl overflow-hidden relative mb-4">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              loading="lazy"
-            />
+          {imageUrl && !imgFailed ? (
+            <>
+              {!imgLoaded && (
+                <div className="absolute inset-0 bg-primary/10 animate-pulse" />
+              )}
+              <img
+                src={imageUrl}
+                alt={product.name}
+                className={[
+                  "w-full h-full object-cover transition-all duration-500 group-hover:scale-105",
+                  imgLoaded ? "opacity-100" : "opacity-0",
+                ].join(" ")}
+                loading="lazy"
+                onLoad={() => setImgLoaded(true)}
+                onError={() => setImgFailed(true)}
+              />
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
               P
