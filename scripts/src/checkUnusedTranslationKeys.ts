@@ -204,6 +204,32 @@ const undefinedKeys = Array.from(allReferencedKeys)
   .filter((key) => !enKeySet.has(key))
   .sort();
 
+// ── GitHub Actions annotations ────────────────────────────────────────────────
+// When running inside GitHub Actions, emit workflow commands that surface as
+// inline PR annotations on the diff view.  Plain-text output is always kept so
+// local runs remain readable.
+
+const IS_GHA = process.env["GITHUB_ACTIONS"] === "true";
+
+/**
+ * Emit a GitHub Actions `::error` annotation pointing at the translations file,
+ * plus the same message to stderr for local / log readability.
+ *
+ * Annotation format: `::error file=<path>,title=<title>::<message>`
+ */
+function annotateError(title: string, message: string): void {
+  if (IS_GHA) {
+    // Escape characters that would break the workflow command syntax.
+    const escapeValue = (s: string) =>
+      s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    const escapeProp = (s: string) =>
+      escapeValue(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
+    process.stdout.write(
+      `::error file=${escapeProp("artifacts/presentail/lib/translations.ts")},title=${escapeProp(title)}::${escapeValue(message)}\n`,
+    );
+  }
+}
+
 // ── Report ────────────────────────────────────────────────────────────────────
 let failed = false;
 
@@ -214,6 +240,10 @@ if (unusedKeys.length > 0) {
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
+    annotateError(
+      "Unused translation key",
+      `Key "${key}" is defined in EN but not referenced anywhere in the mobile source — remove it from all three locale blocks.`,
+    );
   }
   console.error(
     "\nRemove these keys from all three language blocks in artifacts/presentail/lib/translations.ts.\n",
@@ -228,6 +258,10 @@ if (localeGaps.length > 0) {
     );
     for (const key of missingKeys) {
       console.error(`  - ${key}`);
+      annotateError(
+        `Missing ${locale} translation`,
+        `Key "${key}" is present in EN but missing from the ${locale} locale block — add a ${locale} translation for it.`,
+      );
     }
   }
   console.error(
@@ -242,6 +276,10 @@ if (undefinedKeys.length > 0) {
   );
   for (const key of undefinedKeys) {
     console.error(`  - ${key}`);
+    annotateError(
+      "Undefined translation key",
+      `Key "${key}" is referenced in source via t.${key} or t["${key}"] but does not exist in the EN locale block — add it to all three locale blocks or fix the reference.`,
+    );
   }
   console.error(
     "\nAdd these keys to all three language blocks in artifacts/presentail/lib/translations.ts, or fix the references in source.\n",
