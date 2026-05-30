@@ -30,6 +30,10 @@
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-unused-web-translations
+ *
+ * Flags:
+ *   --verbose   List the dynamic key prefixes that suppress unused-key
+ *               warnings for matching keys.
  */
 
 import fs from "node:fs";
@@ -54,7 +58,24 @@ const SKIP_DIRS = new Set([
   "__generated__",
 ]);
 
+const verbose = process.argv.includes("--verbose");
+
+// ── types ─────────────────────────────────────────────────────────────────────
+
+type CallSite = { file: string; line: number };
+
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the 1-based line number of `index` within `src`.
+ */
+function getLine(src: string, index: number): number {
+  let line = 1;
+  for (let i = 0; i < index; i++) {
+    if (src[i] === "\n") line++;
+  }
+  return line;
+}
 
 function collectFiles(dir: string, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -308,6 +329,33 @@ export function extractStaticTCallKeys(corpus: string): string[] {
 }
 
 /**
+ * Scan each source file for static t("key") / t('key') calls and return a
+ * map from key → all call sites (file path + 1-based line number).
+ *
+ * Dynamic template-literal calls are excluded here — they are handled
+ * separately via extractDynamicPrefixes().
+ */
+function extractStaticTCallSites(
+  files: string[],
+): Map<string, CallSite[]> {
+  const callSites = new Map<string, CallSite[]>();
+  const re = /\bt\(["']([^"'\n]+)["']/g;
+  for (const file of files) {
+    const src = fs.readFileSync(file, "utf8");
+    let m: RegExpExecArray | null;
+    re.lastIndex = 0;
+    while ((m = re.exec(src)) !== null) {
+      const key = m[1];
+      if (!key.includes(".")) continue;
+      const line = getLine(src, m.index);
+      if (!callSites.has(key)) callSites.set(key, []);
+      callSites.get(key)!.push({ file, line });
+    }
+  }
+  return callSites;
+}
+
+/**
  * Extract static prefixes from dynamic template-literal t() calls.
  *
  * Finds patterns like t(`some.prefix.${expr}`) in the corpus and returns the
@@ -411,6 +459,8 @@ const orphanedFr = Array.from(stringsFrKeys).filter((k) => !stringsKeys.has(k));
 // in check #1 so that STRINGS keys reachable through dynamic calls are never
 // reported as "unused".
 
+// Build per-key call-site map for precise attribution in error output.
+const staticCallSites = extractStaticTCallSites(files);
 const staticCallKeys = extractStaticTCallKeys(corpus);
 
 // A static call-site key is considered defined when it exists in STRINGS.
@@ -427,7 +477,7 @@ let failed = false;
 if (unusedKeys.length > 0) {
   failed = true;
   console.error(
-    `\n✗ Found ${unusedKeys.length} unused web translation key${unusedKeys.length === 1 ? "" : "s"} (out of ${allKeys.length}):\n`,
+    `\n✗ Found ${unusedKeys.length} unused web translation key${unusedKeys.length === 1 ? "" : "s"} (out of ${allKeys.length}) — scanned ${files.length} source file${files.length === 1 ? "" : "s"}:\n`,
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
@@ -435,6 +485,20 @@ if (unusedKeys.length > 0) {
   console.error(
     "\nRemove these keys from the appropriate locale domain file in artifacts/presentail-web/src/locales/.\n",
   );
+} else if (verbose) {
+  console.log(
+    `  Scanned ${files.length} source file${files.length === 1 ? "" : "s"} — no unused keys found.`,
+  );
+}
+
+if (verbose && dynamicPrefixes.length > 0) {
+  const sorted = [...dynamicPrefixes].sort();
+  console.log(
+    `\n  Dynamic key prefixes (suppress unused-key warnings for any key starting with the prefix):`,
+  );
+  for (const prefix of sorted) {
+    console.log(`    "${prefix}*"`);
+  }
 }
 
 if (missingFr.length > 0) {
@@ -494,13 +558,17 @@ if (missingFromStrings.length > 0) {
     `\n✗ Found ${missingFromStrings.length} call site key${missingFromStrings.length === 1 ? "" : "s"} used in t() that ${missingFromStrings.length === 1 ? "has" : "have"} no English/Arabic entry in STRINGS:\n`,
   );
   for (const key of missingFromStrings.sort()) {
+    const sites = staticCallSites.get(key) ?? [];
     console.error(`  - ${key}`);
+    for (const { file, line } of sites) {
+      console.error(`      ${path.relative(REPO_ROOT, file)}:${line}`);
+    }
   }
   console.error(
     "\nAdd these keys (with both 'en' and 'ar' values) to the appropriate *Strings export in artifacts/presentail-web/src/locales/.\n",
   );
   console.error(
-    "NOTE: Dynamic call sites such as t(`prefix.\${expr}`) are excluded from this check — only static string-literal keys are verified.\n",
+    "NOTE: Dynamic call sites such as t(`prefix.${expr}`) are excluded from this check — only static string-literal keys are verified.\n",
   );
 }
 

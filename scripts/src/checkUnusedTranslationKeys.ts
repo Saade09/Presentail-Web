@@ -23,6 +23,9 @@
  *   pnpm --filter @workspace/scripts run check-translations
  *   pnpm --filter @workspace/scripts run check-unused-translations   (alias)
  *   pnpm --filter @workspace/scripts run check-missing-translations  (alias)
+ *
+ * Flags:
+ *   --verbose   Print the full list of scanned source files.
  */
 
 import fs from "node:fs";
@@ -47,7 +50,24 @@ const SKIP_DIRS = new Set([
   "__generated__",
 ]);
 
+const verbose = process.argv.includes("--verbose");
+
+// ── types ─────────────────────────────────────────────────────────────────────
+
+type CallSite = { file: string; line: number };
+
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the 1-based line number of `index` within `src`.
+ */
+function getLine(src: string, index: number): number {
+  let line = 1;
+  for (let i = 0; i < index; i++) {
+    if (src[i] === "\n") line++;
+  }
+  return line;
+}
 
 /**
  * Returns true when the file content indicates it actually uses the `t`
@@ -63,7 +83,8 @@ function usesTranslationObject(src: string): boolean {
 
 /**
  * Extract every literal translation-key identifier accessed via the `t`
- * translation object in a block of source text.
+ * translation object in a block of source text, together with the 1-based
+ * line number of each match.
  *
  * Recognised patterns:
  *   t.keyName          – dot notation, NOT followed by `(` (method calls are
@@ -76,21 +97,34 @@ function usesTranslationObject(src: string): boolean {
  *   t[`template`]      – template-literal bracket access
  *   t.push(…)          – method calls (property followed by `(`)
  */
-function extractLiteralKeyRefs(src: string): Set<string> {
-  const keys = new Set<string>();
+function extractLiteralKeyRefsWithLines(
+  src: string,
+): Array<{ key: string; line: number }> {
+  const results: Array<{ key: string; line: number }> = [];
+  const seen = new Map<string, Set<number>>();
+
+  function add(key: string, index: number) {
+    const line = getLine(src, index);
+    if (!seen.has(key)) seen.set(key, new Set());
+    if (seen.get(key)!.has(line)) return;
+    seen.get(key)!.add(line);
+    results.push({ key, line });
+  }
+
   // Dot notation: word boundary before `t`; the lookahead ensures we do NOT
   // capture method calls such as `t.map(` or `t.then(`.
   const dotRe = /\bt\.([a-zA-Z_][a-zA-Z0-9_]*)(?!\s*\()/g;
   let m: RegExpExecArray | null;
   while ((m = dotRe.exec(src)) !== null) {
-    keys.add(m[1]);
+    add(m[1], m.index);
   }
   // Bracket notation with string literal.
   const bracketRe = /\bt\[['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]]/g;
   while ((m = bracketRe.exec(src)) !== null) {
-    keys.add(m[1]);
+    add(m[1], m.index);
   }
-  return keys;
+
+  return results;
 }
 
 function collectFiles(dir: string, results: string[] = []): string[] {
@@ -158,11 +192,11 @@ const corpus = files.map((f) => fs.readFileSync(f, "utf8")).join("\n\0\n");
 //   t.keyName          – dot-notation property access
 //   "keyName"          – double-quoted string literal (bracket / data access)
 //   'keyName'          – single-quoted string literal
-function isKeyReferenced(key: string, corpus: string): boolean {
+function isKeyReferenced(key: string, haystack: string): boolean {
   const dotRe = new RegExp(`\\.${key}(?![a-zA-Z0-9_])`);
-  if (dotRe.test(corpus)) return true;
+  if (dotRe.test(haystack)) return true;
   const litRe = new RegExp(`['"]${key}['"]`);
-  return litRe.test(corpus);
+  return litRe.test(haystack);
 }
 
 const unusedKeys = enKeys.filter((key) => !isKeyReferenced(key, corpus));
@@ -191,16 +225,19 @@ for (const [locale, keySet] of [
 
 const enKeySet = new Set(enKeys);
 
-const allReferencedKeys = new Set<string>();
+// Map from key name → all call sites (file + line) where it is referenced.
+const keyCallSites = new Map<string, CallSite[]>();
+
 for (const file of files) {
   const src = fs.readFileSync(file, "utf8");
   if (!usesTranslationObject(src)) continue;
-  for (const key of extractLiteralKeyRefs(src)) {
-    allReferencedKeys.add(key);
+  for (const { key, line } of extractLiteralKeyRefsWithLines(src)) {
+    if (!keyCallSites.has(key)) keyCallSites.set(key, []);
+    keyCallSites.get(key)!.push({ file, line });
   }
 }
 
-const undefinedKeys = Array.from(allReferencedKeys)
+const undefinedKeys = Array.from(keyCallSites.keys())
   .filter((key) => !enKeySet.has(key))
   .sort();
 
@@ -236,7 +273,7 @@ let failed = false;
 if (unusedKeys.length > 0) {
   failed = true;
   console.error(
-    `\n✗ Found ${unusedKeys.length} unused translation key${unusedKeys.length === 1 ? "" : "s"} (out of ${enKeys.length}):\n`,
+    `\n✗ Found ${unusedKeys.length} unused translation key${unusedKeys.length === 1 ? "" : "s"} (out of ${enKeys.length}) — scanned ${files.length} source file${files.length === 1 ? "" : "s"}:\n`,
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
@@ -248,6 +285,17 @@ if (unusedKeys.length > 0) {
   console.error(
     "\nRemove these keys from all three language blocks in artifacts/presentail/lib/translations.ts.\n",
   );
+} else if (verbose) {
+  console.log(
+    `  Scanned ${files.length} source file${files.length === 1 ? "" : "s"} — no unused keys found.`,
+  );
+}
+
+if (verbose) {
+  console.log("\n  Scanned files:");
+  for (const f of files) {
+    console.log(`    ${path.relative(REPO_ROOT, f)}`);
+  }
 }
 
 if (localeGaps.length > 0) {
@@ -275,11 +323,15 @@ if (undefinedKeys.length > 0) {
     `\n✗ Found ${undefinedKeys.length} translation key${undefinedKeys.length === 1 ? "" : "s"} referenced in source that do not exist in EN:\n`,
   );
   for (const key of undefinedKeys) {
+    const sites = keyCallSites.get(key) ?? [];
     console.error(`  - ${key}`);
     annotateError(
       "Undefined translation key",
       `Key "${key}" is referenced in source via t.${key} or t["${key}"] but does not exist in the EN locale block — add it to all three locale blocks or fix the reference.`,
     );
+    for (const { file, line } of sites) {
+      console.error(`      ${path.relative(REPO_ROOT, file)}:${line}`);
+    }
   }
   console.error(
     "\nAdd these keys to all three language blocks in artifacts/presentail/lib/translations.ts, or fix the references in source.\n",
