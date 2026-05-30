@@ -15,7 +15,7 @@ on:
 
 jobs:
   web-e2e:
-    name: Playwright – currency persistence
+    name: Playwright – currency & checkout flow
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
