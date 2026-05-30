@@ -9,6 +9,31 @@ import {
 } from "drizzle-orm/pg-core";
 import { customersTable } from "./customers";
 
+export const favoriteShareLinksTable = pgTable(
+  "favorite_share_links",
+  {
+    id: serial("id").primaryKey(),
+    token: text("token").notNull(),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customersTable.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    tokenIdx: uniqueIndex("favorite_share_links_token_idx").on(t.token),
+    customerIdx: uniqueIndex("favorite_share_links_customer_idx").on(
+      t.customerId,
+    ),
+  }),
+);
+
+export type FavoriteShareLink = typeof favoriteShareLinksTable.$inferSelect;
+export type InsertFavoriteShareLink =
+  typeof favoriteShareLinksTable.$inferInsert;
+
 export const favoritesTable = pgTable(
   "favorites",
   {

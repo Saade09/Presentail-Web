@@ -800,6 +800,24 @@ export interface FavoriteToggleResponse {
   ok: boolean;
 }
 
+export interface FavoriteShareResponse {
+  ok: boolean;
+  token: string;
+  url: string;
+  expiresAt: string;
+}
+
+export interface SharedFavoritesItem {
+  productSlug: string;
+  countryCode?: string | null;
+}
+
+export interface SharedFavoritesResponse {
+  ok: boolean;
+  favorites: SharedFavoritesItem[];
+  expiresAt: string;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

@@ -67,6 +67,7 @@ import Faqs from "@/pages/Faqs";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Favorites from "@/pages/Favorites";
+import SharedFavorites from "@/pages/SharedFavorites";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -250,6 +251,12 @@ function RootRouter() {
 
   if (path === "/" || path === "") {
     return <RootRedirectFromLanding />;
+  }
+
+  // Public shared-favorites page — accessible without locale prefix or sign-in.
+  if (path.startsWith("/favorites/share/")) {
+    const token = path.split("/")[3] ?? "";
+    return <SharedFavorites token={token} />;
   }
 
   if (parsed.hasLocalePrefix && parsed.lang && parsed.country) {

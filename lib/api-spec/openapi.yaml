@@ -804,6 +804,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /me/favorites/share:
+    post:
+      operationId: createFavoriteShareLink
+      tags: [favorites]
+      summary: Create or refresh a public share link for the signed-in customer's favorites
+      description: |
+        Generates a token that lets anyone view the caller's current favorites
+        list without signing in. If a valid (non-expired) link already exists
+        it is refreshed to extend the 30-day window; otherwise a new token is
+        minted. The link expires 30 days from the most recent call.
+      responses:
+        "200":
+          description: Share link created or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteShareResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /favorites/share/{token}:
+    get:
+      operationId: getSharedFavorites
+      tags: [favorites]
+      summary: Retrieve a shared favorites list (public)
+      description: |
+        Returns the current favorites of the shopper who created the share link
+        identified by `token`. Requires no authentication. Returns 404 when the
+        token is unknown or the link has expired.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared favorites
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedFavoritesResponse"
+        "404":
+          description: Token not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /me/favorites/{slug}:
     delete:
       operationId: removeFavorite
@@ -2027,3 +2078,46 @@ components:
           type: boolean
       required:
         - ok
+    FavoriteShareResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        token:
+          type: string
+        url:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - ok
+        - token
+        - url
+        - expiresAt
+    SharedFavoritesItem:
+      type: object
+      properties:
+        productSlug:
+          type: string
+        countryCode:
+          type: string
+          nullable: true
+      required:
+        - productSlug
+    SharedFavoritesResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        favorites:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedFavoritesItem"
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - ok
+        - favorites
+        - expiresAt

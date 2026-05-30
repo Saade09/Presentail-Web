@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Heart } from "lucide-react";
+import { Heart, Share2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductCard } from "@/components/ProductCard";
@@ -8,6 +8,8 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { useProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useAuth as useClerkAuth } from "@clerk/react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Favorites() {
   const { favorites, isLoaded } = useFavorites();
@@ -19,6 +21,45 @@ export default function Favorites() {
 
   const { data, isLoading } = useProducts(queryParams, isLoaded && favorites.size > 0);
 
+  const { getToken } = useClerkAuth();
+  const { toast } = useToast();
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  async function handleShare() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/me/favorites/share", {
+        method: "POST",
+        headers,
+        credentials: "include",
+      });
+      const data = await res.json() as { ok: boolean; url?: string; message?: string };
+      if (!data.ok || !data.url) {
+        throw new Error(data.message ?? "Could not create share link");
+      }
+      const shareUrl = data.url;
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "My gift wishlist", url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShared(true);
+        setTimeout(() => setShared(false), 3000);
+        toast({ title: "Link copied!", description: "Share it with anyone to show your favorites." });
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        toast({ title: "Couldn't create share link", description: err.message, variant: "destructive" });
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
   const favoriteProducts = useMemo(() => {
     if (!data?.products) return [];
     return data.products.filter((p) => favorites.has(p.id));
@@ -27,9 +68,32 @@ export default function Favorites() {
   return (
     <div className="min-h-screen pt-24 pb-24">
       <div className="container mx-auto px-4 max-w-5xl">
-        <div className="flex items-center gap-3 mb-12 pb-8 border-b">
-          <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
-          <h1 className="text-4xl md:text-5xl font-serif">Favorites</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-12 pb-8 border-b">
+          <div className="flex items-center gap-3 flex-1">
+            <Heart className="w-6 h-6 text-rose-500 fill-rose-500 flex-shrink-0" />
+            <h1 className="text-4xl md:text-5xl font-serif">Favorites</h1>
+          </div>
+          {favoriteProducts.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 self-start sm:self-auto"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {shared ? (
+                <>
+                  <Check className="w-4 h-4 text-green-600" />
+                  Link copied
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" />
+                  Share my list
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {!isLoaded || isLoading ? (

@@ -34,6 +34,7 @@ import type {
   DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
+  FavoriteShareResponse,
   FavoriteToggleResponse,
   FavoritesListResponse,
   GeoCurrencyResponse,
@@ -52,6 +53,7 @@ import type {
   PushRegisterResponse,
   PushUnregisterRequest,
   PushUnregisterResponse,
+  SharedFavoritesResponse,
   WooSearchParams,
   WooSearchResult,
 } from "./api.schemas";
@@ -2464,6 +2466,184 @@ export const useAddFavorite = <
 > => {
   return useMutation(getAddFavoriteMutationOptions(options));
 };
+
+/**
+ * Generates a token that lets anyone view the caller's current favorites
+list without signing in. If a valid (non-expired) link already exists
+it is refreshed to extend the 30-day window; otherwise a new token is
+minted. The link expires 30 days from the most recent call.
+
+ * @summary Create or refresh a public share link for the signed-in customer's favorites
+ */
+export const getCreateFavoriteShareLinkUrl = () => {
+  return `/api/me/favorites/share`;
+};
+
+export const createFavoriteShareLink = async (
+  options?: RequestInit,
+): Promise<FavoriteShareResponse> => {
+  return customFetch<FavoriteShareResponse>(getCreateFavoriteShareLinkUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateFavoriteShareLinkMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFavoriteShareLink>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFavoriteShareLink>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["createFavoriteShareLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFavoriteShareLink>>,
+    void
+  > = () => {
+    return createFavoriteShareLink(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFavoriteShareLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFavoriteShareLink>>
+>;
+
+export type CreateFavoriteShareLinkMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create or refresh a public share link for the signed-in customer's favorites
+ */
+export const useCreateFavoriteShareLink = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFavoriteShareLink>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFavoriteShareLink>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getCreateFavoriteShareLinkMutationOptions(options));
+};
+
+/**
+ * Returns the current favorites of the shopper who created the share link
+identified by `token`. Requires no authentication. Returns 404 when the
+token is unknown or the link has expired.
+
+ * @summary Retrieve a shared favorites list (public)
+ */
+export const getGetSharedFavoritesUrl = (token: string) => {
+  return `/api/favorites/share/${token}`;
+};
+
+export const getSharedFavorites = async (
+  token: string,
+  options?: RequestInit,
+): Promise<SharedFavoritesResponse> => {
+  return customFetch<SharedFavoritesResponse>(getGetSharedFavoritesUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSharedFavoritesQueryKey = (token: string) => {
+  return [`/api/favorites/share/${token}`] as const;
+};
+
+export const getGetSharedFavoritesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSharedFavorites>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedFavorites>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSharedFavoritesQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSharedFavorites>>
+  > = ({ signal }) => getSharedFavorites(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSharedFavorites>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSharedFavoritesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSharedFavorites>>
+>;
+export type GetSharedFavoritesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Retrieve a shared favorites list (public)
+ */
+
+export function useGetSharedFavorites<
+  TData = Awaited<ReturnType<typeof getSharedFavorites>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedFavorites>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSharedFavoritesQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Remove a product from favorites

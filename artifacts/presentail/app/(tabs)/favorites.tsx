@@ -1,13 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,7 +22,8 @@ import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
-import { useWindowDimensions } from "react-native";
+
+const WEB_BASE_URL = "https://new.presentail.com";
 
 const CARD_GAP = 12;
 const HORIZONTAL_PADDING = 20;
@@ -28,8 +33,9 @@ function FavoritesTab() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, ready } = useAuth();
+  const { user, ready, token } = useAuth();
   const { favorites, isLoaded, refreshFavorites } = useFavorites();
+  const [sharing, setSharing] = useState(false);
 
   // Re-fetch the server-side list whenever this tab comes into focus so that
   // toggling a heart on the product detail screen (or anywhere else) is always
@@ -39,6 +45,36 @@ function FavoritesTab() {
       void refreshFavorites();
     }, [refreshFavorites]),
   );
+
+  const handleShareList = useCallback(async () => {
+    if (sharing || !token) return;
+    setSharing(true);
+    try {
+      const apiBase = process.env["EXPO_PUBLIC_API_BASE_URL"] ?? "";
+      const res = await fetch(`${apiBase}/api/me/favorites/share`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = (await res.json()) as { ok: boolean; token?: string; message?: string };
+      if (!data.ok || !data.token) {
+        throw new Error(data.message ?? "Could not create share link");
+      }
+      const shareUrl = `${WEB_BASE_URL}/favorites/share/${data.token}`;
+      const sharePayload =
+        Platform.OS === "ios"
+          ? { message: "My gift wishlist on Presentail", url: shareUrl }
+          : { message: `My gift wishlist on Presentail\n${shareUrl}` };
+      await Share.share(sharePayload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      Alert.alert("Couldn't share list", msg);
+    } finally {
+      setSharing(false);
+    }
+  }, [sharing, token]);
   const { products: allProducts } = useWooProducts();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -205,25 +241,52 @@ function FavoritesTab() {
           borderBottomColor: colors.border,
         }}
       >
-        <Text
-          style={{
-            fontFamily: "PlayfairDisplay_400Regular",
-            fontSize: 28,
-            color: colors.primary,
-          }}
-        >
-          {t.favoritesTitle}
-        </Text>
-        <Text
-          style={{
-            fontFamily: "Inter_400Regular",
-            fontSize: 13,
-            color: colors.mutedForeground,
-            marginTop: 4,
-          }}
-        >
-          {favoriteProducts.length} {favoriteProducts.length === 1 ? t.favoritesSingular : t.favoritesPlural}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_400Regular",
+                fontSize: 28,
+                color: colors.primary,
+              }}
+            >
+              {t.favoritesTitle}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 13,
+                color: colors.mutedForeground,
+                marginTop: 4,
+              }}
+            >
+              {favoriteProducts.length} {favoriteProducts.length === 1 ? t.favoritesSingular : t.favoritesPlural}
+            </Text>
+          </View>
+          <Pressable
+            onPress={handleShareList}
+            disabled={sharing}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 999,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              marginTop: 4,
+              opacity: pressed || sharing ? 0.6 : 1,
+              backgroundColor: colors.background,
+            })}
+            accessibilityLabel="Share my list"
+          >
+            <Ionicons name="share-outline" size={16} color={colors.primary} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+              Share
+            </Text>
+          </Pressable>
+        </View>
       </View>
       <FlatList
         data={favoriteProducts}

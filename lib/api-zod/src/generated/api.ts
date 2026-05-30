@@ -1310,6 +1310,43 @@ export const AddFavoriteResponse = zod.object({
 });
 
 /**
+ * Generates a token that lets anyone view the caller's current favorites
+list without signing in. If a valid (non-expired) link already exists
+it is refreshed to extend the 30-day window; otherwise a new token is
+minted. The link expires 30 days from the most recent call.
+
+ * @summary Create or refresh a public share link for the signed-in customer's favorites
+ */
+export const CreateFavoriteShareLinkResponse = zod.object({
+  ok: zod.boolean(),
+  token: zod.string(),
+  url: zod.string(),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
+ * Returns the current favorites of the shopper who created the share link
+identified by `token`. Requires no authentication. Returns 404 when the
+token is unknown or the link has expired.
+
+ * @summary Retrieve a shared favorites list (public)
+ */
+export const GetSharedFavoritesParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetSharedFavoritesResponse = zod.object({
+  ok: zod.boolean(),
+  favorites: zod.array(
+    zod.object({
+      productSlug: zod.string(),
+      countryCode: zod.string().nullish(),
+    }),
+  ),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
  * @summary Remove a product from favorites
  */
 export const RemoveFavoriteParams = zod.object({
