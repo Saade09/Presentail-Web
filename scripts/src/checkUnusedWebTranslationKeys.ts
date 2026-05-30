@@ -117,6 +117,33 @@ function extractWebKeys(src: string): {
 }
 
 /**
+ * Extract all unique translation keys from static t("key") / t('key') call
+ * sites in the source corpus.
+ *
+ * Only string-literal arguments are captured.  Dynamic template-literal calls
+ * such as t(`seo.${route}.title`) are intentionally excluded from this set —
+ * their key can only be determined at runtime, so they are handled separately
+ * via extractDynamicPrefixes() and are never subjected to the hard missing-key
+ * check.
+ */
+function extractStaticTCallKeys(corpus: string): string[] {
+  const keys = new Set<string>();
+  // Match t("key") or t('key') where the first argument is a plain string
+  // literal.  The pattern stops at the first quote boundary so it won't
+  // accidentally capture multi-argument calls with non-key first args.
+  const re = /\bt\(["']([^"'\n]+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(corpus)) !== null) {
+    const key = m[1];
+    // Only treat dot-notation strings as translation keys.
+    if (key.includes(".")) {
+      keys.add(key);
+    }
+  }
+  return Array.from(keys);
+}
+
+/**
  * Extract static prefixes from dynamic template-literal t() calls.
  *
  * Finds patterns like t(`some.prefix.${expr}`) in the corpus and returns the
@@ -203,6 +230,26 @@ const unusedKeys = allKeys.filter(
 const missingFr = Array.from(stringsKeys).filter((k) => !stringsFrKeys.has(k));
 const orphanedFr = Array.from(stringsFrKeys).filter((k) => !stringsKeys.has(k));
 
+// ── 3. Missing-key check (call sites referencing undefined keys) ──────────────
+// Scan every static t("key") / t('key') call site in the source corpus and
+// verify the referenced key exists in STRINGS (which carries both the English
+// and Arabic values for every defined key).
+//
+// Dynamic template-literal calls — e.g. t(`seo.${routeKey}.title`) — are
+// intentionally excluded from this hard check because the full key name is
+// only known at runtime.  The dynamic prefixes extracted above are still used
+// in check #1 so that STRINGS keys reachable through dynamic calls are never
+// reported as "unused".
+
+const staticCallKeys = extractStaticTCallKeys(corpus);
+
+// A static call-site key is considered defined when it exists in STRINGS.
+// We do not require it to be in STRINGS_FR — missing FR entries are already
+// reported by check #2 above.
+const missingFromStrings = staticCallKeys.filter(
+  (k) => !stringsKeys.has(k),
+);
+
 // ── report ────────────────────────────────────────────────────────────────────
 
 let failed = false;
@@ -246,9 +293,25 @@ if (orphanedFr.length > 0) {
   );
 }
 
+if (missingFromStrings.length > 0) {
+  failed = true;
+  console.error(
+    `\n✗ Found ${missingFromStrings.length} call site key${missingFromStrings.length === 1 ? "" : "s"} used in t() that ${missingFromStrings.length === 1 ? "has" : "have"} no English/Arabic entry in STRINGS:\n`,
+  );
+  for (const key of missingFromStrings.sort()) {
+    console.error(`  - ${key}`);
+  }
+  console.error(
+    "\nAdd these keys (with both 'en' and 'ar' values) to STRINGS in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+  );
+  console.error(
+    "NOTE: Dynamic call sites such as t(`prefix.\${expr}`) are excluded from this check — only static string-literal keys are verified.\n",
+  );
+}
+
 if (!failed) {
   console.log(
-    `✓ All ${allKeys.length} web translation keys are in use and FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated).`,
+    `✓ All ${allKeys.length} web translation keys are in use, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
   );
   process.exit(0);
 } else {
