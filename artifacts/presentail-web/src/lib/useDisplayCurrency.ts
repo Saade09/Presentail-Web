@@ -12,6 +12,18 @@ import {
   getCurrencySnapshot,
   subscribeCurrencySnapshot,
 } from "./currency";
+import {
+  readManualCurrency,
+  writeManualCurrency,
+  type ManualCurrencyState,
+} from "./displayCurrencyStorage";
+
+export {
+  readManualCurrency,
+  writeManualCurrency,
+  MANUAL_CURRENCY_KEY,
+  MANUAL_CURRENCY_PERSISTENT_KEY,
+} from "./displayCurrencyStorage";
 
 function useCurrencyTables() {
   return useSyncExternalStore(
@@ -26,14 +38,6 @@ function useCurrencyTables() {
 // hook mount we proactively clear any leftover value so existing visitors
 // stop seeing a stale currency from a previous visit / location.
 const LEGACY_DETECTED_CURRENCY_KEY = "presentail_display_currency_v1";
-// Tab-scoped manual override (the default — auto-detection wins on the
-// next visit).
-const MANUAL_CURRENCY_KEY = "presentail_display_currency_manual_v1";
-// Cross-session manual override (set when the visitor ticks "remember
-// this choice" in the product-page picker). When present, this beats
-// auto-detection on every load until the visitor clears it.
-const MANUAL_CURRENCY_PERSISTENT_KEY =
-  "presentail_display_currency_manual_persistent_v1";
 
 /**
  * All currencies supported by the mobile app (sourced from
@@ -61,52 +65,7 @@ type GeoCurrencyResponse = {
   currencyCode: string;
 };
 
-type ManualState = { code: string; persistent: boolean } | null;
-
-function readManualCurrency(): ManualState {
-  if (typeof window === "undefined") return null;
-  try {
-    const persisted = window.localStorage.getItem(
-      MANUAL_CURRENCY_PERSISTENT_KEY,
-    );
-    if (persisted && SUPPORTED_CODES.has(persisted)) {
-      return { code: persisted, persistent: true };
-    }
-  } catch {
-    // ignore — fall through to session-scoped read
-  }
-  try {
-    const session = window.sessionStorage.getItem(MANUAL_CURRENCY_KEY);
-    if (session && SUPPORTED_CODES.has(session)) {
-      return { code: session, persistent: false };
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function writeManualCurrency(state: ManualState): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (state?.persistent) {
-      window.localStorage.setItem(MANUAL_CURRENCY_PERSISTENT_KEY, state.code);
-    } else {
-      window.localStorage.removeItem(MANUAL_CURRENCY_PERSISTENT_KEY);
-    }
-  } catch {
-    // best-effort persistence
-  }
-  try {
-    if (state && !state.persistent) {
-      window.sessionStorage.setItem(MANUAL_CURRENCY_KEY, state.code);
-    } else {
-      window.sessionStorage.removeItem(MANUAL_CURRENCY_KEY);
-    }
-  } catch {
-    // best-effort persistence
-  }
-}
+type ManualState = ManualCurrencyState;
 
 function clearLegacyDetectedCurrency(): void {
   if (typeof window === "undefined") return;
