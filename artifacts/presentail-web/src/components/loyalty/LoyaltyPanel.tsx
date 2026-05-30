@@ -36,7 +36,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message ?? "Failed to load loyalty");
+        setError(err?.message ?? t("loyalty.loadError"));
       });
     return () => {
       cancelled = true;
@@ -49,7 +49,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
         className="bg-secondary/30 rounded-3xl p-8 border border-border/50"
         data-testid="loyalty-loading"
       >
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t("loyalty.loading")}</p>
       </div>
     );
   }
@@ -60,7 +60,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
         className="bg-secondary/30 rounded-3xl p-8 border border-border/50"
         data-testid="loyalty-error"
       >
-        <p className="text-destructive">{error ?? "Could not load loyalty"}</p>
+        <p className="text-destructive">{error ?? t("loyalty.loadError")}</p>
       </div>
     );
   }
@@ -95,7 +95,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
       <div>
         <h2 className="text-2xl font-serif">{t("account.loyalty")}</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Presentail Points · {data.tier.label} tier
+          {t("account.loyalty")} · {data.tier.label} {t("loyalty.tier")}
         </p>
       </div>
 
@@ -110,13 +110,13 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
                 {data.points}
               </div>
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                points
+                {t("loyalty.points")}
               </div>
             </div>
           </div>
           <div className="text-right">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Current tier
+              {t("loyalty.currentTier")}
             </div>
             <div className="font-medium text-lg" data-testid="loyalty-tier">
               {data.tier.label}
@@ -133,13 +133,12 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {data.pointsToNext} points to {data.nextTier.label} (
-              {data.nextTier.discountPercent}% off)
+              {t("loyalty.pointsToNext").replace("{points}", String(data.pointsToNext)).replace("{tier}", data.nextTier.label).replace("{discount}", String(data.nextTier.discountPercent))}
             </p>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground mt-4">
-            You're at our top tier — thank you for being a Presentail VIP.
+            {t("loyalty.vipMessage")}
           </p>
         )}
       </div>
@@ -147,7 +146,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
       {data.coupons.length > 0 ? (
         <div>
           <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-3">
-            Your active coupons
+            {t("loyalty.activeCoupons")}
           </h3>
           <ul className="space-y-3" data-testid="loyalty-coupons">
             {data.coupons.map((c) => (
@@ -171,11 +170,11 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
                 >
                   {copied === c.id ? (
                     <>
-                      <Check className="w-3.5 h-3.5" /> Copied
+                      <Check className="w-3.5 h-3.5" /> {t("loyalty.copied")}
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5" /> Copy
+                      <Copy className="w-3.5 h-3.5" /> {t("loyalty.copy")}
                     </>
                   )}
                 </button>
@@ -187,7 +186,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
 
       <div className="pt-2 border-t border-border/40">
         <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-3 mt-4">
-          How tiers work
+          {t("loyalty.howTiersWork")}
         </h3>
         <LoyaltyTiersExplainer
           current={data.tier.key}

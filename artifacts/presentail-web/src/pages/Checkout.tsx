@@ -763,13 +763,13 @@ export default function Checkout() {
                             data-testid="button-use-saved-address"
                           >
                             <BookUser className="w-4 h-4 text-primary" />
-                            Use a saved address
+                            {t("checkout.useSavedAddress")}
                             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent align="start" className="w-72 p-1">
                           <div className="py-1 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Saved addresses
+                            {t("checkout.savedAddresses")}
                           </div>
                           {savedAddresses.map((addr) => (
                             <button
@@ -789,7 +789,7 @@ export default function Checkout() {
                                   <div className="text-xs text-muted-foreground mt-0.5 truncate">{addr.district}</div>
                                 )}
                                 {addr.isDefault && (
-                                  <div className="text-xs text-gold font-medium mt-0.5">Default</div>
+                                  <div className="text-xs text-gold font-medium mt-0.5">{t("checkout.defaultLabel")}</div>
                                 )}
                               </div>
                             </button>
@@ -862,7 +862,7 @@ export default function Checkout() {
                             {currentCountryCities.map((city) => (
                               <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
                             ))}
-                            {currentCountryCities.length === 0 && <SelectItem value="Beirut">Beirut</SelectItem>}
+                            {currentCountryCities.length === 0 && <SelectItem value={t("checkout.defaultCity")}>{t("checkout.defaultCity")}</SelectItem>}
                           </SelectContent>
                         </Select>
                       </div>

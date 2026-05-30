@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 import {
   dayLabels,
   firstAvailableSlot,
@@ -34,6 +35,7 @@ export function ScheduleInlinePanel({
   timeSlots: propTimeSlots,
   onChange,
 }: Props) {
+  const { t } = useLocale();
   const code = (countryCode ?? "LB").toUpperCase();
   const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
   const timeSlots = useMemo(
@@ -118,7 +120,7 @@ export function ScheduleInlinePanel({
     >
       <div>
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-          Delivery Date
+          {t("checkout.deliveryDate")}
         </p>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 items-start">
           {days.map((d) => {
@@ -179,7 +181,7 @@ export function ScheduleInlinePanel({
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-foreground border-border hover:border-foreground/30",
               )}
-              aria-label="Pick a date from the calendar"
+              aria-label={t("product.pickDateAria")}
               data-testid="schedule-calendar-toggle"
             >
               <CalendarDays className="w-4 h-4" />
@@ -204,7 +206,7 @@ export function ScheduleInlinePanel({
 
       <div>
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-          Delivery Time
+          {t("checkout.deliveryTime")}
         </p>
         <div className="flex flex-wrap gap-2">
           {timeSlots.map((s) => {

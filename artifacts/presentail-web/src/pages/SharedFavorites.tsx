@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { Heart, ExternalLink } from "lucide-react";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductCard } from "@/components/ProductCard";
@@ -24,7 +25,7 @@ function useSharedFavorites(token: string) {
       const res = await fetch(`/api/favorites/share/${encodeURIComponent(token)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { message?: string }).message ?? "Not found");
+        throw new Error((err as { message?: string }).message ?? "Not found"); // i18n-ignore
       }
       return res.json() as Promise<SharedFavoritesData>;
     },
@@ -34,6 +35,7 @@ function useSharedFavorites(token: string) {
 }
 
 export default function SharedFavorites({ token }: SharedFavoritesProps) {
+  const { t } = useLocale();
   const { data: shareData, isLoading: shareLoading, isError } = useSharedFavorites(token);
 
   const slugSet = useMemo(
@@ -57,12 +59,12 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
         <Heart className="w-12 h-12 text-muted-foreground/30 mb-6" />
-        <h1 className="font-serif text-3xl mb-3">This list is no longer available</h1>
+        <h1 className="font-serif text-3xl mb-3">{t("sharedFavorites.unavailableTitle")}</h1>
         <p className="text-muted-foreground mb-8 max-w-sm">
-          The share link may have expired or been revoked.
+          {t("sharedFavorites.unavailableDesc")}
         </p>
         <Button asChild variant="outline">
-          <Link href="/">Discover Presentail</Link>
+          <Link href="/">{t("sharedFavorites.discoverLink")}</Link>
         </Button>
       </div>
     );
@@ -80,7 +82,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-4 flex items-center gap-3">
         <Link href="/" className="font-serif text-xl tracking-wide hover:opacity-70 transition-opacity">
-          Presentail
+          {t("nav.logoAria")}
         </Link>
       </header>
 
@@ -89,11 +91,11 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
           <div className="flex items-center gap-3 flex-1">
             <Heart className="w-6 h-6 text-rose-500 fill-rose-500 flex-shrink-0" />
             <div>
-              <h1 className="text-3xl md:text-4xl font-serif">Gift Wishlist</h1>
+              <h1 className="text-3xl md:text-4xl font-serif">{t("sharedFavorites.title")}</h1>
               <p className="text-muted-foreground text-sm mt-1">
-                A curated list of favorites shared with you
+                {t("sharedFavorites.subtitle")}
                 {expiresAt && (
-                  <span className="ml-1">· expires {expiresAt}</span>
+                  <span className="ml-1">{t("sharedFavorites.expiresPrefix")} {expiresAt}</span>
                 )}
               </p>
             </div>
@@ -101,7 +103,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
           <Button asChild variant="outline" size="sm" className="self-start sm:self-auto gap-2">
             <Link href="/">
               <ExternalLink className="w-4 h-4" />
-              Shop Presentail
+              {t("sharedFavorites.shopLink")}
             </Link>
           </Button>
         </div>
@@ -119,12 +121,12 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
         ) : favoriteProducts.length === 0 ? (
           <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
             <Heart className="w-12 h-12 mx-auto mb-6 text-muted-foreground/40" />
-            <h3 className="font-serif text-2xl mb-3">No items in this list</h3>
+            <h3 className="font-serif text-2xl mb-3">{t("sharedFavorites.emptyTitle")}</h3>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-              The shopper hasn't added any products to their favorites yet.
+              {t("sharedFavorites.emptyDesc")}
             </p>
             <Button asChild variant="outline">
-              <Link href="/">Browse the Collection</Link>
+              <Link href="/">{t("favorites.browseCollection")}</Link>
             </Button>
           </div>
         ) : (

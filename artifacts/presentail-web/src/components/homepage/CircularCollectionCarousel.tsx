@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useLocale } from "@/contexts/LocaleContext";
 import { Link } from "wouter";
 import {
   ChevronLeft,
@@ -64,6 +65,7 @@ type Props = {
 // on native scroll-snap. While loading we render a row of skeleton circles
 // so the layout doesn't shift when data arrives.
 export function CircularCollectionCarousel({ title, items, isLoading, testId }: Props) {
+  const { t } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
 
   const scrollBy = (dir: 1 | -1) => {
@@ -83,7 +85,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
             <button
               type="button"
               onClick={() => scrollBy(-1)}
-              aria-label="Scroll left"
+              aria-label={t("common.scrollLeft")}
               className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
               data-testid={`${testId ?? "carousel"}-prev`}
             >
@@ -92,7 +94,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
             <button
               type="button"
               onClick={() => scrollBy(1)}
-              aria-label="Scroll right"
+              aria-label={t("common.scrollRight")}
               className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
               data-testid={`${testId ?? "carousel"}-next`}
             >

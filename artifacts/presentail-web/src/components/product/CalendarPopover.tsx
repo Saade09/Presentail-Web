@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   selectedIso: string | null;
@@ -52,6 +53,7 @@ export function CalendarPopover({ selectedIso, todayIso, onSelect }: Props) {
   });
 
   const grid = useMemo(() => buildGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+  const { t } = useLocale();
 
   const canGoPrev =
     viewYear > todayYear || (viewYear === todayYear && viewMonth > todayMonth);
@@ -91,7 +93,7 @@ export function CalendarPopover({ selectedIso, todayIso, onSelect }: Props) {
               ? "hover:bg-secondary text-foreground"
               : "text-muted-foreground opacity-40 cursor-not-allowed",
           )}
-          aria-label="Previous month"
+          aria-label={t("product.prevMonth")}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -102,7 +104,7 @@ export function CalendarPopover({ selectedIso, todayIso, onSelect }: Props) {
           type="button"
           onClick={goNext}
           className="p-1 rounded-lg hover:bg-secondary text-foreground transition-colors"
-          aria-label="Next month"
+          aria-label={t("product.nextMonth")}
         >
           <ChevronRight className="w-4 h-4" />
         </button>

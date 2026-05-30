@@ -1,4 +1,5 @@
 import { isPayMethodSupported } from "@workspace/pay-methods";
+import { useLocale } from "@/contexts/LocaleContext";
 import applePayLogo from "@/assets/payment-logos/applepay.svg";
 import googlePayLogo from "@/assets/payment-logos/googlepay.svg";
 import visaLogo from "@/assets/payment-logos/visa.svg";
@@ -23,12 +24,14 @@ type PaymentMethodsProps = {
 };
 
 export function PaymentMethods({
-  label = "Ways to Pay",
+  label,
   labelClassName,
   className,
   countryCode,
   currencyCode,
 }: PaymentMethodsProps = {}) {
+  const { t } = useLocale();
+  const resolvedLabel = label !== undefined ? label : t("product.waysToPayLabel");
   const currency = currencyCode ?? "USD";
   const ctx = { country: countryCode?.toUpperCase() ?? undefined };
 
@@ -69,14 +72,14 @@ export function PaymentMethods({
       className={className ?? "flex flex-col sm:flex-row sm:items-center gap-3"}
       data-testid="payment-methods"
     >
-      {label ? (
+      {resolvedLabel ? (
         <p
           className={
             labelClassName ??
             "text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:shrink-0"
           }
         >
-          {label}
+          {resolvedLabel}
         </p>
       ) : null}
 

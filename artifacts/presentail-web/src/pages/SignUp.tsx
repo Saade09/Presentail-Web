@@ -195,7 +195,7 @@ export default function SignUpPage() {
             {/* Full Name */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="signup-name">
-                Full Name <span className="text-destructive">*</span>
+                {t("pi.firstName")}/{t("pi.lastName")} <span className="text-destructive">*</span>
               </label>
               <Input
                 id="signup-name"
@@ -206,7 +206,7 @@ export default function SignUpPage() {
                   setName(e.target.value);
                   if (errors.name) setErrors((p) => ({ ...p, name: "" }));
                 }}
-                placeholder="Your full name"
+                placeholder={t("auth.fullNamePlaceholder")}
                 disabled={busy}
                 data-testid="input-signup-name"
               />
@@ -252,10 +252,10 @@ export default function SignUpPage() {
                 data-testid="input-signup-gender"
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="">Select gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="prefer_not_to_say">Prefer not to say</option>
+                <option value="">{t("auth.selectGender")}</option>
+                <option value="male">{t("pi.gender.male")}</option>
+                <option value="female">{t("pi.gender.female")}</option>
+                <option value="prefer_not_to_say">{t("pi.gender.unspecified")}</option>
               </select>
             </div>
 
@@ -289,7 +289,7 @@ export default function SignUpPage() {
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
+              {t("auth.noAccount")}
               <button
                 type="button"
                 onClick={() =>
@@ -300,7 +300,7 @@ export default function SignUpPage() {
                 className="text-primary hover:underline font-medium"
                 data-testid="link-signup-signin"
               >
-                Sign in
+                {t("auth.signIn")}
               </button>
             </p>
           </div>

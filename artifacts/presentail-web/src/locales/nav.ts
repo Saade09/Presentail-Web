@@ -17,6 +17,14 @@ export const navStrings: Dict = {
   "lang.label.en": { en: "English", ar: "English" },
   "lang.label.ar": { en: "العربية", ar: "العربية" },
   "lang.label.fr": { en: "Français", ar: "Français" },
+  "nav.logoAria": { en: "Presentail", ar: "Presentail" },
+  "nav.mainNavAria": { en: "Main navigation", ar: "التنقل الرئيسي" },
+  "nav.favoritesAria": { en: "Favorites", ar: "المفضلة" },
+  "search.placeholder": { en: "Search flowers, gifts, occasions…", ar: "ابحث عن زهور، هدايا، مناسبات..." },
+  "search.clearAria": { en: "Clear", ar: "مسح" },
+  "search.closeAria": { en: "Close search", ar: "إغلاق البحث" },
+  "search.searching": { en: "Searching…", ar: "جارٍ البحث..." },
+  "search.productsHeading": { en: "Products", ar: "المنتجات" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -36,4 +44,12 @@ export const navStringsFr: Record<string, string> = {
   "lang.label.en": "English",
   "lang.label.ar": "العربية",
   "lang.label.fr": "Français",
+  "nav.logoAria": "Presentail",
+  "nav.mainNavAria": "Navigation principale",
+  "nav.favoritesAria": "Favoris",
+  "search.placeholder": "Rechercher des fleurs, cadeaux, occasions…",
+  "search.clearAria": "Effacer",
+  "search.closeAria": "Fermer la recherche",
+  "search.searching": "Recherche en cours…",
+  "search.productsHeading": "Produits",
 };

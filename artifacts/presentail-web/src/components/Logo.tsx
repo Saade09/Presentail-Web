@@ -16,10 +16,11 @@ export function Logo({ height, className, inverse = false }: LogoProps) {
   const src = isArabic
     ? inverse ? logoArWhite : logoAr
     : inverse ? logoEnWhite : logoEn;
+  const { t } = useLocale();
   return (
     <img
       src={src}
-      alt="Presentail"
+      alt={t("nav.logoAria")}
       style={height !== undefined ? { height, width: "auto" } : undefined}
       className={className}
       draggable={false}

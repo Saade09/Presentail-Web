@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useLocale } from "@/contexts/LocaleContext";
 import { useLocation } from "wouter";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
@@ -23,6 +24,7 @@ const TRENDING = [
 ];
 
 export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
+  const { t } = useLocale();
   const [, navigate] = useLocation();
   const { countryCode, city } = useLocationSelection();
   const { formatPrice } = useDisplayCurrency();
@@ -88,7 +90,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                      data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97]
                      duration-200"
         >
-          <DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="sr-only">{t("nav.searchAria")}</DialogPrimitive.Title>
 
           <Command
             shouldFilter={false}
@@ -101,7 +103,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
               <Search className="w-[18px] h-[18px] text-primary/40 shrink-0" />
               <Command.Input
                 ref={inputRef}
-                placeholder="Search flowers, gifts, occasions…"
+                placeholder={t("search.placeholder")}
                 value={q}
                 onValueChange={setQ}
                 className="flex-1 bg-transparent text-[15px] font-medium text-primary
@@ -114,7 +116,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                 <button
                   type="button"
                   onClick={() => { setQ(""); inputRef.current?.focus(); }}
-                  aria-label="Clear"
+                  aria-label={t("search.clearAria")}
                   className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full
                              bg-primary/[0.08] hover:bg-primary/15 text-primary/55
                              transition-colors"
@@ -127,7 +129,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
               <button
                 type="button"
                 onClick={() => { onClose(); setQ(""); }}
-                aria-label="Close search"
+                aria-label={t("search.closeAria")}
                 className="shrink-0 text-[11px] font-semibold text-primary/35
                            hover:text-primary/60 tracking-[0.06em] transition-colors"
               >
@@ -168,7 +170,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                 <div className="flex items-center justify-center py-10 gap-2 text-sm
                                 text-primary/40">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Searching…</span>
+                  <span>{t("search.searching")}</span>
                 </div>
               )}
 
@@ -183,7 +185,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
               {/* Categories */}
               {!isFetching && hasCategories && (
                 <Command.Group
-                  heading="Categories"
+                  heading={t("shop.categoriesTitle")}
                   className="[&_[cmdk-group-heading]]:px-4
                              [&_[cmdk-group-heading]]:py-1.5
                              [&_[cmdk-group-heading]]:text-[10px]
@@ -268,7 +270,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
               {/* Brands */}
               {!isFetching && hasBrands && (
                 <Command.Group
-                  heading="Brands"
+                  heading={t("nav.brands")}
                   className="[&_[cmdk-group-heading]]:px-4
                              [&_[cmdk-group-heading]]:py-1.5
                              [&_[cmdk-group-heading]]:text-[10px]
@@ -310,7 +312,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
               {/* Products */}
               {!isFetching && hasProducts && (
                 <Command.Group
-                  heading="Products"
+                  heading={t("search.productsHeading")}
                   className="[&_[cmdk-group-heading]]:px-4
                              [&_[cmdk-group-heading]]:py-1.5
                              [&_[cmdk-group-heading]]:text-[10px]

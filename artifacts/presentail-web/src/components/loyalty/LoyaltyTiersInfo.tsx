@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import { useLocale } from "@/contexts/LocaleContext";
 
 // Static, source-of-truth-mirrored copy of the loyalty tiers. The server's
 // engine in `lib/loyalty.ts` carries the canonical version — keep these in
@@ -17,13 +18,11 @@ export function LoyaltyTiersExplainer({
   current?: string;
   points?: number;
 }) {
+  const { t } = useLocale();
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Earn <strong>1 point for every $1</strong> you spend at Presentail.
-        Points are credited once your order is delivered. Reach a tier and
-        we'll mint a personal discount coupon you can use on your next
-        purchase.
+        {t("loyalty.earnDescFull")}
       </p>
       <div className="rounded-2xl border border-border/60 divide-y divide-border/60 overflow-hidden bg-background/40">
         {LOYALTY_TIERS_INFO.map((tier) => {

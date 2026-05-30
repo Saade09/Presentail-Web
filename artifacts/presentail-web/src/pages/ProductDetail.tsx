@@ -124,7 +124,7 @@ export default function ProductDetail() {
             expressLabel: delivery.expressDeliveryTimeLabel,
           })
         : null;
-    return formatted ?? "Pick a window that works for you";
+    return formatted ?? t("product.scheduledSubtitle");
   }, [
     deliverySelection.mode,
     deliverySelection.date,

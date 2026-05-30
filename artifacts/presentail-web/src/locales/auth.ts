@@ -33,6 +33,16 @@ export const authStrings: Dict = {
   "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
   "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
   "checkoutLogin.signInUnavailable": { en: "Sign-in is temporarily unavailable. You can still checkout as a guest.", ar: "تسجيل الدخول غير متاح مؤقتاً. يمكنك الإتمام كضيف." },
+
+  "auth.fullNamePlaceholder": { en: "Your full name", ar: "اسمك الكامل" },
+  "auth.selectGender": { en: "Select gender", ar: "اختر الجنس" },
+  "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
+  "auth.unauthorized.title": { en: "You're signed in elsewhere", ar: "أنت مسجّل الدخول في مكان آخر" },
+  "auth.unauthorized.desc": {
+    en: "This account isn't a Presentail shopper. Switch to a customer account to access your orders and profile.",
+    ar: "هذا الحساب ليس حساب متسوّق في برزنتيل. انتقل إلى حساب عميل للوصول إلى طلباتك وملفك الشخصي.",
+  },
+  "auth.unauthorized.backToShop": { en: "Back to shop", ar: "العودة إلى المتجر" },
 };
 
 export const authStringsFr: Record<string, string> = {
@@ -65,4 +75,11 @@ export const authStringsFr: Record<string, string> = {
   "checkoutLogin.desc": "Enregistrez vos informations pour la prochaine fois, ou continuez en tant qu'invité.",
   "checkoutLogin.guest": "Passer à la caisse en tant qu'invité",
   "checkoutLogin.signInUnavailable": "La connexion est temporairement indisponible. Vous pouvez toujours passer à la caisse en tant qu'invité.",
+
+  "auth.fullNamePlaceholder": "Votre nom complet",
+  "auth.selectGender": "Sélectionner le genre",
+  "auth.signIn": "Se connecter",
+  "auth.unauthorized.title": "Vous êtes connecté ailleurs",
+  "auth.unauthorized.desc": "Ce compte n'est pas un compte acheteur Presentail. Passez à un compte client pour accéder à vos commandes et votre profil.",
+  "auth.unauthorized.backToShop": "Retour à la boutique",
 };

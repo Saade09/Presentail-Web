@@ -65,7 +65,7 @@ export function Navbar() {
             </SheetContent>
           </Sheet>
 
-          <Link href="/" className="flex items-center" aria-label="Presentail">
+          <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")}>
             <Logo height={32} />
           </Link>
 

@@ -458,7 +458,7 @@ function AddressCard({
             type="button"
             onClick={onEdit}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-secondary/60 transition-colors"
-            title="Edit address"
+            title={t("account.addresses.editTitle")}
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
@@ -477,7 +477,7 @@ function AddressCard({
           onClick={onSetDefault}
           className="mt-3 text-xs font-medium text-primary hover:underline"
         >
-          Set as default
+          {t("account.addresses.setDefault")}
         </button>
       )}
     </div>
@@ -669,7 +669,7 @@ function AddAddressModal({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select country" />
+                <SelectValue placeholder={t("account.addresses.selectCountry")} />
               </SelectTrigger>
               <SelectContent>
                 {SUPPORTED_COUNTRIES.map((c) => (
@@ -688,7 +688,7 @@ function AddAddressModal({
             <Input
               value={form.area}
               onChange={(e) => set("area", e.target.value)}
-              placeholder="e.g. Hamra, Beirut"
+              placeholder={t("account.addresses.areaPlaceholder")}
             />
           </div>
 
@@ -699,36 +699,36 @@ function AddAddressModal({
             <Input
               value={form.addressLine}
               onChange={(e) => set("addressLine", e.target.value)}
-              placeholder="Street, building, floor..."
+              placeholder={t("account.addresses.streetPlaceholder")}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Recipient first name
+                {t("account.addresses.recipientFirst")}
               </Label>
               <Input
                 value={form.recipientFirstName}
                 onChange={(e) => set("recipientFirstName", e.target.value)}
-                placeholder="e.g. Layla"
+                placeholder={t("account.addresses.firstPlaceholder")}
               />
             </div>
             <div>
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Recipient last name
+                {t("account.addresses.recipientLast")}
               </Label>
               <Input
                 value={form.recipientLastName}
                 onChange={(e) => set("recipientLastName", e.target.value)}
-                placeholder="e.g. Haddad"
+                placeholder={t("account.addresses.lastPlaceholder")}
               />
             </div>
           </div>
 
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Recipient phone
+              {t("account.addresses.recipientPhone")}
             </Label>
             <Input
               value={form.recipientPhone}
@@ -740,24 +740,24 @@ function AddAddressModal({
 
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Extra details
+              {t("account.addresses.extraDetails")}
             </Label>
             <Input
               value={form.directions}
               onChange={(e) => set("directions", e.target.value)}
-              placeholder="Landmark, buzzer code..."
+              placeholder={t("account.addresses.extraPlaceholder")}
             />
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
             <div>
-              <div className="text-sm font-medium">Set as default address</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Pre-filled at checkout automatically</div>
+              <div className="text-sm font-medium">{t("account.addresses.setAsDefault")}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{t("account.addresses.setAsDefaultHint")}</div>
             </div>
             <Switch
               checked={form.isDefault}
               onCheckedChange={(v) => setForm((f) => ({ ...f, isDefault: v }))}
-              aria-label="Set as default address"
+              aria-label={t("account.addresses.setAsDefault")}
             />
           </div>
         </div>
@@ -871,7 +871,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-serif text-xl">Delete address?</DialogTitle>
+            <DialogTitle className="font-serif text-xl">{t("account.addresses.deleteTitle")}</DialogTitle>
             <DialogDescription>
               {deleteTarget
                 ? `"${deleteTarget.nickname || (deleteTarget.label.charAt(0).toUpperCase() + deleteTarget.label.slice(1))}${deleteTarget.district ? ` · ${deleteTarget.district}` : ""}" will be permanently removed.`

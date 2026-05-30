@@ -1,4 +1,5 @@
 import { Package, Bell, Sparkles, MapPin } from "lucide-react";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type ShortcutTab = "orders" | "notifications" | "loyalty" | "addresses";
 
@@ -61,11 +62,12 @@ function ShortcutLabel({
   id: ShortcutTab;
   ordersCount?: number;
 }) {
+  const { t } = useLocale();
   const labels: Record<ShortcutTab, string> = {
-    orders: "My Orders",
-    notifications: "Notifications",
-    loyalty: "Points",
-    addresses: "Addresses",
+    orders: t("account.orders"),
+    notifications: t("account.notifications"),
+    loyalty: t("account.loyalty"),
+    addresses: t("account.addresses"),
   };
 
   return (
@@ -74,7 +76,7 @@ function ShortcutLabel({
         {labels[id]}
       </span>
       {id === "orders" && ordersCount != null && ordersCount > 0 && (
-        <span className="text-xs text-muted-foreground">{ordersCount} total</span>
+        <span className="text-xs text-muted-foreground">{ordersCount} {t("account.shortcut.total")}</span>
       )}
     </div>
   );

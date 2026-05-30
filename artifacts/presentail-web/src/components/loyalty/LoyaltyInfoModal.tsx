@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { LoyaltyTiersExplainer } from "./LoyaltyTiersInfo";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export function LoyaltyInfoModal({
   open,
@@ -9,6 +10,7 @@ export function LoyaltyInfoModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -36,12 +38,12 @@ export function LoyaltyInfoModal({
       />
       <div className="relative bg-background rounded-3xl border border-border/60 shadow-xl max-w-md w-full p-6 max-h-[85vh] overflow-auto">
         <div className="flex items-start justify-between gap-4 mb-3">
-          <h3 className="text-xl font-serif">Presentail Points</h3>
+          <h3 className="text-xl font-serif">{t("account.loyalty")}</h3>
           <button
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-secondary/60"
-            aria-label="Close"
+            aria-label={t("checkout.previewCardClose")}
           >
             <X className="w-4 h-4" />
           </button>

@@ -96,7 +96,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
           type="button"
           onClick={handleExpand}
           className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-background/90 backdrop-blur flex items-center justify-center text-foreground shadow-sm hover:bg-background transition-colors"
-          aria-label="Expand image"
+          aria-label={t("product.expandImage")}
           data-testid="button-product-expand"
         >
           <Maximize2 className="w-4 h-4" />

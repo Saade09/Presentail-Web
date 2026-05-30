@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Image = { uri: string };
 
@@ -24,6 +25,7 @@ export function ProductLightbox({
   initialIndex = 0,
   productName,
 }: Props) {
+  const { t } = useLocale();
   const list = images.filter((i) => i.uri);
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -226,7 +228,7 @@ export function ProductLightbox({
                 onClick={handleZoomOut}
                 disabled={zoom <= MIN_ZOOM}
                 className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-40 flex items-center justify-center transition-colors"
-                aria-label="Zoom out"
+                aria-label={t("product.zoomOut")}
                 data-testid="button-lightbox-zoom-out"
               >
                 <ZoomOut className="w-4 h-4" />
@@ -236,14 +238,14 @@ export function ProductLightbox({
                 onClick={handleZoomIn}
                 disabled={zoom >= MAX_ZOOM}
                 className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-40 flex items-center justify-center transition-colors"
-                aria-label="Zoom in"
+                aria-label={t("product.zoomIn")}
                 data-testid="button-lightbox-zoom-in"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
               <DialogPrimitive.Close
                 className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-                aria-label="Close"
+                aria-label={t("checkout.previewCardClose")}
                 data-testid="button-lightbox-close"
               >
                 <X className="w-4 h-4" />
@@ -285,7 +287,7 @@ export function ProductLightbox({
                 type="button"
                 onClick={goPrev}
                 className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                aria-label="Previous image"
+                aria-label={t("product.prevImage")}
                 data-testid="button-lightbox-prev"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -294,7 +296,7 @@ export function ProductLightbox({
                 type="button"
                 onClick={goNext}
                 className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                aria-label="Next image"
+                aria-label={t("product.nextImage")}
                 data-testid="button-lightbox-next"
               >
                 <ChevronRight className="w-5 h-5" />

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown, RotateCcw } from "lucide-react";
+import { useLocale } from "@/contexts/LocaleContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { CountryFlag } from "@/components/CountryFlag";
 import {
@@ -31,6 +32,7 @@ type Props = {
 };
 
 export function CurrencySwitcher({ triggerClassName }: Props) {
+  const { t } = useLocale();
   const {
     currencyCode,
     setCurrencyCode,
@@ -118,7 +120,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
             className="flex items-center gap-2.5 cursor-pointer text-muted-foreground"
           >
             <RotateCcw className="w-4 h-4 shrink-0" />
-            <span className="text-xs">Use automatic (detected)</span>
+            <span className="text-xs">{t("currency.useAutomatic")}</span>
           </DropdownMenuItem>
         )}
 
@@ -137,7 +139,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
             htmlFor="currency-remember"
             className="text-xs text-muted-foreground cursor-pointer select-none"
           >
-            Remember my choice
+            {t("currency.rememberChoice")}
           </label>
         </DropdownMenuItem>
       </DropdownMenuContent>

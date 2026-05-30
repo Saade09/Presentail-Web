@@ -1,5 +1,6 @@
 import { Calendar, CircleCheck, Circle, Info, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 
 export type DeliveryChoice = "express" | "scheduled";
 
@@ -22,10 +23,11 @@ export function DeliveryOptions({
   expressUnavailableLabel,
   scheduledSubtitle,
 }: Props) {
+  const { t } = useLocale();
   return (
     <div className="space-y-3" data-testid="delivery-options">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        Delivery Options
+        {t("product.deliveryOptions")}
       </p>
 
       <DeliveryRow
@@ -33,11 +35,11 @@ export function DeliveryOptions({
         onClick={onSelectExpress}
         disabled={!expressAvailable}
         icon={<Zap className="w-4 h-4" />}
-        title="Express Delivery"
+        title={t("checkout.expressDelivery")}
         subtitle={
           expressAvailable
             ? expressLabel
-            : expressUnavailableLabel ?? "Available 8 AM – 10 PM"
+            : expressUnavailableLabel ?? t("checkout.expressUnavailable")
         }
         showInfo
         testId="delivery-option-express"
@@ -53,8 +55,8 @@ export function DeliveryOptions({
         active={value === "scheduled"}
         onClick={onSelectScheduled}
         icon={<Calendar className="w-4 h-4" />}
-        title="Select date and time of delivery"
-        subtitle={scheduledSubtitle ?? "Pick a window that works for you"}
+        title={t("product.scheduleDelivery")}
+        subtitle={scheduledSubtitle ?? t("product.scheduledSubtitle")}
         testId="delivery-option-scheduled"
       />
     </div>

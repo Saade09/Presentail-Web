@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Favorites() {
   const { favorites, isLoaded } = useFavorites();
-  const { language } = useLocale();
+  const { language, t } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) queryParams.countryCode = countryCode;
@@ -40,7 +40,7 @@ export default function Favorites() {
       });
       const data = await res.json() as { ok: boolean; url?: string; message?: string };
       if (!data.ok || !data.url) {
-        throw new Error(data.message ?? "Could not create share link");
+        throw new Error(data.message ?? t("favorites.couldNotShare"));
       }
       const shareUrl = data.url;
       if (typeof navigator.share === "function") {
@@ -71,7 +71,7 @@ export default function Favorites() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-12 pb-8 border-b">
           <div className="flex items-center gap-3 flex-1">
             <Heart className="w-6 h-6 text-rose-500 fill-rose-500 flex-shrink-0" />
-            <h1 className="text-4xl md:text-5xl font-serif">Favorites</h1>
+            <h1 className="text-4xl md:text-5xl font-serif">{t("account.favorites")}</h1>
           </div>
           {favoriteProducts.length > 0 && (
             <Button
@@ -84,12 +84,12 @@ export default function Favorites() {
               {shared ? (
                 <>
                   <Check className="w-4 h-4 text-green-600" />
-                  Link copied
+                  {t("favorites.linkCopied")}
                 </>
               ) : (
                 <>
                   <Share2 className="w-4 h-4" />
-                  Share my list
+                  {t("favorites.shareMyList")}
                 </>
               )}
             </Button>
@@ -109,12 +109,12 @@ export default function Favorites() {
         ) : favoriteProducts.length === 0 ? (
           <div className="text-center py-24 bg-muted/30 rounded-2xl border border-dashed">
             <Heart className="w-12 h-12 mx-auto mb-6 text-muted-foreground/40" />
-            <h3 className="font-serif text-2xl mb-3">No favorites yet</h3>
+            <h3 className="font-serif text-2xl mb-3">{t("account.favorites.empty")}</h3>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-              Tap the heart on any product to save it here for later.
+              {t("account.favorites.emptyDesc")}
             </p>
             <Button asChild variant="outline">
-              <Link href="/shop">Browse the Collection</Link>
+              <Link href="/shop">{t("favorites.browseCollection")}</Link>
             </Button>
           </div>
         ) : (

@@ -260,7 +260,7 @@ export function MainNavbar() {
           </Sheet>
 
           {/* Desktop nav triggers */}
-          <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+          <nav className="hidden md:flex items-center gap-6" aria-label={t("nav.mainNavAria")}>
             {MEGA_MENUS.map((menu) => (
               <button
                 key={menu.key}
@@ -288,7 +288,7 @@ export function MainNavbar() {
 
         {/* ── Center: logo ──────────────────────────────────── */}
         <div className="flex justify-center">
-          <Link href="/" className="flex items-center" aria-label="Presentail" data-testid="link-logo">
+          <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")} data-testid="link-logo">
             <Logo className="h-14 md:h-20 w-auto" />
           </Link>
         </div>
@@ -312,7 +312,7 @@ export function MainNavbar() {
           />
 
           {user && (
-            <Link href="/favorites" aria-label="Favorites">
+            <Link href="/favorites" aria-label={t("nav.favoritesAria")}>
               <Button variant="ghost" size="icon" data-testid="button-favorites">
                 <Heart className="w-5 h-5" />
               </Button>

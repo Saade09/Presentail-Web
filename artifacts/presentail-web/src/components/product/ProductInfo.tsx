@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { LoyaltyInfoModal } from "@/components/loyalty/LoyaltyInfoModal";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   name: string;
@@ -11,6 +12,7 @@ type Props = {
 
 export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
   const [open, setOpen] = useState(false);
+  const { t } = useLocale();
   return (
     <div>
       <h1
@@ -38,14 +40,14 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
           onClick={() => setOpen(true)}
           className="flex items-center gap-1.5 shrink-0"
           data-testid="product-points-info"
-          aria-label="Learn about Presentail Points"
+          aria-label={t("product.pointsAria")}
         >
           <Sparkles className="w-3.5 h-3.5 text-gold" />
           <span
             className="text-xs font-semibold text-gold"
             data-testid="product-points"
           >
-            Earn {rewardPoints} Points
+            {t("product.earnPoints", { points: String(rewardPoints) })}
           </span>
         </button>
       </div>
