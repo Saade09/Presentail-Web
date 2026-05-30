@@ -1,21 +1,28 @@
 /**
  * checkUnusedTranslationKeys / checkMissingTranslationKeys
  *
- * Two complementary checks in one script:
+ * Three complementary checks in one script:
  *
  * 1. UNUSED keys — keys defined in the EN locale that are never referenced in
  *    any TypeScript/TSX source file under `artifacts/presentail`.
  *
- * 2. MISSING keys — keys present in EN but absent from AR or FR, meaning a
- *    shopper on those locales would see a raw key string instead of translated
+ * 2. MISSING locale keys — keys present in EN but absent from AR or FR, meaning
+ *    a shopper on those locales would see a raw key string instead of translated
  *    text.
  *
- * Exit code 0 → all EN keys are in use AND AR/FR are complete.
- * Exit code 1 → at least one unused or missing key was found (or the script errored).
+ * 3. UNDEFINED keys — keys accessed in source via `t.keyName` or `t["keyName"]`
+ *    (literal accesses only; dynamic `t[someVar]` is skipped) that do not exist
+ *    in the EN object. These would silently resolve to `undefined` at runtime and
+ *    render as blank strings.
+ *
+ * Exit code 0 → all EN keys are in use, AR/FR are complete, and no undefined
+ *               key references were found.
+ * Exit code 1 → at least one check failed (or the script errored).
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-translations
  *   pnpm --filter @workspace/scripts run check-unused-translations   (alias)
+ *   pnpm --filter @workspace/scripts run check-missing-translations  (alias)
  */
 
 import fs from "node:fs";
@@ -35,11 +42,56 @@ const SKIP_DIRS = new Set([
   "node_modules",
   ".expo",
   "dist",
+  "dist-web-review",
   ".turbo",
   "__generated__",
 ]);
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true when the file content indicates it actually uses the `t`
+ * translation object (via the `useT` hook or a direct `translations[lang]`
+ * access).  We only run the key-reference extractor on these files to avoid
+ * false positives from the hundreds of other places in the codebase that
+ * happen to use `t` as a variable name (gesture handlers, React internals,
+ * type parameters, etc.).
+ */
+function usesTranslationObject(src: string): boolean {
+  return /\buseT\s*\(/.test(src) || /translations\s*\[/.test(src);
+}
+
+/**
+ * Extract every literal translation-key identifier accessed via the `t`
+ * translation object in a block of source text.
+ *
+ * Recognised patterns:
+ *   t.keyName          – dot notation, NOT followed by `(` (method calls are
+ *                        skipped — they are property accesses on a different `t`)
+ *   t["keyName"]       – bracket notation with double-quoted string literal
+ *   t['keyName']       – bracket notation with single-quoted string literal
+ *
+ * Skipped (cannot be statically resolved):
+ *   t[someVariable]    – dynamic bracket access
+ *   t[`template`]      – template-literal bracket access
+ *   t.push(…)          – method calls (property followed by `(`)
+ */
+function extractLiteralKeyRefs(src: string): Set<string> {
+  const keys = new Set<string>();
+  // Dot notation: word boundary before `t`; the lookahead ensures we do NOT
+  // capture method calls such as `t.map(` or `t.then(`.
+  const dotRe = /\bt\.([a-zA-Z_][a-zA-Z0-9_]*)(?!\s*\()/g;
+  let m: RegExpExecArray | null;
+  while ((m = dotRe.exec(src)) !== null) {
+    keys.add(m[1]);
+  }
+  // Bracket notation with string literal.
+  const bracketRe = /\bt\[['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]]/g;
+  while ((m = bracketRe.exec(src)) !== null) {
+    keys.add(m[1]);
+  }
+  return keys;
+}
 
 function collectFiles(dir: string, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -130,6 +182,28 @@ for (const [locale, keySet] of [
   }
 }
 
+// ── Check 3: keys referenced in source that are missing from EN ───────────────
+// Only scan files that actually use the translation object (contain `useT()` or
+// `translations[…]`).  This avoids false positives from the many other places
+// in the codebase that happen to use `t` as a variable name (gesture handlers,
+// React internals, type parameters, etc.).
+// translations.ts itself is already excluded from `files`.
+
+const enKeySet = new Set(enKeys);
+
+const allReferencedKeys = new Set<string>();
+for (const file of files) {
+  const src = fs.readFileSync(file, "utf8");
+  if (!usesTranslationObject(src)) continue;
+  for (const key of extractLiteralKeyRefs(src)) {
+    allReferencedKeys.add(key);
+  }
+}
+
+const undefinedKeys = Array.from(allReferencedKeys)
+  .filter((key) => !enKeySet.has(key))
+  .sort();
+
 // ── Report ────────────────────────────────────────────────────────────────────
 let failed = false;
 
@@ -161,9 +235,22 @@ if (localeGaps.length > 0) {
   );
 }
 
+if (undefinedKeys.length > 0) {
+  failed = true;
+  console.error(
+    `\n✗ Found ${undefinedKeys.length} translation key${undefinedKeys.length === 1 ? "" : "s"} referenced in source that do not exist in EN:\n`,
+  );
+  for (const key of undefinedKeys) {
+    console.error(`  - ${key}`);
+  }
+  console.error(
+    "\nAdd these keys to all three language blocks in artifacts/presentail/lib/translations.ts, or fix the references in source.\n",
+  );
+}
+
 if (!failed) {
   console.log(
-    `✓ All ${enKeys.length} EN keys are in use and AR/FR are complete.`,
+    `✓ All ${enKeys.length} EN keys are in use, AR/FR are complete, and no undefined key references were found.`,
   );
   process.exit(0);
 } else {

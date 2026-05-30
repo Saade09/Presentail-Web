@@ -19,7 +19,7 @@ on:
 
 jobs:
   check-translations:
-    name: Unused + missing translation keys (mobile)
+    name: Unused + missing + undefined translation keys (mobile)
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
