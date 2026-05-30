@@ -2,8 +2,18 @@
  * checkUnusedWebTranslationKeys
  *
  * Scans all TypeScript/TSX source files under `artifacts/presentail-web/src`
- * and reports any key defined in the STRINGS or STRINGS_FR dictionaries that
- * is never referenced.
+ * and runs three checks:
+ *
+ *   1. Unused-key check — every key defined in STRINGS / STRINGS_FR must be
+ *      referenced at least once in the source corpus.
+ *   2. FR-coverage check — every key in STRINGS must have a French translation
+ *      in STRINGS_FR and vice-versa (no orphaned FR-only keys).
+ *   3. Undefined-key check — every static t("some.key") call site must refer to
+ *      a key that actually exists in STRINGS.  A typo here silently renders as
+ *      blank text.  Dynamic template-literal calls (e.g. t(`prefix.${expr}`))
+ *      are excluded from this hard check because the full key is only known at
+ *      runtime; their static prefix is still used by check #1 so STRINGS keys
+ *      reachable through dynamic calls are never reported as unused.
  *
  * Translation keys live in per-domain modules under
  * `artifacts/presentail-web/src/locales/`. Each module exports two objects:
@@ -14,19 +24,9 @@
  *   • `"key": {`  → Dict entry  → STRINGS key
  *   • `"key": "`  → FR string   → STRINGS_FR key
  *
- * It also checks translation coverage:
- *   • Every key in STRINGS must have a matching entry in STRINGS_FR.
- *   • Every key in STRINGS_FR must have a matching entry in STRINGS (i.e. no
- *     orphaned French keys that don't exist in the base English/Arabic dict).
- *
- * The check understands both static references (`t("some.key")`) and dynamic
- * template-literal references (`t(\`lang.label.${lang}\`)`). For dynamic
- * calls the static prefix before the first interpolation is extracted; any key
- * whose full name starts with that prefix is considered referenced.
- *
- * Exit code 0 → all keys are used and coverage is complete.
- * Exit code 1 → at least one unused key or coverage gap was found (or the
- *               script errored).
+ * Exit code 0 → all checks pass.
+ * Exit code 1 → at least one unused key, coverage gap, or undefined key
+ *               reference was found (or the script errored).
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-unused-web-translations
@@ -290,7 +290,7 @@ function extractWebKeys(localeContextSrc: string): {
  * via extractDynamicPrefixes() and are never subjected to the hard missing-key
  * check.
  */
-function extractStaticTCallKeys(corpus: string): string[] {
+export function extractStaticTCallKeys(corpus: string): string[] {
   const keys = new Set<string>();
   // Match t("key") or t('key') where the first argument is a plain string
   // literal.  The pattern stops at the first quote boundary so it won't
@@ -318,7 +318,7 @@ function extractStaticTCallKeys(corpus: string): string[] {
  *   t(`lang.label.${lang}`)      → prefix "lang.label."
  *   t(`seo.${routeKey}.title`)   → prefix "seo."
  */
-function extractDynamicPrefixes(corpus: string): string[] {
+export function extractDynamicPrefixes(corpus: string): string[] {
   const prefixes = new Set<string>();
   // Match t(`...${`) to capture the static prefix inside the backtick template.
   const re = /t\(`([^`$]*)(?:\$\{)/g;
@@ -357,6 +357,10 @@ function isKeyReferenced(
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
+// Guard lets unit tests import the exported functions without triggering I/O
+// or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
+
+if (!process.env.VITEST) {
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
 const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, missingArByFile } = extractWebKeys(localeContextSrc);
@@ -493,7 +497,7 @@ if (missingFromStrings.length > 0) {
     console.error(`  - ${key}`);
   }
   console.error(
-    "\nAdd these keys (with both 'en' and 'ar' values) to STRINGS in artifacts/presentail-web/src/contexts/LocaleContext.tsx.\n",
+    "\nAdd these keys (with both 'en' and 'ar' values) to the appropriate *Strings export in artifacts/presentail-web/src/locales/.\n",
   );
   console.error(
     "NOTE: Dynamic call sites such as t(`prefix.\${expr}`) are excluded from this check — only static string-literal keys are verified.\n",
@@ -533,3 +537,5 @@ if (!failed) {
 } else {
   process.exit(1);
 }
+
+} // end if (!process.env.VITEST)
