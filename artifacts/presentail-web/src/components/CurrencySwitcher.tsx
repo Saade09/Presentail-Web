@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { CountryFlag } from "@/components/CountryFlag";
@@ -7,6 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 
 /** Maps currency code → ISO flag code for CountryFlag */
 const CURRENCY_FLAG: Record<string, string> = {
@@ -28,7 +31,32 @@ type Props = {
 };
 
 export function CurrencySwitcher({ triggerClassName }: Props) {
-  const { currencyCode, setCurrencyCode, supportedCurrencies } = useDisplayCurrency();
+  const {
+    currencyCode,
+    setCurrencyCode,
+    setManualPersistent,
+    isManual,
+    isManualPersistent,
+    supportedCurrencies,
+  } = useDisplayCurrency();
+
+  // Default to "remember" on — matches the mobile experience. Once a manual
+  // currency is set, mirror its actual persistence state.
+  const [remember, setRemember] = useState<boolean>(
+    () => (isManual ? isManualPersistent : true),
+  );
+
+  function handleSelect(code: string) {
+    setCurrencyCode(code, { persist: remember });
+  }
+
+  function handleRememberToggle(checked: boolean) {
+    setRemember(checked);
+    // If a manual currency is already set, update its persistence live.
+    if (isManual) {
+      setManualPersistent(checked);
+    }
+  }
 
   return (
     <DropdownMenu>
@@ -54,7 +82,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
 
       <DropdownMenuContent
         align="start"
-        className="min-w-[11rem] max-h-72 overflow-y-auto z-[80]"
+        className="min-w-[11rem] max-h-80 overflow-y-auto z-[80]"
       >
         {supportedCurrencies.map(({ code, name }) => {
           const active = code === currencyCode;
@@ -62,7 +90,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
           return (
             <DropdownMenuItem
               key={code}
-              onSelect={() => setCurrencyCode(code)}
+              onSelect={() => handleSelect(code)}
               data-testid={`button-currency-${code.toLowerCase()}`}
               className="flex items-center gap-2.5 cursor-pointer"
             >
@@ -75,6 +103,27 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
             </DropdownMenuItem>
           );
         })}
+
+        <Separator className="my-1" />
+
+        {/* "Remember this choice" toggle — keep the dropdown open on click */}
+        <DropdownMenuItem
+          onSelect={(e) => e.preventDefault()}
+          className="flex items-center gap-2.5 cursor-default focus:bg-transparent"
+        >
+          <Switch
+            id="currency-remember"
+            checked={remember}
+            onCheckedChange={handleRememberToggle}
+            className="shrink-0 scale-90"
+          />
+          <label
+            htmlFor="currency-remember"
+            className="text-xs text-muted-foreground cursor-pointer select-none"
+          >
+            Remember my choice
+          </label>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
