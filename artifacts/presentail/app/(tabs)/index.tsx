@@ -36,7 +36,7 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { localizedCountryName } from "@/data/countryNamesLocalized";
-import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { fetchCategoryProducts, fetchWcBrands, type WcBrand, type WooProduct } from "@/lib/woo";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -345,6 +345,7 @@ function HomeScreen() {
           <FlowersSection />
           <CategoryRail />
           <OccasionsCarousel />
+          <BrandsCarousel />
           <BundlesSection />
           <BrandStorySection />
           <ReviewsSection />
@@ -1148,6 +1149,129 @@ function OccasionsCarousel() {
                 item={item}
                 onPress={() =>
                   router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
+                }
+              />
+            ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+type BrandTileItem = {
+  slug: string;
+  name: string;
+  imageUrl?: string | null;
+};
+
+function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void }) {
+  const colors = useColors();
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+
+  return (
+    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 88 }}>
+      <View
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 999,
+          overflow: "hidden",
+          backgroundColor: "#F3F3F3",
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        {item.imageUrl ? (
+          <>
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+              onLoad={() => setImageLoaded(true)}
+            />
+            {!imageLoaded && <ShimmerPlaceholder />}
+          </>
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <MaterialCommunityIcons name="tag-outline" size={24} color={colors.primary} />
+          </View>
+        )}
+      </View>
+      <Text
+        numberOfLines={2}
+        style={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 11,
+          color: colors.primary,
+          textAlign: "center",
+          lineHeight: 14,
+        }}
+      >
+        {item.name}
+      </Text>
+    </Pressable>
+  );
+}
+
+function BrandsCarousel() {
+  const colors = useColors();
+  const router = useRouter();
+  const t = useT();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const countryCode = selectedCountry?.code ?? null;
+  const cityId = selectedCity?.id ?? null;
+  const [brands, setBrands] = useState<WcBrand[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchWcBrands({ countryCode, cityId })
+      .then((data) => {
+        if (!cancelled) {
+          setBrands(data.filter((b) => b.count > 0));
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode, cityId]);
+
+  if (!isLoading && brands.length === 0) return null;
+
+  return (
+    <View style={{ marginTop: 44 }}>
+      <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
+        <SectionTitle eyebrow={t.brandsEyebrow} title={t.brandsTitleHome} />
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+      >
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, idx) => (
+              <View key={idx} style={{ alignItems: "center", gap: 10, width: 88 }}>
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 999,
+                    backgroundColor: colors.muted,
+                  }}
+                />
+                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+              </View>
+            ))
+          : brands.map((brand) => (
+              <BrandTile
+                key={brand.slug}
+                item={{ slug: brand.slug, name: brand.name, imageUrl: brand.image }}
+                onPress={() =>
+                  router.push({ pathname: "/brand/[slug]", params: { slug: brand.slug } })
                 }
               />
             ))}
