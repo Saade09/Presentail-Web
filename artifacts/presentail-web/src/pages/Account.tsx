@@ -33,9 +33,17 @@ import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+
+const SUPPORTED_COUNTRIES = [
+  { code: "LB", name: "Lebanon", phoneCode: "+961" },
+  { code: "AE", name: "United Arab Emirates", phoneCode: "+971" },
+  { code: "CY", name: "Cyprus", phoneCode: "+357" },
+] as const;
 
 type AccountTab = "profile" | "orders" | "loyalty" | "favorites" | "addresses" | "notifications";
 
@@ -476,18 +484,24 @@ function AddressCard({
   );
 }
 
+function defaultPhoneCode(countryCode: string): string {
+  return SUPPORTED_COUNTRIES.find((c) => c.code === countryCode)?.phoneCode ?? "+961";
+}
+
 function buildEmptyForm(defaultCountryCode?: string) {
+  const cc = defaultCountryCode?.toUpperCase().slice(0, 2) || "LB";
   return {
     label: "home",
     nickname: "",
-    countryCode: defaultCountryCode?.toUpperCase().slice(0, 2) || "LB",
+    countryCode: cc,
     area: "",
     addressLine: "",
     directions: "",
     recipientFirstName: "",
     recipientLastName: "",
     recipientPhone: "",
-    recipientPhoneCountryCode: "+961",
+    recipientPhoneCountryCode: defaultPhoneCode(cc),
+    isDefault: false,
   };
 }
 
@@ -515,12 +529,13 @@ function AddAddressModal({
   useEffect(() => {
     if (open) {
       if (editAddress) {
+        const cc = (editAddress.countryCode ?? defaultCountryCode ?? "LB").toUpperCase().slice(0, 2);
         const recipientPhone = editAddress.recipientPhone ?? "";
-        const recipientPhoneCountryCode = editAddress.recipientPhoneCountryCode ?? "+961";
+        const recipientPhoneCountryCode = editAddress.recipientPhoneCountryCode ?? defaultPhoneCode(cc);
         setForm({
           label: editAddress.label || "home",
           nickname: editAddress.nickname ?? "",
-          countryCode: (editAddress.countryCode ?? defaultCountryCode ?? "LB").toUpperCase().slice(0, 2),
+          countryCode: cc,
           area: editAddress.district ?? "",
           addressLine: [
             editAddress.addressLine,
@@ -532,6 +547,7 @@ function AddAddressModal({
           recipientLastName: editAddress.recipientLastName ?? "",
           recipientPhone,
           recipientPhoneCountryCode,
+          isDefault: editAddress.isDefault,
         });
       } else {
         setForm(buildEmptyForm(defaultCountryCode));
@@ -573,7 +589,7 @@ function AddAddressModal({
         recipientLastName: form.recipientLastName.trim() || null,
         recipientPhone: trimmedPhone || null,
         recipientPhoneCountryCode: trimmedPhone ? form.recipientPhoneCountryCode || null : null,
-        isDefault: false,
+        isDefault: form.isDefault,
       });
 
       if (isEdit && editAddress) {
@@ -641,29 +657,39 @@ function AddAddressModal({
             />
           </div>
 
-          <div className="grid grid-cols-[80px_1fr] gap-2">
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Country <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={form.countryCode}
-                onChange={(e) => set("countryCode", e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="LB"
-                maxLength={2}
-                className="uppercase text-center"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Area / District <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={form.area}
-                onChange={(e) => set("area", e.target.value)}
-                placeholder="e.g. Hamra, Beirut"
-              />
-            </div>
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Country <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={form.countryCode}
+              onValueChange={(v) => {
+                set("countryCode", v);
+                setForm((f) => ({ ...f, countryCode: v, recipientPhoneCountryCode: defaultPhoneCode(v) }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Area / District <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={form.area}
+              onChange={(e) => set("area", e.target.value)}
+              placeholder="e.g. Hamra, Beirut"
+            />
           </div>
 
           <div>
@@ -722,6 +748,18 @@ function AddAddressModal({
               placeholder="Landmark, buzzer code..."
             />
           </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
+            <div>
+              <div className="text-sm font-medium">Set as default address</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Pre-filled at checkout automatically</div>
+            </div>
+            <Switch
+              checked={form.isDefault}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, isDefault: v }))}
+              aria-label="Set as default address"
+            />
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
@@ -742,6 +780,8 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [editAddress, setEditAddress] = useState<AddressData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AddressData | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
   const { countryCode: activeCountryCode } = useLocationSelection();
 
@@ -757,12 +797,17 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
     load();
   }, []);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await apiFetch(`/me/addresses/${id}`, { method: "DELETE" });
-      setAddresses((prev) => prev.filter((a) => a.id !== id));
+      await apiFetch(`/me/addresses/${deleteTarget.id}`, { method: "DELETE" });
+      setAddresses((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch {
       toast({ title: "Couldn't delete address", variant: "destructive" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -814,7 +859,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
                 key={addr.id}
                 address={addr}
                 onEdit={() => setEditAddress(addr)}
-                onDelete={() => handleDelete(addr.id)}
+                onDelete={() => setDeleteTarget(addr)}
                 onSetDefault={() => handleSetDefault(addr.id)}
                 t={t}
               />
@@ -822,6 +867,27 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
           </div>
         )}
       </SectionCard>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Delete address?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.nickname || (deleteTarget.label.charAt(0).toUpperCase() + deleteTarget.label.slice(1))}${deleteTarget.district ? ` · ${deleteTarget.district}` : ""}" will be permanently removed.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="rounded-full">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="rounded-full">
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AddAddressModal
         open={addOpen}

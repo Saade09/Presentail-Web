@@ -15,7 +15,8 @@ import {
   useMamoPayment,
   usePaypalPayment,
 } from "@/lib/queries";
-import { ArrowLeft, CheckCircle2, Circle, MapPin } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, MapPin, BookUser, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +55,57 @@ import {
 // `@workspace/pay-methods` table and mirror the mobile checkout.
 type PaymentMethodId = WebPaymentMethodId;
 
+type SavedAddress = {
+  id: number;
+  label: string;
+  nickname?: string | null;
+  isDefault: boolean;
+  countryCode?: string | null;
+  district?: string | null;
+  addressLine?: string | null;
+  building?: string | null;
+  apartment?: string | null;
+  directions?: string | null;
+  recipientFirstName?: string | null;
+  recipientLastName?: string | null;
+  recipientPhone?: string | null;
+  recipientPhoneCountryCode?: string | null;
+};
+
+function addressDisplayLabel(a: SavedAddress): string {
+  const parts: string[] = [];
+  if (a.nickname) parts.push(a.nickname);
+  else parts.push(a.label.charAt(0).toUpperCase() + a.label.slice(1));
+  if (a.district) parts.push(a.district);
+  return parts.join(" · ");
+}
+
+function applyAddressToRecipient(
+  a: SavedAddress,
+  setRecipient: React.Dispatch<React.SetStateAction<{ firstName: string; lastName: string; phone: string; district: string; address: string; deliveryDate: string; cardMessage: string }>>,
+  opts: { onlyEmpty?: boolean } = {},
+) {
+  const phone = [a.recipientPhoneCountryCode, a.recipientPhone].filter(Boolean).join(" ");
+  const addressLine = [a.addressLine, a.building ? `Bldg: ${a.building}` : null, a.apartment ? `Apt: ${a.apartment}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  setRecipient((prev) => {
+    // When onlyEmpty=true (auto-prefill path) we never overwrite a field the
+    // shopper has already typed — we only fill in blank slots. When called
+    // manually (picker click), we always apply the full address.
+    const fill = (existing: string, fromAddress: string) =>
+      opts.onlyEmpty ? existing || fromAddress : fromAddress || existing;
+    return {
+      ...prev,
+      firstName: fill(prev.firstName, a.recipientFirstName ?? ""),
+      lastName: fill(prev.lastName, a.recipientLastName ?? ""),
+      phone: fill(prev.phone, phone),
+      district: fill(prev.district, a.district ?? ""),
+      address: fill(prev.address, addressLine),
+    };
+  });
+}
+
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -89,6 +141,11 @@ export default function Checkout() {
   const [step, setStep] = useState(1);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
   const deliverySectionRef = useRef<HTMLDivElement>(null);
+
+  // Saved addresses for signed-in shoppers
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+  const defaultAddressAppliedRef = useRef(false);
 
   // Seed `recipient.deliveryDate` from the shared delivery-selection
   // store so a window the shopper picked from the product page lands
@@ -141,6 +198,30 @@ export default function Checkout() {
       email: prev.email || user.email || "",
       phone: prev.phone || user.phone || "",
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Fetch saved addresses for signed-in shoppers so we can offer pre-fill.
+  // Silently no-ops for guests — the addresses endpoint returns 401 which
+  // we swallow here. Pre-fill fires exactly once per checkout session (guarded
+  // by `defaultAddressAppliedRef`) and only if the shopper hasn't already
+  // typed something into the recipient fields.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    apiFetch<{ ok: boolean; addresses: SavedAddress[] }>("/me/addresses")
+      .then((r) => {
+        if (cancelled) return;
+        const addrs = r.addresses ?? [];
+        setSavedAddresses(addrs);
+        if (!defaultAddressAppliedRef.current) {
+          defaultAddressAppliedRef.current = true;
+          const def = addrs.find((a) => a.isDefault) ?? addrs[0];
+          if (def) applyAddressToRecipient(def, setRecipient, { onlyEmpty: true });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -671,6 +752,52 @@ export default function Checkout() {
                 <div>
                   <h2 className="text-3xl font-serif mb-2">{t("checkout.step1.title")}</h2>
                   <p className="text-muted-foreground mb-8">{t("checkout.step1.desc")}</p>
+
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-5">
+                      <Popover open={addressPickerOpen} onOpenChange={setAddressPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-secondary/40 transition-colors"
+                            data-testid="button-use-saved-address"
+                          >
+                            <BookUser className="w-4 h-4 text-primary" />
+                            Use a saved address
+                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-72 p-1">
+                          <div className="py-1 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Saved addresses
+                          </div>
+                          {savedAddresses.map((addr) => (
+                            <button
+                              key={addr.id}
+                              type="button"
+                              onClick={() => {
+                                applyAddressToRecipient(addr, setRecipient);
+                                setAddressPickerOpen(false);
+                              }}
+                              className="w-full flex items-start gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-secondary/60 transition-colors"
+                              data-testid={`saved-address-option-${addr.id}`}
+                            >
+                              <MapPin className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+                              <div className="min-w-0">
+                                <div className="font-medium leading-snug">{addressDisplayLabel(addr)}</div>
+                                {addr.district && (
+                                  <div className="text-xs text-muted-foreground mt-0.5 truncate">{addr.district}</div>
+                                )}
+                                {addr.isDefault && (
+                                  <div className="text-xs text-gold font-medium mt-0.5">Default</div>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="space-y-2">
