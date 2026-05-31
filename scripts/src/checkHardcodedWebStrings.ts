@@ -143,6 +143,14 @@ export function stripExpressionsAndTrim(text: string): string {
 }
 
 /**
+ * Returns true when text contains Arabic-script characters (U+0600–U+06FF).
+ * Used to catch hardcoded Arabic strings that bypass the t() translation function.
+ */
+export function containsArabicScript(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
+/**
  * Returns true when text looks like user-visible English prose.
  *
  * Passes when:
@@ -314,12 +322,12 @@ for (const filePath of files) {
       const inner = m[1];
       // Skip if the whole content is a single {expression}
       if (/^\s*\{[^{}]*\}\s*$/.test(inner)) continue;
-      // Skip if there is no Latin letter at all (icon-only, numeric, etc.)
-      if (!/[a-zA-Z]/.test(inner)) continue;
+      // Skip if there is no Latin letter AND no Arabic script (icon-only, numeric, etc.)
+      if (!/[a-zA-Z]/.test(inner) && !containsArabicScript(inner)) continue;
       // Skip HTML entity strings (e.g. "&ldquo; &rdquo;") — not prose
       if (/^\s*&[a-z]+;/.test(inner)) continue;
       const text = stripExpressionsAndTrim(inner);
-      if (looksLikeEnglishProse(text)) {
+      if (looksLikeEnglishProse(text) || containsArabicScript(text)) {
         // De-duplicate: skip if we already recorded this exact line/text pair
         if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
           hits.push({ file: rel, line: lineNum, kind: "jsx-text", text });
@@ -352,7 +360,7 @@ for (const filePath of files) {
     while ((m = VISIBLE_PROP_RE.exec(raw)) !== null) {
       const attr = m[1];
       const text = m[2].trim();
-      if (!looksLikeEnglishProse(text)) continue;
+      if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "jsx-prop", attr, text });
       }
@@ -364,10 +372,12 @@ for (const filePath of files) {
       const text = m[1].trim();
       // Skip CSS-like strings (contain hyphens or colons — utility class tokens)
       if (/[-:]/.test(text)) continue;
-      // Require 2+ word tokens: single-word ?? fallbacks are almost always
-      // technical defaults ("carousel", "Banner", "Beirut"), not user-visible prose.
+      const isArabic = containsArabicScript(text);
+      // Require 2+ word tokens for Latin text: single-word ?? fallbacks are almost
+      // always technical defaults ("carousel", "Banner", "Beirut"), not user-visible
+      // prose.  Arabic text passes without a Latin word-count check.
       const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
-      if (wordTokens.length < 2) continue;
+      if (!isArabic && wordTokens.length < 2) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
@@ -381,7 +391,7 @@ for (const filePath of files) {
     DOC_TITLE_RE.lastIndex = 0;
     while ((m = DOC_TITLE_RE.exec(raw)) !== null) {
       const text = m[1].trim();
-      if (!looksLikeEnglishProse(text)) continue;
+      if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "doc-title", text });
       }
@@ -397,7 +407,7 @@ for (const filePath of files) {
         const text = m[1].trim();
         // Skip URLs — og:image etc. sometimes sit adjacent to og:title on the same line
         if (/^https?:\/\//.test(text)) continue;
-        if (!looksLikeEnglishProse(text)) continue;
+        if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
         if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
           hits.push({ file: rel, line: lineNum, kind: "meta-title", text });
         }
@@ -413,9 +423,10 @@ for (const filePath of files) {
       const text = m[1].trim();
       // Skip CSS-like strings (contain hyphens or colons)
       if (/[-:]/.test(text)) continue;
-      // Require 2+ word tokens
+      const isArabic = containsArabicScript(text);
+      // Require 2+ word tokens for Latin text; Arabic text passes without the check.
       const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
-      if (wordTokens.length < 2) continue;
+      if (!isArabic && wordTokens.length < 2) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
@@ -457,14 +468,14 @@ if (jsonOutPath) {
 
 if (hits.length === 0) {
   console.log(
-    "✓ No hardcoded English strings detected in web TSX/MJS files.\n" +
+    "✓ No hardcoded English or Arabic strings detected in web TSX/MJS files.\n" +
     "  All user-visible text appears to use t() or a localised COPY/dict constant.",
   );
   process.exit(0);
 }
 
 console.error(
-  `\n✗ Found ${hits.length} likely-hardcoded English string${hits.length === 1 ? "" : "s"} ` +
+  `\n✗ Found ${hits.length} likely-hardcoded string${hits.length === 1 ? "" : "s"} ` +
   `in ${byFile.size} web source file${byFile.size === 1 ? "" : "s"} (TSX + MJS):\n`,
 );
 

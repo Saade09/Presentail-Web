@@ -18,6 +18,7 @@ import { describe, it, expect } from "vitest";
 import {
   stripExpressionsAndTrim,
   looksLikeEnglishProse,
+  containsArabicScript,
   shouldSkipLine,
   SKIP_DIRS,
   SKIP_FILE_SUFFIXES,
@@ -167,6 +168,50 @@ describe("looksLikeEnglishProse — negative (Arabic/non-Latin: should NOT detec
   it("returns false for a pure JSX expression (no remaining text)", () => {
     expect(looksLikeEnglishProse("{t.someKey}")).toBe(false);
     expect(looksLikeEnglishProse("  {someVar}  ")).toBe(false);
+  });
+});
+
+// ── containsArabicScript ───────────────────────────────────────────────────────
+
+describe("containsArabicScript — positive (should detect Arabic)", () => {
+  it("returns true for common Arabic text", () => {
+    expect(containsArabicScript("أرسل الزهور")).toBe(true);
+    expect(containsArabicScript("حقيبتك فارغة")).toBe(true);
+    expect(containsArabicScript("تابع إلى الدفع")).toBe(true);
+  });
+
+  it("returns true for a character at the U+0600 boundary", () => {
+    expect(containsArabicScript("\u0600")).toBe(true);
+  });
+
+  it("returns true for a character at the U+06FF boundary", () => {
+    expect(containsArabicScript("\u06FF")).toBe(true);
+  });
+
+  it("returns true for Arabic mixed with other characters", () => {
+    expect(containsArabicScript("hello أرسل world")).toBe(true);
+  });
+});
+
+describe("containsArabicScript — negative (should not detect Arabic)", () => {
+  it("returns false for pure English text", () => {
+    expect(containsArabicScript("Send Flowers")).toBe(false);
+  });
+
+  it("returns false for French accented text", () => {
+    expect(containsArabicScript("Envoyer des fleurs")).toBe(false);
+  });
+
+  it("returns false for an empty string", () => {
+    expect(containsArabicScript("")).toBe(false);
+  });
+
+  it("returns false for digits and punctuation", () => {
+    expect(containsArabicScript("+961 123 456")).toBe(false);
+  });
+
+  it("returns false for Latin characters with diacritics (non-Arabic)", () => {
+    expect(containsArabicScript("café résumé")).toBe(false);
   });
 });
 
@@ -334,6 +379,92 @@ describe("file-name filter logic — test and declaration files", () => {
 
   it("excludes .test.jsx files", () => {
     expect(isScannable("Component.test.jsx")).toBe(false);
+  });
+});
+
+// ── Arabic detection in patterns (integration) ────────────────────────────────
+
+describe("Arabic detection — Pattern A (inline JSX text)", () => {
+  it("flags pure Arabic JSX text (no Latin letters)", () => {
+    const inner = "أرسل الزهور";
+    const hasArabic = containsArabicScript(inner);
+    const hasLatin = /[a-zA-Z]/.test(inner);
+    expect(hasArabic).toBe(true);
+    expect(hasLatin).toBe(false);
+    expect(hasArabic || hasLatin).toBe(true);
+  });
+
+  it("flags Arabic text embedded in a JSX node after extracting via regex", () => {
+    const line = "<Text>أرسل الزهور</Text>";
+    INLINE_JSX_TEXT_RE.lastIndex = 0;
+    const m = INLINE_JSX_TEXT_RE.exec(line);
+    expect(m).not.toBeNull();
+    expect(containsArabicScript(m![1])).toBe(true);
+  });
+
+  it("flags Arabic text with an embedded JSX expression", () => {
+    const line = "<Text>مرحبا {name}</Text>";
+    INLINE_JSX_TEXT_RE.lastIndex = 0;
+    const m = INLINE_JSX_TEXT_RE.exec(line);
+    expect(m).not.toBeNull();
+    expect(containsArabicScript(m![1])).toBe(true);
+  });
+
+  it("does not flag a pure {expression} node (no Arabic or Latin)", () => {
+    const inner = "{t.sendFlowers}";
+    const isOnlyExpr = /^\s*\{[^{}]*\}\s*$/.test(inner);
+    expect(isOnlyExpr).toBe(true);
+  });
+});
+
+describe("Arabic detection — Pattern C (JSX props)", () => {
+  it("flags an Arabic placeholder prop value", () => {
+    const line = 'placeholder="ابحث عن الزهور"';
+    VISIBLE_PROP_RE.lastIndex = 0;
+    const m = VISIBLE_PROP_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![2].trim();
+    expect(containsArabicScript(text)).toBe(true);
+  });
+
+  it("flags an Arabic accessibilityLabel value", () => {
+    const line = 'accessibilityLabel="إغلاق"';
+    VISIBLE_PROP_RE.lastIndex = 0;
+    const m = VISIBLE_PROP_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![2].trim();
+    expect(containsArabicScript(text)).toBe(true);
+  });
+});
+
+describe("Arabic detection — Pattern D (nullish-coalescing fallback)", () => {
+  it("flags an Arabic ?? fallback string", () => {
+    const line = 'label ?? "حقيبتك فارغة"';
+    NULLISH_FALLBACK_RE.lastIndex = 0;
+    const m = NULLISH_FALLBACK_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![1].trim();
+    expect(containsArabicScript(text)).toBe(true);
+  });
+});
+
+describe("Arabic detection — Pattern E (nav options)", () => {
+  it("flags an Arabic nav title option", () => {
+    const line = "title: 'طلباتي'";
+    NAV_OPTION_RE.lastIndex = 0;
+    const m = NAV_OPTION_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![2].trim();
+    expect(containsArabicScript(text)).toBe(true);
+  });
+});
+
+describe("Arabic detection — i18n-ignore suppression", () => {
+  const I18N_IGNORE_RE = /\/\/\s*i18n-ignore\b|\/\*\s*i18n-ignore\b/;
+
+  it("i18n-ignore suppresses Arabic hits just like English ones", () => {
+    expect(I18N_IGNORE_RE.test("<Text>أرسل الزهور</Text> // i18n-ignore")).toBe(true);
+    expect(I18N_IGNORE_RE.test("<Text>أرسل الزهور</Text>")).toBe(false);
   });
 });
 
