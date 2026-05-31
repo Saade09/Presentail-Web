@@ -33,20 +33,6 @@ export const shopStrings: Dict = {
   "shop.browseAll": { en: "Browse all collections", ar: "تصفح كل المجموعات" },
   "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
 
-  "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
-  "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
-  "shop.cat.plants": { en: "Plants", ar: "النباتات" },
-  "shop.cat.cakes": { en: "Cakes", ar: "الكعك" },
-  "shop.cat.chocolate": { en: "Chocolate", ar: "الشوكولاتة" },
-  "shop.cat.bundles": { en: "Bundles", ar: "الباقات المجمعة" },
-  "shop.cat.baskets": { en: "Baskets", ar: "السلال" },
-  "shop.cat.bearsBalloons": { en: "Bears & Balloons", ar: "الدببة والبالونات" },
-
-  "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
-  "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
-  "shop.occ.congratulations": { en: "Congratulations", ar: "تهانينا" },
-  "shop.occ.thankYou": { en: "Thank You", ar: "شكراً لك" },
-  "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -82,18 +68,4 @@ export const shopStringsFr: Record<string, string> = {
   "shop.browseAll": "Parcourir toutes les collections",
   "shop.removeBrandFilter": "Supprimer le filtre de marque",
 
-  "shop.cat.handBouquets": "Bouquets à la main",
-  "shop.cat.flowerBoxes": "Boîtes de fleurs",
-  "shop.cat.plants": "Plantes",
-  "shop.cat.cakes": "Gâteaux",
-  "shop.cat.chocolate": "Chocolat",
-  "shop.cat.bundles": "Coffrets",
-  "shop.cat.baskets": "Paniers",
-  "shop.cat.bearsBalloons": "Ours et ballons",
-
-  "shop.occ.birthday": "Anniversaire",
-  "shop.occ.loveRomance": "Amour et romance",
-  "shop.occ.congratulations": "Félicitations",
-  "shop.occ.thankYou": "Merci",
-  "shop.occ.condolences": "Condoléances",
 };

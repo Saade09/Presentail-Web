@@ -101,12 +101,9 @@ const EN = {
 
   // Common UI
   seeAll: "See All",
-  search: "Search",
   searchPlaceholder: "Search products, brands, occasions",
   loading: "Loading…",
   boutiqueSub: "{country}",
-  featured: "Featured",
-  name: "Name",
 
   // Product tags
 
@@ -115,7 +112,6 @@ const EN = {
   emptyCartSubtitle: "Start adding thoughtful gifts and we'll keep them here until you're ready to send.",
   browseGifts: "Browse Gifts",
   subtotal: "Subtotal",
-  checkout: "CHECKOUT",
   expressDelivery: "Express Delivery",
   todayDelivery: "Today",
   continueShopping: "Continue Shopping",
@@ -133,18 +129,6 @@ const EN = {
   occ_love_romance: "Love & Romance",
   occ_farewell: "Farewell",
   occ_condolences: "Condolences",
-  occ_anniversary: "Anniversary",
-  occ_wedding: "Wedding",
-  occ_graduation: "Graduation",
-  occ_get_well_soon: "Get Well Soon",
-  occ_newborn: "New Baby",
-  occ_eid: "Eid Mubarak",
-  occ_congratulations: "Congratulations",
-  occ_thinking_of_you: "Thinking of You",
-  occ_colleague: "Colleague",
-  occ_friend: "Friend",
-  occ_im_sorry: "I'm Sorry",
-  occ_children: "Children",
 
   // Occasion descriptions
   occ_housewarming_desc: "Welcome them to a new chapter with blooms and home pieces.",
@@ -163,7 +147,6 @@ const EN = {
   selectCurrency: "Select Currency",
   currencyUseAutomatic: "Use automatic",
   currencyAutomaticHint: "Detects from your location",
-  country: "Country",
 
   // ── Product page ──
   productNotFound: "Product not found",
@@ -300,7 +283,6 @@ const EN = {
   notifCatDeliveryDesc: "When your gift is on the way, arriving, or has been delivered.",
   notifCatDropsTitle: "Seasonal drops & offers",
   notifCatDropsDesc: "New collections, limited drops and the occasional treat — no spam.",
-
   // ── FAQ page ──
   faqPageSubtitle: "Answers to common questions",
   faqStillTitle: "Still have questions?",
@@ -774,7 +756,6 @@ const EN = {
   privacy_sec9_body: "We may update this Privacy Policy from time to time to reflect changes to our services or applicable law. The most recent version will always be available in the app, and we will note the effective date at the top. Continued use of Presentail after an update constitutes acceptance of the revised policy.",
   privacy_sec10_title: "Contact Us",
   privacy_sec10_body: "For any questions or concerns about this Privacy Policy or how your data is handled, please contact us at privacy@presentail.com or through the Customer Care section of the app. Our registered address is 3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon.",
-
   // ── Delivery location ──
   deliveryHeading: "Delivery",
   deliverySheetTitle: "Send your gift to...",
@@ -889,12 +870,9 @@ const AR: typeof EN = {
 
   // Common UI
   seeAll: "عرض الكل",
-  search: "بحث",
   searchPlaceholder: "ابحث عن منتجات، علامات، مناسبات",
   loading: "جارٍ التحميل…",
   boutiqueSub: "{country}",
-  featured: "مميز",
-  name: "الاسم",
 
   // Product tags
 
@@ -903,7 +881,6 @@ const AR: typeof EN = {
   emptyCartSubtitle: "ابدأ بإضافة هدايا مميزة وسنحتفظ بها هنا حتى تصبح جاهزاً لإرسالها.",
   browseGifts: "تصفح الهدايا",
   subtotal: "المجموع الفرعي",
-  checkout: "الدفع",
   expressDelivery: "توصيل سريع",
   todayDelivery: "اليوم",
   continueShopping: "متابعة التسوق",
@@ -921,18 +898,6 @@ const AR: typeof EN = {
   occ_love_romance: "الحب والرومانسية",
   occ_farewell: "وداع",
   occ_condolences: "تعازي",
-  occ_anniversary: "ذكرى سنوية",
-  occ_wedding: "زفاف",
-  occ_graduation: "تخرج",
-  occ_get_well_soon: "شفاء عاجل",
-  occ_newborn: "مولود جديد",
-  occ_eid: "عيد مبارك",
-  occ_congratulations: "تهانٍ",
-  occ_thinking_of_you: "أفكر بك",
-  occ_colleague: "زميل",
-  occ_friend: "صديق",
-  occ_im_sorry: "أنا آسف",
-  occ_children: "أطفال",
 
   // Occasion descriptions
   occ_housewarming_desc: "رحّب بهم في فصل جديد بالزهور وقطع المنزل.",
@@ -951,7 +916,6 @@ const AR: typeof EN = {
   selectCurrency: "اختر العملة",
   currencyUseAutomatic: "تلقائي",
   currencyAutomaticHint: "يتم تحديدها من موقعك",
-  country: "البلد",
 
   // ── Product page ──
   productNotFound: "المنتج غير موجود",
@@ -1088,7 +1052,6 @@ const AR: typeof EN = {
   notifCatDeliveryDesc: "عندما تكون هديتك في الطريق، تقترب، أو تم تسليمها.",
   notifCatDropsTitle: "إصدارات موسمية وعروض",
   notifCatDropsDesc: "مجموعات جديدة، إصدارات محدودة ولفتات بين الحين والآخر — بلا إزعاج.",
-
   // ── FAQ page ──
   faqPageSubtitle: "إجابات على الأسئلة الشائعة",
   faqStillTitle: "هل لا تزال لديك أسئلة؟",
@@ -1136,25 +1099,25 @@ const AR: typeof EN = {
   termsLastUpdated: "آخر تحديث: مايو 2026",
   termsIntro: "تحكم هذه الشروط والأحكام استخدامك لتطبيق وخدمات Presentail. باستخدامك للتطبيق، فإنك توافق على الالتزام بهذه الشروط.",
   terms_sec1_title: "قبول الشروط",
-  terms_sec1_body: "بإنشائك حساباً أو تقديم طلب أو استخدام Presentail، فإنك تؤكد أنك قرأت وفهمت ووافقت على هذه الشروط والأحكام وسياسة الخصوصية. إذا لم توافق، يرجى التوقف عن استخدام التطبيق.",
+  terms_sec1_body: "من خلال إنشاء حساب أو تقديم طلب أو استخدام Presentail بأي شكل آخر، فإنك تؤكد أنك قرأت وفهمت ووافقت على هذه الشروط والأحكام وسياسة الخصوصية الخاصة بنا. إذا كنت لا توافق، يرجى التوقف عن استخدام التطبيق.",
   terms_sec2_title: "الحساب والأهلية",
-  terms_sec2_body: "يجب أن يكون عمرك 18 عاماً على الأقل لإنشاء حساب. أنت مسؤول عن الحفاظ على سرية بيانات تسجيل الدخول الخاصة بك وعن أي نشاط ضمن حسابك. يرجى التواصل معنا فوراً إذا اشتبهت في استخدام غير مصرح به.",
+  terms_sec2_body: "يجب أن يكون عمرك 18 عاماً على الأقل لإنشاء حساب. أنت مسؤول عن الحفاظ على سرية تفاصيل تسجيل الدخول الخاصة بك وعن أي نشاط يتم تحت حسابك. يرجى الاتصال بنا فوراً إذا كنت تشك في استخدام غير مصرح به.",
   terms_sec3_title: "الطلبات والمدفوعات",
-  terms_sec3_body: "تخضع جميع الطلبات للتوفر والقبول. تُعرض الأسعار بالعملة المختارة وتشمل الضرائب المطبقة ما لم يُنص على خلاف ذلك. تتم معالجة الدفع بأمان عند الدفع. نحتفظ بحق إلغاء أي طلب وفقاً لتقديرنا، وفي هذه الحالة سيتم إصدار استرداد كامل.",
+  terms_sec3_body: "تخضع جميع الطلبات للتوافر والقبول. يتم عرض الأسعار بالعملة المختارة وتشمل الضرائب المعمول بها ما لم ينص على خلاف ذلك. تتم معالجة الدفع بأمان عند الدفع. نحتفظ بالحق في إلغاء أي طلب وفقاً لتقديرنا، وفي هذه الحالة سيتم إصدار استرداد كامل المبلغ.",
   terms_sec4_title: "التوصيل",
-  terms_sec4_body: "نقوم بالتوصيل في لبنان وقبرص والإمارات العربية المتحدة. أوقات التوصيل تقديرية وقد تختلف بسبب حركة المرور أو الطقس أو توفر المستلم. إذا تعذر الوصول إلى المستلم، سنتواصل مع المُرسل لإعادة الجدولة أو تحديث العنوان.",
+  terms_sec4_body: "نحن نقوم بالتوصيل في جميع أنحاء لبنان وقبرص والإمارات العربية المتحدة. أوقات التوصيل هي تقديرات وقد تختلف بسبب حركة المرور أو الطقس أو توفر المستلم. إذا تعذر الوصول إلى المستلم، فسنقوم بالاتصال بالمرسل لإعادة تحديد موعد أو تحديث عنوان التوصيل.",
   terms_sec5_title: "الإلغاء والاسترداد",
-  terms_sec5_body: "نقبل إلغاء الطلبات حتى 24 ساعة قبل موعد التوصيل المحدد. تُعاد المبالغ المؤهلة إلى وسيلة الدفع الأصلية خلال 7–10 أيام عمل. نظراً لطبيعة منتجاتنا القابلة للتلف، لا يمكننا قبول الإرجاع بعد التوصيل.",
+  terms_sec5_body: "يتم قبول إلغاء الطلبات حتى 24 ساعة قبل تاريخ التوصيل المحدد. يتم إرجاع المبالغ المستردة للإلغاءات المؤهلة إلى طريقة الدفع الأصلية في غضون 7-10 أيام عمل. نظراً للطبيعة القابلة للتلف لمنتجاتنا، لا يمكننا قبول المرتجعات بعد التوصيل.",
   terms_sec6_title: "معلومات المنتج",
-  terms_sec6_body: "الصور والأوصاف لأغراض التوضيح. قد تختلف تنسيقات الزهور قليلاً بناءً على التوفر الموسمي مع الحفاظ على الطابع العام والقيمة. نبذل قصارى جهدنا لمطابقة المظهر الذي طلبته.",
+  terms_sec6_body: "الصور والأوصاف هي للتوضيح. قد تختلف تنسيقات الزهور قليلاً بناءً على التوافر الموسمي مع الحفاظ على النمط والقيمة العامة. نحن نبذل قصارى جهدنا دائماً لمطابقة المظهر الذي طلبته.",
   terms_sec7_title: "الملكية الفكرية",
-  terms_sec7_body: "جميع المحتويات في التطبيق — بما في ذلك الشعارات والصور والتصاميم والنصوص — هي ملك لـ Presentail أو الجهات المرخصة، وهي محمية بقوانين حقوق النشر والعلامات التجارية. لا يجوز إعادة إنتاجها أو استخدامها دون موافقة كتابية منا.",
+  terms_sec7_body: "جميع المحتويات الموجودة في التطبيق - بما في ذلك الشعارات والصور والتصاميم والنصوص - هي ملك لشركة Presentail أو مرخصيها ومحمية بموجب قوانين حقوق النشر والعلامات التجارية. لا يجوز لك إعادة إنتاج أو استخدام أي منها دون موافقتنا الخطية.",
   terms_sec8_title: "تحديد المسؤولية",
-  terms_sec8_body: "Presentail غير مسؤولة عن أي أضرار غير مباشرة أو تبعية ناتجة عن استخدام خدماتنا. تقتصر مسؤوليتنا الإجمالية عن أي مطالبة على قيمة الطلب المعني.",
+  terms_sec8_body: "لا تتحمل Presentail المسؤولية عن أي أضرار غير مباشرة أو تبعية ناشئة عن استخدام خدماتنا. تقتصر مسؤوليتنا الإجمالية عن أي مطالبة على قيمة الطلب ذي الصلة.",
   terms_sec9_title: "تغييرات الشروط",
-  terms_sec9_body: "قد نقوم بتحديث هذه الشروط والأحكام من وقت لآخر. ستتوفر النسخة الأحدث دائماً في التطبيق. يُعد استمرار استخدامك Presentail بعد التحديث قبولاً للشروط المعدلة.",
-  terms_sec10_title: "تواصل معنا",
-  terms_sec10_body: "لأي أسئلة حول هذه الشروط، يرجى التواصل معنا على hello@presentail.com أو عبر خيار خدمة العملاء في التطبيق.",
+  terms_sec9_body: "قد نقوم بتحديث هذه الشروط والأحكام من وقت لآخر. سيكون أحدث إصدار متاحاً دائماً في التطبيق. إن الاستمرار في استخدام Presentail بعد التحديث يعتبر قبولاً للشروط المعدلة.",
+  terms_sec10_title: "اتصل بنا",
+  terms_sec10_body: "لأي أسئلة حول هذه الشروط، يرجى الاتصال بنا على hello@presentail.com أو من خلال خيار خدمة العملاء في التطبيق.",
   // ── Home / Drawer additions ──
 
   // ── Home sections ──
@@ -1557,7 +1520,6 @@ const AR: typeof EN = {
   privacy_sec9_body: "قد نقوم بتحديث سياسة الخصوصية هذه من وقت لآخر لتعكس تغييرات في خدماتنا أو القوانين المعمول بها. ستتوفر النسخة الأحدث دائماً في التطبيق، وسنُشير إلى تاريخ السريان في الأعلى. يُعدّ استمرار استخدامك Presentail بعد التحديث قبولاً للسياسة المعدّلة.",
   privacy_sec10_title: "تواصل معنا",
   privacy_sec10_body: "لأي أسئلة أو مخاوف بشأن سياسة الخصوصية أو طريقة معالجة بياناتك، يرجى التواصل معنا على privacy@presentail.com أو عبر قسم خدمة العملاء في التطبيق. عنواننا المسجّل هو: الطابق الثالث، كرم ومونّس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان.",
-
   // ── Delivery location ──
   deliveryHeading: "التوصيل",
   deliverySheetTitle: "أرسل هديتك إلى...",
@@ -1672,12 +1634,9 @@ const FR: typeof EN = {
 
   // Common UI
   seeAll: "Voir tout",
-  search: "Rechercher",
   searchPlaceholder: "Rechercher produits, marques, occasions",
   loading: "Chargement…",
   boutiqueSub: "{country}",
-  featured: "En vedette",
-  name: "Nom",
 
   // Product tags
 
@@ -1686,7 +1645,6 @@ const FR: typeof EN = {
   emptyCartSubtitle: "Commencez à ajouter des cadeaux attentionnés et nous les garderons ici jusqu'à ce que vous soyez prêt à les envoyer.",
   browseGifts: "Découvrir les cadeaux",
   subtotal: "Sous-total",
-  checkout: "PAIEMENT",
   expressDelivery: "Livraison express",
   todayDelivery: "Aujourd'hui",
   continueShopping: "Continuer mes achats",
@@ -1704,18 +1662,6 @@ const FR: typeof EN = {
   occ_love_romance: "Amour & Romance",
   occ_farewell: "Adieu",
   occ_condolences: "Condoléances",
-  occ_anniversary: "Anniversaire de mariage",
-  occ_wedding: "Mariage",
-  occ_graduation: "Remise des diplômes",
-  occ_get_well_soon: "Bon rétablissement",
-  occ_newborn: "Nouveau-né",
-  occ_eid: "Aïd Moubarak",
-  occ_congratulations: "Félicitations",
-  occ_thinking_of_you: "Je pense à toi",
-  occ_colleague: "Collègue",
-  occ_friend: "Ami(e)",
-  occ_im_sorry: "Je suis désolé(e)",
-  occ_children: "Enfants",
 
   // Occasion descriptions
   occ_housewarming_desc: "Souhaitez-leur la bienvenue dans une nouvelle étape avec des fleurs et des objets pour la maison.",
@@ -1734,7 +1680,6 @@ const FR: typeof EN = {
   selectCurrency: "Choisir la devise",
   currencyUseAutomatic: "Automatique",
   currencyAutomaticHint: "Détectée selon votre emplacement",
-  country: "Pays",
 
   // ── Product page ──
   productNotFound: "Produit introuvable",
@@ -1871,7 +1816,6 @@ const FR: typeof EN = {
   notifCatDeliveryDesc: "Quand votre cadeau est en route, arrive bientôt ou a été livré.",
   notifCatDropsTitle: "Éditions saisonnières et offres",
   notifCatDropsDesc: "Nouvelles collections, éditions limitées et attentions occasionnelles — sans spam.",
-
   // ── FAQ page ──
   faqPageSubtitle: "Réponses aux questions fréquentes",
   faqStillTitle: "Encore des questions ?",
@@ -1919,25 +1863,25 @@ const FR: typeof EN = {
   termsLastUpdated: "Dernière mise à jour : mai 2026",
   termsIntro: "Ces Conditions générales régissent votre utilisation de l'application et des services Presentail. En utilisant notre application, vous acceptez d'être lié par ces conditions.",
   terms_sec1_title: "Acceptation des conditions",
-  terms_sec1_body: "En créant un compte, en passant une commande ou en utilisant Presentail, vous confirmez avoir lu, compris et accepté ces Conditions générales et notre Politique de confidentialité. Si vous n'acceptez pas, veuillez cesser d'utiliser l'application.",
+  terms_sec1_body: "En créant un compte, en passant une commande ou en utilisant Presentail, vous confirmez avoir lu, compris et accepté ces Conditions générales et notre Politique de confidentialité. Si vous n'êtes pas d'accord, veuillez cesser d'utiliser l'application.",
   terms_sec2_title: "Compte et éligibilité",
   terms_sec2_body: "Vous devez avoir au moins 18 ans pour créer un compte. Vous êtes responsable de la confidentialité de vos identifiants et de toute activité sur votre compte. Veuillez nous contacter immédiatement en cas d'utilisation non autorisée.",
   terms_sec3_title: "Commandes et paiements",
-  terms_sec3_body: "Toutes les commandes sont soumises à disponibilité et acceptation. Les prix sont affichés dans la devise sélectionnée et incluent les taxes applicables sauf mention contraire. Le paiement est traité de manière sécurisée à la caisse. Nous nous réservons le droit d'annuler toute commande à notre discrétion, auquel cas un remboursement intégral sera émis.",
+  terms_sec3_body: "Toutes les commandes sont soumises à disponibilité et acceptation. Les prix sont affichés dans la devise choisie et incluent les taxes applicables, sauf indication contraire. Le paiement est sécurisé. Nous nous réservons le droit d'annuler toute commande, auquel cas un remboursement intégral sera effectué.",
   terms_sec4_title: "Livraison",
-  terms_sec4_body: "Nous livrons au Liban, à Chypre et aux Émirats arabes unis. Les délais de livraison sont indicatifs et peuvent varier en raison du trafic, des conditions météo ou de la disponibilité du destinataire. Si le destinataire n'est pas joignable, nous contacterons l'expéditeur pour reprogrammer ou mettre à jour l'adresse.",
+  terms_sec4_body: "Nous livrons au Liban, à Chypre et aux Émirats arabes unis. Les délais sont estimatifs et peuvent varier selon le trafic, la météo ou la disponibilité du destinataire. Si le destinataire est injoignable, nous contacterons l'expéditeur pour reprogrammer ou modifier l'adresse.",
   terms_sec5_title: "Annulations et remboursements",
-  terms_sec5_body: "Les annulations sont acceptées jusqu'à 24 heures avant la date de livraison prévue. Les remboursements éligibles sont retournés sur le moyen de paiement d'origine sous 7 à 10 jours ouvrés. En raison de la nature périssable de nos produits, nous ne pouvons pas accepter de retours après livraison.",
-  terms_sec6_title: "Informations produit",
-  terms_sec6_body: "Les photos et descriptions sont à titre indicatif. Les compositions florales peuvent légèrement varier en fonction de la disponibilité saisonnière, tout en conservant le style général et la valeur. Nous faisons toujours de notre mieux pour respecter le rendu commandé.",
+  terms_sec5_body: "Les annulations sont acceptées jusqu'à 24 heures avant la date prévue. Les remboursements sont effectués sur le mode de paiement d'origine sous 7 à 10 jours ouvrables. En raison de la nature périssable de nos produits, nous n'acceptons pas de retours après livraison.",
+  terms_sec6_title: "Information produit",
+  terms_sec6_body: "Les photos et descriptions sont illustratives. Les compositions florales peuvent varier selon la saison tout en préservant le style et la valeur. Nous faisons toujours de notre mieux pour correspondre au visuel commandé.",
   terms_sec7_title: "Propriété intellectuelle",
-  terms_sec7_body: "Tous les contenus de l'application — y compris logos, photographies, designs et textes — sont la propriété de Presentail ou de ses concédants et sont protégés par les lois sur le droit d'auteur et les marques. Vous ne pouvez les reproduire ou les utiliser sans notre consentement écrit.",
+  terms_sec7_body: "Tout le contenu de l'application — logos, photos, designs et textes — est la propriété de Presentail ou de ses concédants et est protégé par les lois sur le droit d'auteur. Toute reproduction est interdite sans notre consentement écrit.",
   terms_sec8_title: "Limitation de responsabilité",
-  terms_sec8_body: "Presentail n'est pas responsable des dommages indirects ou consécutifs résultant de l'utilisation de nos services. Notre responsabilité totale pour toute réclamation est limitée à la valeur de la commande concernée.",
-  terms_sec9_title: "Modifications des conditions",
-  terms_sec9_body: "Nous pouvons mettre à jour ces Conditions générales à tout moment. La dernière version sera toujours disponible dans l'application. La poursuite de l'utilisation de Presentail après une mise à jour constitue l'acceptation des conditions révisées.",
+  terms_sec8_body: "Presentail n'est pas responsable des dommages indirects découlant de l'utilisation de nos services. Notre responsabilité totale est limitée à la valeur de la commande concernée.",
+  terms_sec9_title: "Modification des conditions",
+  terms_sec9_body: "Nous pouvons mettre à jour ces Conditions générales. La dernière version sera toujours disponible dans l'application. L'utilisation continue de Presentail après une mise à jour vaut acceptation des nouvelles conditions.",
   terms_sec10_title: "Contact",
-  terms_sec10_body: "Pour toute question concernant ces conditions, veuillez nous contacter à hello@presentail.com ou via l'option Service client de l'application.",
+  terms_sec10_body: "Pour toute question, contactez-nous à hello@presentail.com ou via le Service client de l'application.",
   // ── Home / Drawer additions ──
 
   // ── Home sections ──
@@ -2343,7 +2287,6 @@ const FR: typeof EN = {
   privacy_sec9_body: "Nous pouvons mettre à jour cette Politique de confidentialité de temps à autre pour refléter des changements dans nos services ou la législation applicable. La version la plus récente sera toujours disponible dans l'application, et nous indiquerons la date d'entrée en vigueur en haut de page. La poursuite de l'utilisation de Presentail après une mise à jour vaut acceptation de la politique révisée.",
   privacy_sec10_title: "Nous contacter",
   privacy_sec10_body: "Pour toute question ou préoccupation concernant cette Politique de confidentialité ou le traitement de vos données, veuillez nous contacter à privacy@presentail.com ou via la section Service client de l'application. Notre adresse enregistrée est : 3e étage, Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban.",
-
   // ── Delivery location ──
   deliveryHeading: "Livraison",
   deliverySheetTitle: "Envoyez votre cadeau à...",
