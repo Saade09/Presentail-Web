@@ -40,3 +40,6 @@ jobs:
 
       - name: Type-check API server
         run: pnpm --filter @workspace/api-server run typecheck
+
+      - name: Lint API server
+        run: pnpm --filter @workspace/api-server run lint
