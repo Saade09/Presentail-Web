@@ -20,6 +20,28 @@ on:
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/package.json"
       - ".github/workflows/check-translations.yml"
+  # Smoke-test trigger: manually validate that the path-filter outputs are
+  # correct for push-to-main scenarios (dorny/paths-filter behaves differently
+  # on push vs pull_request — it compares against the previous commit rather
+  # than the PR base).  Select which artifact to simulate as changed; all
+  # downstream jobs obey the same "mobile"/"web" outputs so you can confirm
+  # that, e.g., choosing "mobile-only" skips every web job and vice-versa.
+  workflow_dispatch:
+    inputs:
+      simulate_changed:
+        description: >
+          Simulate which artifact changed.  Use "detect" to run the normal
+          paths-filter against the HEAD commit (useful after a direct push to
+          main); use "mobile-only", "web-only", or "both" to force-enable the
+          corresponding downstream jobs without relying on git diff.
+        required: false
+        default: detect
+        type: choice
+        options:
+          - detect
+          - mobile-only
+          - web-only
+          - both
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
@@ -33,15 +55,31 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      mobile: ${{ steps.filter.outputs.mobile }}
-      web: ${{ steps.filter.outputs.web }}
+      # Each output merges the real paths-filter result with the manual
+      # override: exactly one of the two steps runs per invocation, so the
+      # skipped step produces an empty string and the || falls through to the
+      # step that did run.
+      mobile: ${{ steps.filter.outputs.mobile || steps.override.outputs.mobile }}
+      web: ${{ steps.filter.outputs.web || steps.override.outputs.web }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # fetch-depth 2 gives dorny/paths-filter access to the previous
+          # commit so it can diff HEAD against github.event.before on push
+          # events.  With the default depth-1 shallow clone the base commit
+          # is not present and the filter may mis-classify every file as
+          # changed (or fail to resolve the base entirely).
+          fetch-depth: 2
 
       - name: Detect which artifacts changed
         uses: dorny/paths-filter@v3
         id: filter
+        # Skip on workflow_dispatch when the caller has chosen an explicit
+        # simulation — the override step below sets the outputs instead.
+        if: >
+          github.event_name != 'workflow_dispatch' ||
+          github.event.inputs.simulate_changed == 'detect'
         with:
           filters: |
             mobile:
@@ -55,6 +93,24 @@ jobs:
               - 'scripts/src/checkHardcodedWebStrings.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
+
+      - name: Override filter outputs for smoke-test
+        id: override
+        if: >
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.simulate_changed != 'detect'
+        run: |
+          sim="${{ github.event.inputs.simulate_changed }}"
+          mobile=false
+          web=false
+          case "$sim" in
+            mobile-only) mobile=true ;;
+            web-only)    web=true ;;
+            both)        mobile=true; web=true ;;
+          esac
+          echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
+          echo "web=$web"    >> "$GITHUB_OUTPUT"
+          echo "Smoke-test: simulate_changed=$sim → mobile=$mobile web=$web"
 
   locale-dictionary-tests:
     name: Locale dictionary tests (web)
