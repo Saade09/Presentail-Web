@@ -12,9 +12,17 @@ import { sendAlert } from "./alerts";
 //   INP p75 > WEB_VITALS_INP_WARN_MS   (default 500 ms  — Google "needs improvement")
 //   CLS p75 > WEB_VITALS_CLS_WARN      (default 0.25    — Google "poor")
 //
-// Also queries `mobile_ttid` events (home + product screens) and includes
-// per-platform p50/p75/p95 rows in the same Slack digest so web and mobile
-// performance are visible together.
+// Also queries `mobile_ttid` events and fires Slack warn alerts when any
+// (platform, screen) pair's p50 exceeds its per-screen threshold:
+//   MOBILE_TTID_HOME_WARN_MS      (default 3000 ms; set to 0 to disable)
+//   MOBILE_TTID_PRODUCT_WARN_MS   (default 3000 ms; set to 0 to disable)
+//   MOBILE_TTID_BRAND_WARN_MS     (default 3000 ms; set to 0 to disable)
+//   MOBILE_TTID_CATEGORY_WARN_MS  (default 3000 ms; set to 0 to disable)
+//   MOBILE_TTID_OCCASION_WARN_MS  (default 3000 ms; set to 0 to disable)
+//   MOBILE_TTID_MIN_SAMPLES       (default 20 — skip screen when fewer samples)
+//
+// All per-screen TTID checks and web vitals checks fire as one consolidated
+// Slack alert so the team gets a single digest per day.
 //
 // Google's CrUX thresholds:
 //   LCP ≤ 2500 ms = good · ≤ 4000 ms = needs improvement · > 4000 ms = poor
@@ -50,6 +58,33 @@ const CLS_WARN = (() => {
 
 const MIN_SAMPLES = (() => {
   const raw = Number(process.env.WEB_VITALS_MIN_SAMPLES);
+  if (!Number.isFinite(raw) || raw <= 0) return 20;
+  return Math.floor(raw);
+})();
+
+// ── Mobile TTID threshold config ────────────────────────────────────────────
+
+const TTID_SCREENS = ["home", "product", "brand", "category", "occasion"] as const;
+type TtidScreen = (typeof TTID_SCREENS)[number];
+
+/** Parse a per-screen TTID threshold env var.  Returns null when disabled (0). */
+function parseTtidThreshold(raw: string | undefined, defaultMs: number): number | null {
+  const n = Number(raw);
+  if (raw !== undefined && Number.isFinite(n) && n === 0) return null; // explicitly disabled
+  if (!Number.isFinite(n) || n < 0) return defaultMs;
+  return n;
+}
+
+const TTID_WARN_MS: Record<TtidScreen, number | null> = {
+  home: parseTtidThreshold(process.env.MOBILE_TTID_HOME_WARN_MS, 3000),
+  product: parseTtidThreshold(process.env.MOBILE_TTID_PRODUCT_WARN_MS, 3000),
+  brand: parseTtidThreshold(process.env.MOBILE_TTID_BRAND_WARN_MS, 3000),
+  category: parseTtidThreshold(process.env.MOBILE_TTID_CATEGORY_WARN_MS, 3000),
+  occasion: parseTtidThreshold(process.env.MOBILE_TTID_OCCASION_WARN_MS, 3000),
+};
+
+const TTID_MIN_SAMPLES = (() => {
+  const raw = Number(process.env.MOBILE_TTID_MIN_SAMPLES);
   if (!Number.isFinite(raw) || raw <= 0) return 20;
   return Math.floor(raw);
 })();
@@ -103,6 +138,8 @@ export function startWebVitalsMonitor(): void {
       inpWarnMs: INP_WARN_MS,
       clsWarn: CLS_WARN,
       minSamples: MIN_SAMPLES,
+      ttidWarnMs: TTID_WARN_MS,
+      ttidMinSamples: TTID_MIN_SAMPLES,
     },
     "webVitalsMonitor: started",
   );
@@ -406,9 +443,28 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
       );
     }
 
+    // ── Mobile TTID threshold checks ──────────────────────────────────────
+    for (const row of mobileSummaries) {
+      const screen = row.screen as TtidScreen;
+      const warnMs = TTID_SCREENS.includes(screen) ? TTID_WARN_MS[screen] : null;
+      if (warnMs === null) continue; // disabled for this screen
+      if (row.count < TTID_MIN_SAMPLES) continue; // insufficient data
+      if (row.p50 > warnMs) {
+        regressions.push(
+          `Mobile TTID ${row.platform} ${row.screen} p50=${Math.round(row.p50)} ms > ${warnMs} ms threshold ` +
+            `(n=${row.count}, p75=${Math.round(row.p75)} ms, p95=${Math.round(row.p95)} ms)`,
+        );
+      }
+    }
+
     if (regressions.length > 0) {
+      const hasWebRegression = regressions.some((r) => !r.startsWith("Mobile TTID"));
+      const hasTtidRegression = regressions.some((r) => r.startsWith("Mobile TTID"));
+      const titleParts: string[] = [];
+      if (hasWebRegression) titleParts.push("Web Vitals");
+      if (hasTtidRegression) titleParts.push("Mobile TTID");
       await sendAlert({
-        title: `Web Vitals — regression(s) on ${day.iso} (UTC)`,
+        title: `${titleParts.join(" / ")} — regression(s) on ${day.iso} (UTC)`,
         body: regressions.join(" | "),
         severity: "warn",
         fields: allFields,
@@ -452,18 +508,25 @@ function buildDigestBody(
       ? `Insufficient CLS samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
       : `CLS p75=${cls.p75.toFixed(3)} within the ${CLS_WARN} threshold (n=${cls.count}).`;
 
-  const TTID_SCREEN_ORDER = ["home", "product", "brand", "category", "occasion"];
   const mobileLine =
     mobile.length === 0
       ? "No mobile TTID samples."
-      : TTID_SCREEN_ORDER.flatMap((screen) => {
+      : TTID_SCREENS.flatMap((screen) => {
+          const threshold = TTID_WARN_MS[screen];
           const rows = mobile.filter((r) => r.screen === screen);
-          return rows.map(
-            (r) => `${r.platform} ${screen} p50=${Math.round(r.p50)} ms (n=${r.count})`,
-          );
+          return rows.map((r) => {
+            const p50 = Math.round(r.p50);
+            if (threshold === null) {
+              return `${r.platform} ${screen} p50=${p50} ms (n=${r.count}, threshold disabled)`;
+            }
+            if (r.count < TTID_MIN_SAMPLES) {
+              return `${r.platform} ${screen} p50=${p50} ms (n=${r.count}, need ≥ ${TTID_MIN_SAMPLES} for check)`;
+            }
+            return `${r.platform} ${screen} p50=${p50} ms within ${threshold} ms threshold (n=${r.count})`;
+          });
         }).join(", ") + ".";
 
-  return `Web Vitals digest for ${day}. ${lcpLine} ${inpLine} ${clsLine} Mobile: ${mobileLine}`;
+  return `Web Vitals digest for ${day}. ${lcpLine} ${inpLine} ${clsLine} Mobile TTID: ${mobileLine}`;
 }
 
 function formatSummaryFields(summaries: WebVitalSummary[]) {
