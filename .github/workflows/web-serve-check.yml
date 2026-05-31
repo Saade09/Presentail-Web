@@ -36,6 +36,9 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Run web unit tests
+        run: pnpm --filter @workspace/presentail-web run test
+
       - name: Build web app (vite + compress-assets)
         run: pnpm --filter @workspace/presentail-web run build
 
