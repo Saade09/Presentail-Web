@@ -1291,6 +1291,14 @@ const SEO_DEBUG_HTML = `<!doctype html>
       });
   });
 
+  // monitorMarketCollapsed tracks which markets are collapsed in the monitor audit table.
+  // Kept separate from marketCollapsed so the two tables toggle independently.
+  var monitorMarketCollapsed = {};
+
+  function monitorMarketIdFor(market) {
+    return 'monitor-market-hdr-' + market.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  }
+
   function renderMonitorAuditResult(payload) {
     var ranAt = payload.ranAt ? new Date(payload.ranAt).toLocaleString() : '';
     monitorAuditRanAt.textContent = ranAt ? 'Run at: ' + ranAt : '';
@@ -1302,8 +1310,53 @@ const SEO_DEBUG_HTML = `<!doctype html>
     var overallColor = payload.failing > 0 ? '#b00020' : (payload.warned > 0 ? '#856404' : '#155724');
     monitorAuditSummary.innerHTML = '<strong style="color:' + overallColor + '">' + payload.total + ' pages checked — ' + parts.join(', ') + '</strong>';
 
+    // Collect per-market stats so we can build header rows after scanning pages
+    var marketStats = {};   // market -> { green, warn, err }
+    var marketOrder = [];
+    var pages = payload.pages || [];
+
+    pages.forEach(function (p) {
+      var market = p.market || '';
+      if (market && !marketStats[market]) {
+        marketStats[market] = { green: 0, warn: 0, err: 0 };
+        marketOrder.push(market);
+      }
+      if (market) {
+        if (p.status === 'ok') marketStats[market].green++;
+        else if (p.status === 'error') marketStats[market].err++;
+        else marketStats[market].warn++;
+      }
+    });
+
+    // Build market header HTML and set initial collapsed state
+    function monitorMarketHeader(market) {
+      var s = marketStats[market] || { green: 0, warn: 0, err: 0 };
+      var hasIssues = s.warn + s.err > 0;
+      var totalM = s.green + s.warn + s.err;
+      var issuesM = s.warn + s.err;
+      var statClass = s.err > 0 ? 'stat-red' : (s.warn > 0 ? 'stat-yellow' : 'stat-green');
+      var statText = hasIssues ? issuesM + '/' + totalM + ' need attention' : 'all good';
+      var hdrId = monitorMarketIdFor(market);
+      // Auto-collapse all-green markets; only set on first encounter so manual toggles persist
+      if (!(market in monitorMarketCollapsed)) {
+        monitorMarketCollapsed[market] = !hasIssues;
+      }
+      return '<tr class="row-market-header" id="' + hdrId + '" data-market="' + esc(market) + '">'
+        + '<td colspan="3"><em class="market-chevron">&#9660;</em>' + esc(market)
+        + '<span class="market-stat ' + statClass + '">' + statText + '</span>'
+        + '</td></tr>';
+    }
+
     var rows = '';
-    (payload.pages || []).forEach(function (p) {
+    var currentMarket = null;
+    pages.forEach(function (p) {
+      var market = p.market || '';
+      // Insert market header when market changes
+      if (market && market !== currentMarket) {
+        currentMarket = market;
+        rows += monitorMarketHeader(market);
+      }
+
       var color = p.status === 'ok' ? 'green' : (p.status === 'error' ? 'red' : 'yellow');
       var rowClass = p.status === 'ok' ? 'row-green' : (p.status === 'error' ? 'row-red' : 'row-yellow');
       var badgeText = p.status === 'ok' ? 'Good' : (p.status === 'error' ? 'Failing' : 'Warning');
@@ -1321,7 +1374,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
       } else {
         note = 'No issues';
       }
-      rows += '<tr class="' + rowClass + '">'
+      rows += '<tr class="' + rowClass + '" data-market="' + esc(market) + '">'
         + '<td><div class="page-label">' + esc(p.label) + '</div>'
         + '<div class="page-url"><a href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.url) + '</a></div></td>'
         + '<td class="batch-status-cell">' + badge(badgeText, color) + '</td>'
@@ -1330,6 +1383,15 @@ const SEO_DEBUG_HTML = `<!doctype html>
     });
     monitorAuditBody.innerHTML = rows;
     applyMonitorFilter();
+
+    // Wire up market header clicks (collapse/expand)
+    monitorAuditBody.querySelectorAll('tr.row-market-header').forEach(function (hdr) {
+      hdr.addEventListener('click', function () {
+        var market = hdr.getAttribute('data-market');
+        monitorMarketCollapsed[market] = !monitorMarketCollapsed[market];
+        applyMonitorFilter();
+      });
+    });
   }
 
   // ── Monitor "Show problems only" toggle ────────────────────────────────────
@@ -1342,8 +1404,28 @@ const SEO_DEBUG_HTML = `<!doctype html>
   });
 
   function applyMonitorFilter() {
-    var rows = monitorAuditBody.querySelectorAll('tr');
-    rows.forEach(function (row) {
+    var headerRows = monitorAuditBody.querySelectorAll('tr.row-market-header');
+    headerRows.forEach(function (hdr) {
+      var market = hdr.getAttribute('data-market');
+      var collapsed = !!monitorMarketCollapsed[market];
+      var dataRows = monitorAuditBody.querySelectorAll('tr:not(.row-market-header)[data-market="' + market + '"]');
+      dataRows.forEach(function (row) {
+        var isGreen = row.classList.contains('row-green');
+        var hiddenByFilter = monitorProblemsOnly && isGreen;
+        if (collapsed || hiddenByFilter) {
+          row.classList.add('batch-market-collapsed');
+        } else {
+          row.classList.remove('batch-market-collapsed');
+        }
+      });
+      // Update chevron
+      var chevron = hdr.querySelector('.market-chevron');
+      if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+    });
+
+    // For rows with no market grouping (absent or empty data-market), fall back to simple filter
+    var ungroupedRows = monitorAuditBody.querySelectorAll('tr:not(.row-market-header):not([data-market]), tr:not(.row-market-header)[data-market=""]');
+    ungroupedRows.forEach(function (row) {
       if (monitorProblemsOnly && row.classList.contains('row-green')) {
         row.style.display = 'none';
       } else {
