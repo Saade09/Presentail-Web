@@ -1922,13 +1922,11 @@ describe("injectSeoTagsAsync — /favorites/share/:token wishlist preview", () =
 //
 // On a wishlist cache miss the hero product fetch sends If-None-Match when
 // the product entry has a cached ETag. When the product API responds 304,
-// the product entity stays unchanged — but the wishlist path still calls
-// evictImageDims on the hero image URL before storing the fresh wishlist
-// result, so image dims ARE re-probed regardless of the product 304.
-//
-// These tests document that behaviour. The "consider extending" note in the
-// task would allow skipping the eviction when the product 304s, but that
-// optimisation has not been implemented yet.
+// fetchEntityForSeoCached signals freshlyFetched=false via the out parameter,
+// and the wishlist path skips evictImageDims — the image URL has not changed
+// so the cached dimensions remain accurate and no CDN Range-request is wasted.
+// When the product API responds 200 (new or changed entity), freshlyFetched=true
+// and evictImageDims IS called so stale dims are replaced.
 // ---------------------------------------------------------------------------
 
 const WISHLIST_ETAG_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
@@ -2010,11 +2008,11 @@ describe("ETag on hero product within wishlist cache miss", () => {
     expect(capturedProductHeaders[1]?.["If-None-Match"]).toBe(productEtag);
   });
 
-  it("re-fetches image dims after wishlist cache miss even when the hero product responds 304", async () => {
-    // This test documents the current behaviour: the wishlist path calls
-    // evictImageDims(imageUrl) whenever it builds a fresh wishlist result,
-    // so dims are always re-probed on a wishlist cache miss — regardless of
-    // whether the hero product came back 304 (unchanged) or 200 (updated).
+  it("does NOT re-fetch image dims when the hero product responds 304 on a wishlist cache miss", async () => {
+    // Optimised behaviour: the wishlist path only calls evictImageDims(imageUrl)
+    // when the hero product was freshly fetched (200 response). When the product
+    // responds 304 (unchanged), the cached dims remain accurate and the wasteful
+    // CDN Range-request is skipped.
     const pngBuf = makePngBuffer(900, 600);
     const imageUrl = "https://cdn.wl-etag-test/wl-etag-dims-recheck-unique.png";
     const productEtag = '"product-etag-v1-wl-etag-dims-recheck"';
@@ -2049,7 +2047,7 @@ describe("ETag on hero product within wishlist cache miss", () => {
             ok: true,
             product: {
               name: "ETag Dims Recheck Product",
-              description: "Verify dims are re-fetched even on 304.",
+              description: "Verify dims are NOT re-fetched on 304.",
               image: { uri: imageUrl },
               priceValue: 80,
             },
@@ -2073,13 +2071,13 @@ describe("ETag on hero product within wishlist cache miss", () => {
     vi.setSystemTime(new Date(Date.now() + 61_000));
 
     // Second call: wishlist cache miss → wishlist re-fetched → product sends
-    // If-None-Match → product responds 304 (unchanged). Despite the 304,
-    // the wishlist path calls evictImageDims before caching the fresh
-    // wishlist result, so dims ARE re-probed.
+    // If-None-Match → product responds 304 (unchanged). Because the product
+    // was NOT freshly fetched, evictImageDims is NOT called and dims are
+    // served from cache — no CDN Range-request on this path.
     await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
     expect(wishlistFetchCount).toBe(2);
     expect(productFetchCount).toBe(2);   // conditional request sent
-    expect(dimsFetchCount).toBe(2);      // dims evicted by wishlist path → re-fetched
+    expect(dimsFetchCount).toBe(1);      // dims NOT evicted → served from cache
   });
 
   it("does NOT re-fetch image dims on wishlist cache HIT even when the hero product has an ETag", async () => {

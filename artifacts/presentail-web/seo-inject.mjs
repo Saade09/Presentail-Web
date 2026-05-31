@@ -657,7 +657,7 @@ function setCachedEntity(key, value, etag = null, lastModified = null) {
   });
 }
 
-async function fetchEntityForSeoCached(kind, fetcher, opts) {
+async function fetchEntityForSeoCached(kind, fetcher, opts, out = {}) {
   const key = entityCacheKey({
     kind,
     slug: opts.slug,
@@ -691,6 +691,7 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
   if (isFresh && !hasConditional) {
     entitySeoCache.delete(key);
     entitySeoCache.set(key, rawEntry);
+    out.freshlyFetched = false;
     return rawEntry.value;
   }
 
@@ -710,8 +711,10 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
         if (oldest !== undefined) entitySeoCache.delete(oldest);
       }
       entitySeoCache.set(key, refreshed);
+      out.freshlyFetched = false;
       return rawEntry.value;
     }
+    out.freshlyFetched = false;
     return null;
   }
 
@@ -721,6 +724,7 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
   if (result && result.value) {
     for (const url of extractEntityImageUrls(result.value)) evictImageDims(url);
     setCachedEntity(key, result.value, result.etag, result.lastModified);
+    out.freshlyFetched = true;
     return result.value;
   }
 
@@ -730,9 +734,11 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
   // has not been confirmed changed, so staleness is preferable to a broken
   // preview.
   if (isFresh && rawEntry) {
+    out.freshlyFetched = false;
     return rawEntry.value;
   }
 
+  out.freshlyFetched = false;
   return null;
 }
 
@@ -1635,6 +1641,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         if (favorites) {
           const count = favorites.length;
           let imageUrl = null;
+          const productOut = {};
           if (count > 0 && favorites[0]?.productSlug) {
             const countryCode = favorites[0].countryCode ?? "LB";
             const product = await fetchEntityForSeoCached(
@@ -1647,6 +1654,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
                 cityId: `${countryCode.toLowerCase()}-beirut`,
                 apiBaseUrl,
               },
+              productOut,
             );
             if (product) {
               imageUrl =
@@ -1657,9 +1665,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             }
           }
           wishlistResult = { count, imageUrl };
-          // Evict image-dims for the wishlist hero image so the fresh fetch
-          // always re-measures dimensions (handles same-URL CDN image updates).
-          evictImageDims(imageUrl);
+          // Evict image-dims only when the hero product was freshly fetched
+          // (200 response). When the product came back 304 (unchanged), its
+          // image URL has not changed so the cached dimensions remain accurate
+          // — no need to waste a CDN Range-request re-measuring them.
+          if (productOut.freshlyFetched) evictImageDims(imageUrl);
           setCachedEntity(cacheKey, wishlistResult);
         }
       }
