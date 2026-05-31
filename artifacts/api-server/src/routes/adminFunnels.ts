@@ -969,7 +969,7 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>Sign-in method breakdown</h2>
-  <div class="sub">How shoppers choose to sign in, split by surface. <strong>signin_page</strong> = dedicated sign-in page (web); <strong>checkout_prompt</strong> = checkout login dialog (mobile + web). Actions: google / apple / continue (email) / guest / dismissed. Use this to compare which methods are preferred at each touchpoint and where to invest in sign-in UX.</div>
+  <div class="sub">How shoppers choose to sign in, split by platform and surface. <strong>signin_page</strong> = dedicated sign-in page (web only); <strong>checkout_prompt</strong> = checkout login dialog (mobile + web). Actions: google / apple / continue (email) / guest / dismissed. The pivot tables below show each action's count and share of that platform's total for that surface — making it easy to compare, e.g., whether Apple sign-in dominates on iOS but Google is more popular on web. Percentages are column-wise (share of that platform's events for that surface).</div>
   <div id="signInMethodsSummary"></div>
   <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
   <div id="signInMethodsTrends" class="trends"></div>
@@ -1996,39 +1996,78 @@ const DASHBOARD_HTML = `<!doctype html>
       signInMethodsTrends.innerHTML = '';
       return;
     }
-    // Build per-(source, action) window totals across all platforms for the summary table.
-    var summaryMap = {};
-    summary.forEach(function (r) {
-      var k = r.platform + '::' + r.source + '::' + r.action;
-      if (!summaryMap[k]) summaryMap[k] = { platform: r.platform, source: r.source, action: r.action, count: 0 };
-      summaryMap[k].count += r.count;
+
+    // ── Platform-pivot summary ──────────────────────────────────────────────
+    // Discover unique platforms, sorted: ios → android → web → unknown → rest.
+    var platformOrder = ['ios', 'android', 'web', 'unknown'];
+    var platformSet = {};
+    summary.forEach(function (r) { platformSet[r.platform] = true; });
+    var platforms = Object.keys(platformSet).sort(function (a, b) {
+      var ai = platformOrder.indexOf(a), bi = platformOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return a < b ? -1 : 1;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
     });
-    // Compute per-(platform, source) totals for percentage columns
-    var sourceTotals = {};
+
+    // Build pivot: source → action → platform → count
+    var pivot = {};
+    // Per-platform totals within each source (column denominators for %)
+    var sourcePlatformTotals = {};
     summary.forEach(function (r) {
-      var k = r.platform + '::' + r.source;
-      sourceTotals[k] = (sourceTotals[k] || 0) + r.count;
+      if (!pivot[r.source]) pivot[r.source] = {};
+      if (!pivot[r.source][r.action]) pivot[r.source][r.action] = {};
+      pivot[r.source][r.action][r.platform] = (pivot[r.source][r.action][r.platform] || 0) + r.count;
+      var spk = r.source + '::' + r.platform;
+      sourcePlatformTotals[spk] = (sourcePlatformTotals[spk] || 0) + r.count;
     });
-    var summaryRows = Object.keys(summaryMap).sort().map(function (k) { return summaryMap[k]; });
-    if (summaryRows.length) {
-      signInMethodsSummary.innerHTML = '<table><thead><tr>' +
-        '<th>Platform</th><th>Surface</th><th>Action</th><th>Count (window)</th><th>% of surface</th>' +
-        '</tr></thead><tbody>' + summaryRows.map(function (r) {
-          var total = sourceTotals[r.platform + '::' + r.source] || 0;
-          var pctOfSurface = total > 0 ? fmtPct(Math.round(r.count / total * 1000) / 10) : '<span class="muted">—</span>';
-          return '<tr>' +
-            '<td>' + escapeHtml(r.platform) + '</td>' +
-            '<td>' + escapeHtml(r.source) + '</td>' +
-            '<td>' + escapeHtml(r.action) + '</td>' +
-            '<td>' + num(r.count) + '</td>' +
-            '<td>' + pctOfSurface + '</td>' +
-            '</tr>';
-        }).join('') + '</tbody></table>';
-    } else {
-      signInMethodsSummary.innerHTML = '<div class="muted">No sign-in method events in range.</div>';
-    }
+
+    // Render one pivot table per source, sorted by total count desc within each source.
+    var sources = Object.keys(pivot).sort();
+    var pivotHtml = sources.map(function (source) {
+      var actions = Object.keys(pivot[source]).sort(function (a, b) {
+        var ta = platforms.reduce(function (s, p) { return s + (pivot[source][a][p] || 0); }, 0);
+        var tb = platforms.reduce(function (s, p) { return s + (pivot[source][b][p] || 0); }, 0);
+        return tb - ta;
+      });
+
+      var headerCells = '<th>Action</th>' +
+        platforms.map(function (p) { return '<th>' + escapeHtml(p) + '</th>'; }).join('') +
+        '<th>Total</th>';
+
+      var bodyRows = actions.map(function (action) {
+        var rowTotal = platforms.reduce(function (s, p) { return s + (pivot[source][action][p] || 0); }, 0);
+        var cells = platforms.map(function (p) {
+          var count = pivot[source][action][p] || 0;
+          var colTotal = sourcePlatformTotals[source + '::' + p] || 0;
+          var pctSpan = colTotal > 0
+            ? ' <span class="muted" style="font-size:10px">(' + Math.round(count / colTotal * 100) + '%)</span>'
+            : '';
+          return '<td>' + (count > 0 ? num(count) + pctSpan : '<span class="muted">—</span>') + '</td>';
+        }).join('');
+        return '<tr><td><strong>' + escapeHtml(action) + '</strong></td>' + cells +
+          '<td>' + num(rowTotal) + '</td></tr>';
+      }).join('');
+
+      // Column-total footer row
+      var sourceTotal = summary.filter(function (r) { return r.source === source; })
+        .reduce(function (s, r) { return s + r.count; }, 0);
+      var totalCells = platforms.map(function (p) {
+        var t = sourcePlatformTotals[source + '::' + p] || 0;
+        return '<td><strong>' + (t > 0 ? num(t) : '<span class="muted">—</span>') + '</strong></td>';
+      }).join('');
+      var footerRow = '<tr style="border-top:2px solid #ddd"><td><strong>Total</strong></td>' +
+        totalCells + '<td><strong>' + num(sourceTotal) + '</strong></td></tr>';
+
+      return '<h4 style="margin:16px 0 6px;font-size:13px;color:#333">' + escapeHtml(source) + '</h4>' +
+        '<table><thead><tr>' + headerCells + '</tr></thead>' +
+        '<tbody>' + bodyRows + footerRow + '</tbody></table>';
+    }).join('');
+
+    signInMethodsSummary.innerHTML = pivotHtml || '<div class="muted">No sign-in method events in range.</div>';
+
+    // ── Per-day sparklines and detail table ────────────────────────────────
     if (daily.length) {
-      // Sparklines: count per (platform/source/action) series over time.
       renderTrends(signInMethodsTrends, daily,
         function (r) { return r.platform + '/' + r.source + '/' + r.action; },
         [{ label: 'Count', valueFn: function (r) { return r.count; } }]
