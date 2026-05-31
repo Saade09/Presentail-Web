@@ -302,6 +302,33 @@ const server = http.createServer(async (req, res) => {
         "cache-control": cacheControl,
         "vary": "Accept-Encoding",
       };
+
+      // For compressible files, prefer a pre-built sidecar (.br / .gz) over
+      // on-the-fly compression.  Sidecars are written at build time by
+      // compress-assets.mjs for all JS and CSS bundles in dist/public/assets/.
+      if (encoding) {
+        const acceptHeader = req.headers["accept-encoding"] ?? "";
+        let sidecarPath = null;
+        let sidecarEncoding = null;
+        if (acceptHeader.includes("br") && fs.existsSync(filePath + ".br")) {
+          sidecarPath = filePath + ".br";
+          sidecarEncoding = "br";
+        } else if (
+          acceptHeader.includes("gzip") &&
+          fs.existsSync(filePath + ".gz")
+        ) {
+          sidecarPath = filePath + ".gz";
+          sidecarEncoding = "gzip";
+        }
+        if (sidecarPath) {
+          headers["content-encoding"] = sidecarEncoding;
+          res.writeHead(200, headers);
+          fs.createReadStream(sidecarPath).pipe(res);
+          return;
+        }
+      }
+
+      // No pre-compressed sidecar — fall back to on-the-fly compression.
       if (encoding) headers["content-encoding"] = encoding;
       res.writeHead(200, headers);
       const fileStream = fs.createReadStream(filePath);
