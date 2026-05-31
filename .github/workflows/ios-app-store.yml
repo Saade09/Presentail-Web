@@ -88,6 +88,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
       - name: Promote build to App Store
         run: pnpm --filter @workspace/scripts run promote-ios-to-app-store
         env:
