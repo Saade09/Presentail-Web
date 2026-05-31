@@ -3026,6 +3026,105 @@ describe("image dims L2 cache — initImageDimsDb adapter", () => {
     await injectSeoTagsAsync(L2_HTML, "/en-ae/dubai/product/l2-warm-l1-product", L2_OPTS);
     expect(l2GetCount).toBe(1); // still 1 — L1 served the second request
   });
+
+  // -------------------------------------------------------------------------
+  // Occasion entity — L2 read and write paths
+  //
+  // Occasions carry `entity.image` as a plain string (not `{ uri }`) so they
+  // exercise the second branch of `extractEntityImageUrls`. These tests confirm
+  // that the L2 adapter is consulted and written to for occasion entities, not
+  // just for products.
+  // -------------------------------------------------------------------------
+
+  it("serves occasion image dims from L2 on L1 miss without a CDN fetch", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-occasion-hit-unique.png";
+    const l2Store: Map<string, { width: number; height: number } | null> = new Map();
+    l2Store.set(imageUrl, { width: 1200, height: 630 });
+
+    initImageDimsDb({
+      async get(url: string) { return l2Store.get(url); },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    let imageFetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "L2 Hit Occasion",
+              description: "Dims must come from L2, not a CDN fetch.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      // Any fetch to the image CDN must NOT happen (L2 hit).
+      imageFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(999, 999) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/shop",
+      { ...L2_OPTS, search: "?occasion=l2-occasion-hit-unique-slug" },
+    );
+
+    // L2 supplied dims → no CDN Range-fetch.
+    expect(imageFetchCount).toBe(0);
+    // Correct dims from L2 appear in the output.
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+  });
+
+  it("writes freshly fetched occasion image dims to L2 via adapter.set()", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-occasion-write-unique.png";
+    const l2Writes: Array<{ url: string; dims: unknown }> = [];
+
+    initImageDimsDb({
+      async get(_url: string) { return undefined; }, // L2 miss — fall through to CDN fetch
+      async set(url: string, dims: unknown) { l2Writes.push({ url, dims }); },
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "L2 Write Occasion",
+              description: "Freshly fetched dims must be written to L2.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      // CDN Range-fetch: return a valid PNG with known dims.
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(900, 450) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/shop",
+      { ...L2_OPTS, search: "?occasion=l2-occasion-write-unique-slug" },
+    );
+
+    // Dims were measured from the CDN and must have been written to L2.
+    expect(l2Writes).toHaveLength(1);
+    expect(l2Writes[0].url).toBe(imageUrl);
+    expect(l2Writes[0].dims).toEqual({ width: 900, height: 450 });
+  });
 });
 
 // ---------------------------------------------------------------------------
