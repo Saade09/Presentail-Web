@@ -6,7 +6,7 @@
  * that should be going through the useT() translation hook instead.
  *
  * Detection covers four patterns:
- *   A. Inline JSX text nodes  — text between ">…</" on the same line, after
+ *   A. Inline JSX text nodes  — text between ">…</"  on the same line, after
  *      stripping {JS expressions}.
  *   B. Standalone text lines  — an indented line whose content is only prose
  *      characters (no JSX/code symbols), indicating a multi-line JSX text node.
@@ -23,7 +23,7 @@
  *   • The lib/translations.ts file (the source of truth — not hardcoded)
  *   • The data/ directory (static data constants, not JSX)
  *   • Skip dirs: node_modules, .expo, dist, dist-web-review, static-build,
- *     server, __generated__, e2e, scripts
+ *     server, __generated__, e2e, scripts, .turbo, assets
  *   • Comment lines (// …) and block-comment lines (/* … *\/)
  *   • Import / export / type / interface declaration lines.
  *   • Lines that already contain a  t.<key>  access (using the useT() result).
@@ -55,10 +55,12 @@ const SKIP_DIRS = new Set([
   "dist-web-review",
   "static-build",
   "server",
+  ".turbo",
   "__generated__",
   "e2e",         // playwright end-to-end tests
   "scripts",     // artifact-local scripts, not UI source
   "data",        // static data constants — not JSX rendering
+  "assets",      // images / fonts — no source strings
 ]);
 
 // Files to skip by repo-relative path suffix
@@ -220,10 +222,10 @@ for (const filePath of files) {
     if (shouldSkipLine(raw)) continue;
 
     // ── i18n-ignore suppression ──────────────────────────────────────────────
-    // A trailing  // i18n-ignore  comment on any line opts that line out of all
-    // checks.  Use it for intentionally-untranslated strings such as brand
-    // names, developer-only labels, or accessibility strings that are shared
-    // across all supported languages.
+    // A trailing  // i18n-ignore  or  /* i18n-ignore */  comment on any line
+    // opts that line out of all checks.  Use it for intentionally-untranslated
+    // strings such as brand names, developer-only labels, or accessibility
+    // strings that are shared across all supported languages.
     if (/\/\/\s*i18n-ignore\b|\/\*\s*i18n-ignore\b/.test(raw)) continue;
 
     // ── Pattern A: Inline JSX text node ─────────────────────────────────────
@@ -296,6 +298,36 @@ for (const filePath of files) {
 
 // ── report ─────────────────────────────────────────────────────────────────────
 
+// Group hits by file
+const byFile = new Map<string, Hit[]>();
+for (const h of hits) {
+  if (!byFile.has(h.file)) byFile.set(h.file, []);
+  byFile.get(h.file)!.push(h);
+}
+
+// ── JSON output (when HARDCODED_STRINGS_JSON_OUT is set) ────────────────────────
+
+const jsonOutPath = process.env["HARDCODED_STRINGS_JSON_OUT"];
+if (jsonOutPath) {
+  const result = {
+    passed: hits.length === 0,
+    hitCount: hits.length,
+    fileCount: byFile.size,
+    byFile: Array.from(byFile.entries()).map(([file, fileHits]) => ({
+      file,
+      hits: fileHits.map((h) => ({
+        line: h.line,
+        kind: h.kind,
+        ...(h.attr !== undefined ? { attr: h.attr } : {}),
+        text: h.text,
+      })),
+    })),
+  };
+  fs.writeFileSync(jsonOutPath, JSON.stringify(result, null, 2), "utf8");
+}
+
+// ── console output ──────────────────────────────────────────────────────────────
+
 if (hits.length === 0) {
   console.log(
     "✓ No hardcoded English strings detected in mobile TSX files.\n" +
@@ -306,15 +338,8 @@ if (hits.length === 0) {
 
 console.error(
   `\n✗ Found ${hits.length} likely-hardcoded English string${hits.length === 1 ? "" : "s"} ` +
-  `in ${new Set(hits.map((h) => h.file)).size} mobile source file${new Set(hits.map((h) => h.file)).size === 1 ? "" : "s"}:\n`,
+  `in ${byFile.size} mobile source file${byFile.size === 1 ? "" : "s"}:\n`,
 );
-
-// Group hits by file for readable output
-const byFile = new Map<string, Hit[]>();
-for (const h of hits) {
-  if (!byFile.has(h.file)) byFile.set(h.file, []);
-  byFile.get(h.file)!.push(h);
-}
 
 for (const [file, fileHits] of byFile) {
   console.error(`  ${file}`);
@@ -333,9 +358,9 @@ for (const [file, fileHits] of byFile) {
 }
 
 console.error(
-  "To fix: add the string to all three locale blocks (EN, AR, FR) in\n" +
-  "  artifacts/presentail/lib/translations.ts\n" +
-  "and access it via the t.<key> object returned by useT().\n" +
+  "To fix: add the string as a key in all three locale blocks (EN, AR, FR) in\n" +
+  "`artifacts/presentail/lib/translations.ts`, then replace the literal with\n" +
+  "the useT() hook: const t = useT(); … {t.yourKey}\n" +
   "\n" +
   "False positives (brand names, intentionally-untranslated labels, etc.) can be\n" +
   "suppressed by adding a  // i18n-ignore  comment on the same line.\n",

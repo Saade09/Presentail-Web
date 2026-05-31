@@ -87,6 +87,7 @@ jobs:
             mobile:
               - 'artifacts/presentail/**'
               - 'scripts/src/checkUnusedMobileTranslationKeys.ts'
+              - 'scripts/src/checkHardcodedMobileStrings.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
             web:
@@ -716,5 +717,145 @@ jobs:
           echo "Hardcoded-strings check failed — see output above and the PR comment for details."
           exit 1
 
+  check-hardcoded-mobile-strings:
+    name: Hardcoded English strings (mobile)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Check for hardcoded English strings in mobile TSX
-        run: pnpm --filter @workspace/scripts run check-hardcoded-mobile-strings
+        id: check
+        continue-on-error: true
+        env:
+          HARDCODED_STRINGS_JSON_OUT: ${{ github.workspace }}/hardcoded-mobile-strings-results.json
+        run: |
+          set +e
+          pnpm --filter @workspace/scripts run check-hardcoded-mobile-strings
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      - name: Post or update PR comment with hardcoded-mobile-strings check results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          CHECK_OUTCOME: ${{ steps.check.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- hardcoded-mobile-strings-check-bot -->';
+            const passed = process.env.CHECK_OUTCOME === 'success';
+
+            function readJson(filePath) {
+              try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+              catch { return null; }
+            }
+
+            function details(summary, body) {
+              return `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>\n`;
+            }
+
+            function kindLabel(hit) {
+              if (hit.kind === 'jsx-text') return 'JSX text';
+              if (hit.kind === 'jsx-prop') return `prop: ${hit.attr}`;
+              if (hit.kind === 'fallback-string') return '?? fallback';
+              return 'standalone';
+            }
+
+            function buildSection(data) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              if (!data) return '⚠️ Results file missing — the check may have failed before writing its output. Check the [workflow log](' + runUrl + ') for details.\n';
+              if (data.passed) return null;
+
+              const parts = [];
+              for (const { file, hits } of data.byFile) {
+                const lines = hits.map(h =>
+                  `- line ${h.line} \`[${kindLabel(h)}]\` — "${h.text}"`
+                ).join('\n');
+                parts.push(details(
+                  `\`${file}\` (${hits.length} hit${hits.length === 1 ? '' : 's'})`,
+                  lines
+                ));
+              }
+              return parts.join('\n');
+            }
+
+            const data = readJson('hardcoded-mobile-strings-results.json');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body;
+            if (passed) {
+              body = [
+                MARKER,
+                '## ✅ Mobile hardcoded-strings check passed',
+                '',
+                'No hardcoded English strings detected in mobile TSX files.',
+                '',
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].join('\n');
+            } else {
+              const section = buildSection(data);
+              const hitCount = data?.hitCount ?? '?';
+              const fileCount = data?.fileCount ?? '?';
+              body = [
+                MARKER,
+                '## ❌ Mobile hardcoded strings detected',
+                '',
+                `Found **${hitCount}** likely-hardcoded English string${hitCount === 1 ? '' : 's'} across **${fileCount}** mobile file${fileCount === 1 ? '' : 's'}.`,
+                'Add each string to all three locale blocks (EN, AR, FR) in `artifacts/presentail/lib/translations.ts`, then replace the literal with `{t.yourKey}` via `useT()`.',
+                'False positives can be suppressed with a trailing `// i18n-ignore` comment.',
+                '',
+                section,
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].filter(s => s != null).join('\n');
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else if (!passed) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail job if mobile hardcoded-strings check failed
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "Mobile hardcoded-strings check failed — see output above and the PR comment for details."
+          exit 1
