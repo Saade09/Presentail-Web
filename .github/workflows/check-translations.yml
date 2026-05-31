@@ -72,7 +72,7 @@ jobs:
         run: |
           set +e
           pnpm --filter @workspace/scripts run check-translations \
-            > translation-check-output.txt 2>&1
+            2> translation-check-output.txt
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Post or update PR comment with translation check results

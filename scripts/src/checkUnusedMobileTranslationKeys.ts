@@ -364,6 +364,31 @@ for (const [locale, keySet] of [
   }
 }
 
+// ── GitHub Actions annotations ────────────────────────────────────────────────
+// When running inside GitHub Actions, emit workflow commands that surface as
+// inline PR annotations on the diff view.  Plain-text output is always kept so
+// local runs remain readable.
+
+const IS_GHA = process.env["GITHUB_ACTIONS"] === "true";
+
+/**
+ * Emit a GitHub Actions `::error` annotation pointing at the translations file,
+ * plus the same message to stderr for local / log readability.
+ *
+ * Annotation format: `::error file=<path>,title=<title>::<message>`
+ */
+function annotateError(title: string, message: string): void {
+  if (IS_GHA) {
+    const escapeValue = (s: string) =>
+      s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    const escapeProp = (s: string) =>
+      escapeValue(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
+    process.stdout.write(
+      `::error file=${escapeProp("artifacts/presentail/lib/translations.ts")},title=${escapeProp(title)}::${escapeValue(message)}\n`,
+    );
+  }
+}
+
 // ── report ────────────────────────────────────────────────────────────────────
 
 let failed = false;
@@ -375,6 +400,10 @@ if (unusedKeys.length > 0) {
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
+    annotateError(
+      "Unused mobile translation key",
+      `Key "${key}" is defined in EN but not referenced anywhere in the mobile source — remove it from all three locale blocks (EN, AR, FR).`,
+    );
   }
   console.error(
     "\nRemove these keys from all three locale blocks (EN, AR, FR) in artifacts/presentail/lib/translations.ts.\n",
@@ -400,6 +429,10 @@ if (localeGaps.length > 0) {
     );
     for (const key of missingKeys) {
       console.error(`  - ${key}`);
+      annotateError(
+        `Missing ${locale} translation`,
+        `Key "${key}" is present in EN but missing from the ${locale} locale block — add a ${locale} translation for it in artifacts/presentail/lib/translations.ts.`,
+      );
     }
   }
   console.error(
@@ -415,6 +448,10 @@ if (undefinedKeys.length > 0) {
   for (const key of undefinedKeys) {
     const sites = keyCallSites.get(key) ?? [];
     console.error(`  - ${key}`);
+    annotateError(
+      "Undefined mobile translation key",
+      `Key "${key}" is referenced in source via t.${key} or t["${key}"] but does not exist in the EN locale block — add it to all three locale blocks or fix the reference.`,
+    );
     for (const { file, line } of sites) {
       console.error(`      ${path.relative(REPO_ROOT, file)}:${line}`);
     }
@@ -435,6 +472,10 @@ if (localeOrphans.length > 0) {
     );
     for (const key of orphanKeys) {
       console.error(`  - ${key}`);
+      annotateError(
+        "Orphan locale key",
+        `Key "${key}" is present in the ${locale} locale block but does not exist in EN — either add it to the EN block or remove it from ${locale} in artifacts/presentail/lib/translations.ts.`,
+      );
     }
   }
   console.error(

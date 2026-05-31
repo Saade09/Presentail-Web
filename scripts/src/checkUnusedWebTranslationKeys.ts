@@ -300,6 +300,7 @@ function extractWebKeys(localeContextSrc: string): {
   stringsKeys: Set<string>;
   stringsFrKeys: Set<string>;
   stringsKeyToFile: Map<string, string>;
+  frKeyToFile: Map<string, string>;
   missingArByFile: Map<string, string[]>;
   emptyValuesByFile: Map<string, { key: string; fields: string[] }[]>;
 } {
@@ -322,29 +323,32 @@ function extractWebKeys(localeContextSrc: string): {
     const stringsKeys = new Set<string>();
     const stringsFrKeys = new Set<string>();
     const stringsKeyToFile = new Map<string, string>();
+    const frKeyToFile = new Map<string, string>();
     const missingArByFile = new Map<string, string[]>();
     const emptyValuesByFile = new Map<string, { key: string; fields: string[] }[]>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
       const { dictKeys, frKeys } = extractKeysWithType(content);
+      const rel = path.relative(REPO_ROOT, file);
       for (const k of dictKeys) {
         stringsKeys.add(k);
-        stringsKeyToFile.set(k, file);
+        stringsKeyToFile.set(k, rel);
       }
-      for (const k of frKeys) stringsFrKeys.add(k);
+      for (const k of frKeys) {
+        stringsFrKeys.add(k);
+        frKeyToFile.set(k, rel);
+      }
 
       // Arabic coverage: find dict entries missing the `ar` field.
       const missingAr = extractMissingArKeys(content);
       if (missingAr.length > 0) {
-        const rel = path.relative(REPO_ROOT, file);
         missingArByFile.set(rel, missingAr);
       }
 
       // Empty-value coverage: find dict entries where en or ar is blank.
       const emptyValues = extractEmptyValueKeys(content);
       if (emptyValues.length > 0) {
-        const rel = path.relative(REPO_ROOT, file);
         emptyValuesByFile.set(rel, emptyValues);
       }
     }
@@ -361,6 +365,7 @@ function extractWebKeys(localeContextSrc: string): {
       stringsKeys,
       stringsFrKeys,
       stringsKeyToFile,
+      frKeyToFile,
       missingArByFile,
       emptyValuesByFile,
     };
@@ -410,6 +415,7 @@ function extractWebKeys(localeContextSrc: string): {
     stringsKeys,
     stringsFrKeys,
     stringsKeyToFile: new Map(),
+    frKeyToFile: new Map(),
     missingArByFile,
     emptyValuesByFile,
   };
@@ -558,7 +564,7 @@ function appendSummary(line: string): void {
 if (!process.env.VITEST) {
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, missingArByFile, emptyValuesByFile } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, frKeyToFile, missingArByFile, emptyValuesByFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -628,10 +634,14 @@ if (unusedKeys.length > 0) {
   );
   for (const key of unusedKeys) {
     console.error(`  - ${key}`);
+    const unusedFile =
+      stringsKeyToFile.get(key) ??
+      frKeyToFile.get(key) ??
+      "artifacts/presentail-web/src/locales";
     annotateError(
-      "artifacts/presentail-web/src/locales",
+      unusedFile,
       "Unused web translation key",
-      `Key "${key}" is defined but never referenced in the web source — remove it from the appropriate locale domain file.`,
+      `Key "${key}" is defined but never referenced in the web source — remove it from the locale domain file.`,
     );
   }
   console.error(
@@ -666,9 +676,8 @@ if (missingFr.length > 0) {
   for (const key of missingFr) {
     const file = stringsKeyToFile.get(key);
     if (file) {
-      const rel = path.relative(REPO_ROOT, file);
-      if (!missingFrByFile.has(rel)) missingFrByFile.set(rel, []);
-      missingFrByFile.get(rel)!.push(key);
+      if (!missingFrByFile.has(file)) missingFrByFile.set(file, []);
+      missingFrByFile.get(file)!.push(key);
     } else {
       missingFrNoFile.push(key);
     }
@@ -708,8 +717,10 @@ if (orphanedFr.length > 0) {
   );
   for (const key of orphanedFr) {
     console.error(`  - ${key}`);
+    const orphanFile =
+      frKeyToFile.get(key) ?? "artifacts/presentail-web/src/locales";
     annotateError(
-      "artifacts/presentail-web/src/locales",
+      orphanFile,
       "Orphaned French translation key",
       `Key "${key}" exists in STRINGS_FR but has no matching entry in STRINGS — remove it or add a base entry.`,
     );
@@ -728,13 +739,14 @@ if (missingFromStrings.length > 0) {
     const sites = staticCallSites.get(key) ?? [];
     console.error(`  - ${key}`);
     for (const { file, line } of sites) {
-      console.error(`      ${path.relative(REPO_ROOT, file)}:${line}`);
+      const relFile = path.relative(REPO_ROOT, file);
+      console.error(`      ${relFile}:${line}`);
+      annotateError(
+        relFile,
+        "Undefined web translation key",
+        `Key "${key}" is used in a t() call but does not exist in STRINGS — add it (with 'en' and 'ar' values) to the appropriate *Strings export.`,
+      );
     }
-    annotateError(
-      "artifacts/presentail-web/src/locales",
-      "Undefined web translation key",
-      `Key "${key}" is used in a t() call but does not exist in STRINGS — add it (with 'en' and 'ar' values) to the appropriate *Strings export.`,
-    );
   }
   console.error(
     "\nAdd these keys (with both 'en' and 'ar' values) to the appropriate *Strings export in artifacts/presentail-web/src/locales/.\n",
