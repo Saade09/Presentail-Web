@@ -42,3 +42,30 @@ jobs:
 
       - name: Lint web app
         run: pnpm --filter @workspace/presentail-web run lint
+
+  web-test:
+    name: Unit tests – web app
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Run web unit tests
+        run: pnpm --filter @workspace/presentail-web run test
