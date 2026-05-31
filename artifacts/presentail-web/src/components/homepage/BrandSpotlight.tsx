@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { useBrands } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useState } from "react";
+import { ShimmerImage } from "@/components/ShimmerImage";
 
 interface SpotlightCardProps {
   brand: { id: number | string; slug: string; name: string; image?: string | null };
@@ -12,10 +12,6 @@ interface SpotlightCardProps {
 }
 
 function SpotlightCard({ brand, index }: SpotlightCardProps) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const showImage = !!brand.image && !imgFailed;
-
   return (
     <motion.div
       key={brand.id}
@@ -29,20 +25,16 @@ function SpotlightCard({ brand, index }: SpotlightCardProps) {
         className="group block aspect-square rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all p-4 flex items-center justify-center text-center relative overflow-hidden"
         data-testid={`link-brand-${brand.slug}`}
       >
-        {showImage && !imgLoaded && (
-          <div className="absolute inset-0 bg-primary/10 animate-pulse" />
-        )}
-        {showImage ? (
-          <img
-            src={brand.image!}
+        {brand.image ? (
+          <ShimmerImage
+            src={brand.image}
             alt={brand.name}
-            className={[
-              "max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105",
-              imgLoaded ? "opacity-100" : "opacity-0",
-            ].join(" ")}
-            loading="lazy"
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgFailed(true)}
+            className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-500"
+            fallback={
+              <span className="font-serif text-base md:text-lg text-primary group-hover:text-gold transition-colors">
+                {brand.name}
+              </span>
+            }
           />
         ) : (
           <span className="font-serif text-base md:text-lg text-primary group-hover:text-gold transition-colors">

@@ -2,16 +2,12 @@ import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { useState } from "react";
-
-const loadedUrls = new Set<string>();
+import { ShimmerImage } from "./ShimmerImage";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { formatPrice } = useDisplayCurrency();
   const imageUrl = product.image?.uri;
   const tag = product.tag;
-  const [imgLoaded, setImgLoaded] = useState(() => !!imageUrl && loadedUrls.has(imageUrl));
-  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <motion.div
@@ -23,23 +19,17 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
     >
       <Link href={`/product/${product.id}`}>
         <div className="aspect-square bg-secondary/50 rounded-2xl overflow-hidden relative mb-4">
-          {imageUrl && !imgFailed ? (
-            <>
-              {!imgLoaded && (
-                <div className="absolute inset-0 bg-primary/10 animate-pulse" />
-              )}
-              <img
-                src={imageUrl}
-                alt={product.name}
-                className={[
-                  "w-full h-full object-cover transition-all duration-500 group-hover:scale-105",
-                  imgLoaded ? "opacity-100" : "opacity-0",
-                ].join(" ")}
-                loading="lazy"
-                onLoad={() => { loadedUrls.add(imageUrl); setImgLoaded(true); }}
-                onError={() => setImgFailed(true)}
-              />
-            </>
+          {imageUrl ? (
+            <ShimmerImage
+              src={imageUrl}
+              alt={product.name}
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              fallback={
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
+                  P
+                </div>
+              }
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
               P
