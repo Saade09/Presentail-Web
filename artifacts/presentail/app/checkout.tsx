@@ -763,7 +763,7 @@ function CheckoutScreen() {
           [{ text: "OK" }]
         );
       } else {
-        Alert.alert(t.checkoutPaymentErrorTitle, session.message);
+        Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
       }
       setPaying(false);
       return;
@@ -800,7 +800,7 @@ function CheckoutScreen() {
       }
       Alert.alert(t.checkoutMamoErrorTitle, session.code === "mamo_not_configured"
         ? t.checkoutMamoNotConfigured
-        : session.message);
+        : t.checkoutPaymentNetworkError);
       setPaying(false);
       return;
     }
@@ -831,7 +831,7 @@ function CheckoutScreen() {
       }
       Alert.alert(t.checkoutPaypalErrorTitle, session.code === "paypal_not_configured"
         ? t.checkoutPaypalNotConfigured
-        : session.message);
+        : t.checkoutPaymentNetworkError);
       setPaying(false);
       return;
     }

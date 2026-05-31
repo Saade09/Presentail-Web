@@ -475,6 +475,7 @@ const EN = {
   checkoutMamoNotConfigured: "Mamo payments are being set up. Please choose another payment method.",
   checkoutPaypalErrorTitle: "PayPal error",
   checkoutPaypalNotConfigured: "PayPal payments are being set up. Please choose another payment method.",
+  checkoutPaymentNetworkError: "A connection error occurred. Please check your internet and try again.",
   checkoutBrandHeader: "Presentail", // no-translate — brand name, identical across all locales
   checkoutCartEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
@@ -1244,6 +1245,7 @@ const AR: typeof EN = {
   checkoutMamoNotConfigured: "يتم إعداد مدفوعات Mamo. يرجى اختيار طريقة دفع أخرى.",
   checkoutPaypalErrorTitle: "خطأ في PayPal",
   checkoutPaypalNotConfigured: "يتم إعداد مدفوعات PayPal. يرجى اختيار طريقة دفع أخرى.",
+  checkoutPaymentNetworkError: "حدث خطأ في الاتصال. يرجى التحقق من الإنترنت والمحاولة مجدداً.",
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "عربتك فارغة",
   checkoutBrowseBoutique: "تصفّح البوتيك",
@@ -2008,6 +2010,7 @@ const FR: typeof EN = {
   checkoutMamoNotConfigured: "Les paiements Mamo sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
   checkoutPaypalErrorTitle: "Erreur PayPal",
   checkoutPaypalNotConfigured: "Les paiements PayPal sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
+  checkoutPaymentNetworkError: "Une erreur de connexion s'est produite. Veuillez vérifier votre connexion Internet et réessayer.",
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "Votre panier est vide",
   checkoutBrowseBoutique: "Parcourir la boutique",
