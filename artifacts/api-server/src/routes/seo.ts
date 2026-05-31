@@ -520,6 +520,26 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .batch-status-cell { white-space: nowrap; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #555; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* batch controls bar */
+  .batch-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .batch-controls h2 { font-size: 15px; font-weight: 600; margin: 0; flex: 1 1 auto; }
+  .batch-filter-toggle { font: inherit; font-size: 12px; padding: 3px 10px; border: 1px solid #ccc; border-radius: 14px; background: #f5f5f5; cursor: pointer; color: #444; transition: background 0.15s, border-color 0.15s, color 0.15s; white-space: nowrap; }
+  .batch-filter-toggle:hover { background: #eef4ff; border-color: #99bbee; color: #0044aa; }
+  .batch-filter-toggle.active { background: #0066cc; border-color: #0055aa; color: #fff; font-weight: 600; }
+
+  /* market header toggle */
+  .batch-table tr.row-market-header td { cursor: pointer; user-select: none; }
+  .batch-table tr.row-market-header td:hover { background: #e4eaf2; }
+  .market-chevron { display: inline-block; margin-right: 6px; transition: transform 0.15s; font-style: normal; }
+  .market-stat { margin-left: 8px; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .market-stat.stat-red { color: #b00020; }
+  .market-stat.stat-yellow { color: #856404; }
+  .market-stat.stat-green { color: #155724; }
+
+  /* hidden rows (problems-only filter and collapsed groups) */
+  .batch-table tr.batch-row-hidden { display: none; }
+  .batch-table tr.batch-market-collapsed { display: none; }
 </style>
 </head>
 <body>
@@ -602,7 +622,10 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   <!-- Batch audit results -->
   <div id="batchSection">
-    <h2>Key-page audit</h2>
+    <div class="batch-controls">
+      <h2>Key-page audit</h2>
+      <button class="batch-filter-toggle" id="batchFilterToggle">Show problems only</button>
+    </div>
     <div class="batch-summary" id="batchSummary"></div>
     <table class="batch-table">
       <thead>
@@ -1226,6 +1249,44 @@ const SEO_DEBUG_HTML = `<!doctype html>
     monitorAuditBody.innerHTML = rows;
   }
 
+  // ── "Show problems only" toggle ────────────────────────────────────────────
+  var batchFilterToggle = document.getElementById('batchFilterToggle');
+  var batchProblemsOnly = false;
+  batchFilterToggle.addEventListener('click', function () {
+    batchProblemsOnly = !batchProblemsOnly;
+    batchFilterToggle.classList.toggle('active', batchProblemsOnly);
+    applyBatchFilter();
+  });
+
+  // marketCollapsed tracks which markets are manually collapsed (true) or expanded (false).
+  var marketCollapsed = {};
+
+  function marketIdFor(market) {
+    return 'market-hdr-' + market.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  }
+
+  function applyBatchFilter() {
+    var headerRows = batchBody.querySelectorAll('tr.row-market-header');
+    headerRows.forEach(function (hdr) {
+      var market = hdr.getAttribute('data-market');
+      var collapsed = !!marketCollapsed[market];
+      // Only target data rows (not the header row itself) so the header always stays visible
+      var dataRows = batchBody.querySelectorAll('tr:not(.row-market-header)[data-market="' + market + '"]');
+      dataRows.forEach(function (row) {
+        var isGreen = row.classList.contains('row-green');
+        var hiddenByFilter = batchProblemsOnly && isGreen;
+        if (collapsed || hiddenByFilter) {
+          row.classList.add('batch-market-collapsed');
+        } else {
+          row.classList.remove('batch-market-collapsed');
+        }
+      });
+      // Update chevron
+      var chevron = hdr.querySelector('.market-chevron');
+      if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+    });
+  }
+
   function renderBatchResults(results, pages) {
     var green = 0, yellow = 0, red = 0, errCount = 0;
     var rows = '';
@@ -1233,6 +1294,11 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
     // Per-market counters for the summary breakdown
     var marketStats = {};
+    // Track market order for summary (unique markets, first-seen order)
+    var marketOrder = [];
+    // Each market header gets a numbered placeholder so repeated-market blocks work safely
+    var hdrPlaceholders = []; // [{token, market}]
+    var hdrSeq = 0;
 
     results.forEach(function (data, idx) {
       var page = pages[idx] || { market: '', label: data.url, url: data.url };
@@ -1241,14 +1307,21 @@ const SEO_DEBUG_HTML = `<!doctype html>
       // Market section header row
       if (market && market !== currentMarket) {
         currentMarket = market;
-        rows += '<tr class="row-market-header"><td colspan="4">' + esc(market) + '</td></tr>';
-        if (!marketStats[market]) marketStats[market] = { green: 0, yellow: 0, red: 0, err: 0 };
+        if (!marketStats[market]) {
+          marketStats[market] = { green: 0, yellow: 0, red: 0, err: 0 };
+          marketOrder.push(market);
+        }
+        // Unique numbered placeholder — built after all rows so we know the final issue counts
+        var token = '\x00MHDR' + hdrSeq + '\x00';
+        hdrPlaceholders.push({ token: token, market: market });
+        hdrSeq++;
+        rows += token;
       }
 
       if (!data.ok) {
         errCount++;
         if (marketStats[market]) marketStats[market].err++;
-        rows += '<tr class="row-error">'
+        rows += '<tr class="row-error" data-market="' + esc(market) + '">'
           + '<td><div class="page-label">' + esc(page.label) + '</div>'
           + '<div class="page-url">' + esc(data.url) + '</div></td>'
           + '<td class="batch-status-cell">' + badge('error', 'red') + '</td>'
@@ -1274,7 +1347,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
         dimsHtml = ' <span class="muted">(' + data.ogImageActualWidth + '×' + data.ogImageActualHeight + ')</span>';
       }
 
-      rows += '<tr class="' + rowClass + '" data-idx="' + idx + '">'
+      rows += '<tr class="' + rowClass + '" data-market="' + esc(market) + '" data-idx="' + idx + '">'
         + '<td><div class="page-label">' + esc(page.label) + '</div>'
         + '<div class="page-url"><a href="' + esc(data.url) + '" target="_blank" rel="noopener">' + esc(data.url) + '</a></div></td>'
         + '<td class="batch-status-cell">' + badge(issues.length === 0 ? 'Good' : issues.length + ' issue' + (issues.length > 1 ? 's' : ''), color) + dimsHtml + '</td>'
@@ -1283,9 +1356,51 @@ const SEO_DEBUG_HTML = `<!doctype html>
         + '</tr>';
     });
 
+    // Replace market header placeholders with real headers (now we know the issue counts).
+    // hdrPlaceholders is ordered by first appearance, preserving correct insertion points
+    // even when the same market appears in multiple non-contiguous segments.
+    hdrPlaceholders.forEach(function (ph) {
+      var market = ph.market;
+      var s = marketStats[market];
+      var hasIssues = s.red + s.yellow + s.err > 0;
+      var totalM = s.green + s.yellow + s.red + s.err;
+      var issuesM = s.yellow + s.red + s.err;
+      var statClass = s.red + s.err > 0 ? 'stat-red' : (s.yellow > 0 ? 'stat-yellow' : 'stat-green');
+      var statText = hasIssues
+        ? issuesM + '/' + totalM + ' need attention'
+        : 'all good';
+      var hdrId = marketIdFor(market);
+
+      // Auto-expand markets with issues; collapse all-green markets.
+      // Only set on first encounter for this market; manual toggles survive re-renders.
+      if (!(market in marketCollapsed)) {
+        marketCollapsed[market] = !hasIssues;
+      }
+
+      var hdr = '<tr class="row-market-header" id="' + hdrId + '" data-market="' + esc(market) + '">'
+        + '<td colspan="4"><em class="market-chevron">&#9660;</em>' + esc(market)
+        + '<span class="market-stat ' + statClass + '">' + statText + '</span>'
+        + '</td></tr>';
+      // Each token is unique (numbered) so a plain replace hits exactly one occurrence
+      rows = rows.replace(ph.token, hdr);
+    });
+
     batchBody.innerHTML = rows;
 
-    // Summary line — overall + per-market breakdown
+    // Apply initial collapsed/filter state
+    applyBatchFilter();
+
+    // Wire up market header clicks (collapse/expand)
+    var headerRows = batchBody.querySelectorAll('tr.row-market-header');
+    headerRows.forEach(function (hdr) {
+      hdr.addEventListener('click', function () {
+        var market = hdr.getAttribute('data-market');
+        marketCollapsed[market] = !marketCollapsed[market];
+        applyBatchFilter();
+      });
+    });
+
+    // Summary line — overall + per-market breakdown (clickable links)
     var total = results.length;
     var overallParts = [];
     if (green) overallParts.push(green + ' good');
@@ -1293,12 +1408,16 @@ const SEO_DEBUG_HTML = `<!doctype html>
     if (red) overallParts.push(red + ' critical');
     if (errCount) overallParts.push(errCount + ' error' + (errCount > 1 ? 's' : ''));
 
-    var marketBreakdown = Object.keys(marketStats).map(function (m) {
+    var marketBreakdown = marketOrder.map(function (m) {
       var s = marketStats[m];
       var total2 = s.green + s.yellow + s.red + s.err;
       var issues2 = s.yellow + s.red + s.err;
       var color2 = issues2 === 0 ? '#155724' : (s.red + s.err > 0 ? '#b00020' : '#856404');
-      return '<span style="color:' + color2 + '">' + esc(m) + ': ' + (issues2 === 0 ? 'all good' : issues2 + '/' + total2 + ' need attention') + '</span>';
+      var hdrId = marketIdFor(m);
+      var label = issues2 === 0 ? 'all good' : issues2 + '/' + total2 + ' need attention';
+      return '<a href="#' + hdrId + '" style="color:' + color2 + ';text-decoration:none" '
+        + 'onclick="var el=document.getElementById(\'' + hdrId + '\');if(el){el.scrollIntoView({behavior:\'smooth\',block:\'start\'});return false;}">'
+        + esc(m) + ': ' + label + '</a>';
     }).join(' &nbsp;·&nbsp; ');
 
     batchSummary.innerHTML = '<strong>' + total + ' pages checked</strong> — ' + overallParts.join(', ')
