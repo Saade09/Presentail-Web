@@ -49,6 +49,12 @@
  *    translation.  The EN value and its translatability are checked first to
  *    avoid false positives on language-neutral or purely-variable strings.
  *
+ * 7. CROSS-LOCALE PARITY (AR vs FR) — keys present in one non-English
+ *    locale but absent from the other.  Checks 2 and 4 together cover the
+ *    symmetric EN↔AR and EN↔FR gaps, but a key can be added to AR (or FR)
+ *    without a matching EN entry and without appearing in FR (or AR).  That
+ *    edge case — invisible to the EN-anchored checks — is caught here.
+ *
  * Exit code 0 → all checks pass.
  * Exit code 1 → at least one check failed (details printed to stderr).
  *
@@ -553,6 +559,34 @@ if (emptyValueHits.length > 0) {
   );
 }
 
+// ── Check 7: cross-locale parity (AR vs FR) ──────────────────────────────────
+// Checks 2 and 4 together guarantee symmetric coverage between EN and each
+// non-English locale, but they leave one edge case open: a key added to AR
+// without a matching EN entry (or vice versa for FR) also has no FR entry.
+// The orphan check (4) flags the EN absence, but a dedicated AR↔FR check
+// makes that gap explicit and actionable for translators.
+
+type CrossLocaleGap = {
+  presentIn: string;
+  absentFrom: string;
+  keys: string[];
+};
+const crossLocaleGaps: CrossLocaleGap[] = [];
+
+const arOnlyKeys = Array.from(arKeys)
+  .filter((k) => !frKeys.has(k))
+  .sort();
+const frOnlyKeys = Array.from(frKeys)
+  .filter((k) => !arKeys.has(k))
+  .sort();
+
+if (arOnlyKeys.length > 0) {
+  crossLocaleGaps.push({ presentIn: "AR", absentFrom: "FR", keys: arOnlyKeys });
+}
+if (frOnlyKeys.length > 0) {
+  crossLocaleGaps.push({ presentIn: "FR", absentFrom: "AR", keys: frOnlyKeys });
+}
+
 // ── Check 5: placeholder / copy-paste strings ─────────────────────────────────
 // Two classes of likely-untranslated strings are flagged:
 //   (a) AR or FR value is byte-for-byte identical to the EN value.
@@ -643,6 +677,25 @@ if (placeholderHits.length > 0) {
   );
 }
 
+if (crossLocaleGaps.length > 0) {
+  failed = true;
+  for (const { presentIn, absentFrom, keys } of crossLocaleGaps) {
+    console.error(
+      `\n✗ ${keys.length} key${keys.length === 1 ? "" : "s"} present in ${presentIn} but missing from ${absentFrom}:\n`,
+    );
+    for (const key of keys) {
+      console.error(`  - ${key}`);
+      annotateError(
+        `Cross-locale gap: ${presentIn} has key absent from ${absentFrom}`,
+        `Key "${key}" exists in the ${presentIn} locale block but not in ${absentFrom} — add a ${absentFrom} translation or remove it from ${presentIn} in artifacts/presentail/lib/translations.ts.`,
+      );
+    }
+  }
+  console.error(
+    "\nEnsure AR and FR locale blocks contain exactly the same set of keys in artifacts/presentail/lib/translations.ts.\n",
+  );
+}
+
 // ── JSON output (for structured PR comment) ───────────────────────────────────
 const JSON_OUT = process.env["MOBILE_TRANSLATION_JSON_OUT"];
 if (JSON_OUT) {
@@ -680,7 +733,7 @@ if (JSON_OUT) {
 
 if (!failed) {
   console.log(
-    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, no empty locale values were detected, and no placeholder or copy-pasted translations were detected.`,
+    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, no empty locale values were detected, no placeholder or copy-pasted translations were detected, and AR/FR cross-locale parity is consistent.`,
   );
   process.exit(0);
 } else {
