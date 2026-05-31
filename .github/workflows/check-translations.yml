@@ -117,6 +117,7 @@ jobs:
               - '.github/workflows/check-translations.yml'
             api:
               - 'artifacts/api-server/**'
+              - 'artifacts/api-server/src/**/*.ts'
               - 'scripts/src/checkTranslations.ts'
               - 'scripts/src/checkHardcodedApiStrings.ts'
               - 'scripts/package.json'
