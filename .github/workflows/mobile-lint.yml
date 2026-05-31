@@ -45,3 +45,6 @@ jobs:
 
       - name: Typecheck mobile app
         run: pnpm --filter @workspace/presentail run typecheck
+
+      - name: Test mobile app
+        run: pnpm --filter @workspace/presentail run test
