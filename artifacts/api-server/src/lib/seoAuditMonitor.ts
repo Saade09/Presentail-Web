@@ -76,10 +76,16 @@ interface SeoPageResult {
   error?: string;
 }
 
-function classifyResult(r: SeoPageResult): "error" | "warn" | "ok" {
+export function classifyResult(r: SeoPageResult): "error" | "warn" | "ok" {
   if (r.fetchFailed || !r.ogImage || r.ogImageReachable === false) return "error";
   if (r.ogImageSizeOk === false || r.fallbackUsed) return "warn";
   return "ok";
+}
+
+/** Reset internal monitor state. Only call from tests. */
+export function __resetForTest(): void {
+  lastEvaluatedDay = null;
+  running = false;
 }
 
 async function fetchPageHtml(pageUrl: string): Promise<string | null> {
