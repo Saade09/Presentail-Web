@@ -54,7 +54,6 @@ export function CalendarPopover({ selectedIso, todayIso, onSelect }: Props) {
   });
 
   const grid = useMemo(() => buildGrid(viewYear, viewMonth), [viewYear, viewMonth]);
-  const { t } = useLocale();
 
   const canGoPrev =
     viewYear > todayYear || (viewYear === todayYear && viewMonth > todayMonth);
