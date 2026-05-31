@@ -47,7 +47,7 @@ export type Lang = "EN" | "AR" | "FR";
 const EN = {
   // Navigation
   home: "Home",
-  boutique: "Boutique",
+  boutique: "Boutique", // no-translate — French loan word, identical in EN and FR
   cart: "Cart",
   account: "Account",
   favorites: "Favorites",
@@ -84,7 +84,7 @@ const EN = {
   bestSellers: "Best Sellers",
   browseEyebrow: "Browse",
   categoriesTitle: "Categories",
-  occasionsEyebrow: "Occasions",
+  occasionsEyebrow: "Occasions", // no-translate — French loan word, identical in EN and FR
   occasionFromBrand: "from {brand}",
   occasionsTitle: "A gift for every moment",
   brandsEyebrow: "Brands",
@@ -121,7 +121,7 @@ const EN = {
   continueShopping: "Continue Shopping",
 
   // Occasions page
-  occasionsPageTitle: "Occasions",
+  occasionsPageTitle: "Occasions", // no-translate — French loan word, identical in EN and FR
   occasionsPageSubtitle: "Find the perfect gift for every moment",
 
   // Occasion names
@@ -173,7 +173,7 @@ const EN = {
   shareUnavailable: "Sharing isn't available in this build",
   taxInclusive: "Tax inclusive",
   earnPointsPrefix: "Earn",
-  earnPointsSuffix: "Points",
+  earnPointsSuffix: "Points", // no-translate — French loan word, identical in EN and FR
   deliveryOptionsLabel: "Delivery options",
   arrivesIn90: "Arrives in 90 minutes",
   fastest: "Fastest",
@@ -186,7 +186,7 @@ const EN = {
   liveOrderTracking: "Live Order Tracking",
   realTimeUpdates: "You'll receive real-time updates.",
   waysToPayLabel: "Ways to pay",
-  descriptionTab: "Description",
+  descriptionTab: "Description", // no-translate — French loan word, identical in EN and FR
   careTipsTab: "Care Tips",
   thisArrangementIncludes: "This arrangement includes",
   includedStem: "Hand-tied seasonal stems",
@@ -236,7 +236,7 @@ const EN = {
   chooseAnotherDateLabel: "Choose Another Date",
   andTimeSlotLabel: "And Time Slot",
   deliverySummaryTitle: "Delivery Summary",
-  dateLabel: "Date",
+  dateLabel: "Date", // no-translate — French loan word, identical in EN and FR
   timeLabel: "Time",
   noteForTeamTitle: "Note For Presentail Team",
   orderNotesLabel: "Order notes",
@@ -253,7 +253,7 @@ const EN = {
   nameOnCard: "Name on card",
   cardNumberLabel: "Card Number",
   expiryLabel: "Expiry (MM/YY)",
-  cvcLabel: "CVC",
+  cvcLabel: "CVC", // no-translate — universal payment abbreviation, identical across all locales
   emailForReceipt: "Email for receipt",
 
   // ── Account / Profile screen ──
@@ -262,15 +262,15 @@ const EN = {
   profileSignInBtn: "SIGN IN OR CREATE ACCOUNT",
   customerCare: "Customer Care",
   languageLabel: "Language",
-  faq: "FAQ",
+  faq: "FAQ", // no-translate — universal abbreviation, identical across all locales
   termsAndConditions: "Terms & Conditions",
   customerCareHeading: "We are happy to help you!",
   customerCareSubheading: "Need help with something?",
   phoneCall: "Phone Call",
-  whatsApp: "WhatsApp",
-  langEnglish: "English",
-  langArabic: "العربية",
-  langFrench: "Français",
+  whatsApp: "WhatsApp", // no-translate — brand name, identical across all locales
+  langEnglish: "English", // no-translate — language-picker label, shown in native script in each locale
+  langArabic: "العربية", // no-translate — native language name, identical across all locales
+  langFrench: "Français", // no-translate — native language name, identical across all locales
 
   // ── Notifications ──
   notifPermTitle: "Stay updated on your gifts",
@@ -280,7 +280,7 @@ const EN = {
   notifPermBullet3: "Seasonal drops and quiet treats — no spam",
   notifPermAllow: "Allow Notifications",
   notifPermMaybeLater: "Maybe Later",
-  notifications: "Notifications",
+  notifications: "Notifications", // no-translate — French loan word, identical in EN and FR
   enableNotifications: "Enable Notifications",
   notificationsEnabled: "Enabled",
   notificationsDisabled: "Disabled",
@@ -365,7 +365,7 @@ const EN = {
   terms_sec8_body: "Presentail is not liable for any indirect or consequential damages arising from the use of our services. Our total liability for any claim is limited to the value of the relevant order.",
   terms_sec9_title: "Changes to Terms",
   terms_sec9_body: "We may update these Terms & Conditions from time to time. The latest version will always be available in the app. Continued use of Presentail after an update constitutes acceptance of the revised terms.",
-  terms_sec10_title: "Contact",
+  terms_sec10_title: "Contact", // no-translate — French loan word, identical in EN and FR
   terms_sec10_body: "For any questions about these terms, please contact us at hello@presentail.com or through the Customer Care option in the app.",
   // ── Home / Drawer additions ──
 
@@ -402,7 +402,7 @@ const EN = {
   cartBrowseBoutique: "Browse the boutique",
   cartDelivery: "Delivery",
   cartFree: "Free",
-  cartTotal: "Total",
+  cartTotal: "Total", // no-translate — French loan word, identical in EN and FR
   cartProceed: "Proceed to Checkout",
   checkoutAsGuest: "Checkout as Guest",
   cartFreeDeliveryRemainingPrefix: "Only",
@@ -460,20 +460,20 @@ const EN = {
   checkoutMamoNotConfigured: "Mamo payments are being set up. Please choose another payment method.",
   checkoutPaypalErrorTitle: "PayPal error",
   checkoutPaypalNotConfigured: "PayPal payments are being set up. Please choose another payment method.",
-  checkoutBrandHeader: "Presentail",
+  checkoutBrandHeader: "Presentail", // no-translate — brand name, identical across all locales
   checkoutCartEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
   checkoutSubtotalLabel: "Subtotal",
   checkoutDeliveryFeeLabel: "Delivery Fee",
   checkoutExpressDeliveryLabel: "Express Delivery",
-  checkoutTotalLabel: "Total",
+  checkoutTotalLabel: "Total", // no-translate — French loan word, identical in EN and FR
   checkoutDeliverySuffix: "delivery",
   checkoutPleaseCompleteTitle: "Please complete the form",
   checkoutDayToday: "Today",
   checkoutDayTomorrow: "Tom",
   checkoutPayCard: "Credit / Debit Card",
   checkoutPayByCard: "Pay by card",
-  checkoutPayWallet: "Apple Pay / Google Pay",
+  checkoutPayWallet: "Apple Pay / Google Pay", // no-translate — brand names, identical across all locales
   checkoutOrderFailedTitle: "We couldn't record your order",
   checkoutOrderFailedMsg: "Your payment may have gone through, but we couldn't save your order. Please contact us with the reference below so we can confirm and deliver it.",
   checkoutOrderFailedRetry: "Try placing the order again",
@@ -509,7 +509,7 @@ const EN = {
   piGenderMale: "Male",
   piBirthday: "Birthday",
   piBirthdayDD: "DD",
-  piBirthdayMM: "MM",
+  piBirthdayMM: "MM", // no-translate — date format placeholder, identical across all locales
   piBirthdayYYYY: "YYYY",
   piBirthdaySharingOn: "Birthday sharing on",
   piBirthdayHowItWorks: "How it works?",
@@ -581,7 +581,7 @@ const EN = {
   addressFormSaveFailed: "Please try again in a moment.",
   addressFormSessionExpired:
     "Your session has expired or belongs to a different country store. Please sign in again to save addresses.",
-  addressFormSignInAgain: "OK",
+  addressFormSignInAgain: "OK", // no-translate — universal acknowledgement, identical across all locales
   addressFormMissingFields: "District and street are required.",
   // Checkout integration
   checkoutUseSavedAddress: "Use a saved address",
@@ -611,7 +611,7 @@ const EN = {
   ocOrderNumber: "Order number",
   ocRecipient: "Recipient",
   ocDelivery: "Delivery",
-  ocTotal: "Total",
+  ocTotal: "Total", // no-translate — French loan word, identical in EN and FR
   ocWhatHappensNext: "What happens next",
   ocStep1: "Our florist hand-arranges your gift",
   ocStep2: "Boutique wrapping with your card",
@@ -637,12 +637,12 @@ const EN = {
   // ── FAQ page ──
 
   // ── Category page ──
-  categoryBoutiqueLebanon: "Boutique · {country}",
+  categoryBoutiqueLebanon: "Boutique · {country}", // no-translate — French loan word, identical in EN and FR
   categorySameDay: "Same-day delivery",
   categoryPiecesLabel: "products",
   categoryLoadingProducts: "Loading products…",
   categoryFallback: "Category",
-  occasionFallback: "Occasion",
+  occasionFallback: "Occasion", // no-translate — French loan word, identical in EN and FR
   categorySoldOutTitle: "Everything in this collection is sold out",
   categorySoldOutDesc: "New pieces are on the way. In the meantime, here are a few popular picks our customers love.",
   occasionSoldOutTitle: "No gifts available for this occasion right now",
@@ -792,7 +792,7 @@ const EN = {
 
   // ── Side menu ──
   menuShop: "Shop",
-  menuOccasions: "Occasions",
+  menuOccasions: "Occasions", // no-translate — French loan word, identical in EN and FR
   menuBrands: "Brands",
   menuAccount: "Account",
   menuHelp: "Help",
@@ -801,7 +801,7 @@ const EN = {
   // ── Cart upsells ──
   cartUpsellsTitle: "Make it perfect",
   cartUpsellsAdd: "Add",
-  cartUpsellsExpress: "Express",
+  cartUpsellsExpress: "Express", // no-translate — French loan word, identical in EN and FR
   cartUpsellsTabRecommended: "Recommended",
   cartUpsellsTabSingleBalloons: "Single Balloons",
   cartUpsellsTabBalloonBundles: "Balloon Bundles",
@@ -1056,9 +1056,9 @@ const AR: typeof EN = {
   customerCareSubheading: "هل تحتاج إلى مساعدة في شيء ما؟",
   phoneCall: "اتصال هاتفي",
   whatsApp: "واتساب",
-  langEnglish: "English",
+  langEnglish: "الإنجليزية",
   langArabic: "العربية",
-  langFrench: "Français",
+  langFrench: "الفرنسية",
 
   // ── Notifications ──
   notifPermTitle: "ابقَ على اطلاع بهداياك",
@@ -1462,7 +1462,7 @@ const AR: typeof EN = {
   authTitle: "تسجيل الدخول أو إنشاء حساب",
   authSubtitle: "سجّل الدخول باستخدام بريدك الإلكتروني",
   authEmailLabel: "البريد الإلكتروني",
-  authEmailPlaceholder: "you@example.com",
+  authEmailPlaceholder: "أنت@مثال.com",
   authContinue: "متابعة",
   authOr: "أو",
   authContinueApple: "المتابعة باستخدام Apple",
@@ -1839,8 +1839,8 @@ const FR: typeof EN = {
   customerCareSubheading: "Besoin d'aide pour quelque chose ?",
   phoneCall: "Appel téléphonique",
   whatsApp: "WhatsApp",
-  langEnglish: "English",
-  langArabic: "العربية",
+  langEnglish: "Anglais",
+  langArabic: "Arabe",
   langFrench: "Français",
 
   // ── Notifications ──

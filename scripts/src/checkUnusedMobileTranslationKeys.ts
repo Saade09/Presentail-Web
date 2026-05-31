@@ -261,6 +261,32 @@ export function isLanguageNeutralValue(value: string): boolean {
 }
 
 /**
+ * Returns the set of EN keys annotated with `// no-translate` on the same
+ * line as their value.  These keys are intentionally identical across all
+ * locales — either because the word is a French loan word used unchanged in
+ * French, a proper brand name, or a universally recognised abbreviation —
+ * and should be excluded from the placeholder / copy-paste check (Check 5).
+ *
+ * Example annotation in the EN block:
+ *   boutique: "Boutique",  // no-translate — French loan word
+ */
+export function extractNoTranslateKeys(src: string): Set<string> {
+  const blockRe = /^const EN(?:[^=]*)=\s*\{([\s\S]*?)^};/m;
+  const match = src.match(blockRe);
+  if (!match) return new Set();
+  const block = match[1];
+  const result = new Set<string>();
+  // Match single-line string values followed by a // no-translate comment.
+  const lineRe =
+    /^\s+([a-zA-Z_][a-zA-Z0-9_]*):\s*(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')\s*,?\s*\/\/.*no-translate/gm;
+  let m: RegExpExecArray | null;
+  while ((m = lineRe.exec(block)) !== null) {
+    result.add(m[1]);
+  }
+  return result;
+}
+
+/**
  * Returns true when the EN value has no human-translatable text — i.e. its
  * only "words" are template variables (`{…}`) or language-neutral content.
  * Example: `"{country}"` → nothing to translate; `"you@example.com"` → no.
@@ -308,6 +334,7 @@ const frKeys = new Set(extractLocaleKeys(translationsSrc, "FR"));
 const enValues = extractLocaleKeyValues(translationsSrc, "EN");
 const arValues = extractLocaleKeyValues(translationsSrc, "AR");
 const frValues = extractLocaleKeyValues(translationsSrc, "FR");
+const noTranslateKeys = extractNoTranslateKeys(translationsSrc);
 
 // Collect every mobile source file except translations.ts itself.
 const files = collectFiles(SCAN_ROOT).filter((f) => f !== TRANSLATIONS_FILE);
@@ -619,6 +646,10 @@ for (const [locale, localeValueMap] of [
     // Skip values where there is nothing translatable in the EN string
     // (e.g. pure template variables like "{country}").
     if (enValueIsUntranslatable(enVal)) continue;
+    // Skip keys explicitly annotated as `// no-translate` in the EN block
+    // (brand names, French loan words used unchanged in FR, universal
+    // abbreviations — values that are legitimately identical across locales).
+    if (noTranslateKeys.has(key)) continue;
 
     // (a) Identical to EN value
     if (localeVal === enVal) {

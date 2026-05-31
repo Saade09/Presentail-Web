@@ -181,7 +181,6 @@ export const accountStrings: Dict = {
   "loyalty.copied": { en: "Copied", ar: "تم النسخ" },
   "loyalty.pointsToNext": { en: "{points} points to {tier} ({discount}% off)", ar: "{points} نقطة للوصول إلى {tier} (خصم {discount}٪)" },
   "loyalty.loadError": { en: "Failed to load loyalty", ar: "تعذّر تحميل بيانات الولاء" },
-  "loyalty.loadFailed": { en: "Could not load loyalty", ar: "تعذّر تحميل بيانات الولاء" },
   "loyalty.currentTier": { en: "Current tier", ar: "المستوى الحالي" },
   "loyalty.vipMessage": { en: "You're at our top tier — thank you for being a Presentail VIP.", ar: "أنت في أعلى مستوى لدينا — شكراً لكونك عضواً VIP في برزنتيل." },
   "loyalty.activeCoupons": { en: "Your active coupons", ar: "كوبوناتك النشطة" },
@@ -214,7 +213,6 @@ export const accountStrings: Dict = {
   "favorites.couldNotShare": { en: "Could not create share link", ar: "تعذّر إنشاء رابط المشاركة" },
   "favorites.browseCollection": { en: "Browse the Collection", ar: "تصفّح المجموعة" },
 
-  "sharedFavorites.notFound": { en: "Not found", ar: "غير موجود" },
   "sharedFavorites.unavailableTitle": { en: "This list is no longer available", ar: "هذه القائمة لم تعد متاحة" },
   "sharedFavorites.unavailableDesc": { en: "The share link may have expired or been revoked.", ar: "قد يكون رابط المشاركة قد انتهت صلاحيته أو تم إلغاؤه." },
   "sharedFavorites.discoverLink": { en: "Discover Presentail", ar: "اكتشف برزنتيل" },
@@ -329,7 +327,6 @@ export const accountStringsFr: Record<string, string> = {
   "loyalty.copied": "Copié",
   "loyalty.pointsToNext": "{points} points pour atteindre {tier} ({discount}% de réduction)",
   "loyalty.loadError": "Impossible de charger les points",
-  "loyalty.loadFailed": "Impossible de charger les points",
   "loyalty.currentTier": "Niveau actuel",
   "loyalty.vipMessage": "Vous êtes à notre niveau supérieur — merci d'être un VIP Presentail.",
   "loyalty.activeCoupons": "Vos coupons actifs",
@@ -359,7 +356,6 @@ export const accountStringsFr: Record<string, string> = {
   "favorites.couldNotShare": "Impossible de créer le lien de partage",
   "favorites.browseCollection": "Parcourir la collection",
 
-  "sharedFavorites.notFound": "Introuvable",
   "sharedFavorites.unavailableTitle": "Cette liste n'est plus disponible",
   "sharedFavorites.unavailableDesc": "Le lien de partage a peut-être expiré ou été révoqué.",
   "sharedFavorites.discoverLink": "Découvrir Presentail",

@@ -3,8 +3,6 @@ import type { Dict } from "./types";
 export const homeStrings: Dict = {
   "carousel.prev": { en: "Previous slide", ar: "الشريحة السابقة" },
   "carousel.next": { en: "Next slide", ar: "الشريحة التالية" },
-  "carousel.scrollLeft": { en: "Scroll left", ar: "تمرير لليسار" },
-  "carousel.scrollRight": { en: "Scroll right", ar: "تمرير لليمين" },
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
   "collections.summer.title": { en: "Summer Collection", ar: "تشكيلة الصيف" },
@@ -82,8 +80,6 @@ export const homeStrings: Dict = {
 export const homeStringsFr: Record<string, string> = {
   "carousel.prev": "Diapositive précédente",
   "carousel.next": "Diapositive suivante",
-  "carousel.scrollLeft": "Défiler à gauche",
-  "carousel.scrollRight": "Défiler à droite",
   "bestSellers.title": "Meilleures ventes",
   "bestSellers.viewAll": "Tout voir",
   "collections.summer.title": "Collection d'été",
