@@ -818,11 +818,17 @@ function SummerCollectionSection() {
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
   const [products, setProducts] = useState<WooProduct[]>([]);
+  // true only until the very first fetch settles — subsequent location-change
+  // re-fetches leave this false so existing cards stay visible (SWR).
   const [loading, setLoading] = useState(true);
+  const hasEverLoaded = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // Only mark as loading when we have nothing to show yet (first load).
+    // On re-syncs triggered by location changes the stale products remain
+    // visible while the background fetch runs.
+    if (!hasEverLoaded.current) setLoading(true);
     fetchCategoryProducts("summer-collection", { countryCode, cityId })
       .then(({ products }) => {
         if (cancelled) return;
@@ -831,7 +837,10 @@ function SummerCollectionSection() {
         setProducts(shuffled.slice(0, 10));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          hasEverLoaded.current = true;
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;

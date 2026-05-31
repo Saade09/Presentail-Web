@@ -112,8 +112,14 @@ export function WooProductsProvider({ children }: { children: React.ReactNode })
     return () => sub.remove();
   }, [sync, lastSync, onboardingHydrated, needsOnboarding]);
 
+  // Expose loading as true only when we have no products to show yet (initial
+  // load). Once products are in state — even stale from a previous
+  // country/city — consumers receive loading:false so existing cards stay
+  // visible while the background re-fetch runs (stale-while-revalidate).
+  const isInitialLoading = loading && products.length === 0;
+
   return (
-    <WooProductsContext.Provider value={{ products, loading, lastSync, refresh: () => sync(true) }}>
+    <WooProductsContext.Provider value={{ products, loading: isInitialLoading, lastSync, refresh: () => sync(true) }}>
       {children}
     </WooProductsContext.Provider>
   );
