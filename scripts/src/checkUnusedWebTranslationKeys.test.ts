@@ -5,6 +5,7 @@
  *   - extractStaticTCallKeys  — finds literal t("key") call sites (check #3)
  *   - extractDynamicPrefixes  — template-literal t(`prefix.${expr}`) (check #3)
  *   - extractEmptyValueKeys   — blank en/ar values (check #5)
+ *   - extractNoTranslateKeys  — reads // no-translate annotations (check #6)
  *   - extractCopypasteKeys    — copy-pasted EN values in AR/FR (check #6)
  *   - isLanguageNeutralValue  — helper used by the copy-paste check
  *   - enValueIsUntranslatable — helper used by the copy-paste check
@@ -16,6 +17,7 @@ import {
   extractDynamicPrefixes,
   extractEmptyValueKeys,
   extractCopypasteKeys,
+  extractNoTranslateKeys,
   isLanguageNeutralValue,
   enValueIsUntranslatable,
 } from "./checkUnusedWebTranslationKeys.js";
@@ -207,6 +209,58 @@ describe("enValueIsUntranslatable", () => {
   });
 });
 
+describe("extractNoTranslateKeys", () => {
+  it("returns an empty set when no // no-translate annotations are present", () => {
+    const src = `  "brand.name": { en: "Presentail", ar: "Presentail" },\n`;
+    expect(extractNoTranslateKeys(src).size).toBe(0);
+  });
+
+  it("detects // no-translate on a single-line Dict entry", () => {
+    const src = `  "brand.tagline": { en: "Gift with Love — Presentail Lebanon", ar: "Gift with Love — Presentail Lebanon" }, // no-translate\n`;
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("brand.tagline")).toBe(true);
+  });
+
+  it("detects // no-translate with extra comment text after it", () => {
+    const src = `  "brand.tagline": { en: "Gift with Love — Presentail Lebanon", ar: "Gift with Love — Presentail Lebanon" }, // no-translate — brand tagline\n`;
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("brand.tagline")).toBe(true);
+  });
+
+  it("detects // no-translate on the closing brace line of a multi-line Dict entry", () => {
+    const src = `
+  "brand.tagline": {
+    en: "Gift with Love — Presentail Lebanon",
+    ar: "Gift with Love — Presentail Lebanon",
+  }, // no-translate — verbatim in every locale
+`;
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("brand.tagline")).toBe(true);
+  });
+
+  it("detects // no-translate on a FR string entry", () => {
+    const src = `  "brand.tagline": "Gift with Love — Presentail Lebanon", // no-translate\n`;
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("brand.tagline")).toBe(true);
+  });
+
+  it("does not include keys without a dot", () => {
+    const src = `  "nodot": { en: "Something", ar: "Something" }, // no-translate\n`;
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("nodot")).toBe(false);
+  });
+
+  it("collects multiple annotated keys from the same source", () => {
+    const src = [
+      `  "seo.siteName": { en: "Presentail", ar: "Presentail" }, // no-translate`,
+      `  "footer.appUrl": { en: "https://presentail.com/app", ar: "https://presentail.com/app" }, // no-translate`,
+    ].join("\n");
+    const keys = extractNoTranslateKeys(src);
+    expect(keys.has("seo.siteName")).toBe(true);
+    expect(keys.has("footer.appUrl")).toBe(true);
+  });
+});
+
 describe("extractCopypasteKeys", () => {
   // Helper: build a locale file snippet with a Dict entry and an optional FR entry.
   function makeSnippet({
@@ -337,6 +391,38 @@ describe("extractCopypasteKeys", () => {
       "nodot": { en: "This is a very long string that exceeds the threshold for detection", ar: "This is a very long string that exceeds the threshold for detection" },
     `;
     expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("does not flag a key annotated with // no-translate (single-line Dict entry)", () => {
+    const src = `  "brand.tagline": { en: "Gift with Love — Presentail Lebanon", ar: "Gift with Love — Presentail Lebanon" }, // no-translate\n`;
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("does not flag a key annotated with // no-translate (multi-line Dict entry)", () => {
+    const src = `
+  "brand.tagline": {
+    en: "Gift with Love — Presentail Lebanon",
+    ar: "Gift with Love — Presentail Lebanon",
+  }, // no-translate — brand tagline, verbatim in every locale
+`;
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("does not flag FR copy-paste when Dict entry carries // no-translate", () => {
+    const src = `  "brand.tagline": { en: "Gift with Love — Presentail Lebanon", ar: "Gift with Love — Presentail Lebanon" }, // no-translate\n  "brand.tagline": "Gift with Love — Presentail Lebanon",\n`;
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("still flags other identical keys when only one is annotated", () => {
+    const annotated = `  "brand.tagline": { en: "Gift with Love — Presentail Lebanon", ar: "Gift with Love — Presentail Lebanon" }, // no-translate\n`;
+    const flagged = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift for any occasion",
+      ar: "Find the perfect floral arrangement or luxury gift for any occasion",
+    });
+    const hits = extractCopypasteKeys(annotated + flagged);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].key).toBe("cart.empty.desc");
   });
 });
 

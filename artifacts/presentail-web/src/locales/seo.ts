@@ -1,7 +1,7 @@
 import type { Dict } from "./types";
 
 export const seoStrings: Dict = {
-  "seo.siteName": { en: "Presentail", ar: "Presentail" },
+  "seo.siteName": { en: "Presentail", ar: "Presentail" }, // no-translate — brand name, identical in every locale
   "seo.home.title": {
     en: "Flower & Gift Delivery in {city} | Presentail",
     ar: "توصيل الأزهار والهدايا في {city} | Presentail",
@@ -93,7 +93,7 @@ export const seoStrings: Dict = {
 };
 
 export const seoStringsFr: Record<string, string> = {
-  "seo.siteName": "Presentail",
+  "seo.siteName": "Presentail", // no-translate — brand name, identical in every locale
   "seo.home.title": "Livraison de fleurs et cadeaux à {city} | Presentail",
   "seo.home.description": "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
   "seo.shop.title": "Boutique fleurs et cadeaux à {city} | Presentail",

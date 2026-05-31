@@ -241,6 +241,74 @@ function escapeRegExp(s: string): string {
 const MIN_COPY_PASTE_LENGTH = 25;
 
 /**
+ * Returns the set of keys annotated with `// no-translate` in a locale domain
+ * file's source text.  These keys are intentionally identical across all
+ * locales — e.g. a proper brand name, a URL, or a legal term used verbatim —
+ * and should be excluded from the copy-paste / placeholder check (Check 6).
+ *
+ * Two annotation styles are recognised:
+ *
+ *   Dict entry, single-line:
+ *     "brand.name": { en: "Presentail", ar: "Presentail" }, // no-translate
+ *
+ *   Dict entry, multi-line (comment goes on the closing brace line):
+ *     "brand.tagline": {
+ *       en: "Gift with Love",
+ *       ar: "Gift with Love",
+ *     }, // no-translate — brand tagline, used verbatim in all locales
+ *
+ *   FR string entry:
+ *     "brand.name": "Presentail", // no-translate
+ */
+export function extractNoTranslateKeys(src: string): Set<string> {
+  const result = new Set<string>();
+
+  // ── Dict entries ──────────────────────────────────────────────────────────
+  // For each "key.name": { … } block, check whether the line that contains
+  // the matching closing brace has a // no-translate comment after it.
+  const keyStartRe = /^\s+"([^"]+)":\s*\{/gm;
+  let m: RegExpExecArray | null;
+  while ((m = keyStartRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+
+    const braceStart = m.index + m[0].length - 1;
+    let depth = 0;
+    let blockEnd = -1;
+    for (let i = braceStart; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          blockEnd = i;
+          break;
+        }
+      }
+    }
+    if (blockEnd === -1) continue;
+
+    // Scan to the end of the line containing the closing brace.
+    const lineEnd = src.indexOf("\n", blockEnd);
+    const suffix = src.slice(blockEnd, lineEnd === -1 ? undefined : lineEnd);
+    if (/\/\/.*no-translate/.test(suffix)) {
+      result.add(key);
+    }
+  }
+
+  // ── FR string entries ─────────────────────────────────────────────────────
+  // Single-line format: "key.name": "value", // no-translate
+  const frRe =
+    /^\s+"([^"]+)":\s+"(?:[^"\\]|\\.)*"\s*,?\s*\/\/.*no-translate/gm;
+  while ((m = frRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+    result.add(key);
+  }
+
+  return result;
+}
+
+/**
  * Returns true when a string is composed entirely of language-neutral
  * characters — digits, whitespace, punctuation, and common symbols — that are
  * legitimately identical across all locales (e.g. "+961", "—", "USD").
@@ -351,9 +419,14 @@ export type CopypasteHit = {
  *   • The EN value is shorter than MIN_COPY_PASTE_LENGTH — skip; short proper
  *     nouns, brand names, and abbreviations are often legitimately identical
  *     across locales (e.g. "Express", "PayPal", "Presentail", "Total").
+ *   • The key carries a `// no-translate` annotation — skip; the author has
+ *     explicitly documented that the identical value is intentional.
  */
 export function extractCopypasteKeys(src: string): CopypasteHit[] {
   const hits: CopypasteHit[] = [];
+
+  // Keys explicitly opted out of the copy-paste check via // no-translate.
+  const noTranslateKeys = extractNoTranslateKeys(src);
 
   // ── Pass 1: AR-identical check ────────────────────────────────────────────
   // Walk every Dict entry ("key.name": { en: "…", ar: "…" }) and compare the
@@ -395,6 +468,8 @@ export function extractCopypasteKeys(src: string): CopypasteHit[] {
     // Skip untranslatable / too-short EN values.
     if (enValueIsUntranslatable(enVal)) continue;
     if (enVal.length < MIN_COPY_PASTE_LENGTH) continue;
+    // Skip keys explicitly annotated as intentionally identical.
+    if (noTranslateKeys.has(key)) continue;
 
     const arVal = extractFieldValue(block, "ar");
     if (arVal === null) continue; // missing ar — caught by check #4
@@ -418,6 +493,8 @@ export function extractCopypasteKeys(src: string): CopypasteHit[] {
     if (enVal === undefined || enVal === "") continue;
     if (enValueIsUntranslatable(enVal)) continue;
     if (enVal.length < MIN_COPY_PASTE_LENGTH) continue;
+    // Skip keys explicitly annotated as intentionally identical.
+    if (noTranslateKeys.has(key)) continue;
 
     if (frVal === enVal) {
       hits.push({ key, kind: "fr-identical", enValue: enVal });

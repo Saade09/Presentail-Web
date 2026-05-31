@@ -38,11 +38,30 @@
  * (e.g. "PayPal", "Express", "USD") are safe to leave identical across locales
  * without any annotation.
  *
- * For longer strings that are legitimately identical in every locale (very
- * rare — e.g. a URL or a long brand tagline used verbatim in Arabic and
- * French), add an inline comment so reviewers understand it is intentional:
+ * ─── // no-translate annotation ──────────────────────────────────────────────
  *
- *   "brand.tagline": { en: "Presentail — Gift with Love", ar: "Presentail — Gift with Love" }, // brand name, same in AR
+ * For longer strings (25+ characters) that are legitimately identical in every
+ * locale — e.g. a brand tagline used verbatim worldwide, a URL, or a legal
+ * company name — add a trailing `// no-translate` comment to the Dict entry so
+ * the checker knows the match is intentional rather than a copy-paste mistake.
+ *
+ * Single-line Dict entry:
+ *   "brand.name": { en: "Presentail — Flowers & Gifts", ar: "Presentail — Flowers & Gifts" }, // no-translate
+ *
+ * Multi-line Dict entry (comment on the closing brace line):
+ *   "brand.tagline": {
+ *     en: "Gift with Love — Presentail",
+ *     ar: "Gift with Love — Presentail",
+ *   }, // no-translate — brand tagline, used verbatim in all locales
+ *
+ * FR string entry:
+ *   "brand.name": "Presentail — Flowers & Gifts", // no-translate
+ *
+ * See `seo.siteName` in `locales/seo.ts` for a concrete reference example.
+ *
+ * Note: the annotation is only needed when both conditions apply — the value is
+ * identical across locales AND the EN string is 25+ characters.  Shorter
+ * strings (< 25 chars) are auto-skipped regardless of any annotation.
  *
  * ─── Catching issues locally before push ─────────────────────────────────────
  *
