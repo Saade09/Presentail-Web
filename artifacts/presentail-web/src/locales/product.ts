@@ -1,6 +1,16 @@
 import type { Dict } from "./types";
 
 export const productStrings: Dict = {
+  "lightbox.zoomOut": { en: "Zoom out", ar: "تصغير" },
+  "lightbox.zoomIn": { en: "Zoom in", ar: "تكبير" },
+  "lightbox.close": { en: "Close", ar: "إغلاق" },
+  "lightbox.prevImage": { en: "Previous image", ar: "الصورة السابقة" },
+  "lightbox.nextImage": { en: "Next image", ar: "الصورة التالية" },
+  "lightbox.showImage": { en: "Show image {n}", ar: "عرض الصورة {n}" },
+  "lightbox.title": { en: "{name} — image {current} of {total}", ar: "{name} — الصورة {current} من {total}" },
+  "calendar.prevMonth": { en: "Previous month", ar: "الشهر السابق" },
+  "calendar.nextMonth": { en: "Next month", ar: "الشهر التالي" },
+  "schedule.pickDate": { en: "Pick a date from the calendar", ar: "اختر تاريخاً من التقويم" },
   "product.toast.addedTitle": { en: "Added to cart", ar: "تمت الإضافة إلى الحقيبة" },
   "product.toast.addedDesc": { en: "{name} added to your bag.", ar: "تمت إضافة {name} إلى حقيبتك." },
   "product.notFound": { en: "Product Not Found", ar: "المنتج غير موجود" },
@@ -29,6 +39,16 @@ export const productStrings: Dict = {
 };
 
 export const productStringsFr: Record<string, string> = {
+  "lightbox.zoomOut": "Zoom arrière",
+  "lightbox.zoomIn": "Zoom avant",
+  "lightbox.close": "Fermer",
+  "lightbox.prevImage": "Image précédente",
+  "lightbox.nextImage": "Image suivante",
+  "lightbox.showImage": "Afficher l'image {n}",
+  "lightbox.title": "{name} — image {current} sur {total}",
+  "calendar.prevMonth": "Mois précédent",
+  "calendar.nextMonth": "Mois suivant",
+  "schedule.pickDate": "Choisir une date dans le calendrier",
   "product.toast.addedTitle": "Ajouté au panier",
   "product.toast.addedDesc": "{name} ajouté à votre panier.",
   "product.notFound": "Produit introuvable",

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Link } from "wouter";
+import { useLocale } from "@/contexts/LocaleContext";
 import {
   ChevronLeft,
   ChevronRight,

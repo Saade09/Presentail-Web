@@ -215,7 +215,7 @@ export function ProductLightbox({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogPrimitive.Title className="sr-only">
-            {productName} — image {safeIndex + 1} of {list.length}
+            {t("lightbox.title", { name: productName, current: safeIndex + 1, total: list.length })}
           </DialogPrimitive.Title>
 
           <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 text-white">
@@ -315,7 +315,7 @@ export function ProductLightbox({
                       "shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors",
                       i === safeIndex ? "border-white" : "border-white/20 opacity-60 hover:opacity-100",
                     )}
-                    aria-label={`Show image ${i + 1}`}
+                    aria-label={t("lightbox.showImage", { n: i + 1 })}
                     data-testid={`lightbox-thumb-${i}`}
                   >
                     <img src={img.uri} alt="" className="w-full h-full object-cover" />

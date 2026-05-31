@@ -33,6 +33,7 @@ const MONTHS = [
 const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 export function CalendarPopover({ selectedIso, todayIso, onSelect }: Props) {
+  const { t } = useLocale();
   const todayDate = new Date(`${todayIso}T00:00:00`);
   const todayYear = todayDate.getFullYear();
   const todayMonth = todayDate.getMonth();

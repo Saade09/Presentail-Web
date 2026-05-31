@@ -181,7 +181,7 @@ export function ScheduleInlinePanel({
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-foreground border-border hover:border-foreground/30",
               )}
-              aria-label={t("product.pickDateAria")}
+              aria-label={t("product.calendarAria")}
               data-testid="schedule-calendar-toggle"
             >
               <CalendarDays className="w-4 h-4" />
