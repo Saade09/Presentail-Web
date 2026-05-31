@@ -218,6 +218,17 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .token-row label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
   .token-row input { font: inherit; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; width: 260px; }
 
+  /* quick checks */
+  .quick-section { margin-bottom: 20px; }
+  .quick-section h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: #444; }
+  .quick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .quick-item { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid #ccc; border-radius: 20px; background: #f9f9f9; cursor: pointer; font: inherit; font-size: 12px; color: #333; transition: background 0.15s, border-color 0.15s; }
+  .quick-item:hover { background: #eef4ff; border-color: #99bbee; color: #0044aa; }
+  .quick-item .quick-label { font-weight: 500; }
+  .quick-item .quick-badge { display: none; }
+  .quick-item.has-badge .quick-badge { display: inline-block; }
+  .quick-item.checking { opacity: 0.7; cursor: default; }
+
   /* fallback banner */
   .fallback-banner { background: #fff3cd; border: 1px solid #ffc107; color: #856404; border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
 </style>
@@ -228,6 +239,28 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   <div class="token-row">
     <label>Admin token <input id="token" type="password" placeholder="x-push-admin-token"></label>
+  </div>
+
+  <div class="quick-section">
+    <h2>Quick checks</h2>
+    <div class="quick-list" id="quickList">
+      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut" data-label="Homepage">
+        <span class="quick-label">Homepage</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/product/pink-roses" data-label="Product page">
+        <span class="quick-label">Product page</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/brand/roses-only" data-label="Brand page">
+        <span class="quick-label">Brand page</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/shop?category=flowers" data-label="Category page">
+        <span class="quick-label">Category page</span>
+        <span class="quick-badge"></span>
+      </button>
+    </div>
   </div>
 
   <div class="controls">
@@ -380,10 +413,28 @@ const SEO_DEBUG_HTML = `<!doctype html>
   }
 
   function doCheck() {
-    var token = tokenEl.value.trim();
     var url = urlEl.value.trim();
-    if (!token) { statusEl.textContent = 'Paste your admin token first.'; statusEl.className = 'err'; return; }
     if (!url) { statusEl.textContent = 'Enter a URL to check.'; statusEl.className = 'err'; return; }
+    doCheckUrl(url, null);
+  }
+
+  checkBtn.addEventListener('click', doCheck);
+  urlEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCheck(); });
+
+  // Quick checks
+  var quickItems = document.querySelectorAll('.quick-item');
+  quickItems.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var url = btn.getAttribute('data-url');
+      if (!url || btn.classList.contains('checking')) return;
+      urlEl.value = url;
+      doCheckUrl(url, btn);
+    });
+  });
+
+  function doCheckUrl(url, quickBtn) {
+    var token = tokenEl.value.trim();
+    if (!token) { statusEl.textContent = 'Paste your admin token first.'; statusEl.className = 'err'; return; }
 
     try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
 
@@ -391,6 +442,13 @@ const SEO_DEBUG_HTML = `<!doctype html>
     statusEl.textContent = 'Checking…';
     statusEl.className = 'muted';
     resultEl.style.display = 'none';
+
+    if (quickBtn) {
+      quickBtn.classList.add('checking');
+      var badgeEl = quickBtn.querySelector('.quick-badge');
+      if (badgeEl) { badgeEl.className = 'quick-badge badge badge-yellow'; badgeEl.textContent = '…'; }
+      quickBtn.classList.add('has-badge');
+    }
 
     fetch('/api/seo/debug?url=' + encodeURIComponent(url), {
       headers: { 'x-push-admin-token': token },
@@ -403,18 +461,47 @@ const SEO_DEBUG_HTML = `<!doctype html>
       .then(function (data) {
         statusEl.textContent = '';
         render(data);
+        if (quickBtn) {
+          var issues = countIssues(data);
+          var badgeEl2 = quickBtn.querySelector('.quick-badge');
+          if (issues === 0) {
+            badgeEl2.className = 'quick-badge badge badge-green';
+            badgeEl2.textContent = '✓';
+          } else {
+            badgeEl2.className = 'quick-badge badge badge-red';
+            badgeEl2.textContent = issues + ' issue' + (issues > 1 ? 's' : '');
+          }
+        }
       })
       .catch(function (err) {
         statusEl.textContent = err.message;
         statusEl.className = 'err';
+        if (quickBtn) {
+          var badgeEl3 = quickBtn.querySelector('.quick-badge');
+          badgeEl3.className = 'quick-badge badge badge-red';
+          badgeEl3.textContent = 'error';
+        }
       })
       .finally(function () {
         checkBtn.disabled = false;
+        if (quickBtn) quickBtn.classList.remove('checking');
       });
   }
 
-  checkBtn.addEventListener('click', doCheck);
-  urlEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCheck(); });
+  function countIssues(data) {
+    var issues = 0;
+    if (!data.title) issues++;
+    else if (data.title.length < 20) issues++;
+    else if (data.title.length > 70) issues++;
+    if (!data.description) issues++;
+    else if (data.description.length < 50) issues++;
+    if (!data.ogImage) issues++;
+    else if (data.ogImageReachable === false) issues++;
+    if (data.fallbackUsed) issues++;
+    if (!data.canonical) issues++;
+    if (!(data.ogImageAlt || data.twitterImageAlt)) issues++;
+    return issues;
+  }
 })();
 </script>
 </body>
