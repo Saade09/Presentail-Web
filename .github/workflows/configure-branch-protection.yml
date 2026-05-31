@@ -71,6 +71,11 @@ jobs:
           WEB_LINT="Web lint / ESLint – web app"
           WEB_TEST="Web lint / Unit tests – web app"
 
+          # web-serve-check.yml (name: Web serve checks) defines one job:
+          #   web-serve-check  → "Build → serve → compression + sidecar-blocking checks"
+          # This job also runs check-chunk-budget, so a budget violation blocks the PR.
+          WEB_SERVE_CHECK="Web serve checks / Build → serve → compression + sidecar-blocking checks"
+
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
           # The endpoint returns 404 when branch protection is not yet configured.
@@ -91,7 +96,8 @@ jobs:
             --arg mobileTsc       "$MOBILE_TYPECHECK" \
             --arg webLint         "$WEB_LINT" \
             --arg webTest         "$WEB_TEST" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webLint, $webTest] | unique')
+            --arg webServeCheck   "$WEB_SERVE_CHECK" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webLint, $webTest, $webServeCheck] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
