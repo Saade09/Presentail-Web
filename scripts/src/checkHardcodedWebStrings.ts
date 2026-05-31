@@ -1,12 +1,13 @@
 /**
  * checkHardcodedWebStrings
  *
- * Scans all TSX source files under artifacts/presentail-web/src/ and reports
- * JSX text that appears to be hardcoded English prose — user-visible strings
- * that should be going through the t() translation function or a properly
- * localised COPY constant instead.
+ * Scans all TSX source files under artifacts/presentail-web/src/ AND all
+ * .mjs files in the artifacts/presentail-web/ root (e.g. seo-inject.mjs)
+ * and reports strings that appear to be hardcoded English prose — user-visible
+ * strings that should be going through the t() translation function, a
+ * properly localised COPY constant, or a locale-keyed dictionary.
  *
- * Detection covers six patterns:
+ * Detection covers seven patterns:
  *   A. Inline JSX text nodes  — text between ">…</"  on the same line, after
  *      stripping {JS expressions}.  This naturally covers <title>…</title>
  *      JSX elements used in Helmet-style components.
@@ -15,7 +16,7 @@
  *   C. User-visible JSX prop strings — plain string literals on known props:
  *      placeholder, aria-label, title, alt, heading, label, description,
  *      subtitle, emptyText, noResultsText, emptyLabel.
- *   D. Nullish-coalescing / ternary fallback strings — `?? "text"` patterns
+ *   D. Nullish-coalescing fallback strings — `?? "text"` patterns
  *      that end up rendering in JSX.
  *   E. document.title string literal assignments — `document.title = "text"`
  *      imperative page-title updates that bypass the JSX tree (navigation
@@ -24,6 +25,9 @@
  *      also carries  name="title", name="og:title", or name="twitter:title".
  *      Flags only when the content looks like English prose so og:image URLs
  *      and short technical strings are not reported.
+ *   G. Logical-OR fallback strings — `|| "text"` patterns.  Complements
+ *      Pattern D.  In .mjs SEO helpers these commonly appear as image-alt
+ *      or title fallback values that bypass localisation.
  *
  * Exclusions (files / blocks / lines that are NOT flagged):
  *   • Test files  (*.test.tsx, *.test.ts)
@@ -31,6 +35,9 @@
  *   • The src/components/ui/ directory (shadcn boilerplate)
  *   • Blocks enclosed in  const COPY: Record<Language, …> = { … }  — these
  *     pages are already properly localised via the COPY pattern.
+ *   • Blocks that are known locale-keyed dictionaries in seo-inject.mjs:
+ *     TITLES, DESCRIPTIONS, COUNTRY_NAMES, CITY_NAMES, BRANDS_FILTER_TITLES,
+ *     BRANDS_FILTER_DESCRIPTIONS, OG_LOCALE, WISHLIST_SEO.
  *   • Comment lines (// …) and block-comment lines (/* … *\/)
  *   • Import / export / type / interface declaration lines.
  *   • Lines that already contain a  t("…")  or  t('…')  call.
@@ -53,6 +60,8 @@ import url from "node:url";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");
+// Web artifact root — scanned for .mjs files (non-recursive; seo-inject.mjs lives here).
+const WEB_ARTIFACT_ROOT = path.join(REPO_ROOT, "artifacts/presentail-web");
 
 export const SKIP_DIRS = new Set([
   "node_modules",
@@ -102,6 +111,20 @@ export function collectFiles(dir: string, skipDirs: Set<string>, results: string
       !/\.test\.(tsx?|jsx?)$/.test(entry.name) &&
       !/\.d\.ts$/.test(entry.name)
     ) {
+      results.push(path.join(dir, entry.name));
+    }
+  }
+  return results;
+}
+
+/**
+ * Collect .mjs files directly in `dir` (non-recursive).
+ * Used to include the web artifact root scripts such as seo-inject.mjs.
+ */
+function collectMjsFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && /\.mjs$/.test(entry.name)) {
       results.push(path.join(dir, entry.name));
     }
   }
@@ -205,13 +228,29 @@ export const DOC_TITLE_RE = /\bdocument\.title\s*=\s*["']([^"'\n]{4,})["']/g;
 export const META_TITLE_NAME_RE = /\bname=["'](?:og:title|twitter:title|title)["']/;
 export const META_TITLE_CONTENT_RE = /\bcontent=["']([^"'\n]{4,})["']/g;
 
+// G: Logical-OR fallback strings — `|| "text"` or `|| 'text'`.
+//    Complements Pattern D (nullish-coalescing).  In .mjs SEO helpers these
+//    appear as image-alt or default-title fallback values.  Same two-word-token
+//    requirement as Pattern D; CSS-like strings (hyphens/colons) are skipped.
+const LOGICAL_OR_FALLBACK_RE = /\|\|\s*["']([^"'\n]{4,})["']/g;
+
+// Regex that detects the opening line of any locale-keyed constant whose body
+// should be skipped entirely (all language variants are already present).
+// Covers COPY blocks in TSX and the named dicts in seo-inject.mjs.
+const LOCALISED_DICT_RE =
+  /\bconst (?:COPY|TITLES|DESCRIPTIONS|COUNTRY_NAMES|CITY_NAMES|BRANDS_FILTER_TITLES|BRANDS_FILTER_DESCRIPTIONS|OG_LOCALE|WISHLIST_SEO)\b[^=]*=\s*\{/;
+
 // ── main ────────────────────────────────────────────────────────────────────────
 // Guard lets unit tests import the exported helpers without triggering I/O
 // or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
 
 if (!process.env.VITEST) {
 
-const files = SCAN_ROOTS.flatMap(({ root, skipDirs }) => collectFiles(root, skipDirs));
+// TSX/TS source files under all scan roots + .mjs files in the web artifact root.
+const files = [
+  ...SCAN_ROOTS.flatMap(({ root, skipDirs }) => collectFiles(root, skipDirs)),
+  ...collectMjsFiles(WEB_ARTIFACT_ROOT),
+];
 const hits: Hit[] = [];
 
 for (const filePath of files) {
@@ -238,12 +277,10 @@ for (const filePath of files) {
       continue;
     }
 
-    // ── COPY block tracking ─────────────────────────────────────────────────
-    // Detect the opening of a localised COPY constant, e.g.:
-    //   const COPY: Record<Language, Copy> = {
-    // The entire block (including the final `};`) is skipped — its strings are
-    // already translated.
-    if (!insideCopyBlock && /\bconst COPY\b[^=]*=\s*\{/.test(raw)) {
+    // ── COPY / localised-dict block tracking ────────────────────────────────
+    // Skip the entire body of any known locale-keyed constant so its
+    // translated strings are not re-flagged (see LOCALISED_DICT_RE above).
+    if (!insideCopyBlock && LOCALISED_DICT_RE.test(raw)) {
       insideCopyBlock = true;
       copyBraceDepth = 0;
     }
@@ -366,6 +403,23 @@ for (const filePath of files) {
         }
       }
     }
+
+    // ── Pattern G: Logical-OR fallback strings ───────────────────────────────
+    // Catches `|| "text"` / `|| 'text'` fallback values that bypass t() or a
+    // localised dict.  Complements Pattern D (?? operator).  Same requirements:
+    // skip CSS-like strings and require 2+ word tokens.
+    LOGICAL_OR_FALLBACK_RE.lastIndex = 0;
+    while ((m = LOGICAL_OR_FALLBACK_RE.exec(raw)) !== null) {
+      const text = m[1].trim();
+      // Skip CSS-like strings (contain hyphens or colons)
+      if (/[-:]/.test(text)) continue;
+      // Require 2+ word tokens
+      const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
+      if (wordTokens.length < 2) continue;
+      if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
+        hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
+      }
+    }
   }
 }
 
@@ -403,15 +457,15 @@ if (jsonOutPath) {
 
 if (hits.length === 0) {
   console.log(
-    "✓ No hardcoded English strings detected in web TSX files.\n" +
-    "  All user-visible text appears to use t() or a localised COPY constant.",
+    "✓ No hardcoded English strings detected in web TSX/MJS files.\n" +
+    "  All user-visible text appears to use t() or a localised COPY/dict constant.",
   );
   process.exit(0);
 }
 
 console.error(
   `\n✗ Found ${hits.length} likely-hardcoded English string${hits.length === 1 ? "" : "s"} ` +
-  `in ${byFile.size} web source file${byFile.size === 1 ? "" : "s"}:\n`,
+  `in ${byFile.size} web source file${byFile.size === 1 ? "" : "s"} (TSX + MJS):\n`,
 );
 
 for (const [file, fileHits] of byFile) {

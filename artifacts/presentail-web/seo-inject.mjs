@@ -268,6 +268,40 @@ const DESCRIPTIONS = {
 
 const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR" };
 
+// Localised SEO strings for shared wishlist pages.
+// The wishlist share path (/favorites/share/:token) has no locale prefix so
+// these default to "en", but the dict is structured so a lang can be passed
+// in future if a locale is ever derivable from the visitor context.
+const WISHLIST_SEO = {
+  en: {
+    titleOne: "Gift Wishlist — 1 item on Presentail",
+    titleMany: "Gift Wishlist — {count} items on Presentail",
+    descriptionOne:
+      "Someone shared a wishlist with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus.",
+    descriptionMany:
+      "Someone shared a wishlist of {count} gifts with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus.",
+    imageAlt: "Presentail Gift Wishlist",
+  },
+  ar: {
+    titleOne: "قائمة هدايا — هدية واحدة على Presentail",
+    titleMany: "قائمة هدايا — {count} هدايا على Presentail",
+    descriptionOne:
+      "شارك شخص ما قائمة هدايا معك على Presentail — أزهار وهدايا فاخرة توصّل في لبنان والإمارات وقبرص.",
+    descriptionMany:
+      "شارك شخص ما قائمة بـ{count} هدايا معك على Presentail — أزهار وهدايا فاخرة توصّل في لبنان والإمارات وقبرص.",
+    imageAlt: "قائمة هدايا Presentail",
+  },
+  fr: {
+    titleOne: "Liste de souhaits — 1 article sur Presentail",
+    titleMany: "Liste de souhaits — {count} articles sur Presentail",
+    descriptionOne:
+      "Quelqu'un a partagé une liste de souhaits avec vous sur Presentail — fleurs et cadeaux de luxe livrés au Liban, aux Émirats arabes unis et à Chypre.",
+    descriptionMany:
+      "Quelqu'un a partagé une liste de {count} cadeaux avec vous sur Presentail — fleurs et cadeaux de luxe livrés au Liban, aux Émirats arabes unis et à Chypre.",
+    imageAlt: "Liste de souhaits Presentail",
+  },
+};
+
 const ROUTE_KEYS = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
@@ -470,7 +504,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   );
   // Default OG / Twitter image for generic (non-entity) pages.
   const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
-  const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery";
+  const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta property="og:image:width" content="1200" />`);
   lines.push(`<meta property="og:image:height" content="630" />`);
@@ -1011,17 +1045,19 @@ function buildWishlistHead({
   pathname,
   lang,
 }) {
-  const title = `Gift Wishlist — ${count} ${count === 1 ? "item" : "items"} on Presentail`;
+  const seo = WISHLIST_SEO[lang ?? "en"] ?? WISHLIST_SEO.en;
+  const title =
+    count === 1 ? seo.titleOne : format(seo.titleMany, { count });
   const description =
     count === 1
-      ? "Someone shared a wishlist with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus."
-      : `Someone shared a wishlist of ${count} gifts with you on Presentail — luxury flowers and gifts delivered across Lebanon, the UAE and Cyprus.`;
+      ? seo.descriptionOne
+      : format(seo.descriptionMany, { count });
   return buildEntityHead({
     ogType: "website",
     title,
     description,
     imageUrl: imageUrl ?? null,
-    imageAlt: "Presentail Gift Wishlist",
+    imageAlt: seo.imageAlt,
     imageWidth,
     imageHeight,
     basePath,
@@ -1250,7 +1286,7 @@ function buildEntityHead({
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
   const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg`;
-  const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery";
+  const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(effectiveImageUrl)}" />`);
   if (!imageUrl) {
     lines.push(`<meta property="og:image:width" content="1200" />`);
@@ -1350,7 +1386,7 @@ function buildProductHead({
     title,
     description,
     imageUrl,
-    imageAlt: rawName || "Presentail product",
+    imageAlt: rawName || "Presentail product", // i18n-ignore — brand+type label used as OG image alt fallback
     imageWidth: imageDimensions?.width,
     imageHeight: imageDimensions?.height,
     basePath,
@@ -1409,7 +1445,7 @@ function buildBrandsFilterHead({
     title,
     description,
     imageUrl,
-    imageAlt: rawName || "Presentail brands",
+    imageAlt: rawName || "Presentail brands", // i18n-ignore — brand+type label used as OG image alt fallback
     imageWidth: imageDimensions?.width,
     imageHeight: imageDimensions?.height,
     basePath,
@@ -1435,7 +1471,7 @@ function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathna
     title,
     description,
     imageUrl,
-    imageAlt: rawName || "Presentail brand",
+    imageAlt: rawName || "Presentail brand", // i18n-ignore — brand+type label used as OG image alt fallback
     imageWidth: imageDimensions?.width,
     imageHeight: imageDimensions?.height,
     basePath,
