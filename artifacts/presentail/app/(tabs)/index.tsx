@@ -642,13 +642,56 @@ function BrandStrip() {
   );
 }
 
+function ProductCardSkeleton({ width }: { width: number }) {
+  const colors = useColors();
+  return (
+    <View style={{ width }}>
+      <View
+        style={{
+          width,
+          aspectRatio: 1,
+          borderRadius: colors.radius,
+          backgroundColor: colors.muted,
+          overflow: "hidden",
+        }}
+      >
+        <ShimmerPlaceholder />
+      </View>
+      <View style={{ marginTop: 10, gap: 6 }}>
+        <View
+          style={{
+            height: 10,
+            width: "72%",
+            borderRadius: 4,
+            backgroundColor: colors.muted,
+            overflow: "hidden",
+          }}
+        >
+          <ShimmerPlaceholder />
+        </View>
+        <View
+          style={{
+            height: 10,
+            width: "42%",
+            borderRadius: 4,
+            backgroundColor: colors.muted,
+            overflow: "hidden",
+          }}
+        >
+          <ShimmerPlaceholder />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function BestSellers() {
   const router = useRouter();
   const colors = useColors();
   const t = useT();
   const { lang } = useLanguage();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const { products: wooProducts } = useWooProducts();
+  const { products: wooProducts, loading } = useWooProducts();
   const countryName = localizedCountryName(
     lang,
     selectedCountry?.code,
@@ -663,7 +706,7 @@ function BestSellers() {
   );
   const displayProducts = shuffledWooProducts.slice(0, 4);
 
-  if (displayProducts.length === 0) return null;
+  if (!loading && displayProducts.length === 0) return null;
 
   const title = t.bestSellersTitleHome.replace("{country}", countryName);
   const description: string | undefined = undefined;
@@ -701,9 +744,13 @@ function BestSellers() {
           rowGap: 24,
         }}
       >
-        {displayProducts.map((p) => (
-          <ProductCard key={p.id} product={p} width={CARD_W} />
-        ))}
+        {loading && displayProducts.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} width={CARD_W} />
+            ))
+          : displayProducts.map((p) => (
+              <ProductCard key={p.id} product={p} width={CARD_W} />
+            ))}
       </View>
     </View>
   );
@@ -716,13 +763,13 @@ function FlowersSection() {
   const router = useRouter();
   const t = useT();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const { products: wooProducts } = useWooProducts();
+  const { products: wooProducts, loading } = useWooProducts();
   const flowerProducts = useMemo(() => {
     const pool = wooProducts.filter((p) => FLOWER_CATS.has(p.category));
     return seededShuffle(pool, homepageShuffleSeed("flowers", selectedCountry?.code, selectedCity?.id)).slice(0, 10);
   }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
 
-  if (!flowerProducts.length) return null;
+  if (!loading && !flowerProducts.length) return null;
   return (
     <View style={{ marginTop: 44 }}>
       <View
@@ -751,9 +798,13 @@ function FlowersSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {flowerProducts.map((p) => (
-          <ProductCard key={p.id} product={p as any} width={CARD_W} />
-        ))}
+        {loading && flowerProducts.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} width={CARD_W} />
+            ))
+          : flowerProducts.map((p) => (
+              <ProductCard key={p.id} product={p as any} width={CARD_W} />
+            ))}
       </ScrollView>
     </View>
   );
@@ -767,7 +818,7 @@ function SummerCollectionSection() {
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
   const [products, setProducts] = useState<WooProduct[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -787,7 +838,7 @@ function SummerCollectionSection() {
     };
   }, [countryCode, cityId]);
 
-  if (loading || products.length === 0) return null;
+  if (!loading && products.length === 0) return null;
 
   return (
     <View style={{ marginTop: 44 }}>
@@ -817,9 +868,13 @@ function SummerCollectionSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
       >
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p as any} width={CARD_W} />
-        ))}
+        {loading && products.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} width={CARD_W} />
+            ))
+          : products.map((p) => (
+              <ProductCard key={p.id} product={p as any} width={CARD_W} />
+            ))}
       </ScrollView>
     </View>
   );
@@ -830,13 +885,13 @@ function BundlesSection() {
   const router = useRouter();
   const t = useT();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const { products: wooProducts } = useWooProducts();
+  const { products: wooProducts, loading } = useWooProducts();
   const bundleProducts = useMemo(() => {
     const pool = wooProducts.filter((p) => p.category === "bundles");
     return seededShuffle(pool, homepageShuffleSeed("bundles", selectedCountry?.code, selectedCity?.id)).slice(0, 6);
   }, [wooProducts, selectedCountry?.code, selectedCity?.id]);
 
-  if (!bundleProducts.length) return null;
+  if (!loading && !bundleProducts.length) return null;
   return (
     <View style={{ marginTop: 44 }}>
       <View
@@ -861,9 +916,13 @@ function BundlesSection() {
         </Pressable>
       </View>
       <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 24 }}>
-        {bundleProducts.map((p) => (
-          <ProductCard key={p.id} product={p as any} width={CARD_W} />
-        ))}
+        {loading && bundleProducts.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} width={CARD_W} />
+            ))
+          : bundleProducts.map((p) => (
+              <ProductCard key={p.id} product={p as any} width={CARD_W} />
+            ))}
       </View>
     </View>
   );
