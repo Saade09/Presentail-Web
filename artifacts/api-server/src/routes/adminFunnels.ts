@@ -57,7 +57,9 @@ import {
 } from "../lib/signInMethodAggregator";
 import {
   loadDailyWebVitalSummaries,
+  loadDailyMobileTtidSummaries,
   type DailyWebVitalSummary,
+  type DailyMobileTtidSummary,
 } from "../lib/webVitalsMonitor";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getLastAuditSummary } from "../lib/seoAuditMonitor";
@@ -138,6 +140,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       orderPushTapsDaily,
       signInMethodsDaily,
       webVitalsDaily,
+      mobileTtidDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -154,6 +157,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailyOrderPushTapBuckets(start, end),
       loadDailySignInMethodBuckets(start, end),
       loadDailyWebVitalSummaries(start, end),
+      loadDailyMobileTtidSummaries(start, end),
     ]);
     res.json({
       days,
@@ -290,6 +294,19 @@ router.get("/admin/funnels/data", async (req, res) => {
       // health status card without a second round-trip. null when no audit has
       // completed since the last server start and none is persisted yet.
       seoAudit: getLastAuditSummary(),
+      // Per-day p50/p75/p95 for mobile_ttid events, grouped by (platform,
+      // screen). Sourced from `loadDailyMobileTtidSummaries` which reuses the
+      // same query shape as the Slack-alert monitor's `loadMobileTtidSummaries`
+      // so the dashboard numbers are consistent with the digest alerts.
+      mobileTtid: mobileTtidDaily.map((r: DailyMobileTtidSummary) => ({
+        day: r.day,
+        platform: r.platform,
+        screen: r.screen,
+        count: r.count,
+        p50: r.p50,
+        p75: r.p75,
+        p95: r.p95,
+      })),
     });
   } catch (err: any) {
     logger.warn(
@@ -1072,6 +1089,21 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Mobile Performance (TTID)</h2>
+  <div class="sub">Per-day p50 / p75 / p95 Time-To-Interactive (TTID) in milliseconds from <code>mobile_ttid</code> analytics events, grouped by platform and screen (home / product). Lower is better. Sourced from the same data the nightly Web Vitals Slack digest uses.</div>
+  <div id="mobileTtidCharts" class="trends"></div>
+  <div id="mobileTtidLegend" class="legend"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="mobileTtidDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Platform</th><th>Screen</th><th>Samples</th>
+        <th>p50 (ms)</th><th>p75 (ms)</th><th>p95 (ms)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -1195,6 +1227,9 @@ const DASHBOARD_HTML = `<!doctype html>
   var webVitalsDailyBody = document.querySelector('#webVitalsDaily tbody');
   var seoAuditHistoryEl = document.getElementById('seoAuditHistory');
   var seoAuditHistoryBody = document.getElementById('seoAuditHistoryBody');
+  var mobileTtidCharts = document.getElementById('mobileTtidCharts');
+  var mobileTtidLegend = document.getElementById('mobileTtidLegend');
+  var mobileTtidDailyBody = document.querySelector('#mobileTtidDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -2431,6 +2466,82 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  // ── Mobile TTID ─────────────────────────────────────────────────────────
+  var TTID_PERCENTILE_COLORS = { p50: '#3366cc', p75: '#ff9900', p95: '#dc3912' };
+
+  function renderMobileTtid(daily) {
+    if (!daily || !daily.length) {
+      mobileTtidCharts.innerHTML = '<div class="muted">No mobile_ttid events in range.</div>';
+      mobileTtidLegend.innerHTML = '';
+      mobileTtidDailyBody.innerHTML = '<tr><td colspan="7" class="muted">No events in range.</td></tr>';
+      return;
+    }
+
+    // Group rows by (platform, screen) so each combination gets its own sparkline
+    var byKey = {};
+    daily.forEach(function (r) {
+      var k = r.platform + ' · ' + r.screen;
+      if (!byKey[k]) byKey[k] = [];
+      byKey[k].push(r);
+    });
+
+    var allDays = uniqueDays(daily);
+    var keys = Object.keys(byKey).sort();
+    var pctKeys = ['p50', 'p75', 'p95'];
+
+    mobileTtidCharts.innerHTML = keys.map(function (key) {
+      var rows = byKey[key];
+      var maxY = 0;
+      pctKeys.forEach(function (pk) {
+        rows.forEach(function (r) { if (r[pk] != null && r[pk] > maxY) maxY = r[pk]; });
+      });
+      var svg = (function () {
+        var width = 200, height = 44, pad = 3;
+        var n = allDays.length;
+        var w = width - 2 * pad, h = height - 2 * pad;
+        if (!maxY) maxY = 1;
+        function xf(i) { return pad + (n <= 1 ? w / 2 : (i / (n - 1)) * w); }
+        function yf(v) { return pad + h - (v / maxY) * h; }
+        var paths = pctKeys.map(function (pk) {
+          var d = '', started = false, dotCount = 0, lastX = 0, lastY = 0;
+          allDays.forEach(function (day, i) {
+            var row = rows.find(function (r) { return r.day === day; });
+            var v = row ? row[pk] : null;
+            if (v == null) { started = false; return; }
+            var px = xf(i), py = yf(v);
+            d += (started ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
+            started = true; dotCount++; lastX = px; lastY = py;
+          });
+          var color = TTID_PERCENTILE_COLORS[pk] || '#999';
+          var dot = dotCount === 1
+            ? '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="2" fill="' + color + '" />'
+            : '';
+          return '<path d="' + d + '" stroke="' + color + '" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round" />' + dot;
+        }).join('');
+        var axis = '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="#ccc" stroke-width="0.5" />';
+        var maxLabel = '<text x="' + (width - pad) + '" y="' + (pad + 8) + '" font-size="9" text-anchor="end" fill="#999">' + Math.round(maxY).toLocaleString() + ' ms</text>';
+        return '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' + axis + paths + maxLabel + '</svg>';
+      })();
+      return '<div class="trend"><div class="trend-title">' + escapeHtml(key) + '</div>' + svg + '</div>';
+    }).join('');
+
+    mobileTtidLegend.innerHTML = pctKeys.map(function (pk) {
+      return '<span><span class="swatch" style="background:' + TTID_PERCENTILE_COLORS[pk] + '"></span>' + pk + '</span>';
+    }).join('');
+
+    mobileTtidDailyBody.innerHTML = daily.map(function (r) {
+      return '<tr>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.platform) + '</td>' +
+        '<td>' + escapeHtml(r.screen) + '</td>' +
+        '<td>' + num(r.count) + '</td>' +
+        '<td>' + (r.p50 != null ? Math.round(r.p50).toLocaleString() : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (r.p75 != null ? Math.round(r.p75).toLocaleString() : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (r.p95 != null ? Math.round(r.p95).toLocaleString() : '<span class="muted">—</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function load() {
     var token = tokenEl.value.trim();
     var days = Math.max(1, Math.min(${MAX_DAYS}, parseInt(daysEl.value, 10) || ${DEFAULT_DAYS}));
@@ -2494,6 +2605,7 @@ const DASHBOARD_HTML = `<!doctype html>
         } else {
           seoAuditResults.innerHTML = '<span class="muted">No audit result yet — click "Run SEO audit" to check now.</span>';
         }
+        renderMobileTtid(data.mobileTtid || []);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));

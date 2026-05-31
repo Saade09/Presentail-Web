@@ -235,6 +235,10 @@ export type MobileTtidSummary = {
   p95: number;
 };
 
+export type DailyMobileTtidSummary = MobileTtidSummary & {
+  day: string;
+};
+
 /**
  * Load `mobile_ttid` event summaries for the given UTC window, grouped by
  * (platform, screen). Only rows with a non-null metricValue are included.
@@ -284,6 +288,68 @@ export async function loadMobileTtidSummaries(
         ? a.platform.localeCompare(b.platform)
         : a.screen.localeCompare(b.screen),
     );
+}
+
+/**
+ * Per-day p50/p75/p95 for `mobile_ttid` events in the given UTC window,
+ * grouped by (day, platform, screen). Reuses the same query shape as
+ * `loadMobileTtidSummaries` but adds a day dimension so the dashboard can
+ * show sparklines and a per-day breakdown table.
+ */
+export async function loadDailyMobileTtidSummaries(
+  start: Date,
+  end: Date,
+): Promise<DailyMobileTtidSummary[]> {
+  type Row = {
+    day: string;
+    platform: string;
+    screen: string;
+    count: number;
+    p50: number;
+    p75: number;
+    p95: number;
+  };
+
+  const DAY_EXPR = sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
+  const DAY_TRUNC = sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`;
+
+  const rows = (await db
+    .select({
+      day: DAY_EXPR,
+      platform: analyticsEventsTable.platform,
+      screen: analyticsEventsTable.action,
+      count: sql<number>`count(*)::int`,
+      p50: sql<number>`percentile_cont(0.5) within group (order by ${analyticsEventsTable.metricValue})::float`,
+      p75: sql<number>`percentile_cont(0.75) within group (order by ${analyticsEventsTable.metricValue})::float`,
+      p95: sql<number>`percentile_cont(0.95) within group (order by ${analyticsEventsTable.metricValue})::float`,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} = 'mobile_ttid'`,
+        sql`${analyticsEventsTable.metricValue} is not null`,
+        gte(analyticsEventsTable.createdAt, start),
+        lt(analyticsEventsTable.createdAt, end),
+      )!,
+    )
+    .groupBy(
+      DAY_TRUNC,
+      analyticsEventsTable.platform,
+      analyticsEventsTable.action,
+    )) as Array<Row & { day: string | null; platform: string | null; screen: string | null }>;
+
+  return rows
+    .filter(
+      (r): r is Row =>
+        typeof r.day === "string" &&
+        typeof r.platform === "string" &&
+        typeof r.screen === "string",
+    )
+    .sort((a, b) => {
+      if (a.day !== b.day) return a.day.localeCompare(b.day);
+      if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
+      return a.screen.localeCompare(b.screen);
+    });
 }
 
 export async function runOnce(now: Date = new Date()): Promise<void> {
