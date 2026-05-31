@@ -136,6 +136,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       smsDaily,
       orderPushTapsDaily,
       signInMethodsDaily,
+      webVitalsDaily,
     ] = await Promise.all([
       loadDailyPurchaseBuckets(start, end),
       loadDailyLoginBuckets(start, end),
@@ -151,6 +152,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       loadDailySmsBuckets(start, end),
       loadDailyOrderPushTapBuckets(start, end),
       loadDailySignInMethodBuckets(start, end),
+      loadDailyWebVitalSummaries(start, end),
     ]);
     res.json({
       days,
@@ -268,6 +270,18 @@ router.get("/admin/funnels/data", async (req, res) => {
           count: b.count,
         })),
       },
+      // Per-day p50/p75/p95 for each web vital metric (LCP, INP, CLS, TTFB,
+      // FCP). Sourced from `web_vital` analytics events via the same
+      // `loadDailyWebVitalSummaries` helper that the webVitalsMonitor uses
+      // so the dashboard and Slack alerts can never disagree.
+      webVitals: webVitalsDaily.map((r: DailyWebVitalSummary) => ({
+        day: r.day,
+        metric: r.metric,
+        count: r.count,
+        p50: r.p50,
+        p75: r.p75,
+        p95: r.p95,
+      })),
     });
   } catch (err: any) {
     logger.warn(
@@ -2386,26 +2400,12 @@ const DASHBOARD_HTML = `<!doctype html>
     statusEl.textContent = 'Loading…';
     statusEl.className = 'muted';
     var headers = { 'x-push-admin-token': token };
-    // Use allSettled so a web-vitals failure never blocks the main funnel sections.
-    // Main funnel data is treated as required; web vitals as best-effort.
-    Promise.allSettled([
-      fetch('./funnels/data?days=' + days, { headers: headers }).then(function (r) {
+    fetch('./funnels/data?days=' + days, { headers: headers })
+      .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
-      }),
-      fetch('./funnels/web-vitals?days=' + days, { headers: headers }).then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }),
-    ])
-      .then(function (results) {
-        if (results[0].status === 'rejected') {
-          statusEl.textContent = 'Load failed: ' + results[0].reason.message;
-          statusEl.className = 'err';
-          return;
-        }
-        var data = results[0].value;
-        var webVitalsData = results[1].status === 'fulfilled' ? results[1].value : null;
+      })
+      .then(function (data) {
         var purchase = data.purchase || [];
         var login = data.login || [];
         var socialFailures = data.socialFailures || { summary: [], daily: [] };
@@ -2442,15 +2442,7 @@ const DASHBOARD_HTML = `<!doctype html>
         renderSmsDelivery(data.sms || { daily: [] });
         renderOrderPushTaps(data.orderPushTaps || { daily: [] });
         renderSignInMethods(data.signInMethods || { summary: [], daily: [] });
-        if (webVitalsData) {
-          renderWebVitals(webVitalsData.daily || []);
-        } else {
-          // Web vitals fetch failed — show fallback state but keep the rest of
-          // the dashboard intact (main funnel data loaded successfully).
-          webVitalsCharts.innerHTML = '<div class="muted err">Web Vitals failed to load — check the server logs.</div>';
-          webVitalsLegend.innerHTML = '';
-          webVitalsDailyBody.innerHTML = '<tr><td colspan="6" class="muted err">Load failed.</td></tr>';
-        }
+        renderWebVitals(data.webVitals || []);
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
@@ -2469,9 +2461,8 @@ const DASHBOARD_HTML = `<!doctype html>
           { label: 'Dismiss %', valueFn: function (r) { return r.dismissedPct; }, max: 100 },
           { label: 'Prompt views', valueFn: function (r) { return r.viewed; } },
         ]);
-        var suffix = webVitalsData ? '' : ' (Web Vitals unavailable)';
-        statusEl.textContent = 'Loaded ' + data.days + ' day(s) ending ' + (data.rangeEndUtc || '').slice(0, 10) + ' UTC.' + suffix;
-        statusEl.className = webVitalsData ? 'muted' : 'err';
+        statusEl.textContent = 'Loaded ' + data.days + ' day(s) ending ' + (data.rangeEndUtc || '').slice(0, 10) + ' UTC.';
+        statusEl.className = 'muted';
       })
       .catch(function (err) {
         statusEl.textContent = 'Load failed: ' + err.message;
