@@ -1,9 +1,13 @@
 /**
  * ESLint flat config for the Presentail mobile app.
  *
- * The custom `presentail/no-unknown-t-member` rule warns whenever code
- * accesses `t.someKey` (where `t` comes from `useT()`) and `someKey` is not a
- * valid key in the EN translation object in lib/translations.ts.
+ * presentail/no-unknown-t-member — warns when code accesses t.someKey (where
+ *   t comes from useT()) and someKey is not a valid key in the EN translation
+ *   object in lib/translations.ts.
+ *
+ * presentail/no-orphan-translation-key — warns when a key is defined in the
+ *   EN block of lib/translations.ts but never referenced anywhere in the
+ *   mobile source tree. Scoped to translations.ts only.
  *
  * Run:  pnpm --filter @workspace/presentail run lint
  */
@@ -39,6 +43,27 @@ export default [
     },
     rules: {
       "presentail/no-unknown-t-member": "warn",
+    },
+  },
+  // Orphan-key check: scoped to the locale catalogue file only so the rule
+  // never fires on ordinary application code.
+  {
+    files: ["lib/translations.ts"],
+    plugins: {
+      presentail: presentailPlugin,
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+    rules: {
+      "presentail/no-orphan-translation-key": "warn",
     },
   },
 ];

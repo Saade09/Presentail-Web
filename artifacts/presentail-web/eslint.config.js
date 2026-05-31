@@ -1,9 +1,13 @@
 /**
  * ESLint flat config for the Presentail web app.
  *
- * The custom `presentail/no-unknown-t-call` rule warns whenever code calls
- * `t("some.key")` (where `t` comes from `useLocale()`) and `"some.key"` is
- * not a valid key in the web STRINGS locale map.
+ * presentail/no-unknown-t-call — warns when code calls t("some.key") (where
+ *   t comes from useLocale()) and "some.key" is not a valid key in the web
+ *   STRINGS locale map.
+ *
+ * presentail/no-orphan-translation-key — warns when a key is defined in a
+ *   locale file under src/locales/ but never passed to t("…") anywhere in
+ *   the web source tree. Scoped to locale files only.
  *
  * Run:  pnpm --filter @workspace/presentail-web run lint
  */
@@ -38,6 +42,27 @@ export default [
     },
     rules: {
       "presentail/no-unknown-t-call": "warn",
+    },
+  },
+  // Orphan-key check: scoped to the locale catalogue files only so the rule
+  // never fires on ordinary application code.
+  {
+    files: ["src/locales/*.ts"],
+    plugins: {
+      presentail: presentailPlugin,
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+    rules: {
+      "presentail/no-orphan-translation-key": "warn",
     },
   },
 ];
