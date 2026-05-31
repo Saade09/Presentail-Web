@@ -49,6 +49,10 @@ jobs:
           HARDCODED_STRINGS="check-translations / Hardcoded English strings (web)"
           HARDCODED_MOBILE_STRINGS="check-translations / Hardcoded English strings (mobile)"
 
+          # api-server-tests.yml (name: API server unit tests) defines one job:
+          #   api-server-tests  → "API server unit tests"
+          API_SERVER_TESTS="API server unit tests / API server unit tests"
+
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
           # The endpoint returns 404 when branch protection is not yet configured.
@@ -56,14 +60,15 @@ jobs:
 
           STRICT=$(echo "$CURRENT" | jq -r '.strict // false')
 
-          # Collect existing contexts and merge in the five required checks.
+          # Collect existing contexts and merge in all required checks.
           MERGED=$(echo "$CURRENT" | jq \
             --arg mobile  "$MOBILE_TRANSLATIONS" \
             --arg web     "$WEB_TRANSLATIONS" \
             --arg dict    "$LOCALE_DICT_TESTS" \
             --arg hc      "$HARDCODED_STRINGS" \
             --arg hcm     "$HARDCODED_MOBILE_STRINGS" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm] | unique')
+            --arg api     "$API_SERVER_TESTS" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
@@ -78,4 +83,4 @@ jobs:
             --method PATCH \
             --input - <<< "$PAYLOAD"
 
-          echo "Done. All five translation checks are now required on ${BRANCH}."
+          echo "Done. All required status checks are now registered on ${BRANCH}."
