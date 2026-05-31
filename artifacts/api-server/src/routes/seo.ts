@@ -451,6 +451,22 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .market-tab:hover { background: #eef4ff; border-color: #99bbee; color: #0044aa; }
   .market-tab.active { background: #0066cc; border-color: #0055aa; color: #fff; font-weight: 600; }
 
+  /* key pages editor */
+  .key-pages-section { margin-bottom: 20px; }
+  .key-pages-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .key-pages-header h2 { font-size: 13px; font-weight: 600; margin: 0; color: #444; }
+  .key-pages-toggle { font-size: 12px; color: #0066cc; cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-decoration: underline; }
+  .key-pages-toggle:hover { color: #003f99; }
+  .key-pages-body { display: none; }
+  .key-pages-body.open { display: block; }
+  .key-pages-hint { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .key-pages-textarea { width: 100%; box-sizing: border-box; font: 12px/1.5 ui-monospace, "Cascadia Code", "Fira Mono", monospace; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; min-height: 130px; }
+  .key-pages-textarea:focus { outline: none; border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
+  .key-pages-actions { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+  .key-pages-reset { font-size: 12px; color: #0066cc; cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-decoration: underline; }
+  .key-pages-reset:hover { color: #003f99; }
+  .key-pages-count { font-size: 11px; color: #888; }
+
   /* batch audit table */
   #batchSection { display: none; margin-bottom: 28px; }
   #batchSection h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
@@ -512,6 +528,21 @@ const SEO_DEBUG_HTML = `<!doctype html>
     </div>
   </div>
 
+  <div class="key-pages-section">
+    <div class="key-pages-header">
+      <h2>Key pages to audit</h2>
+      <button class="key-pages-toggle" id="keyPagesToggle">Edit list</button>
+    </div>
+    <div class="key-pages-body" id="keyPagesBody">
+      <div class="key-pages-hint">One entry per line. Format: <code>Market | Label | URL</code> (e.g. <code>Lebanon | Beirut | https://…</code>) or just <code>Label | URL</code>. Market lets the tabs above filter the list. Changes are saved automatically in your browser.</div>
+      <textarea class="key-pages-textarea" id="keyPagesTextarea" spellcheck="false"></textarea>
+      <div class="key-pages-actions">
+        <button class="key-pages-reset" id="keyPagesReset">Reset to defaults</button>
+        <span class="key-pages-count" id="keyPagesCount"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="controls">
     <input id="url" type="text" placeholder="https://new.presentail.com/en-lb/beirut/p/pink-roses or /en-lb/..." autocomplete="off" spellcheck="false" />
     <button id="checkBtn">Check</button>
@@ -550,6 +581,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
 <script>
 (function () {
   var TOKEN_KEY = 'presentail_admin_token';
+  var KEY_PAGES_STORAGE = 'presentail_seo_key_pages';
   var tokenEl = document.getElementById('token');
   var urlEl = document.getElementById('url');
   var checkBtn = document.getElementById('checkBtn');
@@ -563,12 +595,17 @@ const SEO_DEBUG_HTML = `<!doctype html>
   var batchSection = document.getElementById('batchSection');
   var batchSummary = document.getElementById('batchSummary');
   var batchBody = document.getElementById('batchBody');
+  var keyPagesToggle = document.getElementById('keyPagesToggle');
+  var keyPagesBody = document.getElementById('keyPagesBody');
+  var keyPagesTextarea = document.getElementById('keyPagesTextarea');
+  var keyPagesReset = document.getElementById('keyPagesReset');
+  var keyPagesCount = document.getElementById('keyPagesCount');
 
   // Restore saved token
   try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
 
-  // Key pages for the audit — all active cities per market
-  var KEY_PAGES = [
+  // Default key pages — all active cities per market
+  var DEFAULT_KEY_PAGES = [
     // ── Lebanon — city homepages ────────────────────────────────────────────
     { market: 'Lebanon', label: 'Akkar', url: 'https://new.presentail.com/en-lb/akkar' },
     { market: 'Lebanon', label: 'Aley', url: 'https://new.presentail.com/en-lb/aley' },
@@ -612,6 +649,84 @@ const SEO_DEBUG_HTML = `<!doctype html>
   ];
 
   var selectedMarket = 'all';
+
+  // Serialize a page list to textarea text.
+  // Format: "Market | Label | URL" (3-part) when market is set, otherwise "Label | URL".
+  function pagesToText(pages) {
+    return pages.map(function (p) {
+      if (p.market) return p.market + ' | ' + p.label + ' | ' + p.url;
+      return p.label + ' | ' + p.url;
+    }).join('\n');
+  }
+
+  // Parse textarea text back to a page list.
+  // Accepts: "Market | Label | URL" (3-part), "Label | URL" (2-part), or bare URL.
+  function textToPages(text) {
+    var lines = text.split('\n');
+    var result = [];
+    lines.forEach(function (line) {
+      var trimmed = line.trim();
+      if (!trimmed) return;
+      var parts = trimmed.split(' | ');
+      if (parts.length >= 3) {
+        var market = parts[0].trim();
+        var label = parts[1].trim();
+        var url = parts.slice(2).join(' | ').trim();
+        if (url) result.push({ market: market, label: label || url, url: url });
+      } else if (parts.length === 2) {
+        var label2 = parts[0].trim();
+        var url2 = parts[1].trim();
+        if (url2) result.push({ market: '', label: label2 || url2, url: url2 });
+      } else {
+        result.push({ market: '', label: trimmed, url: trimmed });
+      }
+    });
+    return result;
+  }
+
+  function loadKeyPages() {
+    try {
+      var saved = localStorage.getItem(KEY_PAGES_STORAGE);
+      if (saved) {
+        var parsed = textToPages(saved);
+        if (parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_KEY_PAGES.slice();
+  }
+
+  function saveKeyPagesText(text) {
+    try { localStorage.setItem(KEY_PAGES_STORAGE, text); } catch (e) {}
+  }
+
+  function updateCount() {
+    var pages = textToPages(keyPagesTextarea.value);
+    keyPagesCount.textContent = pages.length + ' page' + (pages.length !== 1 ? 's' : '');
+  }
+
+  // Initialise textarea from storage
+  var initialPages = loadKeyPages();
+  keyPagesTextarea.value = pagesToText(initialPages);
+  updateCount();
+
+  // Toggle editor visibility
+  keyPagesToggle.addEventListener('click', function () {
+    var open = keyPagesBody.classList.toggle('open');
+    keyPagesToggle.textContent = open ? 'Hide' : 'Edit list';
+  });
+
+  // Persist on change and update count
+  keyPagesTextarea.addEventListener('input', function () {
+    saveKeyPagesText(keyPagesTextarea.value);
+    updateCount();
+  });
+
+  // Reset to defaults
+  keyPagesReset.addEventListener('click', function () {
+    keyPagesTextarea.value = pagesToText(DEFAULT_KEY_PAGES);
+    saveKeyPagesText(keyPagesTextarea.value);
+    updateCount();
+  });
 
   function esc(s) {
     if (s == null) return '';
@@ -787,8 +902,9 @@ const SEO_DEBUG_HTML = `<!doctype html>
   });
 
   function activePages() {
-    if (selectedMarket === 'all') return KEY_PAGES;
-    return KEY_PAGES.filter(function (p) { return p.market === selectedMarket; });
+    var all = textToPages(keyPagesTextarea.value);
+    if (selectedMarket === 'all') return all;
+    return all.filter(function (p) { return p.market === selectedMarket; });
   }
 
   // Quick checks
@@ -868,6 +984,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
     try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
 
     var pages = activePages();
+    if (pages.length === 0) { statusEl.textContent = 'Add at least one URL to the key pages list.'; statusEl.className = 'err'; return; }
     checkBtn.disabled = true;
     auditBtn.disabled = true;
     var marketLabel = selectedMarket === 'all' ? 'all markets' : selectedMarket;
