@@ -111,6 +111,16 @@ function buildReturnUrls(orderId: string) {
   return { deeplinkBase, successUrl, cancelUrl };
 }
 
+function isStorageError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const name = (err as { name?: string }).name ?? "";
+  const msg = err.message ?? "";
+  return (
+    name === "QuotaExceededError" ||
+    /quota|storage|disk.full|no.space|securestore/i.test(msg)
+  );
+}
+
 function getStatusFromReturnUrl(url: string): string | null {
   // Hand-rolled query parsing — `URL` isn't reliably available on RN.
   const q = url.split("?")[1];
@@ -901,17 +911,21 @@ function CheckoutScreen() {
     // still be recorded reliably or the customer's offline payment will
     // never be reconciled. Surface a failure state if WC creation fails.
     await finishAfterPayment();
-    setPaying(false);
     } catch (err) {
       // TypeError means the device couldn't reach the server at all
       // (no network, DNS failure, etc.). Any other throw means the
       // payment provider returned an unexpected error.
       const isNetworkFailure = err instanceof TypeError;
       trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : "provider" });
-      Alert.alert(
-        t.checkoutPaymentErrorTitle,
-        isNetworkFailure ? t.checkoutPaymentNetworkTimeout : t.checkoutPaymentNetworkError,
-      );
+      if (isStorageError(err)) {
+        Alert.alert(t.checkoutStorageErrorTitle, t.checkoutStorageErrorMsg);
+      } else {
+        Alert.alert(
+          t.checkoutPaymentErrorTitle,
+          isNetworkFailure ? t.checkoutPaymentNetworkTimeout : t.checkoutPaymentNetworkError,
+        );
+      }
+    } finally {
       setPaying(false);
     }
   };

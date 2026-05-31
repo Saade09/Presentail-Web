@@ -490,6 +490,8 @@ const EN = {
   checkoutPaymentNetworkError: "Something went wrong with the payment provider. Please try again.",
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via err instanceof TypeError in checkout.tsx
   checkoutPaymentNetworkTimeout: "Couldn't reach the payment provider. Please check your connection and try again.",
+  checkoutStorageErrorTitle: "Can't save your order",
+  checkoutStorageErrorMsg: "Your device storage may be full. Please free up some space and try again.",
   checkoutBrandHeader: "Presentail", // no-translate — brand name, identical across all locales
   checkoutCartEmpty: "Your cart is empty",
   checkoutBrowseBoutique: "Browse the boutique",
@@ -1263,6 +1265,8 @@ const AR: typeof EN = {
   checkoutPaypalNotConfigured: "يتم إعداد مدفوعات PayPal. يرجى اختيار طريقة دفع أخرى.",
   checkoutPaymentNetworkError: "حدث خطأ لدى مزوّد الدفع. يرجى المحاولة مرة أخرى.",
   checkoutPaymentNetworkTimeout: "تعذّر الوصول إلى مزوّد الدفع. يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
+  checkoutStorageErrorTitle: "تعذّر حفظ طلبك",
+  checkoutStorageErrorMsg: "قد تكون مساحة التخزين على جهازك ممتلئة. يرجى تحرير بعض المساحة والمحاولة مجدداً.",
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "عربتك فارغة",
   checkoutBrowseBoutique: "تصفّح البوتيك",
@@ -2031,6 +2035,8 @@ const FR: typeof EN = {
   checkoutPaypalNotConfigured: "Les paiements PayPal sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
   checkoutPaymentNetworkError: "Une erreur s'est produite du côté du prestataire de paiement. Veuillez réessayer.",
   checkoutPaymentNetworkTimeout: "Impossible de joindre le prestataire de paiement. Vérifiez votre connexion et réessayez.",
+  checkoutStorageErrorTitle: "Impossible d'enregistrer votre commande",
+  checkoutStorageErrorMsg: "L'espace de stockage de votre appareil est peut-être plein. Libérez de l'espace et réessayez.",
   checkoutBrandHeader: "Presentail",
   checkoutCartEmpty: "Votre panier est vide",
   checkoutBrowseBoutique: "Parcourir la boutique",
