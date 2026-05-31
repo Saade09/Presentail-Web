@@ -10,7 +10,8 @@ type AnalyticsEventName =
   | "upsell_tab_clicked"
   | "upsell_item_added"
   | "upsell_checkout_proceeded"
-  | "signin_page_action";
+  | "signin_page_action"
+  | "seo_entity_fetch_failed";
 
 type AnalyticsSurface =
   | "cart"

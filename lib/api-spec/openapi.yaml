@@ -1018,6 +1018,7 @@ components:
         - sms_notify_failed
         - order_push_tapped
         - fx_rates_fallback
+        - seo_entity_fetch_failed
     AnalyticsEventRequest:
       type: object
       properties:

@@ -907,6 +907,33 @@ function buildWishlistHead({
   });
 }
 
+/**
+ * Fire-and-forget: emit a `seo_entity_fetch_failed` analytics event so ops
+ * can query the `analytics_events` table and detect systematic SEO-preview
+ * outages (broken API route, upstream down) before social previews silently
+ * degrade across all product and brand pages without anyone noticing.
+ *
+ * `entityKind` is a fixed server-side value (e.g. "product", "brand",
+ * "category", "occasion") stored in the `error_code` column for filtering.
+ */
+function reportSeoFetchFailure(apiBaseUrl, entityKind) {
+  if (!apiBaseUrl) return;
+  const base = apiBaseUrl.replace(/\/$/, "");
+  try {
+    void fetch(`${base}/api/analytics/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "seo_entity_fetch_failed",
+        platform: "web",
+        errorCode: String(entityKind).slice(0, 64),
+      }),
+    }).catch(() => {});
+  } catch {
+    // Best-effort — never let failure reporting block or throw.
+  }
+}
+
 async function fetchEntityForSeo({
   endpoint,
   responseKey,
@@ -926,11 +953,18 @@ async function fetchEntityForSeo({
   const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: ac.signal });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      reportSeoFetchFailure(apiBaseUrl, responseKey);
+      return null;
+    }
     const body = await res.json();
-    if (!body || body.ok !== true) return null;
+    if (!body || body.ok !== true) {
+      reportSeoFetchFailure(apiBaseUrl, responseKey);
+      return null;
+    }
     return body[responseKey] ?? null;
   } catch {
+    reportSeoFetchFailure(apiBaseUrl, responseKey);
     return null;
   } finally {
     clearTimeout(timer);

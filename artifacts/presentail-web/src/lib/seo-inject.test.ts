@@ -77,14 +77,22 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
   });
 
   it("falls back when the API is unreachable (network error)", async () => {
-    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      throw new Error("ECONNREFUSED");
+    });
     vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(
       HTML,
       "/en-ae/dubai/product/anything",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const entityCalls = fetchMock.mock.calls.filter(
+      (c) => !String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(entityCalls).toHaveLength(1);
     expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
   });
 });
@@ -254,13 +262,21 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
   });
 
   it("falls back when the occasion API is unreachable", async () => {
-    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ETIMEDOUT"));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      throw new Error("ETIMEDOUT");
+    });
     vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
       ...OPTS,
       search: "?occasion=anniversary",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const entityCalls = fetchMock.mock.calls.filter(
+      (c) => !String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(entityCalls).toHaveLength(1);
     expect(out).toContain(
       "<title>Shop Flowers &amp; Gifts in Dubai | Presentail</title>",
     );
@@ -1502,5 +1518,136 @@ describe("image dims cache invalidation — wishlist path (evictImageDims on wis
     expect(wishlistFetchCount).toBe(1);
     expect(productFetchCount).toBe(1);
     expect(dimsFetchCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// seo_entity_fetch_failed analytics event emission
+//
+// When fetchEntityForSeo encounters any failure (HTTP error, ok=false body,
+// network error / timeout), it must fire a fire-and-forget POST to
+// /api/analytics/events so ops can detect systematic SEO preview outages
+// via the analytics_events table before social previews silently degrade.
+// ---------------------------------------------------------------------------
+
+describe("seo_entity_fetch_failed analytics event — emitted on entity lookup failure", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function makeAnalyticsMock(entityResponse: { ok: boolean; body?: unknown }) {
+    const fn = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      return {
+        ok: entityResponse.ok,
+        json: async () => entityResponse.body ?? {},
+      };
+    });
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  }
+
+  it("fires seo_entity_fetch_failed when a product HTTP 404 occurs", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: false });
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/missing-slug", OPTS);
+    const analyticsCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    const body = JSON.parse(analyticsCalls[0][1].body);
+    expect(body.name).toBe("seo_entity_fetch_failed");
+    expect(body.platform).toBe("web");
+    expect(body.errorCode).toBe("product");
+  });
+
+  it("fires seo_entity_fetch_failed when the product API returns ok=false in the body", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: true, body: { ok: false, error: "not_found" } });
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/bad-body-slug", OPTS);
+    const analyticsCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    const body = JSON.parse(analyticsCalls[0][1].body);
+    expect(body.name).toBe("seo_entity_fetch_failed");
+    expect(body.errorCode).toBe("product");
+  });
+
+  it("fires seo_entity_fetch_failed when a network error occurs on a product fetch", async () => {
+    const fn = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      throw new Error("ECONNREFUSED");
+    });
+    vi.stubGlobal("fetch", fn);
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/unreachable", OPTS);
+    const analyticsCalls = fn.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.parse(analyticsCalls[0][1].body).name).toBe("seo_entity_fetch_failed");
+  });
+
+  it("fires seo_entity_fetch_failed with errorCode=brand when a brand fetch fails", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: false });
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/brand/missing-brand", OPTS);
+    const analyticsCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.parse(analyticsCalls[0][1].body).errorCode).toBe("brand");
+  });
+
+  it("fires seo_entity_fetch_failed with errorCode=category when a category fetch fails", async () => {
+    const fetchMock = makeAnalyticsMock({ ok: false });
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", { ...OPTS, search: "?n=missing-cat" });
+    const analyticsCalls = fetchMock.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.parse(analyticsCalls[0][1].body).errorCode).toBe("category");
+  });
+
+  it("does NOT fire seo_entity_fetch_failed when the entity fetch succeeds", async () => {
+    const fn = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/analytics/events")) {
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Happy Path",
+              description: "All good.",
+              image: null,
+              priceValue: 50,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
+    });
+    vi.stubGlobal("fetch", fn);
+    await injectSeoTagsAsync(HTML, "/en-ae/dubai/product/happy-path", OPTS);
+    const analyticsCalls = fn.mock.calls.filter((c) =>
+      String(c[0]).includes("/api/analytics/events"),
+    );
+    expect(analyticsCalls.length).toBe(0);
+  });
+
+  it("still returns the generic fallback HTML when seo_entity_fetch_failed fires", async () => {
+    makeAnalyticsMock({ ok: false });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/any-slug",
+      OPTS,
+    );
+    expect(out).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+    expect(out).not.toContain('property="product:price:amount"');
   });
 });
