@@ -5,7 +5,7 @@
  * JSX text that appears to be hardcoded English prose — user-visible strings
  * that should be going through the useT() translation hook instead.
  *
- * Detection covers four patterns:
+ * Detection covers five patterns:
  *   A. Inline JSX text nodes  — text between ">…</"  on the same line, after
  *      stripping {JS expressions}.
  *   B. Standalone text lines  — an indented line whose content is only prose
@@ -16,6 +16,11 @@
  *      emptyLabel, hint.
  *   D. Nullish-coalescing / ternary fallback strings — `?? "text"` patterns
  *      that end up rendering in JSX.
+ *   E. Expo Router navigation option strings — string literals assigned to
+ *      navigation-specific JS object keys: title, tabBarLabel, headerTitle,
+ *      headerBackTitle, tabBarAccessibilityLabel.  These are passed as object
+ *      properties (`key: "value"`) rather than JSX attributes, so Pattern C
+ *      does not catch them.
  *
  * Exclusions (files / blocks / lines that are NOT flagged):
  *   • Test files (*.test.tsx, *.test.ts, e2e/, playwright tests)
@@ -72,7 +77,7 @@ const SKIP_FILE_SUFFIXES = [
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
-type HitKind = "jsx-text" | "jsx-prop" | "standalone-text" | "fallback-string";
+type HitKind = "jsx-text" | "jsx-prop" | "standalone-text" | "fallback-string" | "nav-option";
 
 interface Hit {
   file: string;   // repo-relative path
@@ -187,6 +192,13 @@ const VISIBLE_PROP_RE =
 //    like `dir === "ltr" ? "ltr" : "rtl"`.  ?? is a stronger signal.
 const NULLISH_FALLBACK_RE = /\?\?\s*"([^"\n]{4,})"/g;
 
+// E: Expo Router navigation option strings — JS object property syntax used in
+//    `options={{ title: "…" }}`, `screenOptions={{ headerBackTitle: "…" }}`,
+//    `tabBarLabel`, `headerTitle`, and `tabBarAccessibilityLabel`.
+//    Matches both single and double-quoted values.
+const NAV_OPTION_RE =
+  /\b(title|tabBarLabel|headerTitle|headerBackTitle|tabBarAccessibilityLabel)\s*:\s*["']([^"'\n]{2,})["']/g;
+
 // ── main ────────────────────────────────────────────────────────────────────────
 
 const allFiles = collectFiles(SCAN_ROOT);
@@ -293,6 +305,17 @@ for (const filePath of files) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
     }
+
+    // ── Pattern E: Expo Router navigation option strings ─────────────────────
+    NAV_OPTION_RE.lastIndex = 0;
+    while ((m = NAV_OPTION_RE.exec(raw)) !== null) {
+      const attr = m[1];
+      const text = m[2].trim();
+      if (!looksLikeEnglishProse(text)) continue;
+      if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
+        hits.push({ file: rel, line: lineNum, kind: "nav-option", attr, text });
+      }
+    }
   }
 }
 
@@ -351,7 +374,9 @@ for (const [file, fileHits] of byFile) {
           ? `[prop: ${h.attr?.padEnd(14)}]`
           : h.kind === "fallback-string"
             ? "[?? fallback]   "
-            : "[standalone]    ";
+            : h.kind === "nav-option"
+              ? `[nav: ${h.attr?.padEnd(15)}]`
+              : "[standalone]    ";
     console.error(`    line ${String(h.line).padStart(4)}  ${kindLabel}  "${h.text}"`);
   }
   console.error("");

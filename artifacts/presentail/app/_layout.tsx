@@ -40,6 +40,7 @@ import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE } from "@/lib/stripe";
 import { trackEvent } from "@/lib/analytics";
+import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
 
@@ -252,9 +253,10 @@ function CartNavigationHandler() {
 }
 
 function RootLayoutNav() {
+  const t = useT();
   return (
     <>
-    <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
+    <Stack screenOptions={{ headerBackTitle: t.authBack, headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="product/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
       <Stack.Screen name="category/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />

@@ -672,6 +672,7 @@ const EN = {
   brandSlugProduct: "product",
 
   // ── Not found ──
+  notFoundScreenTitle: "Oops!",
   notFoundTitle: "This screen doesn't exist.",
   notFoundLink: "Go to home screen!",
   // ── Auth flow ──
@@ -1454,6 +1455,7 @@ const AR: typeof EN = {
   brandSlugProduct: "منتج",
 
   // ── Not found ──
+  notFoundScreenTitle: "عذراً!",
   notFoundTitle: "هذه الشاشة غير موجودة.",
   notFoundLink: "الذهاب إلى الشاشة الرئيسية!",
   // ── Auth flow ──
@@ -2239,6 +2241,7 @@ const FR: typeof EN = {
   brandSlugProduct: "produit",
 
   // ── Not found ──
+  notFoundScreenTitle: "Oups!",
   notFoundTitle: "Cet écran n'existe pas.",
   notFoundLink: "Aller à l'écran d'accueil !",
   // ── Auth flow ──
