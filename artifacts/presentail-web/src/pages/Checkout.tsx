@@ -693,8 +693,13 @@ export default function Checkout() {
       }
 
       await finalizeOrderNow();
-    } catch {
-      toast({ title: t("checkout.toast.errorTitle"), description: t("checkout.toast.networkError"), variant: "destructive" });
+    } catch (err) {
+      const isNetworkFailure = err instanceof TypeError;
+      toast({
+        title: t("checkout.toast.errorTitle"),
+        description: t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError"),
+        variant: "destructive",
+      });
     }
   };
 
