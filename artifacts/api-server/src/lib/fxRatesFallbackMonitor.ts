@@ -97,11 +97,24 @@ export async function runOnce(): Promise<void> {
     // Reset alert state when live rates have recovered.
     if (status.source === "live") {
       if (lastAlertedAt !== null) {
+        const outageDurationMs = Date.now() - lastAlertedAt;
+        const outageDurationH = (outageDurationMs / (60 * 60 * 1000)).toFixed(1);
         logger.info(
-          { consecutiveFailures: status.consecutiveFailures },
+          { outageDurationH },
           "fxRatesFallbackMonitor: live rates recovered",
         );
         lastAlertedAt = null;
+        await sendAlert({
+          title: "FX rates recovered",
+          body:
+            `The live FX rate fetch from open.er-api.com has recovered. Shoppers are now ` +
+            `receiving up-to-date mid-market rates. The outage lasted approximately ${outageDurationH} h.`,
+          severity: "info",
+          fields: [
+            { title: "Outage duration (approx)", value: `${outageDurationH} h` },
+          ],
+          source: "fxRatesFallbackMonitor",
+        });
       }
       return;
     }

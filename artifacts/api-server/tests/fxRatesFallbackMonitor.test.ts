@@ -209,19 +209,19 @@ describe("fxRatesFallbackMonitor — runOnce", () => {
     vi.setSystemTime(new Date("2026-05-30T06:00:00Z"));
     getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledOnce();
+    expect(sendAlertMock).toHaveBeenCalledTimes(1);
 
-    // Same day, later: live rates recover — guard resets, no recovery alert.
+    // Same day, later: live rates recover — recovery alert fires.
     vi.setSystemTime(new Date("2026-05-30T12:00:00Z"));
     getFxStatusMock.mockReturnValue(makeLiveStatus());
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledOnce(); // still one
+    expect(sendAlertMock).toHaveBeenCalledTimes(2); // failure + recovery
 
-    // Next day: a new failure run crosses the threshold → fresh alert.
+    // Next day: a new failure run crosses the threshold → fresh failure alert.
     vi.setSystemTime(new Date("2026-05-31T06:00:00Z"));
     getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledTimes(2);
+    expect(sendAlertMock).toHaveBeenCalledTimes(3);
   });
 
   // ── Recovery resets the deduplication guard ───────────────────────────────
@@ -230,24 +230,89 @@ describe("fxRatesFallbackMonitor — runOnce", () => {
     // First failure run — alert fires.
     getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledOnce();
+    expect(sendAlertMock).toHaveBeenCalledTimes(1);
 
-    // Recovery — source returns to "live".
+    // Recovery — source returns to "live" → recovery alert fires, guard resets.
     getFxStatusMock.mockReturnValue(makeLiveStatus());
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledOnce(); // no extra alert on recovery
+    expect(sendAlertMock).toHaveBeenCalledTimes(2); // failure + recovery
 
-    // Second failure run — guard was reset, so a new alert should fire.
+    // Second failure run — guard was reset, so a new failure alert fires.
     getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
     await runOnce();
-    expect(sendAlertMock).toHaveBeenCalledTimes(2);
+    expect(sendAlertMock).toHaveBeenCalledTimes(3);
   });
 
-  it("does not alert on recovery itself — only silence on live status", async () => {
+  it("does not alert on recovery when no prior failure alert was sent", async () => {
     getFxStatusMock.mockReturnValue(makeLiveStatus());
     await runOnce();
     await runOnce();
     expect(sendAlertMock).not.toHaveBeenCalled();
+  });
+
+  // ── Recovery alert content ────────────────────────────────────────────────
+
+  it("sends a recovery alert with severity 'info' and correct title", async () => {
+    getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
+    await runOnce();
+    expect(sendAlertMock).toHaveBeenCalledTimes(1);
+
+    getFxStatusMock.mockReturnValue(makeLiveStatus());
+    await runOnce();
+    expect(sendAlertMock).toHaveBeenCalledTimes(2);
+
+    const recoveryAlert = sendAlertMock.mock.calls[1][0];
+    expect(recoveryAlert.severity).toBe("info");
+    expect(recoveryAlert.title).toMatch(/FX rates recovered/i);
+    expect(recoveryAlert.source).toBe("fxRatesFallbackMonitor");
+  });
+
+  it("recovery alert body mentions how long the outage lasted", async () => {
+    vi.useFakeTimers();
+
+    // Failure alert fires at T=0.
+    vi.setSystemTime(new Date("2026-05-30T08:00:00Z"));
+    getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
+    await runOnce();
+
+    // Recovery observed 2 hours later.
+    vi.setSystemTime(new Date("2026-05-30T10:00:00Z"));
+    getFxStatusMock.mockReturnValue(makeLiveStatus());
+    await runOnce();
+
+    const recoveryAlert = sendAlertMock.mock.calls[1][0];
+    expect(recoveryAlert.body).toMatch(/2\.0 h/);
+  });
+
+  it("recovery alert includes an outage-duration field", async () => {
+    vi.useFakeTimers();
+
+    vi.setSystemTime(new Date("2026-05-30T08:00:00Z"));
+    getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
+    await runOnce();
+
+    vi.setSystemTime(new Date("2026-05-30T09:30:00Z")); // 1.5 h later
+    getFxStatusMock.mockReturnValue(makeLiveStatus());
+    await runOnce();
+
+    const recoveryAlert = sendAlertMock.mock.calls[1][0];
+    const durationField = recoveryAlert.fields.find((f: { title: string }) =>
+      f.title.toLowerCase().includes("outage duration"),
+    );
+    expect(durationField).toBeDefined();
+    expect(durationField.value).toBe("1.5 h");
+  });
+
+  it("recovery alert fires exactly once — subsequent live ticks are silent", async () => {
+    getFxStatusMock.mockReturnValue(makeFallbackStatus(THRESHOLD));
+    await runOnce(); // failure alert
+
+    getFxStatusMock.mockReturnValue(makeLiveStatus());
+    await runOnce(); // recovery alert
+    await runOnce(); // still live — no extra alert
+    await runOnce(); // still live — no extra alert
+
+    expect(sendAlertMock).toHaveBeenCalledTimes(2); // exactly one failure + one recovery
   });
 
   // ── Concurrent run protection ─────────────────────────────────────────────
