@@ -468,6 +468,15 @@ async function submitForReview(
   return submission.data;
 }
 
+export function validateReleaseNotes(notes: string, isSubmit: boolean): void {
+  if (isSubmit && notes.toLowerCase().startsWith("todo:")) {
+    throw new Error(
+      `PROMOTE_RELEASE_NOTES looks like placeholder text ("${notes.slice(0, 60)}…"). ` +
+        `Replace it with real release notes before running in submit mode.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const buildNumberInput = (process.env.PROMOTE_BUILD_NUMBER ?? "").trim();
   const buildNumber =
@@ -487,6 +496,8 @@ async function main(): Promise<void> {
     );
   }
   const dryRun = modeInput === "dry-run";
+
+  validateReleaseNotes(releaseNotes, !dryRun);
 
   const subtitle = loadSubtitle();
   log(
@@ -688,7 +699,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : String(err));
-  process.exit(1);
-});
+const isMain =
+  process.argv[1] &&
+  url.fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isMain) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.stack ?? err.message : String(err));
+    process.exit(1);
+  });
+}
