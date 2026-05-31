@@ -29,8 +29,8 @@ function listDirectDeps(): string[] {
   ).sort();
 }
 
-function packageDir(name: string): string | null {
-  const dir = path.join(APP_NM_DIR, name);
+function packageDir(name: string, nmDir: string = APP_NM_DIR): string | null {
+  const dir = path.join(nmDir, name);
   if (!fs.existsSync(dir)) return null;
   // Resolve through symlink so we look at the real package, not the link.
   try {
@@ -41,9 +41,19 @@ function packageDir(name: string): string | null {
   }
 }
 
-function isNativePackage(name: string): boolean {
-  const dir = packageDir(name);
-  if (!dir) return false;
+/**
+ * Determine whether a package directory contains native iOS/Android code.
+ *
+ * Heuristics (checked in order):
+ *   1. expo-module.config.json present → native Expo module.
+ *   2. A *.podspec file at the package root → CocoaPods native library.
+ *   3. A non-empty `ios/` subdirectory → hand-written iOS native code.
+ *   4. An `android/` subdirectory containing build.gradle or src/ → Android native code.
+ *
+ * Exported so unit tests can exercise it against synthetic fixture directories
+ * without touching the real node_modules tree.
+ */
+export function isNativeDir(dir: string): boolean {
   if (fs.existsSync(path.join(dir, "expo-module.config.json"))) return true;
   let entries: string[] = [];
   try {
@@ -70,6 +80,12 @@ function isNativePackage(name: string): boolean {
     }
   }
   return false;
+}
+
+function isNativePackage(name: string): boolean {
+  const dir = packageDir(name);
+  if (!dir) return false;
+  return isNativeDir(dir);
 }
 
 function getCurrentNativeModules(): string[] {
@@ -110,7 +126,20 @@ const STATIC_SIDE_EFFECT_IMPORT_RE = /^import\s*["']([^"']+)["']/gm;
 const TOP_LEVEL_REQUIRE_RE =
   /^(?:export\s+)?(?:const|let|var)\b[^=]*=\s*require\(\s*["']([^"']+)["']\s*\)/gm;
 
-function rootSpecifier(spec: string): string {
+/**
+ * Resolve a module specifier to its root package name.
+ *
+ * Examples:
+ *   "react-native"              → "react-native"
+ *   "react-native/Libraries/…" → "react-native"
+ *   "@expo/vector-icons"        → "@expo/vector-icons"
+ *   "@expo/vector-icons/…"      → "@expo/vector-icons"
+ *   "@scope"                    → "@scope"  (bare scope, unusual but handled)
+ *
+ * Exported so unit tests can verify the scoped-package edge cases without
+ * running the full check pipeline.
+ */
+export function rootSpecifier(spec: string): string {
   if (spec.startsWith("@")) {
     const [scope, name] = spec.split("/");
     return name ? `${scope}/${name}` : scope;
@@ -118,7 +147,19 @@ function rootSpecifier(spec: string): string {
   return spec.split("/")[0];
 }
 
-function findOffendingImports(
+/**
+ * Scan `file` for top-level static imports / requires of any module in
+ * `watched` and return the matched package names, sorted.
+ *
+ * "Top-level" means anchored to the start of a line (multiline mode).
+ * Lazy `await import(...)` calls and indented `require(...)` inside
+ * try/catch blocks are intentionally ignored — those are safe patterns
+ * for not-yet-shipped native modules.
+ *
+ * Exported so unit tests can exercise the regex logic against synthetic
+ * fixture files without triggering the full check pipeline.
+ */
+export function findOffendingImports(
   file: string,
   watched: Set<string>,
 ): string[] {
@@ -234,4 +275,12 @@ function main(): void {
   process.exit(1);
 }
 
-main();
+// Only run main() when this file is executed directly (not when imported by tests).
+const isMain =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) ===
+    path.resolve(url.fileURLToPath(import.meta.url));
+
+if (isMain) {
+  main();
+}

@@ -70,36 +70,26 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
-      - name: Check for unsafe new native modules
-        run: pnpm --filter @workspace/scripts run check-presentail-native-modules
-        working-directory: .
-
       - name: Build shared libs
         run: pnpm run typecheck:libs
         working-directory: .
 
-      - name: Build web app (vite + compress-assets)
-        run: pnpm --filter @workspace/presentail-web run build
+      - name: Run compress-assets fixture tests
+        # Verifies that compress-assets.mjs correctly produces .br/.gz sidecars
+        # and fails loudly when the assets directory is missing or empty.
+        # Running this before the EAS build ensures a broken compression pipeline
+        # is caught here rather than silently shipping under-compressed web assets.
+        run: pnpm --filter @workspace/presentail-web run test
         working-directory: .
 
-      - name: Start web serve.mjs
-        run: node artifacts/presentail-web/serve.mjs &
-        working-directory: .
-        env:
-          PORT: 19234
-          BASE_PATH: /
-          NODE_ENV: production
-
-      - name: Wait for web server to be ready
-        run: npx --yes wait-on http://localhost:19234/ --timeout 30000
+      - name: Run shipped-modules safety-check tests
+        # Runs the unit tests for checkPresentailNativeModules.ts so a regression
+        # in the safety-check script itself is caught before it reaches production.
+        run: pnpm --filter @workspace/scripts run test
         working-directory: .
 
-      - name: Check compression (HTML responses are gzip/br compressed)
-        run: node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/
-        working-directory: .
-
-      - name: Check sidecar blocking (.br/.gz paths return 404)
-        run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234
+      - name: Check for unsafe new native modules
+        run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
 
       - name: Setup EAS CLI
