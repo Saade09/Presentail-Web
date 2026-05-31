@@ -417,13 +417,13 @@ function cityLabelFromSlug(slug) {
 // (re-inserting on hit gives LRU-ish behaviour).
 const GENERIC_SEO_CACHE_TTL_MS = 60_000;
 const GENERIC_SEO_CACHE_MAX_ENTRIES = 500;
-const genericSeoCache = new Map();
+export const genericSeoCache = new Map();
 
 function genericSeoCacheKey(pathname, basePath, origin) {
   return `${pathname}\u0000${basePath}\u0000${origin}`;
 }
 
-function getCachedGenericSeo(key) {
+export function getCachedGenericSeo(key) {
   const entry = genericSeoCache.get(key);
   if (!entry) return null;
   if (entry.expiresAt <= Date.now()) {
@@ -435,7 +435,7 @@ function getCachedGenericSeo(key) {
   return entry.value;
 }
 
-function setCachedGenericSeo(key, value) {
+export function setCachedGenericSeo(key, value) {
   if (genericSeoCache.size >= GENERIC_SEO_CACHE_MAX_ENTRIES) {
     const oldest = genericSeoCache.keys().next().value;
     if (oldest !== undefined) genericSeoCache.delete(oldest);

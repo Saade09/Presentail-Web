@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo } from "../../seo-inject.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -3434,5 +3434,50 @@ describe("shared-link preview cache — analytics event fired on live failure bu
     );
     expect(failFetchCount).toBe(1);
     expect(analyticsCalls.length).toBeGreaterThanOrEqual(1); // event fired on live failure
+  });
+});
+
+describe("genericSeoCache — cache-hit, TTL expiry, and FIFO eviction", () => {
+  beforeEach(() => {
+    genericSeoCache.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns the cached object on a second call within TTL (no recomputation)", () => {
+    const opts = { origin: "https://presentail.test", basePath: "" };
+    const first = buildSeoHead("/en-lb/beirut/shop", opts);
+    const second = buildSeoHead("/en-lb/beirut/shop", opts);
+    expect(second).toBe(first);
+  });
+
+  it("recomputes after the 60 s TTL has elapsed", () => {
+    vi.useFakeTimers();
+    const opts = { origin: "https://presentail.test", basePath: "" };
+    const first = buildSeoHead("/en-ae/dubai", opts);
+    vi.advanceTimersByTime(61_000);
+    const second = buildSeoHead("/en-ae/dubai", opts);
+    expect(second).not.toBe(first);
+    expect(second.titleTag).toEqual(first.titleTag);
+  });
+
+  it("evicts the oldest entry when the 500-entry limit is reached", () => {
+    const LIMIT = 500;
+    const oldestKey = "oldest-entry\x00\x00";
+    setCachedGenericSeo(oldestKey, { headSnippet: "oldest", titleTag: "oldest" });
+
+    for (let i = 1; i < LIMIT; i++) {
+      setCachedGenericSeo(`filler-${i}\x00\x00`, { headSnippet: `filler-${i}`, titleTag: "" });
+    }
+    expect(genericSeoCache.size).toBe(LIMIT);
+    expect(genericSeoCache.has(oldestKey)).toBe(true);
+
+    setCachedGenericSeo("newest-entry\x00\x00", { headSnippet: "newest", titleTag: "newest" });
+
+    expect(genericSeoCache.size).toBe(LIMIT);
+    expect(genericSeoCache.has(oldestKey)).toBe(false);
+    expect(getCachedGenericSeo("newest-entry\x00\x00")).not.toBeNull();
   });
 });
