@@ -121,6 +121,13 @@ key mobile screens (home, product). The screen name is stored in
 `webVitalsMonitor` daily digest includes mobile TTID rows so web
 and mobile performance are visible in a single Slack message.
 
+`geo_currency_fallback` is recorded server-side whenever the IP
+geolocation lookup for `/api/geo/currency` fails on both providers
+(ipapi.co and ipwho.is), causing the shopper to be silently shown
+USD prices. The `geoCurrencyFallbackMonitor` counts these events
+per hour and fires a Slack alert when the count exceeds the
+configured threshold.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -147,6 +154,7 @@ export const AnalyticsEventName = {
   web_vital: "web_vital",
   mobile_ttid: "mobile_ttid",
   payment_error: "payment_error",
+  geo_currency_fallback: "geo_currency_fallback",
 } as const;
 
 /**

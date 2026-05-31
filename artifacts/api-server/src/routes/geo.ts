@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import type { GeoCurrencyResponse } from "@workspace/api-zod";
+import { db, analyticsEventsTable } from "@workspace/db";
 import {
   FALLBACK_DISPLAY_CURRENCY,
   geoCurrencyForCountry,
@@ -128,6 +129,34 @@ router.get("/geo/currency", geoCurrencyLimiter, async (req, res) => {
     },
     "geo currency lookup",
   );
+
+  // When both providers fail to resolve the IP to a country the shopper
+  // silently sees USD. Record a durable server-side event so the
+  // geoCurrencyFallbackMonitor can count these per hour and Slack-alert
+  // when the rate climbs above the configured threshold.
+  if (result.source === "lookup" && result.countryCode === null) {
+    void db
+      .insert(analyticsEventsTable)
+      .values({
+        name: "geo_currency_fallback",
+        platform: "server",
+        action: result.lookup?.reason ?? null,
+        surface: result.lookup?.provider ?? null,
+        appVersion: null,
+        errorCode: null,
+        productId: null,
+        sessionId: null,
+        userId: null,
+        signedIn: false,
+      })
+      .catch((err: unknown) => {
+        req.log.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          "geo: failed to persist geo_currency_fallback metric",
+        );
+      });
+  }
+
   const body: GeoCurrencyResponse = {
     countryCode: result.countryCode,
     currencyCode: result.currencyCode,

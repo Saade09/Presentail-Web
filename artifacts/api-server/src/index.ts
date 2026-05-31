@@ -18,6 +18,7 @@ import { startSmsFailureMonitor } from "./lib/smsFailureMonitor";
 import { startFxRatesFallbackMonitor } from "./lib/fxRatesFallbackMonitor";
 import { startSeoAuditMonitor } from "./lib/seoAuditMonitor";
 import { startWebVitalsMonitor } from "./lib/webVitalsMonitor";
+import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonitor";
 import { fetchAllProducts } from "./routes/woo";
 import { resolveStore } from "./lib/wooStore";
 
@@ -86,4 +87,5 @@ app.listen(port, (err) => {
   startFxRatesFallbackMonitor();
   startSeoAuditMonitor();
   startWebVitalsMonitor();
+  startGeoCurrencyFallbackMonitor();
 });
