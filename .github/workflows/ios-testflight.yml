@@ -54,6 +54,10 @@ jobs:
         run: pnpm run typecheck:libs
         working-directory: .
 
+      - name: Run shipped-modules safety-check tests
+        run: pnpm --filter @workspace/scripts run test
+        working-directory: .
+
       - name: Check for unsafe new native modules
         run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
