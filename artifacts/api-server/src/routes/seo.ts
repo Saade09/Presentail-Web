@@ -490,10 +490,13 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .key-pages-hint { font-size: 11px; color: #888; margin-bottom: 6px; }
   .key-pages-textarea { width: 100%; box-sizing: border-box; font: 12px/1.5 ui-monospace, "Cascadia Code", "Fira Mono", monospace; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; min-height: 130px; }
   .key-pages-textarea:focus { outline: none; border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
-  .key-pages-actions { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+  .key-pages-actions { display: flex; align-items: center; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
   .key-pages-reset { font-size: 12px; color: #0066cc; cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-decoration: underline; }
   .key-pages-reset:hover { color: #003f99; }
   .key-pages-count { font-size: 11px; color: #888; }
+  .key-pages-copy-link { font: inherit; font-size: 12px; padding: 3px 10px; border: 1px solid #0066cc; border-radius: 4px; background: #fff; color: #0066cc; cursor: pointer; }
+  .key-pages-copy-link:hover { background: #eef4ff; }
+  .key-pages-copy-link:disabled { opacity: 0.6; cursor: default; }
 
   /* batch audit table */
   #batchSection { display: none; margin-bottom: 28px; }
@@ -566,6 +569,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
       <textarea class="key-pages-textarea" id="keyPagesTextarea" spellcheck="false"></textarea>
       <div class="key-pages-actions">
         <button class="key-pages-reset" id="keyPagesReset">Reset to defaults</button>
+        <button class="key-pages-copy-link" id="keyPagesCopyLink">Copy link</button>
         <span class="key-pages-count" id="keyPagesCount"></span>
       </div>
     </div>
@@ -650,6 +654,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
   var keyPagesBody = document.getElementById('keyPagesBody');
   var keyPagesTextarea = document.getElementById('keyPagesTextarea');
   var keyPagesReset = document.getElementById('keyPagesReset');
+  var keyPagesCopyLink = document.getElementById('keyPagesCopyLink');
   var keyPagesCount = document.getElementById('keyPagesCount');
 
   // Restore saved token
@@ -755,10 +760,27 @@ const SEO_DEBUG_HTML = `<!doctype html>
     keyPagesCount.textContent = pages.length + ' page' + (pages.length !== 1 ? 's' : '');
   }
 
-  // Initialise textarea from storage
+  // Initialise textarea from storage, then check for a shared ?pages= param
   var initialPages = loadKeyPages();
   keyPagesTextarea.value = pagesToText(initialPages);
   updateCount();
+
+  // If the URL contains a shared page list, decode and apply it
+  try {
+    var urlParams = new URLSearchParams(location.search);
+    var sharedPages = urlParams.get('pages');
+    if (sharedPages) {
+      var decoded = atob(sharedPages);
+      if (decoded.trim()) {
+        keyPagesTextarea.value = decoded;
+        saveKeyPagesText(decoded);
+        updateCount();
+        // Open the editor panel so the user sees the imported list
+        keyPagesBody.classList.add('open');
+        keyPagesToggle.textContent = 'Hide';
+      }
+    }
+  } catch (e) {}
 
   // Toggle editor visibility
   keyPagesToggle.addEventListener('click', function () {
@@ -778,6 +800,42 @@ const SEO_DEBUG_HTML = `<!doctype html>
     saveKeyPagesText(keyPagesTextarea.value);
     updateCount();
   });
+
+  // Copy shareable link
+  keyPagesCopyLink.addEventListener('click', function () {
+    var encoded = btoa(keyPagesTextarea.value);
+    var base = location.href.split('?')[0];
+    var shareUrl = base + '?pages=' + encodeURIComponent(encoded);
+
+    function showCopied() {
+      keyPagesCopyLink.textContent = 'Copied!';
+      keyPagesCopyLink.disabled = true;
+      setTimeout(function () {
+        keyPagesCopyLink.textContent = 'Copy link';
+        keyPagesCopyLink.disabled = false;
+      }, 2000);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(showCopied).catch(function () {
+        fallbackCopy(shareUrl);
+        showCopied();
+      });
+    } else {
+      fallbackCopy(shareUrl);
+      showCopied();
+    }
+  });
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
 
   function esc(s) {
     if (s == null) return '';
