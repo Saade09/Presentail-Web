@@ -227,7 +227,7 @@ describe("webVitalsMonitor — runOnce", () => {
     await runOnce(NOW);
     const fields: Array<{ title: string; value: string }> =
       sendAlertMock.mock.calls[0][0].fields;
-    const lcpField = fields.find((f) => f.title === "LCP");
+    const lcpField = fields.find((f) => f.title === "web · LCP");
     expect(lcpField).toBeDefined();
     expect(lcpField?.value).toMatch("p50=");
     expect(lcpField?.value).toMatch("p75=");
@@ -302,8 +302,9 @@ describe("webVitalsMonitor — runOnce", () => {
     await runOnce(NOW);
     await runOnce(NOW);
     expect(sendAlertMock).not.toHaveBeenCalled();
-    // Only one DB query — the dedup guard prevents the second call from querying
-    expect(groupByMock).toHaveBeenCalledOnce();
+    // Two DB queries from the first call (web vitals + mobile TTID); the
+    // dedup guard prevents the second runOnce from issuing any further queries.
+    expect(groupByMock).toHaveBeenCalledTimes(2);
   });
 
   // ── Same-day deduplication ────────────────────────────────────────────────
@@ -354,8 +355,8 @@ describe("webVitalsMonitor — runOnce", () => {
     ]);
     await runOnce(NOW);
     const fields: Array<{ title: string }> = sendAlertMock.mock.calls[0][0].fields;
-    expect(fields.some((f) => f.title === "CLS")).toBe(true);
-    expect(fields.some((f) => f.title === "LCP")).toBe(true);
+    expect(fields.some((f) => f.title === "web · CLS")).toBe(true);
+    expect(fields.some((f) => f.title === "web · LCP")).toBe(true);
   });
 
   // ── CLS formatting (unitless, not "ms") ──────────────────────────────────
@@ -365,7 +366,7 @@ describe("webVitalsMonitor — runOnce", () => {
     await runOnce(NOW);
     const fields: Array<{ title: string; value: string }> =
       sendAlertMock.mock.calls[0][0].fields;
-    const clsField = fields.find((f) => f.title === "CLS");
+    const clsField = fields.find((f) => f.title === "web · CLS");
     expect(clsField?.value).not.toMatch("ms");
     expect(clsField?.value).toMatch("0.123");
   });
