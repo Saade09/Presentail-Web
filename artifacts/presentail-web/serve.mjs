@@ -129,6 +129,19 @@ function collectSidecars(dir, suffixes, out) {
 const SIDECAR_PATHS = new Set();
 collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
 
+{
+  let brCount = 0;
+  let gzCount = 0;
+  for (const p of SIDECAR_PATHS) {
+    if (p.endsWith(".br")) brCount++;
+    else if (p.endsWith(".gz")) gzCount++;
+  }
+  console.log(`Sidecar cache: ${brCount} .br + ${gzCount} .gz paths loaded`);
+  if (brCount === 0 && gzCount === 0 && process.env.NODE_ENV === "production") {
+    console.warn("WARN: Sidecar cache is empty in production — compress-assets.mjs may not have run");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Dynamic sitemap.xml
 // ---------------------------------------------------------------------------
