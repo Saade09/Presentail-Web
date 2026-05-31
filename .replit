@@ -24,6 +24,10 @@ args = "check-hardcoded-web-strings"
 task = "workflow.run"
 args = "compression-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-hardcoded-mobile-strings"
+
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
 author = "agent"
@@ -42,6 +46,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234; kill $SERVER_PID 2>/dev/null'"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "check-hardcoded-mobile-strings"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run check-hardcoded-mobile-strings"
 
 [workflows.workflow.metadata]
 isValidation = true
