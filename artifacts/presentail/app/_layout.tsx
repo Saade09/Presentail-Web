@@ -43,6 +43,13 @@ import { trackEvent } from "@/lib/analytics";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
+import {
+  prefetchOnIdle,
+  loadCatalogScreen,
+  loadProductDetailScreen,
+  loadCartScreen,
+  loadCheckoutScreen,
+} from "@/lib/prefetchScreens";
 
 setBaseUrl(API_BASE);
 
@@ -316,6 +323,20 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   const handleFadeOutEnd = useCallback(() => {
     setSplashGone(true);
+  }, []);
+
+  // Pre-load high-traffic route chunks after the app shell mounts so
+  // subsequent navigations feel instant on slow connections.
+  // InteractionManager.runAfterInteractions (inside prefetchOnIdle) defers
+  // the imports until all in-flight animations/gestures have settled, so
+  // the prefetch never competes with the initial paint.
+  useEffect(() => {
+    prefetchOnIdle([
+      loadCatalogScreen,
+      loadProductDetailScreen,
+      loadCartScreen,
+      loadCheckoutScreen,
+    ]);
   }, []);
 
   // Hold the splash open until we know whether onboarding is needed, so we
