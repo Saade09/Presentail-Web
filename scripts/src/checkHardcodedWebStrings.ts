@@ -6,9 +6,10 @@
  * that should be going through the t() translation function or a properly
  * localised COPY constant instead.
  *
- * Detection covers four patterns:
+ * Detection covers six patterns:
  *   A. Inline JSX text nodes  — text between ">…</"  on the same line, after
- *      stripping {JS expressions}.
+ *      stripping {JS expressions}.  This naturally covers <title>…</title>
+ *      JSX elements used in Helmet-style components.
  *   B. Standalone text lines  — an indented line whose content is only prose
  *      characters (no JSX/code symbols), indicating a multi-line JSX text node.
  *   C. User-visible JSX prop strings — plain string literals on known props:
@@ -16,6 +17,13 @@
  *      subtitle, emptyText, noResultsText, emptyLabel.
  *   D. Nullish-coalescing / ternary fallback strings — `?? "text"` patterns
  *      that end up rendering in JSX.
+ *   E. document.title string literal assignments — `document.title = "text"`
+ *      imperative page-title updates that bypass the JSX tree (navigation
+ *      equivalent of Expo Router's `options={{ title: "…" }}`).
+ *   F. <meta> title content attributes — `content="text"` on any line that
+ *      also carries  name="title", name="og:title", or name="twitter:title".
+ *      Flags only when the content looks like English prose so og:image URLs
+ *      and short technical strings are not reported.
  *
  * Exclusions (files / blocks / lines that are NOT flagged):
  *   • Test files  (*.test.tsx, *.test.ts)
@@ -59,7 +67,7 @@ const SKIP_DIRS = new Set([
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
-type HitKind = "jsx-text" | "jsx-prop" | "standalone-text" | "fallback-string";
+type HitKind = "jsx-text" | "jsx-prop" | "standalone-text" | "fallback-string" | "doc-title" | "meta-title";
 
 interface Hit {
   file: string;   // repo-relative path
@@ -171,6 +179,18 @@ const VISIBLE_PROP_RE =
 //    We intentionally exclude ternary `: "..."` to avoid flagging tech strings
 //    like `dir === "ltr" ? "ltr" : "rtl"`.  ?? is a stronger signal.
 const NULLISH_FALLBACK_RE = /\?\?\s*"([^"\n]{4,})"/g;
+
+// E: document.title string literal assignment — imperative page-title updates
+//    that bypass the JSX tree.  Only fires on a string literal (not a variable).
+//    Catches both single and double-quoted values.
+const DOC_TITLE_RE = /\bdocument\.title\s*=\s*["']([^"'\n]{4,})["']/g;
+
+// F: <meta> title content attribute.  We look for the title-related name
+//    first on the same line, then extract the content value.  Supports both
+//    attribute orderings (name before content or content before name).
+//    Names matched: "title", "og:title", "twitter:title".
+const META_TITLE_NAME_RE = /\bname=["'](?:og:title|twitter:title|title)["']/;
+const META_TITLE_CONTENT_RE = /\bcontent=["']([^"'\n]{4,})["']/g;
 
 // ── main ────────────────────────────────────────────────────────────────────────
 
@@ -298,6 +318,37 @@ for (const filePath of files) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
     }
+
+    // ── Pattern E: document.title string literal assignment ──────────────────
+    // Catches imperative page-title updates that bypass the JSX tree, e.g.:
+    //   document.title = "Shop Flowers & Gifts";
+    // Variable assignments (document.title = title) are not flagged because
+    // they contain no string literal.
+    DOC_TITLE_RE.lastIndex = 0;
+    while ((m = DOC_TITLE_RE.exec(raw)) !== null) {
+      const text = m[1].trim();
+      if (!looksLikeEnglishProse(text)) continue;
+      if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
+        hits.push({ file: rel, line: lineNum, kind: "doc-title", text });
+      }
+    }
+
+    // ── Pattern F: <meta> title content attribute ────────────────────────────
+    // Flags `content="prose text"` only on lines that also carry
+    // name="title", name="og:title", or name="twitter:title", preventing
+    // false positives on unrelated <meta> content attributes.
+    if (META_TITLE_NAME_RE.test(raw)) {
+      META_TITLE_CONTENT_RE.lastIndex = 0;
+      while ((m = META_TITLE_CONTENT_RE.exec(raw)) !== null) {
+        const text = m[1].trim();
+        // Skip URLs — og:image etc. sometimes sit adjacent to og:title on the same line
+        if (/^https?:\/\//.test(text)) continue;
+        if (!looksLikeEnglishProse(text)) continue;
+        if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
+          hits.push({ file: rel, line: lineNum, kind: "meta-title", text });
+        }
+      }
+    }
   }
 }
 
@@ -356,7 +407,11 @@ for (const [file, fileHits] of byFile) {
           ? `[prop: ${h.attr?.padEnd(14)}]`
           : h.kind === "fallback-string"
             ? "[?? fallback]   "
-            : "[standalone]    ";
+            : h.kind === "doc-title"
+              ? "[document.title]"
+              : h.kind === "meta-title"
+                ? "[meta title]    "
+                : "[standalone]    ";
     console.error(`    line ${String(h.line).padStart(4)}  ${kindLabel}  "${h.text}"`);
   }
   console.error("");
