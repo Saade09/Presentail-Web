@@ -189,21 +189,6 @@ function safeJoin(root, urlPath) {
   return resolved;
 }
 
-const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
-
-// ---------------------------------------------------------------------------
-// Sidecar (.br / .gz) existence cache
-// ---------------------------------------------------------------------------
-// Pre-compressed sidecars are build-time artifacts written by compress-assets.mjs.
-// They never change while the process is running, so we cache their existence in a
-// Set at startup instead of calling fs.existsSync on every request.
-//
-// NOTE: Sidecars generated after server start (e.g. by a post-deploy script that
-// runs concurrently) are NOT detected — restart the server to pick them up.
-
-const SIDECAR_PATHS = new Set();
-collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
-
 // ---------------------------------------------------------------------------
 // Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
 // ---------------------------------------------------------------------------
@@ -221,12 +206,46 @@ async function sendSlackAlert(text) {
     });
     clearTimeout(t);
     if (!res.ok) {
-      console.warn(`WARN: Slack webhook responded ${res.status} (sidecar alert)`);
+      console.warn(`WARN: Slack webhook responded ${res.status} (startup alert)`);
     }
   } catch (err) {
-    console.warn(`WARN: Slack webhook send failed (sidecar alert): ${err?.message}`);
+    console.warn(`WARN: Slack webhook send failed (startup alert): ${err?.message}`);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Load index.html — fail fast with a structured alert if the dist folder is
+// absent (i.e. the Vite build step was skipped before this server started).
+// ---------------------------------------------------------------------------
+let indexHtml;
+try {
+  indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
+} catch (err) {
+  const msg =
+    ":rotating_light: *presentail-web: dist folder missing at startup*\n" +
+    `\`${DIST}/index.html\` could not be read — the Vite build step may not have run. ` +
+    "The server cannot serve the app and will exit now. " +
+    "Fix: run `vite build` (or the deploy build step) and restart the server.";
+  console.error(`ERROR: ${msg.replace(/[*`\n]/g, " ")}`);
+  if (process.env.NODE_ENV === "production") {
+    sendSlackAlert(msg).finally(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sidecar (.br / .gz) existence cache
+// ---------------------------------------------------------------------------
+// Pre-compressed sidecars are build-time artifacts written by compress-assets.mjs.
+// They never change while the process is running, so we cache their existence in a
+// Set at startup instead of calling fs.existsSync on every request.
+//
+// NOTE: Sidecars generated after server start (e.g. by a post-deploy script that
+// runs concurrently) are NOT detected — restart the server to pick them up.
+
+const SIDECAR_PATHS = new Set();
+collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
 
 {
   let brCount = 0;
