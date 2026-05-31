@@ -10,7 +10,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/lib/translations";
-import { loadCartScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
+import { loadCartScreen, loadCatalogScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
 
 function TabLayout() {
   const colors = useColors();
@@ -82,6 +82,15 @@ function TabLayout() {
             ) : (
               <Feather name="grid" size={20} color={color} />
             ),
+          tabBarButton: (props) => (
+            <Pressable
+              {...(props as React.ComponentProps<typeof Pressable>)}
+              onPressIn={(e) => {
+                prefetchOnInteraction(loadCatalogScreen).onPressIn();
+                props.onPressIn?.(e);
+              }}
+            />
+          ),
         }}
       />
       <Tabs.Screen
