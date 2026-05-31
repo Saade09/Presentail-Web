@@ -20,7 +20,16 @@ run = "pnpm --filter @workspace/api-server run dev"
 # (b) a failed migration aborts the deploy and keeps the previous server running.
 # DATABASE_URL must be set as a Replit secret for the production environment.
 # push-force is required because CI/build steps have no TTY for the interactive prompt.
-args = ["sh", "-c", "pnpm --filter @workspace/db run push-force && pnpm --filter @workspace/api-server run build"]
+#
+# After a successful build, scripts/post-deploy-seo-trigger.sh fires a GitHub
+# repository_dispatch event (type: "production-deployed") so the SEO audit workflow
+# runs automatically on every Replit publish — not just on git pushes that touch
+# specific paths.  Requires two Replit secrets:
+#   GITHUB_DISPATCH_TOKEN  — fine-grained PAT with actions:write scope (or classic
+#                            PAT with repo scope) on this repository.
+#   GITHUB_REPOSITORY      — owner/repo slug, e.g. presentail/presentail
+# The dispatch call is non-fatal: if either secret is absent the build still succeeds.
+args = ["sh", "-c", "pnpm --filter @workspace/db run push-force && pnpm --filter @workspace/api-server run build && (sh scripts/post-deploy-seo-trigger.sh || true)"]
 
 [services.production.build.env]
 NODE_ENV = "production"

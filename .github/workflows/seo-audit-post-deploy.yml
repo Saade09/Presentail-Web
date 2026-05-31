@@ -60,6 +60,17 @@ on:
       # This workflow itself.
       - ".github/workflows/seo-audit-post-deploy.yml"
 
+  # Fired automatically by scripts/post-deploy-seo-trigger.sh at the end of
+  # every Replit production build step (artifact.toml → services.production.build).
+  # This covers re-deploys that Replit triggers without a git push (e.g. manual
+  # re-publish, infra-only config changes) as well as pushes outside the path
+  # filter above.  The client_payload may include settle_seconds (default 90 s —
+  # shorter than the push default because the dispatch fires after the build
+  # completes, not at push time, so the server is nearly ready by the time the
+  # workflow runner starts).
+  repository_dispatch:
+    types: [production-deployed]
+
   workflow_dispatch:
     inputs:
       settle_seconds:
@@ -108,11 +119,19 @@ jobs:
     steps:
       - name: Wait for deploy to settle
         # Give Replit time to finish publishing the new revision before we probe
-        # the live endpoints.  For workflow_call/workflow_dispatch the caller
-        # can override this via the settle_seconds input.  On push events we
-        # always use the default (180 s = 3 min).
+        # the live endpoints.
+        #
+        # Settle-time selection (evaluated in order):
+        #   1. repository_dispatch client_payload.settle_seconds  — fired from the
+        #      build step after a successful Replit publish; default 90 s because
+        #      the dispatch fires after the build, so only server startup time
+        #      remains before the new revision is serving traffic.
+        #   2. workflow_call / workflow_dispatch inputs.settle_seconds — explicit
+        #      override from the caller / manual trigger.
+        #   3. Hard-coded 180 s fallback for push events (deploy hasn't started
+        #      yet when the push event fires, so more settle time is needed).
         env:
-          SETTLE_SECONDS: ${{ inputs.settle_seconds || 180 }}
+          SETTLE_SECONDS: ${{ github.event.client_payload.settle_seconds || inputs.settle_seconds || 180 }}
         run: |
           echo "Waiting ${SETTLE_SECONDS}s for the production deploy to settle…"
           sleep "${SETTLE_SECONDS}"
