@@ -12,29 +12,20 @@
  * Run:  pnpm --filter @workspace/presentail run lint
  */
 
-import tsParser from "@typescript-eslint/parser";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
+import { createBaseConfig } from "@workspace/eslint-config-base";
 import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import presentailPlugin from "@workspace/eslint-plugin-presentail";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
-  {
-    files: ["**/*.{ts,tsx}"],
+  createBaseConfig(["**/*.{ts,tsx}"], {
+    jsx: true,
     ignores: ["node_modules/**", ".expo/**", "dist/**", "__generated__/**"],
     plugins: {
-      "@typescript-eslint": tsPlugin,
-      "react": reactPlugin,
+      react: reactPlugin,
       "react-hooks": reactHooksPlugin,
       presentail: presentailPlugin,
-    },
-    languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
-        ecmaFeatures: { jsx: true },
-      },
     },
     linterOptions: {
       // Existing files may have eslint-disable comments for plugins that are
@@ -43,13 +34,8 @@ export default [
     },
     rules: {
       "presentail/no-unknown-t-member": "warn",
-      // Catch duplicate variable declarations (e.g. two `const { t } = useT()` in
-      // the same scope). The base rule is turned off because it doesn't understand
-      // TypeScript declaration merging; the @typescript-eslint version handles both.
-      "no-redeclare": "off",
-      "@typescript-eslint/no-redeclare": "error",
     },
-  },
+  }),
   // Orphan-key check: scoped to the locale catalogue file only so the rule
   // never fires on ordinary application code.
   {

@@ -134,7 +134,7 @@ async function runHostedCheckout(url: string, deeplinkBase: string): Promise<"su
 }
 
 type Step = 0 | 1 | 2;
-const STEPS = ["Customize", "Delivery Details", "Payment"] as const;
+const _STEPS = ["Customize", "Delivery Details", "Payment"] as const;
 
 // Re-exported for tests and any module that imports the legacy names from
 // here. The canonical source is `lib/delivery.ts`.

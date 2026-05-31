@@ -38,7 +38,7 @@ import { trackEvent } from "@/lib/analytics";
 export function CartDrawer() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const { isCartOpen, closeCart, detailed, count, total, remove, setQty } = useCart();
@@ -75,7 +75,7 @@ export function CartDrawer() {
     }
     wasOpenRef.current = isCartOpen;
   }, [isCartOpen]);
-  const { formatNative, formatPrice, currencyCode, convert } = useCurrency();
+  const { formatPrice, currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
   const t = useT();
   const deliverySelection = useDeliverySelection();

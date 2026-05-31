@@ -9,7 +9,6 @@ import { useCurrenciesData, useFxRates } from "./queries";
 import { LocationContext } from "@/contexts/LocationContext";
 import {
   DisplayCurrencyOverrideContext,
-  type DisplayCurrencyOverrideValue,
 } from "./displayCurrencyOverride";
 import {
   formatPriceInCurrency,

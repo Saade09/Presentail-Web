@@ -26,7 +26,6 @@ import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationShe
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import {
   reviews,
@@ -86,7 +85,7 @@ function HomeHeader({
   topPad,
   onOpenDelivery,
   headerOpacity,
-  scrollY,
+  scrollY: _scrollY,
 }: {
   topPad: number;
   onOpenDelivery: () => void;

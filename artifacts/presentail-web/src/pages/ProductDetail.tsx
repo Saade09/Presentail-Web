@@ -41,7 +41,7 @@ export default function ProductDetail() {
   const { isSignedIn } = useClerkAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const { countryCode: locationCountry } = useLocationSelection();
-  const [, navigate] = useLocation();
+  const [,] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
   const delivery = useDeliveryConfig();
   const { formatPrice: formatDisplayPrice } = useDisplayCurrency();

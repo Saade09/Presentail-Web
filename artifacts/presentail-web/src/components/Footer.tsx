@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Instagram, Linkedin, ChevronDown, MapPin } from "lucide-react";
+import { Facebook, Instagram, Linkedin, MapPin } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";

@@ -59,7 +59,7 @@ function CatalogScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { count } = useCart();
+  const { count: _count } = useCart();
   const t = useT();
   const params = useLocalSearchParams<{ category?: string; q?: string; brand?: string; brandName?: string }>();
   const isWeb = Platform.OS === "web";

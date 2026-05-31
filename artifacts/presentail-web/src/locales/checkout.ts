@@ -85,7 +85,9 @@ export const checkoutStrings: Dict = {
   "checkout.toast.mamoUnavailable": { en: "Mamo unavailable", ar: "مامو غير متوفر" },
   "checkout.toast.mamoUnavailableDesc": { en: "Mamo isn't available right now.", ar: "مامو غير متوفر حالياً." },
   "checkout.toast.errorTitle": { en: "Checkout Error", ar: "خطأ في الدفع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
   "checkout.toast.networkError": { en: "Something went wrong while contacting the payment provider. Please try again.", ar: "حدث خطأ أثناء الاتصال بمزوّد الدفع. يرجى المحاولة مرة أخرى." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
   "checkout.toast.networkTimeout": { en: "Couldn't reach the payment provider. Please check your connection and try again.", ar: "تعذّر الوصول إلى مزوّد الدفع. يرجى التحقق من اتصالك والمحاولة مرة أخرى." },
   "checkout.toast.storageError": { en: "Couldn't save your order details. Please disable private browsing or free up storage space and try again.", ar: "تعذّر حفظ تفاصيل طلبك. يرجى تعطيل التصفح الخاص أو تحرير مساحة التخزين والمحاولة مجدداً." },
   "checkout.useSavedAddress": { en: "Use a saved address", ar: "استخدم عنواناً محفوظاً" },

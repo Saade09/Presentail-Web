@@ -42,7 +42,6 @@ import {
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
-  WEB_PAY_METHODS,
   webNextPaymentMethod,
   webPaymentMethodLabelKey,
   webVisiblePayMethods,
@@ -437,7 +436,7 @@ export default function Checkout() {
 
   const currentCountryCities = activeCities;
   const FREE_DELIVERY_THRESHOLD = freeDeliveryThresholdUsd(countryCode);
-  const selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
+  const _selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
   // Per-city fees come from the OS cache (via /api/delivery-locations) so
   // toggling a fee in Presentail OS propagates within the polling interval.
   // Falling back to 0 keeps the math safe if the API payload is missing.

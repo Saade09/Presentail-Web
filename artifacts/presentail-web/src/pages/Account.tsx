@@ -2,11 +2,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState, useMemo } from "react";
 import {
-  User,
   Package,
   MapPin,
-  LogOut,
-  Sparkles,
   Heart,
   Bell,
   Plus,
@@ -58,9 +55,8 @@ type MeUser = {
 };
 
 export default function Account() {
-  const { user, token, logout, isLoading } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const { isSignedIn } = useClerkAuth();
-  const [, setLocation] = useLocation();
   const { t } = useLocale();
   const [tab, setTab] = useState<AccountTab>("profile");
 
@@ -251,7 +247,6 @@ function OrdersPanel({
   t: (k: string) => string;
 }) {
   const { data, isLoading, isError } = useMyOrders(signedIn);
-  const [, setLocation] = useLocation();
 
   return (
     <SectionCard title={t("account.orders")}>

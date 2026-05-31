@@ -374,7 +374,7 @@ function ProductDetail() {
   );
 }
 
-function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
+function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router }: any) {
   const deliverySelection = useDeliverySelection();
   const { formatNative, currencyCode } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
@@ -580,7 +580,7 @@ function ProductBody({ product, safePriceValue, cat, colors, router }: any) {
           { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative(cc))}.` },
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
-        ].map((b, i, arr) => (
+        ].map((b, i, _arr) => (
           <View
             key={b.title}
             style={{

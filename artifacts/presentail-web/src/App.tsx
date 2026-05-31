@@ -60,7 +60,6 @@ import { ShopPageSkeleton } from "@/components/skeletons/ShopPageSkeleton";
 import { ProductDetailSkeleton } from "@/components/skeletons/ProductDetailSkeleton";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
-import { prefetchRoutes } from "@/lib/prefetch";
 
 /**
  * Wraps a lazy component with its own Suspense boundary so each route

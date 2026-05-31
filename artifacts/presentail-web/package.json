@@ -61,6 +61,7 @@
     "@types/react-dom": "catalog:",
     "@typescript-eslint/eslint-plugin": "^8.60.0",
     "@typescript-eslint/parser": "^8.34.0",
+    "@workspace/eslint-config-base": "workspace:*",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/clerk-types": "workspace:*",

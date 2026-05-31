@@ -15,7 +15,7 @@ import { useBrands } from "@/lib/queries";
 export function Navbar() {
   const { itemCount } = useCart();
   const { user } = useAuth();
-  const [location] = useLocation();
+  const [_location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { city, countryCode, cityId, openPicker } = useLocationSelection();
