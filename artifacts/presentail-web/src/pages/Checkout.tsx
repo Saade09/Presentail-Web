@@ -693,8 +693,8 @@ export default function Checkout() {
       }
 
       await finalizeOrderNow();
-    } catch (e: any) {
-      toast({ title: t("checkout.toast.errorTitle"), description: e.message, variant: "destructive" });
+    } catch {
+      toast({ title: t("checkout.toast.errorTitle"), description: t("checkout.toast.networkError"), variant: "destructive" });
     }
   };
 
