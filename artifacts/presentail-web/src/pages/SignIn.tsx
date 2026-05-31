@@ -248,8 +248,6 @@ export default function SignInPage() {
       });
       setStep("code");
     } catch (err: any) {
-      const msg =
-        err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.checkFailed");
       // Clerk reports unknown identifiers via form_identifier_not_found.
       // That theoretically can't happen here (we just JIT-created the
       // Clerk user) but be defensive: if it does, route to sign-up
@@ -259,6 +257,9 @@ export default function SignInPage() {
         goToSignUp(trimmed);
         return;
       }
+      const msg = /incorrect_password/i.test(code)
+        ? t("auth.incorrectPassword")
+        : (err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.checkFailed"));
       toast({
         title: t("auth.toast.error"),
         description: msg,
@@ -293,10 +294,10 @@ export default function SignInPage() {
         variant: "destructive",
       });
     } catch (err: any) {
-      const msg =
-        err?.errors?.[0]?.longMessage ??
-        err?.message ??
-        t("auth.codeInvalid");
+      const code = String(err?.errors?.[0]?.code ?? "");
+      const msg = /incorrect_password/i.test(code)
+        ? t("auth.incorrectPassword")
+        : (err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.codeInvalid"));
       toast({
         title: t("auth.toast.error"),
         description: msg,

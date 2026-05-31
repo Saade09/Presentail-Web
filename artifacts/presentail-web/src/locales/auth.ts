@@ -26,6 +26,10 @@ export const authStrings: Dict = {
   },
   "auth.codeResent": { en: "Code resent", ar: "تم إعادة إرسال الرمز" },
   "auth.codeInvalid": { en: "That code didn't work. Please try again.", ar: "هذا الرمز غير صحيح. يرجى المحاولة مرة أخرى." },
+  "auth.incorrectPassword": {
+    en: "Incorrect password. Please try again or reset your password.",
+    ar: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى أو إعادة تعيين كلمة المرور.",
+  },
   "auth.verifyCode": { en: "Verify code", ar: "تحقق من الرمز" },
   "auth.resendCode": { en: "Resend code", ar: "إعادة إرسال الرمز" },
 
@@ -68,6 +72,7 @@ export const authStringsFr: Record<string, string> = {
   "auth.codeSentTo": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour vous connecter.",
   "auth.codeResent": "Code renvoyé",
   "auth.codeInvalid": "Ce code n'a pas fonctionné. Veuillez réessayer.",
+  "auth.incorrectPassword": "Mot de passe incorrect. Veuillez réessayer ou réinitialiser votre mot de passe.",
   "auth.verifyCode": "Vérifier le code",
   "auth.resendCode": "Renvoyer le code",
 
