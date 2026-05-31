@@ -13,6 +13,7 @@
 
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import type { TimeSlot } from "@workspace/delivery";
 
@@ -63,7 +64,7 @@ export function SlotPicker({
               opacity: past ? 0.55 : 1,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 12,
@@ -72,7 +73,7 @@ export function SlotPicker({
               }}
             >
               {s.label}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}

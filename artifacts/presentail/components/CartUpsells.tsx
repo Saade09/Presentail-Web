@@ -11,6 +11,7 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { Price } from "@/components/Price";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
@@ -179,7 +180,7 @@ export function CartUpsells() {
             }}
           >
             <Feather name="zap" size={9} color="#fff" />
-            <Text
+            <AppText
               style={{
                 color: "#fff",
                 fontFamily: "Inter_600SemiBold",
@@ -189,7 +190,7 @@ export function CartUpsells() {
               }}
             >
               {expressLabel}
-            </Text>
+            </AppText>
           </View>
         ) : null}
       </View>
@@ -198,7 +199,7 @@ export function CartUpsells() {
 
   return (
     <View style={{ gap: 14 }}>
-      <Text
+      <AppText
         style={{
           fontFamily: "PlayfairDisplay_500Medium",
           fontSize: 20,
@@ -207,7 +208,7 @@ export function CartUpsells() {
         }}
       >
         {t.cartUpsellsTitle}
-      </Text>
+      </AppText>
 
       <ScrollView
         horizontal
@@ -235,7 +236,7 @@ export function CartUpsells() {
               accessibilityState={{ selected: isActive }}
               style={{ paddingVertical: 6 }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: isActive ? "Inter_600SemiBold" : "Inter_500Medium",
                   fontSize: 13,
@@ -244,7 +245,7 @@ export function CartUpsells() {
                 }}
               >
                 {tabLabel(t, tab.id)}
-              </Text>
+              </AppText>
               {isActive ? (
                 <View
                   style={{
@@ -322,7 +323,7 @@ export function CartUpsells() {
                       })
                     }
                   >
-                    <Text
+                    <AppText
                       numberOfLines={2}
                       style={{
                         fontFamily: "Inter_500Medium",
@@ -333,7 +334,7 @@ export function CartUpsells() {
                       }}
                     >
                       {product.name}
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -349,7 +350,7 @@ export function CartUpsells() {
                       marginTop: 2,
                     })}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: "#fff",
                         fontFamily: "Inter_600SemiBold",
@@ -359,7 +360,7 @@ export function CartUpsells() {
                       }}
                     >
                       {t.cartUpsellsAdd}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
               </View>
@@ -389,7 +390,7 @@ export function CartUpsells() {
               maxWidth: "90%",
             }}
           >
-            <Text
+            <AppText
               numberOfLines={1}
               style={{
                 color: "#fff",
@@ -398,7 +399,7 @@ export function CartUpsells() {
               }}
             >
               {toastMessage}
-            </Text>
+            </AppText>
           </View>
         </Animated.View>
       ) : null}

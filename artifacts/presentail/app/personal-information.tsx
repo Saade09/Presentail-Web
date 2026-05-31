@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -233,7 +234,7 @@ function PersonalInformationScreen() {
           justifyContent: "center",
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             color: colors.primary,
@@ -242,7 +243,7 @@ function PersonalInformationScreen() {
           }}
         >
           {t.piSignInRequired}
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -275,7 +276,7 @@ function PersonalInformationScreen() {
             color="#fff"
           />
         </Pressable>
-        <Text
+        <AppText
           style={{
             flex: 1,
             fontFamily: "PlayfairDisplay_500Medium",
@@ -287,7 +288,7 @@ function PersonalInformationScreen() {
           }}
         >
           {t.personalInfoTitle}
-        </Text>
+        </AppText>
       </View>
 
       <ScrollView
@@ -330,7 +331,7 @@ function PersonalInformationScreen() {
                 justifyContent: "center",
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 15,
@@ -339,9 +340,9 @@ function PersonalInformationScreen() {
                 }}
               >
                 {user.email}
-              </Text>
+              </AppText>
             </View>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 11,
@@ -351,7 +352,7 @@ function PersonalInformationScreen() {
               }}
             >
               {t.piEmailHelper}
-            </Text>
+            </AppText>
           </Field>
 
           <Field label={t.piGender} colors={colors} align={align}>
@@ -376,7 +377,7 @@ function PersonalInformationScreen() {
                     opacity: pressed ? 0.85 : 1,
                   })}
                 >
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
                       fontSize: 13,
@@ -388,7 +389,7 @@ function PersonalInformationScreen() {
                       : g === "male"
                       ? t.piGenderMale
                       : t.piGenderUnspecified}
-                  </Text>
+                  </AppText>
                 </Pressable>
               ))}
             </View>
@@ -427,7 +428,7 @@ function PersonalInformationScreen() {
               />
             </View>
             {bdayError ? (
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 12,
@@ -437,7 +438,7 @@ function PersonalInformationScreen() {
                 }}
               >
                 {bdayError}
-              </Text>
+              </AppText>
             ) : null}
 
             <View
@@ -454,7 +455,7 @@ function PersonalInformationScreen() {
                 trackColor={{ true: colors.primary, false: colors.border }}
                 thumbColor="#fff"
               />
-              <Text
+              <AppText
                 style={{
                   flex: 1,
                   fontFamily: "Inter_400Regular",
@@ -464,7 +465,7 @@ function PersonalInformationScreen() {
                 }}
               >
                 {t.piBirthdaySharingOn}
-              </Text>
+              </AppText>
             </View>
 
             <Pressable
@@ -475,7 +476,7 @@ function PersonalInformationScreen() {
                 alignSelf: isRTL ? "flex-end" : "flex-start",
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -484,7 +485,7 @@ function PersonalInformationScreen() {
                 }}
               >
                 {t.piBirthdayHowItWorks}
-              </Text>
+              </AppText>
             </Pressable>
           </Field>
 
@@ -503,7 +504,7 @@ function PersonalInformationScreen() {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     color: "#fff",
@@ -512,7 +513,7 @@ function PersonalInformationScreen() {
                   }}
                 >
                   {t.piUpdate}
-                </Text>
+                </AppText>
               )}
             </Pressable>
           </View>
@@ -521,7 +522,7 @@ function PersonalInformationScreen() {
         {/* ── Phone card ── */}
         <Card colors={colors}>
           <View style={{ padding: 16, gap: 4 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -530,8 +531,8 @@ function PersonalInformationScreen() {
               }}
             >
               {t.piPhoneCardTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 14,
@@ -540,7 +541,7 @@ function PersonalInformationScreen() {
               }}
             >
               {phoneLocal ? `${phoneCountry.dial} ${phoneLocal}` : t.piPhoneNotSet}
-            </Text>
+            </AppText>
           </View>
           <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
             <Pressable
@@ -554,7 +555,7 @@ function PersonalInformationScreen() {
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: colors.primary,
@@ -563,7 +564,7 @@ function PersonalInformationScreen() {
                 }}
               >
                 {t.piPhoneChange}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         </Card>
@@ -571,7 +572,7 @@ function PersonalInformationScreen() {
         {/* ── Password card ── */}
         <Card colors={colors}>
           <View style={{ padding: 16, gap: 4 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -580,8 +581,8 @@ function PersonalInformationScreen() {
               }}
             >
               {t.piPasswordCardTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -590,7 +591,7 @@ function PersonalInformationScreen() {
               }}
             >
               {t.piPasswordCardHelp}
-            </Text>
+            </AppText>
           </View>
           <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
             <Pressable
@@ -605,7 +606,7 @@ function PersonalInformationScreen() {
               })}
             >
               {(
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     color: colors.primary,
@@ -614,7 +615,7 @@ function PersonalInformationScreen() {
                   }}
                 >
                   {t.piPasswordChange}
-                </Text>
+                </AppText>
               )}
             </Pressable>
           </View>
@@ -624,7 +625,7 @@ function PersonalInformationScreen() {
       {/* ── How it works sheet ── */}
       <BottomSheet visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)}>
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 12 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 22,
@@ -633,8 +634,8 @@ function PersonalInformationScreen() {
             }}
           >
             {t.piHowItWorksTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 14,
@@ -644,14 +645,14 @@ function PersonalInformationScreen() {
             }}
           >
             {t.piHowItWorksBody}
-          </Text>
+          </AppText>
         </View>
       </BottomSheet>
 
       {/* ── Phone update sheet ── */}
       <BottomSheet visible={phoneOpen} onClose={() => setPhoneOpen(false)}>
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 22,
@@ -660,7 +661,7 @@ function PersonalInformationScreen() {
             }}
           >
             {t.piPhoneCardTitle}
-          </Text>
+          </AppText>
           <PhoneField
             label={t.piPhoneCardTitle}
             value={phoneLocal}
@@ -675,7 +676,7 @@ function PersonalInformationScreen() {
             }}
           />
           {phoneError ? (
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 12,
@@ -684,7 +685,7 @@ function PersonalInformationScreen() {
               }}
             >
               {phoneError}
-            </Text>
+            </AppText>
           ) : null}
           <Pressable
             onPress={onUpdatePhone}
@@ -700,7 +701,7 @@ function PersonalInformationScreen() {
             {phoneBusy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: "#fff",
@@ -709,7 +710,7 @@ function PersonalInformationScreen() {
                 }}
               >
                 {t.piUpdate}
-              </Text>
+              </AppText>
             )}
           </Pressable>
         </View>
@@ -751,7 +752,7 @@ function Field({
 }) {
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4, gap: 8 }}>
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_500Medium",
           fontSize: 12,
@@ -761,8 +762,8 @@ function Field({
         }}
       >
         {label}
-        {required ? <Text style={{ color: colors.gold }}> *</Text> : null}
-      </Text>
+        {required ? <AppText style={{ color: colors.gold }}> *</AppText> : null}
+      </AppText>
       {children}
     </View>
   );

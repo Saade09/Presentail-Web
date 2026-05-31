@@ -6,6 +6,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -34,7 +35,7 @@ export function ForgotPasswordStep({
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -43,8 +44,8 @@ export function ForgotPasswordStep({
           }}
         >
           {t.authForgotTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -54,11 +55,11 @@ export function ForgotPasswordStep({
           }}
         >
           {t.authForgotSubtitle}
-        </Text>
+        </AppText>
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -67,7 +68,7 @@ export function ForgotPasswordStep({
           }}
         >
           {t.authForgotEmailLabel}
-        </Text>
+        </AppText>
         <TextInput
           value={email}
           onChangeText={onEmailChange}
@@ -96,7 +97,7 @@ export function ForgotPasswordStep({
           }}
         />
         {errorMessage ? (
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -105,7 +106,7 @@ export function ForgotPasswordStep({
             }}
           >
             {errorMessage}
-          </Text>
+          </AppText>
         ) : null}
       </View>
 
@@ -123,7 +124,7 @@ export function ForgotPasswordStep({
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text
+          <AppText
             style={{
               color: "#fff",
               fontFamily: "Inter_600SemiBold",
@@ -132,7 +133,7 @@ export function ForgotPasswordStep({
             }}
           >
             {t.authForgotSendBtn}
-          </Text>
+          </AppText>
         )}
       </Pressable>
     </View>

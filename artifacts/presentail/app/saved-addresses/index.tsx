@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -112,7 +113,7 @@ export default function SavedAddressesScreen() {
         <Header title={t.savedAddressesTitle} colors={colors} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Feather name="lock" size={28} color={colors.mutedForeground} />
-          <Text
+          <AppText
             style={{
               marginTop: 12,
               color: colors.mutedForeground,
@@ -122,7 +123,7 @@ export default function SavedAddressesScreen() {
             }}
           >
             {t.savedAddressesSignInRequired}
-          </Text>
+          </AppText>
         </View>
       </SafeAreaView>
     );
@@ -139,7 +140,7 @@ export default function SavedAddressesScreen() {
         </View>
       ) : isError && !treatErrorAsEmpty ? (
         <ScrollView contentContainerStyle={{ padding: 20 }}>
-          <Text
+          <AppText
             style={{
               color: colors.mutedForeground,
               textAlign: "center",
@@ -147,19 +148,19 @@ export default function SavedAddressesScreen() {
             }}
           >
             {t.savedAddressesError}
-          </Text>
+          </AppText>
           <Pressable
             onPress={() => refetch()}
             style={{ alignSelf: "center", marginTop: 12, padding: 12 }}
           >
-            <Text
+            <AppText
               style={{
                 color: colors.gold,
                 fontFamily: "Inter_600SemiBold",
               }}
             >
               {t.savedAddressesRetry}
-            </Text>
+            </AppText>
           </Pressable>
         </ScrollView>
       ) : addresses.length === 0 ? (
@@ -184,7 +185,7 @@ export default function SavedAddressesScreen() {
           >
             <Feather name="map-pin" size={28} color={colors.primary} />
           </View>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 20,
@@ -194,8 +195,8 @@ export default function SavedAddressesScreen() {
             }}
           >
             {t.savedAddressesEmptyTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               color: colors.mutedForeground,
               fontFamily: "Inter_400Regular",
@@ -206,7 +207,7 @@ export default function SavedAddressesScreen() {
             }}
           >
             {t.savedAddressesEmptyBody}
-          </Text>
+          </AppText>
           <Pressable
             onPress={() => router.push("/saved-addresses/new" as never)}
             style={({ pressed }) => ({
@@ -221,7 +222,7 @@ export default function SavedAddressesScreen() {
             })}
           >
             <Feather name="plus" size={16} color="#fff" />
-            <Text
+            <AppText
               style={{
                 color: "#fff",
                 fontFamily: "Inter_600SemiBold",
@@ -230,7 +231,7 @@ export default function SavedAddressesScreen() {
               }}
             >
               {t.savedAddressesAdd}
-            </Text>
+            </AppText>
           </Pressable>
         </ScrollView>
       ) : (
@@ -267,7 +268,7 @@ export default function SavedAddressesScreen() {
             })}
           >
             <Feather name="plus" size={18} color="#fff" />
-            <Text
+            <AppText
               style={{
                 color: "#fff",
                 fontFamily: "Inter_600SemiBold",
@@ -275,7 +276,7 @@ export default function SavedAddressesScreen() {
               }}
             >
               {t.savedAddressesAdd}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       )}
@@ -309,7 +310,7 @@ function Header({
       >
         <Feather name="chevron-left" size={22} color={colors.primary} />
       </Pressable>
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: "PlayfairDisplay_600SemiBold",
@@ -320,7 +321,7 @@ function Header({
         }}
       >
         {title}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -396,7 +397,7 @@ function AddressCard({
             backgroundColor: chipColors.bg,
           }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               fontSize: 11,
@@ -405,11 +406,11 @@ function AddressCard({
             }}
           >
             {labelText(address.label, t).toUpperCase()}
-          </Text>
+          </AppText>
         </View>
 
         {address.nickname ? (
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 13,
@@ -417,7 +418,7 @@ function AddressCard({
             }}
           >
             · {address.nickname}
-          </Text>
+          </AppText>
         ) : null}
 
         {address.isDefault ? (
@@ -431,7 +432,7 @@ function AddressCard({
               backgroundColor: `${colors.gold}22`,
             }}
           >
-            <Text
+            <AppText
               style={{
                 color: colors.gold,
                 fontFamily: "Inter_600SemiBold",
@@ -440,7 +441,7 @@ function AddressCard({
               }}
             >
               {t.savedAddressesDefaultBadge.toUpperCase()}
-            </Text>
+            </AppText>
           </View>
         ) : null}
       </View>
@@ -454,8 +455,8 @@ function AddressCard({
             gap: 8,
           }}
         >
-          <Text style={{ fontSize: 16 }}>{flagFor(address.countryCode)}</Text>
-          <Text
+          <AppText style={{ fontSize: 16 }}>{flagFor(address.countryCode)}</AppText>
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 14,
@@ -465,12 +466,12 @@ function AddressCard({
             }}
           >
             {primaryLine}
-          </Text>
+          </AppText>
         </View>
       ) : null}
 
       {secondaryLine ? (
-        <Text
+        <AppText
           style={{
             color: colors.mutedForeground,
             fontFamily: "Inter_400Regular",
@@ -480,7 +481,7 @@ function AddressCard({
           }}
         >
           {secondaryLine}
-        </Text>
+        </AppText>
       ) : null}
 
       {recipientName ? (
@@ -492,7 +493,7 @@ function AddressCard({
           }}
         >
           <Feather name="user" size={12} color={colors.mutedForeground} />
-          <Text
+          <AppText
             style={{
               color: colors.mutedForeground,
               fontFamily: "Inter_400Regular",
@@ -502,7 +503,7 @@ function AddressCard({
             }}
           >
             {recipientName}
-          </Text>
+          </AppText>
         </View>
       ) : null}
 
@@ -515,7 +516,7 @@ function AddressCard({
           }}
         >
           <Feather name="phone" size={12} color={colors.mutedForeground} />
-          <Text
+          <AppText
             style={{
               color: colors.mutedForeground,
               fontFamily: "Inter_400Regular",
@@ -525,12 +526,12 @@ function AddressCard({
             }}
           >
             {recipientPhone}
-          </Text>
+          </AppText>
         </View>
       ) : null}
 
       {address.directions ? (
-        <Text
+        <AppText
           style={{
             color: colors.mutedForeground,
             fontFamily: "Inter_400Regular",
@@ -540,7 +541,7 @@ function AddressCard({
           }}
         >
           {address.directions}
-        </Text>
+        </AppText>
       ) : null}
 
       {/* Action row */}
@@ -565,7 +566,7 @@ function AddressCard({
           })}
         >
           <Feather name="edit-2" size={14} color={colors.primary} />
-          <Text
+          <AppText
             style={{
               color: colors.primary,
               fontFamily: "Inter_500Medium",
@@ -573,7 +574,7 @@ function AddressCard({
             }}
           >
             {t.savedAddressesEdit}
-          </Text>
+          </AppText>
         </Pressable>
 
         {!address.isDefault ? (
@@ -588,7 +589,7 @@ function AddressCard({
             })}
           >
             <Feather name="star" size={14} color={colors.gold} />
-            <Text
+            <AppText
               style={{
                 color: colors.gold,
                 fontFamily: "Inter_500Medium",
@@ -596,7 +597,7 @@ function AddressCard({
               }}
             >
               {t.savedAddressesSetDefault}
-            </Text>
+            </AppText>
           </Pressable>
         ) : null}
 
@@ -612,7 +613,7 @@ function AddressCard({
           })}
         >
           <Feather name="trash-2" size={14} color={colors.destructive} />
-          <Text
+          <AppText
             style={{
               color: colors.destructive,
               fontFamily: "Inter_500Medium",
@@ -620,7 +621,7 @@ function AddressCard({
             }}
           >
             {t.savedAddressesDelete}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </View>

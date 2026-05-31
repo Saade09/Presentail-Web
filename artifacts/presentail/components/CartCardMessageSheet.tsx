@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
@@ -77,7 +78,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
               }}
             >
               <View style={{ width: 28 }} />
-              <Text
+              <AppText
                 style={{
                   fontFamily: "PlayfairDisplay_600SemiBold",
                   fontSize: 18,
@@ -88,7 +89,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.cartGiftCardLabel.toUpperCase()}
-              </Text>
+              </AppText>
               <Pressable
                 onPress={onClose}
                 hitSlop={10}
@@ -107,7 +108,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
 
             {/* To field */}
             <View style={{ marginBottom: 14 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 11,
@@ -118,7 +119,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.toLabel}
-              </Text>
+              </AppText>
               <TextInput
                 value={to}
                 onChangeText={setTo}
@@ -140,7 +141,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
 
             {/* From field */}
             <View style={{ marginBottom: 14 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 11,
@@ -151,7 +152,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.fromLabel}
-              </Text>
+              </AppText>
               <TextInput
                 value={from}
                 onChangeText={setFrom}
@@ -173,7 +174,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
 
             {/* Body field */}
             <View style={{ marginBottom: 8 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 11,
@@ -184,7 +185,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.cardMessageTitle}
-              </Text>
+              </AppText>
               <TextInput
                 value={body}
                 onChangeText={(v) => setBody(v.length > BODY_MAX_LENGTH ? v.slice(0, BODY_MAX_LENGTH) : v)}
@@ -208,7 +209,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                   textAlignVertical: "top",
                 }}
               />
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 11,
@@ -218,7 +219,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {body.length}/{BODY_MAX_LENGTH}
-              </Text>
+              </AppText>
             </View>
 
             {/* Suggested messages link */}
@@ -227,7 +228,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
               hitSlop={6}
               style={{ marginBottom: 20 }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 12,
@@ -236,7 +237,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.notSureWhatToSay}
-              </Text>
+              </AppText>
             </Pressable>
 
             {/* Save button */}
@@ -252,7 +253,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 marginBottom: 8,
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: "#fff",
@@ -262,7 +263,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
                 }}
               >
                 {t.cartGiftCardSave}
-              </Text>
+              </AppText>
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>

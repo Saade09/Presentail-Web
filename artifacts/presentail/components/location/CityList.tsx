@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import type { DeliveryCity } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -37,7 +38,7 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
               gap: 12,
             })}
           >
-            <Text
+            <AppText
               style={{
                 flex: 1,
                 fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium",
@@ -47,7 +48,7 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
               }}
             >
               {city.name}
-            </Text>
+            </AppText>
             {isSelected ? (
               <Feather name="check" size={20} color={colors.teal600} />
             ) : null}

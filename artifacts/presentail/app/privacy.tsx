@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -60,7 +61,7 @@ function PrivacyScreen() {
           />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 22,
@@ -69,8 +70,8 @@ function PrivacyScreen() {
             }}
           >
             {t.privacyTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -80,7 +81,7 @@ function PrivacyScreen() {
             }}
           >
             {t.privacyPageSubtitle}
-          </Text>
+          </AppText>
         </View>
         <Feather name="shield" size={22} color="rgba(255,255,255,0.6)" />
       </View>
@@ -95,7 +96,7 @@ function PrivacyScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Last updated */}
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -105,10 +106,10 @@ function PrivacyScreen() {
           }}
         >
           {t.privacyLastUpdated}
-        </Text>
+        </AppText>
 
         {/* Intro */}
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -118,7 +119,7 @@ function PrivacyScreen() {
           }}
         >
           {t.privacyIntro}
-        </Text>
+        </AppText>
 
         {/* Sections */}
         {SECTIONS.map((s, i) => (
@@ -140,7 +141,7 @@ function PrivacyScreen() {
                   justifyContent: "center",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     color: colors.gold,
@@ -148,9 +149,9 @@ function PrivacyScreen() {
                   }}
                 >
                   {i + 1}
-                </Text>
+                </AppText>
               </View>
-              <Text
+              <AppText
                 style={{
                   flex: 1,
                   fontFamily: "PlayfairDisplay_600SemiBold",
@@ -160,9 +161,9 @@ function PrivacyScreen() {
                 }}
               >
                 {t[s.titleKey]}
-              </Text>
+              </AppText>
             </View>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -172,7 +173,7 @@ function PrivacyScreen() {
               }}
             >
               {t[s.bodyKey]}
-            </Text>
+            </AppText>
           </View>
         ))}
 
@@ -192,7 +193,7 @@ function PrivacyScreen() {
           }}
         >
           <Feather name="mail" size={22} color={colors.gold} />
-          <Text
+          <AppText
             style={{
               flex: 1,
               fontFamily: "Inter_600SemiBold",
@@ -202,7 +203,7 @@ function PrivacyScreen() {
             }}
           >
             {t.contactUs}
-          </Text>
+          </AppText>
           <Feather
             name={isRTL ? "chevron-left" : "chevron-right"}
             size={18}

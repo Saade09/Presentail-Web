@@ -13,6 +13,7 @@ import {
   UIManager,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -129,7 +130,7 @@ function OrdersScreen() {
             color="#fff"
           />
         </Pressable>
-        <Text
+        <AppText
           style={{
             flex: 1,
             fontFamily: "PlayfairDisplay_500Medium",
@@ -139,7 +140,7 @@ function OrdersScreen() {
           }}
         >
           {t.ordersTitle}
-        </Text>
+        </AppText>
         <Feather name="package" size={22} color="rgba(255,255,255,0.6)" />
       </View>
 
@@ -152,7 +153,7 @@ function OrdersScreen() {
       ) : state.kind === "error" ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
-          <Text
+          <AppText
             style={{
               marginTop: 12,
               color: colors.mutedForeground,
@@ -161,12 +162,12 @@ function OrdersScreen() {
             }}
           >
             {t.ordersError}
-          </Text>
+          </AppText>
         </View>
       ) : state.orders.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Feather name="package" size={40} color={colors.mutedForeground} />
-          <Text
+          <AppText
             style={{
               marginTop: 14,
               fontFamily: "PlayfairDisplay_500Medium",
@@ -176,8 +177,8 @@ function OrdersScreen() {
             }}
           >
             {t.ordersEmpty}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               marginTop: 6,
               color: colors.mutedForeground,
@@ -187,7 +188,7 @@ function OrdersScreen() {
             }}
           >
             {t.ordersHistoryEmpty}
-          </Text>
+          </AppText>
         </View>
       ) : (
         <ScrollView
@@ -317,7 +318,7 @@ function OrderCard({
         }}
       >
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 11,
@@ -328,8 +329,8 @@ function OrderCard({
             }}
           >
             {t.ordersOrderNumber} #{order.appOrderId}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 18,
@@ -339,11 +340,11 @@ function OrderCard({
             }}
           >
             {order.itemsCount} {itemWord}
-          </Text>
+          </AppText>
         </View>
         <View style={{ alignItems: isRTL ? "flex-start" : "flex-end", gap: 6 }}>
           {totalLabel ? (
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 16,
@@ -351,7 +352,7 @@ function OrderCard({
               }}
             >
               {totalLabel}
-            </Text>
+            </AppText>
           ) : null}
           {order.status ? (
             <View
@@ -362,7 +363,7 @@ function OrderCard({
                 borderRadius: 999,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 11,
@@ -372,14 +373,14 @@ function OrderCard({
                 }}
               >
                 {order.status}
-              </Text>
+              </AppText>
             </View>
           ) : null}
         </View>
       </View>
 
       {order.recipientName ? (
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 13,
@@ -388,10 +389,10 @@ function OrderCard({
           }}
         >
           {t.ordersDeliveryFor} {order.recipientName}
-        </Text>
+        </AppText>
       ) : null}
 
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_400Regular",
           fontSize: 12,
@@ -400,7 +401,7 @@ function OrderCard({
         }}
       >
         {t.ordersPlacedOn} {placed}
-      </Text>
+      </AppText>
 
       {/* Footer row: track order + view details toggle */}
       {(order.wcOrderId != null || hasItems) && (
@@ -432,7 +433,7 @@ function OrderCard({
               })}
             >
               <Feather name="external-link" size={12} color={colors.primary} />
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -440,7 +441,7 @@ function OrderCard({
                 }}
               >
                 {t.ordersTrackOrder}
-              </Text>
+              </AppText>
             </Pressable>
           ) : (
             <View />
@@ -461,7 +462,7 @@ function OrderCard({
                 size={14}
                 color={colors.mutedForeground}
               />
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -469,7 +470,7 @@ function OrderCard({
                 }}
               >
                 {expanded ? "Hide details" : "View details"}
-              </Text>
+              </AppText>
             </Pressable>
           )}
         </View>
@@ -485,7 +486,7 @@ function OrderCard({
                 justifyContent: "space-between",
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 13,
@@ -495,9 +496,9 @@ function OrderCard({
                 }}
               >
                 {item.name}
-              </Text>
+              </AppText>
               {item.quantity > 1 && (
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -506,7 +507,7 @@ function OrderCard({
                   }}
                 >
                   ×{item.quantity}
-                </Text>
+                </AppText>
               )}
             </View>
           ))}

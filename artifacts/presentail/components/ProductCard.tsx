@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { Price } from "@/components/Price";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
@@ -13,6 +14,7 @@ import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { useTypography } from "@/hooks/useTypography";
 import {
   loadProductDetailScreen,
   prefetchOnInteraction,
@@ -36,6 +38,7 @@ type Props = {
 
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
+  const typo = useTypography();
   const t = useT();
   const router = useRouter();
   const { currencyCode, convert } = useCurrency();
@@ -104,7 +107,7 @@ export function ProductCard({ product, width, onPress }: Props) {
         />
         {product.tag ? (
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
-            <Text style={styles.tagText}>{product.tag}</Text>
+            <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{product.tag}</AppText>
           </View>
         ) : null}
         {user ? (
@@ -123,21 +126,21 @@ export function ProductCard({ product, width, onPress }: Props) {
         ) : null}
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
-        <Text
+        <AppText
           numberOfLines={1}
-          style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}
+          style={{ fontFamily: typo.medium, fontSize: 14, color: colors.primary }}
         >
           {product.name}
-        </Text>
+        </AppText>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Price
             value={product.priceValue}
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
           />
           {convertedPrice >= threshold ? (
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
+            <AppText style={{ fontFamily: typo.regular, fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               {t.freeDelivery}
-            </Text>
+            </AppText>
           ) : null}
         </View>
       </View>
@@ -166,7 +169,6 @@ const styles = StyleSheet.create({
   tagText: {
     color: "#fff",
     fontSize: 10,
-    fontFamily: "Inter_500Medium",
     letterSpacing: 1,
     textTransform: "uppercase",
   },

@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -175,7 +176,7 @@ export function RescheduleDeliverySheet({
           }}
         >
           <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 18,
@@ -183,8 +184,8 @@ export function RescheduleDeliverySheet({
               }}
             >
               {t.rescheduleSheetTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 12,
@@ -193,7 +194,7 @@ export function RescheduleDeliverySheet({
               }}
             >
               {subtitle}
-            </Text>
+            </AppText>
           </View>
           <Pressable onPress={onClose} hitSlop={12}>
             <Feather name="x" size={20} color={colors.primary} />
@@ -240,7 +241,7 @@ export function RescheduleDeliverySheet({
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 13,
@@ -248,8 +249,8 @@ export function RescheduleDeliverySheet({
                 }}
               >
                 {t.rescheduleExpressTile}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 11,
@@ -266,7 +267,7 @@ export function RescheduleDeliverySheet({
                     ? `${t.expressDelivery}${expressSurchargeDisplay}`
                     : t.expressDelivery
                   : t.rescheduleExpressUnavailable}
-              </Text>
+              </AppText>
             </View>
             {openedFromExpress && (
               <Feather name="check" size={16} color="#fff" />
@@ -309,7 +310,7 @@ export function RescheduleDeliverySheet({
                       borderColor: active ? colors.primary : colors.border,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_500Medium",
                         fontSize: 10,
@@ -319,8 +320,8 @@ export function RescheduleDeliverySheet({
                       }}
                     >
                       {d.label}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontFamily: "PlayfairDisplay_500Medium",
                         fontSize: 16,
@@ -328,7 +329,7 @@ export function RescheduleDeliverySheet({
                       }}
                     >
                       {d.date}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 );
               })}
@@ -359,7 +360,7 @@ export function RescheduleDeliverySheet({
                       opacity: past ? 0.5 : 1,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_500Medium",
                         fontSize: 11,
@@ -372,7 +373,7 @@ export function RescheduleDeliverySheet({
                       }}
                     >
                       {s.label}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 );
               })}
@@ -398,7 +399,7 @@ export function RescheduleDeliverySheet({
               opacity: !slotLabel ? 0.5 : pressed ? 0.88 : 1,
             })}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -408,7 +409,7 @@ export function RescheduleDeliverySheet({
               }}
             >
               {t.rescheduleConfirm}
-            </Text>
+            </AppText>
           </Pressable>
           <Pressable
             onPress={onClose}
@@ -422,7 +423,7 @@ export function RescheduleDeliverySheet({
               opacity: pressed ? 0.85 : 1,
             })}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 12,
@@ -432,7 +433,7 @@ export function RescheduleDeliverySheet({
               }}
             >
               {openedFromExpress ? t.rescheduleKeepExpress : t.rescheduleCancel}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </View>

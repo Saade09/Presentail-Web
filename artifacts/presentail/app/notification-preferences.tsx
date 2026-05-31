@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -178,7 +179,7 @@ function NotificationPreferencesScreen() {
           />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 22,
@@ -187,8 +188,8 @@ function NotificationPreferencesScreen() {
             }}
           >
             {t.notifPrefsTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -198,7 +199,7 @@ function NotificationPreferencesScreen() {
             }}
           >
             {t.notifPrefsSubtitle}
-          </Text>
+          </AppText>
         </View>
         <Feather name="bell" size={22} color="rgba(255,255,255,0.6)" />
       </View>
@@ -243,7 +244,7 @@ function NotificationPreferencesScreen() {
                 }}
               >
                 <Feather name="bell-off" size={18} color={colors.gold} />
-                <Text
+                <AppText
                   style={{
                     flex: 1,
                     fontFamily: "PlayfairDisplay_600SemiBold",
@@ -253,9 +254,9 @@ function NotificationPreferencesScreen() {
                   }}
                 >
                   {t.notifPrefsBlockedTitle}
-                </Text>
+                </AppText>
               </View>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 13,
@@ -265,7 +266,7 @@ function NotificationPreferencesScreen() {
                 }}
               >
                 {t.notifPrefsBlockedBody}
-              </Text>
+              </AppText>
               <Pressable
                 onPress={() => openSystemSettings()}
                 style={({ pressed }) => ({
@@ -278,7 +279,7 @@ function NotificationPreferencesScreen() {
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     fontSize: 12,
@@ -287,7 +288,7 @@ function NotificationPreferencesScreen() {
                   }}
                 >
                   {t.openSettings}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : skippedByUser ? (
@@ -310,7 +311,7 @@ function NotificationPreferencesScreen() {
                 }}
               >
                 <Feather name="bell" size={18} color={colors.gold} />
-                <Text
+                <AppText
                   style={{
                     flex: 1,
                     fontFamily: "PlayfairDisplay_600SemiBold",
@@ -320,9 +321,9 @@ function NotificationPreferencesScreen() {
                   }}
                 >
                   {t.notifPrefsOptInTitle}
-                </Text>
+                </AppText>
               </View>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 13,
@@ -332,7 +333,7 @@ function NotificationPreferencesScreen() {
                 }}
               >
                 {t.notifPrefsOptInBody}
-              </Text>
+              </AppText>
               <Pressable
                 onPress={onEnablePress}
                 style={({ pressed }) => ({
@@ -345,7 +346,7 @@ function NotificationPreferencesScreen() {
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     fontSize: 12,
@@ -354,11 +355,11 @@ function NotificationPreferencesScreen() {
                   }}
                 >
                   {t.enableNotifications}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : (
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -368,7 +369,7 @@ function NotificationPreferencesScreen() {
               }}
             >
               {t.notifPrefsIntro}
-            </Text>
+            </AppText>
           )}
 
           <View
@@ -418,7 +419,7 @@ function NotificationPreferencesScreen() {
                     />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_600SemiBold",
                         fontSize: 14,
@@ -427,8 +428,8 @@ function NotificationPreferencesScreen() {
                       }}
                     >
                       {t[cat.titleKey]}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontFamily: "Inter_400Regular",
                         fontSize: 12,
@@ -438,7 +439,7 @@ function NotificationPreferencesScreen() {
                       }}
                     >
                       {t[cat.descKey]}
-                    </Text>
+                    </AppText>
                   </View>
                   <Switch
                     value={prefs[cat.key]}

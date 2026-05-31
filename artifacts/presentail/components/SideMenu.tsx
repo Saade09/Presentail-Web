@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Wordmark } from "@/components/Brand";
@@ -270,7 +271,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                 })}
               >
                 <Feather name={it.icon} size={20} color={colors.primary} />
-                <Text
+                <AppText
                   style={{
                     flex: 1,
                     fontFamily: "Inter_500Medium",
@@ -280,7 +281,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                   }}
                 >
                   {it.label}
-                </Text>
+                </AppText>
                 <Feather
                   name={isRTL ? "chevron-left" : "chevron-right"}
                   size={18}
@@ -298,7 +299,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                 borderTopColor: colors.border,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 11,
@@ -310,7 +311,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                 }}
               >
                 {t.languageLabel}
-              </Text>
+              </AppText>
               <View style={{ flexDirection: rowDir, gap: 8, flexWrap: "wrap" }}>
                 {langOptions.map((opt) => {
                   const active = opt.code === lang;
@@ -330,7 +331,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                         opacity: pressed ? 0.85 : 1,
                       })}
                     >
-                      <Text
+                      <AppText
                         style={{
                           fontFamily: "Inter_500Medium",
                           fontSize: 13,
@@ -338,7 +339,7 @@ export function SideMenu({ visible, onClose, onOpenDelivery }: SideMenuProps) {
                         }}
                       >
                         {opt.label}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   );
                 })}

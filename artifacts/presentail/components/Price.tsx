@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, View, type TextStyle, type ViewStyle } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
@@ -42,7 +43,7 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
         ]}
       >
         <DirhamSymbol size={glyph} color={tint} />
-        <Text style={style}>{numStr}</Text>
+        <AppText style={style}>{numStr}</AppText>
       </View>
     );
   }
@@ -53,5 +54,5 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
       ? `${currency.symbol}${sep}${numStr}`
       : `${numStr}${sep}${currency.symbol}`;
 
-  return <Text style={style}>{text}</Text>;
+  return <AppText style={style}>{text}</AppText>;
 }

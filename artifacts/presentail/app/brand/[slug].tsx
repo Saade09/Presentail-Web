@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -113,12 +114,12 @@ function BrandScreen() {
             <Feather name="arrow-left" size={18} color="#fff" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2, textTransform: "uppercase" }}>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2, textTransform: "uppercase" }}>
               {t.brandSlugLabel}
-            </Text>
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: "#fff", marginTop: 2 }}>
+            </AppText>
+            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: "#fff", marginTop: 2 }}>
               {brandName}
-            </Text>
+            </AppText>
           </View>
           <Pressable
             onPress={() => router.push({ pathname: "/(tabs)/catalog", params: { brand: String(slug), brandName } })}
@@ -140,24 +141,24 @@ function BrandScreen() {
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
             {t.brandSlugLoading}
-          </Text>
+          </AppText>
         </View>
       ) : products.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 40 }}>
           <Feather name="package" size={40} color={colors.mutedForeground} />
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary, textAlign: "center" }}>
+          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary, textAlign: "center" }}>
             {t.brandSlugNoProducts}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
+          </AppText>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
             {t.brandSlugNoProductsPrefix} {brandName} {t.brandSlugNoProductsSuffix}
-          </Text>
+          </AppText>
           <Pressable
             onPress={() => router.back()}
             style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 999 }}
           >
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>{t.brandSlugGoBack}</Text>
+            <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>{t.brandSlugGoBack}</AppText>
           </Pressable>
         </View>
       ) : (
@@ -170,9 +171,9 @@ function BrandScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={{ paddingHorizontal: 24, marginBottom: 4 }}>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                 {products.length} {products.length !== 1 ? t.brandSlugProducts : t.brandSlugProduct}
-              </Text>
+              </AppText>
             </View>
           }
           renderItem={({ item }) => (

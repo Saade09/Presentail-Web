@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -209,9 +210,9 @@ export default function SavedAddressFormScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <Header title={isNew ? t.addressFormNewTitle : t.addressFormEditTitle} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>
+          <AppText style={{ color: colors.mutedForeground, textAlign: "center" }}>
             {t.savedAddressesSignInRequired}
-          </Text>
+          </AppText>
         </View>
       </SafeAreaView>
     );
@@ -264,9 +265,9 @@ export default function SavedAddressFormScreen() {
                 paddingVertical: 13,
               }}
             >
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
                 {country.flag} {country.name}
-              </Text>
+              </AppText>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </Pressable>
           </FieldGroup>
@@ -286,7 +287,7 @@ export default function SavedAddressFormScreen() {
                 paddingVertical: 13,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 14,
@@ -294,7 +295,7 @@ export default function SavedAddressFormScreen() {
                 }}
               >
                 {district ? district.name : t.addressFormDistrictPlaceholder}
-              </Text>
+              </AppText>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </Pressable>
           </FieldGroup>
@@ -359,9 +360,9 @@ export default function SavedAddressFormScreen() {
             >
               {isDefault ? <Feather name="check" size={13} color="#fff" /> : null}
             </View>
-            <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+            <AppText style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 14 }}>
               {t.addressFormSetDefault}
-            </Text>
+            </AppText>
           </Pressable>
         </ScrollView>
 
@@ -376,9 +377,9 @@ export default function SavedAddressFormScreen() {
               alignItems: "center",
             })}
           >
-            <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
+            <AppText style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
               {saving ? t.addressFormSaving : t.addressFormSave}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -399,7 +400,7 @@ export default function SavedAddressFormScreen() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormDistrict}</Text>
+            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormDistrict}</AppText>
             <Pressable onPress={() => setDistrictOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
             </Pressable>
@@ -426,9 +427,9 @@ export default function SavedAddressFormScreen() {
                     gap: 12,
                   }}
                 >
-                  <Text style={{ flex: 1, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
+                  <AppText style={{ flex: 1, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
                     {item.name}
-                  </Text>
+                  </AppText>
                   {selected ? <Feather name="check" size={16} color={colors.gold} /> : null}
                 </Pressable>
               );
@@ -453,7 +454,7 @@ export default function SavedAddressFormScreen() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-            <Text style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormCountry}</Text>
+            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormCountry}</AppText>
             <Pressable onPress={() => setCountryOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
             </Pressable>
@@ -480,10 +481,10 @@ export default function SavedAddressFormScreen() {
                     gap: 12,
                   }}
                 >
-                  <Text style={{ fontSize: 20 }}>{item.flag}</Text>
-                  <Text style={{ flex: 1, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
+                  <AppText style={{ fontSize: 20 }}>{item.flag}</AppText>
+                  <AppText style={{ flex: 1, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
                     {item.name}
-                  </Text>
+                  </AppText>
                   {selected ? <Feather name="check" size={16} color={colors.gold} /> : null}
                 </Pressable>
               );
@@ -511,7 +512,7 @@ function Header({ title }: { title: string }) {
       <Pressable onPress={() => router.back()} style={{ padding: 8 }} hitSlop={8}>
         <Feather name="chevron-left" size={22} color={colors.primary} />
       </Pressable>
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: "PlayfairDisplay_600SemiBold",
@@ -522,7 +523,7 @@ function Header({ title }: { title: string }) {
         }}
       >
         {title}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -540,13 +541,13 @@ function FieldGroup({
 }) {
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase" }}>
+      <AppText style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase" }}>
         {label}
-        {required ? <Text style={{ color: "#c0392b" }}> *</Text> : null}
-      </Text>
+        {required ? <AppText style={{ color: "#c0392b" }}> *</AppText> : null}
+      </AppText>
       {children}
       {hint ? (
-        <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>{hint}</Text>
+        <AppText style={{ color: colors.mutedForeground, fontSize: 11 }}>{hint}</AppText>
       ) : null}
     </View>
   );
@@ -590,9 +591,9 @@ function LabelChip({ active, text, onPress }: { active: boolean; text: string; o
         backgroundColor: active ? "#f4ead6" : "#fff",
       }}
     >
-      <Text style={{ color: active ? colors.gold : colors.primary, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+      <AppText style={{ color: active ? colors.gold : colors.primary, fontFamily: "Inter_500Medium", fontSize: 13 }}>
         {text}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }

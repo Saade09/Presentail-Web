@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -120,7 +121,7 @@ function LoyaltyScreen() {
             color="#fff"
           />
         </Pressable>
-        <Text
+        <AppText
           style={{
             flex: 1,
             fontFamily: "PlayfairDisplay_500Medium",
@@ -130,7 +131,7 @@ function LoyaltyScreen() {
           }}
         >
           Presentail Points {/* i18n-ignore */}
-        </Text>
+        </AppText>
       </View>
 
       {state.kind === "loading" ? (
@@ -152,7 +153,7 @@ function LoyaltyScreen() {
             padding: 24,
           }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               color: colors.primary,
@@ -160,7 +161,7 @@ function LoyaltyScreen() {
             }}
           >
             {state.message}
-          </Text>
+          </AppText>
         </View>
       ) : (
         <ScrollView
@@ -169,7 +170,7 @@ function LoyaltyScreen() {
           <SummaryCard summary={state.loyalty} />
           {state.loyalty.coupons.length > 0 ? (
             <View style={{ gap: 10 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -180,7 +181,7 @@ function LoyaltyScreen() {
                 }}
               >
                 {t.loyaltyActiveCoupons}
-              </Text>
+              </AppText>
               {state.loyalty.coupons.map((c) => (
                 <CouponRow
                   key={c.id}
@@ -192,7 +193,7 @@ function LoyaltyScreen() {
             </View>
           ) : null}
           <View style={{ gap: 10 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 12,
@@ -203,7 +204,7 @@ function LoyaltyScreen() {
               }}
             >
               {t.loyaltyHowTiersWork}
-            </Text>
+            </AppText>
             <LoyaltyTiersExplainer
               current={state.loyalty.tier.key}
               points={state.loyalty.points}
@@ -261,7 +262,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
             <Feather name="star" size={20} color="#fff" />
           </View>
           <View>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 28,
@@ -269,8 +270,8 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
               }}
             >
               {summary.points}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 11,
@@ -280,11 +281,11 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
               }}
             >
               points
-            </Text>
+            </AppText>
           </View>
         </View>
         <View style={{ alignItems: "flex-end" }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 11,
@@ -294,8 +295,8 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
             }}
           >
             {t.loyaltyCurrentTier}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 16,
@@ -304,7 +305,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
             }}
           >
             {summary.tier.label}
-          </Text>
+          </AppText>
         </View>
       </View>
       {summary.nextTier && summary.pointsToNext != null ? (
@@ -325,7 +326,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
               }}
             />
           </View>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -335,10 +336,10 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
           >
             {summary.pointsToNext} points to {summary.nextTier.label} (
             {summary.nextTier.discountPercent}% off)
-          </Text>
+          </AppText>
         </View>
       ) : (
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 12,
@@ -346,7 +347,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
           }}
         >
           {t.loyaltyTopTierThankYou}
-        </Text>
+        </AppText>
       )}
     </View>
   );
@@ -376,7 +377,7 @@ function CouponRow({
       }}
     >
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 14,
@@ -384,8 +385,8 @@ function CouponRow({
           }}
         >
           {coupon.tierLabel} · {coupon.discountPercent}% off
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 12,
@@ -395,7 +396,7 @@ function CouponRow({
           numberOfLines={1}
         >
           {coupon.code}
-        </Text>
+        </AppText>
       </View>
       <Pressable
         onPress={onCopy}
@@ -409,7 +410,7 @@ function CouponRow({
           opacity: pressed ? 0.75 : 1,
         })}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -417,7 +418,7 @@ function CouponRow({
           }}
         >
           {copied ? "Copied" : "Copy"}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

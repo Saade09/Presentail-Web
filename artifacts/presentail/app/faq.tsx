@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -99,7 +100,7 @@ function FAQItem({
           gap: 12,
         }}
       >
-        <Text
+        <AppText
           style={{
             flex: 1,
             fontFamily: "Inter_500Medium",
@@ -110,7 +111,7 @@ function FAQItem({
           }}
         >
           {q}
-        </Text>
+        </AppText>
         <Feather
           name={open ? "minus" : "plus"}
           size={18}
@@ -118,7 +119,7 @@ function FAQItem({
         />
       </Pressable>
       {open ? (
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 13,
@@ -129,7 +130,7 @@ function FAQItem({
           }}
         >
           {a}
-        </Text>
+        </AppText>
       ) : null}
     </View>
   );
@@ -164,7 +165,7 @@ function FAQScreen() {
           />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 22,
@@ -173,8 +174,8 @@ function FAQScreen() {
             }}
           >
             {t.faq}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -184,7 +185,7 @@ function FAQScreen() {
             }}
           >
             {t.faqPageSubtitle}
-          </Text>
+          </AppText>
         </View>
         <Feather name="help-circle" size={22} color="rgba(255,255,255,0.6)" />
       </View>
@@ -228,7 +229,7 @@ function FAQScreen() {
                   size={13}
                   color={isActive ? "#fff" : colors.mutedForeground}
                 />
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -237,7 +238,7 @@ function FAQScreen() {
                   }}
                 >
                   {t[s.titleKey]}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -268,7 +269,7 @@ function FAQScreen() {
                 >
                   <Feather name={s.icon} size={15} color={colors.gold} />
                 </View>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "PlayfairDisplay_600SemiBold",
                     fontSize: 17,
@@ -277,7 +278,7 @@ function FAQScreen() {
                   }}
                 >
                   {t[s.titleKey]}
-                </Text>
+                </AppText>
               </View>
               {s.faqs.map((f, i) => (
                 <FAQItem
@@ -304,7 +305,7 @@ function FAQScreen() {
           }}
         >
           <Feather name="message-circle" size={28} color={colors.gold} />
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 18,
@@ -313,8 +314,8 @@ function FAQScreen() {
             }}
           >
             {t.faqStillTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 13,
@@ -324,7 +325,7 @@ function FAQScreen() {
             }}
           >
             {t.faqStillBody}
-          </Text>
+          </AppText>
           <Pressable
             onPress={() => router.push("/contact")}
             style={{
@@ -335,7 +336,7 @@ function FAQScreen() {
               backgroundColor: colors.gold,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -344,7 +345,7 @@ function FAQScreen() {
               }}
             >
               {t.faqContactBtn}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </ScrollView>

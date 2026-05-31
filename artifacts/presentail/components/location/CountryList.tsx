@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import type { DeliveryCountry } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -37,8 +38,8 @@ export function CountryList({ countries, onSelect, selectedId }: Props) {
               gap: 14,
             })}
           >
-            <Text style={{ fontSize: 26 }}>{country.flag}</Text>
-            <Text
+            <AppText style={{ fontSize: 26 }}>{country.flag}</AppText>
+            <AppText
               style={{
                 flex: 1,
                 fontFamily: "Inter_500Medium",
@@ -48,7 +49,7 @@ export function CountryList({ countries, onSelect, selectedId }: Props) {
               }}
             >
               {country.name}
-            </Text>
+            </AppText>
             <Feather
               name={isRTL ? "chevron-left" : "chevron-right"}
               size={20}

@@ -1,6 +1,7 @@
 import { FontAwesome } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -36,7 +37,7 @@ export function SocialAuthButtons({ busyProvider, disabled, onApple, onGoogle }:
       {GOOGLE_SIGN_IN_ENABLED ? (
         <SocialButton
           icon={
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.primary }}>G</Text>
+            <AppText style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.primary }}>G</AppText>
           }
           label={t.authContinueGoogle}
           loading={busyProvider === "google"}
@@ -84,7 +85,7 @@ function SocialButton({
       ) : (
         <>
           {icon}
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               fontSize: 15,
@@ -92,7 +93,7 @@ function SocialButton({
             }}
           >
             {label}
-          </Text>
+          </AppText>
         </>
       )}
     </Pressable>

@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -63,7 +64,7 @@ export function SignupStep({
   return (
     <View style={{ gap: 22 }}>
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -72,8 +73,8 @@ export function SignupStep({
           }}
         >
           {t.authSignUpTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -83,7 +84,7 @@ export function SignupStep({
           }}
         >
           {t.authSignUpSubtitle}
-        </Text>
+        </AppText>
       </View>
 
       <View
@@ -96,7 +97,7 @@ export function SignupStep({
           paddingVertical: 14,
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 15,
@@ -106,7 +107,7 @@ export function SignupStep({
           numberOfLines={1}
         >
           {email}
-        </Text>
+        </AppText>
       </View>
 
       <View
@@ -116,7 +117,7 @@ export function SignupStep({
         }}
       >
         <View style={{ flex: 1, gap: 8 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 12,
@@ -125,7 +126,7 @@ export function SignupStep({
             }}
           >
             {t.authFirstNameLabel}
-          </Text>
+          </AppText>
           <TextInput
             value={firstName}
             onChangeText={onFirstNameChange}
@@ -152,7 +153,7 @@ export function SignupStep({
           />
         </View>
         <View style={{ flex: 1, gap: 8 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 12,
@@ -161,7 +162,7 @@ export function SignupStep({
             }}
           >
             {t.authLastNameLabel}
-          </Text>
+          </AppText>
           <TextInput
             value={lastName}
             onChangeText={onLastNameChange}
@@ -190,7 +191,7 @@ export function SignupStep({
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -199,7 +200,7 @@ export function SignupStep({
           }}
         >
           {t.authCreatePasswordLabel}
-        </Text>
+        </AppText>
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",
@@ -248,7 +249,7 @@ export function SignupStep({
       </View>
 
       <View style={{ gap: 8, marginTop: -4 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -257,14 +258,14 @@ export function SignupStep({
           }}
         >
           {t.authPasswordMustContain}
-        </Text>
+        </AppText>
         <Requirement isRTL={isRTL} met={reqs.lower} label={t.authReqLower} />
         <Requirement isRTL={isRTL} met={reqs.upper} label={t.authReqUpper} />
         <Requirement isRTL={isRTL} met={reqs.lengthAndNumber} label={t.authReqLengthNumber} />
       </View>
 
       {errorMessage ? (
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 12,
@@ -273,7 +274,7 @@ export function SignupStep({
           }}
         >
           {errorMessage}
-        </Text>
+        </AppText>
       ) : null}
 
       <Pressable
@@ -290,7 +291,7 @@ export function SignupStep({
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text
+          <AppText
             style={{
               color: "#fff",
               fontFamily: "Inter_600SemiBold",
@@ -299,7 +300,7 @@ export function SignupStep({
             }}
           >
             {t.authCreateAccount}
-          </Text>
+          </AppText>
         )}
       </Pressable>
 
@@ -315,7 +316,7 @@ export function SignupStep({
             marginTop: -6,
           })}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 13,
@@ -325,7 +326,7 @@ export function SignupStep({
             }}
           >
             {t.authAlreadyHaveAccount}
-          </Text>
+          </AppText>
         </Pressable>
       ) : null}
     </View>
@@ -348,7 +349,7 @@ function Requirement({ met, label, isRTL }: { met: boolean; label: string; isRTL
         size={16}
         color={tone}
       />
-      <Text
+      <AppText
         style={{
           fontFamily: met ? "Inter_500Medium" : "Inter_400Regular",
           fontSize: 13,
@@ -358,7 +359,7 @@ function Requirement({ met, label, isRTL }: { met: boolean; label: string; isRTL
         }}
       >
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

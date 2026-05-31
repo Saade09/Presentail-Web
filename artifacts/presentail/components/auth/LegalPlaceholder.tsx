@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,7 +37,7 @@ export function LegalPlaceholder({ title, body }: { title: string; body: string 
         >
           <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={22} color="#fff" />
         </Pressable>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 22,
@@ -46,11 +47,11 @@ export function LegalPlaceholder({ title, body }: { title: string; body: string 
           }}
         >
           {title}
-        </Text>
+        </AppText>
       </View>
 
       <View style={{ flex: 1, padding: 24, justifyContent: "center", alignItems: "center" }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 15,
@@ -60,7 +61,7 @@ export function LegalPlaceholder({ title, body }: { title: string; body: string 
           }}
         >
           {body}
-        </Text>
+        </AppText>
       </View>
     </View>
   );

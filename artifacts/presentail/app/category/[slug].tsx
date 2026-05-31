@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -156,13 +157,13 @@ function CategoryScreen() {
               <Feather name="shopping-bag" size={18} color={colors.primary} />
               {count > 0 ? (
                 <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                  <Text style={styles.badgeText}>{count}</Text>
+                  <AppText style={styles.badgeText}>{count}</AppText>
                 </View>
               ) : null}
             </Pressable>
           </View>
           <View style={{ position: "absolute", bottom: 22, left: 24, right: 24 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 11,
@@ -172,8 +173,8 @@ function CategoryScreen() {
               }}
             >
               {t.categoryBoutiqueLebanon}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 32,
@@ -182,8 +183,8 @@ function CategoryScreen() {
               }}
             >
               {displayName || t.categoryFallback}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 12,
@@ -192,7 +193,7 @@ function CategoryScreen() {
               }}
             >
               {wcLoading ? t.loading : `${products.length} ${t.categoryPiecesLabel} · ${t.categorySameDay}`}
-            </Text>
+            </AppText>
           </View>
         </View>
 
@@ -216,7 +217,7 @@ function CategoryScreen() {
                   backgroundColor: active ? colors.primary : "#fff",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -224,7 +225,7 @@ function CategoryScreen() {
                   }}
                 >
                   {c.name}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -239,9 +240,9 @@ function CategoryScreen() {
             alignItems: "center",
           }}
         >
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
             {products.length} {t.categoryPiecesLabel}
-          </Text>
+          </AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {SORTS.map((s) => (
               <Pressable
@@ -256,9 +257,9 @@ function CategoryScreen() {
                   backgroundColor: sort === s.key ? colors.gold : "transparent",
                 }}
               >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
+                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
                   {s.label}
-                </Text>
+                </AppText>
               </Pressable>
             ))}
           </ScrollView>
@@ -271,24 +272,24 @@ function CategoryScreen() {
   const empty = wcLoading ? (
     <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
       <ActivityIndicator color={colors.primary} />
-      <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+      <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
         {t.categoryLoadingProducts}
-      </Text>
+      </AppText>
     </View>
   ) : (
     <View>
       <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
         <Feather name="inbox" size={28} color={colors.mutedForeground} />
-        <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
           {t.categorySoldOutTitle}
-        </Text>
-        <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+        </AppText>
+        <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
           {t.categorySoldOutDesc}
-        </Text>
+        </AppText>
       </View>
       {popularPicks.length > 0 ? (
         <View style={{ marginTop: 18 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 11,
@@ -301,7 +302,7 @@ function CategoryScreen() {
             }}
           >
             {t.popularPicksLabel}
-          </Text>
+          </AppText>
           <View
             style={{
               paddingHorizontal: 24,

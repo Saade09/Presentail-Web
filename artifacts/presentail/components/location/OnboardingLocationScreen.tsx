@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocations";
@@ -15,6 +16,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import { useTypography } from "@/hooks/useTypography";
 
 function activeCountries(list: DeliveryCountry[]): DeliveryCountry[] {
   return list.filter((c) => c.isActive);
@@ -37,6 +39,7 @@ function defaultCityFor(country: DeliveryCountry | null): DeliveryCity | null {
 
 export function OnboardingLocationScreen() {
   const colors = useColors();
+  const typo = useTypography();
   const t = useT();
   const { isRTL } = useLanguage();
   const {
@@ -107,7 +110,7 @@ export function OnboardingLocationScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 22,
@@ -116,7 +119,7 @@ export function OnboardingLocationScreen() {
               }}
             >
               {t.onboardingSelectCountry}
-            </Text>
+            </AppText>
           </View>
 
           {isLoading && countries.length === 0 ? (
@@ -143,16 +146,16 @@ export function OnboardingLocationScreen() {
                 gap: 12,
               }}
             >
-              <Text
+              <AppText
                 style={{
-                  fontFamily: "Inter_500Medium",
+                  fontFamily: typo.medium,
                   fontSize: 14,
                   color: colors.mutedForeground,
                   textAlign: "center",
                 }}
               >
                 {error ? t.deliveryUnableToLoad : t.deliveryNoneAvailable}
-              </Text>
+              </AppText>
               <Pressable
                 onPress={() => {
                   refreshDeliveryLocations().catch(() => {});
@@ -164,16 +167,16 @@ export function OnboardingLocationScreen() {
                   backgroundColor: colors.primary,
                 }}
               >
-                <Text
+                <AppText
                   style={{
-                    fontFamily: "Inter_600SemiBold",
+                    fontFamily: typo.semibold,
                     fontSize: 13,
                     color: colors.primaryForeground,
                     letterSpacing: 0.5,
                   }}
                 >
                   {t.deliveryRetry}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : (
@@ -209,25 +212,25 @@ export function OnboardingLocationScreen() {
                         gap: 6,
                       }}
                     >
-                      <Text style={{ fontSize: 30 }}>{country.flag}</Text>
-                      <Text
+                      <AppText style={{ fontSize: 30 }}>{country.flag}</AppText>
+                      <AppText
                         numberOfLines={2}
                         style={{
-                          fontFamily: "Inter_600SemiBold",
+                          fontFamily: typo.semibold,
                           fontSize: 12,
                           color: selected ? colors.primary : colors.text,
                           textAlign: "center",
                         }}
                       >
                         {country.name}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   );
                 })}
               </ScrollView>
 
               <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "PlayfairDisplay_500Medium",
                     fontSize: 22,
@@ -236,7 +239,7 @@ export function OnboardingLocationScreen() {
                   }}
                 >
                   {t.onboardingSelectCity}
-                </Text>
+                </AppText>
               </View>
 
               <View style={{ paddingHorizontal: 16 }}>
@@ -261,17 +264,17 @@ export function OnboardingLocationScreen() {
                         gap: 12,
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           flex: 1,
-                          fontFamily: selected ? "Inter_600SemiBold" : "Inter_500Medium",
+                          fontFamily: selected ? typo.semibold : typo.medium,
                           fontSize: 15,
                           color: selected ? colors.primary : colors.text,
                           textAlign: isRTL ? "right" : "left",
                         }}
                       >
                         {city.name}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   );
                 })}
@@ -307,9 +310,9 @@ export function OnboardingLocationScreen() {
               opacity: canContinue ? 1 : 0.7,
             }}
           >
-            <Text
+            <AppText
               style={{
-                fontFamily: "Inter_600SemiBold",
+                fontFamily: typo.semibold,
                 fontSize: 15,
                 color: canContinue ? colors.primaryForeground : colors.mutedForeground,
                 letterSpacing: 0.4,
@@ -320,7 +323,7 @@ export function OnboardingLocationScreen() {
                     .replace("[[flag]]", draftCountry.flag)
                     .replace("[[city]]", draftCity.name)
                 : t.onboardingContinue}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </View>

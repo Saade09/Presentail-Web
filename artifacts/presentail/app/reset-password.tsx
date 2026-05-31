@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -127,7 +128,7 @@ function ResetPasswordScreen() {
                 <Feather name="check-circle" size={28} color={colors.primary} />
               </View>
               <View style={{ gap: 8 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "PlayfairDisplay_500Medium",
                     fontSize: 28,
@@ -136,8 +137,8 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authResetSuccessTitle}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 14,
@@ -147,7 +148,7 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authResetSuccessBody}
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 onPress={onSignIn}
@@ -159,7 +160,7 @@ function ResetPasswordScreen() {
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <Text
+                <AppText
                   style={{
                     color: "#fff",
                     fontFamily: "Inter_600SemiBold",
@@ -168,13 +169,13 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authResetSuccessBtn}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : (
             <View style={{ gap: 22 }}>
               <View style={{ gap: 8 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "PlayfairDisplay_500Medium",
                     fontSize: 28,
@@ -183,8 +184,8 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authResetTitle}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 14,
@@ -194,7 +195,7 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authResetSubtitle}
-                </Text>
+                </AppText>
               </View>
 
               {hasLink ? (
@@ -208,7 +209,7 @@ function ResetPasswordScreen() {
                     paddingVertical: 14,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_400Regular",
                       fontSize: 15,
@@ -218,12 +219,12 @@ function ResetPasswordScreen() {
                     numberOfLines={1}
                   >
                     {login}
-                  </Text>
+                  </AppText>
                 </View>
               ) : null}
 
               <View style={{ gap: 8 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -232,7 +233,7 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authCreatePasswordLabel}
-                </Text>
+                </AppText>
                 <View
                   style={{
                     flexDirection: isRTL ? "row-reverse" : "row",
@@ -286,7 +287,7 @@ function ResetPasswordScreen() {
               </View>
 
               <View style={{ gap: 8, marginTop: -4 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -295,7 +296,7 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {t.authPasswordMustContain}
-                </Text>
+                </AppText>
                 <Requirement
                   isRTL={isRTL}
                   met={reqs.lower}
@@ -317,7 +318,7 @@ function ResetPasswordScreen() {
               </View>
 
               {errorMessage ? (
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 12,
@@ -326,7 +327,7 @@ function ResetPasswordScreen() {
                   }}
                 >
                   {errorMessage}
-                </Text>
+                </AppText>
               ) : null}
 
               <Pressable
@@ -343,7 +344,7 @@ function ResetPasswordScreen() {
                 {busy ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text
+                  <AppText
                     style={{
                       color: "#fff",
                       fontFamily: "Inter_600SemiBold",
@@ -352,7 +353,7 @@ function ResetPasswordScreen() {
                     }}
                   >
                     {t.authResetSubmit}
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             </View>
@@ -384,7 +385,7 @@ function Requirement({
       }}
     >
       <Feather name={met ? "check-circle" : "circle"} size={16} color={tone} />
-      <Text
+      <AppText
         style={{
           fontFamily: met ? "Inter_500Medium" : "Inter_400Regular",
           fontSize: 13,
@@ -394,7 +395,7 @@ function Requirement({
         }}
       >
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

@@ -1,8 +1,10 @@
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useColors } from "@/hooks/useColors";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTypography } from "@/hooks/useTypography";
 
 const LOGO_EN = require("@/assets/images/presentail-logo-en.png");
 const LOGO_AR = require("@/assets/images/presentail-logo-ar.png");
@@ -56,15 +58,16 @@ type SectionTitleProps = {
 
 export function SectionTitle({ eyebrow, title, description, align = "left", inverse = false }: SectionTitleProps) {
   const colors = useColors();
+  const typo = useTypography();
   const titleColor = inverse ? "#ffffff" : colors.primary;
   const eyebrowColor = inverse ? colors.goldSoft : colors.gold;
   const descColor = inverse ? "rgba(255,255,255,0.78)" : colors.mutedForeground;
   return (
     <View style={{ alignItems: align === "center" ? "center" : "flex-start", gap: 10 }}>
       {eyebrow ? (
-        <Text
+        <AppText
           style={{
-            fontFamily: "Inter_500Medium",
+            fontFamily: typo.medium,
             fontSize: 11,
             letterSpacing: 3,
             textTransform: "uppercase",
@@ -72,9 +75,9 @@ export function SectionTitle({ eyebrow, title, description, align = "left", inve
           }}
         >
           {eyebrow}
-        </Text>
+        </AppText>
       ) : null}
-      <Text
+      <AppText
         style={{
           fontFamily: "PlayfairDisplay_500Medium",
           fontSize: 30,
@@ -85,11 +88,11 @@ export function SectionTitle({ eyebrow, title, description, align = "left", inve
         }}
       >
         {title}
-      </Text>
+      </AppText>
       {description ? (
-        <Text
+        <AppText
           style={{
-            fontFamily: "Inter_400Regular",
+            fontFamily: typo.regular,
             fontSize: 14,
             lineHeight: 22,
             color: descColor,
@@ -98,7 +101,7 @@ export function SectionTitle({ eyebrow, title, description, align = "left", inve
           }}
         >
           {description}
-        </Text>
+        </AppText>
       ) : null}
     </View>
   );

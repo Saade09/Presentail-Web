@@ -15,6 +15,7 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -270,11 +271,11 @@ function ProductDetail() {
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
           {t.productNotFound}
-        </Text>
+        </AppText>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium" }}>{t.goBack}</Text>
+          <AppText style={{ color: colors.gold, fontFamily: "Inter_500Medium" }}>{t.goBack}</AppText>
         </Pressable>
       </View>
     );
@@ -393,7 +394,7 @@ function ProductDetail() {
           ]}
         >
           <Feather name="shopping-bag" size={16} color="#fff" />
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               color: "#fff",
@@ -403,7 +404,7 @@ function ProductDetail() {
             }}
           >
             {t.addLabel}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
 
@@ -427,7 +428,7 @@ function ProductDetail() {
               borderRadius: 999,
             }}
           >
-            <Text
+            <AppText
               style={{
                 color: "#fff",
                 fontFamily: "Inter_500Medium",
@@ -435,7 +436,7 @@ function ProductDetail() {
               }}
             >
               {toastMessage}
-            </Text>
+            </AppText>
           </View>
         </Animated.View>
       ) : null}
@@ -564,9 +565,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 14 }}>
-      <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 28, color: colors.primary, lineHeight: 34 }}>
+      <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 28, color: colors.primary, lineHeight: 34 }}>
         {product.name}
-      </Text>
+      </AppText>
 
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
@@ -574,23 +575,23 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             value={priceValue}
             style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
           />
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
             {t.taxInclusive}
-          </Text>
+          </AppText>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <MaterialCommunityIcons name="star-four-points" size={14} color={colors.gold} />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.gold }}>
+          <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.gold }}>
             {t.earnPointsPrefix} {points} {t.earnPointsSuffix}
-          </Text>
+          </AppText>
         </View>
       </View>
 
       {/* Delivery options */}
       <View style={{ marginTop: 8, gap: 10 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
           {t.deliveryOptionsLabel}
-        </Text>
+        </AppText>
 
         <DeliveryOption
           colors={colors}
@@ -605,9 +606,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground, letterSpacing: 1.5 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground, letterSpacing: 1.5 }}>
             OR
-          </Text>
+          </AppText>
           <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
         </View>
 
@@ -663,8 +664,8 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
           >
             <MaterialCommunityIcons name={b.icon as any} size={20} color={colors.gold} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>{b.title}</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>{b.sub}</Text>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>{b.title}</AppText>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>{b.sub}</AppText>
             </View>
           </View>
         ))}
@@ -672,9 +673,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
       {/* Payment methods */}
       <View style={{ marginTop: 6, gap: 8 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
           {t.waysToPayLabel}
-        </Text>
+        </AppText>
         <View
           style={{
             flexDirection: "row",
@@ -709,9 +710,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             const a = tab === tabItem.id;
             return (
               <Pressable key={tabItem.id} onPress={() => setTab(tabItem.id as any)} style={{ paddingVertical: 12, marginRight: 24, borderBottomWidth: 2, borderColor: a ? colors.gold : "transparent" }}>
-                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: a ? colors.primary : colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
+                <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: a ? colors.primary : colors.mutedForeground, letterSpacing: 1, textTransform: "uppercase" }}>
                   {tabItem.label}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -719,19 +720,19 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
         {tab === "description" ? (
           <View style={{ paddingTop: 16, gap: 10 }}>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 22, color: colors.mutedForeground }}>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 22, color: colors.mutedForeground }}>
               {product.description ??
                 `The "${product.name}" is a captivating Presentail piece — hand-arranged in our Beirut atelier with the freshest seasonal blooms, finished with our boutique wrapping and a personal note card.`}
-            </Text>
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: colors.primary, marginTop: 4 }}>
+            </AppText>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: colors.primary, marginTop: 4 }}>
               {t.thisArrangementIncludes}
-            </Text>
+            </AppText>
             {[t.includedStem, t.includedWrap, t.includedCard, t.includedDelivery].map((b) => (
               <View key={b} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-                <Text style={{ color: colors.gold, fontSize: 14, lineHeight: 20 }}>•</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>
+                <AppText style={{ color: colors.gold, fontSize: 14, lineHeight: 20 }}>•</AppText>
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>
                   {b}
-                </Text>
+                </AppText>
               </View>
             ))}
           </View>
@@ -740,9 +741,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
             {careTips.map((c) => (
               <View key={c} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                 <MaterialCommunityIcons name="flower-tulip" size={14} color={colors.gold} style={{ marginTop: 3 }} />
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1, lineHeight: 20 }}>
                   {c}
-                </Text>
+                </AppText>
               </View>
             ))}
           </View>
@@ -783,18 +784,18 @@ function DeliveryOption({ colors, active, onPress, icon, title, subtitle, badge,
       </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary }}>{title}</Text>
+          <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary }}>{title}</AppText>
           {badge ? (
             <View style={{ backgroundColor: colors.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }}>
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#fff", letterSpacing: 1 }}>
+              <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#fff", letterSpacing: 1 }}>
                 {badge}
-              </Text>
+              </AppText>
             </View>
           ) : null}
         </View>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
           {subtitle}
-        </Text>
+        </AppText>
       </View>
       <Feather name={active ? "check-circle" : "circle"} size={20} color={active ? colors.gold : colors.border} />
     </Pressable>

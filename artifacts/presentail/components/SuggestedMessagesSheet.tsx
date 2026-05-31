@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import {
   SUGGESTED_MESSAGE_CATEGORIES,
   getSuggestedMessages,
@@ -103,7 +104,7 @@ export function SuggestedMessagesSheet({
           }}
         >
           <View style={{ width: 28 }} />
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 18,
@@ -114,7 +115,7 @@ export function SuggestedMessagesSheet({
             }}
           >
             {t.suggestedMessagesTitle.toUpperCase()}
-          </Text>
+          </AppText>
           <Pressable
             onPress={onClose}
             hitSlop={10}
@@ -160,7 +161,7 @@ export function SuggestedMessagesSheet({
                   elevation: active ? 1 : 0,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
                     fontSize: 13,
@@ -172,7 +173,7 @@ export function SuggestedMessagesSheet({
                     : l === "ar"
                       ? t.suggestedMessagesLangArabic
                       : t.suggestedMessagesLangFrench}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -188,7 +189,7 @@ export function SuggestedMessagesSheet({
             const active = activeCategory === id;
             return (
               <Pressable key={id} onPress={() => setActiveCategory(id)} hitSlop={6}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
                     fontSize: 13,
@@ -199,7 +200,7 @@ export function SuggestedMessagesSheet({
                   }}
                 >
                   {categoryLabel(id)}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -225,7 +226,7 @@ export function SuggestedMessagesSheet({
                 backgroundColor: pressed ? "#faf7f2" : "#fff",
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 13,
@@ -236,7 +237,7 @@ export function SuggestedMessagesSheet({
                 }}
               >
                 {msg}
-              </Text>
+              </AppText>
             </Pressable>
           ))}
         </ScrollView>

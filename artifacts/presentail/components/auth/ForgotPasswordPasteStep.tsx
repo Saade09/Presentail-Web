@@ -6,6 +6,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -34,7 +35,7 @@ export function ForgotPasswordPasteStep({
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -43,8 +44,8 @@ export function ForgotPasswordPasteStep({
           }}
         >
           {t.authForgotPasteLinkTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -54,11 +55,11 @@ export function ForgotPasswordPasteStep({
           }}
         >
           {t.authForgotPasteLinkSubtitle}
-        </Text>
+        </AppText>
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 13,
@@ -67,7 +68,7 @@ export function ForgotPasswordPasteStep({
           }}
         >
           {t.authForgotPasteLinkLabel}
-        </Text>
+        </AppText>
         <TextInput
           value={value}
           onChangeText={onChange}
@@ -93,7 +94,7 @@ export function ForgotPasswordPasteStep({
           }}
         />
         {errorMessage ? (
-          <Text
+          <AppText
             style={{
               color: "#C0392B",
               fontFamily: "Inter_400Regular",
@@ -102,7 +103,7 @@ export function ForgotPasswordPasteStep({
             }}
           >
             {errorMessage}
-          </Text>
+          </AppText>
         ) : null}
       </View>
 
@@ -120,7 +121,7 @@ export function ForgotPasswordPasteStep({
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text
+          <AppText
             style={{
               color: "#fff",
               fontFamily: "Inter_600SemiBold",
@@ -129,7 +130,7 @@ export function ForgotPasswordPasteStep({
             }}
           >
             {t.authForgotPasteLinkSubmit}
-          </Text>
+          </AppText>
         )}
       </Pressable>
     </View>

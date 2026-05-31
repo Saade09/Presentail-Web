@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -149,7 +150,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
               </View>
             </View>
 
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 24,
@@ -159,9 +160,9 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
               }}
             >
               {t.notifPermTitle}
-            </Text>
+            </AppText>
 
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 14,
@@ -173,7 +174,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
               }}
             >
               {t.notifPermSubtitle}
-            </Text>
+            </AppText>
 
             <View
               style={{
@@ -216,7 +217,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 14,
@@ -226,7 +227,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
                 }}
               >
                 {t.notifPermAllow}
-              </Text>
+              </AppText>
             </Pressable>
 
             <Pressable
@@ -238,7 +239,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
                 opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 13,
@@ -247,7 +248,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
                 }}
               >
                 {t.notifPermMaybeLater}
-              </Text>
+              </AppText>
             </Pressable>
           </Animated.View>
         </View>
@@ -285,7 +286,7 @@ function BulletRow({
           backgroundColor: color,
         }}
       />
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: "Inter_400Regular",
@@ -296,7 +297,7 @@ function BulletRow({
         }}
       >
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

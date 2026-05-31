@@ -11,6 +11,7 @@
 
 import React from "react";
 import { Pressable, ScrollView, Text } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import type { DeliveryDay } from "@workspace/delivery";
 
@@ -51,7 +52,7 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors }: DateStri
               borderColor: active ? colors.primary : colors.border,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 10,
@@ -61,8 +62,8 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors }: DateStri
               }}
             >
               {d.label}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 16,
@@ -70,7 +71,7 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors }: DateStri
               }}
             >
               {d.date}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}

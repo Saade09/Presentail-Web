@@ -6,10 +6,12 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useColors } from "@/hooks/useColors";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useT } from "@/hooks/useT";
+import { useTypography } from "@/hooks/useTypography";
 
 import { SocialAuthButtons } from "./SocialAuthButtons";
 
@@ -39,6 +41,7 @@ export function EmailEntryStep({
   onOpenTerms,
 }: Props) {
   const colors = useColors();
+  const typo = useTypography();
   const t = useT();
   const { isRTL } = useLanguage();
   const align = isRTL ? "right" : "left";
@@ -52,7 +55,7 @@ export function EmailEntryStep({
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -61,10 +64,10 @@ export function EmailEntryStep({
           }}
         >
           {t.authTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
-            fontFamily: "Inter_400Regular",
+            fontFamily: typo.regular,
             fontSize: 14,
             color: colors.mutedForeground,
             textAlign: align,
@@ -72,20 +75,20 @@ export function EmailEntryStep({
           }}
         >
           {t.authSubtitle}
-        </Text>
+        </AppText>
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
-            fontFamily: "Inter_500Medium",
+            fontFamily: typo.medium,
             fontSize: 12,
             color: colors.mutedForeground,
             textAlign: align,
           }}
         >
           {t.authEmailLabel}
-        </Text>
+        </AppText>
         <TextInput
           value={email}
           onChangeText={onEmailChange}
@@ -100,7 +103,7 @@ export function EmailEntryStep({
           onSubmitEditing={onContinue}
           returnKeyType="next"
           style={{
-            fontFamily: "Inter_400Regular",
+            fontFamily: typo.regular,
             fontSize: 15,
             color: colors.primary,
             backgroundColor: "#fff",
@@ -114,16 +117,16 @@ export function EmailEntryStep({
           }}
         />
         {emailError ? (
-          <Text
+          <AppText
             style={{
-              fontFamily: "Inter_400Regular",
+              fontFamily: typo.regular,
               fontSize: 12,
               color: colors.destructive,
               textAlign: align,
             }}
           >
             {emailError}
-          </Text>
+          </AppText>
         ) : null}
       </View>
 
@@ -141,16 +144,16 @@ export function EmailEntryStep({
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text
+          <AppText
             style={{
               color: "#fff",
-              fontFamily: "Inter_600SemiBold",
+              fontFamily: typo.semibold,
               fontSize: 14,
               letterSpacing: 0.6,
             }}
           >
             {t.authContinue}
-          </Text>
+          </AppText>
         )}
       </Pressable>
 
@@ -162,9 +165,9 @@ export function EmailEntryStep({
         }}
       >
         <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        <Text
+        <AppText
           style={{
-            fontFamily: "Inter_500Medium",
+            fontFamily: typo.medium,
             fontSize: 12,
             color: colors.mutedForeground,
             textTransform: "uppercase",
@@ -172,7 +175,7 @@ export function EmailEntryStep({
           }}
         >
           {t.authOr}
-        </Text>
+        </AppText>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
       </View>
 
@@ -183,9 +186,9 @@ export function EmailEntryStep({
         onGoogle={onGoogle}
       />
 
-      <Text
+      <AppText
         style={{
-          fontFamily: "Inter_400Regular",
+          fontFamily: typo.regular,
           fontSize: 12,
           color: colors.mutedForeground,
           textAlign: "center",
@@ -194,29 +197,29 @@ export function EmailEntryStep({
         }}
       >
         {beforePrivacy}
-        <Text
+        <AppText
           onPress={onOpenPrivacy}
           style={{
-            fontFamily: "Inter_600SemiBold",
+            fontFamily: typo.semibold,
             color: colors.primary,
             textDecorationLine: "underline",
           }}
         >
           {t.authPrivacyLink}
-        </Text>
+        </AppText>
         {betweenLinks}
-        <Text
+        <AppText
           onPress={onOpenTerms}
           style={{
-            fontFamily: "Inter_600SemiBold",
+            fontFamily: typo.semibold,
             color: colors.primary,
             textDecorationLine: "underline",
           }}
         >
           {t.authTermsLink}
-        </Text>
+        </AppText>
         {afterTerms}
-      </Text>
+      </AppText>
     </View>
   );
 }

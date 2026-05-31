@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -102,7 +103,7 @@ function ContactScreen() {
           <Feather name="arrow-left" size={22} color="#fff" />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 22,
@@ -110,8 +111,8 @@ function ContactScreen() {
             }}
           >
             {t.contactTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -120,7 +121,7 @@ function ContactScreen() {
             }}
           >
             {t.contactSubtitle}
-          </Text>
+          </AppText>
         </View>
         <Feather name="phone" size={20} color="rgba(255,255,255,0.6)" />
       </View>
@@ -131,7 +132,7 @@ function ContactScreen() {
         style={{ flex: 1 }}
       >
         <View style={{ paddingTop: 28, gap: 8 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 24,
@@ -140,8 +141,8 @@ function ContactScreen() {
             }}
           >
             {t.contactReachUs}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 13,
@@ -150,7 +151,7 @@ function ContactScreen() {
             }}
           >
             {t.contactReachUsDesc}
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ gap: 12 }}>
@@ -182,7 +183,7 @@ function ContactScreen() {
                 <Feather name={ch.icon} size={20} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_600SemiBold",
                     fontSize: 15,
@@ -190,8 +191,8 @@ function ContactScreen() {
                   }}
                 >
                   {ch.label}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 13,
@@ -200,7 +201,7 @@ function ContactScreen() {
                   }}
                 >
                   {ch.value}
-                </Text>
+                </AppText>
               </View>
               <Feather name="external-link" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -208,7 +209,7 @@ function ContactScreen() {
         </View>
 
         <View style={{ gap: 14 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 18,
@@ -216,7 +217,7 @@ function ContactScreen() {
             }}
           >
             {t.contactFollowUs}
-          </Text>
+          </AppText>
           <View style={{ gap: 10 }}>
             {SOCIALS.map((s) => (
               <Pressable
@@ -247,7 +248,7 @@ function ContactScreen() {
                   <Feather name={s.icon} size={18} color="#fff" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_600SemiBold",
                       fontSize: 14,
@@ -255,8 +256,8 @@ function ContactScreen() {
                     }}
                   >
                     {s.label}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={{
                       fontFamily: "Inter_400Regular",
                       fontSize: 12,
@@ -264,7 +265,7 @@ function ContactScreen() {
                     }}
                   >
                     {s.handle}
-                  </Text>
+                  </AppText>
                 </View>
                 <Feather name="external-link" size={14} color={colors.mutedForeground} />
               </Pressable>
@@ -273,7 +274,7 @@ function ContactScreen() {
         </View>
 
         <View style={{ gap: 14 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_600SemiBold",
               fontSize: 18,
@@ -281,7 +282,7 @@ function ContactScreen() {
             }}
           >
             {t.contactVisitUs}
-          </Text>
+          </AppText>
           <View
             style={{
               backgroundColor: "#fff",
@@ -316,7 +317,7 @@ function ContactScreen() {
                 >
                   <Feather name={loc.icon} size={15} color={colors.gold} />
                 </View>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 14,
@@ -325,7 +326,7 @@ function ContactScreen() {
                   }}
                 >
                   {loc.name}
-                </Text>
+                </AppText>
               </View>
             ))}
           </View>
@@ -346,7 +347,7 @@ function ContactScreen() {
         >
           <Feather name="help-circle" size={24} color={colors.gold} />
           <View style={{ flex: 1 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 14,
@@ -354,8 +355,8 @@ function ContactScreen() {
               }}
             >
               {t.contactFAQTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 12,
@@ -364,7 +365,7 @@ function ContactScreen() {
               }}
             >
               {t.contactFAQDesc}
-            </Text>
+            </AppText>
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
         </Pressable>

@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -40,7 +41,7 @@ export function PasswordLoginStep({
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -49,8 +50,8 @@ export function PasswordLoginStep({
           }}
         >
           {t.authWelcomeBack}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -60,7 +61,7 @@ export function PasswordLoginStep({
           }}
         >
           {t.authEnterPassword}
-        </Text>
+        </AppText>
       </View>
 
       <View
@@ -73,7 +74,7 @@ export function PasswordLoginStep({
           paddingVertical: 14,
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 15,
@@ -83,11 +84,11 @@ export function PasswordLoginStep({
           numberOfLines={1}
         >
           {email}
-        </Text>
+        </AppText>
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -96,7 +97,7 @@ export function PasswordLoginStep({
           }}
         >
           {t.authPasswordLabel}
-        </Text>
+        </AppText>
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",
@@ -145,7 +146,7 @@ export function PasswordLoginStep({
           </Pressable>
         </View>
         {errorMessage ? (
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -154,7 +155,7 @@ export function PasswordLoginStep({
             }}
           >
             {errorMessage}
-          </Text>
+          </AppText>
         ) : null}
       </View>
 
@@ -172,7 +173,7 @@ export function PasswordLoginStep({
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text
+          <AppText
             style={{
               color: "#fff",
               fontFamily: "Inter_600SemiBold",
@@ -181,12 +182,12 @@ export function PasswordLoginStep({
             }}
           >
             {t.authSignIn}
-          </Text>
+          </AppText>
         )}
       </Pressable>
 
       <Pressable onPress={onForgotPassword} style={{ alignSelf: "center" }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 13,
@@ -195,7 +196,7 @@ export function PasswordLoginStep({
           }}
         >
           {t.authForgotPassword}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -129,24 +130,24 @@ function OccasionScreen() {
               <Feather name="shopping-bag" size={18} color={colors.primary} />
               {count > 0 ? (
                 <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                  <Text style={styles.badgeText}>{count}</Text>
+                  <AppText style={styles.badgeText}>{count}</AppText>
                 </View>
               ) : null}
             </Pressable>
           </View>
           <View style={{ position: "absolute", bottom: 22, left: 24, right: 24 }}>
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.goldSoft, letterSpacing: 3, textTransform: "uppercase" }}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.goldSoft, letterSpacing: 3, textTransform: "uppercase" }}>
               {activeBrandName
                 ? t.occasionFromBrand.replace("{brand}", activeBrandName)
                 : t.occasionForTheOccasion}
-            </Text>
-            <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, color: "#fff", marginTop: 6 }}>
+            </AppText>
+            <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, color: "#fff", marginTop: 6 }}>
               {occasion?.name ?? t.occasionFallback}
-            </Text>
+            </AppText>
             {!activeBrandName && occasion?.description ? (
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.82)", marginTop: 6, lineHeight: 19 }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.82)", marginTop: 6, lineHeight: 19 }}>
                 {occasion.description}
-              </Text>
+              </AppText>
             ) : null}
           </View>
         </View>
@@ -173,9 +174,9 @@ function OccasionScreen() {
                     backgroundColor: active ? colors.primary : "#fff",
                   }}
                 >
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
+                  <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: active ? "#fff" : colors.primary }}>
                     {o.name}
-                  </Text>
+                  </AppText>
                 </Pressable>
               );
             })}
@@ -187,19 +188,19 @@ function OccasionScreen() {
           loading ? (
             <View style={{ paddingTop: 60, alignItems: "center", gap: 12 }}>
               <ActivityIndicator color={colors.primary} size="large" />
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
                 {t.occasionFindingGifts}
-              </Text>
+              </AppText>
             </View>
           ) : brandProducts.length === 0 ? (
             <View style={{ paddingHorizontal: 24, paddingTop: 40, alignItems: "center", gap: 10 }}>
               <Feather name="inbox" size={28} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+              <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
                 {t.occasionSoldOutTitle}
-              </Text>
-              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+              </AppText>
+              <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
                 {t.occasionSoldOutDesc}
-              </Text>
+              </AppText>
             </View>
           ) : (
             <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
@@ -219,24 +220,24 @@ function OccasionScreen() {
         {!activeBrandSlug && (loading ? (
           <View style={{ paddingTop: 60, alignItems: "center", gap: 12 }}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
               {t.occasionFindingGifts}
-            </Text>
+            </AppText>
           </View>
         ) : groups.length === 0 ? (
           <View>
             <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
               <Feather name="inbox" size={28} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+              <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
                 {t.occasionSoldOutTitle}
-              </Text>
-              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+              </AppText>
+              <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
                 {t.occasionSoldOutDesc}
-              </Text>
+              </AppText>
             </View>
             {popularPicks.length > 0 ? (
               <View style={{ marginTop: 18 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 11,
@@ -249,7 +250,7 @@ function OccasionScreen() {
                   }}
                 >
                   {t.popularPicksLabel}
-                </Text>
+                </AppText>
                 <View
                   style={{
                     paddingHorizontal: 24,
@@ -311,7 +312,7 @@ function CategorySection({
         }}
       >
         <View>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 18,
@@ -319,13 +320,13 @@ function CategorySection({
             }}
           >
             {group.label}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>
+          </AppText>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>
             {group.count} {group.count !== 1 ? t.occasionItems : t.occasionItem}
-          </Text>
+          </AppText>
         </View>
         <Pressable onPress={onSeeAll} hitSlop={8}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 12,
@@ -334,7 +335,7 @@ function CategorySection({
             }}
           >
             {t.seeAll}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <FlatList

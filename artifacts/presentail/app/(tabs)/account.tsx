@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -256,7 +257,7 @@ function AccountTab() {
   const renderCurrencySheet = () => (
     <BottomSheet visible={currencyOpen} onClose={() => setCurrencyOpen(false)}>
       <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8, maxHeight: 520 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 22,
@@ -266,7 +267,7 @@ function AccountTab() {
           }}
         >
           {t.selectCurrency}
-        </Text>
+        </AppText>
         <ScrollView
           style={{
             backgroundColor: "#fff",
@@ -330,7 +331,7 @@ function AccountTab() {
             >
               <Feather name="user" size={28} color="#fff" />
             </View>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 22,
@@ -339,8 +340,8 @@ function AccountTab() {
               }}
             >
               {t.profileTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 14,
@@ -351,7 +352,7 @@ function AccountTab() {
               }}
             >
               {t.profileSignInHelper}
-            </Text>
+            </AppText>
             <Pressable
               onPress={() => router.push("/auth")}
               style={({ pressed }) => ({
@@ -364,7 +365,7 @@ function AccountTab() {
                 opacity: pressed ? 0.9 : 1,
               })}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: colors.primary,
@@ -373,7 +374,7 @@ function AccountTab() {
                 }}
               >
                 {t.profileSignInBtn}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
 
@@ -439,7 +440,7 @@ function AccountTab() {
 
         <BottomSheet visible={careOpen} onClose={() => setCareOpen(false)}>
           <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 22,
@@ -448,8 +449,8 @@ function AccountTab() {
               }}
             >
               {t.customerCareHeading}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 14,
@@ -460,7 +461,7 @@ function AccountTab() {
               }}
             >
               {t.customerCareSubheading}
-            </Text>
+            </AppText>
 
             <View
               style={{
@@ -492,7 +493,7 @@ function AccountTab() {
 
         <BottomSheet visible={langOpen} onClose={() => setLangOpen(false)}>
           <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 22,
@@ -502,7 +503,7 @@ function AccountTab() {
               }}
             >
               {t.languageLabel}
-            </Text>
+            </AppText>
 
             <View
               style={{
@@ -633,9 +634,9 @@ function AccountTab() {
           alignItems: "center",
         }}
       >
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
           {t.accountMyAccount}
-        </Text>
+        </AppText>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 120 }}>
@@ -662,7 +663,7 @@ function AccountTab() {
               flexShrink: 0,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 22,
@@ -670,11 +671,11 @@ function AccountTab() {
               }}
             >
               {(user.firstName?.[0] ?? user.email?.[0] ?? "?").toUpperCase()}
-            </Text>
+            </AppText>
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 19,
@@ -684,8 +685,8 @@ function AccountTab() {
               numberOfLines={1}
             >
               {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -696,7 +697,7 @@ function AccountTab() {
               numberOfLines={1}
             >
               {user.email}
-            </Text>
+            </AppText>
             {loyaltyTierLabel ? (
               <View
                 style={{
@@ -710,7 +711,7 @@ function AccountTab() {
                   borderColor: "rgba(255,255,255,0.35)",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 11,
@@ -719,7 +720,7 @@ function AccountTab() {
                   }}
                 >
                   ★ {loyaltyTierLabel}
-                </Text>
+                </AppText>
               </View>
             ) : null}
           </View>
@@ -760,7 +761,7 @@ function AccountTab() {
               >
                 <Feather name={item.icon} size={18} color={colors.primary} />
               </View>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -769,7 +770,7 @@ function AccountTab() {
                 }}
               >
                 {item.label}
-              </Text>
+              </AppText>
             </Pressable>
           ))}
         </View>
@@ -838,7 +839,7 @@ function AccountTab() {
           />
         </Section>
 
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             color: colors.mutedForeground,
@@ -849,12 +850,12 @@ function AccountTab() {
           }}
         >
           {t.accountFooterNote}
-        </Text>
+        </AppText>
       </ScrollView>
 
       <BottomSheet visible={langOpen} onClose={() => setLangOpen(false)}>
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 22,
@@ -864,7 +865,7 @@ function AccountTab() {
             }}
           >
             {t.languageLabel}
-          </Text>
+          </AppText>
           <View
             style={{
               backgroundColor: "#fff",
@@ -961,7 +962,7 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, 
       })}
     >
       <Feather name={icon} size={20} color={colors.primary} />
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: "Inter_500Medium",
@@ -971,9 +972,9 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, 
         }}
       >
         {label}
-      </Text>
+      </AppText>
       {value ? (
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 13,
@@ -983,7 +984,7 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, 
           }}
         >
           {value}
-        </Text>
+        </AppText>
       ) : null}
       {!hideChevron && (
         <Feather
@@ -1027,7 +1028,7 @@ function CurrencyOption({ colors, isRTL, label, hint, active, onPress }: Currenc
       })}
     >
       <View style={{ flex: 1 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
             fontSize: 15,
@@ -1036,9 +1037,9 @@ function CurrencyOption({ colors, isRTL, label, hint, active, onPress }: Currenc
           }}
         >
           {label}
-        </Text>
+        </AppText>
         {hint ? (
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 12,
@@ -1048,7 +1049,7 @@ function CurrencyOption({ colors, isRTL, label, hint, active, onPress }: Currenc
             }}
           >
             {hint}
-          </Text>
+          </AppText>
         ) : null}
       </View>
       {active ? <Feather name="check" size={20} color={colors.primary} /> : null}
@@ -1069,7 +1070,7 @@ function LangOption({ colors, isRTL, label, active, onPress }: LangOptionProps) 
         backgroundColor: pressed ? "#0001" : "#fff",
       })}
     >
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
@@ -1079,7 +1080,7 @@ function LangOption({ colors, isRTL, label, active, onPress }: LangOptionProps) 
         }}
       >
         {label}
-      </Text>
+      </AppText>
       {active ? <Feather name="check" size={20} color={colors.primary} /> : null}
     </Pressable>
   );
@@ -1088,7 +1089,7 @@ function LangOption({ colors, isRTL, label, active, onPress }: LangOptionProps) 
 function Section({ colors, title, children }: any) {
   return (
     <View style={{ gap: 8 }}>
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_600SemiBold",
           fontSize: 11,
@@ -1099,7 +1100,7 @@ function Section({ colors, title, children }: any) {
         }}
       >
         {title}
-      </Text>
+      </AppText>
       <View
         style={{
           backgroundColor: "#fff",
@@ -1131,7 +1132,7 @@ function Row({ colors, icon, label, onPress, destructive, disabled }: any) {
       })}
     >
       <Feather name={icon} size={18} color={destructive ? "#c0392b" : colors.primary} />
-      <Text
+      <AppText
         style={{
           flex: 1,
           fontFamily: "Inter_500Medium",
@@ -1140,7 +1141,7 @@ function Row({ colors, icon, label, onPress, destructive, disabled }: any) {
         }}
       >
         {label}
-      </Text>
+      </AppText>
       {!destructive && (
         <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
       )}

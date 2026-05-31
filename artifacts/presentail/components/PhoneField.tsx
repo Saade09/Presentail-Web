@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
@@ -46,7 +47,7 @@ export function PhoneField({
 
   return (
     <View style={{ gap: 6 }}>
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_500Medium",
           fontSize: 12,
@@ -55,8 +56,8 @@ export function PhoneField({
         }}
       >
         {label}
-        {required ? <Text style={{ color: colors.gold }}> *</Text> : null}
-      </Text>
+        {required ? <AppText style={{ color: colors.gold }}> *</AppText> : null}
+      </AppText>
       <View
         style={{
           flexDirection: "row",
@@ -81,8 +82,8 @@ export function PhoneField({
             backgroundColor: "#faf7f1",
           }}
         >
-          <Text style={{ fontSize: 16 }}>{selected.flag}</Text>
-          <Text
+          <AppText style={{ fontSize: 16 }}>{selected.flag}</AppText>
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 14,
@@ -90,7 +91,7 @@ export function PhoneField({
             }}
           >
             {selected.dial}
-          </Text>
+          </AppText>
           <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
         </Pressable>
         <TextInput
@@ -143,7 +144,7 @@ export function PhoneField({
               borderBottomColor: "#f0ebe3",
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_700Bold",
                 fontSize: 17,
@@ -151,7 +152,7 @@ export function PhoneField({
               }}
             >
               {t.phoneSelectCountry}
-            </Text>
+            </AppText>
             <Pressable onPress={() => setOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
             </Pressable>
@@ -213,9 +214,9 @@ export function PhoneField({
                     backgroundColor: active ? "#f9f6f1" : "#fff",
                   }}
                 >
-                  <Text style={{ fontSize: 18 }}>{item.flag}</Text>
+                  <AppText style={{ fontSize: 18 }}>{item.flag}</AppText>
                   <View style={{ flex: 1 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
                         fontSize: 14,
@@ -223,9 +224,9 @@ export function PhoneField({
                       }}
                     >
                       {item.name}
-                    </Text>
+                    </AppText>
                   </View>
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
                       fontSize: 13,
@@ -233,7 +234,7 @@ export function PhoneField({
                     }}
                   >
                     {item.dial}
-                  </Text>
+                  </AppText>
                 </Pressable>
               );
             }}

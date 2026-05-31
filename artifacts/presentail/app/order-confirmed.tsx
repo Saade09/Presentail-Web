@@ -2,6 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -56,7 +57,7 @@ function OrderConfirmed() {
         >
           <Feather name={isFailed ? "alert-triangle" : "check"} size={40} color="#fff" />
         </View>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 11,
@@ -67,8 +68,8 @@ function OrderConfirmed() {
           }}
         >
           {isFailed ? t.checkoutOrderFailedRef : t.ocOrderPlaced}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 30,
@@ -78,8 +79,8 @@ function OrderConfirmed() {
           }}
         >
           {isFailed ? t.checkoutOrderFailedTitle : t.ocYourGiftOnWay}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -90,7 +91,7 @@ function OrderConfirmed() {
           }}
         >
           {isFailed ? t.checkoutOrderFailedMsg : t.ocThanksMsg}
-        </Text>
+        </AppText>
 
         <View
           style={{
@@ -132,7 +133,7 @@ function OrderConfirmed() {
             }}
           >
             <Feather name="map-pin" size={14} color={colors.primary} />
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 12,
@@ -142,7 +143,7 @@ function OrderConfirmed() {
               }}
             >
               {t.ocTrackOrder}
-            </Text>
+            </AppText>
           </Pressable>
         ) : null}
 
@@ -157,7 +158,7 @@ function OrderConfirmed() {
               marginTop: 4,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 10,
@@ -167,7 +168,7 @@ function OrderConfirmed() {
               }}
             >
               {t.ocWhatHappensNext}
-            </Text>
+            </AppText>
             {[
               { icon: "flower", text: t.ocStep1 },
               { icon: "package-variant", text: t.ocStep2 },
@@ -175,7 +176,7 @@ function OrderConfirmed() {
             ].map((s) => (
               <View key={s.text} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <MaterialCommunityIcons name={s.icon as any} size={18} color={colors.goldSoft} />
-                <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 13, color: "#fff" }}>{s.text}</Text>
+                <AppText style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 13, color: "#fff" }}>{s.text}</AppText>
               </View>
             ))}
           </View>
@@ -193,7 +194,7 @@ function OrderConfirmed() {
                 borderRadius: 999,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: "#fff",
@@ -204,12 +205,12 @@ function OrderConfirmed() {
                 }}
               >
                 {t.checkoutOrderFailedRetry}
-              </Text>
+              </AppText>
             </Pressable>
             <Pressable onPress={() => Linking.openURL("mailto:hello@presentail.com")}>
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
                 {t.checkoutOrderFailedContact}
-              </Text>
+              </AppText>
             </Pressable>
           </>
         ) : (
@@ -224,7 +225,7 @@ function OrderConfirmed() {
                 borderRadius: 999,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   color: "#fff",
@@ -235,12 +236,12 @@ function OrderConfirmed() {
                 }}
               >
                 {t.ocBackToHome}
-              </Text>
+              </AppText>
             </Pressable>
             <Pressable onPress={() => router.replace("/(tabs)/catalog")}>
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
                 {t.continueShopping}
-              </Text>
+              </AppText>
             </Pressable>
           </>
         )}
@@ -265,12 +266,12 @@ function Row({ colors, icon, label, value, highlight }: any) {
         <Feather name={icon} size={16} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: colors.mutedForeground }}>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: colors.mutedForeground }}>
           {label}
-        </Text>
-        <Text style={{ fontFamily: highlight ? "PlayfairDisplay_500Medium" : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
+        </AppText>
+        <AppText style={{ fontFamily: highlight ? "PlayfairDisplay_500Medium" : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
           {value}
-        </Text>
+        </AppText>
       </View>
     </View>
   );

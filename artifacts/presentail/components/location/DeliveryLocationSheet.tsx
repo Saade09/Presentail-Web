@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { CityList } from "@/components/location/CityList";
@@ -86,7 +87,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
           justifyContent: "space-between",
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 22,
@@ -96,7 +97,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
           }}
         >
           {t.deliverySheetTitle}
-        </Text>
+        </AppText>
         <Pressable
           hitSlop={12}
           onPress={onClose}
@@ -129,8 +130,8 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               flex: 1,
             }}
           >
-            <Text style={{ fontSize: 22 }}>{draftCountry.flag}</Text>
-            <Text
+            <AppText style={{ fontSize: 22 }}>{draftCountry.flag}</AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 15,
@@ -140,10 +141,10 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               numberOfLines={1}
             >
               {draftCountry.name}
-            </Text>
+            </AppText>
           </View>
           <Pressable hitSlop={6} onPress={handleChangeCountry}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -151,7 +152,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               }}
             >
               {t.deliveryChangeCountry}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       ) : null}
@@ -163,7 +164,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
           paddingBottom: 6,
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 12,
@@ -174,7 +175,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
           }}
         >
           {step === "country" ? t.deliverySelectCountry : t.deliverySelectCity}
-        </Text>
+        </AppText>
       </View>
 
       <ScrollView
@@ -198,7 +199,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               gap: 12,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 14,
@@ -207,7 +208,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               }}
             >
               {t.deliveryUnableToLoad}
-            </Text>
+            </AppText>
             <Pressable
               onPress={() => {
                 refreshDeliveryLocations().catch(() => {});
@@ -219,7 +220,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
                 backgroundColor: colors.primary,
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 13,
@@ -228,7 +229,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
                 }}
               >
                 {t.deliveryRetry}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         ) : step === "country" ? (
@@ -266,7 +267,7 @@ function EmptyState({ message }: { message: string }) {
         paddingHorizontal: 24,
       }}
     >
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_500Medium",
           fontSize: 14,
@@ -275,7 +276,7 @@ function EmptyState({ message }: { message: string }) {
         }}
       >
         {message}
-      </Text>
+      </AppText>
     </View>
   );
 }

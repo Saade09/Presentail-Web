@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartCardMessageSheet } from "@/components/CartCardMessageSheet";
@@ -76,9 +77,9 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
         </View>
       </Pressable>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+        <AppText numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
           {product.name}
-        </Text>
+        </AppText>
         <Price
           value={lineTotal}
           style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
@@ -88,9 +89,9 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
             <Pressable onPress={() => setQty(product.id, qty - 1)} style={cartItemStyles.qtyBtn}>
               <Feather name="minus" size={12} color={colors.primary} />
             </Pressable>
-            <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 12, fontSize: 12 }}>
+            <AppText style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 12, fontSize: 12 }}>
               {qty}
-            </Text>
+            </AppText>
             <Pressable onPress={() => setQty(product.id, qty + 1)} style={cartItemStyles.qtyBtn}>
               <Feather name="plus" size={12} color={colors.primary} />
             </Pressable>
@@ -211,9 +212,9 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         ) : (
           <View style={{ width: 22 }} />
         )}
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
           {t.cartTitle}
-        </Text>
+        </AppText>
         <Pressable
           onPress={() => {
             Alert.alert(
@@ -227,9 +228,9 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           }}
           hitSlop={10}
         >
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
             {t.cartClear}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
 
@@ -247,19 +248,19 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           >
             <Feather name="shopping-bag" size={28} color={colors.primary} />
           </View>
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
             {t.cartEmpty}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
+          </AppText>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
             {t.cartEmptyDesc}
-          </Text>
+          </AppText>
           <Pressable
             onPress={() => router.replace("/(tabs)/catalog")}
             style={{ marginTop: 8, paddingHorizontal: 22, paddingVertical: 14, borderRadius: 999, backgroundColor: colors.primary }}
           >
-            <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
+            <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
               {t.cartBrowseBoutique}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       ) : (
@@ -298,7 +299,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </View>
               <View style={{ flex: 1, gap: 6 }}>
                 {unlocked ? (
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
                       fontSize: 12,
@@ -306,7 +307,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                     }}
                   >
                     {t.cartFreeDeliveryUnlocked}
-                  </Text>
+                  </AppText>
                 ) : (
                   <View
                     style={{
@@ -315,7 +316,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                       flexWrap: "wrap",
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_500Medium",
                         fontSize: 12,
@@ -323,7 +324,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                       }}
                     >
                       {t.cartFreeDeliveryRemainingPrefix}{" "}
-                    </Text>
+                    </AppText>
                     <Price
                       value={convert(remainingUsd)}
                       native
@@ -334,7 +335,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                       }}
                       symbolSize={11}
                     />
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_500Medium",
                         fontSize: 12,
@@ -342,7 +343,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                       }}
                     >
                       {" "}{t.cartFreeDeliveryRemainingSuffix}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
                 <View
@@ -427,7 +428,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   <Feather name="mail" size={14} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
                       fontSize: 11,
@@ -437,8 +438,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                     }}
                   >
                     {t.cartGiftCardLabel}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     numberOfLines={1}
                     style={{
                       fontFamily: cartMessage ? "Inter_600SemiBold" : "Inter_400Regular",
@@ -451,7 +452,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                           .filter(Boolean)
                           .join(" · ") || cartMessage.body.slice(0, 40)
                       : t.cartGiftCardPrompt}
-                  </Text>
+                  </AppText>
                 </View>
                 {cartMessage ? (
                   <Pressable
@@ -516,7 +517,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 <Feather name="calendar" size={14} color={colors.primary} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 11,
@@ -526,8 +527,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   }}
                 >
                   {t.cartDeliveryWhenLabel}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   numberOfLines={1}
                   style={{
                     fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
@@ -536,32 +537,32 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   }}
                 >
                   {deliveryRowValue ?? t.cartSelectDateTimePrompt}
-                </Text>
+                </AppText>
               </View>
               <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
             </Pressable>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                 {t.subtotal}
-              </Text>
+              </AppText>
               <Price
                 value={total}
                 style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
               />
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                 {t.cartDelivery}
-              </Text>
-              <Text style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 13 }}>
+              </AppText>
+              <AppText style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 13 }}>
                 {t.cartFree}
-              </Text>
+              </AppText>
             </View>
             {isExpress ? (
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+                <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
                   {t.expressDelivery}
-                </Text>
+                </AppText>
                 <Price
                   value={expressFeeUsd}
                   style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
@@ -569,9 +570,9 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </View>
             ) : null}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
+              <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
                 {t.cartTotal}
-              </Text>
+              </AppText>
               <Price
                 value={grandTotalUsd}
                 style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
@@ -601,9 +602,9 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               ]}
             >
               <Feather name="lock" size={14} color="#fff" />
-              <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
+              <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
                 {t.cartProceed}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         </>

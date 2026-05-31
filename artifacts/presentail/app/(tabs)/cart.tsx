@@ -2,6 +2,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Platform, Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FullCartView } from "@/components/FullCartView";
@@ -130,7 +131,7 @@ function CartTab() {
         <GiftIllustration size={220} />
 
         <View style={{ alignItems: "center", gap: 14, paddingHorizontal: 8 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 26,
@@ -140,8 +141,8 @@ function CartTab() {
             }}
           >
             {t.emptyCartTitle}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 14,
@@ -152,7 +153,7 @@ function CartTab() {
             }}
           >
             {t.emptyCartSubtitle}
-          </Text>
+          </AppText>
         </View>
 
         <Pressable
@@ -175,7 +176,7 @@ function CartTab() {
             elevation: 4,
           })}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               color: "#fff",
@@ -185,7 +186,7 @@ function CartTab() {
             }}
           >
             {t.browseGifts}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <View style={{ flex: 1.15 }} />

@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
@@ -24,7 +25,7 @@ export function LoyaltyTiersExplainer({
   const t = useT();
   return (
     <View style={{ gap: 14 }}>
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_400Regular",
           fontSize: 14,
@@ -34,7 +35,7 @@ export function LoyaltyTiersExplainer({
         }}
       >
         {t.loyaltyTiersExplainer}
-      </Text>
+      </AppText>
       <View
         style={{
           backgroundColor: "#fff",
@@ -79,7 +80,7 @@ export function LoyaltyTiersExplainer({
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 14,
@@ -87,8 +88,8 @@ export function LoyaltyTiersExplainer({
                   }}
                 >
                   {tier.label}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{
                     fontFamily: "Inter_400Regular",
                     fontSize: 12,
@@ -97,9 +98,9 @@ export function LoyaltyTiersExplainer({
                   }}
                 >
                   {tier.threshold} points
-                </Text>
+                </AppText>
               </View>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 14,
@@ -107,12 +108,12 @@ export function LoyaltyTiersExplainer({
                 }}
               >
                 {tier.discountPercent}% off
-              </Text>
+              </AppText>
             </View>
           );
         })}
       </View>
-      <Text
+      <AppText
         style={{
           fontFamily: "Inter_400Regular",
           fontSize: 12,
@@ -123,7 +124,7 @@ export function LoyaltyTiersExplainer({
         Your tier coupon is single-use and personal to your account. If an
         order is cancelled or refunded, the points credited for it are
         reversed.
-      </Text>
+      </AppText>
     </View>
   );
 }

@@ -4,16 +4,19 @@ import { SymbolView } from "expo-symbols";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, Pressable, StyleSheet, View, useColorScheme } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useTypography } from "@/hooks/useTypography";
 import { translations } from "@/lib/translations";
 import { loadCartScreen, loadCatalogScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
 
 function TabLayout() {
   const colors = useColors();
+  const typo = useTypography();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -29,12 +32,19 @@ function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
-        tabBarLabelStyle: {
-          fontFamily: "Inter_500Medium",
-          fontSize: 10,
-          letterSpacing: 1,
-          textTransform: "uppercase",
-        },
+        tabBarLabel: ({ children, color }) => (
+          <AppText
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 10,
+              letterSpacing: 1,
+              textTransform: "uppercase",
+              color,
+            }}
+          >
+            {children}
+          </AppText>
+        ),
         tabBarStyle: {
           position: "absolute",
           backgroundColor: isIOS ? "transparent" : colors.background,
@@ -102,7 +112,7 @@ function TabLayout() {
             backgroundColor: colors.gold,
             color: "#fff",
             fontSize: 10,
-            fontFamily: "Inter_600SemiBold",
+            fontFamily: typo.semibold,
             minWidth: 16,
             height: 16,
             lineHeight: 16,

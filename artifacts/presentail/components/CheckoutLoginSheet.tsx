@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmailEntryStep } from "@/components/auth/EmailEntryStep";
@@ -579,7 +580,7 @@ export function CheckoutLoginSheet({
                           : 1,
                     })}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: colors.primary,
                         fontFamily: "Inter_600SemiBold",
@@ -588,7 +589,7 @@ export function CheckoutLoginSheet({
                       }}
                     >
                       {t.checkoutAsGuest}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
               ) : null}

@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/contexts/CartContext";
@@ -76,7 +77,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
         />
       </View>
       <View style={{ flex: 1, paddingVertical: 16, paddingEnd: 16 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 18,
@@ -85,8 +86,8 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
           }}
         >
           {displayName}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           numberOfLines={2}
           style={{
             fontFamily: "Inter_400Regular",
@@ -98,7 +99,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
           }}
         >
           {displayDesc}
-        </Text>
+        </AppText>
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",
@@ -107,7 +108,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
             marginTop: 10,
           }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 12,
@@ -115,7 +116,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
             }}
           >
             {t.seeAll}
-          </Text>
+          </AppText>
           <Feather
             name={isRTL ? "arrow-up-left" : "arrow-up-right"}
             size={13}
@@ -199,15 +200,15 @@ function OccasionsScreen() {
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 10 }}>
+                  <AppText style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 10 }}>
                     {count}
-                  </Text>
+                  </AppText>
                 </View>
               ) : null}
             </Pressable>
           </View>
           <View style={{ position: "absolute", bottom: 28, left: 24, right: 24 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 11,
@@ -218,8 +219,8 @@ function OccasionsScreen() {
               }}
             >
               {t.boutiqueSub}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_500Medium",
                 fontSize: 34,
@@ -229,8 +230,8 @@ function OccasionsScreen() {
               }}
             >
               {t.occasionsPageTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -240,7 +241,7 @@ function OccasionsScreen() {
               }}
             >
               {t.occasionsPageSubtitle}
-            </Text>
+            </AppText>
           </View>
         </View>
 

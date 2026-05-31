@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CartUpsells } from "@/components/CartUpsells";
@@ -167,9 +168,9 @@ export function CartDrawer() {
             borderBottomColor: colors.border,
           }}
         >
-          <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
             Your Cart {count > 0 ? `(${count})` : ""}
-          </Text>
+          </AppText>
           <Pressable onPress={closeCart} hitSlop={12}>
             <Feather name="x" size={22} color={colors.primary} />
           </Pressable>
@@ -178,9 +179,9 @@ export function CartDrawer() {
         {detailed.length === 0 ? (
           <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
             <Feather name="shopping-bag" size={40} color={colors.mutedForeground} />
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground }}>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground }}>
               {t.cartEmpty}
-            </Text>
+            </AppText>
           </View>
         ) : (
           <>
@@ -215,7 +216,7 @@ export function CartDrawer() {
                 </View>
                 <View style={{ flex: 1, gap: 6 }}>
                   {unlocked ? (
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_500Medium",
                         fontSize: 12,
@@ -223,7 +224,7 @@ export function CartDrawer() {
                       }}
                     >
                       {t.cartFreeDeliveryUnlocked}
-                    </Text>
+                    </AppText>
                   ) : (
                     <View
                       style={{
@@ -232,7 +233,7 @@ export function CartDrawer() {
                         flexWrap: "wrap",
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           fontFamily: "Inter_500Medium",
                           fontSize: 12,
@@ -240,7 +241,7 @@ export function CartDrawer() {
                         }}
                       >
                         {t.cartFreeDeliveryRemainingPrefix}{" "}
-                      </Text>
+                      </AppText>
                       <Price
                         value={convert(remainingUsd)}
                         native
@@ -251,7 +252,7 @@ export function CartDrawer() {
                         }}
                         symbolSize={11}
                       />
-                      <Text
+                      <AppText
                         style={{
                           fontFamily: "Inter_500Medium",
                           fontSize: 12,
@@ -259,7 +260,7 @@ export function CartDrawer() {
                         }}
                       >
                         {" "}{t.cartFreeDeliveryRemainingSuffix}
-                      </Text>
+                      </AppText>
                     </View>
                   )}
                   <View
@@ -318,15 +319,15 @@ export function CartDrawer() {
                     contentFit="cover"
                   />
                   <View style={{ flex: 1, gap: 6 }}>
-                    <Text
+                    <AppText
                       numberOfLines={1}
                       style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}
                     >
                       {product.name}
-                    </Text>
-                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
+                    </AppText>
+                    <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
                       {formatPrice(lineTotal)}
-                    </Text>
+                    </AppText>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Pressable
                         onPress={() => setQty(product.id, qty - 1)}
@@ -342,9 +343,9 @@ export function CartDrawer() {
                       >
                         <Feather name="minus" size={12} color={colors.primary} />
                       </Pressable>
-                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, minWidth: 20, textAlign: "center" }}>
+                      <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, minWidth: 20, textAlign: "center" }}>
                         {qty}
-                      </Text>
+                      </AppText>
                       <Pressable
                         onPress={() => setQty(product.id, qty + 1)}
                         style={{
@@ -408,7 +409,7 @@ export function CartDrawer() {
                   <Feather name="calendar" size={12} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_500Medium",
                       fontSize: 10,
@@ -418,8 +419,8 @@ export function CartDrawer() {
                     }}
                   >
                     {t.cartDeliveryWhenLabel}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     numberOfLines={1}
                     style={{
                       fontFamily: deliveryRowValue ? "Inter_600SemiBold" : "Inter_400Regular",
@@ -428,15 +429,15 @@ export function CartDrawer() {
                     }}
                   >
                     {deliveryRowValue ?? t.cartSelectDateTimePrompt}
-                  </Text>
+                  </AppText>
                 </View>
                 <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
               </Pressable>
               {isExpress ? (
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                     {t.expressDelivery}
-                  </Text>
+                  </AppText>
                   <Price
                     value={expressFeeUsd}
                     style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary }}
@@ -444,12 +445,12 @@ export function CartDrawer() {
                 </View>
               ) : null}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.mutedForeground }}>
+                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.mutedForeground }}>
                   Total
-                </Text>
-                <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+                </AppText>
+                <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
                   {formatPrice(grandTotalUsd)}
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 onPress={goToCart}
@@ -461,9 +462,9 @@ export function CartDrawer() {
                   opacity: pressed ? 0.88 : 1,
                 })}
               >
-                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
+                <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
                   {t.cartViewFullCart}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </>

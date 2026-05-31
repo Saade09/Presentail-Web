@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle } from "@/components/Brand";
@@ -140,7 +141,7 @@ function CatalogScreen() {
   const header = (
     <>
       <View style={{ paddingHorizontal: 24, paddingTop: topPad + 12, gap: 18 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 11,
@@ -150,7 +151,7 @@ function CatalogScreen() {
           }}
         >
           {t.boutique}
-        </Text>
+        </AppText>
         <SectionTitle
           title={t.catalogFullTitle}
           description={t.catalogFullDesc}
@@ -212,7 +213,7 @@ function CatalogScreen() {
                   backgroundColor: active ? colors.primary : "#fff",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 12,
@@ -221,7 +222,7 @@ function CatalogScreen() {
                   }}
                 >
                   {c.name}
-                </Text>
+                </AppText>
               </Pressable>
             );
           },
@@ -229,7 +230,7 @@ function CatalogScreen() {
       </ScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 10,
@@ -239,7 +240,7 @@ function CatalogScreen() {
           }}
         >
           {t.catalogSortLabel}
-        </Text>
+        </AppText>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -261,7 +262,7 @@ function CatalogScreen() {
                   backgroundColor: active ? colors.gold : "#fff",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontFamily: "Inter_500Medium",
                     fontSize: 11,
@@ -270,7 +271,7 @@ function CatalogScreen() {
                   }}
                 >
                   {opt.label}
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
@@ -279,7 +280,7 @@ function CatalogScreen() {
 
       {matchingOccasions.length > 0 && (
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 10,
@@ -292,7 +293,7 @@ function CatalogScreen() {
             {activeBrandName
               ? `${t.occasionsEyebrow} · ${t.occasionFromBrand.replace("{brand}", activeBrandName)}`
               : t.occasionsEyebrow}
-          </Text>
+          </AppText>
           {matchingOccasions.map((occ, idx) => {
             const key = OCC_NAME_KEY[occ.id];
             const displayName = (key && tRecord[key]) ? tRecord[key] : occ.name;
@@ -314,7 +315,7 @@ function CatalogScreen() {
               >
                 <Feather name="gift" size={14} color={colors.mutedForeground} style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontFamily: "Inter_400Regular",
                       fontSize: 14,
@@ -322,9 +323,9 @@ function CatalogScreen() {
                     }}
                   >
                     {displayName}
-                  </Text>
+                  </AppText>
                   {activeBrandName ? (
-                    <Text
+                    <AppText
                       style={{
                         fontFamily: "Inter_400Regular",
                         fontSize: 11,
@@ -333,7 +334,7 @@ function CatalogScreen() {
                       }}
                     >
                       {t.occasionFromBrand.replace("{brand}", activeBrandName)}
-                    </Text>
+                    </AppText>
                   ) : null}
                 </View>
                 <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
@@ -345,7 +346,7 @@ function CatalogScreen() {
 
       {matchingBrands.length > 0 && (
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 10,
@@ -356,7 +357,7 @@ function CatalogScreen() {
             }}
           >
             {t.brandsEyebrow}
-          </Text>
+          </AppText>
           {matchingBrands.map((brand, idx) => {
             const isLast = idx === matchingBrands.length - 1;
             return (
@@ -372,7 +373,7 @@ function CatalogScreen() {
                 }}
               >
                 <Feather name="tag" size={14} color={colors.mutedForeground} style={{ marginRight: 10 }} />
-                <Text
+                <AppText
                   style={{
                     flex: 1,
                     fontFamily: "Inter_400Regular",
@@ -381,7 +382,7 @@ function CatalogScreen() {
                   }}
                 >
                   {brand.name}
-                </Text>
+                </AppText>
                 <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
               </Pressable>
             );
@@ -396,12 +397,12 @@ function CatalogScreen() {
   const empty = (
     <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
       <Feather name="search" size={28} color={colors.mutedForeground} />
-      <Text style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+      <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
         {t.noMatches}
-      </Text>
-      <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
+      </AppText>
+      <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
         {t.noMatchesDesc}
-      </Text>
+      </AppText>
     </View>
   );
 

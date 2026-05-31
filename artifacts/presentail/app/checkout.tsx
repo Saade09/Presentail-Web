@@ -48,6 +48,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CardIcons, PayPalBadge, WalletIcons, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
@@ -937,13 +938,13 @@ function CheckoutScreen() {
   if (detailed.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
           {t.checkoutCartEmpty}
-        </Text>
+        </AppText>
         <Pressable onPress={() => router.replace("/(tabs)/catalog")} style={{ marginTop: 14 }}>
-          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+          <AppText style={{ color: colors.gold, fontFamily: "Inter_500Medium", letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
             {t.checkoutBrowseBoutique}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     );
@@ -973,9 +974,9 @@ function CheckoutScreen() {
         >
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
           {t.checkoutBrandHeader}
-        </Text>
+        </AppText>
       </View>
 
       {/* Stepper */}
@@ -998,12 +999,12 @@ function CheckoutScreen() {
                 {i < step ? (
                   <Feather name="check" size={14} color="#fff" />
                 ) : (
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: i === step ? colors.primary : colors.mutedForeground }}>
+                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: i === step ? colors.primary : colors.mutedForeground }}>
                     {i + 1}
-                  </Text>
+                  </AppText>
                 )}
               </View>
-              <Text
+              <AppText
                 style={{
                   marginTop: 6,
                   fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
@@ -1012,7 +1013,7 @@ function CheckoutScreen() {
                 }}
               >
                 {label}
-              </Text>
+              </AppText>
               <View
                 style={{
                   marginTop: 6,
@@ -1201,7 +1202,7 @@ function CheckoutScreen() {
             },
           ]}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               color: "#fff",
@@ -1216,7 +1217,7 @@ function CheckoutScreen() {
                 : paying
                   ? t.processingOrder
                   : `${t.payLabel} ${formatPrice(fees.grand)}`}
-          </Text>
+          </AppText>
           <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
         </Pressable>
       </View>
@@ -1228,10 +1229,10 @@ function CheckoutScreen() {
 
 function Label({ children, colors, required }: any) {
   return (
-    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, marginBottom: 6 }}>
+    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, marginBottom: 6 }}>
       {children}
-      {required ? <Text style={{ color: "#c0392b" }}> *</Text> : null}
-    </Text>
+      {required ? <AppText style={{ color: "#c0392b" }}> *</AppText> : null}
+    </AppText>
   );
 }
 
@@ -1250,7 +1251,7 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
           paddingHorizontal: 12,
         }}
       >
-        {prefix ? <Text style={{ fontFamily: "Inter_500Medium", color: colors.primary, marginRight: 6 }}>{prefix}</Text> : null}
+        {prefix ? <AppText style={{ fontFamily: "Inter_500Medium", color: colors.primary, marginRight: 6 }}>{prefix}</AppText> : null}
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -1272,7 +1273,7 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
         />
       </View>
       {helper ? (
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>{helper}</Text>
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>{helper}</AppText>
       ) : null}
       {characterCount && maxLength ? (
         <CharsLeft maxLength={maxLength} value={value} colors={colors} />
@@ -1284,9 +1285,9 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
 function CharsLeft({ maxLength, value, colors }: { maxLength: number; value?: string; colors: any }) {
   const t = useT();
   return (
-    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4, textAlign: "right" }}>
+    <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4, textAlign: "right" }}>
       {maxLength - (value?.length ?? 0)} {t.checkoutCharsLeft}
-    </Text>
+    </AppText>
   );
 }
 
@@ -1303,9 +1304,9 @@ function Card({ children, colors, title }: any) {
       }}
     >
       {title ? (
-        <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
+        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
           {title}
-        </Text>
+        </AppText>
       ) : null}
       {children}
     </View>
@@ -1447,7 +1448,7 @@ function CardPreviewModal({
           justifyContent: "space-between",
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 18,
@@ -1459,9 +1460,9 @@ function CardPreviewModal({
           numberOfLines={2}
         >
           {cardTo ? `${t.toLabel} ${cardTo}` : t.toLabel}
-        </Text>
+        </AppText>
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_400Regular",
               fontSize: messageFont,
@@ -1473,9 +1474,9 @@ function CardPreviewModal({
             }}
           >
             {trimmed.length > 0 ? trimmed : t.previewCardPlaceholder}
-          </Text>
+          </AppText>
         </View>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 18,
@@ -1487,7 +1488,7 @@ function CardPreviewModal({
           numberOfLines={2}
         >
           {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
-        </Text>
+        </AppText>
       </View>
       {includeWatermark ? (
         <View
@@ -1499,7 +1500,7 @@ function CardPreviewModal({
             ...(isRtl ? { left: 14 } : { right: 14 }),
           }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_500Medium",
               fontSize: 11,
@@ -1510,7 +1511,7 @@ function CardPreviewModal({
             }}
           >
             presentail.com
-          </Text>
+          </AppText>
         </View>
       ) : null}
     </>
@@ -1569,18 +1570,18 @@ function CardPreviewModal({
               }}
             >
               <Feather name="share" size={14} color="#fff" />
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "#fff" }}>
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: "#fff" }}>
                 {sharing ? t.previewCardSharing : t.previewCardShare}
-              </Text>
+              </AppText>
             </Pressable>
           ) : null}
           <Pressable
             onPress={onClose}
             style={{ paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999, backgroundColor: "#fff" }}
           >
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
               {t.previewCardClose}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </Pressable>
@@ -1626,9 +1627,9 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
             }}
           >
             <Feather name="eye" size={14} color={colors.gold} />
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold }}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold }}>
               {t.previewCardButton}
-            </Text>
+            </AppText>
           </Pressable>
           {previewOpen ? (
             <CardPreviewModal
@@ -1647,7 +1648,7 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
           onPress={() => setSuggestedOpen(true)}
           style={{ paddingHorizontal: 10, paddingVertical: 6 }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 11,
@@ -1656,7 +1657,7 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
             }}
           >
             {t.notSureWhatToSay}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <SuggestedMessagesSheet
@@ -1668,9 +1669,9 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
 
       <Field colors={colors} label={t.fromLabel} value={cardFrom} onChangeText={setCardFrom} placeholder="" />
 
-      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
+      <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
         {t.qrLinkHint}
-      </Text>
+      </AppText>
       <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="https://..." />
 
       {qrLink && qrLink.trim().length > 4 ? (
@@ -1680,12 +1681,12 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
             style={{ width: 140, height: 140, borderRadius: 6 }}
             contentFit="contain"
           />
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
             {t.qrPreview}
-          </Text>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textAlign: "center" }}>
+          </AppText>
+          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textAlign: "center" }}>
             {t.qrPrintedOnCard}
-          </Text>
+          </AppText>
         </View>
       ) : null}
     </Card>
@@ -1719,7 +1720,7 @@ function CardMessageReviewCard({
           paddingVertical: 12,
         }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 13,
@@ -1730,14 +1731,14 @@ function CardMessageReviewCard({
           }}
         >
           {trimmed || t.previewCardPlaceholder}
-        </Text>
+        </AppText>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Pressable
           onPress={() => setSuggestedOpen(true)}
           style={{ paddingHorizontal: 10, paddingVertical: 6 }}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_400Regular",
               fontSize: 11,
@@ -1746,7 +1747,7 @@ function CardMessageReviewCard({
             }}
           >
             {t.notSureWhatToSay}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <SuggestedMessagesSheet
@@ -1802,9 +1803,9 @@ function DeliveryDetailsStep(props: any) {
             }}
           >
             <Feather name="map-pin" size={16} color={colors.gold} />
-            <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }} numberOfLines={1}>
+            <AppText style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }} numberOfLines={1}>
               {activeAddressLabel}
-            </Text>
+            </AppText>
             <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
           </Pressable>
         ) : null}
@@ -1832,7 +1833,7 @@ function DeliveryDetailsStep(props: any) {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.checkoutSavedAddressPickerTitle}</Text>
+              <AppText style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.checkoutSavedAddressPickerTitle}</AppText>
               <Pressable onPress={() => setSavedAddressPickerOpen(false)}>
                 <Feather name="x" size={20} color={colors.primary} />
               </Pressable>
@@ -1855,24 +1856,24 @@ function DeliveryDetailsStep(props: any) {
                     }}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, flex: 1 }}>
+                      <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.primary, flex: 1 }}>
                         {item.nickname || item.label}
-                      </Text>
+                      </AppText>
                       {item.isDefault ? (
-                        <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
+                        <AppText style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1 }}>
                           ★
-                        </Text>
+                        </AppText>
                       ) : null}
                       {isActive ? (
                         <Feather name="check" size={14} color={colors.gold} />
                       ) : null}
                     </View>
-                    <Text style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                    <AppText style={{ color: colors.primary, fontFamily: "Inter_400Regular", fontSize: 13 }}>
                       {item.district}, {item.countryCode}
-                    </Text>
-                    <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                    </AppText>
+                    <AppText style={{ color: colors.mutedForeground, fontSize: 12 }}>
                       {item.addressLine}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 );
               }}
@@ -1935,7 +1936,7 @@ function DeliveryDetailsStep(props: any) {
               />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 14,
@@ -1944,8 +1945,8 @@ function DeliveryDetailsStep(props: any) {
                 }}
               >
                 {t.askRecipientForAddressTitle}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 12,
@@ -1955,7 +1956,7 @@ function DeliveryDetailsStep(props: any) {
                 }}
               >
                 {t.askRecipientForAddressNote}
-              </Text>
+              </AppText>
             </View>
           </Pressable>
           <Switch
@@ -1984,13 +1985,13 @@ function DeliveryDetailsStep(props: any) {
               paddingVertical: 13,
             }}
           >
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
               {district.name}
-            </Text>
+            </AppText>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                 {formatPrice(district.fee)} {t.checkoutDeliverySuffix}
-              </Text>
+              </AppText>
               <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
             </View>
           </Pressable>
@@ -2011,7 +2012,7 @@ function DeliveryDetailsStep(props: any) {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-                <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</Text>
+                <AppText style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</AppText>
                 <Pressable onPress={() => setDistrictOpen(false)}>
                   <Feather name="x" size={20} color={colors.primary} />
                 </Pressable>
@@ -2035,11 +2036,11 @@ function DeliveryDetailsStep(props: any) {
                         backgroundColor: selected ? "#f9f6f1" : "#fff",
                       }}
                     >
-                      <Text style={{ fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
+                      <AppText style={{ fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 15, color: colors.primary }}>
                         {item.name}
-                      </Text>
+                      </AppText>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatPrice(item.fee)}</Text>
+                        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>{formatPrice(item.fee)}</AppText>
                         {selected && <Feather name="check" size={16} color={colors.gold} />}
                       </View>
                     </TouchableOpacity>
@@ -2083,9 +2084,9 @@ function DeliveryDetailsStep(props: any) {
             >
               {saveAddress ? <Feather name="check" size={12} color="#fff" /> : null}
             </View>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1 }}>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.primary, flex: 1 }}>
               {t.checkoutSaveAddressToggle}
-            </Text>
+            </AppText>
           </Pressable>
         ) : null}
       </Card>
@@ -2100,7 +2101,7 @@ function DeliveryDetailsStep(props: any) {
               gap: 6,
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 13,
@@ -2113,9 +2114,9 @@ function DeliveryDetailsStep(props: any) {
                   .filter((s: string) => s && s.trim())
                   .join(" · "),
               )}
-            </Text>
+            </AppText>
             <Pressable onPress={onEditAccount} hitSlop={8}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_500Medium",
                   fontSize: 12,
@@ -2124,7 +2125,7 @@ function DeliveryDetailsStep(props: any) {
                 }}
               >
                 {t.checkoutEditInAccount}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         ) : null}
@@ -2178,9 +2179,9 @@ function DeliveryDetailsStep(props: any) {
           >
             {identitySecret ? <Feather name="check" size={12} color="#fff" /> : null}
           </View>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
             {t.keepIdentitySecretLabel}
-          </Text>
+          </AppText>
         </Pressable>
       </Card>
     </View>
@@ -2205,16 +2206,16 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
       {icon ? (
         <Feather name={icon} size={14} color={disabled ? colors.mutedForeground : active ? colors.primary : colors.mutedForeground} />
       ) : null}
-      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: disabled ? colors.mutedForeground : colors.primary }}>
+      <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: disabled ? colors.mutedForeground : colors.primary }}>
         {title}
-      </Text>
-      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
+      </AppText>
+      <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>
         {subtitle}
-      </Text>
+      </AppText>
       {footer ? (
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: disabled ? colors.mutedForeground : colors.gold }}>
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: disabled ? colors.mutedForeground : colors.gold }}>
           {footer}
-        </Text>
+        </AppText>
       ) : null}
     </Pressable>
   );
@@ -2305,8 +2306,8 @@ function DeliverySummaryCard({ colors, days, date, slot, mode }: any) {
 function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</Text>
-      <Text
+      <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{label}</AppText>
+      <AppText
         style={{
           fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold",
           fontSize: bold ? 16 : 13,
@@ -2314,7 +2315,7 @@ function SummaryRow({ label, value, colors, accent, bold, highlight }: any) {
         }}
       >
         {value}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -2337,9 +2338,9 @@ function SecurityNote({ colors }: { colors: any }) {
       }}
     >
       <Feather name="lock" size={14} color={colors.gold} />
-      <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
+      <AppText style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 16 }}>
         {t.secureRedirectNote}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -2379,9 +2380,9 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
       </Card>
 
       <Card colors={colors} title={t.waysToPayTitle}>
-        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: -4 }}>
           {t.secureAndEncrypted}
-        </Text>
+        </AppText>
 
         {(() => {
           const visible = {
@@ -2559,14 +2560,14 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
         >
           {active ? <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.primary }} /> : null}
         </View>
-        <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+        <AppText style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
           {title}
-        </Text>
+        </AppText>
         {badge ? (
           <View style={{ backgroundColor: badgeColor, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.5 }}>
+            <AppText style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.5 }}>
               {badge}
-            </Text>
+            </AppText>
           </View>
         ) : null}
         {payIcons === "card" ? (
@@ -2598,23 +2599,23 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
           <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
             <View style={{ flex: 1 }}>
-              <Text numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+              <AppText numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
                 {product.name}
-              </Text>
+              </AppText>
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 999, alignSelf: "flex-start" }}>
                 <Pressable onPress={() => setQty(product.id, Math.max(1, qty - 1))} style={styles.qtyMini}>
                   <Feather name="minus" size={11} color={colors.primary} />
                 </Pressable>
-                <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 8, fontSize: 12 }}>{qty}</Text>
+                <AppText style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 8, fontSize: 12 }}>{qty}</AppText>
                 <Pressable onPress={() => setQty(product.id, qty + 1)} style={styles.qtyMini}>
                   <Feather name="plus" size={11} color={colors.primary} />
                 </Pressable>
               </View>
             </View>
             <View style={{ alignItems: "flex-end", gap: 6 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
+              <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
                 {formatPrice(lineTotal)}
-              </Text>
+              </AppText>
               <Pressable onPress={() => remove(product.id)} hitSlop={6}>
                 <Feather name="x-circle" size={14} color={colors.mutedForeground} />
               </Pressable>
@@ -2624,9 +2625,9 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
       </View>
 
       <Pressable onPress={() => setCouponOpen(!couponOpen)}>
-        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
-          {t.checkoutHaveCoupon} <Text style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</Text>
-        </Text>
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
+          {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
+        </AppText>
       </Pressable>
       {couponOpen ? (
         <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />

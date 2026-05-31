@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -45,7 +46,7 @@ export function ForgotPasswordSentStep({
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 28,
@@ -54,8 +55,8 @@ export function ForgotPasswordSentStep({
           }}
         >
           {t.authForgotSentTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -65,8 +66,8 @@ export function ForgotPasswordSentStep({
           }}
         >
           {body}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 13,
@@ -77,7 +78,7 @@ export function ForgotPasswordSentStep({
           }}
         >
           {t.authForgotSentTip}
-        </Text>
+        </AppText>
       </View>
 
       <Pressable
@@ -91,7 +92,7 @@ export function ForgotPasswordSentStep({
           opacity: busy ? 0.7 : pressed ? 0.85 : 1,
         })}
       >
-        <Text
+        <AppText
           style={{
             color: "#fff",
             fontFamily: "Inter_600SemiBold",
@@ -100,7 +101,7 @@ export function ForgotPasswordSentStep({
           }}
         >
           {t.authForgotSentBackToSignIn}
-        </Text>
+        </AppText>
       </Pressable>
 
       <Pressable
@@ -108,7 +109,7 @@ export function ForgotPasswordSentStep({
         onPress={onPasteLink}
         style={{ alignSelf: "center" }}
       >
-        <Text
+        <AppText
           style={{
             fontFamily: "Inter_500Medium",
             fontSize: 13,
@@ -118,7 +119,7 @@ export function ForgotPasswordSentStep({
           }}
         >
           {t.authForgotSentPasteLink}
-        </Text>
+        </AppText>
       </Pressable>
 
       <Pressable
@@ -129,7 +130,7 @@ export function ForgotPasswordSentStep({
         {busy ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_500Medium",
               fontSize: 13,
@@ -138,7 +139,7 @@ export function ForgotPasswordSentStep({
             }}
           >
             {t.authForgotSentResend}
-          </Text>
+          </AppText>
         )}
       </Pressable>
     </View>

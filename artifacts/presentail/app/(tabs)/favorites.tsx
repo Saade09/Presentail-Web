@@ -13,6 +13,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductCard } from "@/components/ProductCard";
@@ -106,7 +107,7 @@ function FavoritesTab() {
         showsVerticalScrollIndicator={false}
       >
         <Ionicons name="heart-outline" size={56} color={colors.mutedForeground} style={{ marginBottom: 20 }} />
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_400Regular",
             fontSize: 24,
@@ -116,8 +117,8 @@ function FavoritesTab() {
           }}
         >
           {t.favoritesSignInTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 15,
@@ -128,7 +129,7 @@ function FavoritesTab() {
           }}
         >
           {t.favoritesSignInDesc}
-        </Text>
+        </AppText>
         <Pressable
           onPress={() => router.push("/auth")}
           style={({ pressed }) => ({
@@ -139,9 +140,9 @@ function FavoritesTab() {
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 13, letterSpacing: 1.4, textTransform: "uppercase" }}>
+          <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", fontSize: 13, letterSpacing: 1.4, textTransform: "uppercase" }}>
             {t.authSignIn}
-          </Text>
+          </AppText>
         </Pressable>
       </ScrollView>
     );
@@ -180,7 +181,7 @@ function FavoritesTab() {
         >
           <Ionicons name="heart-outline" size={40} color={colors.primary} />
         </View>
-        <Text
+        <AppText
           style={{
             fontFamily: "PlayfairDisplay_500Medium",
             fontSize: 22,
@@ -190,8 +191,8 @@ function FavoritesTab() {
           }}
         >
           {t.favoritesEmptyTitle}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={{
             fontFamily: "Inter_400Regular",
             fontSize: 14,
@@ -202,7 +203,7 @@ function FavoritesTab() {
           }}
         >
           {t.favoritesEmptyDesc}
-        </Text>
+        </AppText>
         <Pressable
           onPress={() => router.push("/(tabs)/" as never)}
           style={({ pressed }) => ({
@@ -214,7 +215,7 @@ function FavoritesTab() {
             opacity: pressed ? 0.75 : 1,
           })}
         >
-          <Text
+          <AppText
             style={{
               fontFamily: "Inter_600SemiBold",
               color: colors.primary,
@@ -223,7 +224,7 @@ function FavoritesTab() {
             }}
           >
             {t.favoritesDiscoverProducts}
-          </Text>
+          </AppText>
         </Pressable>
       </ScrollView>
     );
@@ -243,7 +244,7 @@ function FavoritesTab() {
       >
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
           <View style={{ flex: 1 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_400Regular",
                 fontSize: 28,
@@ -251,8 +252,8 @@ function FavoritesTab() {
               }}
             >
               {t.favoritesTitle}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 13,
@@ -261,7 +262,7 @@ function FavoritesTab() {
               }}
             >
               {favoriteProducts.length} {favoriteProducts.length === 1 ? t.favoritesSingular : t.favoritesPlural}
-            </Text>
+            </AppText>
           </View>
           <Pressable
             onPress={handleShareList}
@@ -282,9 +283,9 @@ function FavoritesTab() {
             accessibilityLabel={t.favoritesShareList}
           >
             <Ionicons name="share-outline" size={16} color={colors.primary} />
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
               Share
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       </View>

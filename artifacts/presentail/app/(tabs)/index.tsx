@@ -19,6 +19,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
@@ -173,7 +174,7 @@ function HomeHeader({
                   borderRadius: 999,
                 }}
               />
-              <Text style={{ fontSize: 13 }}>{countryFlag}</Text>
+              <AppText style={{ fontSize: 13 }}>{countryFlag}</AppText>
               <View
                 style={{
                   flexDirection: "column",
@@ -523,7 +524,7 @@ function Hero() {
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.heroContent}>
-          <Text
+          <AppText
             style={{
               fontFamily: "PlayfairDisplay_400Regular",
               fontSize: 38,
@@ -534,9 +535,9 @@ function Hero() {
             }}
           >
             {item.title}
-          </Text>
+          </AppText>
           {"subtitle" in item && item.subtitle ? (
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_400Regular",
                 fontSize: 15,
@@ -547,7 +548,7 @@ function Hero() {
               }}
             >
               {item.subtitle}
-            </Text>
+            </AppText>
           ) : null}
           <View
             style={[
@@ -559,7 +560,7 @@ function Hero() {
               },
             ]}
           >
-            <Text
+            <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",
                 fontSize: 13,
@@ -568,7 +569,7 @@ function Hero() {
               }}
             >
               {item.cta}
-            </Text>
+            </AppText>
           </View>
         </View>
       </Pressable>
@@ -643,12 +644,12 @@ function BrandStrip() {
           )}
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 4 }}>
             <MaterialCommunityIcons name={it.icon} size={22} color={colors.primary} />
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary, textAlign: "center", lineHeight: 15 }}>
+            <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.primary, textAlign: "center", lineHeight: 15 }}>
               {it.label}
-            </Text>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, textAlign: "center", lineHeight: 14 }}>
+            </AppText>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, textAlign: "center", lineHeight: 14 }}>
               {it.sub}
-            </Text>
+            </AppText>
           </View>
         </React.Fragment>
       ))}
@@ -744,9 +745,9 @@ function BestSellers() {
           />
         </View>
         <Pressable onPress={() => router.push("/(tabs)/catalog")}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             {t.viewAll}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <View
@@ -802,9 +803,9 @@ function FlowersSection() {
           />
         </View>
         <Pressable onPress={() => router.push("/category/hand-bouquets")}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             {t.viewAll}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <ScrollView
@@ -881,9 +882,9 @@ function SummerCollectionSection() {
           />
         </View>
         <Pressable onPress={() => router.push("/category/summer-collection")}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             {t.viewAll}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <ScrollView
@@ -933,9 +934,9 @@ function BundlesSection() {
           />
         </View>
         <Pressable onPress={() => router.push("/category/bundles")}>
-          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             {t.viewAll}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
       <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 24 }}>
@@ -1007,7 +1008,7 @@ function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: 
           </View>
         )}
       </View>
-      <Text
+      <AppText
         numberOfLines={2}
         style={{
           fontFamily: "Inter_500Medium",
@@ -1018,7 +1019,7 @@ function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: 
         }}
       >
         {item.name}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -1179,7 +1180,7 @@ function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () =
           </View>
         )}
       </View>
-      <Text
+      <AppText
         numberOfLines={2}
         style={{
           fontFamily: "Inter_500Medium",
@@ -1190,7 +1191,7 @@ function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () =
         }}
       >
         {item.name}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -1288,7 +1289,7 @@ function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void
           </View>
         )}
       </View>
-      <Text
+      <AppText
         numberOfLines={2}
         style={{
           fontFamily: "Inter_500Medium",
@@ -1299,7 +1300,7 @@ function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void
         }}
       >
         {item.name}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -1406,7 +1407,7 @@ function BrandStorySection() {
       <View style={{ marginTop: 28, gap: 18 }}>
         {pillars.map((p, i) => (
           <View key={p.title} style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_400Regular",
                 color: colors.goldSoft,
@@ -1415,9 +1416,9 @@ function BrandStorySection() {
               }}
             >
               0{i + 1}
-            </Text>
+            </AppText>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text
+              <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
                   fontSize: 14,
@@ -1425,8 +1426,8 @@ function BrandStorySection() {
                 }}
               >
                 {p.title}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={{
                   fontFamily: "Inter_400Regular",
                   fontSize: 13,
@@ -1435,7 +1436,7 @@ function BrandStorySection() {
                 }}
               >
                 {p.text}
-              </Text>
+              </AppText>
             </View>
           </View>
         ))}
@@ -1477,7 +1478,7 @@ function ReviewsSection() {
                 <MaterialCommunityIcons key={i} name="star" size={14} color={colors.gold} />
               ))}
             </View>
-            <Text
+            <AppText
               style={{
                 fontFamily: "PlayfairDisplay_400Regular",
                 fontSize: 16,
@@ -1486,8 +1487,8 @@ function ReviewsSection() {
               }}
             >
               “{item.text}”
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={{
                 fontFamily: "Inter_500Medium",
                 fontSize: 11,
@@ -1497,7 +1498,7 @@ function ReviewsSection() {
               }}
             >
               {item.name}
-            </Text>
+            </AppText>
           </View>
         )}
       />
