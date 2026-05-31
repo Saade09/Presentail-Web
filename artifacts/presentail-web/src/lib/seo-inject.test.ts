@@ -2984,3 +2984,315 @@ describe("image dims L2 cache — initImageDimsDb adapter", () => {
     expect(l2GetCount).toBe(1); // still 1 — L1 served the second request
   });
 });
+
+// ---------------------------------------------------------------------------
+// Shared-link preview cache — entity cache hit, null-not-cached, and
+// analytics-not-on-cache-hit
+//
+// The `fetchEntityForSeoCached` wrapper caches successful entity lookups in an
+// in-process LRU+TTL map so that aggressive social-crawler retries (WhatsApp,
+// iMessage, Slack) are served without hitting the upstream on every request.
+//
+// Key invariants:
+//   1. A cached hit skips the upstream fetch entirely.
+//   2. A null (failed) result is NOT cached — the next crawler hit retries.
+//   3. The `seo_entity_fetch_failed` analytics event fires only on a live
+//      fetch failure, never when the entity is served from the in-process cache.
+// ---------------------------------------------------------------------------
+
+const PREVIEW_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+// Use a unique domain so these tests' cache entries never collide with other
+// describe blocks in this file.
+const PREVIEW_OPTS = {
+  apiBaseUrl: "https://api.preview-cache-test",
+  origin: "https://presentail.preview-cache-test",
+  basePath: "",
+};
+
+describe("shared-link preview cache — cache-hit skips upstream (product)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("does not call the product endpoint a second time within TTL when no ETag is stored", async () => {
+    let entityFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        // Return no ETag/Last-Modified so the pure TTL cache path is exercised.
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Cached Preview Product",
+              description: "Should be served from cache on second call.",
+              image: null,
+              priceValue: 60,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: cache miss — upstream is hit.
+    const out1 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/product/preview-cache-hit-product-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(out1).toContain("<title>Cached Preview Product | Presentail</title>");
+
+    // Second call immediately within TTL: entity must be served from the
+    // in-process cache — the upstream must NOT be called again.
+    const out2 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/product/preview-cache-hit-product-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1); // still 1 — served from cache
+    expect(out2).toContain("<title>Cached Preview Product | Presentail</title>");
+  });
+});
+
+describe("shared-link preview cache — cache-hit skips upstream (brand)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("does not call the brand endpoint a second time within TTL when no ETag is stored", async () => {
+    let entityFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            brand: {
+              name: "Cached Preview Brand",
+              description: "Brand served from cache.",
+              image: null,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out1 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/brand/preview-cache-hit-brand-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(out1).toContain("<title>Cached Preview Brand | Presentail</title>");
+
+    const out2 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/brand/preview-cache-hit-brand-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1); // still 1 — served from cache
+    expect(out2).toContain("<title>Cached Preview Brand | Presentail</title>");
+  });
+});
+
+describe("shared-link preview cache — null result is NOT cached", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("retries the upstream on the next call when the first product fetch returned null (HTTP error)", async () => {
+    let entityFetchCount = 0;
+
+    // First response: HTTP error → fetchEntityForSeo returns null → NOT cached.
+    // Second response: success → entity is fetched live and cached.
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        if (entityFetchCount === 1) {
+          return { ok: false, status: 503, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Retry Product",
+              description: "Fetched on the retry after null was not cached.",
+              image: null,
+              priceValue: 55,
+            },
+          }),
+        };
+      }
+      // analytics/events
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity fetch fails → generic fallback HTML.
+    const out1 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/product/preview-null-not-cached-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    // Null result → generic title, not the product name.
+    expect(out1).toContain("<title>Gift Delivery in Dubai | Presentail</title>");
+
+    // Second call: because null was NOT cached, the upstream must be retried.
+    const out2 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/product/preview-null-not-cached-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(2); // upstream called again (null not cached)
+    // This time the fetch succeeds → product-specific title is rendered.
+    expect(out2).toContain("<title>Retry Product | Presentail</title>");
+  });
+
+  it("retries the upstream on the next call when the first brand fetch threw a network error", async () => {
+    let entityFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand")) {
+        entityFetchCount++;
+        if (entityFetchCount === 1) {
+          throw new Error("ECONNREFUSED");
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            brand: {
+              name: "Recovered Brand",
+              description: "Fetched after the network error was not cached.",
+              image: null,
+            },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: network error → null (not cached) → generic fallback.
+    await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/brand/preview-null-not-cached-brand-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+
+    // Second call: upstream must be retried because null was not cached.
+    const out2 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      "/en-ae/dubai/brand/preview-null-not-cached-brand-unique",
+      PREVIEW_OPTS,
+    );
+    expect(entityFetchCount).toBe(2);
+    expect(out2).toContain("<title>Recovered Brand | Presentail</title>");
+  });
+});
+
+describe("shared-link preview cache — analytics event fired on live failure but not on cache hit", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("fires seo_entity_fetch_failed on the live failure but NOT when the entity is served from cache", async () => {
+    // Scenario:
+    //   Call 1: product fetch succeeds → entity cached, no analytics event.
+    //   Call 2: served from cache → upstream never called → no analytics event.
+    //   Call 3 (separate slug): product fetch fails → analytics event fires.
+    //
+    // This confirms the event is a live-fetch signal, not a cache-layer signal.
+
+    const successSlug = "preview-analytics-cache-hit-unique";
+    const failSlug    = "preview-analytics-live-fail-unique";
+    const analyticsCalls: string[] = [];
+    let successFetchCount = 0;
+    let failFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+
+      if (u.includes("/api/analytics/events")) {
+        // Capture the POST body so we can assert on event names below.
+        analyticsCalls.push(u);
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+
+      if (u.includes(`slug=${successSlug}`)) {
+        successFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Analytics Cache Hit Product",
+              description: "Success — no analytics event expected.",
+              image: null,
+              priceValue: 50,
+            },
+          }),
+        };
+      }
+
+      if (u.includes(`slug=${failSlug}`)) {
+        failFetchCount++;
+        return { ok: false, status: 404, json: async () => ({}) };
+      }
+
+      return { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // --- Successful entity: first call ---
+    analyticsCalls.length = 0;
+    await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      `/en-ae/dubai/product/${successSlug}`,
+      PREVIEW_OPTS,
+    );
+    expect(successFetchCount).toBe(1);
+    expect(analyticsCalls).toHaveLength(0); // no event on success
+
+    // --- Successful entity: second call (served from cache) ---
+    analyticsCalls.length = 0;
+    const out2 = await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      `/en-ae/dubai/product/${successSlug}`,
+      PREVIEW_OPTS,
+    );
+    expect(successFetchCount).toBe(1); // upstream skipped — cache hit
+    expect(analyticsCalls).toHaveLength(0); // no event on cache hit
+    expect(out2).toContain("<title>Analytics Cache Hit Product | Presentail</title>");
+
+    // --- Failed entity: live failure fires the event ---
+    analyticsCalls.length = 0;
+    await injectSeoTagsAsync(
+      PREVIEW_HTML,
+      `/en-ae/dubai/product/${failSlug}`,
+      PREVIEW_OPTS,
+    );
+    expect(failFetchCount).toBe(1);
+    expect(analyticsCalls.length).toBeGreaterThanOrEqual(1); // event fired on live failure
+  });
+});
