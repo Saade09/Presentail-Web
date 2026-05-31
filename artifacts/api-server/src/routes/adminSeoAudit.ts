@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { runAuditNow } from "../lib/seoAuditMonitor";
+import { runAuditNow, getLastAuditSummary } from "../lib/seoAuditMonitor";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -10,7 +10,8 @@ const router: IRouter = Router();
 // (PUSH_ADMIN_TOKEN env). No session, no cookie.
 //
 // Endpoints:
-//   POST /api/admin/seo-audit/run → JSON: AuditSummary
+//   GET  /api/admin/seo-audit/last → JSON: { ok, summary: AuditSummary | null }
+//   POST /api/admin/seo-audit/run  → JSON: AuditSummary
 
 function requireAdmin(req: Request, res: Response): boolean {
   const expected = process.env.PUSH_ADMIN_TOKEN;
@@ -24,6 +25,20 @@ function requireAdmin(req: Request, res: Response): boolean {
   }
   return true;
 }
+
+/**
+ * GET /api/admin/seo-audit/last
+ *
+ * Returns the most recent cached AuditSummary (populated by the nightly
+ * scheduler or a previous /run call, persisted across restarts via the
+ * analytics_key_value table). Returns `{ ok: true, summary: null }` when no
+ * audit has completed since the server started.
+ */
+router.get("/admin/seo-audit/last", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const summary = getLastAuditSummary();
+  res.json({ ok: true, summary });
+});
 
 /**
  * POST /api/admin/seo-audit/run

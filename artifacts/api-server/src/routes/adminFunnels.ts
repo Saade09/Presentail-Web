@@ -1096,8 +1096,8 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
-  <h2>SEO audit (on demand)</h2>
-  <div class="sub">Triggers an immediate OG-image health check across all key pages, bypassing the daily schedule. Useful after a deploy that touches the SEO inject middleware. Returns per-page status (error / warn / ok) so you can act without waiting up to 24 h for the nightly digest. Responds 409 when an audit is already running.</div>
+  <h2>SEO audit</h2>
+  <div class="sub">Shows the most recent OG-image health check result (from the nightly scheduler or a previous manual run) on page load. Click "Run SEO audit" to trigger an immediate check, bypassing the daily schedule. Useful after a deploy that touches the SEO inject middleware. Returns per-page status (error / warn / ok) so you can act without waiting up to 24 h for the nightly digest. Responds 409 when an audit is already running.</div>
   <div class="seo-audit-panel">
     <button class="seo-run-btn" id="seoRunBtn">Run SEO audit</button>
     <span class="seo-status muted" id="seoStatus"></span>
@@ -2471,6 +2471,22 @@ const DASHBOARD_HTML = `<!doctype html>
         statusEl.textContent = 'Load failed: ' + err.message;
         statusEl.className = 'err';
       });
+
+    fetch('/api/admin/seo-audit/last', { headers: headers })
+      .then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || !data.summary) {
+          seoAuditResults.innerHTML = '<span class="muted">No audit result yet — click "Run SEO audit" to check now.</span>';
+          return;
+        }
+        seoStatusEl.textContent = 'Last result (nightly or previous run):';
+        seoStatusEl.className = 'muted';
+        renderSeoAudit(data.summary);
+      })
+      .catch(function () {});
   }
 
   refreshBtn.addEventListener('click', load);
