@@ -88,6 +88,8 @@ jobs:
           filters: |
             mobile:
               - 'artifacts/presentail/**'
+              - 'artifacts/presentail/app/**/*.tsx'
+              - 'artifacts/presentail/src/**/*.tsx'
               - 'lib/**'
               - 'scripts/src/checkUnusedMobileTranslationKeys.ts'
               - 'scripts/src/checkHardcodedMobileStrings.ts'
