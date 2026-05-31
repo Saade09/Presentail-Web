@@ -312,6 +312,70 @@ export function isKeyReferenced(key: string, corpus: string): boolean {
   return false;
 }
 
+// ── Check 5 helpers (exported for unit tests) ─────────────────────────────────
+
+/**
+ * Minimum EN-value character length for the copy-paste identical check.
+ *
+ * Values shorter than this are skipped to avoid false-positives on brand
+ * names, abbreviations, and internationally shared terms (e.g. "Express",
+ * "Presentail", "Total", "OK") that are legitimately identical across locales.
+ * Any EN value of 25+ characters that is also untouched in AR or FR is almost
+ * certainly a copy-paste oversight rather than an intentional match.
+ */
+export const MIN_COPY_PASTE_LENGTH = 25;
+
+export type PlaceholderHit = {
+  locale: string;
+  key: string;
+  reason: "identical_to_en" | "no_arabic_script";
+  enValue: string;
+  localeValue: string;
+};
+
+/**
+ * Evaluate a single (locale, key, enVal, localeVal) tuple against the Check 5
+ * copy-paste / placeholder rules and return the matching `PlaceholderHit`, or
+ * `null` when the value passes.
+ *
+ * This is a pure function extracted from the main script loop so that unit
+ * tests can exercise Check 5 logic — including the MIN_COPY_PASTE_LENGTH
+ * threshold and the duplicate-diagnostic suppression — without running the
+ * full I/O pipeline.
+ *
+ * Callers are responsible for pre-filtering:
+ *   - enVal / localeVal must be non-empty strings (empty values are Check 6)
+ *   - enValueIsUntranslatable(enVal) must be false (untranslatable EN → skip)
+ *   - The key must not be in noTranslateKeys (annotated overrides → skip)
+ */
+export function classifyPlaceholderHit(
+  locale: string,
+  key: string,
+  enVal: string,
+  localeVal: string,
+): PlaceholderHit | null {
+  // (a) Identical to EN — only flag when EN is long enough to rule out brand
+  // names and abbreviations that are legitimately identical across locales.
+  if (localeVal === enVal && enVal.length >= MIN_COPY_PASTE_LENGTH) {
+    return { locale, key, reason: "identical_to_en", enValue: enVal, localeValue: localeVal };
+  }
+
+  // (b) AR-specific: no Arabic-script characters in a value that differs from
+  // EN.  Skip values identical to EN — those are already handled (and
+  // potentially intentionally skipped due to length) by sub-check (a) above.
+  // Flagging them here too would produce a duplicate / misleading diagnostic.
+  if (
+    locale === "AR" &&
+    localeVal !== enVal &&
+    !containsArabicScript(localeVal) &&
+    !isLanguageNeutralValue(localeVal)
+  ) {
+    return { locale, key, reason: "no_arabic_script", enValue: enVal, localeValue: localeVal };
+  }
+
+  return null;
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 // Guard lets unit tests import the exported functions without triggering I/O
 // or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
@@ -628,25 +692,7 @@ if (frOnlyKeys.length > 0) {
 //
 // Values that could not be parsed (template literals, multi-line) are silently
 // skipped — false negatives are acceptable, false positives are not.
-
-/**
- * Minimum EN-value character length for the copy-paste identical check.
- *
- * Values shorter than this are skipped to avoid false-positives on brand
- * names, abbreviations, and internationally shared terms (e.g. "Express",
- * "Presentail", "Total", "OK") that are legitimately identical across locales.
- * Any EN value of 25+ characters that is also untouched in AR or FR is almost
- * certainly a copy-paste oversight rather than an intentional match.
- */
-const MIN_COPY_PASTE_LENGTH = 25;
-
-type PlaceholderHit = {
-  locale: string;
-  key: string;
-  reason: "identical_to_en" | "no_arabic_script";
-  enValue: string;
-  localeValue: string;
-};
+// The check logic lives in the exported `classifyPlaceholderHit` helper above.
 
 const placeholderHits: PlaceholderHit[] = [];
 
@@ -668,38 +714,8 @@ for (const [locale, localeValueMap] of [
     // abbreviations — values that are legitimately identical across locales).
     if (noTranslateKeys.has(key)) continue;
 
-    // (a) Identical to EN value — only flag when the EN string is long enough
-    // that an accidental copy-paste is likely.  Short proper nouns, brand
-    // names, and abbreviations are often legitimately identical across locales.
-    if (localeVal === enVal && enVal.length >= MIN_COPY_PASTE_LENGTH) {
-      placeholderHits.push({
-        locale,
-        key,
-        reason: "identical_to_en",
-        enValue: enVal,
-        localeValue: localeVal,
-      });
-      continue;
-    }
-
-    // (b) AR-specific: no Arabic-script characters in a non-neutral value.
-    // Skip values that are identical to EN — those are already evaluated (and
-    // potentially intentionally skipped due to length) by sub-check (a) above.
-    // Flagging them here too would produce a duplicate / misleading diagnostic.
-    if (
-      locale === "AR" &&
-      localeVal !== enVal &&
-      !containsArabicScript(localeVal) &&
-      !isLanguageNeutralValue(localeVal)
-    ) {
-      placeholderHits.push({
-        locale,
-        key,
-        reason: "no_arabic_script",
-        enValue: enVal,
-        localeValue: localeVal,
-      });
-    }
+    const hit = classifyPlaceholderHit(locale, key, enVal, localeVal);
+    if (hit) placeholderHits.push(hit);
   }
 }
 
