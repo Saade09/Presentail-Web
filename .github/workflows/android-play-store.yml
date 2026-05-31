@@ -92,6 +92,10 @@ jobs:
         run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
 
+      - name: Run mobile tests
+        run: pnpm --filter @workspace/presentail run test
+        working-directory: .
+
       - name: Build web app (vite + compress-assets)
         # Required so the Brotli sidecars exist for the chunk budget check below.
         run: pnpm --filter @workspace/presentail-web run build
@@ -112,8 +116,55 @@ jobs:
       - name: Write Google service account key
         run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON }}' > ./google-service-account.json
 
-      - name: Build Android and submit to Google Play
-        run: eas build --platform android --profile production --auto-submit --non-interactive
+      - name: Build Android (EAS)
+        # Build only – submission happens in a separate step after the integrity
+        # check below so a missing or corrupt artifact is caught before it reaches
+        # the Play Store. --json emits a JSON array describing the build(s) that
+        # were queued/completed so we can capture the exact build ID and artifact
+        # URL from this run rather than querying the most-recent-finished list.
+        id: eas_build
+        run: |
+          set -euo pipefail
+          BUILD_OUTPUT=$(eas build \
+            --platform android \
+            --profile production \
+            --non-interactive \
+            --json 2>/dev/null)
+          echo "build_json<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BUILD_OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Assert Android build artifact is ready
+        # Verify that the specific EAS build queued in this run completed with a
+        # downloadable artifact URL before allowing the submit step to run.
+        # Exits non-zero (failing the workflow loudly) when the artifact URL is
+        # absent, guarding against remote build failures that may exit 0 but
+        # produce no AAB. Captures BUILD_ID for the targeted submit step below.
+        id: assert_artifact
+        run: |
+          set -euo pipefail
+          BUILD_JSON='${{ steps.eas_build.outputs.build_json }}'
+          BUILD_ID=$(echo "$BUILD_JSON" | jq -r '.[0].id // empty')
+          ARTIFACT_URL=$(echo "$BUILD_JSON" | jq -r '.[0].artifacts.buildUrl // empty')
+          if [ -z "$BUILD_ID" ]; then
+            echo "ERROR: Could not parse a build ID from the EAS build output." >&2
+            echo "Refusing to submit to Google Play." >&2
+            exit 1
+          fi
+          if [ -z "$ARTIFACT_URL" ]; then
+            echo "ERROR: Android build artifact URL is missing for build $BUILD_ID." >&2
+            echo "The EAS build did not produce a downloadable AAB." >&2
+            echo "Refusing to submit to Google Play." >&2
+            exit 1
+          fi
+          echo "Android build artifact verified for build $BUILD_ID: $ARTIFACT_URL"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Submit Android to Google Play
+        # Submit the specific build ID that passed the integrity check above,
+        # not just the most-recent build, to prevent a stale artifact from
+        # being submitted when this build failed to produce an AAB.
+        run: eas submit --platform android --profile production --non-interactive --id ${{ steps.assert_artifact.outputs.build_id }}
 
       # The Android binary that was just submitted contains the native modules
       # currently resolved in node_modules. Refresh the baseline JSON so the
