@@ -83,7 +83,7 @@ export async function signServerToken(input: {
 async function verifyServerToken(token: string, req?: { query: any; headers: any }): Promise<AuthResult> {
   const key = getServerJwtSecret();
   if (!key) {
-    return { ok: false, status: 503, message: "Social auth not configured" };
+    return { ok: false, status: 503, message: "Social auth not configured" }; // i18n-ignore
   }
   try {
     const { payload } = await jwtVerify(token, key, {
@@ -92,21 +92,21 @@ async function verifyServerToken(token: string, req?: { query: any; headers: any
     });
     const id = Number(payload.customer_id ?? payload.sub);
     if (!Number.isFinite(id) || id <= 0) {
-      return { ok: false, status: 401, message: "Token missing user id" };
+      return { ok: false, status: 401, message: "Token missing user id" }; // i18n-ignore
     }
     if (req) {
       const requestStore = resolveStoreFromRequest(req);
       if (typeof payload.store_base_url === "string") {
         if (payload.store_base_url !== requestStore.baseUrl) {
-          return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." };
+          return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." }; // i18n-ignore
         }
       } else {
-        return { ok: false, status: 401, message: "Session is outdated. Please sign in again." };
+        return { ok: false, status: 401, message: "Session is outdated. Please sign in again." }; // i18n-ignore
       }
     }
     return { ok: true, customerId: id, token };
   } catch {
-    return { ok: false, status: 401, message: "Invalid or expired session" };
+    return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
   }
 }
 
@@ -133,7 +133,7 @@ async function resolveClerkSession(
 
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
-    return { ok: false, status: 503, message: "Clerk is not configured" };
+    return { ok: false, status: 503, message: "Clerk is not configured" }; // i18n-ignore
   }
 
   // Read email, name, and publicMetadata from the JWT claims first.
@@ -198,7 +198,7 @@ async function resolveClerkSession(
         { err: err?.message, userId },
         "auth.clerk: failed to load user from Clerk",
       );
-      return { ok: false, status: 401, message: "Clerk session is invalid" };
+      return { ok: false, status: 401, message: "Clerk session is invalid" }; // i18n-ignore
     }
 
     primaryEmail =
@@ -213,7 +213,7 @@ async function resolveClerkSession(
   }
 
   if (!primaryEmail) {
-    return { ok: false, status: 401, message: "Clerk user has no email" };
+    return { ok: false, status: 401, message: "Clerk user has no email" }; // i18n-ignore
   }
 
   const store = resolveStoreFromRequest(req);
@@ -234,7 +234,7 @@ async function resolveClerkSession(
       { err: err?.message, userId },
       "auth.clerk: failed to upsert local customer",
     );
-    return { ok: false, status: 500, message: "Failed to resolve customer" };
+    return { ok: false, status: 500, message: "Failed to resolve customer" }; // i18n-ignore
   }
 
   // The legacy WP/social JWT flow returns the WooCommerce customer id as
@@ -258,14 +258,14 @@ async function resolveClerkSession(
     return {
       ok: false,
       status: 502,
-      message: "Failed to resolve WooCommerce customer for this session",
+      message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
     };
   }
   if (!wcCustomerId || wcCustomerId <= 0) {
     return {
       ok: false,
       status: 502,
-      message: "Failed to resolve WooCommerce customer for this session",
+      message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
     };
   }
 
@@ -321,11 +321,11 @@ export async function authenticate(
     return {
       ok: false,
       status: 401,
-      message: "Missing or invalid Authorization header",
+      message: "Missing or invalid Authorization header", // i18n-ignore
     };
   }
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return { ok: false, status: 401, message: "Empty token" };
+  if (!token) return { ok: false, status: 401, message: "Empty token" }; // i18n-ignore
 
   const payload = decodeJwtPayload(token);
   if (payload?.iss === SERVER_JWT_ISSUER) {
@@ -338,16 +338,16 @@ export async function authenticate(
       headers: { Authorization: `Bearer ${token}` },
     }, req);
     if (v.status === 404) {
-      return { ok: false, status: 503, message: "Auth not configured on server" };
+      return { ok: false, status: 503, message: "Auth not configured on server" }; // i18n-ignore
     }
     if (!v.ok) {
-      return { ok: false, status: 401, message: "Invalid or expired session" };
+      return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
     }
   } catch (e: any) {
     return {
       ok: false,
       status: 502,
-      message: e?.message ?? "Failed to validate session",
+      message: e?.message ?? "Failed to validate session", // i18n-ignore
     };
   }
 
@@ -356,7 +356,7 @@ export async function authenticate(
     Number(payload?.user_id) ||
     Number(payload?.sub);
   if (!Number.isFinite(id) || id <= 0) {
-    return { ok: false, status: 401, message: "Token missing user id" };
+    return { ok: false, status: 401, message: "Token missing user id" }; // i18n-ignore
   }
   return { ok: true, customerId: id, token };
 }

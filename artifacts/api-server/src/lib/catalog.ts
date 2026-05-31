@@ -172,13 +172,13 @@ export async function resolveCartItems(
   // when the OS cache has no entry for that wcId. Failing early when WC is
   // unconfigured would break checkout for shops that are fully OS-backed.
   if (!Array.isArray(items) || items.length === 0) {
-    return { ok: false, message: "Cart is empty" };
+    return { ok: false, message: "Cart is empty" }; // i18n-ignore
   }
   for (const item of items) {
     if (!Number.isInteger(item.quantity) || item.quantity < 1) {
       return {
         ok: false,
-        message: `Invalid quantity for product ${item.wcId}: must be a positive integer (got ${item.quantity})`,
+        message: `Invalid quantity for product ${item.wcId}: must be a positive integer (got ${item.quantity})`, // i18n-ignore
       };
     }
   }
@@ -186,7 +186,7 @@ export async function resolveCartItems(
   for (const item of items) {
     const catalog = await fetchWcProductPrice(item.wcId, s);
     if (!catalog) {
-      return { ok: false, message: `Product ${item.wcId} not found in catalog` };
+      return { ok: false, message: `Product ${item.wcId} not found in catalog` }; // i18n-ignore
     }
     resolved.push({
       wcId: item.wcId,

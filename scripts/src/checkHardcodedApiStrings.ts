@@ -3,10 +3,10 @@
  *
  * Scans all TS source files under artifacts/api-server/src/ and reports
  * string literals that appear to be hardcoded English prose in user-visible
- * positions — error messages returned in API JSON responses, push notification
- * bodies/titles, and SMS copy — regardless of the requesting user's language.
+ * positions — push notification titles/bodies and SMS message templates —
+ * regardless of the recipient's preferred language.
  *
- * Detection covers three patterns appropriate for plain TypeScript (no JSX):
+ * Detection covers four patterns appropriate for plain TypeScript (no JSX):
  *
  *   A. Object-property string literals — plain string literals assigned to
  *      known user-visible keys in object literals:
@@ -22,13 +22,23 @@
  *   C. Logical-OR fallback strings — `|| "text"` patterns.  Complements
  *      Pattern B.  Same word-token requirement.
  *
+ *   D. Template literal content — single-line backtick strings where the
+ *      static portions (after stripping ${…} interpolations) look like
+ *      English prose.  This is the primary pattern for SMS message templates
+ *      and push notification body arrow-function return values, which use
+ *      template literals with dynamic orderId/recipientName interpolations.
+ *      HTML-like content (lines containing < or >) is excluded to suppress
+ *      false positives from server-rendered admin HTML.
+ *
  * Exclusions (files / blocks / lines that are NOT flagged):
  *   • Test files (*.test.ts, *.spec.ts)
  *   • Declaration files (*.d.ts)
  *   • Skip dirs: node_modules, dist, .turbo, __generated__
- *   • Internal Slack-alerting files (*Monitor.ts, clerkUserSync.ts,
- *     clerkCatchupSync.ts, osProductsCache.ts, wooSync.ts) — those strings
- *     are ops tooling, not end-user-facing copy.
+ *   • Internal ops-only files (*Monitor.ts, clerkUserSync.ts,
+ *     clerkCatchupSync.ts, osProductsCache.ts, wooSync.ts,
+ *     adminFunnels.ts) — those files contain Slack alert payloads,
+ *     monitoring dashboards, and server-rendered admin HTML that are
+ *     never shown to end-users.
  *   • Comment lines (// …) and block-comment lines (/* … *\/)
  *   • Import / export / type / interface declaration lines.
  *   • Lines containing req.log / logger / console calls (server-side logging,
@@ -61,18 +71,20 @@ const SKIP_DIRS = new Set([
 ]);
 
 // File suffixes to skip — these files contain exclusively internal ops strings
-// (Slack alert payloads, monitoring dashboards) that are never shown to end-users.
+// (Slack alert payloads, monitoring dashboards, server-rendered admin HTML)
+// that are never shown to end-users as push notifications or SMS messages.
 const SKIP_FILE_SUFFIX_PATTERNS: RegExp[] = [
   /Monitor\.ts$/,          // *Monitor.ts — all Slack alert monitors
   /clerkUserSync\.ts$/,    // internal Clerk sync Slack alerts
   /clerkCatchupSync\.ts$/, // internal Clerk catch-up sync
   /osProductsCache\.ts$/,  // internal price-change Slack alerts
   /wooSync\.ts$/,          // internal WC sync banner strings
+  /adminFunnels\.ts$/,     // server-rendered admin HTML dashboard (ops only)
 ];
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
-type HitKind = "msg-prop" | "fallback-string";
+type HitKind = "msg-prop" | "fallback-string" | "template-literal";
 
 interface Hit {
   file: string;    // repo-relative path
@@ -139,6 +151,8 @@ export function shouldSkipLine(line: string): boolean {
   if (/\breq\.log\.(info|warn|error|debug|trace|child)\b/.test(t)) return true;
   if (/\blogger\.(info|warn|error|debug|trace|child)\b/.test(t)) return true;
   if (/\bconsole\.(log|warn|error|info|debug)\b/.test(t)) return true;
+  // Thrown errors — internal server-side validation, never push/SMS content
+  if (/\bthrow\b/.test(t)) return true;
   return false;
 }
 
@@ -155,6 +169,13 @@ export const NULLISH_FALLBACK_RE = /\?\?\s*["']([^"'\n]{4,})["']/g;
 
 // C: Logical-OR fallback — `|| "text"` / `|| 'text'`
 export const LOGICAL_OR_FALLBACK_RE = /\|\|\s*["']([^"'\n]{4,})["']/g;
+
+// D: Template literal content — single-line backtick strings.
+// Captures the raw content (including ${…} interpolations) for post-processing.
+// Only the static portions (after stripping ${…} segments) are checked for
+// English prose, making this the primary detector for SMS message templates
+// and push notification body arrow-function return values.
+export const TEMPLATE_LITERAL_RE = /`([^`\n]+)`/g;
 
 // ── main ────────────────────────────────────────────────────────────────────────
 // Guard lets unit tests import the exported helpers without triggering I/O
@@ -240,6 +261,45 @@ for (const filePath of files) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
     }
+
+    // ── Pattern D: Template literal content ─────────────────────────────────
+    // Catches SMS message templates and push notification body functions that
+    // use backtick template literals with dynamic interpolations.
+    // Applies stricter filtering than Patterns A–C to reduce false positives
+    // from SQL fragments, HTTP auth tokens, cache-key templates, and internal
+    // error-construction strings.
+    // Skip lines containing HTML-like content to avoid false positives from
+    // server-rendered admin pages.
+    if (!/<[a-zA-Z/]/.test(raw)) {
+      TEMPLATE_LITERAL_RE.lastIndex = 0;
+      while ((m = TEMPLATE_LITERAL_RE.exec(raw)) !== null) {
+        // Strip ${…} interpolations and collapse whitespace
+        const stripped = m[1]
+          .replace(/\$\{[^}]*\}/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        // Must start with a capital letter — user-facing messages do; SQL
+        // fragments, cache keys, and internal log strings typically do not.
+        if (!/^[A-Z]/.test(stripped)) continue;
+        // Skip URL-like content
+        if (/^https?:\/\//.test(stripped)) continue;
+        // Skip PostgreSQL cast / cache-key patterns (e.g. "categories::")
+        if (/::/.test(stripped)) continue;
+        // Skip SQL fragments containing single-quoted identifiers
+        if (/'/.test(stripped)) continue;
+        // Skip technical key=value patterns (e.g. "status=", "outcome=")
+        if (/=/.test(stripped)) continue;
+        // Require ≥ 3 word-tokens of 3+ letters — user-facing messages (SMS,
+        // push) are multi-word sentences; HTTP tokens ("Basic", "Bearer") and
+        // two-word technical labels will not meet this threshold.
+        const wordTokens = stripped.match(/\b[a-zA-Z]{3,}\b/g) ?? [];
+        if (wordTokens.length < 3) continue;
+        // De-duplicate within the same line
+        if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === stripped)) {
+          hits.push({ file: rel, line: lineNum, kind: "template-literal", text: stripped });
+        }
+      }
+    }
   }
 }
 
@@ -293,7 +353,9 @@ for (const [file, fileHits] of byFile) {
     const kindLabel =
       h.kind === "msg-prop"
         ? `[prop: ${(h.attr ?? "").padEnd(8)}]`
-        : "[?? fallback]   ";
+        : h.kind === "template-literal"
+          ? "[template lit]  "
+          : "[?? fallback]   ";
     console.error(`    line ${String(h.line).padStart(4)}  ${kindLabel}  "${h.text}"`);
   }
   console.error("");

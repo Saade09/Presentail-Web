@@ -114,7 +114,7 @@ router.post(
     if (Number.isFinite(cl) && cl > 64 * 1024) {
       res
         .status(400)
-        .json({ ok: false, message: "Payload too large" });
+        .json({ ok: false, message: "Payload too large" }); // i18n-ignore
       return;
     }
     next();
@@ -126,7 +126,7 @@ router.post(
         .status(400)
         .json({
           ok: false,
-          message: parsed.error.issues[0]?.message ?? "Invalid body",
+          message: parsed.error.issues[0]?.message ?? "Invalid body", // i18n-ignore
         });
       return;
     }

@@ -93,7 +93,7 @@ router.post("/payment/mamo", async (req, res) => {
     return res.status(503).json({
       ok: false,
       code: "mamo_not_configured",
-      message: "Mamo is not configured. Add MAMO_SECRET_KEY to enable.",
+      message: "Mamo is not configured. Add MAMO_SECRET_KEY to enable.", // i18n-ignore
     });
   }
 
@@ -128,13 +128,13 @@ router.post("/payment/mamo", async (req, res) => {
   };
 
   if (!orderId) {
-    return res.status(400).json({ ok: false, message: "orderId is required" });
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
   }
   if (!returnUrl || !failureReturnUrl) {
-    return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" });
+    return res.status(400).json({ ok: false, message: "returnUrl and failureReturnUrl are required" }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: "items is required" });
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
   }
 
   // Resolve catalog prices server-side.
@@ -165,12 +165,12 @@ router.post("/payment/mamo", async (req, res) => {
     return res.status(422).json({
       ok: false,
       code: "mamo_amount_too_small",
-      message: `Mamo requires a minimum of ${MAMO_MIN_AED.toFixed(2)} AED. Your order total is ${aedAmount.toFixed(2)} AED.`,
+      message: `Mamo requires a minimum of ${MAMO_MIN_AED.toFixed(2)} AED. Your order total is ${aedAmount.toFixed(2)} AED.`, // i18n-ignore
     });
   }
 
   const outgoingPayload = {
-    title: title ?? "Presentail Order",
+    title: title ?? "Presentail Order", // i18n-ignore
     amount: aedAmount,
     return_url: returnUrl,
     failure_return_url: failureReturnUrl,
@@ -229,9 +229,9 @@ router.post("/payment/mamo", async (req, res) => {
           ? data.error.trim()
           : undefined) ??
         (typeof data?.error_code === "string" && data.error_code.trim()
-          ? `Mamo rejected the request (${data.error_code.trim()}).`
+          ? `Mamo rejected the request (${data.error_code.trim()}).` // i18n-ignore
           : undefined) ??
-        `Mamo rejected the request (HTTP ${r.status}).`;
+        `Mamo rejected the request (HTTP ${r.status}).`; // i18n-ignore
 
       req.log.warn(
         {
@@ -264,7 +264,7 @@ router.post("/payment/mamo", async (req, res) => {
       return res.status(502).json({
         ok: false,
         code: "mamo_error",
-        message: "Mamo returned an unexpected response. Please try again or choose another payment method.",
+        message: "Mamo returned an unexpected response. Please try again or choose another payment method.", // i18n-ignore
       });
     }
 
@@ -297,7 +297,7 @@ router.post("/payment/mamo", async (req, res) => {
       presentedCurrency: presented,
     });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, code: "mamo_error", message: e?.message ?? "Mamo error" });
+    return res.status(500).json({ ok: false, code: "mamo_error", message: e?.message ?? "Mamo error" }); // i18n-ignore
   }
 });
 
@@ -325,7 +325,7 @@ async function getPayPalToken(): Promise<string> {
 
   const data = (await r.json()) as any;
   if (!r.ok || !data.access_token) {
-    throw new Error(data?.error_description ?? "Failed to get PayPal token");
+    throw new Error(data?.error_description ?? "Failed to get PayPal token"); // i18n-ignore
   }
   return data.access_token;
 }
@@ -341,7 +341,7 @@ router.post("/payment/paypal", async (req, res) => {
     return res.status(503).json({
       ok: false,
       code: "paypal_not_configured",
-      message: "PayPal is not configured. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.",
+      message: "PayPal is not configured. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.", // i18n-ignore
     });
   }
 
@@ -366,13 +366,13 @@ router.post("/payment/paypal", async (req, res) => {
   };
 
   if (!orderId) {
-    return res.status(400).json({ ok: false, message: "orderId is required" });
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
   }
   if (!returnUrl || !cancelUrl) {
-    return res.status(400).json({ ok: false, message: "returnUrl and cancelUrl are required" });
+    return res.status(400).json({ ok: false, message: "returnUrl and cancelUrl are required" }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: "items is required" });
+    return res.status(400).json({ ok: false, message: "items is required" }); // i18n-ignore
   }
 
   // Resolve catalog prices server-side.
@@ -435,7 +435,7 @@ router.post("/payment/paypal", async (req, res) => {
     if (!r.ok) {
       return res
         .status(r.status)
-        .json({ ok: false, code: "paypal_error", message: data?.message ?? "PayPal error" });
+        .json({ ok: false, code: "paypal_error", message: data?.message ?? "PayPal error" }); // i18n-ignore
     }
 
     const approveLink =
@@ -473,7 +473,7 @@ router.post("/payment/paypal", async (req, res) => {
   } catch (e: any) {
     return res
       .status(500)
-      .json({ ok: false, code: "paypal_error", message: e?.message ?? "PayPal error" });
+      .json({ ok: false, code: "paypal_error", message: e?.message ?? "PayPal error" }); // i18n-ignore
   }
 });
 

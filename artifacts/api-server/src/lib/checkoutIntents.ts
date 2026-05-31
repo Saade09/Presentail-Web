@@ -145,7 +145,7 @@ export function verifyCartMatchesSnapshot(
     .map((i) => ({ wcId: i.wcId!, quantity: i.quantity }));
 
   if (submitted.length !== snapshot.items.length) {
-    return `Cart item count mismatch: submitted ${submitted.length}, paid for ${snapshot.items.length}`;
+    return `Cart item count mismatch: submitted ${submitted.length}, paid for ${snapshot.items.length}`; // i18n-ignore
   }
 
   const snapshotMap = new Map<number, number>();
@@ -156,10 +156,10 @@ export function verifyCartMatchesSnapshot(
   for (const item of submitted) {
     const expected = snapshotMap.get(item.wcId);
     if (expected === undefined) {
-      return `Product ${item.wcId} was not part of the paid-for cart`;
+      return `Product ${item.wcId} was not part of the paid-for cart`; // i18n-ignore
     }
     if (item.quantity !== expected) {
-      return `Quantity mismatch for product ${item.wcId}: submitted ${item.quantity}, paid for ${expected}`;
+      return `Quantity mismatch for product ${item.wcId}: submitted ${item.quantity}, paid for ${expected}`; // i18n-ignore
     }
   }
 
@@ -172,19 +172,19 @@ export function verifyCartMatchesSnapshot(
       opts.submittedDistrict !== undefined &&
       opts.submittedDistrict !== snapshot.district
     ) {
-      return `District mismatch: submitted "${opts.submittedDistrict}", paid for "${snapshot.district}"`;
+      return `District mismatch: submitted "${opts.submittedDistrict}", paid for "${snapshot.district}"`; // i18n-ignore
     }
     if (
       opts.submittedExpressDelivery !== undefined &&
       opts.submittedExpressDelivery !== snapshot.expressDelivery
     ) {
-      return `Express delivery mismatch: submitted ${opts.submittedExpressDelivery}, paid for ${snapshot.expressDelivery}`;
+      return `Express delivery mismatch: submitted ${opts.submittedExpressDelivery}, paid for ${snapshot.expressDelivery}`; // i18n-ignore
     }
     if (
       opts.submittedNoAddress !== undefined &&
       opts.submittedNoAddress !== (snapshot.noAddress === true)
     ) {
-      return `No-address flag mismatch: submitted ${opts.submittedNoAddress}, paid for ${snapshot.noAddress === true}`;
+      return `No-address flag mismatch: submitted ${opts.submittedNoAddress}, paid for ${snapshot.noAddress === true}`; // i18n-ignore
     }
   }
 

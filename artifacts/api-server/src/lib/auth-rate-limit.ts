@@ -6,7 +6,7 @@ function tooManyHandler(_req: Request, res: Response) {
   res.status(429).json({
     ok: false,
     code: "too_many_requests",
-    message: "Too many attempts. Please wait a moment and try again.",
+    message: "Too many attempts. Please wait a moment and try again.", // i18n-ignore
   });
 }
 

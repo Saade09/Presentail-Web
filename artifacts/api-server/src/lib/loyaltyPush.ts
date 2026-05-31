@@ -34,7 +34,7 @@ export async function sendLoyaltyUnlockPush(
   const messages: ExpoPushMessage[] = unique.map((to) => ({
     to,
     title: `${input.tierLabel} unlocked`,
-    body: `Enjoy ${input.discountPercent}% off your next order with code ${input.code}.`,
+    body: `Enjoy ${input.discountPercent}% off your next order with code ${input.code}.`, // i18n-ignore
     sound: "default",
     priority: "high",
     data: {

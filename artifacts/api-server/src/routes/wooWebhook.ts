@@ -91,7 +91,7 @@ router.post("/woo/webhook/order", async (req, res): Promise<void> => {
   const secret = process.env.WC_WEBHOOK_SECRET ?? "";
   if (!secret) {
     req.log.warn("wooWebhook: WC_WEBHOOK_SECRET is not configured — rejecting webhook");
-    res.status(503).json({ ok: false, message: "Webhook secret not configured" });
+    res.status(503).json({ ok: false, message: "Webhook secret not configured" }); // i18n-ignore
     return;
   }
 
@@ -99,19 +99,19 @@ router.post("/woo/webhook/order", async (req, res): Promise<void> => {
   // this path before express.json()).
   const rawBody = req.body as Buffer;
   if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
-    res.status(400).json({ ok: false, message: "Empty or non-raw body" });
+    res.status(400).json({ ok: false, message: "Empty or non-raw body" }); // i18n-ignore
     return;
   }
 
   const signature = req.header("x-wc-webhook-signature") ?? "";
   if (!signature) {
-    res.status(401).json({ ok: false, message: "Missing x-wc-webhook-signature" });
+    res.status(401).json({ ok: false, message: "Missing x-wc-webhook-signature" }); // i18n-ignore
     return;
   }
 
   if (!verifyWcSignature(secret, rawBody, signature)) {
     req.log.warn({ topic: req.header("x-wc-webhook-topic") }, "wooWebhook: signature mismatch");
-    res.status(401).json({ ok: false, message: "Invalid signature" });
+    res.status(401).json({ ok: false, message: "Invalid signature" }); // i18n-ignore
     return;
   }
 
@@ -129,7 +129,7 @@ router.post("/woo/webhook/order", async (req, res): Promise<void> => {
     parsed = result.data;
   } catch (err: any) {
     req.log.warn({ err: err?.message }, "wooWebhook: JSON parse error");
-    res.status(400).json({ ok: false, message: "Invalid JSON" });
+    res.status(400).json({ ok: false, message: "Invalid JSON" }); // i18n-ignore
     return;
   }
 

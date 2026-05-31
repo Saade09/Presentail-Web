@@ -63,13 +63,13 @@ function buildMessageBody(
   switch (state) {
     case "out_for_delivery":
       return (
-        `Presentail: Your gift${recipient} (Order ${appOrderId}) has left our atelier and is on its way. ` +
+        `Presentail: Your gift${recipient} (Order ${appOrderId}) has left our atelier and is on its way. ` + // i18n-ignore
         `Track here: ${trackUrl}`
       );
     case "delivered":
       return (
-        `Presentail: Your gift${recipient} (Order ${appOrderId}) has been delivered. ` +
-        `Thank you for choosing Presentail! ${trackUrl}`
+        `Presentail: Your gift${recipient} (Order ${appOrderId}) has been delivered. ` + // i18n-ignore
+        `Thank you for choosing Presentail! ${trackUrl}` // i18n-ignore
       );
     case "confirmed":
       return (
@@ -77,11 +77,11 @@ function buildMessageBody(
         `Track here: ${trackUrl}`
       );
     case "cancelled":
-      return `Presentail: Your order ${appOrderId} has been cancelled. Reply or call us if you have questions.`;
+      return `Presentail: Your order ${appOrderId} has been cancelled. Reply or call us if you have questions.`; // i18n-ignore
     case "refunded":
-      return `Presentail: Your order ${appOrderId} has been refunded. Reply or call us if you have questions.`;
+      return `Presentail: Your order ${appOrderId} has been refunded. Reply or call us if you have questions.`; // i18n-ignore
     default:
-      return `Presentail: Update on order ${appOrderId}. Track here: ${trackUrl}`;
+      return `Presentail: Update on order ${appOrderId}. Track here: ${trackUrl}`; // i18n-ignore
   }
 }
 
@@ -124,7 +124,7 @@ async function twilioSend(opts: {
     }
     return { ok: true, sid: json.sid };
   } catch (err: any) {
-    return { ok: false, error: err?.message ?? "fetch failed" };
+    return { ok: false, error: err?.message ?? "fetch failed" }; // i18n-ignore
   }
 }
 

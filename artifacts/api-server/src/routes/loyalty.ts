@@ -42,17 +42,17 @@ router.get("/admin/loyalty/:customerId", async (req, res) => {
   const expected = process.env.PUSH_ADMIN_TOKEN;
   const provided = req.header("x-push-admin-token");
   if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
+    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return;
   }
   const id = Number.parseInt(String(req.params.customerId ?? ""), 10);
   if (!Number.isFinite(id) || id <= 0) {
-    res.status(400).json({ ok: false, message: "Invalid customerId" });
+    res.status(400).json({ ok: false, message: "Invalid customerId" }); // i18n-ignore
     return;
   }
   const customer = await getCustomerById(id);
   if (!customer) {
-    res.status(404).json({ ok: false, message: "Customer not found" });
+    res.status(404).json({ ok: false, message: "Customer not found" }); // i18n-ignore
     return;
   }
   const history = await getLoyaltyHistory(id);
@@ -67,7 +67,7 @@ router.post("/admin/loyalty/credit-order", async (req, res) => {
   const expected = process.env.PUSH_ADMIN_TOKEN;
   const provided = req.header("x-push-admin-token");
   if (!expected || !provided || provided !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
+    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return;
   }
   const body = (req.body ?? {}) as {
@@ -86,12 +86,12 @@ router.post("/admin/loyalty/credit-order", async (req, res) => {
     !Number.isFinite(wcOrderId) || wcOrderId <= 0 ||
     !Number.isFinite(totalUsdCents) || totalUsdCents < 0
   ) {
-    res.status(400).json({ ok: false, message: "Invalid payload" });
+    res.status(400).json({ ok: false, message: "Invalid payload" }); // i18n-ignore
     return;
   }
   const customer = await getCustomerById(customerId);
   if (!customer) {
-    res.status(404).json({ ok: false, message: "Customer not found" });
+    res.status(404).json({ ok: false, message: "Customer not found" }); // i18n-ignore
     return;
   }
   const result = await creditDeliveredOrder({

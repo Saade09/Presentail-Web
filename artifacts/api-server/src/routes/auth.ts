@@ -427,7 +427,7 @@ router.get("/auth/diagnostics", async (req, res) => {
   const expected = process.env.PUSH_ADMIN_TOKEN;
   const provided = req.header("x-push-admin-token");
   if (!expected || provided !== expected) {
-    res.status(403).json({ ok: false, message: "Forbidden" });
+    res.status(403).json({ ok: false, message: "Forbidden" }); // i18n-ignore
     return;
   }
 
@@ -452,7 +452,7 @@ router.get("/auth/diagnostics", async (req, res) => {
         detail: r.ok ? "ok" : "non-2xx response",
       };
     } catch (e: any) {
-      checks.wcCustomers = { ok: false, detail: e?.message ?? "fetch failed" };
+      checks.wcCustomers = { ok: false, detail: e?.message ?? "fetch failed" }; // i18n-ignore
     }
   }
 
@@ -493,7 +493,7 @@ router.get("/auth/diagnostics", async (req, res) => {
       };
     }
   } catch (e: any) {
-    checks.wpJwtPlugin = { ok: false, detail: e?.message ?? "fetch failed" };
+    checks.wpJwtPlugin = { ok: false, detail: e?.message ?? "fetch failed" }; // i18n-ignore
   }
 
   // 3) End-to-end classifier on the guaranteed-not-to-exist email. We
@@ -521,7 +521,7 @@ router.get("/auth/diagnostics", async (req, res) => {
 router.post("/auth/login", loginIpLimiter, async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
-    return res.status(400).json({ ok: false, message: "Email and password are required" });
+    return res.status(400).json({ ok: false, message: "Email and password are required" }); // i18n-ignore
   }
 
   // Check per-email failure cap before forwarding. Successful logins do NOT
@@ -532,7 +532,7 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
     return res.status(429).json({
       ok: false,
       code: "too_many_requests",
-      message: "Too many login attempts for this account. Please wait a moment and try again.",
+      message: "Too many login attempts for this account. Please wait a moment and try again.", // i18n-ignore
     });
   }
 
@@ -548,7 +548,7 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       return res.status(503).json({
         ok: false,
         code: "jwt_not_installed",
-        message: "Login is being set up on the server. Please try again later.",
+        message: "Login is being set up on the server. Please try again later.", // i18n-ignore
       });
     }
 
@@ -558,7 +558,7 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
       return res.status(401).json({
         ok: false,
         code: wpCode,
-        message: tokenData?.message?.replace(/<[^>]*>/g, "") ?? "Invalid email or password",
+        message: tokenData?.message?.replace(/<[^>]*>/g, "") ?? "Invalid email or password", // i18n-ignore
       });
     }
 
@@ -611,14 +611,14 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
     }
     return res.json({ ok: true, token: tokenData.token, user: customer });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, message: e?.message ?? "Login failed" });
+    return res.status(500).json({ ok: false, message: e?.message ?? "Login failed" }); // i18n-ignore
   }
 });
 
 // ── Register: create a WooCommerce customer ──────────────────────────────────
 router.post("/auth/register", registerIpLimiter, async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
-    return res.status(503).json({ ok: false, message: "Registration unavailable" });
+    return res.status(503).json({ ok: false, message: "Registration unavailable" }); // i18n-ignore
   }
   const { email, password, firstName, lastName, phone } = req.body as {
     email?: string;
@@ -628,10 +628,10 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     phone?: string;
   };
   if (!email || !password) {
-    return res.status(400).json({ ok: false, message: "Email and password are required" });
+    return res.status(400).json({ ok: false, message: "Email and password are required" }); // i18n-ignore
   }
   if (password.length < 8) {
-    return res.status(400).json({ ok: false, message: "Password must be at least 8 characters" });
+    return res.status(400).json({ ok: false, message: "Password must be at least 8 characters" }); // i18n-ignore
   }
 
   try {
@@ -650,7 +650,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     if (!r.ok) {
       return res.status(r.status).json({
         ok: false,
-        message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed",
+        message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed", // i18n-ignore
       });
     }
 
@@ -686,7 +686,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     }
     return res.json({ ok: true, token, user: mapped });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, message: e?.message ?? "Registration failed" });
+    return res.status(500).json({ ok: false, message: e?.message ?? "Registration failed" }); // i18n-ignore
   }
 });
 
@@ -710,7 +710,7 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       if (!email) {
         const secretKey = process.env.CLERK_SECRET_KEY;
         if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" });
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
           return;
         }
         const clerk = createClerkClient({ secretKey });
@@ -726,7 +726,7 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
 
       if (!email) {
-        res.status(401).json({ ok: false, message: "Clerk user has no email" });
+        res.status(401).json({ ok: false, message: "Clerk user has no email" }); // i18n-ignore
         return;
       }
       const { customer: local } = await upsertCustomer({
@@ -785,7 +785,7 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     const r = await wcFetch(`/customers/${auth.customerId}`, {}, req);
     const data = (await r.json().catch(() => ({}))) as any;
     if (!r.ok) {
-      res.status(r.status).json({ ok: false, message: data?.message ?? "Not found" });
+      res.status(r.status).json({ ok: false, message: data?.message ?? "Not found" }); // i18n-ignore
       return;
     }
     const mapped = mapCustomer(data);
@@ -884,7 +884,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     if (body.birthday !== undefined) {
       const parsed = parseBirthday(body.birthday);
       if (!parsed.ok) {
-        res.status(400).json({ ok: false, message: "Invalid birthday" });
+        res.status(400).json({ ok: false, message: "Invalid birthday" }); // i18n-ignore
         return;
       }
       normalizedTeamBirthday = parsed.value;
@@ -901,7 +901,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       if (!putEmail) {
         const secretKey = process.env.CLERK_SECRET_KEY;
         if (!secretKey) {
-          res.status(503).json({ ok: false, message: "Clerk is not configured" });
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
           return;
         }
         const clerk = createClerkClient({ secretKey });
@@ -915,7 +915,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
 
       if (!putEmail) {
-        res.status(401).json({ ok: false, message: "Clerk user has no email" });
+        res.status(401).json({ ok: false, message: "Clerk user has no email" }); // i18n-ignore
         return;
       }
       // Upsert to ensure the row exists, then apply the patch.
@@ -1019,7 +1019,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   if (body.birthday !== undefined) {
     const parsed = parseBirthday(body.birthday);
     if (!parsed.ok) {
-      res.status(400).json({ ok: false, message: "Invalid birthday" });
+      res.status(400).json({ ok: false, message: "Invalid birthday" }); // i18n-ignore
       return;
     }
     normalizedBirthday = parsed.value;
@@ -1143,7 +1143,7 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   }
 
   if (!localPatchApplied) {
-    res.status(500).json({ ok: false, message: "Update failed" });
+    res.status(500).json({ ok: false, message: "Update failed" }); // i18n-ignore
     return;
   }
   res.json({ ok: true, user: null });
@@ -1178,7 +1178,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
         if (liveUserType === "team") {
           res.status(403).json({
             ok: false,
-            message: "Team accounts cannot be deleted through the storefront.",
+            message: "Team accounts cannot be deleted through the storefront.", // i18n-ignore
           });
           return;
         }
@@ -1191,7 +1191,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
         );
         res.status(502).json({
           ok: false,
-          message: "Could not verify account type. Please try again.",
+          message: "Could not verify account type. Please try again.", // i18n-ignore
         });
         return;
       }
@@ -1265,7 +1265,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     res.json({ ok: true });
   } catch (e: any) {
     req.log?.error?.({ err: e?.message }, "auth.delete: unexpected error");
-    res.status(500).json({ ok: false, message: e?.message ?? "Delete failed" });
+    res.status(500).json({ ok: false, message: e?.message ?? "Delete failed" }); // i18n-ignore
   }
 });
 
@@ -1362,7 +1362,7 @@ async function createCustomer(input: {
   }, req);
   const data = (await r.json().catch(() => ({}))) as any;
   if (!r.ok) {
-    const msg = data?.message?.replace(/<[^>]*>/g, "") ?? "Could not create account";
+    const msg = data?.message?.replace(/<[^>]*>/g, "") ?? "Could not create account"; // i18n-ignore
     throw new Error(msg);
   }
   return data;
@@ -1403,7 +1403,7 @@ async function issueSocialSession(
   if (!store.consumerKey) {
     return res
       .status(503)
-      .json({ ok: false, message: "Sign-in is not available right now." });
+      .json({ ok: false, message: "Sign-in is not available right now." }); // i18n-ignore
   }
   try {
     const customer = await ensureCustomerForSocial(profile, req);
@@ -1456,7 +1456,7 @@ async function issueSocialSession(
 router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
   const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
-    return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email is required" });
+    return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email is required" }); // i18n-ignore
   }
 
   // Email-based cap prevents one address from being flooded with reset emails.
@@ -1468,7 +1468,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
     return res.status(429).json({
       ok: false,
       code: "too_many_requests",
-      message: "Too many reset attempts for this email. Please wait before requesting another reset.",
+      message: "Too many reset attempts for this email. Please wait before requesting another reset.", // i18n-ignore
     });
   }
   resetEmailLimiter.record(email);
@@ -1492,7 +1492,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
     });
     if (r.status >= 500) {
       req.log?.warn?.({ status: r.status }, "auth.reset.request: upstream error");
-      return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." });
+      return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." }); // i18n-ignore
     }
     const location = r.headers.get("location") ?? "";
     const isRedirect = r.status >= 300 && r.status < 400;
@@ -1505,7 +1505,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
       return res.status(404).json({
         ok: false,
         code: "unknown_email",
-        message: "We couldn't find a Presentail account for that email.",
+        message: "We couldn't find a Presentail account for that email.", // i18n-ignore
       });
     }
     if (r.status === 200) {
@@ -1516,7 +1516,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
         return res.status(404).json({
           ok: false,
           code: "unknown_email",
-          message: "We couldn't find a Presentail account for that email.",
+          message: "We couldn't find a Presentail account for that email.", // i18n-ignore
         });
       }
     }
@@ -1524,7 +1524,7 @@ router.post("/auth/reset/request", resetRequestIpLimiter, async (req, res) => {
     return res.json({ ok: true });
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.reset.request: failed");
-    return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." });
+    return res.status(502).json({ ok: false, message: "Reset service unavailable. Please try again later." }); // i18n-ignore
   }
 });
 
@@ -1553,14 +1553,14 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
     return res.status(400).json({
       ok: false,
       code: "missing_link",
-      message: "Missing reset link details or new password.",
+      message: "Missing reset link details or new password.", // i18n-ignore
     });
   }
   if (password.length < 8) {
     return res.status(400).json({
       ok: false,
       code: "weak_password",
-      message: "Password must be at least 8 characters.",
+      message: "Password must be at least 8 characters.", // i18n-ignore
     });
   }
   try {
@@ -1585,7 +1585,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       return res.status(400).json({
         ok: false,
         code: "expired_link",
-        message: "This reset link has expired or is invalid. Please request a new one.",
+        message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
     }
 
@@ -1615,7 +1615,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       return res.status(400).json({
         ok: false,
         code: "expired_link",
-        message: "This reset link has expired or is invalid. Please request a new one.",
+        message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
     }
     const body = await resetRes.text().catch(() => "");
@@ -1623,7 +1623,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       return res.status(400).json({
         ok: false,
         code: "expired_link",
-        message: "This reset link has expired or is invalid. Please request a new one.",
+        message: "This reset link has expired or is invalid. Please request a new one.", // i18n-ignore
       });
     }
     if (resetRes.status === 200) {
@@ -1632,7 +1632,7 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
       return res.status(400).json({
         ok: false,
         code: "weak_password",
-        message: "Please choose a stronger password and try again.",
+        message: "Please choose a stronger password and try again.", // i18n-ignore
       });
     }
     req.log?.warn?.(
@@ -1641,13 +1641,13 @@ router.post("/auth/reset/confirm", resetConfirmIpLimiter, async (req, res) => {
     );
     return res.status(502).json({
       ok: false,
-      message: "Could not reset your password right now. Please try again.",
+      message: "Could not reset your password right now. Please try again.", // i18n-ignore
     });
   } catch (e: any) {
     req.log?.warn?.({ err: e?.message }, "auth.reset.confirm: failed");
     return res.status(502).json({
       ok: false,
-      message: "Could not reset your password right now. Please try again.",
+      message: "Could not reset your password right now. Please try again.", // i18n-ignore
     });
   }
 });
@@ -1660,7 +1660,7 @@ router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
   if (!identityToken) {
     return res
       .status(400)
-      .json({ ok: false, message: "Missing Apple identity token" });
+      .json({ ok: false, message: "Missing Apple identity token" }); // i18n-ignore
   }
   let payload: any;
   try {
@@ -1673,7 +1673,7 @@ router.post("/auth/social/apple", socialIpLimiter, async (req, res) => {
     req.log?.warn?.({ err: e?.message }, "auth.social.apple: token invalid");
     return res
       .status(401)
-      .json({ ok: false, message: "Apple sign-in could not be verified" });
+      .json({ ok: false, message: "Apple sign-in could not be verified" }); // i18n-ignore
   }
   const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
@@ -1697,13 +1697,13 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
   if (!idToken) {
     return res
       .status(400)
-      .json({ ok: false, message: "Missing Google ID token" });
+      .json({ ok: false, message: "Missing Google ID token" }); // i18n-ignore
   }
   const audiences = googleAudiences();
   if (!audiences.length) {
     return res.status(503).json({
       ok: false,
-      message: "Google sign-in is not configured on the server.",
+      message: "Google sign-in is not configured on the server.", // i18n-ignore
     });
   }
   let payload: any;
@@ -1717,18 +1717,18 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
     req.log?.warn?.({ err: e?.message }, "auth.social.google: token invalid");
     return res
       .status(401)
-      .json({ ok: false, message: "Google sign-in could not be verified" });
+      .json({ ok: false, message: "Google sign-in could not be verified" }); // i18n-ignore
   }
   if (payload.email_verified === false) {
     return res
       .status(401)
-      .json({ ok: false, message: "Your Google email is not verified." });
+      .json({ ok: false, message: "Your Google email is not verified." }); // i18n-ignore
   }
   const email = String(payload.email ?? "").trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
     return res
       .status(400)
-      .json({ ok: false, message: "Google didn't share an email address." });
+      .json({ ok: false, message: "Google didn't share an email address." }); // i18n-ignore
   }
   const givenName = String(payload.given_name ?? "").trim();
   const familyName = String(payload.family_name ?? "").trim();

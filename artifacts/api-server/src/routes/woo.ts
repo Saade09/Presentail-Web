@@ -348,14 +348,14 @@ router.get("/woo/brands", async (req, res) => {
 
   const store = resolveStoreFromRequest(req);
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   try {
     const lang = readLang(req);
     const r = await wooFetch("/products/brands?per_page=100", {}, lang, store);
     if (!r.ok) {
       const err = (await r.json()) as WcErrorResponse;
-      return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
+      return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" }); // i18n-ignore
     }
     const brands = (await r.json()) as WcBrand[];
     return res.json({
@@ -369,13 +369,13 @@ router.get("/woo/brands", async (req, res) => {
       })),
     });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brands" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brands" }); // i18n-ignore
   }
 });
 
 router.get("/woo/brand-products", async (req, res) => {
   const brandSlug = String(req.query.slug ?? "");
-  if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  if (!brandSlug) return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
 
   const store = resolveStoreFromRequest(req);
   // Serve from OS cache when available.
@@ -397,7 +397,7 @@ router.get("/woo/brand-products", async (req, res) => {
   }
 
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   const lang = readLang(req);
 
@@ -409,7 +409,7 @@ router.get("/woo/brand-products", async (req, res) => {
       store,
     );
     if (!brandRes.ok) {
-      return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" });
+      return res.status(brandRes.status).json({ ok: false, message: "Failed to lookup brand" }); // i18n-ignore
     }
     const brandList = (await brandRes.json()) as WcBrand[];
     if (!brandList.length) {
@@ -426,7 +426,7 @@ router.get("/woo/brand-products", async (req, res) => {
       store,
     );
     if (!r.ok) {
-      return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" });
+      return res.status(r.status).json({ ok: false, message: "Failed to fetch brand products" }); // i18n-ignore
     }
     const batch = (await r.json()) as WcProduct[];
     const filter = readDeliveryFilter(req);
@@ -436,7 +436,7 @@ router.get("/woo/brand-products", async (req, res) => {
       .map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length, brandName, brandImage });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brand products" }); // i18n-ignore
   }
 });
 
@@ -547,7 +547,7 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
 
 router.get("/woo/category-products", async (req, res) => {
   const slug = String(req.query.slug ?? "");
-  if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" });
+  if (!slug) return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   if (isHiddenCategory(slug)) {
     return res.json({ ok: true, products: [], count: 0 });
   }
@@ -571,7 +571,7 @@ router.get("/woo/category-products", async (req, res) => {
   }
 
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   const lang = readLang(req);
   try {
@@ -581,7 +581,7 @@ router.get("/woo/category-products", async (req, res) => {
       lang,
       store,
     );
-    if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" });
+    if (!catRes.ok) return res.status(catRes.status).json({ ok: false, message: "Failed to lookup category" }); // i18n-ignore
     const catList = (await catRes.json()) as WcCategory[];
     if (!catList.length) return res.json({ ok: true, products: [], count: 0 });
     const catId = catList[0].id;
@@ -615,7 +615,7 @@ router.get("/woo/category-products", async (req, res) => {
       .filter((p) => isDeliverable(p, filter));
     return res.json({ ok: true, products: filtered.map((p) => transformProduct(p, store.currencySymbol)), count: filtered.length, categoryName: catName });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch category products" }); // i18n-ignore
   }
 });
 
@@ -667,7 +667,7 @@ router.get("/woo/occasion-products", async (req, res) => {
   }
 
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   const lang = readLang(req);
 
@@ -726,7 +726,7 @@ router.get("/woo/occasion-products", async (req, res) => {
 
     return res.json({ ok: true, groups: result, total: allProducts.length });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch occasion products" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch occasion products" }); // i18n-ignore
   }
 });
 
@@ -810,7 +810,7 @@ router.get("/woo/products", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   // Allow request to proceed when OS has products, even if WC is not configured.
   if (!store.consumerKey && !hasOsProducts(store.storeKey)) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   try {
     const lang = readLang(req);
@@ -822,7 +822,7 @@ router.get("/woo/products", async (req, res) => {
       .map((p) => transformProduct(p, store.currencySymbol));
     return res.json({ ok: true, products, count: products.length });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch products" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch products" }); // i18n-ignore
   }
 });
 
@@ -837,7 +837,7 @@ router.get("/woo/product", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
-    return res.status(400).json({ ok: false, message: "Missing slug" });
+    return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
 
   const store = resolveStoreFromRequest(req);
@@ -845,11 +845,11 @@ router.get("/woo/product", async (req, res) => {
   if (hasOsProducts(store.storeKey)) {
     const osProduct = getOsProductBySlug(slug, store.storeKey);
     if (!osProduct) {
-      return res.status(404).json({ ok: false, message: "Product not found" });
+      return res.status(404).json({ ok: false, message: "Product not found" }); // i18n-ignore
     }
     const wcProduct = mapOsProductToWcShape(osProduct);
     if (!isVisibleProduct(wcProduct)) {
-      return res.status(404).json({ ok: false, message: "Product not found" });
+      return res.status(404).json({ ok: false, message: "Product not found" }); // i18n-ignore
     }
     return res.json({
       ok: true,
@@ -858,14 +858,14 @@ router.get("/woo/product", async (req, res) => {
   }
 
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   try {
     const lang = readLang(req);
     const allProducts = await fetchAllProducts(lang, store);
     const match = allProducts.find((p) => p.slug === slug);
     if (!match || !isVisibleProduct(match)) {
-      return res.status(404).json({ ok: false, message: "Product not found" });
+      return res.status(404).json({ ok: false, message: "Product not found" }); // i18n-ignore
     }
     return res.json({
       ok: true,
@@ -874,7 +874,7 @@ router.get("/woo/product", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to fetch product" });
+      .json({ ok: false, message: err?.message ?? "Failed to fetch product" }); // i18n-ignore
   }
 });
 
@@ -888,14 +888,14 @@ router.get("/woo/brand", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
-    return res.status(400).json({ ok: false, message: "Missing slug" });
+    return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
 
   // Serve from OS cache when available.
   const osBrands = getOsBrands();
   if (osBrands) {
     const b = osBrands.find((brand) => brand.slug === slug);
-    if (!b) return res.status(404).json({ ok: false, message: "Brand not found" });
+    if (!b) return res.status(404).json({ ok: false, message: "Brand not found" }); // i18n-ignore
     return res.json({
       ok: true,
       brand: {
@@ -910,7 +910,7 @@ router.get("/woo/brand", async (req, res) => {
 
   const store = resolveStoreFromRequest(req);
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   try {
     const lang = readLang(req);
@@ -921,11 +921,11 @@ router.get("/woo/brand", async (req, res) => {
       store,
     );
     if (!r.ok) {
-      return res.status(r.status).json({ ok: false, message: "Failed to lookup brand" });
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup brand" }); // i18n-ignore
     }
     const list = (await r.json()) as WcBrand[];
     if (!list.length) {
-      return res.status(404).json({ ok: false, message: "Brand not found" });
+      return res.status(404).json({ ok: false, message: "Brand not found" }); // i18n-ignore
     }
     const b = list[0];
     return res.json({
@@ -941,7 +941,7 @@ router.get("/woo/brand", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to fetch brand" });
+      .json({ ok: false, message: err?.message ?? "Failed to fetch brand" }); // i18n-ignore
   }
 });
 
@@ -956,17 +956,17 @@ router.get("/woo/category", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
-    return res.status(400).json({ ok: false, message: "Missing slug" });
+    return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
   if (isHiddenCategory(slug)) {
-    return res.status(404).json({ ok: false, message: "Category not found" });
+    return res.status(404).json({ ok: false, message: "Category not found" }); // i18n-ignore
   }
 
   // Serve from OS cache when available.
   const osCategories = getOsCategories();
   if (osCategories) {
     const c = osCategories.find((cat) => cat.slug === slug);
-    if (!c) return res.status(404).json({ ok: false, message: "Category not found" });
+    if (!c) return res.status(404).json({ ok: false, message: "Category not found" }); // i18n-ignore
     return res.json({
       ok: true,
       category: {
@@ -981,7 +981,7 @@ router.get("/woo/category", async (req, res) => {
 
   const store = resolveStoreFromRequest(req);
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   try {
     const lang = readLang(req);
@@ -992,11 +992,11 @@ router.get("/woo/category", async (req, res) => {
       store,
     );
     if (!r.ok) {
-      return res.status(r.status).json({ ok: false, message: "Failed to lookup category" });
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup category" }); // i18n-ignore
     }
     const list = (await r.json()) as WcCategory[];
     if (!list.length) {
-      return res.status(404).json({ ok: false, message: "Category not found" });
+      return res.status(404).json({ ok: false, message: "Category not found" }); // i18n-ignore
     }
     const c = list[0];
     return res.json({
@@ -1012,7 +1012,7 @@ router.get("/woo/category", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to fetch category" });
+      .json({ ok: false, message: err?.message ?? "Failed to fetch category" }); // i18n-ignore
   }
 });
 
@@ -1031,17 +1031,17 @@ router.get("/woo/occasion", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
-    return res.status(400).json({ ok: false, message: "Missing slug" });
+    return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
   if (!OCCASION_SLUGS.includes(slug)) {
-    return res.status(404).json({ ok: false, message: "Occasion not found" });
+    return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
   }
 
   // Serve from OS cache when available.
   const osOccasions = getOsOccasions();
   if (osOccasions) {
     const o = osOccasions.find((occ) => occ.slug === slug);
-    if (!o) return res.status(404).json({ ok: false, message: "Occasion not found" });
+    if (!o) return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
     return res.json({
       ok: true,
       occasion: {
@@ -1064,11 +1064,11 @@ router.get("/woo/occasion", async (req, res) => {
       store,
     );
     if (!r.ok) {
-      return res.status(r.status).json({ ok: false, message: "Failed to lookup occasion" });
+      return res.status(r.status).json({ ok: false, message: "Failed to lookup occasion" }); // i18n-ignore
     }
     const list = (await r.json()) as WcCategory[];
     if (!list.length) {
-      return res.status(404).json({ ok: false, message: "Occasion not found" });
+      return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
     }
     const c = list[0];
     // Warm the occasion id cache so a subsequent /occasion-products call
@@ -1092,7 +1092,7 @@ router.get("/woo/occasion", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to fetch occasion" });
+      .json({ ok: false, message: err?.message ?? "Failed to fetch occasion" }); // i18n-ignore
   }
 });
 
@@ -1120,7 +1120,7 @@ router.get("/woo/occasion", async (req, res) => {
 router.post("/woo/order", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" });
+    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
   }
   const parsed = WooOrderSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -1130,7 +1130,7 @@ router.post("/woo/order", async (req, res) => {
     );
     return res
       .status(400)
-      .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues });
+      .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues }); // i18n-ignore
   }
   const body = parsed.data;
   const requestPlatform = normalizePlatform(req.header("x-app-platform"));
@@ -1247,7 +1247,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1264,7 +1264,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "cart_mismatch",
-        message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.",
+        message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1286,7 +1286,7 @@ router.post("/woo/order", async (req, res) => {
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",
-          message: "Payment could not be confirmed with Stripe. Please complete payment before placing the order.",
+          message: "Payment could not be confirmed with Stripe. Please complete payment before placing the order.", // i18n-ignore
         });
       }
     }
@@ -1295,7 +1295,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "payment_reference_required",
-        message: "A Mamo payment link ID (paymentRef) is required for Mamo payments.",
+        message: "A Mamo payment link ID (paymentRef) is required for Mamo payments.", // i18n-ignore
       });
     }
 
@@ -1309,7 +1309,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1330,7 +1330,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "cart_mismatch",
-        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1350,7 +1350,7 @@ router.post("/woo/order", async (req, res) => {
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",
-          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.",
+          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.", // i18n-ignore
         });
       }
     }
@@ -1359,7 +1359,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "payment_reference_required",
-        message: "A PayPal order ID (paymentRef) is required for PayPal payments.",
+        message: "A PayPal order ID (paymentRef) is required for PayPal payments.", // i18n-ignore
       });
     }
 
@@ -1373,7 +1373,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1394,7 +1394,7 @@ router.post("/woo/order", async (req, res) => {
       return res.status(402).json({
         ok: false,
         code: "cart_mismatch",
-        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
 
@@ -1414,7 +1414,7 @@ router.post("/woo/order", async (req, res) => {
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",
-          message: "Payment could not be captured with PayPal. Please complete payment before placing the order.",
+          message: "Payment could not be captured with PayPal. Please complete payment before placing the order.", // i18n-ignore
         });
       }
     }
@@ -1494,7 +1494,7 @@ const SearchQuerySchema = z.object({
 router.get("/woo/search", async (req, res) => {
   const parsed = SearchQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, message: "q must be 2–100 characters" });
+    return res.status(400).json({ ok: false, message: "q must be 2–100 characters" }); // i18n-ignore
   }
   const { q } = parsed.data;
   const lower = q.toLowerCase();
@@ -1539,7 +1539,7 @@ router.get("/woo/search", async (req, res) => {
 
     return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Search failed" });
+    return res.status(500).json({ ok: false, message: err?.message ?? "Search failed" }); // i18n-ignore
   }
 });
 
@@ -1549,7 +1549,7 @@ router.get("/woo/pending-orders", async (req, res) => {
   if (!adminToken || !supplied || supplied !== adminToken) {
     return res
       .status(401)
-      .json({ ok: false, message: "Invalid or missing admin token" });
+      .json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
   }
   const rawStatus = typeof req.query.status === "string" ? req.query.status : "";
   const status =
@@ -1578,7 +1578,7 @@ router.get("/woo/pending-orders", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to list pending orders" });
+      .json({ ok: false, message: err?.message ?? "Failed to list pending orders" }); // i18n-ignore
   }
 });
 

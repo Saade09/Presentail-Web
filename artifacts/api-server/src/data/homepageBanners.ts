@@ -10,8 +10,8 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
   {
     id: "banner-flowers",
     countryCode: "*",
-    title: "Fresh Flowers",
-    subtitle: "From hand-tied bouquets to elegant vases — crafted for every moment.",
+    title: "Fresh Flowers", // i18n-ignore
+    subtitle: "From hand-tied bouquets to elegant vases — crafted for every moment.", // i18n-ignore
     ctaText: "Shop Flowers",
     desktopMediaType: "image",
     desktopMediaUrl:
@@ -27,8 +27,8 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
   {
     id: "banner-summer-collection",
     countryCode: "*",
-    title: "Summer Collection",
-    subtitle: "Sun-kissed blooms and vibrant arrangements to brighten every space.",
+    title: "Summer Collection", // i18n-ignore
+    subtitle: "Sun-kissed blooms and vibrant arrangements to brighten every space.", // i18n-ignore
     ctaText: "Explore",
     desktopMediaType: "image",
     desktopMediaUrl:
@@ -44,8 +44,8 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
   {
     id: "banner-luxury-flowers",
     countryCode: "*",
-    title: "Luxury Flowers",
-    subtitle: "Rare blooms and signature arrangements, beautifully presented.",
+    title: "Luxury Flowers", // i18n-ignore
+    subtitle: "Rare blooms and signature arrangements, beautifully presented.", // i18n-ignore
     ctaText: "Shop Luxury",
     desktopMediaType: "image",
     desktopMediaUrl:

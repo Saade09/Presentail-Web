@@ -28,7 +28,7 @@ router.post(
       );
       res.status(503).json({
         ok: false,
-        message: "Clerk webhook secret not configured",
+        message: "Clerk webhook secret not configured", // i18n-ignore
       });
       return;
     }
@@ -36,7 +36,7 @@ router.post(
     const secretKey = process.env.CLERK_SECRET_KEY;
     if (!secretKey) {
       req.log?.warn?.("clerkWebhook: CLERK_SECRET_KEY not configured");
-      res.status(503).json({ ok: false, message: "Clerk not configured" });
+      res.status(503).json({ ok: false, message: "Clerk not configured" }); // i18n-ignore
       return;
     }
 
@@ -59,7 +59,7 @@ router.post(
         { err: err?.message },
         "clerkWebhook: signature verification failed",
       );
-      res.status(401).json({ ok: false, message: "Invalid signature" });
+      res.status(401).json({ ok: false, message: "Invalid signature" }); // i18n-ignore
       return;
     }
 
@@ -72,7 +72,7 @@ router.post(
 
     const userId = String((evt.data as { id?: string }).id ?? "");
     if (!userId) {
-      res.status(400).json({ ok: false, message: "Missing user id" });
+      res.status(400).json({ ok: false, message: "Missing user id" }); // i18n-ignore
       return;
     }
 
@@ -97,7 +97,7 @@ router.post(
         { err: err?.message, userId },
         "clerkWebhook: failed to set publicMetadata",
       );
-      res.status(500).json({ ok: false, message: "Failed to tag user" });
+      res.status(500).json({ ok: false, message: "Failed to tag user" }); // i18n-ignore
     }
   },
 );

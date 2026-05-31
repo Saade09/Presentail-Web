@@ -30,7 +30,7 @@ async function resolveCustomerId(
   if (!auth.ok) return auth;
   const local = await getCustomerByWcId(auth.customerId);
   if (!local) {
-    return { ok: false, status: 404, message: "Customer profile not found" };
+    return { ok: false, status: 404, message: "Customer profile not found" }; // i18n-ignore
   }
   return { ok: true, customerId: local.id };
 }
@@ -75,7 +75,7 @@ router.post(
     if (!parsed.success) {
       res.status(400).json({
         ok: false,
-        message: parsed.error.issues[0]?.message ?? "Invalid request",
+        message: parsed.error.issues[0]?.message ?? "Invalid request", // i18n-ignore
       });
       return;
     }
@@ -145,7 +145,7 @@ router.post(
 router.get("/favorites/share/:token", async (req, res) => {
   const token = String(req.params.token ?? "").trim();
   if (!token) {
-    res.status(404).json({ ok: false, message: "Not found" });
+    res.status(404).json({ ok: false, message: "Not found" }); // i18n-ignore
     return;
   }
 
@@ -156,7 +156,7 @@ router.get("/favorites/share/:token", async (req, res) => {
     .limit(1);
 
   if (!link[0] || link[0].expiresAt <= new Date()) {
-    res.status(404).json({ ok: false, message: "Share link not found or expired" });
+    res.status(404).json({ ok: false, message: "Share link not found or expired" }); // i18n-ignore
     return;
   }
 
@@ -188,7 +188,7 @@ router.delete(
     }
     const slug = String(req.params.slug ?? "").trim();
     if (!slug) {
-      res.status(400).json({ ok: false, message: "Invalid slug" });
+      res.status(400).json({ ok: false, message: "Invalid slug" }); // i18n-ignore
       return;
     }
     await db

@@ -32,7 +32,7 @@ const registerLimiter = rateLimit({
     res.status(429).json({
       ok: false,
       code: "too_many_requests",
-      message: "Too many push registrations. Slow down.",
+      message: "Too many push registrations. Slow down.", // i18n-ignore
     });
   },
 });
@@ -46,7 +46,7 @@ router.post("/push/register", registerLimiter, async (req, res): Promise<void> =
   if (!parsed.success) {
     res
       .status(400)
-      .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid body" });
+      .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid body" }); // i18n-ignore
     return;
   }
   const { token, platform, deviceId, countryCode, cityId } = parsed.data;
@@ -112,7 +112,7 @@ router.post("/push/register", registerLimiter, async (req, res): Promise<void> =
     req.log?.error?.({ err: err?.message }, "push.register failed");
     res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to register token" });
+      .json({ ok: false, message: err?.message ?? "Failed to register token" }); // i18n-ignore
   }
 });
 
@@ -127,12 +127,12 @@ router.post("/push/register", registerLimiter, async (req, res): Promise<void> =
 router.post("/push/unregister", async (req, res): Promise<void> => {
   const parsed = UnregisterPushTokenBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ ok: false, message: "Invalid body" });
+    res.status(400).json({ ok: false, message: "Invalid body" }); // i18n-ignore
     return;
   }
   const { token, deviceId } = parsed.data;
   if (!token && !deviceId) {
-    res.status(400).json({ ok: false, message: "Provide token or deviceId" });
+    res.status(400).json({ ok: false, message: "Provide token or deviceId" }); // i18n-ignore
     return;
   }
 
@@ -171,7 +171,7 @@ router.post("/push/unregister", async (req, res): Promise<void> => {
     req.log?.error?.({ err: err?.message }, "push.unregister failed");
     res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to unregister token" });
+      .json({ ok: false, message: err?.message ?? "Failed to unregister token" }); // i18n-ignore
   }
 });
 
@@ -179,7 +179,7 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
   const adminToken = process.env.PUSH_ADMIN_TOKEN;
   const supplied = req.header("x-push-admin-token");
   if (!adminToken || !supplied || supplied !== adminToken) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
+    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return;
   }
 
@@ -187,13 +187,13 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
   if (!parsed.success) {
     res
       .status(400)
-      .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid body" });
+      .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid body" }); // i18n-ignore
     return;
   }
   const { state, appOrderId, wcOrderId, title, body } = parsed.data;
 
   if (!appOrderId && !wcOrderId) {
-    res.status(400).json({ ok: false, message: "Provide appOrderId or wcOrderId" });
+    res.status(400).json({ ok: false, message: "Provide appOrderId or wcOrderId" }); // i18n-ignore
     return;
   }
 
@@ -216,7 +216,7 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
     }
 
     if (!order) {
-      res.status(404).json({ ok: false, message: "Order not found" });
+      res.status(404).json({ ok: false, message: "Order not found" }); // i18n-ignore
       return;
     }
 
@@ -292,7 +292,7 @@ router.post("/push/order-event", async (req, res): Promise<void> => {
     req.log?.error?.({ err: err?.message }, "push.order-event failed");
     res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to send push" });
+      .json({ ok: false, message: err?.message ?? "Failed to send push" }); // i18n-ignore
   }
 });
 

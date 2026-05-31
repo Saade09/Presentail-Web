@@ -235,7 +235,7 @@ export async function attemptCreateWcOrder(
         return {
           ok: false,
           status: 422,
-          message: `Catalog price unavailable for product ${item.wcId}. Cannot create order with unverified pricing.`,
+          message: `Catalog price unavailable for product ${item.wcId}. Cannot create order with unverified pricing.`, // i18n-ignore
           recipientName: recipientFullName,
         };
       }
@@ -414,7 +414,7 @@ export async function attemptCreateWcOrder(
       return {
         ok: false,
         status: r.status,
-        message: data?.message ?? "WooCommerce order failed",
+        message: data?.message ?? "WooCommerce order failed", // i18n-ignore
         recipientName: recipientFullName,
       };
     }
@@ -429,7 +429,7 @@ export async function attemptCreateWcOrder(
     return {
       ok: false,
       status: 500,
-      message: err?.message ?? "Failed to create order",
+      message: err?.message ?? "Failed to create order", // i18n-ignore
       recipientName: recipientFullName,
     };
   }

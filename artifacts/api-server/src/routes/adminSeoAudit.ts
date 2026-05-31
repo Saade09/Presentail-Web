@@ -19,7 +19,7 @@ function requireAdmin(req: Request, res: Response): boolean {
   if (!expected || !supplied || supplied !== expected) {
     res
       .status(401)
-      .json({ ok: false, message: "Invalid or missing admin token" });
+      .json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return false;
   }
   return true;
@@ -49,7 +49,7 @@ router.post("/admin/seo-audit/run", async (req, res) => {
     }
     req.log.warn({ err: message }, "adminSeoAudit: runAuditNow failed");
     logger.warn({ err: message }, "adminSeoAudit: runAuditNow failed");
-    res.status(500).json({ ok: false, message: "Audit failed" });
+    res.status(500).json({ ok: false, message: "Audit failed" }); // i18n-ignore
   }
 });
 

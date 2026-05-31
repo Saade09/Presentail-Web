@@ -81,7 +81,7 @@ async function resolveCustomerId(
     return {
       ok: false,
       status: 404,
-      message: "Customer profile not found",
+      message: "Customer profile not found", // i18n-ignore
     };
   }
   return { ok: true, customerId: local.id };
@@ -127,7 +127,7 @@ router.post(
     if (!parsed.success) {
       res
         .status(400)
-        .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid address" });
+        .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid address" }); // i18n-ignore
       return;
     }
     const input = parsed.data;
@@ -195,7 +195,7 @@ router.patch(
     }
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      res.status(400).json({ ok: false, message: "Invalid address id" });
+      res.status(400).json({ ok: false, message: "Invalid address id" }); // i18n-ignore
       return;
     }
     req.log.info({ rawBody: req.body }, "PATCH /me/addresses raw body");
@@ -203,7 +203,7 @@ router.patch(
     if (!parsed.success) {
       res
         .status(400)
-        .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid address" });
+        .json({ ok: false, message: parsed.error.issues[0]?.message ?? "Invalid address" }); // i18n-ignore
       return;
     }
     req.log.info({ parsed: parsed.data }, "PATCH /me/addresses parsed body");
@@ -219,7 +219,7 @@ router.patch(
       )
       .limit(1);
     if (!existing) {
-      res.status(404).json({ ok: false, message: "Address not found" });
+      res.status(404).json({ ok: false, message: "Address not found" }); // i18n-ignore
       return;
     }
 
@@ -287,7 +287,7 @@ router.delete(
     }
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      res.status(400).json({ ok: false, message: "Invalid address id" });
+      res.status(400).json({ ok: false, message: "Invalid address id" }); // i18n-ignore
       return;
     }
     const [existing] = await db
@@ -301,7 +301,7 @@ router.delete(
       )
       .limit(1);
     if (!existing) {
-      res.status(404).json({ ok: false, message: "Address not found" });
+      res.status(404).json({ ok: false, message: "Address not found" }); // i18n-ignore
       return;
     }
     await db
@@ -342,7 +342,7 @@ router.post(
     }
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      res.status(400).json({ ok: false, message: "Invalid address id" });
+      res.status(400).json({ ok: false, message: "Invalid address id" }); // i18n-ignore
       return;
     }
     const [existing] = await db
@@ -356,7 +356,7 @@ router.post(
       )
       .limit(1);
     if (!existing) {
-      res.status(404).json({ ok: false, message: "Address not found" });
+      res.status(404).json({ ok: false, message: "Address not found" }); // i18n-ignore
       return;
     }
     await db

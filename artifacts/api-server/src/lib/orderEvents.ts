@@ -15,33 +15,33 @@ const COPY: Record<
   { title: string; body: (orderId: string, recipient?: string | null) => string }
 > = {
   confirmed: {
-    title: "Order confirmed",
+    title: "Order confirmed", // i18n-ignore
     body: (id) =>
       `We've received your order ${id}. Our atelier is preparing it now.`,
   },
   out_for_delivery: {
-    title: "Out for delivery",
+    title: "Out for delivery", // i18n-ignore
     body: (id, recipient) =>
       recipient
-        ? `Your gift for ${recipient} (${id}) has left the atelier and is on its way.`
-        : `Your order ${id} has left the atelier and is on its way.`,
+        ? `Your gift for ${recipient} (${id}) has left the atelier and is on its way.` // i18n-ignore
+        : `Your order ${id} has left the atelier and is on its way.`, // i18n-ignore
   },
   delivered: {
-    title: "Delivered",
+    title: "Delivered", // i18n-ignore
     body: (id, recipient) =>
       recipient
-        ? `Your gift for ${recipient} (${id}) has been delivered. Thank you for choosing Presentail.`
-        : `Your order ${id} has been delivered. Thank you for choosing Presentail.`,
+        ? `Your gift for ${recipient} (${id}) has been delivered. Thank you for choosing Presentail.` // i18n-ignore
+        : `Your order ${id} has been delivered. Thank you for choosing Presentail.`, // i18n-ignore
   },
   cancelled: {
-    title: "Order cancelled",
+    title: "Order cancelled", // i18n-ignore
     body: (id) =>
-      `Your order ${id} has been cancelled. Any loyalty points credited for it have been reversed.`,
+      `Your order ${id} has been cancelled. Any loyalty points credited for it have been reversed.`, // i18n-ignore
   },
   refunded: {
-    title: "Order refunded",
+    title: "Order refunded", // i18n-ignore
     body: (id) =>
-      `Your order ${id} has been refunded. Any loyalty points credited for it have been reversed.`,
+      `Your order ${id} has been refunded. Any loyalty points credited for it have been reversed.`, // i18n-ignore
   },
 };
 

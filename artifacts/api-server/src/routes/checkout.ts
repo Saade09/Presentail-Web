@@ -52,19 +52,19 @@ router.post("/checkout/session", async (req, res) => {
   } = req.body as Body;
 
   if (!orderId) {
-    return res.status(400).json({ ok: false, message: "orderId is required" });
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: "No items in cart" });
+    return res.status(400).json({ ok: false, message: "No items in cart" }); // i18n-ignore
   }
   if (items.some((i) => !i.wcId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
     return res.status(400).json({
       ok: false,
-      message: "Each item must have a valid wcId and a positive integer quantity",
+      message: "Each item must have a valid wcId and a positive integer quantity", // i18n-ignore
     });
   }
   if (!successUrl || !cancelUrl) {
-    return res.status(400).json({ ok: false, message: "successUrl and cancelUrl are required" });
+    return res.status(400).json({ ok: false, message: "successUrl and cancelUrl are required" }); // i18n-ignore
   }
 
   // Resolve catalog prices server-side. Client-supplied amounts are ignored.
@@ -145,7 +145,7 @@ router.post("/checkout/session", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, code: "stripe_error", message: err?.message ?? "Stripe error" });
+      .json({ ok: false, code: "stripe_error", message: err?.message ?? "Stripe error" }); // i18n-ignore
   }
 });
 

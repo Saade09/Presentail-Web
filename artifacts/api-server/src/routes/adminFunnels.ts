@@ -83,7 +83,7 @@ function requireAdmin(req: Request, res: Response): boolean {
   const supplied =
     req.header("x-push-admin-token") ?? req.header("x-admin-token");
   if (!expected || !supplied || supplied !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
+    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return false;
   }
   return true;
@@ -270,7 +270,7 @@ router.get("/admin/funnels/data", async (req, res) => {
       { err: err?.message },
       "adminFunnels: data load failed",
     );
-    res.status(500).json({ ok: false, message: "Failed to load funnels" });
+    res.status(500).json({ ok: false, message: "Failed to load funnels" }); // i18n-ignore
   }
 });
 
@@ -2061,7 +2061,7 @@ const DASHBOARD_HTML = `<!doctype html>
         '<tbody>' + bodyRows + footerRow + '</tbody></table>';
     }).join('');
 
-    signInMethodsSummary.innerHTML = pivotHtml || '<div class="muted">No sign-in method events in range.</div>';
+    signInMethodsSummary.innerHTML = pivotHtml || '<div class="muted">No sign-in method events in range.</div>'; // i18n-ignore
 
     // ── Per-day sparklines and detail table ────────────────────────────────
     if (daily.length) {

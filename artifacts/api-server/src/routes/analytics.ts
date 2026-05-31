@@ -35,7 +35,7 @@ router.post(
   (req, res, next) => {
     const cl = Number(req.header("content-length") ?? 0);
     if (Number.isFinite(cl) && cl > 4 * 1024) {
-      res.status(400).json({ ok: false, message: "Payload too large" });
+      res.status(400).json({ ok: false, message: "Payload too large" }); // i18n-ignore
       return;
     }
     next();
@@ -45,7 +45,7 @@ router.post(
     if (!parsed.success) {
       res.status(400).json({
         ok: false,
-        message: parsed.error.issues[0]?.message ?? "Invalid body",
+        message: parsed.error.issues[0]?.message ?? "Invalid body", // i18n-ignore
       });
       return;
     }

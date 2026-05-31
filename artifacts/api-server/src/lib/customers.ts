@@ -345,7 +345,7 @@ export async function syncCustomerToWoo(
       }
       if (!wcId) {
         const msg =
-          data?.message?.replace?.(/<[^>]*>/g, "") ?? "Failed to create WC customer mirror";
+          data?.message?.replace?.(/<[^>]*>/g, "") ?? "Failed to create WC customer mirror"; // i18n-ignore
         throw new Error(`syncCustomerToWoo: ${msg} (status ${createRes.status})`);
       }
     } else {

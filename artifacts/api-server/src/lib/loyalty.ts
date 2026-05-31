@@ -184,7 +184,7 @@ async function createWcCoupon(
         usage_limit: 1,
         usage_limit_per_user: 1,
         email_restrictions: [email],
-        description: `Presentail loyalty ${tier.label} tier reward`,
+        description: `Presentail loyalty ${tier.label} tier reward`, // i18n-ignore
       }),
     });
     if (!r.ok) {

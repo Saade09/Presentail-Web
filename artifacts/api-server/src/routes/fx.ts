@@ -49,7 +49,7 @@ router.get("/fx/rates", async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Failed to load FX rates" });
+      .json({ ok: false, message: err?.message ?? "Failed to load FX rates" }); // i18n-ignore
   }
 });
 

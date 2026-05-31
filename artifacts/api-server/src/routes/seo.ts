@@ -15,7 +15,7 @@ function requireAdmin(req: Request, res: Response): boolean {
   const supplied =
     req.header("x-push-admin-token") ?? req.header("x-admin-token");
   if (!expected || !supplied || supplied !== expected) {
-    res.status(401).json({ ok: false, message: "Invalid or missing admin token" });
+    res.status(401).json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return false;
   }
   return true;
@@ -325,7 +325,7 @@ router.get("/seo/debug", async (req: Request, res: Response) => {
 
   const result = await debugPageUrl(rawUrl);
   if (!result.ok) {
-    res.status(502).json({ ok: false, message: result.error ?? "Could not fetch the page HTML", url: targetUrl });
+    res.status(502).json({ ok: false, message: result.error ?? "Could not fetch the page HTML", url: targetUrl }); // i18n-ignore
     return;
   }
 
@@ -337,17 +337,17 @@ router.post("/seo/batch-debug", async (req: Request, res: Response) => {
 
   const body = req.body as unknown;
   if (!body || typeof body !== "object" || !Array.isArray((body as { urls?: unknown }).urls)) {
-    res.status(400).json({ ok: false, message: "Request body must be JSON with a `urls` array" });
+    res.status(400).json({ ok: false, message: "Request body must be JSON with a `urls` array" }); // i18n-ignore
     return;
   }
 
   const rawUrls: unknown[] = (body as { urls: unknown[] }).urls;
   if (rawUrls.length === 0) {
-    res.status(400).json({ ok: false, message: "`urls` array must not be empty" });
+    res.status(400).json({ ok: false, message: "`urls` array must not be empty" }); // i18n-ignore
     return;
   }
   if (rawUrls.length > BATCH_MAX_URLS) {
-    res.status(400).json({ ok: false, message: `Too many URLs — maximum is ${BATCH_MAX_URLS}` });
+    res.status(400).json({ ok: false, message: `Too many URLs — maximum is ${BATCH_MAX_URLS}` }); // i18n-ignore
     return;
   }
   const invalidIdx = rawUrls.findIndex((u) => typeof u !== "string" || !(u as string).trim());
@@ -371,7 +371,7 @@ router.post("/admin/seo-audit/run", async (req: Request, res: Response) => {
     const summary = await runAuditNow();
     res.json({ ok: true, ...summary });
   } catch (err) {
-    const msg = (err as Error)?.message ?? "Internal error";
+    const msg = (err as Error)?.message ?? "Internal error"; // i18n-ignore
     if (msg === "Audit already in progress") {
       res.status(409).json({ ok: false, message: msg });
       return;
@@ -386,7 +386,7 @@ router.get("/admin/seo-audit/last", (req: Request, res: Response) => {
 
   const summary = getLastAuditSummary();
   if (!summary) {
-    res.status(404).json({ ok: false, message: "No audit has completed since the last server restart" });
+    res.status(404).json({ ok: false, message: "No audit has completed since the last server restart" }); // i18n-ignore
     return;
   }
   res.json({ ok: true, ...summary });
@@ -1293,7 +1293,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
       var badgeText = p.status === 'ok' ? 'Good' : (p.status === 'error' ? 'Failing' : 'Warning');
       var note = '';
       if (p.fetchFailed || p.error) {
-        note = p.error || 'Could not fetch page';
+        note = p.error || 'Could not fetch page'; // i18n-ignore
       } else if (!p.ogImage) {
         note = 'og:image missing';
       } else if (p.ogImageReachable === false) {
@@ -1412,7 +1412,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
           + '<td><div class="page-label">' + esc(page.label) + '</div>'
           + '<div class="page-url">' + esc(data.url) + '</div></td>'
           + '<td class="batch-status-cell">' + badge('error', 'red') + '</td>'
-          + '<td class="issues-list">' + esc(data.error || 'Could not fetch page') + '</td>'
+          + '<td class="issues-list">' + esc(data.error || 'Could not fetch page') + '</td>' // i18n-ignore
           + '<td></td>'
           + '</tr>';
         return;

@@ -40,7 +40,7 @@ router.post("/os/webhook", (req, res) => {
     req.log.warn(
       "osWebhook: PRESENTAIL_OS_WEBHOOK_SECRET is not configured — rejecting webhook",
     );
-    return res.status(503).json({ ok: false, message: "Webhook secret not configured" });
+    return res.status(503).json({ ok: false, message: "Webhook secret not configured" }); // i18n-ignore
   }
 
   // Accept secret from header or query param (OS only supports plain URLs).
@@ -49,7 +49,7 @@ router.post("/os/webhook", (req, res) => {
   const provided = fromHeader || fromQuery;
 
   if (provided !== secret) {
-    return res.status(401).json({ ok: false, message: "Invalid webhook secret" });
+    return res.status(401).json({ ok: false, message: "Invalid webhook secret" }); // i18n-ignore
   }
 
   const body = req.body as OSLocationsResponse | undefined;
@@ -81,16 +81,16 @@ router.post("/os/sync/products", (req, res) => {
   const provided = req.headers["x-push-admin-token"] ?? "";
 
   if (!adminToken) {
-    return res.status(503).json({ ok: false, message: "Admin token not configured" });
+    return res.status(503).json({ ok: false, message: "Admin token not configured" }); // i18n-ignore
   }
 
   if (provided !== adminToken) {
-    return res.status(401).json({ ok: false, message: "Unauthorized" });
+    return res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
   }
 
   invalidateOsProductsCache();
   req.log.info("osWebhook: products cache invalidated via manual sync trigger");
-  return res.json({ ok: true, message: "Products cache invalidated — fresh fetch queued" });
+  return res.json({ ok: true, message: "Products cache invalidated — fresh fetch queued" }); // i18n-ignore
 });
 
 router.post("/os/sync/locations", (req, res) => {
@@ -98,16 +98,16 @@ router.post("/os/sync/locations", (req, res) => {
   const provided = req.headers["x-push-admin-token"] ?? "";
 
   if (!adminToken) {
-    return res.status(503).json({ ok: false, message: "Admin token not configured" });
+    return res.status(503).json({ ok: false, message: "Admin token not configured" }); // i18n-ignore
   }
 
   if (provided !== adminToken) {
-    return res.status(401).json({ ok: false, message: "Unauthorized" });
+    return res.status(401).json({ ok: false, message: "Unauthorized" }); // i18n-ignore
   }
 
   invalidateOsLocationsCache();
   req.log.info("osWebhook: cache invalidated via manual sync trigger");
-  return res.json({ ok: true, message: "Cache invalidated — fresh fetch queued" });
+  return res.json({ ok: true, message: "Cache invalidated — fresh fetch queued" }); // i18n-ignore
 });
 
 export default router;

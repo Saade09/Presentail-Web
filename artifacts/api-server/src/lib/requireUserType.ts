@@ -84,7 +84,7 @@ export function requireUserType(allowed: readonly UserType[]): RequestHandler {
       res.status(403).json({
         ok: false,
         code: "wrong_user_type",
-        message: "You do not have access to this resource.",
+        message: "You do not have access to this resource.", // i18n-ignore
       });
       return;
     }
