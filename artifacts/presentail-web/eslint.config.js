@@ -42,6 +42,11 @@ export default [
     },
     rules: {
       "presentail/no-unknown-t-call": "warn",
+      // Catch duplicate variable declarations (e.g. two `const { t } = useLocale()` in
+      // the same scope). The base rule is turned off because it doesn't understand
+      // TypeScript declaration merging; the @typescript-eslint version handles both.
+      "no-redeclare": "off",
+      "@typescript-eslint/no-redeclare": "error",
     },
   },
   // Orphan-key check: scoped to the locale catalogue files only so the rule
