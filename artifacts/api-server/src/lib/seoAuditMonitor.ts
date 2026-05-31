@@ -72,6 +72,8 @@ let running = false;
 // Tracks the last UTC date (YYYY-MM-DD) we've evaluated so we fire once per
 // day. Resets on process restart (a duplicate alert on cold boot is fine).
 let lastEvaluatedDay: string | null = null;
+// Cached result of the most recent completed audit run (scheduled or on-demand).
+let lastAuditSummary: AuditSummary | null = null;
 
 // ── Internal helpers ────────────────────────────────────────────────────────
 
@@ -108,6 +110,12 @@ export function classifyResult(r: SeoPageResult): "error" | "warn" | "ok" {
 export function __resetForTest(): void {
   lastEvaluatedDay = null;
   running = false;
+  lastAuditSummary = null;
+}
+
+/** Return the cached result of the most recent completed audit, or null if no run has completed since the last restart. */
+export function getLastAuditSummary(): AuditSummary | null {
+  return lastAuditSummary;
 }
 
 async function fetchPageHtml(pageUrl: string): Promise<string | null> {
@@ -288,7 +296,7 @@ export async function runAuditNow(): Promise<AuditSummary> {
       "seoAuditMonitor: on-demand audit complete",
     );
 
-    return {
+    const summary: AuditSummary = {
       ranAt,
       total: results.length,
       failing: failing.length,
@@ -306,6 +314,8 @@ export async function runAuditNow(): Promise<AuditSummary> {
         error: r.error,
       })),
     };
+    lastAuditSummary = summary;
+    return summary;
   } finally {
     running = false;
   }
@@ -332,12 +342,32 @@ export async function runOnce(): Promise<void> {
       "seoAuditMonitor: running daily audit",
     );
 
+    const ranAt = new Date().toISOString();
     const results = await Promise.all(KEY_PAGES.map(auditPage));
     lastEvaluatedDay = prevDay;
 
     const failing = results.filter((r) => classifyResult(r) === "error");
     const warned = results.filter((r) => classifyResult(r) === "warn");
     const passing = results.filter((r) => classifyResult(r) === "ok");
+
+    lastAuditSummary = {
+      ranAt,
+      total: results.length,
+      failing: failing.length,
+      warned: warned.length,
+      passing: passing.length,
+      pages: results.map((r) => ({
+        label: r.label,
+        url: r.url,
+        status: classifyResult(r),
+        ogImage: r.ogImage,
+        ogImageReachable: r.ogImageReachable,
+        ogImageSizeOk: r.ogImageSizeOk,
+        fallbackUsed: r.fallbackUsed,
+        fetchFailed: r.fetchFailed,
+        error: r.error,
+      })),
+    };
 
     logger.info(
       {

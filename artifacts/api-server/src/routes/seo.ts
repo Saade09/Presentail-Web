@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { imageSize } from "image-size";
 import { logger } from "../lib/logger";
-import { runAuditNow } from "../lib/seoAuditMonitor";
+import { runAuditNow, getLastAuditSummary } from "../lib/seoAuditMonitor";
 
 const router = Router();
 
@@ -381,6 +381,17 @@ router.post("/admin/seo-audit/run", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/admin/seo-audit/last", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+
+  const summary = getLastAuditSummary();
+  if (!summary) {
+    res.status(404).json({ ok: false, message: "No audit has completed since the last server restart" });
+    return;
+  }
+  res.json({ ok: true, ...summary });
+});
+
 const SEO_DEBUG_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -603,9 +614,9 @@ const SEO_DEBUG_HTML = `<!doctype html>
     <span id="status" class="muted"></span>
   </div>
 
-  <!-- Monitor audit results (on-demand) -->
+  <!-- Monitor audit results (last cached or on-demand) -->
   <div id="monitorAuditSection">
-    <h2>Monitor audit result</h2>
+    <h2>Last monitor audit result</h2>
     <div class="monitor-ran-at" id="monitorAuditRanAt"></div>
     <div class="monitor-summary" id="monitorAuditSummary"></div>
     <table class="batch-table">
@@ -682,6 +693,38 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   // Restore saved token
   try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+
+  // On page load, fetch the cached audit result from the last monitor run so
+  // the team can see current health without triggering a new (slow) audit.
+  function loadLastAuditResult() {
+    var token = tokenEl.value.trim();
+    if (!token) return;
+
+    monitorAuditSection.style.display = '';
+    monitorAuditRanAt.textContent = '';
+    monitorAuditSummary.innerHTML = '<span class="muted" style="font-size:13px">Loading last audit result\u2026</span>';
+    monitorAuditBody.innerHTML = '';
+
+    fetch('/api/admin/seo-audit/last', {
+      headers: { 'x-push-admin-token': token },
+    })
+      .then(function (r) {
+        if (r.status === 401) { monitorAuditSection.style.display = 'none'; return null; }
+        if (r.status === 404) {
+          monitorAuditSummary.innerHTML = '<span class="muted" style="font-size:13px">No audit result cached yet — click \u201cRun monitor audit now\u201d to run one.</span>';
+          return null;
+        }
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'HTTP ' + r.status); });
+        return r.json();
+      })
+      .then(function (payload) {
+        if (payload) renderMonitorAuditResult(payload);
+      })
+      .catch(function () {
+        monitorAuditSection.style.display = 'none';
+      });
+  }
+  loadLastAuditResult();
 
   // Default key pages — all active cities per market
   var DEFAULT_KEY_PAGES = [
