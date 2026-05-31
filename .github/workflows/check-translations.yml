@@ -105,6 +105,7 @@ jobs:
               - '.github/workflows/check-translations.yml'
             web:
               - 'artifacts/presentail-web/**'
+              - 'artifacts/presentail-web/src/**/*.tsx'
               - 'lib/**'
               - 'scripts/src/checkUnusedWebTranslationKeys.ts'
               - 'scripts/src/checkHardcodedWebStrings.ts'
