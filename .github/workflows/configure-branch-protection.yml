@@ -35,8 +35,8 @@ jobs:
           # Required check names (workflow name / job name as GitHub reports them).
           # The workflow file check-translations.yml has name: check-translations,
           # so GitHub prefixes every job with "check-translations /".
-          MOBILE_CHECK="check-translations / Unused + missing + undefined translation keys (mobile)"
-          WEB_CHECK="check-translations / Unused + missing translation keys (web)"
+          MOBILE_CHECK="check-translations / Unused + missing + undefined translation keys (mobile & web)"
+          WEB_CHECK="check-translations / Locale dictionary tests (web)"
 
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
