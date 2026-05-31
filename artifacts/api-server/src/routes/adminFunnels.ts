@@ -854,6 +854,13 @@ const DASHBOARD_HTML = `<!doctype html>
   .seo-status-warn  { color: #b06000; font-weight: 600; }
   .seo-status-ok    { color: #109618; font-weight: 600; }
   .seo-summary-counts { font-size: 13px; margin-bottom: 8px; }
+  .seo-audit-history { margin-top: 16px; border-top: 1px solid #e8e8e8; padding-top: 12px; }
+  .seo-audit-history h4 { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: #444; }
+  .seo-audit-history table { font-size: 12px; }
+  .seo-audit-history td, .seo-audit-history th { padding: 3px 10px 3px 0; }
+  .seo-history-fail { color: #b00020; font-weight: 600; }
+  .seo-history-warn { color: #b06000; font-weight: 600; }
+  .seo-history-ok   { color: #109618; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -1102,6 +1109,22 @@ const DASHBOARD_HTML = `<!doctype html>
     <button class="seo-run-btn" id="seoRunBtn">Run SEO audit</button>
     <span class="seo-status muted" id="seoStatus"></span>
     <div class="seo-audit-results" id="seoAuditResults"></div>
+    <div class="seo-audit-history" id="seoAuditHistory" style="display:none">
+      <h4>Audit history (last 14 days)</h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Date / Time (UTC)</th>
+            <th style="text-align:left">Type</th>
+            <th style="text-align:right">Fail</th>
+            <th style="text-align:right">Warn</th>
+            <th style="text-align:right">Pass</th>
+            <th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="seoAuditHistoryBody"></tbody>
+      </table>
+    </div>
   </div>
 
 <script>
@@ -1155,6 +1178,8 @@ const DASHBOARD_HTML = `<!doctype html>
   var webVitalsCharts = document.getElementById('webVitalsCharts');
   var webVitalsLegend = document.getElementById('webVitalsLegend');
   var webVitalsDailyBody = document.querySelector('#webVitalsDaily tbody');
+  var seoAuditHistoryEl = document.getElementById('seoAuditHistory');
+  var seoAuditHistoryBody = document.getElementById('seoAuditHistoryBody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -2487,6 +2512,17 @@ const DASHBOARD_HTML = `<!doctype html>
         renderSeoAudit(data.summary);
       })
       .catch(function () {});
+
+    fetch('/api/admin/seo-audit/history?days=14', { headers: headers })
+      .then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || !data.rows || data.rows.length === 0) return;
+        renderSeoAuditHistory(data.rows);
+      })
+      .catch(function () {});
   }
 
   refreshBtn.addEventListener('click', load);
@@ -2539,6 +2575,30 @@ const DASHBOARD_HTML = `<!doctype html>
         '<thead><tr><th style="text-align:left">Page</th><th style="text-align:left">URL</th><th style="text-align:left">Detail</th><th style="text-align:left">OG image URL</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>';
+  }
+
+  function renderSeoAuditHistory(rows) {
+    if (!seoAuditHistoryEl || !seoAuditHistoryBody) return;
+    var html = rows.map(function (r) {
+      var icon = r.failing > 0 ? '🔴' : r.warned > 0 ? '🟡' : '🟢';
+      var failCls = r.failing > 0 ? 'seo-history-fail' : '';
+      var warnCls = r.warned > 0 ? 'seo-history-warn' : '';
+      var passCls = r.failing === 0 && r.warned === 0 ? 'seo-history-ok' : '';
+      var dateStr = (r.ranAt || '').replace('T', ' ').slice(0, 16) + ' UTC';
+      var typeBadge = r.runType === 'on_demand'
+        ? '<span style="font-size:10px;background:#eee;border-radius:3px;padding:1px 4px">manual</span>'
+        : '<span style="font-size:10px;color:#888">nightly</span>';
+      return '<tr>' +
+        '<td>' + icon + ' ' + escapeHtml(dateStr) + '</td>' +
+        '<td>' + typeBadge + '</td>' +
+        '<td style="text-align:right" class="' + failCls + '">' + r.failing + '</td>' +
+        '<td style="text-align:right" class="' + warnCls + '">' + r.warned + '</td>' +
+        '<td style="text-align:right" class="' + passCls + '">' + r.passing + '</td>' +
+        '<td style="text-align:right" class="muted">' + r.total + '</td>' +
+        '</tr>';
+    }).join('');
+    seoAuditHistoryBody.innerHTML = html;
+    seoAuditHistoryEl.style.display = '';
   }
 
   if (seoRunBtn) {
