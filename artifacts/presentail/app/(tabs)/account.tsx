@@ -2,7 +2,6 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
 import { API_BASE } from "@/lib/stripe";
 import { useAuth } from "@/contexts/AuthContext";
@@ -138,8 +138,91 @@ function AccountTab() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View
+          style={{
+            paddingTop: insets.top + 14,
+            paddingBottom: 14,
+            backgroundColor: colors.primary,
+            alignItems: "center",
+          }}
+        >
+          <View style={{ height: 24, width: 130, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" }}>
+            <ShimmerPlaceholder />
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 120 }} scrollEnabled={false}>
+          <View
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 20,
+              padding: 20,
+              flexDirection: isRTL ? "row-reverse" : "row",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: "rgba(255,255,255,0.25)",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <ShimmerPlaceholder />
+            </View>
+            <View style={{ flex: 1, gap: 10 }}>
+              <View style={{ height: 16, width: "55%", borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" }}>
+                <ShimmerPlaceholder />
+              </View>
+              <View style={{ height: 11, width: "75%", borderRadius: 4, backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden" }}>
+                <ShimmerPlaceholder />
+              </View>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={{
+                  width: "47.5%",
+                  height: 88,
+                  backgroundColor: colors.muted,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                }}
+              >
+                <ShimmerPlaceholder />
+              </View>
+            ))}
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              overflow: "hidden",
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <View key={i}>
+                {i > 0 && <View style={{ height: 1, backgroundColor: colors.border }} />}
+                <View style={{ height: 52, paddingHorizontal: 16, justifyContent: "center" }}>
+                  <View style={{ height: 10, width: "50%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+                    <ShimmerPlaceholder />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     );
   }

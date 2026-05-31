@@ -77,6 +77,71 @@ function toSafeImageSource(source: unknown): ImageSource | null {
   return null;
 }
 
+function ProductDetailSkeleton() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+
+  const LINE_SPACING = 14;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ height: SCREEN_W, backgroundColor: colors.imagePlaceholder, overflow: "hidden" }}>
+        <ShimmerPlaceholder />
+      </View>
+
+      <View style={{ padding: 24, gap: LINE_SPACING }}>
+        <View style={{ height: 10, width: "40%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+          <ShimmerPlaceholder />
+        </View>
+        <View style={{ height: 22, width: "75%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+          <ShimmerPlaceholder />
+        </View>
+        <View style={{ height: 18, width: "28%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+          <ShimmerPlaceholder />
+        </View>
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+        <View style={{ height: 52, borderRadius: 14, backgroundColor: colors.muted, overflow: "hidden" }}>
+          <ShimmerPlaceholder />
+        </View>
+        <View style={{ height: 52, borderRadius: 14, backgroundColor: colors.muted, overflow: "hidden" }}>
+          <ShimmerPlaceholder />
+        </View>
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+        <View style={{ gap: 10 }}>
+          <View style={{ height: 10, width: "90%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+            <ShimmerPlaceholder />
+          </View>
+          <View style={{ height: 10, width: "80%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+            <ShimmerPlaceholder />
+          </View>
+          <View style={{ height: 10, width: "65%", borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+            <ShimmerPlaceholder />
+          </View>
+        </View>
+      </View>
+
+      <View
+        style={{
+          position: "absolute",
+          bottom: insets.bottom + 24,
+          left: 24,
+          right: 24,
+          height: 52,
+          borderRadius: 999,
+          backgroundColor: colors.muted,
+          overflow: "hidden",
+        }}
+      >
+        <ShimmerPlaceholder />
+      </View>
+    </View>
+  );
+}
+
 function ProductDetail() {
   // `useLocalSearchParams` can return a string, an array of strings, or
   // undefined depending on how the route was reached (deep links and
@@ -178,7 +243,7 @@ function ProductDetail() {
     }
   };
 
-  const { products: allProducts } = useWooProducts();
+  const { products: allProducts, loading: productsLoading } = useWooProducts();
   const found = allProducts.find((p) => p.id === slug) ?? null;
   // Hide products that the live WC payload reports as out-of-stock so the
   // direct product URL behaves the same as the listings (which already
@@ -197,6 +262,10 @@ function ProductDetail() {
     if (!product || Platform.OS === "web") return;
     trackScreenTTID("product", mountMsRef.current);
   }, [product]);
+
+  if (productsLoading && !product) {
+    return <ProductDetailSkeleton />;
+  }
 
   if (!product) {
     return (

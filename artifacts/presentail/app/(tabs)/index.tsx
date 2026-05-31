@@ -1080,9 +1080,14 @@ function CategoryRail() {
           height: TILE_IMAGE_SIZE,
           borderRadius: 999,
           backgroundColor: colors.muted,
+          overflow: "hidden",
         }}
-      />
-      <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+      >
+        <ShimmerPlaceholder />
+      </View>
+      <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+        <ShimmerPlaceholder />
+      </View>
     </View>
   );
 
@@ -1219,9 +1224,14 @@ function OccasionsCarousel() {
                     height: 80,
                     borderRadius: 999,
                     backgroundColor: colors.muted,
+                    overflow: "hidden",
                   }}
-                />
-                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+                >
+                  <ShimmerPlaceholder />
+                </View>
+                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+                  <ShimmerPlaceholder />
+                </View>
               </View>
             ))
           : items.map((item) => (
@@ -1343,9 +1353,14 @@ function BrandsCarousel() {
                     height: 80,
                     borderRadius: 999,
                     backgroundColor: colors.muted,
+                    overflow: "hidden",
                   }}
-                />
-                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted }} />
+                >
+                  <ShimmerPlaceholder />
+                </View>
+                <View style={{ width: 56, height: 10, borderRadius: 4, backgroundColor: colors.muted, overflow: "hidden" }}>
+                  <ShimmerPlaceholder />
+                </View>
               </View>
             ))
           : brands.map((brand) => (

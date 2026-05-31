@@ -6,11 +6,81 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FullCartView } from "@/components/FullCartView";
 import { GiftIllustration } from "@/components/GiftIllustration";
+import { SkeletonBox } from "@/components/SkeletonBox";
 import { useCart } from "@/contexts/CartContext";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function CartItemSkeleton() {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 14,
+        backgroundColor: "#fff",
+        borderRadius: 18,
+        padding: 14,
+      }}
+    >
+      <SkeletonBox width={76} height={76} borderRadius={14} />
+      <View style={{ flex: 1, gap: 10, justifyContent: "center" }}>
+        <SkeletonBox width="70%" height={12} />
+        <SkeletonBox width="40%" height={10} />
+        <SkeletonBox width="28%" height={14} />
+      </View>
+    </View>
+  );
+}
+
+function CartLoadingSkeleton({
+  colors,
+  insets,
+  bottomOffset,
+}: {
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  insets: { top: number; bottom: number };
+  bottomOffset: number;
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderColor: colors.border }}>
+        <SkeletonBox width={120} height={22} borderRadius={6} />
+      </View>
+
+      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
+        <CartItemSkeleton />
+        <CartItemSkeleton />
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+        <View style={{ backgroundColor: "#fff", borderRadius: 16, padding: 16, gap: 10 }}>
+          <SkeletonBox width="60%" height={10} />
+          <SkeletonBox width="100%" height={6} borderRadius={3} />
+        </View>
+      </View>
+
+      <View
+        style={{
+          backgroundColor: "#fff",
+          borderTopWidth: 1,
+          borderColor: colors.border,
+          padding: 20,
+          paddingBottom: bottomOffset + 16,
+          gap: 12,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <SkeletonBox width={70} height={10} />
+          <SkeletonBox width={50} height={10} />
+        </View>
+        <SkeletonBox width="100%" height={52} borderRadius={999} />
+      </View>
+    </View>
+  );
+}
 
 function CartTab() {
   const colors = useColors();
@@ -28,7 +98,18 @@ function CartTab() {
   const tabBarHeight = Math.max(rawTabBarHeight, minTabBarHeight);
   const t = useT();
   const { isRTL } = useLanguage();
-  const { detailed } = useCart();
+  const { items, detailed } = useCart();
+  const { loading: productsLoading } = useWooProducts();
+
+  if (items.length > 0 && productsLoading && detailed.length === 0) {
+    return (
+      <CartLoadingSkeleton
+        colors={colors}
+        insets={insets}
+        bottomOffset={tabBarHeight}
+      />
+    );
+  }
 
   if (detailed.length > 0) {
     return <FullCartView showBackButton={false} bottomOffset={tabBarHeight} />;

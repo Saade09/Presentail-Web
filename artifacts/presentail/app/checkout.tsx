@@ -55,8 +55,10 @@ import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { DateStrip } from "@/components/DateStrip";
 import { SlotPicker } from "@/components/SlotPicker";
+import { SkeletonBox } from "@/components/SkeletonBox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -155,11 +157,64 @@ function freeDeliveryThresholdForCountry(code?: string): number {
   return freeDeliveryThresholdUsd(code);
 }
 
+function CheckoutLoadingSkeleton() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View
+        style={{
+          paddingTop: insets.top + 14,
+          paddingBottom: 14,
+          backgroundColor: colors.primary,
+          alignItems: "center",
+        }}
+      >
+        <View style={{ height: 24, width: 120, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" }}>
+          <SkeletonBox style={StyleSheet.absoluteFill} />
+        </View>
+      </View>
+
+      <View style={{ paddingHorizontal: 20, paddingVertical: 18, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: colors.border }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ alignItems: "center", flex: 1, gap: 8 }}>
+              <SkeletonBox width={28} height={28} borderRadius={999} />
+              <SkeletonBox width={60} height={8} />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={{ flex: 1, paddingHorizontal: 18, paddingTop: 24, gap: 18 }}>
+        <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18, gap: 14 }}>
+          <SkeletonBox width="55%" height={14} />
+          <View style={{ flexDirection: "row", gap: 14 }}>
+            <SkeletonBox width={68} height={68} borderRadius={14} />
+            <View style={{ flex: 1, gap: 10, justifyContent: "center" }}>
+              <SkeletonBox width="70%" height={11} />
+              <SkeletonBox width="35%" height={10} />
+            </View>
+          </View>
+        </View>
+
+        <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18, gap: 14 }}>
+          <SkeletonBox width="40%" height={14} />
+          <SkeletonBox width="100%" height={44} borderRadius={12} />
+          <SkeletonBox width="100%" height={44} borderRadius={12} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
+  const { items, detailed, total, clear, setQty, remove, cartMessage: cartMessageFromCart } = useCart();
+  const { loading: productsLoading } = useWooProducts();
   const { formatPrice, currencyCode } = useCurrency();
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
@@ -844,6 +899,10 @@ function CheckoutScreen() {
     await finishAfterPayment();
     setPaying(false);
   };
+
+  if (items.length > 0 && productsLoading && detailed.length === 0) {
+    return <CheckoutLoadingSkeleton />;
+  }
 
   if (detailed.length === 0) {
     return (
