@@ -3166,6 +3166,108 @@ describe("image dims L2 cache — initImageDimsDb adapter", () => {
     expect(l2Writes[0].url).toBe(imageUrl);
     expect(l2Writes[0].dims).toEqual({ width: 900, height: 450 });
   });
+
+  // -------------------------------------------------------------------------
+  // Brands-filter page — occasion slug path (/brands?occasion=<slug>)
+  //
+  // The `brandsFilter` branch in `injectSeoTagsAsync` is reached when the
+  // pathname ends in "/brands" and the search contains `?occasion=<slug>`.
+  // It calls `fetchEntityForSeoCached` with kind "occasion" which in turn
+  // calls `fetchImageDimensions` — the same L2 adapter path exercised by the
+  // product and occasion tests above. These two tests verify that the L2
+  // adapter is consulted (hit) and written to (write) for this specific entry
+  // point, which had no L2 coverage before.
+  // -------------------------------------------------------------------------
+
+  it("serves brands-filter occasion image dims from L2 on L1 miss without a CDN fetch", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-brands-filter-hit-unique.png";
+    const l2Store: Map<string, { width: number; height: number } | null> = new Map();
+    l2Store.set(imageUrl, { width: 1200, height: 630 });
+
+    initImageDimsDb({
+      async get(url: string) { return l2Store.get(url); },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    let imageFetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "Birthday",
+              description: "Brands filtered by birthday occasion.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      // Any fetch to the image CDN must NOT happen (L2 hit).
+      imageFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(999, 999) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/brands",
+      { ...L2_OPTS, search: "?occasion=l2-brands-filter-occasion-hit-slug" },
+    );
+
+    // L2 supplied dims → no CDN Range-fetch.
+    expect(imageFetchCount).toBe(0);
+    // Correct dims from L2 appear in the output.
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+  });
+
+  it("writes freshly fetched brands-filter occasion image dims to L2 via adapter.set()", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-brands-filter-write-unique.png";
+    const l2Writes: Array<{ url: string; dims: unknown }> = [];
+
+    initImageDimsDb({
+      async get(_url: string) { return undefined; }, // L2 miss — fall through to CDN fetch
+      async set(url: string, dims: unknown) { l2Writes.push({ url, dims }); },
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "Anniversary",
+              description: "Brands filtered by anniversary occasion.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      // CDN Range-fetch: return a valid PNG with known dims.
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(1100, 550) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/brands",
+      { ...L2_OPTS, search: "?occasion=l2-brands-filter-occasion-write-slug" },
+    );
+
+    // Dims were measured from the CDN and must have been written to L2.
+    expect(l2Writes).toHaveLength(1);
+    expect(l2Writes[0].url).toBe(imageUrl);
+    expect(l2Writes[0].dims).toEqual({ width: 1100, height: 550 });
+  });
 });
 
 // ---------------------------------------------------------------------------
