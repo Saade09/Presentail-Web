@@ -117,6 +117,50 @@ describe("classifyResult", () => {
   });
 });
 
+// ── Fallback image detection ─────────────────────────────────────────────────
+//
+// `auditPage` sets `fallbackUsed = true` when the resolved og:image URL ends
+// with "/opengraph.jpg". These tests exercise that detection path end-to-end
+// via `runOnce()` (since `auditPage` is not exported) and also directly via
+// `classifyResult` to pin the boundary condition.
+
+describe("fallback og:image detection", () => {
+  it("classifyResult: treats fallbackUsed=true as 'warn' not 'ok'", () => {
+    // A page with a reachable, correctly-sized image that happens to be the
+    // site-wide fallback should still be flagged as "warn".
+    const r: PageResult = {
+      ...base,
+      ogImage: "https://new.presentail.com/opengraph.jpg",
+      ogImageReachable: true,
+      ogImageSizeOk: true,
+      fallbackUsed: true,
+    };
+    expect(classifyResult(r)).toBe("warn");
+  });
+
+  it("classifyResult: a URL ending in '/opengraph.jpg' with ogImageSizeOk=null is still 'warn'", () => {
+    const r: PageResult = {
+      ...base,
+      ogImage: "https://cdn.example.com/opengraph.jpg",
+      ogImageReachable: true,
+      ogImageSizeOk: null,
+      fallbackUsed: true,
+    };
+    expect(classifyResult(r)).toBe("warn");
+  });
+
+  it("classifyResult: a page-specific image (not ending in /opengraph.jpg) with fallbackUsed=false is 'ok'", () => {
+    const r: PageResult = {
+      ...base,
+      ogImage: "https://new.presentail.com/img/pink-roses.jpg",
+      ogImageReachable: true,
+      ogImageSizeOk: true,
+      fallbackUsed: false,
+    };
+    expect(classifyResult(r)).toBe("ok");
+  });
+});
+
 // ── runOnce ──────────────────────────────────────────────────────────────────
 
 // Minimal HTML snippet that contains a non-fallback og:image tag so every
@@ -206,14 +250,21 @@ describe("runOnce — deduplication guard", () => {
     const alert = sendAlertMock.mock.calls[0][0];
     expect(alert.body).toMatch(/🟡/);
     expect(alert.body).toMatch(/using fallback site-wide image/);
-    // Locale groups appear as section headers (country name only).
+    // All three locale groups appear as section headers (country name only) in the correct order.
     expect(alert.body).toMatch(/\*Lebanon\*/);
     expect(alert.body).toMatch(/\*UAE\*/);
+    expect(alert.body).toMatch(/\*Cyprus\*/);
     // Key page types appear as bold items within each locale group (EN/AR/FR variants).
     expect(alert.body).toMatch(/\*Homepage \(EN\)\*/);
     expect(alert.body).toMatch(/\*Product \(EN\)\*/);
     expect(alert.body).toMatch(/\*Homepage \(AR\)\*/);
     expect(alert.body).toMatch(/\*Homepage \(FR\)\*/);
+    // LB section appears before AE which appears before CY.
+    const lbIdx = alert.body.indexOf("*Lebanon*");
+    const aeIdx = alert.body.indexOf("*UAE*");
+    const cyIdx = alert.body.indexOf("*Cyprus*");
+    expect(lbIdx).toBeLessThan(aeIdx);
+    expect(aeIdx).toBeLessThan(cyIdx);
   });
 
   it("does not fire a Slack alert when all pages are healthy", async () => {
