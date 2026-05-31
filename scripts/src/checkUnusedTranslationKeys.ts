@@ -42,6 +42,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
+import { annotateError } from "./lib/githubAnnotations.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");
@@ -423,27 +424,7 @@ for (const [locale, localeValueMap] of [
 // inline PR annotations on the diff view.  Plain-text output is always kept so
 // local runs remain readable.
 
-const IS_GHA = process.env["GITHUB_ACTIONS"] === "true";
 const SUMMARY_FILE = process.env["GITHUB_STEP_SUMMARY"] ?? "";
-
-/**
- * Emit a GitHub Actions `::error` annotation pointing at the translations file,
- * plus the same message to stderr for local / log readability.
- *
- * Annotation format: `::error file=<path>,title=<title>::<message>`
- */
-function annotateError(title: string, message: string): void {
-  if (IS_GHA) {
-    // Escape characters that would break the workflow command syntax.
-    const escapeValue = (s: string) =>
-      s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
-    const escapeProp = (s: string) =>
-      escapeValue(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
-    process.stdout.write(
-      `::error file=${escapeProp("artifacts/presentail/lib/translations.ts")},title=${escapeProp(title)}::${escapeValue(message)}\n`,
-    );
-  }
-}
 
 /**
  * Append a line of markdown to $GITHUB_STEP_SUMMARY when running in CI.
