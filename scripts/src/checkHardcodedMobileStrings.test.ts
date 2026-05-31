@@ -19,6 +19,7 @@ import {
   stripExpressionsAndTrim,
   looksLikeEnglishProse,
   containsArabicScript,
+  containsFrenchAccents,
   shouldSkipLine,
   SKIP_DIRS,
   SKIP_FILE_SUFFIXES,
@@ -213,6 +214,159 @@ describe("containsArabicScript — negative (should not detect Arabic)", () => {
 
   it("returns false for Latin characters with diacritics (non-Arabic)", () => {
     expect(containsArabicScript("café résumé")).toBe(false);
+  });
+});
+
+// ── containsFrenchAccents ─────────────────────────────────────────────────────
+
+describe("containsFrenchAccents — positive (should detect French diacritics)", () => {
+  it("returns true for text with é (e acute)", () => {
+    expect(containsFrenchAccents("Résumé")).toBe(true);
+    expect(containsFrenchAccents("Réservé")).toBe(true);
+  });
+
+  it("returns true for text with è (e grave)", () => {
+    expect(containsFrenchAccents("après")).toBe(true);
+  });
+
+  it("returns true for text with ê (e circumflex)", () => {
+    expect(containsFrenchAccents("fête")).toBe(true);
+  });
+
+  it("returns true for text with ç (cedilla)", () => {
+    expect(containsFrenchAccents("Ça va")).toBe(true);
+    expect(containsFrenchAccents("garçon")).toBe(true);
+  });
+
+  it("returns true for text with à (a grave)", () => {
+    expect(containsFrenchAccents("à bientôt")).toBe(true);
+  });
+
+  it("returns true for text with â (a circumflex)", () => {
+    expect(containsFrenchAccents("château")).toBe(true);
+  });
+
+  it("returns true for text with î (i circumflex)", () => {
+    expect(containsFrenchAccents("île")).toBe(true);
+  });
+
+  it("returns true for text with ô (o circumflex)", () => {
+    expect(containsFrenchAccents("Côte")).toBe(true);
+  });
+
+  it("returns true for text with œ (o-e ligature)", () => {
+    expect(containsFrenchAccents("cœur")).toBe(true);
+  });
+
+  it("returns true for text with û (u circumflex)", () => {
+    expect(containsFrenchAccents("sûr")).toBe(true);
+  });
+
+  it("returns true for text with ù (u grave)", () => {
+    expect(containsFrenchAccents("où")).toBe(true);
+  });
+
+  it("returns true for uppercase accented characters", () => {
+    expect(containsFrenchAccents("ÉTRANGER")).toBe(true);
+    expect(containsFrenchAccents("Être")).toBe(true);
+  });
+
+  it("returns true for a realistic French-only string missed by looksLikeEnglishProse", () => {
+    // looksLikeEnglishProse("Résumé") = false (only sees "sum" — 1 short token)
+    // containsFrenchAccents catches it via é
+    expect(containsFrenchAccents("Résumé")).toBe(true);
+  });
+});
+
+describe("containsFrenchAccents — negative (should NOT detect non-French text)", () => {
+  it("returns false for plain English text (no diacritics)", () => {
+    expect(containsFrenchAccents("Send Flowers")).toBe(false);
+    expect(containsFrenchAccents("Proceed to Checkout")).toBe(false);
+  });
+
+  it("returns false for pure Arabic text", () => {
+    expect(containsFrenchAccents("أرسل الزهور")).toBe(false);
+  });
+
+  it("returns false for an empty string", () => {
+    expect(containsFrenchAccents("")).toBe(false);
+  });
+
+  it("returns false for digits and punctuation only", () => {
+    expect(containsFrenchAccents("+961 123 456")).toBe(false);
+  });
+
+  it("returns false for a URL (no French diacritics)", () => {
+    expect(containsFrenchAccents("https://example.com")).toBe(false);
+  });
+
+  it("returns false for a JSX expression placeholder (no French diacritics)", () => {
+    expect(containsFrenchAccents("{t.someKey}")).toBe(false);
+  });
+});
+
+// ── French detection in patterns (integration) ────────────────────────────────
+
+describe("French detection — Pattern A (inline JSX text)", () => {
+  it("flags a French JSX text node caught only via containsFrenchAccents", () => {
+    // "Résumé" — looksLikeEnglishProse = false (only "sum" token); caught by accents
+    const line = "<Text>Résumé</Text>";
+    INLINE_JSX_TEXT_RE.lastIndex = 0;
+    const m = INLINE_JSX_TEXT_RE.exec(line);
+    expect(m).not.toBeNull();
+    expect(containsFrenchAccents(m![1])).toBe(true);
+  });
+
+  it("flags French text with accented characters mixed with base-Latin", () => {
+    const line = "<Text>Réservation confirmée</Text>";
+    INLINE_JSX_TEXT_RE.lastIndex = 0;
+    const m = INLINE_JSX_TEXT_RE.exec(line);
+    expect(m).not.toBeNull();
+    const inner = m![1];
+    expect(containsFrenchAccents(inner) || looksLikeEnglishProse(inner)).toBe(true);
+  });
+});
+
+describe("French detection — Pattern C (JSX props)", () => {
+  it("flags a French-accented placeholder value via containsFrenchAccents", () => {
+    const line = 'placeholder="Réservé"';
+    VISIBLE_PROP_RE.lastIndex = 0;
+    const m = VISIBLE_PROP_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![2].trim();
+    expect(containsFrenchAccents(text)).toBe(true);
+  });
+});
+
+describe("French detection — Pattern D (nullish-coalescing fallback)", () => {
+  it("flags a French-accented ?? fallback caught only by containsFrenchAccents", () => {
+    // "Réservé" — looksLikeEnglishProse = false; caught by French accents
+    const line = 'label ?? "Réservé"';
+    NULLISH_FALLBACK_RE.lastIndex = 0;
+    const m = NULLISH_FALLBACK_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![1].trim();
+    expect(containsFrenchAccents(text)).toBe(true);
+  });
+});
+
+describe("French detection — Pattern E (nav options)", () => {
+  it("flags a French nav title with accented characters", () => {
+    const line = "title: 'Réservations'";
+    NAV_OPTION_RE.lastIndex = 0;
+    const m = NAV_OPTION_RE.exec(line);
+    expect(m).not.toBeNull();
+    const text = m![2].trim();
+    expect(containsFrenchAccents(text) || looksLikeEnglishProse(text)).toBe(true);
+  });
+});
+
+describe("French detection — i18n-ignore suppression", () => {
+  const I18N_IGNORE_RE = /\/\/\s*i18n-ignore\b|\/\*\s*i18n-ignore\b/;
+
+  it("i18n-ignore suppresses French hits just like English and Arabic ones", () => {
+    expect(I18N_IGNORE_RE.test("<Text>Réservé</Text> // i18n-ignore")).toBe(true);
+    expect(I18N_IGNORE_RE.test("<Text>Réservé</Text>")).toBe(false);
   });
 });
 

@@ -151,6 +151,22 @@ export function containsArabicScript(text: string): boolean {
 }
 
 /**
+ * Returns true when text contains French diacritic characters that are absent
+ * from plain ASCII.  Catches hardcoded French strings (é, è, ê, ë, à, â, æ,
+ * ç, î, ï, ô, œ, ù, û, ü, ÿ — and their uppercase equivalents) that would
+ * slip past the looksLikeEnglishProse word-count check because the accented
+ * characters break the /\b[a-zA-Z]{2,}\b/ token boundary.
+ *
+ * Examples that are caught only by this helper:
+ *   "Résumé"        (é breaks token; looksLikeEnglishProse sees only "sum")
+ *   "Ça va?"        (ç, à; base-Latin tokens ["va"] — too few / too short)
+ *   "Réservé"       (two é breaks; only "serv" remains — 1 short token)
+ */
+export function containsFrenchAccents(text: string): boolean {
+  return /[àâæçèéêëîïôœùûüÿÀÂÆÇÈÉÊËÎÏÔŒÙÛÜŸ]/.test(text);
+}
+
+/**
  * Returns true when text looks like user-visible English prose.
  *
  * Passes when:
@@ -339,12 +355,12 @@ for (const filePath of files) {
       const inner = m[1];
       // Skip if the whole content is a single {expression}
       if (/^\s*\{[^{}]*\}\s*$/.test(inner)) continue;
-      // Skip if there is no Latin letter AND no Arabic script (icon-only, numeric, etc.)
-      if (!/[a-zA-Z]/.test(inner) && !containsArabicScript(inner)) continue;
+      // Skip if there is no Latin letter AND no Arabic script AND no French accents (icon-only, numeric, etc.)
+      if (!/[a-zA-Z]/.test(inner) && !containsArabicScript(inner) && !containsFrenchAccents(inner)) continue;
       // Skip HTML entity strings (e.g. "&ldquo; &rdquo;") — not prose
       if (/^\s*&[a-z]+;/.test(inner)) continue;
       const text = stripExpressionsAndTrim(inner);
-      if (looksLikeEnglishProse(text) || containsArabicScript(text)) {
+      if (looksLikeEnglishProse(text) || containsArabicScript(text) || containsFrenchAccents(text)) {
         // De-duplicate: skip if we already recorded this exact line/text pair
         if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
           hits.push({ file: rel, line: lineNum, kind: "jsx-text", text });
@@ -389,7 +405,7 @@ for (const filePath of files) {
     while ((m = VISIBLE_PROP_RE.exec(raw)) !== null) {
       const attr = m[1];
       const text = m[2].trim();
-      if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
+      if (!looksLikeEnglishProse(text) && !containsArabicScript(text) && !containsFrenchAccents(text)) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "jsx-prop", attr, text });
       }
@@ -402,11 +418,13 @@ for (const filePath of files) {
       // Skip CSS-like strings (contain hyphens or colons — utility class tokens)
       if (/[-:]/.test(text)) continue;
       const isArabic = containsArabicScript(text);
-      // Require 2+ word tokens for Latin text: single-word ?? fallbacks are almost
-      // always technical defaults ("carousel", "Banner", "Beirut"), not user-visible
-      // prose.  Arabic text passes without a Latin word-count check.
+      const hasFrenchAccents = containsFrenchAccents(text);
+      // Require 2+ word tokens for plain-Latin text: single-word ?? fallbacks are
+      // almost always technical defaults ("carousel", "Banner", "Beirut"), not
+      // user-visible prose.  Arabic and French-accented text pass without the
+      // Latin word-count check because accented chars break token boundaries.
       const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
-      if (!isArabic && wordTokens.length < 2) continue;
+      if (!isArabic && !hasFrenchAccents && wordTokens.length < 2) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
@@ -420,7 +438,7 @@ for (const filePath of files) {
     DOC_TITLE_RE.lastIndex = 0;
     while ((m = DOC_TITLE_RE.exec(raw)) !== null) {
       const text = m[1].trim();
-      if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
+      if (!looksLikeEnglishProse(text) && !containsArabicScript(text) && !containsFrenchAccents(text)) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "doc-title", text });
       }
@@ -436,7 +454,7 @@ for (const filePath of files) {
         const text = m[1].trim();
         // Skip URLs — og:image etc. sometimes sit adjacent to og:title on the same line
         if (/^https?:\/\//.test(text)) continue;
-        if (!looksLikeEnglishProse(text) && !containsArabicScript(text)) continue;
+        if (!looksLikeEnglishProse(text) && !containsArabicScript(text) && !containsFrenchAccents(text)) continue;
         if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
           hits.push({ file: rel, line: lineNum, kind: "meta-title", text });
         }
@@ -453,9 +471,11 @@ for (const filePath of files) {
       // Skip CSS-like strings (contain hyphens or colons)
       if (/[-:]/.test(text)) continue;
       const isArabic = containsArabicScript(text);
-      // Require 2+ word tokens for Latin text; Arabic text passes without the check.
+      const hasFrenchAccents = containsFrenchAccents(text);
+      // Require 2+ word tokens for plain-Latin text; Arabic and French-accented
+      // text pass without the check (accents break token boundaries).
       const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
-      if (!isArabic && wordTokens.length < 2) continue;
+      if (!isArabic && !hasFrenchAccents && wordTokens.length < 2) continue;
       if (!hits.some((h) => h.file === rel && h.line === lineNum && h.text === text)) {
         hits.push({ file: rel, line: lineNum, kind: "fallback-string", text });
       }
@@ -497,7 +517,7 @@ if (jsonOutPath) {
 
 if (hits.length === 0) {
   console.log(
-    "✓ No hardcoded English or Arabic strings detected in web TSX/MJS files.\n" +
+    "✓ No hardcoded English, Arabic, or French strings detected in web TSX/MJS files.\n" +
     "  All user-visible text appears to use t() or a localised COPY/dict constant.",
   );
   process.exit(0);
