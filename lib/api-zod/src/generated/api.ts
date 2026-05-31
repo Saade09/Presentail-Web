@@ -953,33 +953,6 @@ export const GetCatalogMetadataResponse = zod.object({
       slug: zod.string(),
     }),
   ),
-  products: zod.array(
-    zod
-      .object({
-        id: zod.string(),
-        name: zod.string(),
-        tag: zod.string().optional(),
-        description: zod.string().optional(),
-        category: zod.string(),
-        occasions: zod.array(zod.string()).optional(),
-        image: zod
-          .union([
-            zod
-              .object({
-                asset: zod.string().optional(),
-                uri: zod.string().optional(),
-              })
-              .describe(
-                "Reference to an image asset. Either `asset` (relative path under\nthe client's bundled `catalog\/` tree) or `uri` (hosted URL) is\npresent.\n",
-              ),
-            zod.null(),
-          ])
-          .optional(),
-      })
-      .describe(
-        "Lightweight product entry from the bundled catalog. Used by clients\nas a fallback (image \/ tag \/ description \/ occasion tags) when the\nWooCommerce payload is missing those fields. The `id` matches the\nWooCommerce product slug.\n",
-      ),
-  ),
 });
 
 /**

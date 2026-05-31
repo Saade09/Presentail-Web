@@ -128,21 +128,10 @@ export type CatalogImageRef = { asset?: string; uri?: string } | null;
 export type CatalogCategory = { id: string; name: string; icon: string; image?: CatalogImageRef };
 export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
 export type CatalogBrand = { name: string; slug: string };
-export type CatalogProduct = {
-  id: string;
-  name: string;
-  tag?: string;
-  description?: string;
-  category: string;
-  occasions?: string[];
-  image?: CatalogImageRef;
-};
-
 export type CatalogMetadataResponse = {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];
   brands: CatalogBrand[];
-  products: CatalogProduct[];
 };
 
 export const useCatalogMetadata = () => {

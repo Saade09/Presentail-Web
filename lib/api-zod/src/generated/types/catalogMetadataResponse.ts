@@ -8,11 +8,9 @@
 import type { CatalogBrand } from "./catalogBrand";
 import type { CatalogCategory } from "./catalogCategory";
 import type { CatalogOccasion } from "./catalogOccasion";
-import type { CatalogProduct } from "./catalogProduct";
 
 export interface CatalogMetadataResponse {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];
   brands: CatalogBrand[];
-  products: CatalogProduct[];
 }

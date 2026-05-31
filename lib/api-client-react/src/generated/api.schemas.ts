@@ -702,7 +702,6 @@ export interface CatalogMetadataResponse {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];
   brands: CatalogBrand[];
-  products: CatalogProduct[];
 }
 
 export type Gender = (typeof Gender)[keyof typeof Gender];

@@ -1893,15 +1893,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CatalogBrand"
-        products:
-          type: array
-          items:
-            $ref: "#/components/schemas/CatalogProduct"
       required:
         - categories
         - occasions
         - brands
-        - products
 
     Gender:
       type: string

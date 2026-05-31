@@ -33,7 +33,6 @@ router.get("/catalog/metadata", (_req, res) => {
     categories,
     occasions,
     brands,
-    products: [],
   });
   res.json(data);
 });

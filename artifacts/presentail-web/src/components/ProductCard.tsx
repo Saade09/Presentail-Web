@@ -1,16 +1,13 @@
-import { Product, useCatalogMetadata } from "@/lib/queries";
+import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { catalogAssetUrl } from "@/lib/catalogAssets";
 import { useState } from "react";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { formatPrice } = useDisplayCurrency();
-  const { data: catalog } = useCatalogMetadata();
-  const fallback = catalog?.products?.find((p) => p.id === product.id);
-  const imageUrl = product.image?.uri || catalogAssetUrl(fallback?.image ?? null);
-  const tag = product.tag ?? fallback?.tag;
+  const imageUrl = product.image?.uri;
+  const tag = product.tag;
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 

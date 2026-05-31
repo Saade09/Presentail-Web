@@ -9,7 +9,7 @@ import { AddToCartUpsellModal } from "@/components/cart/AddToCartUpsellModal";
 import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useCatalogMetadata, useProducts } from "@/lib/queries";
+import { useProducts } from "@/lib/queries";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth as useClerkAuth } from "@clerk/react";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -98,19 +98,11 @@ export default function ProductDetail() {
     [product],
   );
 
-  const { data: catalogMetadata } = useCatalogMetadata();
   const effectiveDescription = useMemo(() => {
     const wooDesc = product?.description?.trim() ?? "";
     if (wooDesc.length > 0) return wooDesc;
-    const catProduct = catalogMetadata?.products.find((p) => p.id === product?.id);
-    if (catProduct?.description) return catProduct.description;
-    const tags = catProduct?.occasions ?? [];
-    for (const tag of tags) {
-      const occ = catalogMetadata?.occasions.find((o) => o.id === tag);
-      if (occ?.description) return occ.description;
-    }
     return vm?.description ?? "";
-  }, [product, catalogMetadata, vm]);
+  }, [product, vm]);
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
   const scheduledRowSubtitle = useMemo(() => {
