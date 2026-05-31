@@ -217,6 +217,7 @@ function LoyaltyScreen() {
 
 function SummaryCard({ summary }: { summary: LoyaltySummary }) {
   const colors = useColors();
+  const t = useT();
   const pct = summary.nextTier
     ? Math.min(
         100,
