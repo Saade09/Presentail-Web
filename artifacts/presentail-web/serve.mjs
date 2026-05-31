@@ -249,6 +249,15 @@ const server = http.createServer(async (req, res) => {
     if (assetPath === "/") assetPath = "/index.html";
 
     const filePath = safeJoin(DIST, assetPath);
+    // Block direct requests for pre-compressed sidecar files. These are served
+    // transparently by the encoding negotiation logic below; a raw request for
+    // e.g. /assets/index-abc123.js.br would otherwise stream raw brotli bytes
+    // with no Content-Encoding header, producing a corrupted download.
+    if (filePath && /\.(br|gz)$/i.test(filePath)) {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("Not Found");
+      return;
+    }
     if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const ext = path.extname(filePath).toLowerCase();
       // index.html gets locale-aware SEO injection.
