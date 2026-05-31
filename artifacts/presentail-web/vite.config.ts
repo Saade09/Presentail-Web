@@ -73,7 +73,7 @@ export default defineConfig(async ({ command }) => {
     base: basePath,
     plugins: [
       react(),
-      tailwindcss({ optimize: false }),
+      tailwindcss(),
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
       ...(process.env.NODE_ENV !== "production" &&
@@ -101,6 +101,8 @@ export default defineConfig(async ({ command }) => {
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
+      cssCodeSplit: true,
+      minify: "esbuild",
     },
     server: {
       port,
