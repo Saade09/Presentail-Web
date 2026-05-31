@@ -44,7 +44,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash -c 'set -e; PORT=24188 BASE_PATH=\"/\" pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; EXIT=$?; kill $SERVER_PID 2>/dev/null; exit $EXIT'"
+args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; EXIT=$?; kill $SERVER_PID 2>/dev/null; exit $EXIT'"
 
 [agent]
 stack = "PNPM_WORKSPACE"
