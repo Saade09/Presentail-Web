@@ -41,16 +41,6 @@ if (process.env.DATABASE_URL) {
     const Pool = pg.default?.Pool ?? pg.Pool;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-    // Ensure the table exists — idempotent DDL, run once at startup.
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS image_dims (
-        url        TEXT PRIMARY KEY,
-        width      INTEGER,
-        height     INTEGER,
-        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
     initImageDimsDb({
       async get(url) {
         const { rows } = await pool.query(
