@@ -53,7 +53,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");
 const SCAN_ROOT = path.join(REPO_ROOT, "artifacts/presentail");
 
-const SKIP_DIRS = new Set([
+export const SKIP_DIRS = new Set([
   "node_modules",
   ".expo",
   "dist",
@@ -69,7 +69,7 @@ const SKIP_DIRS = new Set([
 ]);
 
 // Files to skip by repo-relative path suffix
-const SKIP_FILE_SUFFIXES = [
+export const SKIP_FILE_SUFFIXES = [
   "lib/translations.ts",                      // the translation catalogue itself
   "components/paymentLogos/amex.ts",          // SVG brand mark string constants
   "components/paymentLogos/visa.ts",          // SVG brand mark string constants
@@ -89,7 +89,7 @@ interface Hit {
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function collectFiles(dir: string, results: string[] = []): string[] {
+export function collectFiles(dir: string, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
@@ -109,7 +109,7 @@ function collectFiles(dir: string, results: string[] = []): string[] {
  * Strip single-level JSX expression placeholders ({…}) from a string and
  * collapse runs of whitespace.  Handles nested braces one level deep.
  */
-function stripExpressionsAndTrim(text: string): string {
+export function stripExpressionsAndTrim(text: string): string {
   return text
     .replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}/g, " ")
     .replace(/\s+/g, " ")
@@ -125,7 +125,7 @@ function stripExpressionsAndTrim(text: string): string {
  *   - Has 2+ word-tokens (2+ consecutive letters each), OR a single word of
  *     5+ letters (to catch "Loading", "Copied", "Delete", etc.).
  */
-function looksLikeEnglishProse(raw: string): boolean {
+export function looksLikeEnglishProse(raw: string): boolean {
   const s = stripExpressionsAndTrim(raw);
   if (s.length < 2) return false;
   if (!/[a-zA-Z]/.test(s)) return false;
@@ -141,7 +141,7 @@ function looksLikeEnglishProse(raw: string): boolean {
 /**
  * Returns true when the entire line should be skipped unconditionally.
  */
-function shouldSkipLine(line: string): boolean {
+export function shouldSkipLine(line: string): boolean {
   const t = line.trim();
   if (t === "") return true;
   if (t.startsWith("//")) return true;          // single-line comment
@@ -160,7 +160,7 @@ function shouldSkipLine(line: string): boolean {
 
 // A: Inline JSX text — text between > and </ on the same line.
 //    We allow {expressions} inside; they are stripped by looksLikeEnglishProse.
-const INLINE_JSX_TEXT_RE = />([^<\n]+)<\//g;
+export const INLINE_JSX_TEXT_RE = />([^<\n]+)<\//g;
 
 // B: Standalone text line — an indented multi-word line containing only prose
 //    characters.  Deliberately conservative to minimise false positives:
@@ -174,32 +174,36 @@ const INLINE_JSX_TEXT_RE = />([^<\n]+)<\//g;
 //      • Ends with a letter, digit, ellipsis, exclamation, or sentence period
 //      • Does NOT start with a JS keyword (checked separately in the loop)
 //    Multi-word requirement (≥ 2 English word tokens) is enforced in the loop.
-const STANDALONE_TEXT_RE =
+export const STANDALONE_TEXT_RE =
   /^[ \t]{2,}([a-zA-Z][a-zA-Z0-9 !\u2019\u2013\u2014\u2026']{3,}[a-zA-Z0-9\u2026!.])$/;
 
 // Code keywords that must not be treated as standalone JSX text.
-const CODE_KEYWORDS_RE =
+export const CODE_KEYWORDS_RE =
   /^(return|throw|const|let|var|if|else|switch|case|import|export|async|await|try|catch|finally|new|delete|typeof|void|yield|function|class|extends|implements|interface|type|enum)\b/;
 
 // C: User-visible React Native JSX prop string literals.
 //    Includes both web-style props (title, alt, label, placeholder) and
 //    React Native accessibility props (accessibilityLabel, accessibilityHint).
-const VISIBLE_PROP_RE =
+export const VISIBLE_PROP_RE =
   /\b(placeholder|accessibilityLabel|accessibilityHint|title|alt|heading|label|description|subtitle|noResultsText|emptyText|emptyLabel|hint)\s*=\s*["']([^"'\n]{2,})["']/g;
 
 // D: Nullish-coalescing fallback strings that end up rendered in JSX.
 //    We intentionally exclude ternary `: "..."` to avoid flagging tech strings
 //    like `dir === "ltr" ? "ltr" : "rtl"`.  ?? is a stronger signal.
-const NULLISH_FALLBACK_RE = /\?\?\s*"([^"\n]{4,})"/g;
+export const NULLISH_FALLBACK_RE = /\?\?\s*"([^"\n]{4,})"/g;
 
 // E: Expo Router navigation option strings — JS object property syntax used in
 //    `options={{ title: "…" }}`, `screenOptions={{ headerBackTitle: "…" }}`,
 //    `tabBarLabel`, `headerTitle`, and `tabBarAccessibilityLabel`.
 //    Matches both single and double-quoted values.
-const NAV_OPTION_RE =
+export const NAV_OPTION_RE =
   /\b(title|tabBarLabel|headerTitle|headerBackTitle|tabBarAccessibilityLabel)\s*:\s*["']([^"'\n]{2,})["']/g;
 
 // ── main ────────────────────────────────────────────────────────────────────────
+// Guard lets unit tests import the exported helpers without triggering I/O
+// or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
+
+if (!process.env.VITEST) {
 
 const allFiles = collectFiles(SCAN_ROOT);
 const files = allFiles.filter((f) => {
@@ -392,3 +396,5 @@ console.error(
 );
 
 process.exit(1);
+
+} // end if (!process.env.VITEST)
