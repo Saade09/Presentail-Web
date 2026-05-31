@@ -26,8 +26,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect which artifacts changed
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'artifacts/presentail/**'
+              - 'scripts/src/checkUnusedMobileTranslationKeys.ts'
+              - 'scripts/package.json'
+              - '.github/workflows/check-translations.yml'
+            web:
+              - 'artifacts/presentail-web/**'
+              - 'scripts/src/checkUnusedWebTranslationKeys.ts'
+              - 'scripts/src/checkHardcodedWebStrings.ts'
+              - 'scripts/package.json'
+              - '.github/workflows/check-translations.yml'
+
   locale-dictionary-tests:
     name: Locale dictionary tests (web)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -126,8 +158,10 @@ jobs:
           echo "Locale dictionary tests failed — see output above and the PR comment for details."
           exit 1
 
-  check-translations:
-    name: Unused + missing + undefined translation keys (mobile & web)
+  check-mobile-translations:
+    name: Unused + missing + undefined translation keys (mobile)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -153,23 +187,19 @@ jobs:
       - name: Run unit tests for translation checker logic
         run: pnpm --filter @workspace/scripts run test
 
-      - name: Check for unused, missing, and undefined translation keys (mobile + web)
+      - name: Check for unused, missing, and undefined translation keys (mobile)
         id: check
         continue-on-error: true
         env:
           MOBILE_TRANSLATION_JSON_OUT: ${{ github.workspace }}/mobile-translation-results.json
-          WEB_TRANSLATION_JSON_OUT: ${{ github.workspace }}/web-translation-results.json
         run: |
           set +e
           pnpm --filter @workspace/scripts run check-unused-mobile-translations
-          mobile_exit=$?
-          pnpm --filter @workspace/scripts run check-unused-web-translations
-          web_exit=$?
-          combined=$(( mobile_exit | web_exit ))
-          echo "exit_code=$combined" >> "$GITHUB_OUTPUT"
-          exit $combined
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit $exit_code
 
-      - name: Post or update PR comment with translation check results
+      - name: Post or update PR comment with mobile translation check results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
@@ -177,7 +207,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const MARKER = '<!-- translation-check-bot -->';
+            const MARKER = '<!-- mobile-translation-check-bot -->';
             const passed = process.env.CHECK_OUTCOME === 'success';
 
             function readJson(filePath) {
@@ -194,6 +224,7 @@ jobs:
             }
 
             function buildMobileSection(data) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
               if (!data) return '### 📱 Mobile — ⚠️ results file missing\n\nThe mobile translation check may have failed before writing its results. Check the [workflow log](' + runUrl + ') for details.\n';
               if (data.passed) return '### 📱 Mobile — ✅ all checks passed\n';
               const c = data.checks;
@@ -249,7 +280,128 @@ jobs:
               return parts.join('\n');
             }
 
+            const mobile = readJson('mobile-translation-results.json');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body;
+            if (passed) {
+              body = [
+                MARKER,
+                '## ✅ Mobile translation check passed',
+                '',
+                'All mobile translation keys are present and accounted for.',
+                '',
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].join('\n');
+            } else {
+              body = [
+                MARKER,
+                '## ❌ Mobile translation check failed',
+                '',
+                'The following translation issues must be fixed before merging.',
+                '',
+                buildMobileSection(mobile),
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].filter(s => s !== undefined).join('\n');
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else if (!passed) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail job if mobile translation check failed
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "Mobile translation check failed — see output above and the PR comment for details."
+          exit 1
+
+  check-web-translations:
+    name: Unused + missing + undefined translation keys (web)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests for translation checker logic
+        run: pnpm --filter @workspace/scripts run test
+
+      - name: Check for unused, missing, and undefined translation keys (web)
+        id: check
+        continue-on-error: true
+        env:
+          WEB_TRANSLATION_JSON_OUT: ${{ github.workspace }}/web-translation-results.json
+        run: |
+          set +e
+          pnpm --filter @workspace/scripts run check-unused-web-translations
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      - name: Post or update PR comment with web translation check results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          CHECK_OUTCOME: ${{ steps.check.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- web-translation-check-bot -->';
+            const passed = process.env.CHECK_OUTCOME === 'success';
+
+            function readJson(filePath) {
+              try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+              catch { return null; }
+            }
+
+            function details(summary, body) {
+              return `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>\n`;
+            }
+
+            function keyList(keys) {
+              return keys.map(k => `- \`${k}\``).join('\n');
+            }
+
             function buildWebSection(data) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
               if (!data) return '### 🌐 Web — ⚠️ results file missing\n\nThe web translation check may have failed before writing its results. Check the [workflow log](' + runUrl + ') for details.\n';
               if (data.passed) return '### 🌐 Web — ✅ all checks passed\n';
               const c = data.checks;
@@ -308,7 +460,6 @@ jobs:
               return parts.join('\n');
             }
 
-            const mobile = readJson('mobile-translation-results.json');
             const web = readJson('web-translation-results.json');
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
@@ -316,23 +467,20 @@ jobs:
             if (passed) {
               body = [
                 MARKER,
-                '## ✅ Translation check passed',
+                '## ✅ Web translation check passed',
                 '',
-                'All translation keys are present and accounted for.',
+                'All web translation keys are present and accounted for.',
                 '',
                 `_Updated by the [check-translations](${runUrl}) workflow._`,
               ].join('\n');
             } else {
-              const mobileSection = buildMobileSection(mobile);
-              const webSection = buildWebSection(web);
               body = [
                 MARKER,
-                '## ❌ Translation check failed',
+                '## ❌ Web translation check failed',
                 '',
                 'The following translation issues must be fixed before merging.',
                 '',
-                mobileSection,
-                webSection,
+                buildWebSection(web),
                 `_Updated by the [check-translations](${runUrl}) workflow._`,
               ].filter(s => s !== undefined).join('\n');
             }
@@ -361,14 +509,16 @@ jobs:
               });
             }
 
-      - name: Fail job if translation check failed
+      - name: Fail job if web translation check failed
         if: steps.check.outcome == 'failure'
         run: |
-          echo "Translation check failed — see output above and the PR comment for details."
+          echo "Web translation check failed — see output above and the PR comment for details."
           exit 1
 
   check-hardcoded-strings:
     name: Hardcoded English strings (web)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
