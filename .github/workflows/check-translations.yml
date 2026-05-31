@@ -367,5 +367,28 @@ jobs:
           echo "Translation check failed — see output above and the PR comment for details."
           exit 1
 
+  check-hardcoded-strings:
+    name: Hardcoded English strings (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Check for hardcoded English strings in web TSX
         run: pnpm --filter @workspace/scripts run check-hardcoded-web-strings
