@@ -1,20 +1,23 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "@/test-utils";
 
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
 
+// @clerk/react/legacy is a different import path from the @clerk/react used
+// by the app's own AuthContext, so renderWithProviders cannot stub it
+// centrally — we must keep this mock here.
 vi.mock("@clerk/react/legacy", () => ({
   useSignIn: vi.fn(),
 }));
 
-vi.mock("@/contexts/LocaleContext", () => ({
-  useLocale: vi.fn(),
-}));
+// LocaleContext is provided centrally by renderWithProviders (DEFAULT_LOCALE,
+// t: key => key, dir: "ltr") — no per-file mock needed.
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: vi.fn(() => ({ toast: vi.fn() })),
@@ -69,18 +72,10 @@ vi.mock("@/components/ui/input", () => ({
 
 import { CheckoutLoginDialog } from "./CheckoutLoginDialog";
 import { useSignIn } from "@clerk/react/legacy";
-import { useLocale } from "@/contexts/LocaleContext";
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Shared props
 // ---------------------------------------------------------------------------
-
-function setupLocale() {
-  (useLocale as ReturnType<typeof vi.fn>).mockReturnValue({
-    t: (key: string) => key,
-    dir: "ltr",
-  });
-}
 
 const defaultProps = {
   open: true,
@@ -95,7 +90,6 @@ const defaultProps = {
 
 describe("CheckoutLoginDialog — Clerk sign-in unavailable (isLoaded=false)", () => {
   beforeEach(() => {
-    setupLocale();
     (useSignIn as ReturnType<typeof vi.fn>).mockReturnValue({
       isLoaded: false,
       signIn: null,
@@ -106,12 +100,12 @@ describe("CheckoutLoginDialog — Clerk sign-in unavailable (isLoaded=false)", (
   });
 
   it("shows the 'sign in unavailable' notice when Clerk has not loaded", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     expect(screen.getByTestId("text-clerk-unavailable")).toBeTruthy();
   });
 
   it("renders 'Checkout as Guest' as the prominent top button when Clerk is unavailable", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     // The guest button should appear before the disabled OAuth buttons in the
     // DOM — when isLoaded=false the component renders it first.
     const guestBtn = screen.getByTestId("button-checkout-as-guest");
@@ -120,7 +114,7 @@ describe("CheckoutLoginDialog — Clerk sign-in unavailable (isLoaded=false)", (
   });
 
   it("OAuth buttons are rendered as disabled when Clerk is unavailable", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     const appleBtn = screen.getByTestId("button-checkout-login-apple") as HTMLButtonElement;
     const googleBtn = screen.getByTestId("button-checkout-login-google") as HTMLButtonElement;
     expect(appleBtn.disabled).toBe(true);
@@ -129,7 +123,7 @@ describe("CheckoutLoginDialog — Clerk sign-in unavailable (isLoaded=false)", (
 
   it("clicking 'Checkout as Guest' calls onContinueAsGuest and closes the dialog", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.click(screen.getByTestId("button-checkout-as-guest"));
 
@@ -138,7 +132,7 @@ describe("CheckoutLoginDialog — Clerk sign-in unavailable (isLoaded=false)", (
   });
 
   it("does NOT render the email input when Clerk is unavailable", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     expect(screen.queryByTestId("input-checkout-login-email")).toBeNull();
   });
 });
@@ -151,7 +145,6 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
   const mockAuthenticateWithRedirect = vi.fn();
 
   beforeEach(() => {
-    setupLocale();
     (useSignIn as ReturnType<typeof vi.fn>).mockReturnValue({
       isLoaded: true,
       signIn: { authenticateWithRedirect: mockAuthenticateWithRedirect },
@@ -163,17 +156,17 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
   });
 
   it("renders the email input when Clerk is loaded", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     expect(screen.getByTestId("input-checkout-login-email")).toBeTruthy();
   });
 
   it("renders the Continue button when Clerk is loaded", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     expect(screen.getByTestId("button-checkout-login-continue")).toBeTruthy();
   });
 
   it("OAuth buttons are enabled when Clerk is loaded", () => {
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
     const appleBtn = screen.getByTestId("button-checkout-login-apple") as HTMLButtonElement;
     const googleBtn = screen.getByTestId("button-checkout-login-google") as HTMLButtonElement;
     expect(appleBtn.disabled).toBe(false);
@@ -182,7 +175,7 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
   it("shows an email error when Continue is clicked with an invalid email", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.type(screen.getByTestId("input-checkout-login-email"), "not-an-email");
     await user.click(screen.getByTestId("button-checkout-login-continue"));
@@ -192,7 +185,7 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
   it("navigates to /sign-in with the email hint when Continue is clicked with a valid email", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.type(screen.getByTestId("input-checkout-login-email"), "ada@example.com");
     await user.click(screen.getByTestId("button-checkout-login-continue"));
@@ -205,7 +198,7 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
   it("clicking 'Checkout as Guest' calls onContinueAsGuest and closes the dialog", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.click(screen.getByTestId("button-checkout-as-guest"));
 
@@ -215,7 +208,7 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
   it("clicking the Google button calls signIn.authenticateWithRedirect with oauth_google", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.click(screen.getByTestId("button-checkout-login-google"));
 
@@ -226,7 +219,7 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
   it("clicking the Apple button calls signIn.authenticateWithRedirect with oauth_apple", async () => {
     const user = userEvent.setup();
-    render(<CheckoutLoginDialog {...defaultProps} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} />);
 
     await user.click(screen.getByTestId("button-checkout-login-apple"));
 
@@ -242,7 +235,6 @@ describe("CheckoutLoginDialog — Clerk loaded, shopper signed out", () => {
 
 describe("CheckoutLoginDialog — closed state", () => {
   beforeEach(() => {
-    setupLocale();
     (useSignIn as ReturnType<typeof vi.fn>).mockReturnValue({
       isLoaded: true,
       signIn: { authenticateWithRedirect: vi.fn() },
@@ -250,7 +242,7 @@ describe("CheckoutLoginDialog — closed state", () => {
   });
 
   it("renders nothing when open=false", () => {
-    render(<CheckoutLoginDialog {...defaultProps} open={false} />);
+    renderWithProviders(<CheckoutLoginDialog {...defaultProps} open={false} />);
     expect(screen.queryByTestId("dialog-checkout-login")).toBeNull();
     expect(screen.queryByTestId("input-checkout-login-email")).toBeNull();
     expect(screen.queryByTestId("button-checkout-as-guest")).toBeNull();
