@@ -33,12 +33,16 @@ function requireAdmin(req: Request, res: Response): boolean {
  *
  * Returns the most recent cached AuditSummary (populated by the nightly
  * scheduler or a previous /run call, persisted across restarts via the
- * analytics_key_value table). Returns `{ ok: true, summary: null }` when no
- * audit has completed since the server started.
+ * analytics_key_value table). Returns 404 when no audit has completed since
+ * the last server start and no persisted result is available yet.
  */
 router.get("/admin/seo-audit/last", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const summary = getLastAuditSummary();
+  if (!summary) {
+    res.status(404).json({ ok: false, message: "No audit result available yet" }); // i18n-ignore
+    return;
+  }
   res.json({ ok: true, summary });
 });
 

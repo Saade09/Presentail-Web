@@ -60,6 +60,7 @@ import {
   type DailyWebVitalSummary,
 } from "../lib/webVitalsMonitor";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
+import { getLastAuditSummary } from "../lib/seoAuditMonitor";
 import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
 import { logger } from "../lib/logger";
@@ -284,6 +285,11 @@ router.get("/admin/funnels/data", async (req, res) => {
         p75: r.p75,
         p95: r.p95,
       })),
+      // Last completed SEO audit summary (from nightly scheduler or on-demand
+      // /run call). Included here so the dashboard can render the compact OG
+      // health status card without a second round-trip. null when no audit has
+      // completed since the last server start and none is persisted yet.
+      seoAudit: getLastAuditSummary(),
     });
   } catch (err: any) {
     logger.warn(
@@ -854,6 +860,13 @@ const DASHBOARD_HTML = `<!doctype html>
   .seo-status-warn  { color: #b06000; font-weight: 600; }
   .seo-status-ok    { color: #109618; font-weight: 600; }
   .seo-summary-counts { font-size: 13px; margin-bottom: 8px; }
+  .seo-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 6px; border: 1px solid #ddd; font-size: 13px; margin-bottom: 10px; background: #fff; }
+  .seo-card.seo-card-error { border-color: #b00020; background: #fff5f5; }
+  .seo-card.seo-card-warn  { border-color: #b06000; background: #fffbf0; }
+  .seo-card.seo-card-ok    { border-color: #109618; background: #f5fff6; }
+  .seo-card .seo-card-badge { font-size: 20px; line-height: 1; }
+  .seo-card .seo-card-counts strong { font-size: 14px; }
+  .seo-card .seo-card-ts { font-size: 11px; color: #888; }
   .seo-audit-history { margin-top: 16px; border-top: 1px solid #e8e8e8; padding-top: 12px; }
   .seo-audit-history h4 { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: #444; }
   .seo-audit-history table { font-size: 12px; }
@@ -1104,8 +1117,9 @@ const DASHBOARD_HTML = `<!doctype html>
   </table>
 
   <h2>SEO audit</h2>
-  <div class="sub">Shows the most recent OG-image health check result (from the nightly scheduler or a previous manual run) on page load. Click "Run SEO audit" to trigger an immediate check, bypassing the daily schedule. Useful after a deploy that touches the SEO inject middleware. Returns per-page status (error / warn / ok) so you can act without waiting up to 24 h for the nightly digest. Responds 409 when an audit is already running.</div>
+  <div class="sub">Compact OG-image health card (green / yellow / red) loaded alongside the rest of the page — no extra click needed. Click "Run SEO audit" to trigger an immediate audit, bypassing the nightly schedule. Useful after a deploy that touches the SEO inject middleware. Each failing row links directly to the page so you can verify the fix without decoding a JSON blob. Responds 409 when an audit is already running.</div>
   <div class="seo-audit-panel">
+    <div id="seoStatusCard"></div>
     <button class="seo-run-btn" id="seoRunBtn">Run SEO audit</button>
     <span class="seo-status muted" id="seoStatus"></span>
     <div class="seo-audit-results" id="seoAuditResults"></div>
@@ -1174,6 +1188,7 @@ const DASHBOARD_HTML = `<!doctype html>
   var orderPushTapsDailyBody = document.querySelector('#orderPushTapsDaily tbody');
   var signInMethodsSummary = document.getElementById('signInMethodsSummary');
   var signInMethodsTrends = document.getElementById('signInMethodsTrends');
+  var seoStatusCard = document.getElementById('seoStatusCard');
   var signInMethodsDailyBody = document.querySelector('#signInMethodsDaily tbody');
   var webVitalsCharts = document.getElementById('webVitalsCharts');
   var webVitalsLegend = document.getElementById('webVitalsLegend');
@@ -2471,6 +2486,14 @@ const DASHBOARD_HTML = `<!doctype html>
         renderOrderPushTaps(data.orderPushTaps || { daily: [] });
         renderSignInMethods(data.signInMethods || { summary: [], daily: [] });
         renderWebVitals(data.webVitals || []);
+        // Render the compact SEO OG-health status card from the summary
+        // embedded in the funnels data response (no extra round-trip needed).
+        renderSeoStatusCard(data.seoAudit || null);
+        if (data.seoAudit) {
+          renderSeoAudit(data.seoAudit);
+        } else {
+          seoAuditResults.innerHTML = '<span class="muted">No audit result yet — click "Run SEO audit" to check now.</span>';
+        }
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
@@ -2497,22 +2520,6 @@ const DASHBOARD_HTML = `<!doctype html>
         statusEl.className = 'err';
       });
 
-    fetch('/api/admin/seo-audit/last', { headers: headers })
-      .then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then(function (data) {
-        if (!data || !data.summary) {
-          seoAuditResults.innerHTML = '<span class="muted">No audit result yet — click "Run SEO audit" to check now.</span>';
-          return;
-        }
-        seoStatusEl.textContent = 'Last result (nightly or previous run):';
-        seoStatusEl.className = 'muted';
-        renderSeoAudit(data.summary);
-      })
-      .catch(function () {});
-
     fetch('/api/admin/seo-audit/history?days=14', { headers: headers })
       .then(function (r) {
         if (!r.ok) return null;
@@ -2530,10 +2537,43 @@ const DASHBOARD_HTML = `<!doctype html>
   daysEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
   if (tokenEl.value) load();
 
-  // ── SEO audit on-demand ────────────────────────────────────────────────
+  // ── SEO audit ─────────────────────────────────────────────────────────
   var seoRunBtn = document.getElementById('seoRunBtn');
   var seoStatusEl = document.getElementById('seoStatus');
   var seoAuditResults = document.getElementById('seoAuditResults');
+
+  /**
+   * Render the compact green/yellow/red status card above the detailed table.
+   * Shows counts + last-run timestamp at a glance; null summary = no data yet.
+   */
+  function renderSeoStatusCard(summary) {
+    if (!seoStatusCard) return;
+    if (!summary) {
+      seoStatusCard.innerHTML = '';
+      return;
+    }
+    var level = summary.failing > 0 ? 'error' : summary.warned > 0 ? 'warn' : 'ok';
+    var badge = summary.failing > 0 ? '🔴' : summary.warned > 0 ? '🟡' : '🟢';
+    var label = summary.failing > 0
+      ? summary.failing + ' failing'
+      : summary.warned > 0
+        ? summary.warned + ' warned'
+        : 'All OK';
+    var ts = summary.ranAt ? new Date(summary.ranAt).toUTCString() : '';
+    seoStatusCard.innerHTML =
+      '<div class="seo-card seo-card-' + level + '">' +
+        '<span class="seo-card-badge">' + badge + '</span>' +
+        '<span class="seo-card-counts">' +
+          '<strong>' + escapeHtml(label) + '</strong>' +
+          ' &nbsp;·&nbsp; ' +
+          escapeHtml(summary.passing) + ' ok, ' +
+          escapeHtml(summary.warned) + ' warned, ' +
+          escapeHtml(summary.failing) + ' failing' +
+          ' of ' + escapeHtml(summary.total) + ' pages' +
+        '</span>' +
+        (ts ? '<span class="seo-card-ts">Last checked ' + escapeHtml(ts) + '</span>' : '') +
+      '</div>';
+  }
 
   function renderSeoAudit(summary) {
     var statusIcon = summary.failing > 0 ? '🔴' : summary.warned > 0 ? '🟡' : '🟢';
@@ -2634,6 +2674,7 @@ const DASHBOARD_HTML = `<!doctype html>
           if (!data) return;
           seoStatusEl.textContent = '';
           seoStatusEl.className = 'muted';
+          renderSeoStatusCard(data);
           renderSeoAudit(data);
         })
         .catch(function (err) {
