@@ -1651,3 +1651,321 @@ describe("seo_entity_fetch_failed analytics event — emitted on entity lookup f
     expect(out).not.toContain('property="product:price:amount"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ETag / Last-Modified conditional request support
+//
+// When fetchEntityForSeoCached re-fetches an entity after its TTL expires, it
+// sends If-None-Match / If-Modified-Since headers if the previous response
+// provided an ETag or Last-Modified value. The upstream can then respond with
+// 304 Not Modified to indicate that the entity — and therefore its image URLs
+// — have not changed. In that case the cached entity is restored with a fresh
+// TTL and image-dims are NOT re-fetched (they are still accurate). A 200
+// response means the entity changed; dims ARE evicted and re-probed.
+//
+// Tests use vi.useFakeTimers({ toFake: ['Date'] }) so only Date.now() is faked;
+// real setTimeout keeps the AbortController timer in fetchImageDimensions working.
+// ---------------------------------------------------------------------------
+
+const ETAG_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const ETAG_OPTS = {
+  apiBaseUrl: "https://api.etag-test",
+  origin: "https://presentail.etag-test",
+  basePath: "",
+};
+
+function makeFakeHeaders(map: Record<string, string | null>) {
+  return {
+    get: (name: string) => map[name.toLowerCase()] ?? null,
+  };
+}
+
+describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("does NOT re-fetch image dims on a 304 response within cache TTL (product)", async () => {
+    // When the upstream returns an ETag on the first fetch, a second request
+    // WITHIN the 60s entity TTL must still send If-None-Match and skip dims
+    // eviction when the server confirms the entity is unchanged (304).
+    const pngBuf = makePngBuffer(800, 600);
+    const imageUrl = "https://cdn.etag-test/product-etag-304-withinttl-unique.png";
+    const entityEtag = '"etag-v1-within-ttl-product-304"';
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
+        if (ifNoneMatch === entityEtag) {
+          // Conditional request within TTL → entity unchanged → 304.
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "ETag 304 Within TTL Product",
+              description: "Conditional within-TTL test.",
+              image: { uri: imageUrl },
+              priceValue: 75,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity + dims freshly fetched; ETag stored in entity cache.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-304-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call immediately (WITHIN TTL): because we stored an ETag, a
+    // conditional request must be sent even though the TTL has not expired.
+    // The server returns 304 → entity served from cache, dims NOT re-probed.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-304-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(2); // conditional request sent within TTL
+    expect(dimsFetchCount).toBe(1);   // 304 → no dims eviction
+  });
+
+  it("does NOT re-fetch image dims on a 304 response within cache TTL (brand)", async () => {
+    const pngBuf = makePngBuffer(600, 400);
+    const imageUrl = "https://cdn.etag-test/brand-etag-304-withinttl-unique.png";
+    const entityEtag = '"etag-v1-within-ttl-brand-304"';
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand")) {
+        entityFetchCount++;
+        const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
+        if (ifNoneMatch === entityEtag) {
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            brand: { name: "ETag Within-TTL Brand", description: "Brand within-TTL test.", image: imageUrl },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brand/etag-304-withinttl-brand", ETAG_OPTS);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call within TTL: conditional request → 304 → no dims re-fetch.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brand/etag-304-withinttl-brand", ETAG_OPTS);
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(1);
+  });
+
+  it("sends If-None-Match on the second request within TTL (not just after expiry)", async () => {
+    const imageUrl = "https://cdn.etag-test/product-etag-hdrcheck-withinttl-unique.png";
+    const entityEtag = '"etag-hdrcheck-within-ttl-v1"';
+    const capturedHeaders: Array<Record<string, string>> = [];
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        capturedHeaders.push({ ...h });
+        if (h["If-None-Match"] === entityEtag) {
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Header Check Within TTL",
+              description: "Verifies If-None-Match is sent within TTL.",
+              image: { uri: imageUrl },
+              priceValue: 50,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: no conditional headers yet.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-hdrcheck-withinttl-product", ETAG_OPTS);
+    // Second call immediately (within TTL): should carry If-None-Match.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-hdrcheck-withinttl-product", ETAG_OPTS);
+
+    expect(capturedHeaders[0]?.["If-None-Match"]).toBeUndefined();
+    expect(capturedHeaders[1]?.["If-None-Match"]).toBe(entityEtag);
+  });
+
+  it("falls back to cached entity when the conditional request fails within TTL", async () => {
+    // Network error on the conditional request → cached entity must be served
+    // instead of falling back to the generic SEO template.
+    const imageUrl = "https://cdn.etag-test/product-etag-304-errf-withinttl-unique.png";
+    const entityEtag = '"etag-errf-within-ttl-v1"';
+    let entityFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        if (h["If-None-Match"] === entityEtag) {
+          // Conditional request within TTL fails.
+          throw new Error("ETIMEDOUT");
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Fallback Product",
+              description: "Should be served from cache on conditional error.",
+              image: { uri: imageUrl },
+              priceValue: 70,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity cached.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-errf-withinttl-product", ETAG_OPTS);
+
+    // Second call within TTL: conditional request fails → should still serve
+    // the cached entity (not the generic fallback).
+    const out = await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-errf-withinttl-product", ETAG_OPTS);
+    expect(out).toContain("<title>Fallback Product | Presentail</title>");
+    expect(entityFetchCount).toBe(2); // conditional attempt was made
+  });
+});
+
+describe("ETag conditional requests — 200 branch (dims evicted on entity change)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("evicts and re-fetches dims when upstream returns 200 on a conditional request within TTL", async () => {
+    const pngBuf = makePngBuffer(1200, 630);
+    const imageUrl = "https://cdn.etag-test/product-etag-200-withinttl-unique.png";
+    const entityEtag = '"etag-v1-within-ttl-200-changed"';
+    const entityEtagV2 = '"etag-v2-within-ttl-200-changed"';
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
+        // Second request carries the old ETag → server says content changed (200).
+        const responseEtag = ifNoneMatch === entityEtag ? entityEtagV2 : entityEtag;
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: responseEtag }),
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "ETag 200 Changed Within TTL",
+              description: "Entity changed, dims must be re-fetched.",
+              image: { uri: imageUrl },
+              priceValue: 85,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity + dims fetched.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-200-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call within TTL: conditional request → upstream returns 200 (entity
+    // changed) → dims must be evicted and re-fetched immediately.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-200-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(2); // dims re-probed because entity changed
+  });
+
+  it("uses Last-Modified for conditional request within TTL when no ETag is present", async () => {
+    const pngBuf = makePngBuffer(640, 480);
+    const imageUrl = "https://cdn.etag-test/product-lm-withinttl-unique.png";
+    const lastModifiedValue = "Sat, 31 May 2026 10:00:00 GMT";
+    const capturedHeaders: Array<Record<string, string>> = [];
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/product")) {
+        entityFetchCount++;
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        capturedHeaders.push({ ...h });
+        const ifModifiedSince = h["If-Modified-Since"];
+        if (ifModifiedSince === lastModifiedValue) {
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ "last-modified": lastModifiedValue }),
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "LM Within TTL Product",
+              description: "Last-Modified within-TTL test.",
+              image: { uri: imageUrl },
+              priceValue: 60,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity fetched, Last-Modified stored.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/lm-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+    expect(capturedHeaders[0]?.["If-Modified-Since"]).toBeUndefined();
+
+    // Second call within TTL: If-Modified-Since sent; 304 returned; dims NOT re-fetched.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/lm-withinttl-product", ETAG_OPTS);
+    expect(entityFetchCount).toBe(2);
+    expect(capturedHeaders[1]?.["If-Modified-Since"]).toBe(lastModifiedValue);
+    expect(dimsFetchCount).toBe(1); // 304 → no dims eviction
+  });
+});

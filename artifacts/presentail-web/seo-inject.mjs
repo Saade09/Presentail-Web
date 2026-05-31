@@ -584,15 +584,25 @@ function getCachedEntity(key) {
   return entry.value;
 }
 
-function setCachedEntity(key, value) {
+// Returns the raw cache entry whether or not it has expired, so the caller
+// can use stored ETag/Last-Modified headers to send a conditional request.
+// Returns null only when the key is absent from the map entirely.
+function getRawEntityCacheEntry(key) {
+  return entitySeoCache.get(key) ?? null;
+}
+
+function setCachedEntity(key, value, etag = null, lastModified = null) {
   if (!value) return;
   if (entitySeoCache.size >= ENTITY_CACHE_MAX_ENTRIES) {
     const oldest = entitySeoCache.keys().next().value;
     if (oldest !== undefined) entitySeoCache.delete(oldest);
   }
+  entitySeoCache.delete(key);
   entitySeoCache.set(key, {
     value,
     expiresAt: Date.now() + ENTITY_CACHE_TTL_MS,
+    etag,
+    lastModified,
   });
 }
 
@@ -604,18 +614,75 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
     countryCode: opts.countryCode,
     cityId: opts.cityId,
   });
-  const hit = getCachedEntity(key);
-  if (hit) return hit;
-  const value = await fetcher(opts);
-  if (value) {
-    // Evict image-dims cache entries for this entity's image URL(s) so the
-    // freshly fetched entity always gets freshly measured dimensions. This
-    // prevents stale dims surviving up to 1 hour when the CDN replaces an
-    // image at an unchanged URL (e.g. a product photo update).
-    for (const url of extractEntityImageUrls(value)) evictImageDims(url);
-    setCachedEntity(key, value);
+
+  const rawEntry = getRawEntityCacheEntry(key);
+  const now = Date.now();
+  const isFresh = rawEntry !== null && rawEntry.expiresAt > now;
+
+  // When we have a cached entry that carries an ETag or Last-Modified header,
+  // always send a conditional request — even within the cache TTL — so an
+  // image swap at an unchanged CDN URL is detected on the very next crawler
+  // hit rather than waiting up to 60 s for the entity TTL to expire. A 304
+  // response is cheap (no body) and lets us serve the cached value unchanged;
+  // a 200 tells us the entity changed so we evict dims and update the entry.
+  //
+  // When the upstream provided no validation headers (e.g. the API does not
+  // yet emit ETag/Last-Modified), fall back to pure TTL-based caching so the
+  // existing repeat-crawler protection remains in effect.
+  const conditionalHeaders = {};
+  if (rawEntry) {
+    if (rawEntry.etag) conditionalHeaders["If-None-Match"] = rawEntry.etag;
+    if (rawEntry.lastModified) conditionalHeaders["If-Modified-Since"] = rawEntry.lastModified;
   }
-  return value;
+  const hasConditional = Object.keys(conditionalHeaders).length > 0;
+
+  // No validation headers and still within TTL → serve cached value immediately.
+  if (isFresh && !hasConditional) {
+    entitySeoCache.delete(key);
+    entitySeoCache.set(key, rawEntry);
+    return rawEntry.value;
+  }
+
+  // Either the entry is stale OR we have validation headers: hit upstream.
+  const fetchOpts = hasConditional ? { ...opts, conditionalHeaders } : opts;
+  const result = await fetcher(fetchOpts);
+
+  // 304 Not Modified: entity is unchanged. Restore the entry with a fresh TTL.
+  // Image dims are NOT evicted — the entity's image URL(s) have not changed
+  // so the cached dimensions remain accurate.
+  if (result && result.notModified) {
+    if (rawEntry) {
+      const refreshed = { ...rawEntry, expiresAt: now + ENTITY_CACHE_TTL_MS };
+      entitySeoCache.delete(key);
+      if (entitySeoCache.size >= ENTITY_CACHE_MAX_ENTRIES) {
+        const oldest = entitySeoCache.keys().next().value;
+        if (oldest !== undefined) entitySeoCache.delete(oldest);
+      }
+      entitySeoCache.set(key, refreshed);
+      return rawEntry.value;
+    }
+    return null;
+  }
+
+  // 200 (new or changed entity): evict image-dims cache entries so the fresh
+  // entity always gets freshly measured dimensions. This prevents stale dims
+  // surviving up to 1 hour when the CDN replaces an image at an unchanged URL.
+  if (result && result.value) {
+    for (const url of extractEntityImageUrls(result.value)) evictImageDims(url);
+    setCachedEntity(key, result.value, result.etag, result.lastModified);
+    return result.value;
+  }
+
+  // Fetch failed (network error, 4xx, timeout). If we were revalidating a
+  // fresh cached entry (conditional request within TTL), serve the cached
+  // value rather than degrading to the generic fallback — the entity content
+  // has not been confirmed changed, so staleness is preferable to a broken
+  // preview.
+  if (isFresh && rawEntry) {
+    return rawEntry.value;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -934,6 +1001,10 @@ function reportSeoFetchFailure(apiBaseUrl, entityKind) {
   }
 }
 
+// Returns one of:
+//   { value, etag, lastModified }  — successful 200 fetch
+//   { notModified: true }          — 304 Not Modified (only when conditionalHeaders were sent)
+//   null                           — error / entity not found
 async function fetchEntityForSeo({
   endpoint,
   responseKey,
@@ -942,6 +1013,7 @@ async function fetchEntityForSeo({
   countryCode,
   cityId,
   apiBaseUrl,
+  conditionalHeaders,
 }) {
   if (!slug) return null;
   const params = new URLSearchParams({ slug });
@@ -952,7 +1024,13 @@ async function fetchEntityForSeo({
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: ac.signal });
+    const reqOptions = { signal: ac.signal };
+    if (conditionalHeaders && Object.keys(conditionalHeaders).length > 0) {
+      reqOptions.headers = { ...conditionalHeaders };
+    }
+    const res = await fetch(url, reqOptions);
+    // 304: upstream confirms entity is unchanged — no body to parse.
+    if (res.status === 304) return { notModified: true };
     if (!res.ok) {
       reportSeoFetchFailure(apiBaseUrl, responseKey);
       return null;
@@ -962,7 +1040,13 @@ async function fetchEntityForSeo({
       reportSeoFetchFailure(apiBaseUrl, responseKey);
       return null;
     }
-    return body[responseKey] ?? null;
+    const value = body[responseKey] ?? null;
+    if (!value) return null;
+    // Capture validation headers so subsequent requests can use them for
+    // conditional fetches, avoiding a full round-trip when nothing changed.
+    const etag = res.headers?.get?.("etag") ?? null;
+    const lastModified = res.headers?.get?.("last-modified") ?? null;
+    return { value, etag, lastModified };
   } catch {
     reportSeoFetchFailure(apiBaseUrl, responseKey);
     return null;
@@ -1592,10 +1676,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       result = buildCategoryHead({ category, imageDimensions: catImageDims, search, ...headOpts });
     }
   } else if (occasionSlug) {
-    const occasion = await fetchOccasionForSeo({
+    const occasionResult = await fetchOccasionForSeo({
       slug: occasionSlug,
       ...fetchOpts,
     });
+    const occasion = occasionResult?.value ?? null;
     if (occasion) {
       const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
       const occImageDims = await fetchImageDimensions(occImageUrl);
