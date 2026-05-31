@@ -499,6 +499,17 @@ describe("admin funnels routes", () => {
 
 // ── Per-store local-currency price tests ────────────────────────────────────
 
+// Use dates within the last 7 days so they always fall inside the default
+// 14-day display window (and the 7-day prior-week extension). Hardcoded
+// dates eventually drift outside the window as time passes, causing the
+// `r.day >= displayWindowStart` filter in buildUpsellPayload to exclude them.
+const RECENT_DAY = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+const OLDER_DAY = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+
 describe("upsell per-store local-currency prices", () => {
   // Shared test product with USD price $10.
   const PRODUCT_SLUG = "addon-flowers";
@@ -556,8 +567,8 @@ describe("upsell per-store local-currency prices", () => {
       return null;
     });
     setupUpsellMocks({
-      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
-      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+      tabsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
     });
     const res = await request(makeApp())
       .get("/api/admin/funnels/data")
@@ -583,8 +594,8 @@ describe("upsell per-store local-currency prices", () => {
       return null;
     });
     setupUpsellMocks({
-      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
-      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+      tabsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
     });
     const res = await request(makeApp())
       .get("/api/admin/funnels/data")
@@ -607,8 +618,8 @@ describe("upsell per-store local-currency prices", () => {
       return null;
     });
     setupUpsellMocks({
-      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
-      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+      tabsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
     });
     const res = await request(makeApp())
       .get("/api/admin/funnels/data")
@@ -627,8 +638,8 @@ describe("upsell per-store local-currency prices", () => {
     process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
     (getOsProducts as any).mockImplementation((_storeKey: string) => [makeProduct()]);
     setupUpsellMocks({
-      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 50 }],
-      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
+      tabsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", clicks: 50 }],
+      itemsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 5 }],
     });
     const res = await request(makeApp())
       .get("/api/admin/funnels/data")
@@ -648,8 +659,8 @@ describe("upsell per-store local-currency prices", () => {
     process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
     (getOsProducts as any).mockImplementation((_storeKey: string) => [makeProduct()]);
     setupUpsellMocks({
-      tabsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", clicks: 20 }],
-      itemsDaily: [{ day: "2026-05-11", platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 2 }],
+      tabsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", clicks: 20 }],
+      itemsDaily: [{ day: RECENT_DAY, platform: "ios", tab: "extras", productId: PRODUCT_SLUG, adds: 2 }],
     });
     const res = await request(makeApp())
       .get("/api/admin/funnels/data")

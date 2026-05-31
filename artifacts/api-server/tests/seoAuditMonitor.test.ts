@@ -206,10 +206,12 @@ describe("runOnce — deduplication guard", () => {
     const alert = sendAlertMock.mock.calls[0][0];
     expect(alert.body).toMatch(/🟡/);
     expect(alert.body).toMatch(/using fallback site-wide image/);
-    // Every key page should appear in the body.
-    expect(alert.body).toMatch(/Homepage \(LB\)/);
-    expect(alert.body).toMatch(/Homepage \(AE/);
-    expect(alert.body).toMatch(/Product page/);
+    // Locale groups appear as section headers.
+    expect(alert.body).toMatch(/Lebanon \(en-lb\/beirut\)/);
+    expect(alert.body).toMatch(/UAE \(en-ae\/dubai\)/);
+    // Key page types appear as bold items within each locale group.
+    expect(alert.body).toMatch(/\*Homepage\*/);
+    expect(alert.body).toMatch(/\*Product\*/);
   });
 
   it("does not fire a Slack alert when all pages are healthy", async () => {
