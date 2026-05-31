@@ -607,7 +607,14 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
   const hit = getCachedEntity(key);
   if (hit) return hit;
   const value = await fetcher(opts);
-  if (value) setCachedEntity(key, value);
+  if (value) {
+    // Evict image-dims cache entries for this entity's image URL(s) so the
+    // freshly fetched entity always gets freshly measured dimensions. This
+    // prevents stale dims surviving up to 1 hour when the CDN replaces an
+    // image at an unchanged URL (e.g. a product photo update).
+    for (const url of extractEntityImageUrls(value)) evictImageDims(url);
+    setCachedEntity(key, value);
+  }
   return value;
 }
 
@@ -651,6 +658,37 @@ function setCachedImageDims(url, value) {
     value,
     expiresAt: Date.now() + IMAGE_DIMS_CACHE_TTL_MS,
   });
+}
+
+// Evict the image-dims cache entry for a given URL. Called when an entity is
+// freshly fetched (entity cache miss) so the image dimensions are re-fetched
+// alongside the refreshed entity data, rather than waiting up to 1 hour for
+// the dims TTL to expire. This handles cases where the CDN serves a new image
+// at an unchanged URL (e.g. a product photo update).
+function evictImageDims(url) {
+  if (url && typeof url === "string") imageDimsCache.delete(url);
+}
+
+// Extract all image URLs an entity may carry. Handles both the product shape
+// (entity.image.uri / entity.images[].uri) and the simpler brand/category/
+// occasion shape (entity.image as a plain string).
+function extractEntityImageUrls(entity) {
+  if (!entity || typeof entity !== "object") return [];
+  const urls = new Set();
+  // Product: { image: { uri: "..." }, images: [{ uri: "..." }, ...] }
+  if (entity.image && typeof entity.image.uri === "string" && entity.image.uri) {
+    urls.add(entity.image.uri);
+  }
+  if (Array.isArray(entity.images)) {
+    for (const img of entity.images) {
+      if (img && typeof img.uri === "string" && img.uri) urls.add(img.uri);
+    }
+  }
+  // Brand / category / occasion: { image: "https://..." }
+  if (typeof entity.image === "string" && entity.image) {
+    urls.add(entity.image);
+  }
+  return [...urls];
 }
 
 function parsePngDims(b) {
@@ -1374,6 +1412,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             }
           }
           wishlistResult = { count, imageUrl };
+          // Evict image-dims for the wishlist hero image so the fresh fetch
+          // always re-measures dimensions (handles same-URL CDN image updates).
+          evictImageDims(imageUrl);
           setCachedEntity(cacheKey, wishlistResult);
         }
       }
