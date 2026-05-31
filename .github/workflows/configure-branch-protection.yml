@@ -53,6 +53,10 @@ jobs:
           #   api-server-tests  → "API server unit tests"
           API_SERVER_TESTS="API server unit tests / API server unit tests"
 
+          # api-server-check.yml (name: API server checks) defines one job:
+          #   api-server-typecheck  → "API server type-check"
+          API_SERVER_TYPECHECK="API server checks / API server type-check"
+
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
           # The endpoint returns 404 when branch protection is not yet configured.
@@ -68,7 +72,8 @@ jobs:
             --arg hc      "$HARDCODED_STRINGS" \
             --arg hcm     "$HARDCODED_MOBILE_STRINGS" \
             --arg api     "$API_SERVER_TESTS" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api] | unique')
+            --arg tsc     "$API_SERVER_TYPECHECK" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
