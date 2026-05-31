@@ -1,0 +1,263 @@
+name: SEO – Post-deploy OG image audit
+
+# Calls POST /api/admin/seo-audit/run after changes that affect the production
+# web app land on main and Replit deploys them.  The job waits a configurable
+# settle time (default 3 minutes) for the deploy to finish, then checks every
+# key page for a reachable og:image and fails if any are broken.
+#
+# Why this catches regressions early:
+#   Replit automatically re-publishes the app whenever main is updated.  This
+#   workflow fires on the same push, waits for the rollout, and then calls
+#   the API server's on-demand audit endpoint.  If OG images are broken after
+#   the deploy the job fails within ~5 minutes of the push — before real
+#   shoppers share a link and see a blank preview on WhatsApp / iMessage /
+#   Slack.
+#
+# The production API server already sends a Slack alert when the audit finds
+# failures (via the existing ALERTS_SLACK_WEBHOOK_URL + sendAlert helper), so
+# this workflow surfaces the result in the GitHub Actions UI and marks the job
+# as failed or succeeded accordingly without a duplicate Slack step.
+#
+# Triggers
+# ────────
+# 1. push to main (paths that affect SEO output) — the primary automatic path.
+#    Skipped automatically on non-production branches (see `if:` on the job).
+#
+# 2. workflow_dispatch — manual "Run workflow" button in GitHub Actions.
+#    Useful for a quick post-deploy smoke test or an on-demand OG health check.
+#
+# 3. workflow_call — called from another workflow (e.g. a future explicit
+#    deploy pipeline).  Accepts the same inputs/secrets.
+#
+# Required secrets (GitHub → Settings → Secrets and variables → Actions):
+#   PUSH_ADMIN_TOKEN         — must match PUSH_ADMIN_TOKEN on the production
+#                              API server.
+#   PROD_API_BASE_URL        — production API base URL, e.g.
+#                              https://new.presentail.com  (no trailing slash).
+#                              Defaults to https://new.presentail.com when the
+#                              secret is absent.
+#
+# Optional inputs (workflow_dispatch / workflow_call only):
+#   settle_seconds  — how many seconds to wait before calling the audit so the
+#                     deploy has time to finish.  Default: 180 (3 min).
+#   skip_on_warn    — pass the job even when pages are only warned (fallback
+#                     image / wrong dimensions) rather than hard-failing.
+#                     Default: false.
+#
+# Concurrency: only one audit runs at a time.  A second run queues rather than
+# cancels so we never lose a result.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Web storefront — SSR / SEO inject changes affect OG tags directly.
+      - "artifacts/presentail-web/**"
+      # SEO inject middleware — controls per-entity OG tag injection.
+      - "artifacts/api-server/src/**"
+      # Shared libs that could affect rendered pages or API responses.
+      - "lib/**"
+      # This workflow itself.
+      - ".github/workflows/seo-audit-post-deploy.yml"
+
+  workflow_dispatch:
+    inputs:
+      settle_seconds:
+        description: "Seconds to wait for deploy to finish before running the audit"
+        required: false
+        type: number
+        default: 180
+      skip_on_warn:
+        description: "Pass the job even when pages are only warned (not hard-failing)"
+        required: false
+        type: boolean
+        default: false
+
+  workflow_call:
+    inputs:
+      settle_seconds:
+        description: "Seconds to wait for deploy to finish before running the audit"
+        required: false
+        type: number
+        default: 180
+      skip_on_warn:
+        description: "Pass the job even when pages are only warned (not hard-failing)"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      PUSH_ADMIN_TOKEN:
+        required: true
+      PROD_API_BASE_URL:
+        required: false
+
+concurrency:
+  group: seo-audit-post-deploy
+  cancel-in-progress: false
+
+jobs:
+  seo-audit:
+    name: OG image audit (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # For push events this workflow only runs on main (production branch).
+    # workflow_dispatch and workflow_call are always allowed — the caller
+    # is responsible for environment gating in those cases.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Wait for deploy to settle
+        # Give Replit time to finish publishing the new revision before we probe
+        # the live endpoints.  For workflow_call/workflow_dispatch the caller
+        # can override this via the settle_seconds input.  On push events we
+        # always use the default (180 s = 3 min).
+        env:
+          SETTLE_SECONDS: ${{ inputs.settle_seconds || 180 }}
+        run: |
+          echo "Waiting ${SETTLE_SECONDS}s for the production deploy to settle…"
+          sleep "${SETTLE_SECONDS}"
+
+      - name: Run SEO audit
+        id: audit
+        env:
+          PUSH_ADMIN_TOKEN: ${{ secrets.PUSH_ADMIN_TOKEN }}
+          # Fall back to the canonical prod domain when the secret is not set.
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL || 'https://new.presentail.com' }}
+        run: |
+          echo "Calling POST ${PROD_API_BASE_URL}/api/admin/seo-audit/run …"
+
+          HTTP_RESPONSE=$(curl --silent --show-error --max-time 120 \
+            --write-out "\n%{http_code}" \
+            -X POST \
+            -H "x-push-admin-token: ${PUSH_ADMIN_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "${PROD_API_BASE_URL}/api/admin/seo-audit/run")
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+
+          echo "HTTP status: ${HTTP_CODE}"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::SEO audit endpoint returned HTTP ${HTTP_CODE}. Response: ${HTTP_BODY}"
+            exit 1
+          fi
+
+          echo "response=${HTTP_BODY}" >> "$GITHUB_OUTPUT"
+
+          # Parse summary counts from the JSON response.
+          FAILING=$(echo "$HTTP_BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('failing', 0))")
+          WARNED=$(echo "$HTTP_BODY"  | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('warned',  0))")
+          PASSING=$(echo "$HTTP_BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('passing', 0))")
+          TOTAL=$(echo "$HTTP_BODY"   | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('total',   0))")
+
+          echo "failing=${FAILING}"  >> "$GITHUB_OUTPUT"
+          echo "warned=${WARNED}"    >> "$GITHUB_OUTPUT"
+          echo "passing=${PASSING}"  >> "$GITHUB_OUTPUT"
+          echo "total=${TOTAL}"      >> "$GITHUB_OUTPUT"
+
+          echo "Pages checked: ${TOTAL}  |  failing: ${FAILING}  |  warned: ${WARNED}  |  passing: ${PASSING}"
+
+      - name: Write job summary
+        if: always() && steps.audit.outputs.response != ''
+        env:
+          AUDIT_JSON: ${{ steps.audit.outputs.response }}
+          FAILING: ${{ steps.audit.outputs.failing }}
+          WARNED: ${{ steps.audit.outputs.warned }}
+          PASSING: ${{ steps.audit.outputs.passing }}
+          TOTAL: ${{ steps.audit.outputs.total }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, sys
+
+          raw = os.environ.get("AUDIT_JSON", "{}")
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError:
+              print("Could not parse audit JSON — skipping summary.", file=sys.stderr)
+              sys.exit(0)
+
+          failing  = int(os.environ.get("FAILING",  "0"))
+          warned   = int(os.environ.get("WARNED",   "0"))
+          passing  = int(os.environ.get("PASSING",  "0"))
+          total    = int(os.environ.get("TOTAL",    "0"))
+
+          if failing > 0:
+              headline = f"## ❌ SEO audit — {failing} page(s) failing"
+          elif warned > 0:
+              headline = f"## ⚠️  SEO audit — {warned} page(s) warned"
+          else:
+              headline = f"## ✅ SEO audit — all {total} pages healthy"
+
+          lines = [
+              headline,
+              "",
+              f"| Metric | Count |",
+              f"|--------|-------|",
+              f"| Total pages checked | {total} |",
+              f"| 🔴 Failing (broken / missing OG image) | {failing} |",
+              f"| 🟡 Warned (fallback image / wrong dimensions) | {warned} |",
+              f"| 🟢 Passing | {passing} |",
+              "",
+              "### Per-page results",
+              "",
+              "| Status | Page | OG image | Details |",
+              "|--------|------|----------|---------|",
+          ]
+
+          STATUS_ICONS = {"error": "🔴", "warn": "🟡", "ok": "🟢"}
+
+          for page in data.get("pages", []):
+              status   = page.get("status", "ok")
+              icon     = STATUS_ICONS.get(status, "❓")
+              label    = page.get("label", "")
+              url      = page.get("url", "")
+              og_image = page.get("ogImage") or "*(none)*"
+
+              details_parts = []
+              if page.get("fetchFailed"):
+                  details_parts.append("page fetch failed")
+              elif not page.get("ogImage"):
+                  details_parts.append("og:image missing")
+              elif page.get("ogImageReachable") is False:
+                  details_parts.append("og:image not reachable")
+              elif page.get("fallbackUsed"):
+                  details_parts.append("fallback site-wide image")
+              elif page.get("ogImageSizeOk") is False:
+                  details_parts.append("wrong dimensions")
+              else:
+                  details_parts.append("ok")
+
+              if page.get("error"):
+                  details_parts.append(f"`{page['error']}`")
+
+              detail_str = "; ".join(details_parts)
+              og_short   = og_image if len(og_image) <= 60 else og_image[:57] + "…"
+
+              lines.append(f"| {icon} | [{label}]({url}) | `{og_short}` | {detail_str} |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          if summary_path:
+              with open(summary_path, "a") as f:
+                  f.write("\n".join(lines) + "\n")
+          else:
+              print("\n".join(lines))
+          PYEOF
+
+      - name: Fail if OG images are broken
+        if: steps.audit.outputs.failing != '' && steps.audit.outputs.failing != '0'
+        run: |
+          echo "::error::SEO audit found ${{ steps.audit.outputs.failing }} page(s) with broken or missing OG images. Check the job summary for details."
+          exit 1
+
+      - name: Fail if OG images are warned (strict mode)
+        # Only triggered when skip_on_warn is false (the default) and there are
+        # no hard failures (those are caught above) but there are warnings.
+        if: |
+          inputs.skip_on_warn != true &&
+          steps.audit.outputs.failing == '0' &&
+          steps.audit.outputs.warned != '' &&
+          steps.audit.outputs.warned != '0'
+        run: |
+          echo "::warning::SEO audit found ${{ steps.audit.outputs.warned }} page(s) with OG image warnings (fallback image or wrong dimensions). Set skip_on_warn=true to treat warnings as passing."
+          exit 1
