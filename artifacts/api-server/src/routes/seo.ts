@@ -669,6 +669,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
 (function () {
   var TOKEN_KEY = 'presentail_admin_token';
   var KEY_PAGES_STORAGE = 'presentail_seo_key_pages';
+  var KEY_MARKET_STORAGE = 'presentail_seo_market';
   var tokenEl = document.getElementById('token');
   var urlEl = document.getElementById('url');
   var checkBtn = document.getElementById('checkBtn');
@@ -784,6 +785,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
   ];
 
   var selectedMarket = 'all';
+  try { selectedMarket = localStorage.getItem(KEY_MARKET_STORAGE) || 'all'; } catch (e) {}
 
   // Serialize a page list to textarea text.
   // Format: "Market | Label | URL" (3-part) when market is set, otherwise "Label | URL".
@@ -1081,11 +1083,19 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   // Market selector tabs
   var marketTabEls = document.querySelectorAll('.market-tab');
+  // Restore active tab from persisted market selection
+  marketTabEls.forEach(function (tab) {
+    if ((tab.getAttribute('data-market') || 'all') === selectedMarket) {
+      marketTabEls.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+    }
+  });
   marketTabEls.forEach(function (tab) {
     tab.addEventListener('click', function () {
       selectedMarket = tab.getAttribute('data-market') || 'all';
       marketTabEls.forEach(function (t) { t.classList.remove('active'); });
       tab.classList.add('active');
+      try { localStorage.setItem(KEY_MARKET_STORAGE, selectedMarket); } catch (e) {}
     });
   });
 
