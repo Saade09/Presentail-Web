@@ -61,6 +61,10 @@ jobs:
           #   mobile-lint  → "ESLint & tsc – mobile app"
           MOBILE_LINT="Mobile lint & typecheck / ESLint & tsc – mobile app"
 
+          # mobile-check.yml (name: Mobile type-check) defines one job:
+          #   mobile-typecheck  → "Mobile app type-check"
+          MOBILE_TYPECHECK="Mobile type-check / Mobile app type-check"
+
           # web-lint.yml (name: Web lint) defines two jobs:
           #   web-lint  → "ESLint – web app"
           #   web-test  → "Unit tests – web app"
@@ -76,17 +80,18 @@ jobs:
 
           # Collect existing contexts and merge in all required checks.
           MERGED=$(echo "$CURRENT" | jq \
-            --arg mobile      "$MOBILE_TRANSLATIONS" \
-            --arg web         "$WEB_TRANSLATIONS" \
-            --arg dict        "$LOCALE_DICT_TESTS" \
-            --arg hc          "$HARDCODED_STRINGS" \
-            --arg hcm         "$HARDCODED_MOBILE_STRINGS" \
-            --arg api         "$API_SERVER_TESTS" \
-            --arg tsc         "$API_SERVER_TYPECHECK" \
-            --arg mobileLint  "$MOBILE_LINT" \
-            --arg webLint     "$WEB_LINT" \
-            --arg webTest     "$WEB_TEST" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $webLint, $webTest] | unique')
+            --arg mobile          "$MOBILE_TRANSLATIONS" \
+            --arg web             "$WEB_TRANSLATIONS" \
+            --arg dict            "$LOCALE_DICT_TESTS" \
+            --arg hc              "$HARDCODED_STRINGS" \
+            --arg hcm             "$HARDCODED_MOBILE_STRINGS" \
+            --arg api             "$API_SERVER_TESTS" \
+            --arg tsc             "$API_SERVER_TYPECHECK" \
+            --arg mobileLint      "$MOBILE_LINT" \
+            --arg mobileTsc       "$MOBILE_TYPECHECK" \
+            --arg webLint         "$WEB_LINT" \
+            --arg webTest         "$WEB_TEST" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webLint, $webTest] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
