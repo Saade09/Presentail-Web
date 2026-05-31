@@ -1684,6 +1684,470 @@ describe("image dims cache invalidation — wishlist path (evictImageDims on wis
 });
 
 // ---------------------------------------------------------------------------
+// Wishlist shared-link preview — basic rendering and fallback behaviour
+//
+// /favorites/share/:token renders a rich OG preview (title, description,
+// og:image with dimensions) when the API resolves the token. Any failure
+// (HTTP 404, ok:false body, network error) must fall back to the generic
+// preview so social crawlers still see *something* useful.
+// ---------------------------------------------------------------------------
+
+const WISHLIST_BASIC_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const WISHLIST_BASIC_OPTS = {
+  apiBaseUrl: "https://api.wl-basic-test",
+  origin: "https://presentail.wl-basic-test",
+  basePath: "",
+};
+
+describe("injectSeoTagsAsync — /favorites/share/:token wishlist preview", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("renders title, description, og:image, and dims for a multi-item wishlist", async () => {
+    const imageUrl = "https://cdn.wl-basic-test/wl-multi-hero-unique.png";
+    const pngBuf = makePngBuffer(1200, 628);
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [
+              { productSlug: "wl-multi-hero", countryCode: "LB" },
+              { productSlug: "wl-multi-second", countryCode: "LB" },
+              { productSlug: "wl-multi-third", countryCode: "LB" },
+            ],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Wishlist Hero",
+              description: "Hero product for the multi-item wishlist.",
+              image: { uri: imageUrl },
+              priceValue: 90,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-multi-tok01",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).toContain("<title>Gift Wishlist — 3 items on Presentail</title>");
+    expect(out).toContain("Someone shared a wishlist of 3 gifts with you on Presentail");
+    expect(out).toContain(`content="${imageUrl}"`);
+    expect(out).toContain('content="1200"');
+    expect(out).toContain('content="628"');
+  });
+
+  it("uses singular 'item' and single-item description for a 1-item wishlist", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [{ productSlug: "wl-single-hero", countryCode: "AE" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Single Hero Product",
+              description: "Only item in the wishlist.",
+              image: { uri: "https://cdn.wl-basic-test/wl-single-hero-unique.png" },
+              priceValue: 55,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-single-tok02",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).toContain("<title>Gift Wishlist — 1 item on Presentail</title>");
+    expect(out).toContain("Someone shared a wishlist with you on Presentail");
+    // Must not use plural forms for a single item.
+    expect(out).not.toContain("1 items");
+    expect(out).not.toContain("1 gifts");
+  });
+
+  it("falls back to the generic preview when the share token is not found (API 404)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/favorites/share/")) {
+        return { ok: false, status: 404, json: async () => ({}) };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-notfound-tok03",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).not.toContain("Gift Wishlist");
+    // Falls back to generic — no wishlist-specific title.
+    expect(out).toContain("<title>");
+  });
+
+  it("falls back to the generic preview when the API body has ok:false (expired token)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: false, error: "token_expired" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-expired-tok04",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).not.toContain("Gift Wishlist");
+  });
+
+  it("falls back to the generic preview on a network error fetching the shared list", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-neterr-tok05",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).not.toContain("Gift Wishlist");
+  });
+
+  it("renders a 0-item wishlist when favorites array is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, favorites: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-empty-tok06",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    // count: 0 still renders — wishlist token resolves to a valid (empty) list.
+    expect(out).toContain("Gift Wishlist — 0 items on Presentail");
+  });
+
+  it("renders wishlist with fallback og:image when the hero product has no image URI", async () => {
+    // When the hero product has no image, buildEntityHead falls back to the
+    // generic /opengraph.jpg asset — og:image is still present but points
+    // to the site-wide fallback rather than a product photo.
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [{ productSlug: "wl-noimage-hero", countryCode: "LB" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "No-image Product",
+              description: "Product with no hero image.",
+              image: null,
+              priceValue: 40,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      WISHLIST_BASIC_HTML,
+      "/favorites/share/wl-basic-noimage-tok07",
+      WISHLIST_BASIC_OPTS,
+    );
+
+    expect(out).toContain("Gift Wishlist — 1 item on Presentail");
+    // Falls back to the site-wide OG image when the product has no photo.
+    expect(out).toContain('property="og:image"');
+    expect(out).toContain("opengraph.jpg");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ETag/304 for the hero product fetch inside the wishlist cache-miss path
+//
+// The wishlist cache entry does not itself carry ETag/Last-Modified headers,
+// so conditional requests are not sent to /api/favorites/share/:token.
+// However, the *hero product* inside the wishlist path goes through
+// fetchEntityForSeoCached, which does support ETag-based conditional requests.
+//
+// On a wishlist cache miss the hero product fetch sends If-None-Match when
+// the product entry has a cached ETag. When the product API responds 304,
+// the product entity stays unchanged — but the wishlist path still calls
+// evictImageDims on the hero image URL before storing the fresh wishlist
+// result, so image dims ARE re-probed regardless of the product 304.
+//
+// These tests document that behaviour. The "consider extending" note in the
+// task would allow skipping the eviction when the product 304s, but that
+// optimisation has not been implemented yet.
+// ---------------------------------------------------------------------------
+
+const WISHLIST_ETAG_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const WISHLIST_ETAG_OPTS = {
+  apiBaseUrl: "https://api.wl-etag-test",
+  origin: "https://presentail.wl-etag-test",
+  basePath: "",
+};
+
+describe("ETag on hero product within wishlist cache miss", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("sends If-None-Match for the hero product on a wishlist cache miss (product has ETag)", async () => {
+    // After the wishlist cache expires the product entity also expires (same
+    // 60 s TTL), but its raw entry remains in the Map with the stored ETag.
+    // fetchEntityForSeoCached therefore sends a conditional request for the
+    // product even though both caches have expired.
+    const pngBuf = makePngBuffer(900, 600);
+    const imageUrl = "https://cdn.wl-etag-test/wl-etag-ifnonematch-unique.png";
+    const productEtag = '"product-etag-v1-wl-etag-ifnonematch"';
+    const capturedProductHeaders: Array<Record<string, string>> = [];
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [{ productSlug: "wl-etag-ifnonematch-product", countryCode: "LB" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        capturedProductHeaders.push({ ...h });
+        // Always return the product (simulate 200 so both calls succeed).
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (n: string) => (n.toLowerCase() === "etag" ? productEtag : null) },
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "ETag Hero Product",
+              description: "Product used to verify If-None-Match header.",
+              image: { uri: imageUrl },
+              priceValue: 70,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const shareToken = "wl-etag-ifnonematch-tok01";
+
+    // First call: product freshly fetched, ETag stored in product entity cache.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(capturedProductHeaders).toHaveLength(1);
+    expect(capturedProductHeaders[0]?.["If-None-Match"]).toBeUndefined();
+
+    // Advance past the entity TTL so both the wishlist and product caches expire.
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: wishlist cache miss → wishlist re-fetched → product fetch
+    // via fetchEntityForSeoCached. The product raw entry (expired but present)
+    // carries the ETag, so If-None-Match MUST be sent on this second request.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(capturedProductHeaders).toHaveLength(2);
+    expect(capturedProductHeaders[1]?.["If-None-Match"]).toBe(productEtag);
+  });
+
+  it("re-fetches image dims after wishlist cache miss even when the hero product responds 304", async () => {
+    // This test documents the current behaviour: the wishlist path calls
+    // evictImageDims(imageUrl) whenever it builds a fresh wishlist result,
+    // so dims are always re-probed on a wishlist cache miss — regardless of
+    // whether the hero product came back 304 (unchanged) or 200 (updated).
+    const pngBuf = makePngBuffer(900, 600);
+    const imageUrl = "https://cdn.wl-etag-test/wl-etag-dims-recheck-unique.png";
+    const productEtag = '"product-etag-v1-wl-etag-dims-recheck"';
+    let wishlistFetchCount = 0;
+    let productFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        wishlistFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [{ productSlug: "wl-etag-dims-recheck-product", countryCode: "LB" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        productFetchCount++;
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        if (h["If-None-Match"] === productEtag) {
+          // Product unchanged — 304 Not Modified.
+          return { ok: false, status: 304, headers: { get: () => null } };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (n: string) => (n.toLowerCase() === "etag" ? productEtag : null) },
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "ETag Dims Recheck Product",
+              description: "Verify dims are re-fetched even on 304.",
+              image: { uri: imageUrl },
+              priceValue: 80,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const shareToken = "wl-etag-dims-recheck-tok02";
+
+    // First call: all three freshly fetched.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Advance past the 60 s entity TTL.
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: wishlist cache miss → wishlist re-fetched → product sends
+    // If-None-Match → product responds 304 (unchanged). Despite the 304,
+    // the wishlist path calls evictImageDims before caching the fresh
+    // wishlist result, so dims ARE re-probed.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(wishlistFetchCount).toBe(2);
+    expect(productFetchCount).toBe(2);   // conditional request sent
+    expect(dimsFetchCount).toBe(2);      // dims evicted by wishlist path → re-fetched
+  });
+
+  it("does NOT re-fetch image dims on wishlist cache HIT even when the hero product has an ETag", async () => {
+    // When the wishlist cache is still valid, the wishlist path serves the
+    // cached result directly — no product fetch, no dims eviction.
+    const pngBuf = makePngBuffer(900, 600);
+    const imageUrl = "https://cdn.wl-etag-test/wl-etag-cachehit-unique.png";
+    const productEtag = '"product-etag-v1-wl-etag-cachehit"';
+    let wishlistFetchCount = 0;
+    let productFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        wishlistFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [{ productSlug: "wl-etag-cachehit-product", countryCode: "LB" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        productFetchCount++;
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        if (h["If-None-Match"] === productEtag) {
+          return { ok: false, status: 304, headers: { get: () => null } };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (n: string) => (n.toLowerCase() === "etag" ? productEtag : null) },
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "ETag Cache-hit Product",
+              description: "Dims must be reused on wishlist cache hit.",
+              image: { uri: imageUrl },
+              priceValue: 65,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const shareToken = "wl-etag-cachehit-tok03";
+
+    // First call: wishlist + product + dims freshly fetched.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call immediately — wishlist cache still valid → served from cache.
+    // No wishlist fetch, no product fetch, no dims eviction, no dims re-fetch.
+    await injectSeoTagsAsync(WISHLIST_ETAG_HTML, `/favorites/share/${shareToken}`, WISHLIST_ETAG_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // seo_entity_fetch_failed analytics event emission
 //
 // When fetchEntityForSeo encounters any failure (HTTP error, ok=false body,
