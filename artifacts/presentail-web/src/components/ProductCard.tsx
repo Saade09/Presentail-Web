@@ -4,11 +4,13 @@ import { motion } from "framer-motion";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useState } from "react";
 
+const loadedUrls = new Set<string>();
+
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { formatPrice } = useDisplayCurrency();
   const imageUrl = product.image?.uri;
   const tag = product.tag;
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(() => !!imageUrl && loadedUrls.has(imageUrl));
   const [imgFailed, setImgFailed] = useState(false);
 
   return (
@@ -34,7 +36,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
                   imgLoaded ? "opacity-100" : "opacity-0",
                 ].join(" ")}
                 loading="lazy"
-                onLoad={() => setImgLoaded(true)}
+                onLoad={() => { loadedUrls.add(imageUrl); setImgLoaded(true); }}
                 onError={() => setImgFailed(true)}
               />
             </>
