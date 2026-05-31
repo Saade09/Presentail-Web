@@ -741,7 +741,7 @@ function parseWebpDims(b) {
   return null;
 }
 
-function parseDimsFromBuffer(buf) {
+export function parseDimsFromBuffer(buf) {
   const b = new Uint8Array(buf);
   if (b.length < 4) return null;
   // PNG

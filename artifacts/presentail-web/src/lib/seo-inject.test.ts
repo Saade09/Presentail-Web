@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer } from "../../seo-inject.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -40,7 +40,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
@@ -105,7 +105,7 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
       "/en-ae/dubai/brand/acme-florals",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/brand?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=acme-florals");
     expect(out).toContain("<title>Acme Florals | Presentail</title>");
@@ -160,7 +160,7 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?n=birthday-cakes",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-cakes");
     expect(out).toContain("<title>Birthday Cakes | Presentail</title>");
@@ -186,12 +186,12 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?category=roses",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no image URL → no second fetch
     expect(fetchMock.mock.calls[0][0]).toContain("slug=roses");
     expect(out).toContain("<title>Roses | Presentail</title>");
+    // When entity has no image the fallback opengraph.jpg is used → always summary_large_image.
     expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
-    // When the entity has no image the code falls back to opengraph.jpg.
-    expect(out).toContain('property="og:image" content="https://presentail.test/opengraph.jpg"');
+    expect(out).toContain('<meta property="og:image" content="https://presentail.test/opengraph.jpg"');
   });
 
   it("falls back to the generic shop preview when no category param is present", async () => {
@@ -229,7 +229,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
     expect(out).toContain("<title>Birthday Gifts | Presentail</title>");
@@ -296,7 +296,7 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
       ...OPTS,
       search: "?category=tulips",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=tulips");
     expect(out).toContain("<title>Tulips Brands in Dubai | Presentail</title>");
@@ -322,7 +322,7 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
     expect(out).toContain(
       'content="Discover Presentail\'s hand-picked partner brands offering Cakes for delivery in Beirut, Lebanon."',
     );
-    // No image supplied → falls back to summary_large_image with opengraph.jpg.
+    // No entity image → fallback opengraph.jpg → always summary_large_image.
     expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
   });
 
@@ -780,5 +780,395 @@ describe("injectSeoTagsAsync — description sanitisation", () => {
     });
     expect(out).toContain('content="Short and sweet."');
     expect(out).not.toContain("…");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseDimsFromBuffer — unit tests
+// ---------------------------------------------------------------------------
+
+function makePngBuffer(width: number, height: number): ArrayBuffer {
+  const b = new Uint8Array(24);
+  // PNG signature
+  b[0] = 0x89; b[1] = 0x50; b[2] = 0x4e; b[3] = 0x47;
+  b[4] = 0x0d; b[5] = 0x0a; b[6] = 0x1a; b[7] = 0x0a;
+  // IHDR chunk length + type (not checked by parser, just padding)
+  b[8] = 0x00; b[9] = 0x00; b[10] = 0x00; b[11] = 0x0d;
+  b[12] = 0x49; b[13] = 0x48; b[14] = 0x44; b[15] = 0x52;
+  // Width big-endian at b[16..19]
+  b[16] = (width >>> 24) & 0xff;
+  b[17] = (width >>> 16) & 0xff;
+  b[18] = (width >>> 8) & 0xff;
+  b[19] = width & 0xff;
+  // Height big-endian at b[20..23]
+  b[20] = (height >>> 24) & 0xff;
+  b[21] = (height >>> 16) & 0xff;
+  b[22] = (height >>> 8) & 0xff;
+  b[23] = height & 0xff;
+  return b.buffer;
+}
+
+function makeJpegBuffer(width: number, height: number): ArrayBuffer {
+  // SOI + SOF0 segment with enough bytes for parseJpegDims
+  const b = new Uint8Array(11);
+  b[0] = 0xff; b[1] = 0xd8; // SOI
+  b[2] = 0xff; b[3] = 0xc0; // SOF0 marker
+  b[4] = 0x00; b[5] = 0x11; // segment length = 17
+  b[6] = 0x08;              // precision
+  // Height big-endian at b[7..8]
+  b[7] = (height >>> 8) & 0xff;
+  b[8] = height & 0xff;
+  // Width big-endian at b[9..10]
+  b[9] = (width >>> 8) & 0xff;
+  b[10] = width & 0xff;
+  return b.buffer;
+}
+
+function makeWebpVP8XBuffer(width: number, height: number): ArrayBuffer {
+  const b = new Uint8Array(30);
+  // RIFF header
+  b[0] = 0x52; b[1] = 0x49; b[2] = 0x46; b[3] = 0x46; // "RIFF"
+  // file size (ignored in parser)
+  b[4] = 0x00; b[5] = 0x00; b[6] = 0x00; b[7] = 0x00;
+  // WEBP
+  b[8] = 0x57; b[9] = 0x45; b[10] = 0x42; b[11] = 0x50; // "WEBP"
+  // VP8X chunk id
+  b[12] = 0x56; b[13] = 0x50; b[14] = 0x38; b[15] = 0x58; // "VP8X"
+  // chunk size (10) little-endian
+  b[16] = 0x0a; b[17] = 0x00; b[18] = 0x00; b[19] = 0x00;
+  // flags + reserved (b[20..23])
+  b[20] = 0x00; b[21] = 0x00; b[22] = 0x00; b[23] = 0x00;
+  // Canvas width - 1, 24-bit little-endian at b[24..26]
+  const w1 = width - 1;
+  b[24] = w1 & 0xff;
+  b[25] = (w1 >>> 8) & 0xff;
+  b[26] = (w1 >>> 16) & 0xff;
+  // Canvas height - 1, 24-bit little-endian at b[27..29]
+  const h1 = height - 1;
+  b[27] = h1 & 0xff;
+  b[28] = (h1 >>> 8) & 0xff;
+  b[29] = (h1 >>> 16) & 0xff;
+  return b.buffer;
+}
+
+function makeWebpVP8LBuffer(width: number, height: number): ArrayBuffer {
+  // bits[0..13] = width-1, bits[14..27] = height-1
+  const bits = ((height - 1) << 14) | (width - 1);
+  const b = new Uint8Array(25);
+  // RIFF header
+  b[0] = 0x52; b[1] = 0x49; b[2] = 0x46; b[3] = 0x46; // "RIFF"
+  b[4] = 0x00; b[5] = 0x00; b[6] = 0x00; b[7] = 0x00; // file size
+  // WEBP
+  b[8] = 0x57; b[9] = 0x45; b[10] = 0x42; b[11] = 0x50; // "WEBP"
+  // VP8L chunk id
+  b[12] = 0x56; b[13] = 0x50; b[14] = 0x38; b[15] = 0x4c; // "VP8L"
+  // chunk size (little-endian, not checked in parser)
+  b[16] = 0x05; b[17] = 0x00; b[18] = 0x00; b[19] = 0x00;
+  // VP8L signature byte
+  b[20] = 0x2f;
+  // bitstream start — width-1 in bits 0..13, height-1 in bits 14..27
+  b[21] = bits & 0xff;
+  b[22] = (bits >>> 8) & 0xff;
+  b[23] = (bits >>> 16) & 0xff;
+  b[24] = (bits >>> 24) & 0xff;
+  return b.buffer;
+}
+
+describe("parseDimsFromBuffer — PNG", () => {
+  it("parses width and height from a minimal valid PNG header", () => {
+    expect(parseDimsFromBuffer(makePngBuffer(1200, 630))).toEqual({ width: 1200, height: 630 });
+  });
+
+  it("parses a non-square PNG correctly", () => {
+    expect(parseDimsFromBuffer(makePngBuffer(100, 200))).toEqual({ width: 100, height: 200 });
+  });
+
+  it("returns null when the PNG buffer is too short (< 24 bytes)", () => {
+    const short = new Uint8Array(20);
+    short[0] = 0x89; short[1] = 0x50; short[2] = 0x4e; short[3] = 0x47;
+    expect(parseDimsFromBuffer(short.buffer)).toBeNull();
+  });
+
+  it("returns null when a PNG has zero-valued dimensions", () => {
+    expect(parseDimsFromBuffer(makePngBuffer(0, 0))).toBeNull();
+  });
+});
+
+describe("parseDimsFromBuffer — JPEG", () => {
+  it("parses width and height from a SOF0-only JPEG buffer", () => {
+    expect(parseDimsFromBuffer(makeJpegBuffer(320, 240))).toEqual({ width: 320, height: 240 });
+  });
+
+  it("parses a large JPEG correctly", () => {
+    expect(parseDimsFromBuffer(makeJpegBuffer(4032, 3024))).toEqual({ width: 4032, height: 3024 });
+  });
+
+  it("returns null for a truncated JPEG buffer that has no SOF marker", () => {
+    const b = new Uint8Array([0xff, 0xd8]);
+    expect(parseDimsFromBuffer(b.buffer)).toBeNull();
+  });
+});
+
+describe("parseDimsFromBuffer — WebP VP8X", () => {
+  it("parses canvas dimensions from a VP8X chunk", () => {
+    expect(parseDimsFromBuffer(makeWebpVP8XBuffer(400, 300))).toEqual({ width: 400, height: 300 });
+  });
+
+  it("adds 1 to the stored canvas-minus-1 values correctly", () => {
+    expect(parseDimsFromBuffer(makeWebpVP8XBuffer(1, 1))).toEqual({ width: 1, height: 1 });
+  });
+
+  it("returns null when the VP8X buffer is shorter than 30 bytes", () => {
+    const b = new Uint8Array(29);
+    b[0]=0x52; b[1]=0x49; b[2]=0x46; b[3]=0x46;
+    b[8]=0x57; b[9]=0x45; b[10]=0x42; b[11]=0x50;
+    b[12]=0x56; b[13]=0x50; b[14]=0x38; b[15]=0x58;
+    expect(parseDimsFromBuffer(b.buffer)).toBeNull();
+  });
+});
+
+describe("parseDimsFromBuffer — WebP VP8L", () => {
+  it("decodes width and height from a VP8L bitstream header", () => {
+    expect(parseDimsFromBuffer(makeWebpVP8LBuffer(640, 480))).toEqual({ width: 640, height: 480 });
+  });
+
+  it("decodes a 1x1 VP8L image", () => {
+    expect(parseDimsFromBuffer(makeWebpVP8LBuffer(1, 1))).toEqual({ width: 1, height: 1 });
+  });
+
+  it("returns null when the VP8L signature byte (0x2F) is absent", () => {
+    const buf = makeWebpVP8LBuffer(640, 480);
+    const b = new Uint8Array(buf);
+    b[20] = 0x00; // corrupt the signature byte
+    expect(parseDimsFromBuffer(b.buffer)).toBeNull();
+  });
+});
+
+describe("parseDimsFromBuffer — unknown / short buffers", () => {
+  it("returns null for an empty buffer", () => {
+    expect(parseDimsFromBuffer(new ArrayBuffer(0))).toBeNull();
+  });
+
+  it("returns null for a 3-byte buffer (too short for any format)", () => {
+    expect(parseDimsFromBuffer(new Uint8Array([0x89, 0x50, 0x4e]).buffer)).toBeNull();
+  });
+
+  it("returns null for an unrecognised 4-byte magic", () => {
+    expect(parseDimsFromBuffer(new Uint8Array([0x00, 0x01, 0x02, 0x03]).buffer)).toBeNull();
+  });
+
+  it("returns null for a GIF header (not a supported format)", () => {
+    const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x10, 0x00, 0x10, 0x00]);
+    expect(parseDimsFromBuffer(gif.buffer)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// og:image:width / og:image:height in buildEntityHead — integration tests
+// ---------------------------------------------------------------------------
+
+const DIMS_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const DIMS_OPTS = {
+  apiBaseUrl: "https://api.dims-test",
+  origin: "https://presentail.dims-test",
+  basePath: "",
+};
+
+describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("emits og:image:width and og:image:height when image dimensions are resolved from a PNG header", async () => {
+    // First fetch: product API. Second fetch: image Range request → PNG bytes.
+    const pngBuf = makePngBuffer(1200, 630);
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Dims Product",
+              description: "Has dimensions.",
+              image: { uri: "https://cdn.dims-test/img-dims.png" },
+              priceValue: 75,
+            },
+          }),
+        };
+      }
+      // Image Range fetch
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/dims-product-png",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+    expect(out).toContain('<meta property="og:image" content="https://cdn.dims-test/img-dims.png"');
+  });
+
+  it("emits og:image:width and og:image:height when image dimensions are resolved from a JPEG header", async () => {
+    const jpegBuf = makeJpegBuffer(800, 600);
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Dims JPEG Product",
+              description: "JPEG dims.",
+              image: { uri: "https://cdn.dims-test/img-dims.jpg" },
+              priceValue: 60,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => jpegBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/dims-product-jpeg",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image:width" content="800"');
+    expect(out).toContain('<meta property="og:image:height" content="600"');
+  });
+
+  it("emits og:image:width and og:image:height when image dimensions are resolved from a WebP VP8X header", async () => {
+    const webpBuf = makeWebpVP8XBuffer(1200, 628);
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Dims WebP Product",
+              description: "WebP dims.",
+              image: { uri: "https://cdn.dims-test/img-dims.webp" },
+              priceValue: 55,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => webpBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/dims-product-webp",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="628"');
+  });
+
+  it("omits og:image:width and og:image:height when the image fetch returns unrecognised bytes", async () => {
+    const unknownBuf = new Uint8Array([0x00, 0x01, 0x02, 0x03]).buffer;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Nodims Product",
+              description: "No parseable dims.",
+              image: { uri: "https://cdn.dims-test/img-nodims.bin" },
+              priceValue: 40,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => unknownBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/nodims-product",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image" content="https://cdn.dims-test/img-nodims.bin"');
+    expect(out).not.toContain('property="og:image:width"');
+    expect(out).not.toContain('property="og:image:height"');
+  });
+
+  it("emits the default 1200×630 dimensions when no product image is present (opengraph.jpg fallback)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "No Image Product",
+              description: "No image at all.",
+              image: null,
+              priceValue: 30,
+            },
+          }),
+        };
+      }
+      // Should not be called for image fetch since imageUrl is null
+      return { ok: false, status: 404 };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/no-image-product",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+    // Should fall back to the default opengraph image, not a product image
+    expect(out).toContain("opengraph.jpg");
+  });
+
+  it("omits og:image:width and og:image:height when the image fetch fails with a network error", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Network Error Product",
+              description: "Image fetch will fail.",
+              image: { uri: "https://cdn.dims-test/img-neterr.png" },
+              priceValue: 45,
+            },
+          }),
+        };
+      }
+      throw new Error("ETIMEDOUT");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      DIMS_HTML,
+      "/en-ae/dubai/product/neterr-product",
+      DIMS_OPTS,
+    );
+
+    expect(out).toContain('<meta property="og:image" content="https://cdn.dims-test/img-neterr.png"');
+    expect(out).not.toContain('property="og:image:width"');
+    expect(out).not.toContain('property="og:image:height"');
   });
 });
