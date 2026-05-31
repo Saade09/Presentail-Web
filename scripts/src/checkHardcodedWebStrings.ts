@@ -303,6 +303,36 @@ for (const filePath of files) {
 
 // ── report ─────────────────────────────────────────────────────────────────────
 
+// Group hits by file
+const byFile = new Map<string, Hit[]>();
+for (const h of hits) {
+  if (!byFile.has(h.file)) byFile.set(h.file, []);
+  byFile.get(h.file)!.push(h);
+}
+
+// ── JSON output (when HARDCODED_STRINGS_JSON_OUT is set) ────────────────────────
+
+const jsonOutPath = process.env["HARDCODED_STRINGS_JSON_OUT"];
+if (jsonOutPath) {
+  const result = {
+    passed: hits.length === 0,
+    hitCount: hits.length,
+    fileCount: byFile.size,
+    byFile: Array.from(byFile.entries()).map(([file, fileHits]) => ({
+      file,
+      hits: fileHits.map((h) => ({
+        line: h.line,
+        kind: h.kind,
+        ...(h.attr !== undefined ? { attr: h.attr } : {}),
+        text: h.text,
+      })),
+    })),
+  };
+  fs.writeFileSync(jsonOutPath, JSON.stringify(result, null, 2), "utf8");
+}
+
+// ── console output ──────────────────────────────────────────────────────────────
+
 if (hits.length === 0) {
   console.log(
     "✓ No hardcoded English strings detected in web TSX files.\n" +
@@ -313,15 +343,8 @@ if (hits.length === 0) {
 
 console.error(
   `\n✗ Found ${hits.length} likely-hardcoded English string${hits.length === 1 ? "" : "s"} ` +
-  `in ${new Set(hits.map((h) => h.file)).size} web source file${new Set(hits.map((h) => h.file)).size === 1 ? "" : "s"}:\n`,
+  `in ${byFile.size} web source file${byFile.size === 1 ? "" : "s"}:\n`,
 );
-
-// Group hits by file for readable output
-const byFile = new Map<string, Hit[]>();
-for (const h of hits) {
-  if (!byFile.has(h.file)) byFile.set(h.file, []);
-  byFile.get(h.file)!.push(h);
-}
 
 for (const [file, fileHits] of byFile) {
   console.error(`  ${file}`);
