@@ -42,6 +42,12 @@ let timer: NodeJS.Timeout | null = null;
 let running = false;
 let lastEvaluatedDay: string | null = null;
 
+/** Reset in-process state. Only call this from tests. */
+export function __resetForTest(): void {
+  running = false;
+  lastEvaluatedDay = null;
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 export function startWebVitalsMonitor(): void {
