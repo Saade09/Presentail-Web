@@ -55,6 +55,10 @@ import {
   type SignInMethodDailyBucket,
   type SignInMethodSummaryBucket,
 } from "../lib/signInMethodAggregator";
+import {
+  loadDailyWebVitalSummaries,
+  type DailyWebVitalSummary,
+} from "../lib/webVitalsMonitor";
 import { ITEM_ADD_RATE_MIN } from "../lib/upsellFunnelMonitor";
 import { getOsProducts, getStartupPriceSnapshot } from "../lib/osProductsCache";
 import { getRates, roundForCurrency, CURRENCY_DECIMALS, type SupportedCurrency } from "../lib/fx";
@@ -271,6 +275,34 @@ router.get("/admin/funnels/data", async (req, res) => {
       "adminFunnels: data load failed",
     );
     res.status(500).json({ ok: false, message: "Failed to load funnels" }); // i18n-ignore
+  }
+});
+
+router.get("/admin/funnels/web-vitals", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const days = parseDays(req.query.days);
+  const { start, end } = dayWindow(new Date(), days);
+  try {
+    const daily = await loadDailyWebVitalSummaries(start, end);
+    res.json({
+      days,
+      rangeStartUtc: start.toISOString(),
+      rangeEndUtc: end.toISOString(),
+      daily: daily.map((r: DailyWebVitalSummary) => ({
+        day: r.day,
+        metric: r.metric,
+        count: r.count,
+        p50: r.p50,
+        p75: r.p75,
+        p95: r.p95,
+      })),
+    });
+  } catch (err: any) {
+    logger.warn(
+      { err: err?.message },
+      "adminFunnels: web-vitals load failed",
+    );
+    res.status(500).json({ ok: false, message: "Failed to load web vitals" }); // i18n-ignore
   }
 });
 
@@ -979,6 +1011,21 @@ const DASHBOARD_HTML = `<!doctype html>
     <tbody></tbody>
   </table>
 
+  <h2>Web Vitals</h2>
+  <div class="sub">Per-day p50 / p75 / p95 for LCP, INP, and CLS from <code>web_vital</code> analytics events. LCP and INP are in milliseconds; CLS is unitless. Google&#x2019;s &#x201C;good&#x201D; thresholds: LCP ≤ 2500 ms, INP ≤ 200 ms, CLS ≤ 0.1. Loaded separately from the main funnel data so the endpoint stays composable.</div>
+  <div id="webVitalsCharts" class="trends"></div>
+  <div id="webVitalsLegend" class="legend"></div>
+  <h3 style="font-size:13px;margin:12px 0 4px;color:#555">Per-day breakdown</h3>
+  <table id="webVitalsDaily">
+    <thead>
+      <tr>
+        <th>Day</th><th>Metric</th><th>Samples</th>
+        <th>p50</th><th>p75</th><th>p95</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <h2>Login prompt funnel</h2>
   <div class="sub">checkout_login_prompt_viewed → action (sign-in / guest / dismissed)</div>
   <div id="loginLegend" class="legend"></div>
@@ -1071,6 +1118,9 @@ const DASHBOARD_HTML = `<!doctype html>
   var signInMethodsSummary = document.getElementById('signInMethodsSummary');
   var signInMethodsTrends = document.getElementById('signInMethodsTrends');
   var signInMethodsDailyBody = document.querySelector('#signInMethodsDaily tbody');
+  var webVitalsCharts = document.getElementById('webVitalsCharts');
+  var webVitalsLegend = document.getElementById('webVitalsLegend');
+  var webVitalsDailyBody = document.querySelector('#webVitalsDaily tbody');
 
   var PALETTE = ['#3366cc', '#dc3912', '#109618', '#ff9900', '#990099', '#0099c6', '#dd4477', '#66aa00'];
   function colorFor(key) {
@@ -2207,6 +2257,106 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('');
   }
 
+  // ── Web Vitals ──────────────────────────────────────────────────────────
+  var WV_THRESHOLDS = { LCP: 2500, INP: 200, CLS: 0.1 };
+  var WV_PERCENTILE_COLORS = { p50: '#3366cc', p75: '#ff9900', p95: '#dc3912' };
+
+  function fmtVital(metric, val) {
+    if (val == null) return '<span class="muted">—</span>';
+    if (metric === 'CLS') return val.toFixed(3);
+    return Math.round(val).toLocaleString() + ' ms';
+  }
+
+  function vitalIsHigh(metric, val) {
+    var t = WV_THRESHOLDS[metric];
+    return t != null && val != null && val > t;
+  }
+
+  function renderWebVitals(daily) {
+    if (!daily || !daily.length) {
+      webVitalsCharts.innerHTML = '<div class="muted">No web_vital events in range.</div>';
+      webVitalsLegend.innerHTML = '';
+      webVitalsDailyBody.innerHTML = '<tr><td colspan="6" class="muted">No events in range.</td></tr>';
+      return;
+    }
+
+    // Group rows by metric (LCP, INP, CLS)
+    var byMetric = {};
+    daily.forEach(function (r) {
+      if (!byMetric[r.metric]) byMetric[r.metric] = [];
+      byMetric[r.metric].push(r);
+    });
+
+    // Per-metric sparklines with 3 series (p50 / p75 / p95)
+    var allDays = uniqueDays(daily);
+    var metrics = Object.keys(byMetric).sort();
+    var pctKeys = ['p50', 'p75', 'p95'];
+
+    webVitalsCharts.innerHTML = metrics.map(function (metric) {
+      var rows = byMetric[metric];
+      var series = {};
+      pctKeys.forEach(function (pk) {
+        series[pk + ' ' + metric] = allDays.map(function (d) {
+          var row = rows.find(function (r) { return r.day === d; });
+          return row ? row[pk] : null;
+        });
+      });
+      // Use a fixed max so all three series share the same y-axis
+      var maxY = 0;
+      Object.keys(series).forEach(function (k) {
+        series[k].forEach(function (v) { if (v != null && v > maxY) maxY = v; });
+      });
+      // Override colour mapping: p50 blue, p75 orange, p95 red
+      var origColorFor = colorFor;
+      var svg = (function () {
+        var width = 200, height = 44, pad = 3;
+        var n = allDays.length;
+        var w = width - 2 * pad, h = height - 2 * pad;
+        if (!maxY) maxY = 1;
+        function xf(i) { return pad + (n <= 1 ? w / 2 : (i / (n - 1)) * w); }
+        function yf(v) { return pad + h - (v / maxY) * h; }
+        var paths = pctKeys.map(function (pk) {
+          var values = series[pk + ' ' + metric];
+          var d = '', started = false, dotCount = 0, lastX = 0, lastY = 0;
+          values.forEach(function (v, i) {
+            if (v == null) { started = false; return; }
+            var px = xf(i), py = yf(v);
+            d += (started ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
+            started = true; dotCount++; lastX = px; lastY = py;
+          });
+          var color = WV_PERCENTILE_COLORS[pk] || '#999';
+          var dot = dotCount === 1
+            ? '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="2" fill="' + color + '" />'
+            : '';
+          return '<path d="' + d + '" stroke="' + color + '" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round" />' + dot;
+        }).join('');
+        var axis = '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="#ccc" stroke-width="0.5" />';
+        var labelVal = metric === 'CLS' ? maxY.toFixed(2) : Math.round(maxY).toLocaleString() + ' ms';
+        var maxLabel = '<text x="' + (width - pad) + '" y="' + (pad + 8) + '" font-size="9" text-anchor="end" fill="#999">' + labelVal + '</text>';
+        return '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' + axis + paths + maxLabel + '</svg>';
+      })();
+      return '<div class="trend"><div class="trend-title">' + escapeHtml(metric) + '</div>' + svg + '</div>';
+    }).join('');
+
+    // Legend: p50 / p75 / p95 colour swatches
+    webVitalsLegend.innerHTML = pctKeys.map(function (pk) {
+      return '<span><span class="swatch" style="background:' + WV_PERCENTILE_COLORS[pk] + '"></span>' + pk + '</span>';
+    }).join('');
+
+    // Per-day table
+    webVitalsDailyBody.innerHTML = daily.map(function (r) {
+      var hi = vitalIsHigh(r.metric, r.p50);
+      return '<tr' + (hi ? ' style="color:#b00020"' : '') + '>' +
+        '<td>' + r.day + '</td>' +
+        '<td>' + escapeHtml(r.metric) + '</td>' +
+        '<td>' + num(r.count) + '</td>' +
+        '<td>' + fmtVital(r.metric, r.p50) + '</td>' +
+        '<td>' + fmtVital(r.metric, r.p75) + '</td>' +
+        '<td>' + fmtVital(r.metric, r.p95) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
   function load() {
     var token = tokenEl.value.trim();
     var days = Math.max(1, Math.min(${MAX_DAYS}, parseInt(daysEl.value, 10) || ${DEFAULT_DAYS}));
@@ -2218,14 +2368,27 @@ const DASHBOARD_HTML = `<!doctype html>
     try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
     statusEl.textContent = 'Loading…';
     statusEl.className = 'muted';
-    fetch('./funnels/data?days=' + days, {
-      headers: { 'x-push-admin-token': token },
-    })
-      .then(function (r) {
+    var headers = { 'x-push-admin-token': token };
+    // Use allSettled so a web-vitals failure never blocks the main funnel sections.
+    // Main funnel data is treated as required; web vitals as best-effort.
+    Promise.allSettled([
+      fetch('./funnels/data?days=' + days, { headers: headers }).then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
-      })
-      .then(function (data) {
+      }),
+      fetch('./funnels/web-vitals?days=' + days, { headers: headers }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }),
+    ])
+      .then(function (results) {
+        if (results[0].status === 'rejected') {
+          statusEl.textContent = 'Load failed: ' + results[0].reason.message;
+          statusEl.className = 'err';
+          return;
+        }
+        var data = results[0].value;
+        var webVitalsData = results[1].status === 'fulfilled' ? results[1].value : null;
         var purchase = data.purchase || [];
         var login = data.login || [];
         var socialFailures = data.socialFailures || { summary: [], daily: [] };
@@ -2262,6 +2425,15 @@ const DASHBOARD_HTML = `<!doctype html>
         renderSmsDelivery(data.sms || { daily: [] });
         renderOrderPushTaps(data.orderPushTaps || { daily: [] });
         renderSignInMethods(data.signInMethods || { summary: [], daily: [] });
+        if (webVitalsData) {
+          renderWebVitals(webVitalsData.daily || []);
+        } else {
+          // Web vitals fetch failed — show fallback state but keep the rest of
+          // the dashboard intact (main funnel data loaded successfully).
+          webVitalsCharts.innerHTML = '<div class="muted err">Web Vitals failed to load — check the server logs.</div>';
+          webVitalsLegend.innerHTML = '';
+          webVitalsDailyBody.innerHTML = '<tr><td colspan="6" class="muted err">Load failed.</td></tr>';
+        }
         var purchaseKeyFn = function (r) { return r.platform; };
         var loginKeyFn = function (r) { return r.platform + '/' + r.surface; };
         renderLegend(purchaseLegend, uniqueKeys(purchase, purchaseKeyFn));
@@ -2280,8 +2452,9 @@ const DASHBOARD_HTML = `<!doctype html>
           { label: 'Dismiss %', valueFn: function (r) { return r.dismissedPct; }, max: 100 },
           { label: 'Prompt views', valueFn: function (r) { return r.viewed; } },
         ]);
-        statusEl.textContent = 'Loaded ' + data.days + ' day(s) ending ' + (data.rangeEndUtc || '').slice(0, 10) + ' UTC.';
-        statusEl.className = 'muted';
+        var suffix = webVitalsData ? '' : ' (Web Vitals unavailable)';
+        statusEl.textContent = 'Loaded ' + data.days + ' day(s) ending ' + (data.rangeEndUtc || '').slice(0, 10) + ' UTC.' + suffix;
+        statusEl.className = webVitalsData ? 'muted' : 'err';
       })
       .catch(function (err) {
         statusEl.textContent = 'Load failed: ' + err.message;

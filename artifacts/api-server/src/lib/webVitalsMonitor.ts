@@ -104,6 +104,63 @@ export type WebVitalSummary = {
   p95: number;
 };
 
+export type DailyWebVitalSummary = WebVitalSummary & { day: string };
+
+// ── Shared query internals ──────────────────────────────────────────────────
+
+// The shared aggregate SELECT columns used by both public load functions.
+// Keeping them in one place ensures both functions compute percentiles the
+// same way — adding a p99 or changing a percentile level only needs one edit.
+const VITAL_AGGREGATES = {
+  metric: analyticsEventsTable.action,
+  count: sql<number>`count(*)::int`,
+  p50: sql<number>`percentile_cont(0.5) within group (order by ${analyticsEventsTable.metricValue})::float`,
+  p75: sql<number>`percentile_cont(0.75) within group (order by ${analyticsEventsTable.metricValue})::float`,
+  p95: sql<number>`percentile_cont(0.95) within group (order by ${analyticsEventsTable.metricValue})::float`,
+} as const;
+
+function vitalWhere(start: Date, end: Date) {
+  return and(
+    sql`${analyticsEventsTable.name} = 'web_vital'`,
+    sql`${analyticsEventsTable.metricValue} is not null`,
+    gte(analyticsEventsTable.createdAt, start),
+    lt(analyticsEventsTable.createdAt, end),
+  )!;
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+/**
+ * Per-day p50/p75/p95 for every web vital metric in the given window.
+ * Reuses the shared `VITAL_AGGREGATES` and `vitalWhere` helpers so
+ * the percentile definitions stay in sync with `loadWebVitalSummaries`.
+ */
+export async function loadDailyWebVitalSummaries(
+  start: Date,
+  end: Date,
+): Promise<DailyWebVitalSummary[]> {
+  type Row = { day: string; metric: string; count: number; p50: number; p75: number; p95: number };
+
+  const DAY_EXPR = sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
+  const DAY_TRUNC = sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`;
+
+  const rows = (await db
+    .select({ day: DAY_EXPR, ...VITAL_AGGREGATES })
+    .from(analyticsEventsTable)
+    .where(vitalWhere(start, end))
+    .groupBy(DAY_TRUNC, analyticsEventsTable.action)) as Array<
+    Row & { day: string | null; metric: string | null }
+  >;
+
+  return rows
+    .filter((r): r is Row => typeof r.day === "string" && typeof r.metric === "string")
+    .sort((a, b) => a.day.localeCompare(b.day) || a.metric.localeCompare(b.metric));
+}
+
+/**
+ * Window-level p50/p75/p95 across the full start→end range (no day split).
+ * Used by the daily alert monitor to evaluate the previous full UTC day.
+ */
 export async function loadWebVitalSummaries(
   start: Date,
   end: Date,
@@ -111,25 +168,10 @@ export async function loadWebVitalSummaries(
   type Row = { metric: string; count: number; p50: number; p75: number; p95: number };
 
   const rows = (await db
-    .select({
-      metric: analyticsEventsTable.action,
-      count: sql<number>`count(*)::int`,
-      p50: sql<number>`percentile_cont(0.5) within group (order by ${analyticsEventsTable.metricValue})::float`,
-      p75: sql<number>`percentile_cont(0.75) within group (order by ${analyticsEventsTable.metricValue})::float`,
-      p95: sql<number>`percentile_cont(0.95) within group (order by ${analyticsEventsTable.metricValue})::float`,
-    })
+    .select(VITAL_AGGREGATES)
     .from(analyticsEventsTable)
-    .where(
-      and(
-        sql`${analyticsEventsTable.name} = 'web_vital'`,
-        sql`${analyticsEventsTable.metricValue} is not null`,
-        gte(analyticsEventsTable.createdAt, start),
-        lt(analyticsEventsTable.createdAt, end),
-      )!,
-    )
-    .groupBy(analyticsEventsTable.action)) as Array<
-    Row & { metric: string | null }
-  >;
+    .where(vitalWhere(start, end))
+    .groupBy(analyticsEventsTable.action)) as Array<Row & { metric: string | null }>;
 
   return rows
     .filter((r): r is Row => typeof r.metric === "string")
