@@ -6,8 +6,13 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
+
+const brotliCompress = promisify(zlib.brotliCompress);
+const gzipCompress = promisify(zlib.gzip);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, "dist/public");
@@ -39,6 +44,48 @@ const MIME = {
   ".xml": "application/xml; charset=utf-8",
   ".webmanifest": "application/manifest+json",
 };
+
+// Extensions that are already compressed or gain nothing from compression.
+const BINARY_EXTS = new Set([
+  ".png", ".jpg", ".jpeg", ".webp", ".ico",
+  ".woff", ".woff2", ".ttf",
+  ".mp4", ".webm", ".mp3", ".ogg",
+]);
+
+// ---------------------------------------------------------------------------
+// Compression helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Pick the best compression encoding the client accepts, skipping binary types.
+ * Returns "br", "gzip", or null (no compression).
+ */
+function pickEncoding(req, ext) {
+  if (BINARY_EXTS.has(ext)) return null;
+  const accept = req.headers["accept-encoding"] ?? "";
+  if (accept.includes("br")) return "br";
+  if (accept.includes("gzip")) return "gzip";
+  return null;
+}
+
+/**
+ * Compress a Buffer or string with the chosen encoding.
+ * Returns a Buffer (or the original if encoding is null).
+ */
+async function compressBuffer(data, encoding) {
+  if (encoding === "br") return brotliCompress(data);
+  if (encoding === "gzip") return gzipCompress(data);
+  return Buffer.isBuffer(data) ? data : Buffer.from(data);
+}
+
+/**
+ * Create a zlib transform stream for the chosen encoding, or null.
+ */
+function compressStream(encoding) {
+  if (encoding === "br") return zlib.createBrotliCompress();
+  if (encoding === "gzip") return zlib.createGzip();
+  return null;
+}
 
 function safeJoin(root, urlPath) {
   const resolved = path.resolve(root, "." + urlPath);
@@ -173,11 +220,16 @@ const server = http.createServer(async (req, res) => {
         sitemapCache = await generateSitemap(origin, BASE_PATH);
         sitemapCacheTsMs = nowMs;
       }
-      res.writeHead(200, {
+      const encoding = pickEncoding(req, ".xml");
+      const body = await compressBuffer(sitemapCache, encoding);
+      const headers = {
         "content-type": MIME[".xml"],
         "cache-control": "public, max-age=900, must-revalidate",
-      });
-      res.end(sitemapCache);
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
       return;
     }
 
@@ -208,14 +260,19 @@ const server = http.createServer(async (req, res) => {
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
         });
-        res.writeHead(200, {
+        const encoding = pickEncoding(req, ".html");
+        const body = await compressBuffer(out, encoding);
+        const headers = {
           "content-type": MIME[".html"],
           // Override any upstream X-Robots-Tag (e.g. Replit's default for
           // `.replit.app` preview domains) so Lighthouse / Googlebot don't
           // see "noindex" on a production deployment.
           "x-robots-tag": "index, follow",
-        });
-        res.end(out);
+          "vary": "Accept-Encoding",
+        };
+        if (encoding) headers["content-encoding"] = encoding;
+        res.writeHead(200, headers);
+        res.end(body);
         return;
       }
       const baseName = path.basename(filePath);
@@ -239,12 +296,21 @@ const server = http.createServer(async (req, res) => {
         baseName === "apple-app-site-association"
           ? "application/json; charset=utf-8"
           : (MIME[ext] ?? "application/octet-stream");
-      const stream = fs.createReadStream(filePath);
-      res.writeHead(200, {
+      const encoding = pickEncoding(req, ext);
+      const headers = {
         "content-type": contentType,
         "cache-control": cacheControl,
-      });
-      stream.pipe(res);
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      const fileStream = fs.createReadStream(filePath);
+      const compressor = compressStream(encoding);
+      if (compressor) {
+        fileStream.pipe(compressor).pipe(res);
+      } else {
+        fileStream.pipe(res);
+      }
       return;
     }
 
@@ -255,11 +321,16 @@ const server = http.createServer(async (req, res) => {
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
     });
-    res.writeHead(200, {
+    const encoding = pickEncoding(req, ".html");
+    const body = await compressBuffer(out, encoding);
+    const headers = {
       "content-type": MIME[".html"],
       "x-robots-tag": "index, follow",
-    });
-    res.end(out);
+      "vary": "Accept-Encoding",
+    };
+    if (encoding) headers["content-encoding"] = encoding;
+    res.writeHead(200, headers);
+    res.end(body);
   } catch (err) {
     console.error("serve error:", err);
     res.writeHead(500, { "content-type": "text/plain" });
