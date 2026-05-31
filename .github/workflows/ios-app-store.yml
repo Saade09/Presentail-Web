@@ -101,6 +101,9 @@ jobs:
         # Android Play Store workflow.
         run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
 
+      - name: Run scripts tests
+        run: pnpm --filter @workspace/scripts run test
+
       - name: Promote build to App Store
         run: pnpm --filter @workspace/scripts run promote-ios-to-app-store
         env:
