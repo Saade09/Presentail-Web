@@ -1,17 +1,19 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { runAuditNow, getLastAuditSummary } from "../lib/seoAuditMonitor";
+import { getAuditHistory, getLastAuditSummary, runAuditNow } from "../lib/seoAuditMonitor";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-// Admin-only on-demand SEO audit endpoint.
+// Admin-only SEO audit endpoints.
 //
 // Auth: same `x-push-admin-token` header as the other admin endpoints
 // (PUSH_ADMIN_TOKEN env). No session, no cookie.
 //
 // Endpoints:
-//   GET  /api/admin/seo-audit/last → JSON: { ok, summary: AuditSummary | null }
-//   POST /api/admin/seo-audit/run  → JSON: AuditSummary
+//   GET  /api/admin/seo-audit/last    → JSON: { ok, summary: AuditSummary | null }
+//   POST /api/admin/seo-audit/run     → JSON: AuditSummary
+//   GET  /api/admin/seo-audit/history → JSON: { ok, days, rows }
+//     ?days=N  — last N days of results (1–90, default 14)
 
 function requireAdmin(req: Request, res: Response): boolean {
   const expected = process.env.PUSH_ADMIN_TOKEN;
@@ -65,6 +67,40 @@ router.post("/admin/seo-audit/run", async (req, res) => {
     req.log.warn({ err: message }, "adminSeoAudit: runAuditNow failed");
     logger.warn({ err: message }, "adminSeoAudit: runAuditNow failed");
     res.status(500).json({ ok: false, message: "Audit failed" }); // i18n-ignore
+  }
+});
+
+/**
+ * GET /api/admin/seo-audit/history?days=N
+ *
+ * Returns the last N days of SEO audit log rows (aggregate counts only, no
+ * per-page detail), ordered newest-first. `days` defaults to 14 and is capped
+ * at 90 (the retention window). Rows are appended by both the daily scheduled
+ * run and on-demand `/run` calls.
+ *
+ * Response shape:
+ *   { ok: true, days: number, rows: AuditHistoryRow[] }
+ *
+ * Each row:
+ *   { id, ranAt, runType, total, failing, warned, passing }
+ */
+router.get("/admin/seo-audit/history", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const rawDays = req.query["days"];
+  const days = rawDays ? parseInt(String(rawDays), 10) : 14;
+  if (!Number.isFinite(days) || days < 1) {
+    res.status(400).json({ ok: false, message: "days must be a positive integer" }); // i18n-ignore
+    return;
+  }
+
+  try {
+    const rows = await getAuditHistory(days);
+    res.json({ ok: true, days: Math.min(days, 90), rows });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log.warn({ err: message }, "adminSeoAudit: getAuditHistory failed");
+    res.status(500).json({ ok: false, message: "Failed to fetch audit history" }); // i18n-ignore
   }
 });
 

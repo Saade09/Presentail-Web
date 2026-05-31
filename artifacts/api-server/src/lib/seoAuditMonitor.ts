@@ -21,10 +21,12 @@
 //   SEO_AUDIT_MONITOR_ENABLED — "0" / "false" / "no" / "off" to disable.
 //                               Default: enabled.
 
-import { eq } from "drizzle-orm";
-import { db, monitorStateTable } from "@workspace/db";
+import { desc, eq, gte, lt } from "drizzle-orm";
+import { db, monitorStateTable, seoAuditLogTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
+
+const AUDIT_LOG_RETENTION_DAYS = 90;
 
 const ENABLED = (() => {
   const v = (process.env.SEO_AUDIT_MONITOR_ENABLED ?? "1").toLowerCase();
@@ -104,6 +106,42 @@ let lastAuditSummary: AuditSummary | null = null;
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
 const MONITOR_STATE_KEY = "seo_audit_last";
+
+/** Append one row to the seo_audit_log table (best-effort). */
+async function appendAuditLog(
+  summary: AuditSummary,
+  runType: "scheduled" | "on_demand",
+): Promise<void> {
+  try {
+    await db.insert(seoAuditLogTable).values({
+      ranAt: new Date(summary.ranAt),
+      runType,
+      total: summary.total,
+      failing: summary.failing,
+      warned: summary.warned,
+      passing: summary.passing,
+    });
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message },
+      "seoAuditMonitor: failed to append audit log row",
+    );
+  }
+}
+
+/** Delete seo_audit_log rows older than AUDIT_LOG_RETENTION_DAYS (best-effort). */
+async function pruneOldAuditLog(): Promise<void> {
+  try {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - AUDIT_LOG_RETENTION_DAYS);
+    await db.delete(seoAuditLogTable).where(lt(seoAuditLogTable.ranAt, cutoff));
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message },
+      "seoAuditMonitor: failed to prune old audit log rows",
+    );
+  }
+}
 
 /** Write the audit summary to the monitor_state table (best-effort). */
 async function persistAuditSummary(summary: AuditSummary): Promise<void> {
@@ -194,6 +232,42 @@ export function __resetForTest(): void {
 /** Return the cached result of the most recent completed audit, or null if no run has completed since the last restart. */
 export function getLastAuditSummary(): AuditSummary | null {
   return lastAuditSummary;
+}
+
+export interface AuditHistoryRow {
+  id: number;
+  ranAt: string;
+  runType: string;
+  total: number;
+  failing: number;
+  warned: number;
+  passing: number;
+}
+
+/**
+ * Return up to `days` days of seo_audit_log rows ordered newest-first.
+ * `days` is capped at 90 (the retention window).
+ */
+export async function getAuditHistory(days: number): Promise<AuditHistoryRow[]> {
+  const cappedDays = Math.min(Math.max(1, days), 90);
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - cappedDays);
+
+  const rows = await db
+    .select()
+    .from(seoAuditLogTable)
+    .where(gte(seoAuditLogTable.ranAt, cutoff))
+    .orderBy(desc(seoAuditLogTable.ranAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    ranAt: r.ranAt.toISOString(),
+    runType: r.runType,
+    total: r.total,
+    failing: r.failing,
+    warned: r.warned,
+    passing: r.passing,
+  }));
 }
 
 async function fetchPageHtml(pageUrl: string): Promise<string | null> {
@@ -394,6 +468,7 @@ export async function runAuditNow(): Promise<AuditSummary> {
     };
     lastAuditSummary = summary;
     await persistAuditSummary(summary);
+    await appendAuditLog(summary, "on_demand");
 
     if (failing.length > 0 || warned.length > 0) {
       const localeOrder = ["LB", "AE", "CY"];
@@ -519,6 +594,8 @@ export async function runOnce(): Promise<void> {
       })),
     };
     await persistAuditSummary(lastAuditSummary);
+    await appendAuditLog(lastAuditSummary, "scheduled");
+    await pruneOldAuditLog();
 
     logger.info(
       {
