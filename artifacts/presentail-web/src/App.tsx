@@ -55,7 +55,31 @@ import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
 import { PageLoader } from "@/components/PageLoader";
+import { HomePageSkeleton } from "@/components/skeletons/HomePageSkeleton";
+import { ShopPageSkeleton } from "@/components/skeletons/ShopPageSkeleton";
+import { ProductDetailSkeleton } from "@/components/skeletons/ProductDetailSkeleton";
+import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
+import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
 import { prefetchRoutes } from "@/lib/prefetch";
+
+/**
+ * Wraps a lazy component with its own Suspense boundary so each route
+ * can show a layout-matched skeleton instead of the generic spinner.
+ */
+function withSuspense<P extends object>(
+  Component: React.ComponentType<P>,
+  Fallback: React.ComponentType,
+): React.ComponentType<P> {
+  function WithSuspense(props: P) {
+    return (
+      <Suspense fallback={<Fallback />}>
+        <Component {...props} />
+      </Suspense>
+    );
+  }
+  WithSuspense.displayName = `WithSuspense(${Component.displayName ?? Component.name})`;
+  return WithSuspense;
+}
 
 const Landing = lazy(() => import("@/pages/Landing"));
 const Home = lazy(loadHome);
@@ -85,6 +109,36 @@ const Privacy = lazy(() => import("@/pages/Privacy"));
 const Favorites = lazy(loadFavorites);
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+
+// Per-route components with layout-matched Suspense skeletons.
+// Defined at module scope so React never unmounts them on re-render.
+const HomeRoute = withSuspense(Home, HomePageSkeleton);
+const ShopRoute = withSuspense(Shop, ShopPageSkeleton);
+const ProductDetailRoute = withSuspense(ProductDetail, ProductDetailSkeleton);
+const CheckoutRoute = withSuspense(Checkout, CheckoutSkeleton);
+const AccountRoute = withSuspense(Account, AccountSkeleton);
+const PersonalInformationRoute = withSuspense(PersonalInformation, AccountSkeleton);
+const FavoritesRoute = withSuspense(Favorites, AccountSkeleton);
+// Minor routes share the generic spinner — they're tiny chunks, rarely cold-loaded.
+const BrandsRoute = withSuspense(Brands, PageLoader);
+const BrandDetailRoute = withSuspense(BrandDetail, ShopPageSkeleton);
+const CartRoute = withSuspense(Cart, PageLoader);
+const OrderConfirmedRoute = withSuspense(OrderConfirmed, PageLoader);
+const SignInRoute = withSuspense(SignInPage, PageLoader);
+const SignUpRoute = withSuspense(SignUpPage, PageLoader);
+const UnauthorizedRoute = withSuspense(Unauthorized, PageLoader);
+const CareersRoute = withSuspense(Careers, PageLoader);
+const BlogRoute = withSuspense(Blog, PageLoader);
+const PartnerRoute = withSuspense(Partner, PageLoader);
+const DeliveryRatesRoute = withSuspense(DeliveryRates, PageLoader);
+const InvestorRelationsRoute = withSuspense(InvestorRelations, PageLoader);
+const WeddingsRoute = withSuspense(Weddings, PageLoader);
+const CorporateRoute = withSuspense(Corporate, PageLoader);
+const ContactRoute = withSuspense(Contact, PageLoader);
+const FaqsRoute = withSuspense(Faqs, PageLoader);
+const TermsRoute = withSuspense(Terms, PageLoader);
+const PrivacyRoute = withSuspense(Privacy, PageLoader);
+const NotFoundRoute = withSuspense(NotFound, PageLoader);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -152,52 +206,50 @@ function ShopShell() {
       <div className="min-h-screen flex flex-col">
         <HomepageHeader />
         <main className="flex-1">
-          <Suspense fallback={<PageLoader />}>
-            <Switch>
-              <Route path="/" component={Home} />
-              <Route path="/shop" component={Shop} />
-              <Route path="/product/:slug" component={ProductDetail} />
-              <Route path="/brands" component={Brands} />
-              <Route path="/brand/:slug" component={BrandDetail} />
-              <Route path="/cart" component={Cart} />
-              <Route path="/checkout" component={Checkout} />
-              <Route path="/order-confirmed" component={OrderConfirmed} />
-              <Route path="/careers" component={Careers} />
-              <Route path="/blog" component={Blog} />
-              <Route path="/partner" component={Partner} />
-              <Route path="/delivery-rates" component={DeliveryRates} />
-              <Route path="/investor" component={InvestorRelations} />
-              <Route path="/weddings" component={Weddings} />
-              <Route path="/corporate" component={Corporate} />
-              <Route path="/contact" component={Contact} />
-              <Route path="/faqs" component={Faqs} />
-              <Route path="/terms" component={Terms} />
-              <Route path="/privacy" component={Privacy} />
-              {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
-                  factor-one, ...) so their routes need wildcard suffixes. */}
-              <Route path="/sign-in/:rest*" component={SignInPage} />
-              <Route path="/sign-in" component={SignInPage} />
-              <Route path="/sign-up/:rest*" component={SignUpPage} />
-              <Route path="/sign-up" component={SignUpPage} />
-              <Route path="/unauthorized" component={Unauthorized} />
-              <Route path="/account/personal-information">
-                <CustomerOnly>
-                  <PersonalInformation />
-                </CustomerOnly>
-              </Route>
-              <Route path="/account">
-                <CustomerOnly>
-                  <Account />
-                </CustomerOnly>
-              </Route>
-              <Route path="/favorites">
-                <CustomerOnly>
-                  <Favorites />
-                </CustomerOnly>
-              </Route>
-              <Route component={NotFound} />
-            </Switch>
-          </Suspense>
+          <Switch>
+            <Route path="/" component={HomeRoute} />
+            <Route path="/shop" component={ShopRoute} />
+            <Route path="/product/:slug" component={ProductDetailRoute} />
+            <Route path="/brands" component={BrandsRoute} />
+            <Route path="/brand/:slug" component={BrandDetailRoute} />
+            <Route path="/cart" component={CartRoute} />
+            <Route path="/checkout" component={CheckoutRoute} />
+            <Route path="/order-confirmed" component={OrderConfirmedRoute} />
+            <Route path="/careers" component={CareersRoute} />
+            <Route path="/blog" component={BlogRoute} />
+            <Route path="/partner" component={PartnerRoute} />
+            <Route path="/delivery-rates" component={DeliveryRatesRoute} />
+            <Route path="/investor" component={InvestorRelationsRoute} />
+            <Route path="/weddings" component={WeddingsRoute} />
+            <Route path="/corporate" component={CorporateRoute} />
+            <Route path="/contact" component={ContactRoute} />
+            <Route path="/faqs" component={FaqsRoute} />
+            <Route path="/terms" component={TermsRoute} />
+            <Route path="/privacy" component={PrivacyRoute} />
+            {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
+                factor-one, ...) so their routes need wildcard suffixes. */}
+            <Route path="/sign-in/:rest*" component={SignInRoute} />
+            <Route path="/sign-in" component={SignInRoute} />
+            <Route path="/sign-up/:rest*" component={SignUpRoute} />
+            <Route path="/sign-up" component={SignUpRoute} />
+            <Route path="/unauthorized" component={UnauthorizedRoute} />
+            <Route path="/account/personal-information">
+              <CustomerOnly>
+                <PersonalInformationRoute />
+              </CustomerOnly>
+            </Route>
+            <Route path="/account">
+              <CustomerOnly>
+                <AccountRoute />
+              </CustomerOnly>
+            </Route>
+            <Route path="/favorites">
+              <CustomerOnly>
+                <FavoritesRoute />
+              </CustomerOnly>
+            </Route>
+            <Route component={NotFoundRoute} />
+          </Switch>
         </main>
         <Footer />
       </div>
