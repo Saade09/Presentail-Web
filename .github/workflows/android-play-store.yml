@@ -92,6 +92,17 @@ jobs:
         run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
 
+      - name: Build web app (vite + compress-assets)
+        # Required so the Brotli sidecars exist for the chunk budget check below.
+        run: pnpm --filter @workspace/presentail-web run build
+        working-directory: .
+
+      - name: Chunk budget check (≤200 kB brotli per chunk)
+        # Blocks the Play Store submission when any JS chunk exceeds the budget,
+        # matching the gate that runs in the web-serve-check CI workflow.
+        run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
+        working-directory: .
+
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
