@@ -223,6 +223,86 @@ async function auditPage(page: { locale: string; label: string; url: string }): 
   };
 }
 
+// ── On-demand audit (returns structured results, bypasses daily guard) ───────
+
+export interface AuditPageResult {
+  label: string;
+  url: string;
+  status: "error" | "warn" | "ok";
+  ogImage: string | null;
+  ogImageReachable: boolean | null;
+  ogImageSizeOk: boolean | null;
+  fallbackUsed: boolean;
+  fetchFailed: boolean;
+  error?: string;
+}
+
+export interface AuditSummary {
+  ranAt: string;
+  total: number;
+  failing: number;
+  warned: number;
+  passing: number;
+  pages: AuditPageResult[];
+}
+
+/**
+ * Run the SEO audit immediately and return a structured summary.
+ * Unlike `runOnce()`, this bypasses the "already evaluated today" guard and
+ * is intended for on-demand use (e.g. admin endpoint after a deploy).
+ * Throws with message "Audit already in progress" when a run is underway.
+ */
+export async function runAuditNow(): Promise<AuditSummary> {
+  if (running) {
+    throw new Error("Audit already in progress");
+  }
+  running = true;
+  try {
+    const ranAt = new Date().toISOString();
+    logger.info(
+      { pageCount: KEY_PAGES.length },
+      "seoAuditMonitor: on-demand audit started",
+    );
+
+    const results = await Promise.all(KEY_PAGES.map(auditPage));
+
+    const failing = results.filter((r) => classifyResult(r) === "error");
+    const warned = results.filter((r) => classifyResult(r) === "warn");
+    const passing = results.filter((r) => classifyResult(r) === "ok");
+
+    logger.info(
+      {
+        total: results.length,
+        failing: failing.length,
+        warned: warned.length,
+        passing: passing.length,
+      },
+      "seoAuditMonitor: on-demand audit complete",
+    );
+
+    return {
+      ranAt,
+      total: results.length,
+      failing: failing.length,
+      warned: warned.length,
+      passing: passing.length,
+      pages: results.map((r) => ({
+        label: r.label,
+        url: r.url,
+        status: classifyResult(r),
+        ogImage: r.ogImage,
+        ogImageReachable: r.ogImageReachable,
+        ogImageSizeOk: r.ogImageSizeOk,
+        fallbackUsed: r.fallbackUsed,
+        fetchFailed: r.fetchFailed,
+        error: r.error,
+      })),
+    };
+  } finally {
+    running = false;
+  }
+}
+
 // ── Core evaluation ─────────────────────────────────────────────────────────
 
 export async function runOnce(): Promise<void> {

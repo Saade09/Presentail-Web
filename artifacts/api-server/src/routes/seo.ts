@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { imageSize } from "image-size";
 import { logger } from "../lib/logger";
+import { runAuditNow } from "../lib/seoAuditMonitor";
 
 const router = Router();
 
@@ -363,6 +364,23 @@ router.post("/seo/batch-debug", async (req: Request, res: Response) => {
   res.json({ ok: true, results });
 });
 
+router.post("/admin/seo-audit/run", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const summary = await runAuditNow();
+    res.json({ ok: true, ...summary });
+  } catch (err) {
+    const msg = (err as Error)?.message ?? "Internal error";
+    if (msg === "Audit already in progress") {
+      res.status(409).json({ ok: false, message: msg });
+      return;
+    }
+    logger.error({ err }, "admin.seo-audit.run: unexpected error");
+    res.status(500).json({ ok: false, message: msg });
+  }
+});
+
 const SEO_DEBUG_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -436,6 +454,16 @@ const SEO_DEBUG_HTML = `<!doctype html>
   /* audit button */
   #auditBtn { background: #2d6a2d; border-color: #1e4d1e; }
   #auditBtn:hover { background: #1e4d1e; }
+
+  /* run monitor audit button */
+  #runAuditBtn { background: #5a2d82; border-color: #3e1d5e; }
+  #runAuditBtn:hover { background: #3e1d5e; }
+
+  /* monitor audit result section */
+  #monitorAuditSection { display: none; margin-bottom: 28px; }
+  #monitorAuditSection h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .monitor-ran-at { font-size: 11px; color: #888; margin-bottom: 10px; }
+  .monitor-summary { font-size: 13px; color: #555; margin-bottom: 10px; }
 
   /* fallback banner */
   .fallback-banner { background: #fff3cd; border: 1px solid #ffc107; color: #856404; border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
@@ -547,7 +575,25 @@ const SEO_DEBUG_HTML = `<!doctype html>
     <input id="url" type="text" placeholder="https://new.presentail.com/en-lb/beirut/p/pink-roses or /en-lb/..." autocomplete="off" spellcheck="false" />
     <button id="checkBtn">Check</button>
     <button id="auditBtn">Audit key pages</button>
+    <button id="runAuditBtn">Run monitor audit now</button>
     <span id="status" class="muted"></span>
+  </div>
+
+  <!-- Monitor audit results (on-demand) -->
+  <div id="monitorAuditSection">
+    <h2>Monitor audit result</h2>
+    <div class="monitor-ran-at" id="monitorAuditRanAt"></div>
+    <div class="monitor-summary" id="monitorAuditSummary"></div>
+    <table class="batch-table">
+      <thead>
+        <tr>
+          <th>Page</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="monitorAuditBody"></tbody>
+    </table>
   </div>
 
   <!-- Batch audit results -->
@@ -586,6 +632,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
   var urlEl = document.getElementById('url');
   var checkBtn = document.getElementById('checkBtn');
   var auditBtn = document.getElementById('auditBtn');
+  var runAuditBtn = document.getElementById('runAuditBtn');
   var statusEl = document.getElementById('status');
   var resultEl = document.getElementById('result');
   var resolvedUrlEl = document.getElementById('resolvedUrl');
@@ -595,6 +642,10 @@ const SEO_DEBUG_HTML = `<!doctype html>
   var batchSection = document.getElementById('batchSection');
   var batchSummary = document.getElementById('batchSummary');
   var batchBody = document.getElementById('batchBody');
+  var monitorAuditSection = document.getElementById('monitorAuditSection');
+  var monitorAuditRanAt = document.getElementById('monitorAuditRanAt');
+  var monitorAuditSummary = document.getElementById('monitorAuditSummary');
+  var monitorAuditBody = document.getElementById('monitorAuditBody');
   var keyPagesToggle = document.getElementById('keyPagesToggle');
   var keyPagesBody = document.getElementById('keyPagesBody');
   var keyPagesTextarea = document.getElementById('keyPagesTextarea');
@@ -1033,6 +1084,89 @@ const SEO_DEBUG_HTML = `<!doctype html>
         auditBtn.disabled = false;
       });
   });
+
+  runAuditBtn.addEventListener('click', function () {
+    var token = tokenEl.value.trim();
+    if (!token) { statusEl.textContent = 'Paste your admin token first.'; statusEl.className = 'err'; return; }
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+
+    checkBtn.disabled = true;
+    auditBtn.disabled = true;
+    runAuditBtn.disabled = true;
+    statusEl.textContent = 'Running monitor audit\u2026';
+    statusEl.className = 'muted';
+    resultEl.style.display = 'none';
+
+    monitorAuditSection.style.display = '';
+    monitorAuditRanAt.textContent = '';
+    monitorAuditSummary.innerHTML = '<span class="spinner"></span> Auditing ' + 7 + ' key pages\u2026';
+    monitorAuditBody.innerHTML = '';
+
+    fetch('/api/admin/seo-audit/run', {
+      method: 'POST',
+      headers: { 'x-push-admin-token': token },
+    })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('Invalid admin token');
+        if (r.status === 409) throw new Error('Audit already in progress — try again in a moment');
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'HTTP ' + r.status); });
+        return r.json();
+      })
+      .then(function (payload) {
+        statusEl.textContent = '';
+        renderMonitorAuditResult(payload);
+      })
+      .catch(function (err) {
+        statusEl.textContent = err.message;
+        statusEl.className = 'err';
+        monitorAuditSection.style.display = 'none';
+      })
+      .finally(function () {
+        checkBtn.disabled = false;
+        auditBtn.disabled = false;
+        runAuditBtn.disabled = false;
+      });
+  });
+
+  function renderMonitorAuditResult(payload) {
+    var ranAt = payload.ranAt ? new Date(payload.ranAt).toLocaleString() : '';
+    monitorAuditRanAt.textContent = ranAt ? 'Run at: ' + ranAt : '';
+
+    var parts = [];
+    if (payload.passing) parts.push(payload.passing + ' good');
+    if (payload.warned) parts.push(payload.warned + ' warning' + (payload.warned > 1 ? 's' : ''));
+    if (payload.failing) parts.push(payload.failing + ' failing');
+    var overallColor = payload.failing > 0 ? '#b00020' : (payload.warned > 0 ? '#856404' : '#155724');
+    monitorAuditSummary.innerHTML = '<strong style="color:' + overallColor + '">' + payload.total + ' pages checked — ' + parts.join(', ') + '</strong>';
+
+    var rows = '';
+    (payload.pages || []).forEach(function (p) {
+      var color = p.status === 'ok' ? 'green' : (p.status === 'error' ? 'red' : 'yellow');
+      var rowClass = p.status === 'ok' ? 'row-green' : (p.status === 'error' ? 'row-red' : 'row-yellow');
+      var badgeText = p.status === 'ok' ? 'Good' : (p.status === 'error' ? 'Failing' : 'Warning');
+      var note = '';
+      if (p.fetchFailed || p.error) {
+        note = p.error || 'Could not fetch page';
+      } else if (!p.ogImage) {
+        note = 'og:image missing';
+      } else if (p.ogImageReachable === false) {
+        note = 'og:image not reachable';
+      } else if (p.fallbackUsed) {
+        note = 'Using site-wide fallback image';
+      } else if (p.ogImageSizeOk === false) {
+        note = 'og:image dimensions wrong';
+      } else {
+        note = 'No issues';
+      }
+      rows += '<tr class="' + rowClass + '">'
+        + '<td><div class="page-label">' + esc(p.label) + '</div>'
+        + '<div class="page-url"><a href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.url) + '</a></div></td>'
+        + '<td class="batch-status-cell">' + badge(badgeText, color) + '</td>'
+        + '<td>' + esc(note) + '</td>'
+        + '</tr>';
+    });
+    monitorAuditBody.innerHTML = rows;
+  }
 
   function renderBatchResults(results, pages) {
     var green = 0, yellow = 0, red = 0, errCount = 0;
