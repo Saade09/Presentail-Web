@@ -3,13 +3,14 @@ import { Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, Pressable, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { translations } from "@/lib/translations";
+import { loadCartScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
 
 function TabLayout() {
   const colors = useColors();
@@ -107,6 +108,15 @@ function TabLayout() {
             ) : (
               <Feather name="shopping-bag" size={20} color={count > 0 ? colors.gold : color} />
             ),
+          tabBarButton: (props) => (
+            <Pressable
+              {...(props as React.ComponentProps<typeof Pressable>)}
+              onPressIn={(e) => {
+                prefetchOnInteraction(loadCartScreen).onPressIn();
+                props.onPressIn?.(e);
+              }}
+            />
+          ),
         }}
       />
       <Tabs.Screen
