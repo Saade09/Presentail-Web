@@ -10,6 +10,7 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
+import { collectSidecars } from "./sidecar-cache.mjs";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
@@ -104,27 +105,6 @@ const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 //
 // NOTE: Sidecars generated after server start (e.g. by a post-deploy script that
 // runs concurrently) are NOT detected — restart the server to pick them up.
-
-/**
- * Walk a directory recursively and collect every path that ends with one of
- * the given suffixes into the provided Set.
- */
-function collectSidecars(dir, suffixes, out) {
-  let entries;
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      collectSidecars(full, suffixes, out);
-    } else if (suffixes.some((s) => entry.name.endsWith(s))) {
-      out.add(full);
-    }
-  }
-}
 
 const SIDECAR_PATHS = new Set();
 collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
