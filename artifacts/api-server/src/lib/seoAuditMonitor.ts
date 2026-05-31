@@ -21,6 +21,8 @@
 //   SEO_AUDIT_MONITOR_ENABLED — "0" / "false" / "no" / "off" to disable.
 //                               Default: enabled.
 
+import { eq } from "drizzle-orm";
+import { db, monitorStateTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
 
@@ -98,6 +100,58 @@ let running = false;
 let lastEvaluatedDay: string | null = null;
 // Cached result of the most recent completed audit run (scheduled or on-demand).
 let lastAuditSummary: AuditSummary | null = null;
+
+// ── Persistence helpers ──────────────────────────────────────────────────────
+
+const MONITOR_STATE_KEY = "seo_audit_last";
+
+/** Write the audit summary to the monitor_state table (best-effort). */
+async function persistAuditSummary(summary: AuditSummary): Promise<void> {
+  try {
+    await db
+      .insert(monitorStateTable)
+      .values({ key: MONITOR_STATE_KEY, value: summary as unknown as Record<string, unknown> })
+      .onConflictDoUpdate({
+        target: monitorStateTable.key,
+        set: {
+          value: summary as unknown as Record<string, unknown>,
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message },
+      "seoAuditMonitor: failed to persist audit summary — in-memory result still valid",
+    );
+  }
+}
+
+/**
+ * Load the last persisted audit summary from the DB and populate the in-memory
+ * cache.  Called once at startup so `getLastAuditSummary()` can serve a result
+ * immediately, before the next scheduled run.
+ */
+async function loadPersistedAuditSummary(): Promise<void> {
+  try {
+    const rows = await db
+      .select()
+      .from(monitorStateTable)
+      .where(eq(monitorStateTable.key, MONITOR_STATE_KEY))
+      .limit(1);
+    if (rows.length > 0) {
+      lastAuditSummary = rows[0].value as unknown as AuditSummary;
+      logger.info(
+        { ranAt: lastAuditSummary?.ranAt },
+        "seoAuditMonitor: loaded persisted audit summary from DB",
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error)?.message },
+      "seoAuditMonitor: could not load persisted audit summary — will populate after next run",
+    );
+  }
+}
 
 // ── Internal helpers ────────────────────────────────────────────────────────
 
@@ -339,6 +393,7 @@ export async function runAuditNow(): Promise<AuditSummary> {
       })),
     };
     lastAuditSummary = summary;
+    await persistAuditSummary(summary);
 
     if (failing.length > 0 || warned.length > 0) {
       const localeOrder = ["LB", "AE", "CY"];
@@ -463,6 +518,7 @@ export async function runOnce(): Promise<void> {
         error: r.error,
       })),
     };
+    await persistAuditSummary(lastAuditSummary);
 
     logger.info(
       {
@@ -564,6 +620,16 @@ export function startSeoAuditMonitor(): void {
     return;
   }
   if (timer) return;
+
+  // Pre-populate the in-memory cache from the DB so GET /api/admin/seo-audit/last
+  // returns the previous result immediately after a restart, before the next
+  // scheduled run completes.
+  loadPersistedAuditSummary().catch((err) => {
+    logger.warn(
+      { err: (err as Error)?.message },
+      "seoAuditMonitor: startup load of persisted summary failed",
+    );
+  });
 
   // Run once shortly after boot so we don't wait up to an hour on a server
   // that restarts just after midnight UTC.
