@@ -189,8 +189,9 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toContain("slug=roses");
     expect(out).toContain("<title>Roses | Presentail</title>");
-    expect(out).toContain('<meta name="twitter:card" content="summary"');
-    expect(out).not.toContain('property="og:image"');
+    expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
+    // When the entity has no image the code falls back to opengraph.jpg.
+    expect(out).toContain('property="og:image" content="https://presentail.test/opengraph.jpg"');
   });
 
   it("falls back to the generic shop preview when no category param is present", async () => {
@@ -321,7 +322,8 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
     expect(out).toContain(
       'content="Discover Presentail\'s hand-picked partner brands offering Cakes for delivery in Beirut, Lebanon."',
     );
-    expect(out).toContain('<meta name="twitter:card" content="summary"');
+    // No image supplied → falls back to summary_large_image with opengraph.jpg.
+    expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
   });
 
   it("uses the occasion endpoint when filtering brands by occasion", async () => {
@@ -397,6 +399,328 @@ describe("buildSeoHead — city slug allowlist", () => {
     expect(out.cityLabel).toBe("");
     expect(out.titleTag).not.toContain("Al Ain");
     expect(out.titleTag).not.toContain("Al-Ain");
+  });
+});
+
+describe("buildSeoHead — OG image dimensions and alt tags on generic pages", () => {
+  it("always emits og:image pointing to /opengraph.jpg on a landing-page path", () => {
+    const { headSnippet } = buildSeoHead("/", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toContain(
+      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+    );
+  });
+
+  it("emits og:image:width = 1200 on a generic locale page", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toContain('<meta property="og:image:width" content="1200"');
+  });
+
+  it("emits og:image:height = 630 on a generic locale page", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toContain('<meta property="og:image:height" content="630"');
+  });
+
+  it("emits og:image:alt on a generic locale page", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toMatch(/property="og:image:alt" content="[^"]+"/);
+  });
+
+  it("emits twitter:image:alt on a generic locale page", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+
+  it("emits all four OG image tags together on a shop page", () => {
+    const { headSnippet } = buildSeoHead("/fr-cy/limassol/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(headSnippet).toContain('property="og:image"');
+    expect(headSnippet).toContain('<meta property="og:image:width" content="1200"');
+    expect(headSnippet).toContain('<meta property="og:image:height" content="630"');
+    expect(headSnippet).toMatch(/property="og:image:alt" content="[^"]+"/);
+    expect(headSnippet).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+});
+
+describe("injectSeoTagsAsync — entity pages with image: og:image:alt and twitter:image:alt", () => {
+  it("emits og:image:alt when product has an image", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          product: {
+            name: "Rose Bouquet",
+            description: "Beautiful roses.",
+            image: { uri: "https://cdn.test/rose.jpg" },
+            priceValue: 65,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/rose-bouquet",
+      OPTS,
+    );
+    expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
+  });
+
+  it("emits twitter:image:alt when product has an image", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          product: {
+            name: "Orchid Vase",
+            description: "Elegant orchids.",
+            image: { uri: "https://cdn.test/orchid.jpg" },
+            priceValue: 90,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/orchid-vase",
+      OPTS,
+    );
+    expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+
+  it("does NOT emit og:image:width/height when the product supplies its own image", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          product: {
+            name: "Sunflower Bunch",
+            description: "Bright sunflowers.",
+            image: { uri: "https://cdn.test/sunflower.jpg" },
+            priceValue: 45,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/sunflower-bunch",
+      OPTS,
+    );
+    expect(out).not.toContain('property="og:image:width"');
+    expect(out).not.toContain('property="og:image:height"');
+  });
+
+  it("emits og:image:alt and twitter:image:alt for a brand with an image", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          brand: {
+            name: "Garden Studio",
+            description: "Fresh florals.",
+            image: "https://cdn.test/garden.jpg",
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/brand/garden-studio",
+      OPTS,
+    );
+    expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
+    expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+});
+
+describe("injectSeoTagsAsync — entity pages with no image: /opengraph.jpg fallback with 1200×630", () => {
+  it("falls back to /opengraph.jpg when product image is null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          product: {
+            name: "Mystery Box",
+            description: "A curated mystery gift.",
+            image: null,
+            priceValue: 55,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/mystery-box",
+      OPTS,
+    );
+    expect(out).toContain(
+      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+    );
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+    expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
+    expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+
+  it("falls back to /opengraph.jpg when brand image is null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          brand: {
+            name: "No-Photo Brand",
+            description: "Great gifts, no photo yet.",
+            image: null,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/brand/no-photo-brand",
+      OPTS,
+    );
+    expect(out).toContain(
+      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+    );
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+    expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
+    expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+
+  it("falls back to /opengraph.jpg when category image is null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          category: {
+            name: "Candles",
+            description: "Scented luxury candles.",
+            image: null,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/shop", {
+      ...OPTS,
+      search: "?n=candles",
+    });
+    expect(out).toContain(
+      'property="og:image" content="https://presentail.test/opengraph.jpg"',
+    );
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+    expect(out).toMatch(/property="og:image:alt" content="[^"]+"/);
+    expect(out).toMatch(/name="twitter:image:alt" content="[^"]+"/);
+  });
+
+  it("respects the basePath when building the fallback opengraph.jpg URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          brand: {
+            name: "Prefixed Brand",
+            description: "Testing base path.",
+            image: null,
+          },
+        }),
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/brand/prefixed-brand",
+      { ...OPTS, basePath: "/web" },
+    );
+    expect(out).toContain(
+      'property="og:image" content="https://presentail.test/web/opengraph.jpg"',
+    );
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+  });
+});
+
+describe("landing page — description length within SEO-recommended 110–160 chars", () => {
+  it("English landing description is between 110 and 160 characters", () => {
+    const { headSnippet } = buildSeoHead("/", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const m = headSnippet.match(/name="description" content="([^"]+)"/);
+    expect(m, "description meta tag must be present").not.toBeNull();
+    const desc = m![1];
+    expect(desc.length).toBeGreaterThanOrEqual(110);
+    expect(desc.length).toBeLessThanOrEqual(160);
+  });
+
+  it("French landing description is between 110 and 160 characters", () => {
+    const { headSnippet } = buildSeoHead("/fr-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const m = headSnippet.match(/name="description" content="([^"]+)"/);
+    expect(m, "description meta tag must be present").not.toBeNull();
+    const desc = m![1];
+    expect(desc.length).toBeGreaterThanOrEqual(110);
+    expect(desc.length).toBeLessThanOrEqual(160);
+  });
+
+  it("Arabic landing description is non-empty and at most 160 characters", () => {
+    const { headSnippet } = buildSeoHead("/ar-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const m = headSnippet.match(/name="description" content="([^"]+)"/);
+    expect(m, "description meta tag must be present").not.toBeNull();
+    const desc = m![1];
+    // Arabic is information-dense — each glyph covers more meaning, so
+    // the character count is naturally lower than the English 110–160 range.
+    expect(desc.length).toBeGreaterThan(0);
+    expect(desc.length).toBeLessThanOrEqual(160);
+  });
+
+  it("landing page title tag is non-empty and at most 80 characters", () => {
+    const { titleTag, title } = buildSeoHead("/", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(title.length).toBeGreaterThan(0);
+    expect(title.length).toBeLessThanOrEqual(80);
+    expect(titleTag).toContain("<title>");
+    expect(titleTag).toContain("</title>");
   });
 });
 
