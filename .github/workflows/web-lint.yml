@@ -43,6 +43,9 @@ jobs:
       - name: Lint web app
         run: pnpm --filter @workspace/presentail-web run lint
 
+      - name: Typecheck web app
+        run: pnpm --filter @workspace/presentail-web run typecheck
+
   web-test:
     name: Unit tests – web app
     runs-on: ubuntu-latest
