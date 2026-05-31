@@ -2,7 +2,7 @@
  * checkUnusedWebTranslationKeys
  *
  * Scans all TypeScript/TSX source files under `artifacts/presentail-web/src`
- * and runs three checks:
+ * and runs six checks:
  *
  *   1. Unused-key check — every key defined in STRINGS / STRINGS_FR must be
  *      referenced at least once in the source corpus.
@@ -18,6 +18,14 @@
  *   5. Empty-value check — every Dict entry's `en` and `ar` values must be
  *      non-empty after trimming.  An empty string silently renders as blank
  *      text for visitors of the corresponding locale.
+ *   6. Copy-paste / placeholder check — flags Dict entries whose `ar` value is
+ *      byte-for-byte identical to their `en` value, and FR string entries whose
+ *      value is identical to the corresponding `en` value.  Both indicate the
+ *      source-language string was pasted as a translation without translating.
+ *      Short values (under MIN_COPY_PASTE_LENGTH characters) are skipped to
+ *      avoid false-positives on brand names, abbreviations, and internationally
+ *      shared terms (e.g. "Express", "PayPal", "Presentail").  Values that are
+ *      purely language-neutral (digits, punctuation, symbols) are also skipped.
  *
  * Translation keys live in per-domain modules under
  * `artifacts/presentail-web/src/locales/`. Each module exports two objects:
@@ -222,6 +230,39 @@ function escapeRegExp(s: string): string {
 }
 
 /**
+ * Minimum EN-value character length for the copy-paste identical check.
+ *
+ * Values shorter than this are skipped to avoid false-positives on brand
+ * names, abbreviations, and internationally shared terms (e.g. "Express",
+ * "PayPal", "Presentail", "Total") that are legitimately identical across
+ * locales.  Any EN value of 25+ characters that is also untouched in AR or FR
+ * is almost certainly a copy-paste oversight rather than an intentional match.
+ */
+const MIN_COPY_PASTE_LENGTH = 25;
+
+/**
+ * Returns true when a string is composed entirely of language-neutral
+ * characters — digits, whitespace, punctuation, and common symbols — that are
+ * legitimately identical across all locales (e.g. "+961", "—", "USD").
+ * Used to suppress false positives in the copy-paste identical check.
+ */
+export function isLanguageNeutralValue(value: string): boolean {
+  return value.replace(/[\d\s\p{P}\p{S}\p{N}]/gu, "").length === 0;
+}
+
+/**
+ * Returns true when the EN value has no human-translatable text — i.e. its
+ * only "words" are template variables (`{…}` / `{{…}}`) or language-neutral
+ * content.  Example: `"{count} items"` still has text; `"{country}"` does not.
+ */
+export function enValueIsUntranslatable(enVal: string): boolean {
+  const stripped = enVal
+    .replace(/\{\{[^}]+\}\}/g, "")
+    .replace(/\{[^}]+\}/g, "");
+  return stripped.trim() === "" || isLanguageNeutralValue(stripped);
+}
+
+/**
  * Scan a locale file's source and return every Dict entry whose `en` or `ar`
  * value is empty (or whitespace-only) after trimming.
  *
@@ -275,6 +316,118 @@ export function extractEmptyValueKeys(
 }
 
 /**
+ * Placeholder / copy-paste hit for a single locale key.
+ *
+ * `kind`:
+ *   • `"ar-identical"` — the `ar` field value equals the `en` field value
+ *   • `"fr-identical"` — the FR string equals the `en` field value
+ *
+ * `enValue` is the source-language string that was copy-pasted verbatim.
+ */
+export type CopypasteHit = {
+  key: string;
+  kind: "ar-identical" | "fr-identical";
+  enValue: string;
+};
+
+/**
+ * Scan a locale domain file's source and return every Dict / FR entry that
+ * looks like a copy-pasted placeholder — i.e. where the translation value is
+ * byte-for-byte identical to the English source string.
+ *
+ * Two sub-checks are performed:
+ *
+ *   `ar-identical` — a Dict entry's `ar` field equals its `en` field.
+ *     The Arabic text is English and will render as Latin script for
+ *     Arabic-locale visitors.
+ *
+ *   `fr-identical` — a FR string entry equals the corresponding Dict entry's
+ *     `en` field.  The French text was not translated from English.
+ *
+ * Both sub-checks share the same early-exit conditions:
+ *   • The EN value is empty or not parseable as a string literal — skip.
+ *   • The EN value is entirely untranslatable (pure template vars, digits,
+ *     punctuation, symbols) — skip; those strings are legitimately identical.
+ *   • The EN value is shorter than MIN_COPY_PASTE_LENGTH — skip; short proper
+ *     nouns, brand names, and abbreviations are often legitimately identical
+ *     across locales (e.g. "Express", "PayPal", "Presentail", "Total").
+ */
+export function extractCopypasteKeys(src: string): CopypasteHit[] {
+  const hits: CopypasteHit[] = [];
+
+  // ── Pass 1: AR-identical check ────────────────────────────────────────────
+  // Walk every Dict entry ("key.name": { en: "…", ar: "…" }) and compare the
+  // two field values.
+
+  // Build a side-table of key → enValue while walking, so Pass 2 (FR check)
+  // can look up EN values without a second parse.
+  const enValueByKey = new Map<string, string>();
+
+  const keyStartRe = /^\s+"([^"]+)":\s*\{/gm;
+  let m: RegExpExecArray | null;
+  while ((m = keyStartRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+
+    // Walk forward to find the matching closing brace.
+    const braceStart = m.index + m[0].length - 1;
+    let depth = 0;
+    let blockEnd = -1;
+    for (let i = braceStart; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          blockEnd = i;
+          break;
+        }
+      }
+    }
+    if (blockEnd === -1) continue; // malformed entry — skip
+
+    const block = src.slice(braceStart, blockEnd + 1);
+    const enVal = extractFieldValue(block, "en");
+    if (enVal === null || enVal === "") continue;
+
+    // Record for the FR pass even if we skip the AR check below.
+    enValueByKey.set(key, enVal);
+
+    // Skip untranslatable / too-short EN values.
+    if (enValueIsUntranslatable(enVal)) continue;
+    if (enVal.length < MIN_COPY_PASTE_LENGTH) continue;
+
+    const arVal = extractFieldValue(block, "ar");
+    if (arVal === null) continue; // missing ar — caught by check #4
+
+    if (arVal === enVal) {
+      hits.push({ key, kind: "ar-identical", enValue: enVal });
+    }
+  }
+
+  // ── Pass 2: FR-identical check ────────────────────────────────────────────
+  // Walk every FR string entry ("key.name": "value") and compare to the
+  // EN value from the side-table built above.
+
+  const frRe = /^\s+"([^"]+)":\s+"((?:[^"\\]|\\.)*)"/gm;
+  while ((m = frRe.exec(src)) !== null) {
+    const key = m[1];
+    if (!key.includes(".")) continue;
+
+    const frVal = m[2];
+    const enVal = enValueByKey.get(key);
+    if (enVal === undefined || enVal === "") continue;
+    if (enValueIsUntranslatable(enVal)) continue;
+    if (enVal.length < MIN_COPY_PASTE_LENGTH) continue;
+
+    if (frVal === enVal) {
+      hits.push({ key, kind: "fr-identical", enValue: enVal });
+    }
+  }
+
+  return hits;
+}
+
+/**
  * Extract all translation keys, returning both the combined set (for the
  * unused-key check) and the per-dictionary sets (for the coverage check).
  *
@@ -294,6 +447,9 @@ export function extractEmptyValueKeys(
  *
  * Also returns `emptyValuesByFile` — a map from relative file path to the list
  * of Dict keys whose `en` or `ar` value is present but empty after trimming.
+ *
+ * Also returns `copypasteByFile` — a map from relative file path to the list
+ * of copy-paste placeholder hits in that file (see `extractCopypasteKeys`).
  */
 function extractWebKeys(localeContextSrc: string): {
   all: string[];
@@ -303,6 +459,7 @@ function extractWebKeys(localeContextSrc: string): {
   frKeyToFile: Map<string, string>;
   missingArByFile: Map<string, string[]>;
   emptyValuesByFile: Map<string, { key: string; fields: string[] }[]>;
+  copypasteByFile: Map<string, CopypasteHit[]>;
 } {
   // ── Split-file architecture: scan src/locales/*.ts ────────────────────────
   if (fs.existsSync(LOCALES_DIR)) {
@@ -326,6 +483,7 @@ function extractWebKeys(localeContextSrc: string): {
     const frKeyToFile = new Map<string, string>();
     const missingArByFile = new Map<string, string[]>();
     const emptyValuesByFile = new Map<string, { key: string; fields: string[] }[]>();
+    const copypasteByFile = new Map<string, CopypasteHit[]>();
 
     for (const file of localeFiles) {
       const content = fs.readFileSync(file, "utf8");
@@ -351,6 +509,13 @@ function extractWebKeys(localeContextSrc: string): {
       if (emptyValues.length > 0) {
         emptyValuesByFile.set(rel, emptyValues);
       }
+
+      // Copy-paste / placeholder coverage: find AR or FR values that are
+      // byte-for-byte identical to the EN value.
+      const copypaste = extractCopypasteKeys(content);
+      if (copypaste.length > 0) {
+        copypasteByFile.set(rel, copypaste);
+      }
     }
 
     if (stringsKeys.size === 0 && stringsFrKeys.size === 0) {
@@ -368,6 +533,7 @@ function extractWebKeys(localeContextSrc: string): {
       frKeyToFile,
       missingArByFile,
       emptyValuesByFile,
+      copypasteByFile,
     };
   }
 
@@ -410,6 +576,16 @@ function extractWebKeys(localeContextSrc: string): {
     );
   }
 
+  // Copy-paste coverage for the legacy single-file format.
+  const copypasteByFile = new Map<string, CopypasteHit[]>();
+  const legacyCopypaste = extractCopypasteKeys(stringsSection + localeContextSrc.slice(stringsFrMarker));
+  if (legacyCopypaste.length > 0) {
+    copypasteByFile.set(
+      path.relative(REPO_ROOT, LOCALE_CONTEXT_FILE),
+      legacyCopypaste,
+    );
+  }
+
   return {
     all: Array.from(allKeys),
     stringsKeys,
@@ -418,6 +594,7 @@ function extractWebKeys(localeContextSrc: string): {
     frKeyToFile: new Map(),
     missingArByFile,
     emptyValuesByFile,
+    copypasteByFile,
   };
 }
 
@@ -564,7 +741,7 @@ function appendSummary(line: string): void {
 if (!process.env.VITEST) {
 
 const localeContextSrc = fs.readFileSync(LOCALE_CONTEXT_FILE, "utf8");
-const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, frKeyToFile, missingArByFile, emptyValuesByFile } = extractWebKeys(localeContextSrc);
+const { all: allKeys, stringsKeys, stringsFrKeys, stringsKeyToFile, frKeyToFile, missingArByFile, emptyValuesByFile, copypasteByFile } = extractWebKeys(localeContextSrc);
 
 if (allKeys.length === 0) {
   console.error(
@@ -816,6 +993,46 @@ if (emptyValuesByFile.size > 0) {
   );
 }
 
+// ── 6. Copy-paste / placeholder check ────────────────────────────────────────
+// Flag Dict entries whose `ar` value is byte-for-byte identical to `en`, and
+// FR string entries whose value equals the corresponding `en` value.  Both
+// indicate the English source text was pasted verbatim as a translation.
+//
+// Short EN values (< MIN_COPY_PASTE_LENGTH chars) and purely language-neutral
+// values are excluded to avoid false positives on brand names, abbreviations,
+// and internationally shared terms (e.g. "Express", "PayPal", "Total").
+
+if (copypasteByFile.size > 0) {
+  failed = true;
+  const totalCopypaste = Array.from(copypasteByFile.values()).reduce(
+    (sum, hits) => sum + hits.length,
+    0,
+  );
+  console.error(
+    `\n✗ Found ${totalCopypaste} translation value${totalCopypaste === 1 ? "" : "s"} that appear to be copy-pasted from English (value is identical to the EN source):\n`,
+  );
+  for (const [file, hits] of [...copypasteByFile.entries()].sort()) {
+    console.error(`  In ${file}:`);
+    for (const { key, kind, enValue } of [...hits].sort((a, b) =>
+      a.key.localeCompare(b.key),
+    )) {
+      const locale = kind === "ar-identical" ? "AR" : "FR";
+      const truncated =
+        enValue.length > 60 ? enValue.slice(0, 57) + "…" : enValue;
+      console.error(`    - ${key}  [${locale}]: "${truncated}"`);
+      annotateError(
+        file,
+        `${locale} translation is copy-pasted from English`,
+        `Key "${key}" has an ${locale} value identical to the EN value — replace it with an actual ${locale} translation.`,
+      );
+    }
+  }
+  console.error(
+    `\nFor each key above, replace the copy-pasted value with an actual translation.\n` +
+      `Note: values shorter than ${MIN_COPY_PASTE_LENGTH} characters are skipped to avoid false-positives on brand names.\n`,
+  );
+}
+
 // ── GitHub Step Summary ───────────────────────────────────────────────────────
 if (SUMMARY_FILE) {
   if (!failed) {
@@ -823,7 +1040,8 @@ if (SUMMARY_FILE) {
       `## ✅ Web translation keys — all checks passed\n\n` +
         `All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, ` +
         `FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), ` +
-        `and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
+        `and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.\n` +
+        `No copy-pasted EN values detected in AR or FR translations.`,
     );
   } else {
     appendSummary("## ❌ Web translation key checks failed\n");
@@ -937,6 +1155,34 @@ if (SUMMARY_FILE) {
       }
       appendSummary("");
     }
+
+    if (copypasteByFile.size > 0) {
+      const totalCopypaste = Array.from(copypasteByFile.values()).reduce(
+        (sum, hits) => sum + hits.length,
+        0,
+      );
+      appendSummary(
+        `### Copy-pasted EN values in AR/FR (${totalCopypaste})\n\n` +
+          `These translations are byte-for-byte identical to the English source text —\n` +
+          `the value was likely pasted without being translated.\n` +
+          `Replace each with an actual AR or FR translation.\n` +
+          `> Values shorter than ${MIN_COPY_PASTE_LENGTH} characters are skipped (brand names, abbreviations).\n`,
+      );
+      for (const [file, hits] of [...copypasteByFile.entries()].sort()) {
+        appendSummary(`\n**\`${file}\`**\n`);
+        appendSummary("| Key | Locale | EN value |");
+        appendSummary("| --- | --- | --- |");
+        for (const { key, kind, enValue } of [...hits].sort((a, b) =>
+          a.key.localeCompare(b.key),
+        )) {
+          const locale = kind === "ar-identical" ? "AR" : "FR";
+          const truncated =
+            enValue.length > 60 ? enValue.slice(0, 57) + "…" : enValue;
+          appendSummary(`| \`${key}\` | ${locale} | ${truncated} |`);
+        }
+      }
+      appendSummary("");
+    }
   }
 }
 
@@ -979,6 +1225,14 @@ if (JSON_OUT) {
             .sort((a, b) => a.key.localeCompare(b.key))
             .map(({ key, fields }) => ({ key, fields })),
         })),
+      copypaste: [...copypasteByFile.entries()]
+        .sort()
+        .map(([file, hits]) => ({
+          file,
+          hits: [...hits]
+            .sort((a, b) => a.key.localeCompare(b.key))
+            .map(({ key, kind, enValue }) => ({ key, kind, enValue })),
+        })),
     },
   };
   fs.writeFileSync(JSON_OUT, JSON.stringify(result, null, 2));
@@ -986,7 +1240,7 @@ if (JSON_OUT) {
 
 if (!failed) {
   console.log(
-    `✓ All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
+    `✓ All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys, and no copy-pasted EN values detected in AR or FR.`,
   );
   process.exit(0);
 } else {

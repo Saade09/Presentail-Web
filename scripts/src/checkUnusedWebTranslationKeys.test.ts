@@ -1,14 +1,13 @@
 /**
- * Unit tests for the undefined-key check (check #3) in
- * checkUnusedWebTranslationKeys.ts.
+ * Unit tests for checkUnusedWebTranslationKeys.ts.
  *
- * These tests exercise the two exported pure functions that underpin check #3:
- *   - extractStaticTCallKeys  — finds literal t("key") call sites
- *   - extractDynamicPrefixes  — finds template-literal t(`prefix.${expr}`) prefixes
- *
- * The tests prove that a typo in a t() call site is caught, that valid keys
- * are not false-positives, and that dynamic call sites are excluded from the
- * hard check (they can only be validated by prefix).
+ * Covers:
+ *   - extractStaticTCallKeys  — finds literal t("key") call sites (check #3)
+ *   - extractDynamicPrefixes  — template-literal t(`prefix.${expr}`) (check #3)
+ *   - extractEmptyValueKeys   — blank en/ar values (check #5)
+ *   - extractCopypasteKeys    — copy-pasted EN values in AR/FR (check #6)
+ *   - isLanguageNeutralValue  — helper used by the copy-paste check
+ *   - enValueIsUntranslatable — helper used by the copy-paste check
  */
 
 import { describe, it, expect } from "vitest";
@@ -16,6 +15,9 @@ import {
   extractStaticTCallKeys,
   extractDynamicPrefixes,
   extractEmptyValueKeys,
+  extractCopypasteKeys,
+  isLanguageNeutralValue,
+  enValueIsUntranslatable,
 } from "./checkUnusedWebTranslationKeys.js";
 
 describe("extractStaticTCallKeys", () => {
@@ -159,6 +161,182 @@ describe("extractEmptyValueKeys", () => {
     expect(keys).toContain("nav.cart");
     expect(keys).toContain("nav.about");
     expect(keys).not.toContain("nav.home");
+  });
+});
+
+describe("isLanguageNeutralValue", () => {
+  it("returns true for digit-only strings", () => {
+    expect(isLanguageNeutralValue("961")).toBe(true);
+  });
+
+  it("returns true for punctuation/symbol-only strings", () => {
+    expect(isLanguageNeutralValue("—")).toBe(true);
+    expect(isLanguageNeutralValue("+961")).toBe(true);
+    expect(isLanguageNeutralValue("USD")).toBe(false);
+  });
+
+  it("returns false for strings containing letters", () => {
+    expect(isLanguageNeutralValue("Hello")).toBe(false);
+    expect(isLanguageNeutralValue("Express")).toBe(false);
+  });
+
+  it("returns true for whitespace-only", () => {
+    expect(isLanguageNeutralValue("   ")).toBe(true);
+  });
+});
+
+describe("enValueIsUntranslatable", () => {
+  it("returns true for pure template-variable strings", () => {
+    expect(enValueIsUntranslatable("{country}")).toBe(true);
+    expect(enValueIsUntranslatable("{count} ")).toBe(true);
+    expect(enValueIsUntranslatable("{{name}}")).toBe(true);
+  });
+
+  it("returns false when template vars are mixed with real text", () => {
+    expect(enValueIsUntranslatable("{count} items")).toBe(false);
+    expect(enValueIsUntranslatable("Hello, {name}!")).toBe(false);
+  });
+
+  it("returns true for empty string", () => {
+    expect(enValueIsUntranslatable("")).toBe(true);
+  });
+
+  it("returns false for normal translatable text", () => {
+    expect(enValueIsUntranslatable("Find the perfect floral arrangement")).toBe(false);
+    expect(enValueIsUntranslatable("Proceed to Checkout")).toBe(false);
+  });
+});
+
+describe("extractCopypasteKeys", () => {
+  // Helper: build a locale file snippet with a Dict entry and an optional FR entry.
+  function makeSnippet({
+    key,
+    en,
+    ar,
+    fr,
+  }: {
+    key: string;
+    en: string;
+    ar: string;
+    fr?: string;
+  }) {
+    const dict = `  "${key}": { en: "${en}", ar: "${ar}" },\n`;
+    const frLine = fr !== undefined ? `  "${key}": "${fr}",\n` : "";
+    return dict + frLine;
+  }
+
+  it("returns no hits when AR and FR are proper translations", () => {
+    const src = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift",
+      ar: "اعثر على باقة الزهور أو الهدية الفاخرة المثالية",
+      fr: "Trouvez la composition florale ou le cadeau de luxe parfait",
+    });
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("flags ar-identical when AR value equals EN value and EN is long enough", () => {
+    const src = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift for your occasion",
+      ar: "Find the perfect floral arrangement or luxury gift for your occasion",
+    });
+    const hits = extractCopypasteKeys(src);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].key).toBe("cart.empty.desc");
+    expect(hits[0].kind).toBe("ar-identical");
+  });
+
+  it("flags fr-identical when FR value equals EN value and EN is long enough", () => {
+    const src = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift for your occasion",
+      ar: "اعثر على باقة الزهور أو الهدية الفاخرة",
+      fr: "Find the perfect floral arrangement or luxury gift for your occasion",
+    });
+    const hits = extractCopypasteKeys(src);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].key).toBe("cart.empty.desc");
+    expect(hits[0].kind).toBe("fr-identical");
+  });
+
+  it("skips AR check when EN is shorter than MIN_COPY_PASTE_LENGTH (brand name case)", () => {
+    // "Express" is 7 chars — well under the 25-char minimum
+    const src = makeSnippet({
+      key: "cart.upsells.express",
+      en: "Express",
+      ar: "Express",
+      fr: "Express",
+    });
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("skips when EN value is untranslatable (pure template variable)", () => {
+    const src = makeSnippet({
+      key: "order.count",
+      en: "{count}",
+      ar: "{count}",
+      fr: "{count}",
+    });
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("skips when EN value is language-neutral (digits/symbols only)", () => {
+    const src = makeSnippet({
+      key: "phone.prefix",
+      en: "+961",
+      ar: "+961",
+      fr: "+961",
+    });
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
+  });
+
+  it("does not flag when AR is properly translated but FR is copy-pasted", () => {
+    const src = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift for any occasion",
+      ar: "اعثر على باقة الزهور أو الهدية الفاخرة المثالية لأي مناسبة",
+      fr: "Find the perfect floral arrangement or luxury gift for any occasion",
+    });
+    const hits = extractCopypasteKeys(src);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].kind).toBe("fr-identical");
+  });
+
+  it("flags both ar-identical and fr-identical when both are copy-pasted", () => {
+    const src = makeSnippet({
+      key: "cart.empty.desc",
+      en: "Find the perfect floral arrangement or luxury gift for any occasion",
+      ar: "Find the perfect floral arrangement or luxury gift for any occasion",
+      fr: "Find the perfect floral arrangement or luxury gift for any occasion",
+    });
+    const hits = extractCopypasteKeys(src);
+    expect(hits).toHaveLength(2);
+    const kinds = hits.map((h) => h.kind);
+    expect(kinds).toContain("ar-identical");
+    expect(kinds).toContain("fr-identical");
+  });
+
+  it("correctly handles multi-line Dict entries", () => {
+    const src = `
+      "checkout.empty.message": {
+        en: "Your shopping bag is empty — add something beautiful",
+        ar: "Your shopping bag is empty — add something beautiful",
+      },
+    `;
+    const hits = extractCopypasteKeys(src);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].kind).toBe("ar-identical");
+    expect(hits[0].enValue).toBe(
+      "Your shopping bag is empty — add something beautiful",
+    );
+  });
+
+  it("skips keys without a dot (non-translation keys)", () => {
+    const src = `
+      "nodot": { en: "This is a very long string that exceeds the threshold for detection", ar: "This is a very long string that exceeds the threshold for detection" },
+    `;
+    expect(extractCopypasteKeys(src)).toHaveLength(0);
   });
 });
 
