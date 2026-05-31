@@ -89,6 +89,12 @@ async function checkImageReachability(
   }
 }
 
+router.get("/seo/debug/ui", (_req: Request, res: Response) => {
+  // No auth on the page shell — the JSON endpoint enforces the token.
+  // The page stores the token in localStorage once the operator pastes it.
+  res.type("html").send(SEO_DEBUG_HTML);
+});
+
 router.get("/seo/debug", async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
 
@@ -153,5 +159,265 @@ router.get("/seo/debug", async (req: Request, res: Response) => {
     fallbackUsed,
   });
 });
+
+const SEO_DEBUG_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SEO Preview Debug — Admin</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.4 -apple-system, system-ui, Segoe UI, sans-serif; margin: 24px; max-width: 860px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #666; margin-bottom: 16px; font-size: 12px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .controls input, .controls button { font: inherit; padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; }
+  .controls input[type="text"] { flex: 1; min-width: 280px; }
+  .controls button { background: #0066cc; color: #fff; border-color: #0055aa; cursor: pointer; font-weight: 500; }
+  .controls button:hover { background: #0055aa; }
+  .controls button:disabled { opacity: 0.6; cursor: default; }
+  .muted { color: #888; }
+  .err { color: #b00020; font-weight: 500; }
+  .ok { color: #109618; font-weight: 500; }
+  #status { font-size: 13px; }
+
+  /* card */
+  #result { display: none; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+  .card-header { padding: 14px 18px; background: rgba(127,127,127,0.07); border-bottom: 1px solid #ddd; font-size: 13px; word-break: break-all; }
+  .card-body { display: flex; gap: 0; }
+  .card-meta { flex: 1; padding: 16px 18px; }
+  .card-image { flex: 0 0 240px; background: #f0f0f0; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
+  @media (max-width: 620px) {
+    .card-body { flex-direction: column; }
+    .card-image { flex: none; }
+  }
+  .card-image img { max-width: 100%; border-radius: 4px; display: block; }
+  .card-image .no-image { color: #999; font-size: 12px; text-align: center; padding: 24px 8px; }
+
+  /* fields */
+  .field { margin-bottom: 14px; }
+  .field-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #555; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  .field-value { font-size: 13px; word-break: break-all; }
+  .field-value.missing { color: #b00020; font-style: italic; }
+  .field-value.warn { color: #b06000; }
+  .field-hint { font-size: 11px; color: #888; margin-top: 2px; }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; }
+  .badge-green { background: #d4edda; color: #155724; }
+  .badge-red { background: #f8d7da; color: #721c24; }
+  .badge-yellow { background: #fff3cd; color: #856404; }
+
+  .reachability { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: #28a745; }
+  .dot-red { background: #dc3545; }
+
+  /* token row */
+  .token-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .token-row label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  .token-row input { font: inherit; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; width: 260px; }
+
+  /* fallback banner */
+  .fallback-banner { background: #fff3cd; border: 1px solid #ffc107; color: #856404; border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+  <h1>SEO Preview Debug</h1>
+  <div class="sub">Inspect the resolved Open Graph metadata for any Presentail page. Paste the token once — it's saved in your browser.</div>
+
+  <div class="token-row">
+    <label>Admin token <input id="token" type="password" placeholder="x-push-admin-token"></label>
+  </div>
+
+  <div class="controls">
+    <input id="url" type="text" placeholder="https://new.presentail.com/en-lb/beirut/p/pink-roses or /en-lb/..." autocomplete="off" spellcheck="false" />
+    <button id="checkBtn">Check</button>
+    <span id="status" class="muted"></span>
+  </div>
+
+  <div id="result">
+    <div class="card-header" id="resolvedUrl"></div>
+    <div id="fallbackBanner" class="fallback-banner" style="display:none;margin:12px 18px 0">
+      ⚠️ <strong>Using default OG image</strong> — no page-specific og:image was injected. Check that the SEO inject middleware matched this URL.
+    </div>
+    <div class="card-body">
+      <div class="card-meta" id="meta"></div>
+      <div class="card-image" id="imagePanel"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var TOKEN_KEY = 'presentail_admin_token';
+  var tokenEl = document.getElementById('token');
+  var urlEl = document.getElementById('url');
+  var checkBtn = document.getElementById('checkBtn');
+  var statusEl = document.getElementById('status');
+  var resultEl = document.getElementById('result');
+  var resolvedUrlEl = document.getElementById('resolvedUrl');
+  var fallbackBanner = document.getElementById('fallbackBanner');
+  var metaEl = document.getElementById('meta');
+  var imagePanelEl = document.getElementById('imagePanel');
+
+  // Restore saved token
+  try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function badge(text, color) {
+    return '<span class="badge badge-' + color + '">' + esc(text) + '</span>';
+  }
+
+  function field(label, valueHtml, hint) {
+    return '<div class="field">'
+      + '<div class="field-label">' + esc(label) + '</div>'
+      + '<div class="field-value">' + valueHtml + '</div>'
+      + (hint ? '<div class="field-hint">' + esc(hint) + '</div>' : '')
+      + '</div>';
+  }
+
+  function fieldValue(val, opts) {
+    opts = opts || {};
+    if (val == null || val === '') {
+      return '<span class="missing">missing</span>';
+    }
+    var cls = '';
+    var hint = '';
+    var minLen = opts.minLen || 0;
+    var maxLen = opts.maxLen || 0;
+    if (minLen && val.length < minLen) {
+      cls = ' warn';
+      hint = 'Too short (< ' + minLen + ' chars). Current: ' + val.length + '.';
+    } else if (maxLen && val.length > maxLen) {
+      cls = ' warn';
+      hint = 'Too long (> ' + maxLen + ' chars). Current: ' + val.length + '.';
+    }
+    var html = '<span class="' + cls.trim() + '">' + esc(val) + '</span>';
+    if (hint) html += '<div class="field-hint">' + esc(hint) + '</div>';
+    return html;
+  }
+
+  function render(data) {
+    resolvedUrlEl.textContent = data.url;
+    fallbackBanner.style.display = data.fallbackUsed ? '' : 'none';
+
+    var html = '';
+
+    // Title
+    html += field('Page title', fieldValue(data.title, { minLen: 20, maxLen: 70 }),
+      data.title ? (data.title.length + ' chars') : null);
+
+    // Description
+    html += field('og:description / meta description', fieldValue(data.description, { minLen: 50, maxLen: 160 }),
+      data.description ? (data.description.length + ' chars') : null);
+
+    // Canonical
+    html += field('canonical', data.canonical
+      ? '<a href="' + esc(data.canonical) + '" target="_blank" rel="noopener">' + esc(data.canonical) + '</a>'
+      : '<span class="missing">missing</span>');
+
+    // OG image reachability
+    var imgReach = '';
+    if (data.ogImage) {
+      if (data.ogImageReachable === true) {
+        var sizeHint = data.ogImageBytes ? ' · ' + Math.round(data.ogImageBytes / 1024) + ' KB' : '';
+        imgReach = '<div class="reachability"><span class="dot dot-green"></span>'
+          + badge('reachable', 'green') + sizeHint + '</div>';
+      } else if (data.ogImageReachable === false) {
+        imgReach = '<div class="reachability"><span class="dot dot-red"></span>'
+          + badge('unreachable', 'red') + ' — image URL returned an error</div>';
+      }
+      // dimensions
+      var dims = '';
+      if (data.ogImageWidth && data.ogImageHeight) {
+        dims = data.ogImageWidth + ' × ' + data.ogImageHeight + ' px';
+      }
+      html += field('og:image', fieldValue(data.ogImage) + imgReach, dims || null);
+    } else {
+      html += field('og:image', '<span class="missing">missing</span>');
+    }
+
+    // og:image:alt
+    html += field('og:image:alt / twitter:image:alt',
+      fieldValue(data.ogImageAlt || data.twitterImageAlt, { minLen: 5 }));
+
+    // Overall summary badge
+    var issues = [];
+    if (!data.title) issues.push('no title');
+    else if (data.title.length < 20) issues.push('title too short');
+    else if (data.title.length > 70) issues.push('title too long');
+    if (!data.description) issues.push('no description');
+    else if (data.description.length < 50) issues.push('description too short');
+    if (!data.ogImage) issues.push('no og:image');
+    else if (data.ogImageReachable === false) issues.push('og:image unreachable');
+    if (data.fallbackUsed) issues.push('using default image');
+    if (!data.canonical) issues.push('no canonical');
+    if (!(data.ogImageAlt || data.twitterImageAlt)) issues.push('no image alt');
+
+    var summaryHtml;
+    if (issues.length === 0) {
+      summaryHtml = badge('All good', 'green');
+    } else {
+      summaryHtml = badge(issues.length + ' issue' + (issues.length > 1 ? 's' : ''), 'red')
+        + ' <span class="muted" style="font-size:12px">' + issues.map(esc).join(' · ') + '</span>';
+    }
+    html = field('Summary', summaryHtml) + html;
+
+    metaEl.innerHTML = html;
+
+    // Image panel
+    if (data.ogImage) {
+      imagePanelEl.innerHTML = '<img src="' + esc(data.ogImage) + '" alt="og:image preview" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'\'"><span class="no-image" style="display:none">Image failed to load</span>';
+    } else {
+      imagePanelEl.innerHTML = '<span class="no-image">No og:image set</span>';
+    }
+
+    resultEl.style.display = '';
+  }
+
+  function doCheck() {
+    var token = tokenEl.value.trim();
+    var url = urlEl.value.trim();
+    if (!token) { statusEl.textContent = 'Paste your admin token first.'; statusEl.className = 'err'; return; }
+    if (!url) { statusEl.textContent = 'Enter a URL to check.'; statusEl.className = 'err'; return; }
+
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+
+    checkBtn.disabled = true;
+    statusEl.textContent = 'Checking…';
+    statusEl.className = 'muted';
+    resultEl.style.display = 'none';
+
+    fetch('/api/seo/debug?url=' + encodeURIComponent(url), {
+      headers: { 'x-push-admin-token': token },
+    })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('Invalid admin token');
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'HTTP ' + r.status); });
+        return r.json();
+      })
+      .then(function (data) {
+        statusEl.textContent = '';
+        render(data);
+      })
+      .catch(function (err) {
+        statusEl.textContent = err.message;
+        statusEl.className = 'err';
+      })
+      .finally(function () {
+        checkBtn.disabled = false;
+      });
+  }
+
+  checkBtn.addEventListener('click', doCheck);
+  urlEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCheck(); });
+})();
+</script>
+</body>
+</html>`;
 
 export default router;
