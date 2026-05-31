@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Price } from "@/components/Price";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
@@ -47,6 +47,15 @@ export function ProductCard({ product, width, onPress }: Props) {
   );
   const favorited = isFavorited(product.id);
 
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
   const handlePress = () => {
     if (onPress) return onPress();
     router.push({ pathname: "/product/[slug]", params: { slug: product.id } });
@@ -58,6 +67,7 @@ export function ProductCard({ product, width, onPress }: Props) {
   };
 
   return (
+    <Animated.View style={{ opacity: fadeAnim, width }}>
     <Pressable
       onPress={handlePress}
       style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
@@ -127,6 +137,7 @@ export function ProductCard({ product, width, onPress }: Props) {
         </View>
       </View>
     </Pressable>
+    </Animated.View>
   );
 }
 
