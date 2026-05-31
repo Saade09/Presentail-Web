@@ -828,6 +828,15 @@ const DASHBOARD_HTML = `<!doctype html>
   #coverageAlertBanner .banner-items { margin: 4px 0 6px; padding-left: 16px; }
   #coverageAlertBanner .banner-items li { margin: 2px 0; font-size: 13px; }
   #coverageAlertBanner a.banner-link { color: #ffe0e0; font-size: 12px; text-decoration: underline; cursor: pointer; }
+  .seo-audit-panel { margin-top: 8px; border: 1px solid #ddd; border-radius: 6px; padding: 14px 16px; background: rgba(127,127,127,0.03); }
+  .seo-audit-panel .seo-run-btn { font: inherit; padding: 5px 14px; cursor: pointer; }
+  .seo-audit-panel .seo-status { margin-left: 10px; font-size: 12px; }
+  .seo-audit-results { margin-top: 12px; }
+  .seo-audit-results table { margin-top: 6px; }
+  .seo-status-error { color: #b00020; font-weight: 600; }
+  .seo-status-warn  { color: #b06000; font-weight: 600; }
+  .seo-status-ok    { color: #109618; font-weight: 600; }
+  .seo-summary-counts { font-size: 13px; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -1069,6 +1078,14 @@ const DASHBOARD_HTML = `<!doctype html>
     </thead>
     <tbody></tbody>
   </table>
+
+  <h2>SEO audit (on demand)</h2>
+  <div class="sub">Triggers an immediate OG-image health check across all key pages, bypassing the daily schedule. Useful after a deploy that touches the SEO inject middleware. Returns per-page status (error / warn / ok) so you can act without waiting up to 24 h for the nightly digest. Responds 409 when an audit is already running.</div>
+  <div class="seo-audit-panel">
+    <button class="seo-run-btn" id="seoRunBtn">Run SEO audit</button>
+    <span class="seo-status muted" id="seoStatus"></span>
+    <div class="seo-audit-results" id="seoAuditResults"></div>
+  </div>
 
 <script>
 (function () {
@@ -2466,6 +2483,98 @@ const DASHBOARD_HTML = `<!doctype html>
   tokenEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
   daysEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
   if (tokenEl.value) load();
+
+  // ── SEO audit on-demand ────────────────────────────────────────────────
+  var seoRunBtn = document.getElementById('seoRunBtn');
+  var seoStatusEl = document.getElementById('seoStatus');
+  var seoAuditResults = document.getElementById('seoAuditResults');
+
+  function renderSeoAudit(summary) {
+    var statusIcon = summary.failing > 0 ? '🔴' : summary.warned > 0 ? '🟡' : '🟢';
+    var counts = statusIcon + ' ' +
+      summary.failing + ' failing, ' +
+      summary.warned + ' warned, ' +
+      summary.passing + ' ok' +
+      ' — checked at ' + summary.ranAt;
+    var rows = (summary.pages || []).map(function (p) {
+      var icon = p.status === 'error' ? '🔴' : p.status === 'warn' ? '🟡' : '🟢';
+      var cls = p.status === 'error' ? 'seo-status-error' : p.status === 'warn' ? 'seo-status-warn' : 'seo-status-ok';
+      var detail = '';
+      if (p.fetchFailed) {
+        detail = 'could not fetch page';
+      } else if (!p.ogImage) {
+        detail = 'og:image missing';
+      } else if (p.ogImageReachable === false) {
+        detail = 'og:image not reachable';
+      } else if (p.fallbackUsed) {
+        detail = 'using fallback site-wide image';
+      } else if (p.ogImageSizeOk === false) {
+        detail = 'og:image dimensions wrong';
+      } else {
+        detail = 'ok';
+      }
+      var ogCell = p.ogImage
+        ? '<a href="' + escapeHtml(p.ogImage) + '" target="_blank" rel="noopener" style="font-size:11px;word-break:break-all">' + escapeHtml(p.ogImage) + '</a>'
+        : '<span class="muted">—</span>';
+      return '<tr>' +
+        '<td>' + icon + ' <span class="' + cls + '">' + escapeHtml(p.label) + '</span></td>' +
+        '<td><a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" style="font-size:11px">' + escapeHtml(p.url) + '</a></td>' +
+        '<td>' + escapeHtml(detail) + '</td>' +
+        '<td>' + ogCell + '</td>' +
+        '</tr>';
+    }).join('');
+    seoAuditResults.innerHTML =
+      '<div class="seo-summary-counts">' + escapeHtml(counts) + '</div>' +
+      '<table>' +
+        '<thead><tr><th style="text-align:left">Page</th><th style="text-align:left">URL</th><th style="text-align:left">Detail</th><th style="text-align:left">OG image URL</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table>';
+  }
+
+  if (seoRunBtn) {
+    seoRunBtn.addEventListener('click', function () {
+      var token = tokenEl.value.trim();
+      if (!token) {
+        seoStatusEl.textContent = 'Enter the admin token first.';
+        seoStatusEl.className = 'err';
+        return;
+      }
+      seoRunBtn.disabled = true;
+      seoStatusEl.textContent = 'Running audit\u2026';
+      seoStatusEl.className = 'muted';
+      seoAuditResults.innerHTML = '';
+      fetch('/api/admin/seo-audit/run', {
+        method: 'POST',
+        headers: { 'x-push-admin-token': token },
+      })
+        .then(function (r) {
+          if (r.status === 409) {
+            seoStatusEl.textContent = 'Audit already in progress — try again shortly.';
+            seoStatusEl.className = 'err';
+            return null;
+          }
+          if (!r.ok) {
+            return r.json().then(function (body) {
+              throw new Error(body.message || ('HTTP ' + r.status));
+            });
+          }
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          seoStatusEl.textContent = '';
+          seoStatusEl.className = 'muted';
+          renderSeoAudit(data);
+        })
+        .catch(function (err) {
+          seoStatusEl.textContent = 'Audit failed: ' + err.message;
+          seoStatusEl.className = 'err';
+        })
+        .finally(function () {
+          seoRunBtn.disabled = false;
+        });
+    });
+  }
 })();
 </script>
 </body>
