@@ -53,6 +53,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CardIcons, PayPalBadge, WalletIcons, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
+import { DateStrip } from "@/components/DateStrip";
+import { SlotPicker } from "@/components/SlotPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -2174,67 +2176,22 @@ function DeliveryTimeCard({
       {(deliveryMode === "schedule" || deliveryMode === "today_slot") ? (
         <View style={{ gap: 10 }}>
           {deliveryMode === "schedule" && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {days.map((d: any) => {
-                const a = d.iso === date;
-                return (
-                  <Pressable
-                    key={d.iso}
-                    onPress={() => { setDate(d.iso); setSlot(null); }}
-                    style={{
-                      width: 56,
-                      paddingVertical: 8,
-                      borderRadius: 10,
-                      alignItems: "center",
-                      backgroundColor: a ? colors.primary : "#fff",
-                      borderWidth: 1,
-                      borderColor: a ? colors.primary : colors.border,
-                    }}
-                  >
-                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: a ? colors.goldSoft : colors.mutedForeground, textTransform: "uppercase", letterSpacing: 1 }}>
-                      {d.label}
-                    </Text>
-                    <Text style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: a ? "#fff" : colors.primary }}>
-                      {d.date}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <DateStrip
+              days={days}
+              selectedDate={date}
+              onSelectDate={(iso) => { setDate(iso); setSlot(null); }}
+              colors={colors}
+            />
           )}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {timeSlots.map((s: TimeSlot) => {
-              const isToday = date === todayIso;
-              const past = isToday && localHour >= s.cutoffHour;
-              const active = slot?.label === s.label;
-              return (
-                <Pressable
-                  key={s.label}
-                  onPress={() => { if (!past) setSlot(s); }}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 9,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: active ? colors.primary : past ? colors.border : colors.border,
-                    backgroundColor: active ? colors.primary : past ? "#f5f5f5" : "#fff",
-                    opacity: past ? 0.55 : 1,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: "Inter_500Medium",
-                      fontSize: 12,
-                      color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
-                      textDecorationLine: past ? "line-through" : "none",
-                    }}
-                  >
-                    {s.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <SlotPicker
+            slots={timeSlots}
+            selectedSlotLabel={slot?.label ?? null}
+            date={date}
+            todayIso={todayIso}
+            localHour={localHour}
+            onSelectSlot={setSlot}
+            colors={colors}
+          />
         </View>
       ) : null}
     </Card>
