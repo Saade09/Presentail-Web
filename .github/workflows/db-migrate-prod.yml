@@ -1,0 +1,75 @@
+name: DB – Apply schema to production
+
+# Runs automatically whenever lib/db schema files land on main, guaranteeing
+# the production database is migrated before the next Replit publish goes live.
+# Can also be triggered manually via "Run workflow" for emergency migrations or
+# when the automatic trigger is bypassed (e.g. force-push, squash-merge).
+#
+# Mechanism: `drizzle-kit push --force` is used because CI has no TTY for the
+# interactive destructive-change prompt. The `--force` flag is safe here because
+# schema changes land on main only after code review; any destructive column/table
+# drop must be explicitly authored and reviewed before reaching this step.
+#
+# Required secret:
+#   PROD_DATABASE_URL — PostgreSQL connection string for the production database.
+#   Set this in GitHub → Settings → Secrets and variables → Actions → New
+#   repository secret. Scoped to the "production" environment when that
+#   environment is configured (adds an optional manual-approval gate).
+#
+# Concurrency: only one migration can run at a time against production.
+# A second push that arrives while a migration is in progress will wait, not
+# cancel, because cancelling an in-flight schema push could leave the DB in a
+# half-applied state.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/db/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/db-migrate-prod.yml"
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: "Confirm you want to push the schema to production"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: db-migrate-prod
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Push schema to production database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    # For manual runs, require the operator to explicitly confirm by setting
+    # force_run: true so an accidental click does not push to production.
+    if: github.event_name != 'workflow_dispatch' || inputs.force_run == true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Push schema to production database
+        run: pnpm --filter @workspace/db run push-force
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}

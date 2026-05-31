@@ -15,7 +15,12 @@ run = "pnpm --filter @workspace/api-server run dev"
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
+# Run the DB schema migration before building so that:
+# (a) the production database is always up to date before the new binary starts,
+# (b) a failed migration aborts the deploy and keeps the previous server running.
+# DATABASE_URL must be set as a Replit secret for the production environment.
+# push-force is required because CI/build steps have no TTY for the interactive prompt.
+args = ["sh", "-c", "pnpm --filter @workspace/db run push-force && pnpm --filter @workspace/api-server run build"]
 
 [services.production.build.env]
 NODE_ENV = "production"
