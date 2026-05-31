@@ -41,6 +41,7 @@ import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
 import { PageLoader } from "@/components/PageLoader";
+import { prefetchRoutes } from "@/lib/prefetch";
 
 const Landing = lazy(() => import("@/pages/Landing"));
 const Home = lazy(() => import("@/pages/Home"));
@@ -337,6 +338,16 @@ function CurrencyDataLoader() {
 }
 
 function App() {
+  useEffect(() => {
+    return prefetchRoutes([
+      () => import("@/pages/Home"),
+      () => import("@/pages/Shop"),
+      () => import("@/pages/ProductDetail"),
+      () => import("@/pages/Cart"),
+      () => import("@/pages/Checkout"),
+    ]);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
