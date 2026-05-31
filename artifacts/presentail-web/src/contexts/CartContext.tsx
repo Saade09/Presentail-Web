@@ -14,12 +14,14 @@ export type CartContextType = {
   clearCart: () => void;
   subtotal: number;
   itemCount: number;
+  isHydrated: boolean;
 };
 
 export const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -45,6 +47,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("presentail_cart_v1");
       }
     }
+    setIsHydrated(true);
   }, []);
 
   // Save to localStorage when items change
@@ -90,7 +93,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, subtotal, itemCount }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, subtotal, itemCount, isHydrated }}>
       {children}
     </CartContext.Provider>
   );

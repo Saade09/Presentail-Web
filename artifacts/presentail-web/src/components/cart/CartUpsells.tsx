@@ -8,6 +8,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useProducts } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type ResolvedUpsellTab,
   type ResolvedUpsellProduct,
@@ -15,6 +16,34 @@ import {
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
 import { isExpressDeliveryAvailable } from "@workspace/delivery";
+
+const SKELETON_COUNT = 4;
+
+function CartUpsellsSkeleton() {
+  return (
+    <section className="mt-12 pt-8 border-t border-primary/10">
+      <Skeleton className="h-8 w-40 mb-6" />
+      <div className="flex gap-6 pb-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-4 w-20" />
+        ))}
+      </div>
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+          <div key={i} className="rounded-2xl overflow-hidden border border-primary/10 flex flex-col">
+            <Skeleton className="aspect-square w-full" />
+            <div className="p-3 flex flex-col gap-2">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+              <Skeleton className="h-8 w-full rounded-full mt-1" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function tabLabelKey(id: UpsellTabId): string {
   switch (id) {
@@ -48,7 +77,7 @@ export function CartUpsells() {
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
 
-  const { data } = useProducts(locParams);
+  const { data, isLoading } = useProducts(locParams);
   const products = data?.products ?? [];
 
   const tabs = useMemo<ResolvedUpsellTab[]>(
@@ -80,6 +109,8 @@ export function CartUpsells() {
       description: t("product.toast.addedDesc", { name: product.name }),
     });
   };
+
+  if (isLoading) return <CartUpsellsSkeleton />;
 
   if (tabs.length === 0 || !activeId) return null;
 

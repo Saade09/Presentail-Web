@@ -45,6 +45,7 @@ export const DEFAULT_CART: CartContextType = {
   clearCart: () => {},
   subtotal: 0,
   itemCount: 0,
+  isHydrated: true,
 };
 
 // ---------------------------------------------------------------------------

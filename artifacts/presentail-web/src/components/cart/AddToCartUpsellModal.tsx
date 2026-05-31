@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -61,7 +62,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
 
-  const { data } = useProducts(locParams);
+  const { data, isLoading } = useProducts(locParams);
   const products = data?.products ?? [];
 
   const tabs = useMemo<ResolvedUpsellTab[]>(
@@ -119,7 +120,17 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           </DialogTitle>
         </div>
 
-        {tabs.length > 0 && (
+        {isLoading && (
+          <div className="px-6 pt-4 shrink-0">
+            <div className="flex gap-6 pb-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-4 w-20" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isLoading && tabs.length > 0 && (
           <div className="px-6 pt-4 shrink-0">
             <div className="flex gap-6 overflow-x-auto pb-3 -mx-2 px-2 scrollbar-none">
               {tabs.map((tab) => {
@@ -156,7 +167,21 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
         )}
 
         <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-          {active ? (
+          {isLoading ? (
+            <div className="grid grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden border border-primary/10 flex flex-col">
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-2.5 flex flex-col gap-1.5">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-7 w-full rounded-full mt-1" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : active ? (
             <div className="grid grid-cols-3 gap-3">
               {active.products.map((product) => {
                 const showExpress = expressAvailable && product.supportsExpress;

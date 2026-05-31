@@ -3,6 +3,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -13,8 +14,53 @@ import { CartUpsells } from "@/components/cart/CartUpsells";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 
+function CartSkeleton() {
+  return (
+    <div className="min-h-screen pt-24 pb-24">
+      <div className="container mx-auto px-4 max-w-5xl">
+        <Skeleton className="h-10 w-48 mb-12" />
+        <div className="flex flex-col lg:flex-row gap-12">
+          <div className="flex-1 space-y-8 min-w-0">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex gap-6 py-6 border-b">
+                <Skeleton className="w-24 md:w-32 aspect-square rounded-2xl shrink-0" />
+                <div className="flex flex-col justify-between flex-1 py-1">
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="flex items-center justify-between mt-4">
+                    <Skeleton className="h-8 w-28 rounded-full" />
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="w-full lg:w-96 shrink-0">
+            <div className="bg-secondary/30 rounded-3xl p-8">
+              <Skeleton className="h-8 w-36 mb-6" />
+              <div className="space-y-4 mb-6 pb-6 border-b border-primary/10">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              </div>
+              <div className="flex justify-between items-center mb-8">
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+              <Skeleton className="h-14 w-full rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Cart() {
-  const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart();
+  const { items, updateQuantity, removeItem, subtotal, itemCount, isHydrated } = useCart();
   const { t, dir } = useLocale();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -42,6 +88,10 @@ export default function Cart() {
   useEffect(() => {
     trackEvent({ name: "cart_viewed", surface: "cart-screen" });
   }, []);
+
+  if (!isHydrated) {
+    return <CartSkeleton />;
+  }
 
   if (itemCount === 0) {
     return (
