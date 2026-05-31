@@ -31,7 +31,10 @@ export const TouchableOpacity = host("TouchableOpacity");
 export const TouchableHighlight = host("TouchableHighlight");
 export const Pressable = host("Pressable");
 export const KeyboardAvoidingView = host("KeyboardAvoidingView");
-export const Modal = host("Modal");
+export const Modal = ({ visible, children, ...rest }: AnyProps): React.ReactElement | null => {
+  if (visible === false) return null;
+  return (React.createElement as (...a: unknown[]) => React.ReactElement)("Modal", rest, children);
+};
 export const TextInput = host("TextInput");
 export const Image = host("Image");
 export const FlatList = () => null;
@@ -59,12 +62,13 @@ export const Animated = {
   View: host("AnimatedView"),
   Text: host("AnimatedText"),
   Image: () => null,
-  timing(_: unknown, _c: unknown) { return { start: (cb?: () => void) => cb?.() }; },
-  spring(_: unknown, _c: unknown) { return { start: (cb?: () => void) => cb?.() }; },
+  timing(_: unknown, _c: unknown) { return { start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }) }; },
+  spring(_: unknown, _c: unknown) { return { start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }) }; },
   sequence(anims: Array<{ start: (cb?: () => void) => void }>) {
     return { start: (cb?: () => void) => { anims.forEach((a) => a.start()); cb?.(); } };
   },
   createAnimatedComponent<T>(Component: T): T { return Component; },
+  add(_a: unknown, _b: unknown) { return new AnimatedValue(0); },
 };
 
 export const Platform = {
@@ -102,6 +106,34 @@ export const BackHandler = { addEventListener: () => ({ remove: () => {} }), exi
 export const NativeModules = {};
 export const useColorScheme = () => null as string | null;
 export const useWindowDimensions = () => ({ width: 375, height: 812, scale: 2, fontScale: 1 });
+
+export const TouchableWithoutFeedback = host("TouchableWithoutFeedback");
+
+export const PanResponder = {
+  create: (_config: Record<string, unknown>) => ({
+    panHandlers: {},
+  }),
+};
+
+export const Easing = {
+  out: (fn: (t: number) => number) => fn,
+  in: (fn: (t: number) => number) => fn,
+  inOut: (fn: (t: number) => number) => fn,
+  cubic: (t: number) => t,
+  linear: (t: number) => t,
+  ease: (t: number) => t,
+  quad: (t: number) => t,
+  circle: (t: number) => t,
+  bounce: (t: number) => t,
+  back: (_s?: number) => (t: number) => t,
+  elastic: (_bounciness?: number) => (t: number) => t,
+  bezier: (_x1: number, _y1: number, _x2: number, _y2: number) => (t: number) => t,
+  sin: (t: number) => t,
+  exp: (t: number) => t,
+  poly: (_n: number) => (t: number) => t,
+  step0: (n: number) => n,
+  step1: (n: number) => n,
+};
 
 export default {
   Text,
