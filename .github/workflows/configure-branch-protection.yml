@@ -37,15 +37,17 @@ jobs:
           # from the `name:` field at the top of check-translations.yml and the job
           # name from each job's `name:` field within that file.
           #
-          # check-translations.yml (name: check-translations) defines four jobs:
-          #   check-mobile-translations  → "Unused + missing + undefined translation keys (mobile)"
-          #   check-web-translations     → "Unused + missing + undefined translation keys (web)"
-          #   locale-dictionary-tests    → "Locale dictionary tests (web)"
-          #   check-hardcoded-strings    → "Hardcoded English strings (web)"
+          # check-translations.yml (name: check-translations) defines five jobs:
+          #   check-mobile-translations        → "Unused + missing + undefined translation keys (mobile)"
+          #   check-web-translations           → "Unused + missing + undefined translation keys (web)"
+          #   locale-dictionary-tests          → "Locale dictionary tests (web)"
+          #   check-hardcoded-strings          → "Hardcoded English strings (web)"
+          #   check-hardcoded-mobile-strings   → "Hardcoded English strings (mobile)"
           MOBILE_TRANSLATIONS="check-translations / Unused + missing + undefined translation keys (mobile)"
           WEB_TRANSLATIONS="check-translations / Unused + missing + undefined translation keys (web)"
           LOCALE_DICT_TESTS="check-translations / Locale dictionary tests (web)"
           HARDCODED_STRINGS="check-translations / Hardcoded English strings (web)"
+          HARDCODED_MOBILE_STRINGS="check-translations / Hardcoded English strings (mobile)"
 
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
@@ -54,13 +56,14 @@ jobs:
 
           STRICT=$(echo "$CURRENT" | jq -r '.strict // false')
 
-          # Collect existing contexts and merge in the four required checks.
+          # Collect existing contexts and merge in the five required checks.
           MERGED=$(echo "$CURRENT" | jq \
             --arg mobile  "$MOBILE_TRANSLATIONS" \
             --arg web     "$WEB_TRANSLATIONS" \
             --arg dict    "$LOCALE_DICT_TESTS" \
             --arg hc      "$HARDCODED_STRINGS" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc] | unique')
+            --arg hcm     "$HARDCODED_MOBILE_STRINGS" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
@@ -75,4 +78,4 @@ jobs:
             --method PATCH \
             --input - <<< "$PAYLOAD"
 
-          echo "Done. All four translation checks are now required on ${BRANCH}."
+          echo "Done. All five translation checks are now required on ${BRANCH}."
