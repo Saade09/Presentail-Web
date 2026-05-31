@@ -96,6 +96,40 @@ function safeJoin(root, urlPath) {
 const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
 // ---------------------------------------------------------------------------
+// Sidecar (.br / .gz) existence cache
+// ---------------------------------------------------------------------------
+// Pre-compressed sidecars are build-time artifacts written by compress-assets.mjs.
+// They never change while the process is running, so we cache their existence in a
+// Set at startup instead of calling fs.existsSync on every request.
+//
+// NOTE: Sidecars generated after server start (e.g. by a post-deploy script that
+// runs concurrently) are NOT detected — restart the server to pick them up.
+
+/**
+ * Walk a directory recursively and collect every path that ends with one of
+ * the given suffixes into the provided Set.
+ */
+function collectSidecars(dir, suffixes, out) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectSidecars(full, suffixes, out);
+    } else if (suffixes.some((s) => entry.name.endsWith(s))) {
+      out.add(full);
+    }
+  }
+}
+
+const SIDECAR_PATHS = new Set();
+collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
+
+// ---------------------------------------------------------------------------
 // Dynamic sitemap.xml
 // ---------------------------------------------------------------------------
 
@@ -319,12 +353,12 @@ const server = http.createServer(async (req, res) => {
         const acceptHeader = req.headers["accept-encoding"] ?? "";
         let sidecarPath = null;
         let sidecarEncoding = null;
-        if (acceptHeader.includes("br") && fs.existsSync(filePath + ".br")) {
+        if (acceptHeader.includes("br") && SIDECAR_PATHS.has(filePath + ".br")) {
           sidecarPath = filePath + ".br";
           sidecarEncoding = "br";
         } else if (
           acceptHeader.includes("gzip") &&
-          fs.existsSync(filePath + ".gz")
+          SIDECAR_PATHS.has(filePath + ".gz")
         ) {
           sidecarPath = filePath + ".gz";
           sidecarEncoding = "gzip";
