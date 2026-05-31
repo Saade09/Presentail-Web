@@ -903,8 +903,15 @@ function CheckoutScreen() {
     await finishAfterPayment();
     setPaying(false);
     } catch (err) {
-      trackEvent({ name: "payment_error", surface: "checkout", action: err instanceof TypeError ? "network" : "provider" });
-      Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+      // TypeError means the device couldn't reach the server at all
+      // (no network, DNS failure, etc.). Any other throw means the
+      // payment provider returned an unexpected error.
+      const isNetworkFailure = err instanceof TypeError;
+      trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : "provider" });
+      Alert.alert(
+        t.checkoutPaymentErrorTitle,
+        isNetworkFailure ? t.checkoutPaymentNetworkTimeout : t.checkoutPaymentNetworkError,
+      );
       setPaying(false);
     }
   };
