@@ -84,8 +84,7 @@ const NEW_ERROR_BASELINE_DAYS = envPositiveInt(
   14,
 );
 
-const SOCIAL_PROVIDERS = ["google", "apple"] as const;
-type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+type SocialProvider = "google" | "apple";
 
 let timer: NodeJS.Timeout | null = null;
 let running = false;

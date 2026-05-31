@@ -138,7 +138,7 @@ async function checkImageReachable(imageUrl: string): Promise<boolean> {
 
 function checkOgImageSize(
   html: string,
-  imageUrl: string,
+  _imageUrl: string,
 ): boolean | null {
   // Use the declared og:image:width / og:image:height tags (fast, no extra
   // network request). If they're absent we skip the size check rather than
@@ -207,7 +207,6 @@ export async function runOnce(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    const today = utcDateString(new Date());
     const prevDay = previousUtcDay();
 
     if (lastEvaluatedDay === prevDay) {

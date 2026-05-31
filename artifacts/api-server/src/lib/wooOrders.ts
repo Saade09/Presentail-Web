@@ -17,7 +17,6 @@ import {
 import {
   fetchWcProductPrice,
   computeDistrictFeeUsd,
-  EXPRESS_SURCHARGE_USD,
   countryForDistrict,
   expressSurchargeUsd,
 } from "./catalog";

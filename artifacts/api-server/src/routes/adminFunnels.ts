@@ -31,11 +31,8 @@ import {
   summariseUpsellToOrder,
   buildUpsellToOrderBySession,
   type UpsellTabDailyBucket,
-  type UpsellTabSummaryBucket,
   type UpsellItemDailyBucket,
-  type UpsellItemSummaryBucket,
   type UpsellCheckoutDailyBucket,
-  type UpsellCheckoutSummaryBucket,
   type UpsellToOrderBySessionBucket,
 } from "../lib/upsellAggregator";
 import {

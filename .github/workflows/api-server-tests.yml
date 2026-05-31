@@ -40,5 +40,8 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Lint API server
+        run: pnpm --filter @workspace/api-server run lint
+
       - name: Run API server tests
         run: pnpm --filter @workspace/api-server run test

@@ -8,7 +8,6 @@ import {
 import {
   resolveCartItems,
   computeDistrictFeeUsd,
-  EXPRESS_SURCHARGE_USD,
   countryForDistrict,
   expressSurchargeUsd,
 } from "../lib/catalog";
