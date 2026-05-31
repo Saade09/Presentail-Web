@@ -14,6 +14,38 @@ export type ShimUser = {
   phone?: string;
 };
 
+/**
+ * Map a Clerk `UserResource`-shaped object to the `ShimUser` the rest of the
+ * app expects. Exported so it can be unit-tested without mounting the React hook.
+ *
+ * Priority for each field mirrors Clerk's own resolution order:
+ *  - email: primaryEmailAddress → first address → ""
+ *  - phone: primaryPhoneNumber → first number → undefined
+ */
+export function mapClerkUserToShimUser(user: {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  primaryEmailAddress?: { emailAddress: string } | null;
+  emailAddresses: { emailAddress: string }[];
+  primaryPhoneNumber?: { phoneNumber: string } | null;
+  phoneNumbers: { phoneNumber: string }[];
+}): ShimUser {
+  return {
+    id: user.id,
+    email:
+      user.primaryEmailAddress?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      "",
+    firstName: user.firstName ?? "",
+    lastName: user.lastName ?? "",
+    phone:
+      user.primaryPhoneNumber?.phoneNumber ??
+      user.phoneNumbers[0]?.phoneNumber ??
+      undefined,
+  };
+}
+
 export type AuthContextValue = {
   user: ShimUser | null;
   // `token` is kept for backwards compatibility with callers that used it
@@ -47,21 +79,8 @@ export function useAuth(): AuthContextValue {
   // Return the test override when present, bypassing Clerk result.
   if (override) return override;
 
-  const mappedUser: ShimUser | null = isSignedIn && user
-    ? {
-        id: user.id,
-        email:
-          user.primaryEmailAddress?.emailAddress ??
-          user.emailAddresses[0]?.emailAddress ??
-          "",
-        firstName: user.firstName ?? "",
-        lastName: user.lastName ?? "",
-        phone:
-          user.primaryPhoneNumber?.phoneNumber ??
-          user.phoneNumbers[0]?.phoneNumber ??
-          undefined,
-      }
-    : null;
+  const mappedUser: ShimUser | null =
+    isSignedIn && user ? mapClerkUserToShimUser(user) : null;
 
   return {
     user: mappedUser,

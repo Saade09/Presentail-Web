@@ -6,6 +6,15 @@ import userEvent from "@testing-library/user-event";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
 import { renderWithProviders } from "@/test-utils";
 
+// Pin getCountryHour to 10 AM so time-slot availability is stable regardless
+// of when the test suite runs. Without this, tests that rely on "today" having
+// available slots break after 9 PM Lebanon time (all LB slots have cutoffHour
+// ≤ 21). All other exports from @workspace/delivery are passed through as-is.
+vi.mock("@workspace/delivery", async (importActual) => {
+  const actual = await importActual<typeof import("@workspace/delivery")>();
+  return { ...actual, getCountryHour: () => 10 };
+});
+
 const LOCALE_T: Record<string, string> = {
   "product.prevMonth": "Previous month",
   "product.nextMonth": "Next month",

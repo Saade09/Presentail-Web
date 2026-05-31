@@ -34,11 +34,9 @@ import { trackEvent } from "@/lib/analytics";
 import { useNow } from "@/lib/useNow";
 import {
   dayLabels,
-  expressSurchargeForCountry,
   formatDeliveryRow,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
-  freeDeliveryThresholdUsd,
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import {
@@ -47,6 +45,7 @@ import {
   webVisiblePayMethods,
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
+import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
 
 // The web checkout supports a subset of the shared payment-method catalog
 // (no Western Union). All availability / label / fallback decisions go
@@ -435,22 +434,20 @@ export default function Checkout() {
   }
 
   const currentCountryCities = activeCities;
-  const FREE_DELIVERY_THRESHOLD = freeDeliveryThresholdUsd(countryCode);
   const _selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
   // Per-city fees come from the OS cache (via /api/delivery-locations) so
   // toggling a fee in Presentail OS propagates within the polling interval.
   // Falling back to 0 keeps the math safe if the API payload is missing.
   const selectedCity = selectedCityData;
-  const baseFee = noAddress ? 35 : (selectedCity?.fee ?? 0);
-  const districtFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : baseFee;
-  const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
-  // Slot extra fee: look up the selected slot in the city's OS slot list.
-  // Returns 0 when the city has no slot fees configured or express is chosen.
-  const slotFee =
-    deliveryMode !== "express"
-      ? (timeSlots.find((s) => s.label === deliverySlot)?.extraFee ?? 0)
-      : 0;
-  const total = subtotal + districtFee + expressFee + slotFee;
+  const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
+    subtotal,
+    countryCode,
+    noAddress,
+    cityFee: selectedCity?.fee ?? 0,
+    deliveryMode,
+    timeSlots,
+    deliverySlot,
+  });
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
@@ -476,8 +473,7 @@ export default function Checkout() {
   // by the payment-method picker (to hide unavailable methods) and by
   // the submit handler (to route AED + wallet through Mamo's hosted page,
   // mirroring mobile checkout).
-  const activeCurrency =
-    countryCode === "AE" ? "AED" : countryCode === "CY" ? "EUR" : "USD";
+  const activeCurrency = activeCurrencyForCountry(countryCode);
 
   // orderId is generated once per checkout attempt and threaded through the
   // payment session creation AND the WC order payload so the server can bind
