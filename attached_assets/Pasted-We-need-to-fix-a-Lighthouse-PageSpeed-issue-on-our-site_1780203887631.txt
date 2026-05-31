@@ -1,0 +1,39 @@
+We need to fix a Lighthouse/PageSpeed issue on our site: “Document request latency — No compression applied” for the initial HTML document request.
+
+Current audit details:
+- Avoids redirects: passing
+- Server responds quickly: observed ~2 ms, passing
+- No compression applied: failing
+- Estimated savings: ~2 KiB
+- This affects FCP/LCP because the initial document response is not compressed.
+
+Please implement a production-safe fix now and make sure it stays fixed going forward.
+
+Tasks:
+1. Identify what framework/server is serving the app in this Replit project.
+2. Ensure HTML/document responses are compressed with Brotli or gzip in production.
+3. If this is an Express/Node server:
+   - Add the `compression` middleware.
+   - Apply it globally before routes/static handlers.
+   - Make sure it compresses `text/html`, `text/css`, `application/javascript`, `application/json`, SVG, XML, etc.
+   - Do not compress already-compressed assets like images, videos, fonts, zip files, or brotli/gzip files.
+4. If this is Vite/Next/Remix/React static output:
+   - Ensure the deployment server or middleware serves compressed responses.
+   - Add precompression for static assets if appropriate.
+   - Confirm the initial HTML document response has `Content-Encoding: gzip` or `br`.
+5. Add a small regression check so this does not come back:
+   - Add a script or test that requests the homepage with `Accept-Encoding: gzip, br`.
+   - Assert the response includes `Content-Encoding: gzip` or `br` for HTML.
+   - Document how to run the check.
+6. Verify with curl before finishing:
+   - `curl -I -H "Accept-Encoding: gzip, br" <local-or-deployed-url>`
+   - Confirm the HTML document response has a `content-encoding` header.
+7. Keep the fix minimal and avoid changing unrelated code.
+
+Acceptance criteria:
+- The first HTML document request is served compressed in production.
+- Lighthouse no longer reports “No compression applied” under Document request latency.
+- Existing routing, caching, and static asset behavior continue to work.
+- A repeatable test or script exists to catch this regression in the future.
+
+Please inspect the codebase, implement the fix, run the app/tests, and summarize exactly what changed.
