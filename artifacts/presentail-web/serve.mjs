@@ -384,6 +384,52 @@ const indexHtml = await readStartupFile(
 );
 
 // ---------------------------------------------------------------------------
+// Font preload hints — read the Vite manifest at startup to extract hashed
+// .woff2 URLs and build <link rel="preload"> tag strings.
+//
+// Without preloads the browser must wait for the CSS bundle to download and
+// parse before it discovers font URLs, adding ~100–200 ms to first paint.
+// With preloads it can fetch fonts in parallel with the CSS bundle.
+//
+// Non-fatal: if the manifest is missing or unparseable the server continues
+// without preload hints (a slower but correct degraded mode).
+// ---------------------------------------------------------------------------
+let fontPreloadTagsHtml = "";
+{
+  const manifestPath = path.join(DIST, ".vite", "manifest.json");
+  try {
+    const raw = fs.readFileSync(manifestPath, "utf8");
+    const manifest = JSON.parse(raw);
+    const links = Object.values(manifest)
+      .filter((entry) => typeof entry.file === "string" && entry.file.endsWith(".woff2"))
+      .map((entry) => {
+        const href = `${BASE_PATH}/${entry.file}`;
+        return `<link rel="preload" as="font" type="font/woff2" crossorigin href="${href}">`;
+      });
+    fontPreloadTagsHtml = links.join("\n    ");
+    if (links.length > 0) {
+      console.log(`Font preloads: ${links.length} woff2 file(s) registered from Vite manifest`);
+    } else {
+      console.warn("WARN: Font preloads: no .woff2 entries found in Vite manifest");
+    }
+  } catch (err) {
+    console.warn(`WARN: Font preloads: could not read dist/.vite/manifest.json — ${err.message}`);
+  }
+}
+
+/**
+ * Inject font preload <link> tags immediately before </head>.
+ * No-op when fontPreloadTagsHtml is empty (manifest missing or no fonts).
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function injectFontPreloads(html) {
+  if (!fontPreloadTagsHtml) return html;
+  return html.replace("</head>", `    ${fontPreloadTagsHtml}\n  </head>`);
+}
+
+// ---------------------------------------------------------------------------
 // Check site.webmanifest — present in every Vite build; its absence suggests
 // a partial build, but the app can still serve correctly without it (browsers
 // requesting it will get a 404, which does not block core shopping flows).
@@ -595,13 +641,14 @@ const server = http.createServer(async (req, res) => {
       // index.html gets locale-aware SEO injection.
       if (ext === ".html") {
         const html = fs.readFileSync(filePath, "utf8");
-        const out = await injectSeoTagsAsync(html, pathname, {
+        const seoOut = await injectSeoTagsAsync(html, pathname, {
           basePath: BASE_PATH,
           origin,
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
           acceptLanguage: req.headers["accept-language"],
         });
+        const out = injectFontPreloads(seoOut);
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const headers = {
@@ -684,13 +731,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // SPA fallback: rewrite to index.html with locale-aware SEO.
-    const out = await injectSeoTagsAsync(indexHtml, pathname, {
+    const seoOut = await injectSeoTagsAsync(indexHtml, pathname, {
       basePath: BASE_PATH,
       origin,
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
       acceptLanguage: req.headers["accept-language"],
     });
+    const out = injectFontPreloads(seoOut);
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const headers = {
