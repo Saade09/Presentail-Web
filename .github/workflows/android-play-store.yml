@@ -74,6 +74,34 @@ jobs:
         run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
 
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+        working-directory: .
+
+      - name: Build web app (vite + compress-assets)
+        run: pnpm --filter @workspace/presentail-web run build
+        working-directory: .
+
+      - name: Start web serve.mjs
+        run: node artifacts/presentail-web/serve.mjs &
+        working-directory: .
+        env:
+          PORT: 19234
+          BASE_PATH: /
+          NODE_ENV: production
+
+      - name: Wait for web server to be ready
+        run: npx --yes wait-on http://localhost:19234/ --timeout 30000
+        working-directory: .
+
+      - name: Check compression (HTML responses are gzip/br compressed)
+        run: node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/
+        working-directory: .
+
+      - name: Check sidecar blocking (.br/.gz paths return 404)
+        run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234
+        working-directory: .
+
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
