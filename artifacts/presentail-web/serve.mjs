@@ -57,13 +57,30 @@ async function sendSlackAlert(text) {
 // Startup file guards — shared helpers used below to check required build
 // artifacts before the HTTP server starts accepting connections.
 //
-// Behaviour on failure:
-//   production  — structured console.error + awaited Slack alert + process.exit(1)
-//   development — console.warn + process.exit(1) (no Slack call)
+// FATAL vs. NON-FATAL classification
+// ───────────────────────────────────
+// Fatal (exit 1):
+//   • dist/index.html    — the SPA shell; without it every page request fails.
+//   • seo-inject.mjs     — dynamically imported; without it SEO tag injection
+//                          is completely broken and the module API is missing.
 //
-// All helpers are async so that in production the Slack alert is awaited before
-// process.exit() is called, ensuring deterministic exit ordering and no risk of
-// the process terminating before the alert is dispatched.
+// Non-fatal (WARN + Slack alert, server continues):
+//   • dist/site.webmanifest — the PWA manifest; browsers that request it will
+//                             get a 404, but the app still loads and the rest
+//                             of the build is almost certainly intact.  A
+//                             missing manifest never blocks core shopping flows.
+//   • sidecar-cache.mjs     — populates the SIDECAR_PATHS Set used to serve
+//                             pre-compressed .br/.gz files.  Without it the Set
+//                             stays empty and the server falls back to on-the-fly
+//                             compression for all assets — slower but correct.
+//
+// Behaviour on failure:
+//   production  — structured console.error/warn + awaited Slack alert + exit (fatal)
+//                 or WARN log + fire-and-forget Slack alert (non-fatal)
+//   development — console.warn (no Slack call in either case)
+//
+// All fatal helpers are async so that in production the Slack alert is awaited
+// before process.exit() is called, ensuring deterministic exit ordering.
 // ---------------------------------------------------------------------------
 
 /**
@@ -130,6 +147,33 @@ async function checkStartupFile(filePath, label, fixHint) {
   }
 }
 
+/**
+ * Assert that a non-critical build artifact exists on disk via `fs.statSync`.
+ * Unlike checkStartupFile, this does NOT exit on failure — the server continues
+ * in a degraded-but-functional mode.  Emits a WARN log and, in production,
+ * fires a fire-and-forget Slack alert so ops are notified.
+ *
+ * @param {string} filePath Absolute path of the expected build artifact.
+ * @param {string} label    Short human-readable name used in log / alert text.
+ * @param {string} fixHint  One-sentence remedy to include in the Slack alert.
+ * @returns {Promise<void>}
+ */
+async function warnStartupFile(filePath, label, fixHint) {
+  try {
+    fs.statSync(filePath);
+  } catch (err) {
+    console.warn(`WARN: ${label} missing at startup: ${err.message}`);
+    if (process.env.NODE_ENV === "production") {
+      const slackMsg =
+        `:warning: *presentail-web: ${label} missing at startup*\n` +
+        `\`${filePath}\` could not be found (${err.code ?? err.message}). ` +
+        `${fixHint} ` +
+        "The server will continue running in a degraded mode.";
+      sendSlackAlert(slackMsg).catch(() => {});
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Guarded dynamic imports for seo-inject.mjs and sidecar-cache.mjs.
 //
@@ -138,6 +182,14 @@ async function checkStartupFile(filePath, label, fixHint) {
 // Using static `import` for these modules would cause an unstructured Node.js
 // crash if a file is missing or corrupt — before any guard code runs.  Dynamic
 // import lets us catch the failure and emit a structured Slack alert.
+//
+// seo-inject.mjs is FATAL — the module API (injectSeoTagsAsync, initImageDimsDb)
+// is called unconditionally on every HTML request; without it the server cannot
+// serve pages at all.
+//
+// sidecar-cache.mjs is NON-FATAL — its only job is populating SIDECAR_PATHS.
+// Without it the Set stays empty and the server falls back to on-the-fly
+// compression, which is slower but correct.
 // ---------------------------------------------------------------------------
 try {
   ({ injectSeoTagsAsync, initImageDimsDb } = await import("./seo-inject.mjs"));
@@ -154,13 +206,18 @@ try {
 try {
   ({ collectSidecars } = await import("./sidecar-cache.mjs"));
 } catch (err) {
-  await fatalStartupError(
-    ":rotating_light: *presentail-web: sidecar-cache.mjs failed to load at startup*\n" +
-      `Could not import \`sidecar-cache.mjs\` (${err.code ?? err.message}). ` +
-      "The file may be missing or contain a syntax error. " +
-      "The server cannot serve the app and will exit now.",
-    `sidecar-cache.mjs failed to load at startup: ${err.message}`,
-  );
+  console.warn(`WARN: sidecar-cache.mjs failed to load at startup: ${err.message}`);
+  if (process.env.NODE_ENV === "production") {
+    sendSlackAlert(
+      ":warning: *presentail-web: sidecar-cache.mjs failed to load at startup*\n" +
+        `Could not import \`sidecar-cache.mjs\` (${err.code ?? err.message}). ` +
+        "The file may be missing or contain a syntax error. " +
+        "The server will continue running — all assets will be served with on-the-fly compression instead of pre-compressed sidecars.",
+    ).catch(() => {});
+  }
+  // Safe no-op fallback: leave SIDECAR_PATHS empty so every request falls
+  // through to on-the-fly Brotli/gzip compression.
+  collectSidecars = () => {};
 }
 
 // ---------------------------------------------------------------------------
@@ -327,10 +384,12 @@ const indexHtml = await readStartupFile(
 );
 
 // ---------------------------------------------------------------------------
-// Check site.webmanifest — present in every Vite build; its absence indicates
-// a partial or failed build that may leave other assets broken as well.
+// Check site.webmanifest — present in every Vite build; its absence suggests
+// a partial build, but the app can still serve correctly without it (browsers
+// requesting it will get a 404, which does not block core shopping flows).
+// Non-fatal: logs WARN + Slack alert and continues.
 // ---------------------------------------------------------------------------
-await checkStartupFile(
+await warnStartupFile(
   path.join(DIST, "site.webmanifest"),
   "dist/site.webmanifest",
   "The Vite build step may not have run or completed only partially — fix by running `vite build` and restarting the server.",
