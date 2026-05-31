@@ -1,46 +1,41 @@
-/**
- * Prefetch a list of lazy-imported route modules during browser idle time so
- * their JS chunks are already in the module cache when the shopper navigates
- * to them.  Uses `requestIdleCallback` when available (all modern browsers)
- * and falls back to a short `setTimeout` in environments that lack it (Safari
- * < 16, server-side renders).
- *
- * Each import factory is called at most once — the browser / module cache
- * deduplicates subsequent calls, so there is no risk of double-fetching.
- *
- * Usage:
- *   prefetchRoutes([
- *     () => import("@/pages/Home"),
- *     () => import("@/pages/Shop"),
- *   ]);
- */
+type Loader = () => Promise<unknown>;
 
-type ImportFactory = () => Promise<unknown>;
+const prefetched = new Set<Loader>();
 
-const ric: (cb: IdleRequestCallback, opts?: IdleRequestOptions) => number =
-  typeof requestIdleCallback !== "undefined"
-    ? (cb, opts) => requestIdleCallback(cb, opts)
-    : (cb) => window.setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 50 }), 200);
+const idle: (cb: () => void) => void =
+  typeof requestIdleCallback === "function"
+    ? (cb) => requestIdleCallback(cb, { timeout: 3000 })
+    : (cb) => setTimeout(cb, 300);
 
 /**
- * Schedule prefetch of each module factory during idle time.
- * Returns a cleanup function that cancels any pending idle callbacks.
+ * Prefetch a list of dynamic-import loaders during browser idle time.
+ * Each loader is called at most once regardless of how many times this
+ * function is invoked, so it is safe to call from multiple components.
  */
-export function prefetchRoutes(factories: ImportFactory[]): () => void {
-  const handles: number[] = [];
-  for (const factory of factories) {
-    const handle = ric(() => {
-      factory().catch(() => {});
-    }, { timeout: 5000 });
-    handles.push(handle);
+export function prefetchOnIdle(loaders: Loader[]): void {
+  for (const loader of loaders) {
+    if (prefetched.has(loader)) continue;
+    prefetched.add(loader);
+    idle(() => {
+      loader().catch(() => {});
+    });
   }
+}
 
-  const cancelRic: (handle: number) => void =
-    typeof cancelIdleCallback !== "undefined"
-      ? (h) => cancelIdleCallback(h)
-      : (h) => clearTimeout(h);
-
-  return () => {
-    for (const h of handles) cancelRic(h);
+/**
+ * Returns `onMouseEnter` / `onFocus` props that trigger a prefetch the
+ * first time the user hovers or tabs to the element.
+ * Pass the same function reference on every render (e.g. a module-level
+ * constant) so the `prefetched` set de-duplication works correctly.
+ */
+export function prefetchProps(loader: Loader): {
+  onMouseEnter: () => void;
+  onFocus: () => void;
+} {
+  const trigger = () => {
+    if (prefetched.has(loader)) return;
+    prefetched.add(loader);
+    loader().catch(() => {});
   };
+  return { onMouseEnter: trigger, onFocus: trigger };
 }

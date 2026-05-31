@@ -103,6 +103,7 @@ export default defineConfig(async ({ command }) => {
       emptyOutDir: true,
       cssCodeSplit: true,
       minify: "esbuild",
+      modulePreload: { polyfill: true },
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -118,6 +119,17 @@ export default defineConfig(async ({ command }) => {
               id.includes("node_modules/scheduler/")
             )
               return "vendor-react";
+            if (id.includes("node_modules/framer-motion/"))
+              return "vendor-framer";
+            if (id.includes("node_modules/lucide-react/"))
+              return "vendor-lucide";
+            if (id.includes("node_modules/@radix-ui/"))
+              return "vendor-radix";
+            if (
+              id.includes("node_modules/embla-carousel") ||
+              id.includes("node_modules/embla-carousel-react")
+            )
+              return "vendor-embla";
             if (id.includes("node_modules/")) return "vendor";
           },
         },

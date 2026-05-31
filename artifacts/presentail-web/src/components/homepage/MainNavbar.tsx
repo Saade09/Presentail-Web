@@ -11,6 +11,14 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { useBrands } from "@/lib/queries";
+import { prefetchProps } from "@/lib/prefetch";
+import {
+  loadCart,
+  loadFavorites,
+  loadAccount,
+  loadSignIn,
+  loadShop,
+} from "@/lib/pageLoaders";
 
 type MegaItem = {
   label: string;
@@ -265,7 +273,7 @@ export function MainNavbar() {
               <button
                 key={menu.key}
                 type="button"
-                onMouseEnter={() => openMenu(menu.key)}
+                onMouseEnter={() => { openMenu(menu.key); loadShop().catch(() => {}); }}
                 onMouseLeave={scheduleClose}
                 onClick={() => setActiveMenu(activeMenu === menu.key ? null : menu.key)}
                 aria-haspopup="true"
@@ -312,21 +320,21 @@ export function MainNavbar() {
           />
 
           {user && (
-            <Link href="/favorites" aria-label={t("nav.favoritesAria")}>
+            <Link href="/favorites" aria-label={t("nav.favoritesAria")} {...prefetchProps(loadFavorites)}>
               <Button variant="ghost" size="icon" data-testid="button-favorites">
                 <Heart className="w-5 h-5" />
               </Button>
             </Link>
           )}
 
-          <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")}>
+          <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")} {...prefetchProps(user ? loadAccount : loadSignIn)}>
             <Button variant="ghost" size="icon" data-testid="button-account">
               <User className="w-5 h-5" />
             </Button>
           </Link>
 
           {!isShopPage && (
-            <Link href="/cart" aria-label={t("nav.bagAria")}>
+            <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
               <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
                 <ShoppingBag className="w-5 h-5" />
                 <AnimatePresence>

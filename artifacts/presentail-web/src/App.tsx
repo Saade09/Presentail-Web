@@ -7,6 +7,20 @@ import {
 } from "wouter";
 import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { prefetchOnIdle } from "@/lib/prefetch";
+import {
+  loadHome,
+  loadShop,
+  loadProductDetail,
+  loadCart,
+  loadCheckout,
+  loadSignIn,
+  loadSignUp,
+  loadAccount,
+  loadFavorites,
+  loadBrands,
+  loadBrandDetail,
+} from "@/lib/pageLoaders";
 import {
   ClerkProvider,
   useAuth as useClerkAuth,
@@ -44,18 +58,18 @@ import { PageLoader } from "@/components/PageLoader";
 import { prefetchRoutes } from "@/lib/prefetch";
 
 const Landing = lazy(() => import("@/pages/Landing"));
-const Home = lazy(() => import("@/pages/Home"));
-const Shop = lazy(() => import("@/pages/Shop"));
-const ProductDetail = lazy(() => import("@/pages/ProductDetail"));
-const Brands = lazy(() => import("@/pages/Brands"));
-const BrandDetail = lazy(() => import("@/pages/BrandDetail"));
-const Cart = lazy(() => import("@/pages/Cart"));
-const Checkout = lazy(() => import("@/pages/Checkout"));
+const Home = lazy(loadHome);
+const Shop = lazy(loadShop);
+const ProductDetail = lazy(loadProductDetail);
+const Brands = lazy(loadBrands);
+const BrandDetail = lazy(loadBrandDetail);
+const Cart = lazy(loadCart);
+const Checkout = lazy(loadCheckout);
 const OrderConfirmed = lazy(() => import("@/pages/OrderConfirmed"));
-const Account = lazy(() => import("@/pages/Account"));
+const Account = lazy(loadAccount);
 const PersonalInformation = lazy(() => import("@/pages/PersonalInformation"));
-const SignInPage = lazy(() => import("@/pages/SignIn"));
-const SignUpPage = lazy(() => import("@/pages/SignUp"));
+const SignInPage = lazy(loadSignIn);
+const SignUpPage = lazy(loadSignUp);
 const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
 const Careers = lazy(() => import("@/pages/Careers"));
 const Blog = lazy(() => import("@/pages/Blog"));
@@ -68,7 +82,7 @@ const Contact = lazy(() => import("@/pages/Contact"));
 const Faqs = lazy(() => import("@/pages/Faqs"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
-const Favorites = lazy(() => import("@/pages/Favorites"));
+const Favorites = lazy(loadFavorites);
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -337,15 +351,25 @@ function CurrencyDataLoader() {
   return null;
 }
 
+// Routes prefetched on browser idle after the app first mounts, ordered by
+// expected traffic volume so the highest-value chunks load first.
+const IDLE_PREFETCH = [
+  loadHome,
+  loadShop,
+  loadProductDetail,
+  loadCart,
+  loadSignIn,
+  loadCheckout,
+  loadAccount,
+  loadFavorites,
+  loadBrands,
+  loadBrandDetail,
+  loadSignUp,
+];
+
 function App() {
   useEffect(() => {
-    return prefetchRoutes([
-      () => import("@/pages/Home"),
-      () => import("@/pages/Shop"),
-      () => import("@/pages/ProductDetail"),
-      () => import("@/pages/Cart"),
-      () => import("@/pages/Checkout"),
-    ]);
+    prefetchOnIdle(IDLE_PREFETCH);
   }, []);
 
   return (
