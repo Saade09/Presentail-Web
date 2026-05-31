@@ -6,22 +6,26 @@ on:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
+      - "artifacts/api-server/**"
       - "lib/**"
       - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/src/checkHardcodedMobileStrings.ts"
+      - "scripts/src/checkHardcodedApiStrings.ts"
       - "scripts/package.json"
       - ".github/workflows/check-translations.yml"
   pull_request:
     paths:
       - "artifacts/presentail/**"
       - "artifacts/presentail-web/**"
+      - "artifacts/api-server/**"
       - "lib/**"
       - "scripts/src/checkUnusedMobileTranslationKeys.ts"
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/src/checkHardcodedMobileStrings.ts"
+      - "scripts/src/checkHardcodedApiStrings.ts"
       - "scripts/package.json"
       - ".github/workflows/check-translations.yml"
   # Smoke-test trigger: manually validate that the path-filter outputs are
@@ -36,8 +40,9 @@ on:
         description: >
           Simulate which artifact changed.  Use "detect" to run the normal
           paths-filter against the HEAD commit (useful after a direct push to
-          main); use "mobile-only", "web-only", or "both" to force-enable the
-          corresponding downstream jobs without relying on git diff.
+          main); use "mobile-only", "web-only", "api-only", or "all" to
+          force-enable the corresponding downstream jobs without relying on git
+          diff.
         required: false
         default: detect
         type: choice
@@ -45,7 +50,9 @@ on:
           - detect
           - mobile-only
           - web-only
+          - api-only
           - both
+          - all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
@@ -65,6 +72,7 @@ jobs:
       # step that did run.
       mobile: ${{ steps.filter.outputs.mobile || steps.override.outputs.mobile }}
       web: ${{ steps.filter.outputs.web || steps.override.outputs.web }}
+      api: ${{ steps.filter.outputs.api || steps.override.outputs.api }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -102,6 +110,11 @@ jobs:
               - 'scripts/src/checkHardcodedWebStrings.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
+            api:
+              - 'artifacts/api-server/**'
+              - 'scripts/src/checkHardcodedApiStrings.ts'
+              - 'scripts/package.json'
+              - '.github/workflows/check-translations.yml'
 
       - name: Override filter outputs for smoke-test
         id: override
@@ -112,14 +125,18 @@ jobs:
           sim="${{ github.event.inputs.simulate_changed }}"
           mobile=false
           web=false
+          api=false
           case "$sim" in
             mobile-only) mobile=true ;;
             web-only)    web=true ;;
+            api-only)    api=true ;;
             both)        mobile=true; web=true ;;
+            all)         mobile=true; web=true; api=true ;;
           esac
           echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
-          echo "web=$web"    >> "$GITHUB_OUTPUT"
-          echo "Smoke-test: simulate_changed=$sim → mobile=$mobile web=$web"
+          echo "web=$web"       >> "$GITHUB_OUTPUT"
+          echo "api=$api"       >> "$GITHUB_OUTPUT"
+          echo "Smoke-test: simulate_changed=$sim → mobile=$mobile web=$web api=$api"
 
   locale-dictionary-tests:
     name: Locale dictionary tests (web)
@@ -889,4 +906,148 @@ jobs:
         if: steps.check.outcome == 'failure'
         run: |
           echo "Mobile hardcoded-strings check failed — see output above and the PR comment for details."
+          exit 1
+
+  check-hardcoded-api-strings:
+    name: Hardcoded English strings (API server)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for hardcoded English strings in API server TS
+        id: check
+        continue-on-error: true
+        env:
+          HARDCODED_STRINGS_JSON_OUT: ${{ github.workspace }}/hardcoded-api-strings-results.json
+        run: |
+          set +e
+          pnpm --filter @workspace/scripts run check-hardcoded-api-strings
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      - name: Post or update PR comment with hardcoded-api-strings check results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          CHECK_OUTCOME: ${{ steps.check.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- hardcoded-api-strings-check-bot -->';
+            const passed = process.env.CHECK_OUTCOME === 'success';
+
+            function readJson(filePath) {
+              try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+              catch { return null; }
+            }
+
+            function details(summary, body) {
+              return `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>\n`;
+            }
+
+            function kindLabel(hit) {
+              if (hit.kind === 'msg-prop') return `prop: ${hit.attr}`;
+              if (hit.kind === 'fallback-string') return '?? fallback';
+              return hit.kind;
+            }
+
+            function buildSection(data) {
+              const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              if (!data) return '⚠️ Results file missing — the check may have failed before writing its output. Check the [workflow log](' + runUrl + ') for details.\n';
+              if (data.passed) return null;
+
+              const parts = [];
+              for (const { file, hits } of data.byFile) {
+                const lines = hits.map(h => {
+                  const attrPart = h.attr ? ` (\`${h.attr}\`)` : '';
+                  return `- line ${h.line} \`[${kindLabel(h)}]\`${attrPart} — "${h.text}"`;
+                }).join('\n');
+                parts.push(details(
+                  `\`${file}\` (${hits.length} hit${hits.length === 1 ? '' : 's'})`,
+                  lines
+                ));
+              }
+              return parts.join('\n');
+            }
+
+            const data = readJson('hardcoded-api-strings-results.json');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body;
+            if (passed) {
+              body = [
+                MARKER,
+                '## ✅ API hardcoded-strings check passed',
+                '',
+                'No hardcoded English strings detected in API server TS files.',
+                '',
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].join('\n');
+            } else {
+              const section = buildSection(data);
+              const hitCount = data?.hitCount ?? '?';
+              const fileCount = data?.fileCount ?? '?';
+              body = [
+                MARKER,
+                '## ❌ API hardcoded strings detected',
+                '',
+                `Found **${hitCount}** likely-hardcoded English string${hitCount === 1 ? '' : 's'} across **${fileCount}** API server file${fileCount === 1 ? '' : 's'}.`,
+                'For push notification strings (`title`, `body`): move copy to a locale-aware helper.',
+                'For API error messages (`message`): use a machine-readable `code` field that clients translate.',
+                'False positives can be suppressed with a trailing `// i18n-ignore` comment.',
+                '',
+                section,
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].filter(s => s != null).join('\n');
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else if (!passed) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail job if API hardcoded-strings check failed
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "API hardcoded-strings check failed — see output above and the PR comment for details."
           exit 1
