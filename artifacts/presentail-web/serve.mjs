@@ -109,6 +109,30 @@ const indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 const SIDECAR_PATHS = new Set();
 collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
 
+// ---------------------------------------------------------------------------
+// Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
+// ---------------------------------------------------------------------------
+async function sendSlackAlert(text) {
+  const webhookUrl = process.env.ALERTS_SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5_000);
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      console.warn(`WARN: Slack webhook responded ${res.status} (sidecar alert)`);
+    }
+  } catch (err) {
+    console.warn(`WARN: Slack webhook send failed (sidecar alert): ${err?.message}`);
+  }
+}
+
 {
   let brCount = 0;
   let gzCount = 0;
@@ -119,6 +143,12 @@ collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
   console.log(`Sidecar cache: ${brCount} .br + ${gzCount} .gz paths loaded`);
   if (brCount === 0 && gzCount === 0 && process.env.NODE_ENV === "production") {
     console.warn("WARN: Sidecar cache is empty in production — compress-assets.mjs may not have run");
+    sendSlackAlert(
+      ":warning: *presentail-web: pre-compressed assets missing*\n" +
+      "Both `.br` and `.gz` sidecar counts are 0 in production. " +
+      "`compress-assets.mjs` may not have run during the last deploy. " +
+      "All JS/CSS is being served with on-the-fly compression — fix by re-running `compress-assets.mjs` and restarting the server.",
+    ).catch(() => {});
   }
 }
 
