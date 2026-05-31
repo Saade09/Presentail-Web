@@ -315,6 +315,77 @@ export async function runAuditNow(): Promise<AuditSummary> {
       })),
     };
     lastAuditSummary = summary;
+
+    if (failing.length > 0 || warned.length > 0) {
+      const localeOrder = ["LB", "AE", "CY"];
+      const localeLabels: Record<string, string> = {
+        LB: "Lebanon",
+        AE: "UAE",
+        CY: "Cyprus",
+      };
+
+      const resultsByLocale = new Map<string, SeoPageResult[]>();
+      for (const r of results) {
+        if (!resultsByLocale.has(r.locale)) resultsByLocale.set(r.locale, []);
+        resultsByLocale.get(r.locale)!.push(r);
+      }
+
+      const lines: string[] = [];
+      for (const loc of localeOrder) {
+        const group = resultsByLocale.get(loc);
+        if (!group) continue;
+        lines.push(`*${localeLabels[loc] ?? loc}*`);
+        for (const r of group) {
+          const status = classifyResult(r);
+          const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
+          let detail = "";
+          if (r.fetchFailed) {
+            detail = "could not fetch page";
+          } else if (!r.ogImage) {
+            detail = "og:image missing";
+          } else if (r.ogImageReachable === false) {
+            detail = "og:image not reachable";
+          } else if (r.fallbackUsed) {
+            detail = "using fallback site-wide image";
+          } else if (r.ogImageSizeOk === false) {
+            detail = "og:image dimensions wrong";
+          } else {
+            detail = "ok";
+          }
+          lines.push(`  ${icon} *${r.label}* — ${detail}`);
+        }
+      }
+
+      const summaryParts: string[] = [];
+      if (failing.length > 0) summaryParts.push(`${failing.length} failing`);
+      if (warned.length > 0) summaryParts.push(`${warned.length} warned`);
+      summaryParts.push(`${passing.length} ok`);
+
+      const severity = failing.length > 0 ? "warn" : "info";
+
+      await sendAlert({
+        title: `SEO on-demand audit (${ranAt.slice(0, 10)}): ${summaryParts.join(", ")}`,
+        body:
+          `*On-demand* OG-image check across ${results.length} key Presentail pages ` +
+          `(triggered manually — this is not the nightly digest). ` +
+          (failing.length > 0
+            ? `Found ${failing.length} page(s) with broken or missing OG images. ` +
+              `Link previews on WhatsApp, iMessage, and Slack may be showing blank or wrong images. `
+            : `Found no hard failures but ${warned.length} page(s) with warnings. `) +
+          `Results:\n${lines.join("\n")}`,
+        severity,
+        fields: [
+          { title: "Run type", value: "On-demand (manual trigger)" },
+          { title: "Ran at (UTC)", value: ranAt },
+          { title: "Pages checked", value: String(results.length) },
+          { title: "Failing (red)", value: String(failing.length) },
+          { title: "Warned (yellow)", value: String(warned.length) },
+          { title: "Passing (green)", value: String(passing.length) },
+        ],
+        source: "seoAuditMonitor.runAuditNow",
+      });
+    }
+
     return summary;
   } finally {
     running = false;
