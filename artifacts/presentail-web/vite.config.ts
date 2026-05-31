@@ -103,6 +103,7 @@ export default defineConfig(async ({ command }) => {
       emptyOutDir: true,
       cssCodeSplit: true,
       minify: "esbuild",
+      manifest: true,
       modulePreload: { polyfill: true },
       rollupOptions: {
         output: {

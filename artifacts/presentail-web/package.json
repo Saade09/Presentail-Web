@@ -14,7 +14,8 @@
     "check:i18n": "pnpm --filter @workspace/scripts run check-unused-web-translations",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

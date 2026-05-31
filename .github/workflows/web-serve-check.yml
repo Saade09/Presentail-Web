@@ -54,3 +54,6 @@ jobs:
 
       - name: Check sidecar blocking (.br/.gz paths return 404)
         run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234
+
+      - name: Chunk budget report (instant vs on-demand, ≤200 kB brotli per chunk)
+        run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
