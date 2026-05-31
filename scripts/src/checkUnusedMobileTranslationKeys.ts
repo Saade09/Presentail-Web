@@ -616,12 +616,29 @@ if (frOnlyKeys.length > 0) {
 
 // ── Check 5: placeholder / copy-paste strings ─────────────────────────────────
 // Two classes of likely-untranslated strings are flagged:
-//   (a) AR or FR value is byte-for-byte identical to the EN value.
+//   (a) AR or FR value is byte-for-byte identical to the EN value, AND the EN
+//       value is at least MIN_COPY_PASTE_LENGTH characters long.  Short values
+//       (brand names, abbreviations, internationally shared terms like "Total",
+//       "Express", "OK", "MM", "Presentail") are legitimately identical across
+//       locales and are skipped to avoid false positives.
 //   (b) AR value contains no Arabic-script characters (U+0600–U+06FF) and is
 //       not language-neutral (digits, punctuation, symbols are fine as-is).
+//       No length threshold applies here — even a short AR value with no
+//       Arabic script is a genuine translation oversight.
 //
 // Values that could not be parsed (template literals, multi-line) are silently
 // skipped — false negatives are acceptable, false positives are not.
+
+/**
+ * Minimum EN-value character length for the copy-paste identical check.
+ *
+ * Values shorter than this are skipped to avoid false-positives on brand
+ * names, abbreviations, and internationally shared terms (e.g. "Express",
+ * "Presentail", "Total", "OK") that are legitimately identical across locales.
+ * Any EN value of 25+ characters that is also untouched in AR or FR is almost
+ * certainly a copy-paste oversight rather than an intentional match.
+ */
+const MIN_COPY_PASTE_LENGTH = 25;
 
 type PlaceholderHit = {
   locale: string;
@@ -651,8 +668,10 @@ for (const [locale, localeValueMap] of [
     // abbreviations — values that are legitimately identical across locales).
     if (noTranslateKeys.has(key)) continue;
 
-    // (a) Identical to EN value
-    if (localeVal === enVal) {
+    // (a) Identical to EN value — only flag when the EN string is long enough
+    // that an accidental copy-paste is likely.  Short proper nouns, brand
+    // names, and abbreviations are often legitimately identical across locales.
+    if (localeVal === enVal && enVal.length >= MIN_COPY_PASTE_LENGTH) {
       placeholderHits.push({
         locale,
         key,
@@ -663,9 +682,13 @@ for (const [locale, localeValueMap] of [
       continue;
     }
 
-    // (b) AR-specific: no Arabic-script characters in a non-neutral value
+    // (b) AR-specific: no Arabic-script characters in a non-neutral value.
+    // Skip values that are identical to EN — those are already evaluated (and
+    // potentially intentionally skipped due to length) by sub-check (a) above.
+    // Flagging them here too would produce a duplicate / misleading diagnostic.
     if (
       locale === "AR" &&
+      localeVal !== enVal &&
       !containsArabicScript(localeVal) &&
       !isLanguageNeutralValue(localeVal)
     ) {
