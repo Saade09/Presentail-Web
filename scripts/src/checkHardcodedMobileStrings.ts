@@ -68,7 +68,7 @@ export const SKIP_DIRS = new Set([
 ]);
 
 // Skip dirs used when scanning shared libs (subset — no mobile-specific exclusions)
-const LIB_SKIP_DIRS = new Set([
+export const LIB_SKIP_DIRS = new Set([
   "node_modules",
   "dist",
   ".turbo",

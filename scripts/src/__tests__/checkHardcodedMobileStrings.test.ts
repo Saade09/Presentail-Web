@@ -6,12 +6,19 @@
  * and the i18n-ignore suppression annotation.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   stripExpressionsAndTrim,
   containsArabicScript,
   looksLikeEnglishProse,
   shouldSkipLine,
+  collectFiles,
+  SKIP_DIRS,
+  LIB_SKIP_DIRS,
+  SKIP_FILE_SUFFIXES,
   INLINE_JSX_TEXT_RE,
   STANDALONE_TEXT_RE,
   CODE_KEYWORDS_RE,
@@ -508,6 +515,329 @@ describe("Pattern E — NAV_OPTION_RE (navigation option strings)", () => {
   it("does not match a JSX expression value", () => {
     const matches = matchAll("  options={{ title: t.orders_title }}");
     expect(matches).toHaveLength(0);
+  });
+});
+
+// ── collectFiles ──────────────────────────────────────────────────────────────
+
+/**
+ * Helpers that build a temporary directory tree, run collectFiles against it,
+ * and return paths relative to the temp root so assertions stay readable.
+ */
+function makeTmpTree(
+  structure: Record<string, string | null>,
+): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "hcs-test-"));
+  for (const [rel, content] of Object.entries(structure)) {
+    const abs = path.join(root, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    if (content !== null) fs.writeFileSync(abs, content ?? "", "utf8");
+  }
+  return root;
+}
+
+function relPaths(root: string, files: string[]): string[] {
+  return files.map((f) => path.relative(root, f)).sort();
+}
+
+describe("collectFiles — basic file collection", () => {
+  let tmpDir: string;
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  it("collects .ts and .tsx files", () => {
+    tmpDir = makeTmpTree({
+      "src/Button.tsx": "<Text>Hello</Text>",
+      "src/utils.ts": "export const x = 1;",
+    });
+    const files = collectFiles(tmpDir, new Set());
+    expect(relPaths(tmpDir, files)).toEqual(["src/Button.tsx", "src/utils.ts"]);
+  });
+
+  it("ignores non-TypeScript files", () => {
+    tmpDir = makeTmpTree({
+      "src/Component.tsx": "",
+      "src/styles.css": "",
+      "src/data.json": "",
+      "src/image.png": "",
+    });
+    const files = collectFiles(tmpDir, new Set());
+    expect(relPaths(tmpDir, files)).toEqual(["src/Component.tsx"]);
+  });
+
+  it("ignores .test.ts and .test.tsx files", () => {
+    tmpDir = makeTmpTree({
+      "src/Screen.tsx": "",
+      "src/Screen.test.tsx": "",
+      "src/helpers.ts": "",
+      "src/helpers.test.ts": "",
+    });
+    const files = collectFiles(tmpDir, new Set());
+    expect(relPaths(tmpDir, files)).toEqual(["src/Screen.tsx", "src/helpers.ts"]);
+  });
+
+  it("ignores .d.ts declaration files", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      "src/index.d.ts": "",
+      "src/types.d.ts": "",
+    });
+    const files = collectFiles(tmpDir, new Set());
+    expect(relPaths(tmpDir, files)).toEqual(["src/index.ts"]);
+  });
+
+  it("recurses into subdirectories", () => {
+    tmpDir = makeTmpTree({
+      "a/b/c/Deep.tsx": "",
+      "Root.tsx": "",
+    });
+    const files = collectFiles(tmpDir, new Set());
+    expect(relPaths(tmpDir, files)).toEqual(["Root.tsx", "a/b/c/Deep.tsx"]);
+  });
+});
+
+describe("collectFiles — SKIP_DIRS (mobile artifact exclusions)", () => {
+  let tmpDir: string;
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  it("excludes the node_modules directory", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "node_modules/lib/index.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the dist directory", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "dist/App.js": "",
+      "dist/App.d.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the __generated__ directory", () => {
+    tmpDir = makeTmpTree({
+      "src/Screen.tsx": "",
+      "__generated__/api.ts": "",
+      "__generated__/hooks.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/Screen.tsx"]);
+  });
+
+  it("excludes the .expo directory", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      ".expo/types/router.d.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the e2e directory (playwright tests)", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "e2e/checkout.spec.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the assets directory (images/fonts)", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "assets/fonts/index.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the data directory (static data constants)", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "data/countries.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the scripts directory", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "scripts/reset.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes the .turbo cache directory", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      ".turbo/cache/index.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("excludes multiple skip dirs simultaneously", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "node_modules/react/index.ts": "",
+      "dist/bundle.ts": "",
+      "__generated__/api.ts": "",
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/App.tsx"]);
+  });
+
+  it("does not exclude a directory whose name merely contains a skip-dir name", () => {
+    tmpDir = makeTmpTree({
+      "src/App.tsx": "",
+      "my-dist-output/App.tsx": "",   // 'dist' is a substring, not the dir name
+    });
+    const files = collectFiles(tmpDir, SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["my-dist-output/App.tsx", "src/App.tsx"]);
+  });
+});
+
+describe("collectFiles — LIB_SKIP_DIRS (shared lib exclusions)", () => {
+  let tmpDir: string;
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  it("excludes node_modules from lib scans", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      "node_modules/dep/index.ts": "",
+    });
+    const files = collectFiles(tmpDir, LIB_SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/index.ts"]);
+  });
+
+  it("excludes dist from lib scans", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      "dist/index.js": "",
+      "dist/index.d.ts": "",
+    });
+    const files = collectFiles(tmpDir, LIB_SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/index.ts"]);
+  });
+
+  it("excludes __generated__ from lib scans", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      "__generated__/schema.ts": "",
+    });
+    const files = collectFiles(tmpDir, LIB_SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/index.ts"]);
+  });
+
+  it("excludes .turbo cache from lib scans", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      ".turbo/cache/ts-build.json": "",
+    });
+    const files = collectFiles(tmpDir, LIB_SKIP_DIRS);
+    expect(relPaths(tmpDir, files)).toEqual(["src/index.ts"]);
+  });
+
+  it("does NOT exclude mobile-only dirs (e2e, assets, data, scripts) — those are not in LIB_SKIP_DIRS", () => {
+    tmpDir = makeTmpTree({
+      "src/index.ts": "",
+      "e2e/spec.ts": "",
+      "assets/icons.ts": "",
+      "data/constants.ts": "",
+    });
+    const files = collectFiles(tmpDir, LIB_SKIP_DIRS);
+    // e2e, assets, and data are NOT in LIB_SKIP_DIRS — they should be collected
+    expect(relPaths(tmpDir, files)).toContain("e2e/spec.ts");
+    expect(relPaths(tmpDir, files)).toContain("assets/icons.ts");
+    expect(relPaths(tmpDir, files)).toContain("data/constants.ts");
+    expect(relPaths(tmpDir, files)).toContain("src/index.ts");
+  });
+
+  it("LIB_SKIP_DIRS contains the four expected core directories", () => {
+    expect(LIB_SKIP_DIRS.has("node_modules")).toBe(true);
+    expect(LIB_SKIP_DIRS.has("dist")).toBe(true);
+    expect(LIB_SKIP_DIRS.has("__generated__")).toBe(true);
+    expect(LIB_SKIP_DIRS.has(".turbo")).toBe(true);
+  });
+
+  it("LIB_SKIP_DIRS does not contain mobile-specific exclusions", () => {
+    expect(LIB_SKIP_DIRS.has(".expo")).toBe(false);
+    expect(LIB_SKIP_DIRS.has("e2e")).toBe(false);
+    expect(LIB_SKIP_DIRS.has("assets")).toBe(false);
+    expect(LIB_SKIP_DIRS.has("data")).toBe(false);
+    expect(LIB_SKIP_DIRS.has("scripts")).toBe(false);
+  });
+});
+
+describe("SKIP_FILE_SUFFIXES — translations and SVG brand marks", () => {
+  it("contains the translations catalogue suffix", () => {
+    expect(SKIP_FILE_SUFFIXES).toContain("lib/translations.ts");
+  });
+
+  it("contains the Amex SVG brand mark suffix", () => {
+    expect(SKIP_FILE_SUFFIXES).toContain("components/paymentLogos/amex.ts");
+  });
+
+  it("contains the Visa SVG brand mark suffix", () => {
+    expect(SKIP_FILE_SUFFIXES).toContain("components/paymentLogos/visa.ts");
+  });
+
+  it("filters out the translations catalogue by repo-relative suffix", () => {
+    const fakeFiles = [
+      "/repo/artifacts/presentail/src/Screen.tsx",
+      "/repo/artifacts/presentail/lib/translations.ts",
+    ];
+    const repoRoot = "/repo";
+    const filtered = fakeFiles.filter((f) => {
+      const rel = f.slice(repoRoot.length + 1); // repo-relative path
+      return !SKIP_FILE_SUFFIXES.some((suffix) => rel.endsWith(suffix));
+    });
+    expect(filtered).toEqual(["/repo/artifacts/presentail/src/Screen.tsx"]);
+  });
+
+  it("filters out the Amex SVG brand mark by repo-relative suffix", () => {
+    const fakeFiles = [
+      "/repo/artifacts/presentail/src/Screen.tsx",
+      "/repo/artifacts/presentail/components/paymentLogos/amex.ts",
+    ];
+    const repoRoot = "/repo";
+    const filtered = fakeFiles.filter((f) => {
+      const rel = f.slice(repoRoot.length + 1);
+      return !SKIP_FILE_SUFFIXES.some((suffix) => rel.endsWith(suffix));
+    });
+    expect(filtered).toEqual(["/repo/artifacts/presentail/src/Screen.tsx"]);
+  });
+
+  it("filters out the Visa SVG brand mark by repo-relative suffix", () => {
+    const fakeFiles = [
+      "/repo/artifacts/presentail/src/Screen.tsx",
+      "/repo/artifacts/presentail/components/paymentLogos/visa.ts",
+    ];
+    const repoRoot = "/repo";
+    const filtered = fakeFiles.filter((f) => {
+      const rel = f.slice(repoRoot.length + 1);
+      return !SKIP_FILE_SUFFIXES.some((suffix) => rel.endsWith(suffix));
+    });
+    expect(filtered).toEqual(["/repo/artifacts/presentail/src/Screen.tsx"]);
+  });
+
+  it("does not filter a file that merely contains a suffix as a substring mid-path", () => {
+    // A file at "lib/translations.ts.bak" should not be filtered
+    const fakeFiles = [
+      "/repo/artifacts/presentail/lib/translations.ts.bak",
+    ];
+    const repoRoot = "/repo";
+    const filtered = fakeFiles.filter((f) => {
+      const rel = f.slice(repoRoot.length + 1);
+      return !SKIP_FILE_SUFFIXES.some((suffix) => rel.endsWith(suffix));
+    });
+    expect(filtered).toHaveLength(1);
   });
 });
 
