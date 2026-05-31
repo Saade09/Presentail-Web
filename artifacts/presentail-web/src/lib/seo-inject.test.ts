@@ -3582,6 +3582,243 @@ describe("shared-link preview cache — analytics event fired on live failure bu
   });
 });
 
+// ---------------------------------------------------------------------------
+// Bare /product/<slug> locale resolution (no locale prefix in path)
+// Covers the bareProductSlug branch of injectSeoTagsAsync (~line 1700 in
+// seo-inject.mjs): language is derived from hintLang → ?lang= → Accept-Language
+// → "en" fallback so Arabic and French share previews work for mobile-app shares
+// and external integrations that use the un-prefixed /product/<slug> URL form.
+// ---------------------------------------------------------------------------
+
+const BARE_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const BARE_OPTS = {
+  apiBaseUrl: "https://api.bare-locale-test",
+  origin: "https://presentail.bare-locale-test",
+  basePath: "",
+};
+
+function makeBareProductFetch(overrides: {
+  name?: string;
+  description?: string;
+  image?: { uri: string } | null;
+  priceValue?: number;
+} = {}) {
+  const product = {
+    name: "Velvet Rose Bouquet",
+    description: "A dozen long-stem roses.",
+    image: null,
+    priceValue: 75,
+    ...overrides,
+  };
+  return vi.fn().mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ ok: true, product }),
+  });
+}
+
+describe("injectSeoTagsAsync — /product/<slug> bare path — locale resolution", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("produces Arabic OG tags when Accept-Language header is 'ar'", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "ورد مخملي" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-ar-accept-language-unique",
+      { ...BARE_OPTS, acceptLanguage: "ar" },
+    );
+    expect(out).toContain('<html lang="ar" dir="rtl">');
+    expect(out).toContain('<meta property="og:locale" content="ar_AE"');
+  });
+
+  it("passes lang=ar to the product API when Accept-Language is 'ar'", async () => {
+    const fetchMock = makeBareProductFetch({ name: "ورد مخملي" });
+    vi.stubGlobal("fetch", fetchMock);
+    await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-ar-api-lang-unique",
+      { ...BARE_OPTS, acceptLanguage: "ar" },
+    );
+    const productCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/api/woo/product"),
+    );
+    expect(productCall).toBeDefined();
+    expect(String(productCall![0])).toContain("lang=ar");
+  });
+
+  it("uses the Arabic fallback description when the product has no description and Accept-Language is 'ar'", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ description: "" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-ar-fallback-desc-unique",
+      { ...BARE_OPTS, acceptLanguage: "ar" },
+    );
+    // genericFallbackDescription("ar", "product") uses the Arabic template
+    // "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail."
+    expect(out).toContain("اطلب هذه الهدية");
+  });
+
+  it("produces French OG tags when ?lang=fr is in the query string", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Bouquet de Roses" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-fr-query-param-unique",
+      { ...BARE_OPTS, search: "?lang=fr" },
+    );
+    expect(out).toContain('<html lang="fr" dir="ltr">');
+    expect(out).toContain('<meta property="og:locale" content="fr_FR"');
+  });
+
+  it("passes lang=fr to the product API when ?lang=fr is present", async () => {
+    const fetchMock = makeBareProductFetch({ name: "Bouquet de Roses" });
+    vi.stubGlobal("fetch", fetchMock);
+    await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-fr-api-lang-unique",
+      { ...BARE_OPTS, search: "?lang=fr" },
+    );
+    const productCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/api/woo/product"),
+    );
+    expect(productCall).toBeDefined();
+    expect(String(productCall![0])).toContain("lang=fr");
+  });
+
+  it("uses the French fallback description when the product has no description and ?lang=fr", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ description: "" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-fr-fallback-desc-unique",
+      { ...BARE_OPTS, search: "?lang=fr" },
+    );
+    // genericFallbackDescription("fr", "product") uses the French template
+    // "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail."
+    expect(out).toContain("Commandez ce cadeau");
+  });
+
+  it("falls back to English when no lang hint is provided", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Tulip Bunch" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-en-no-hint-unique",
+      { ...BARE_OPTS },
+    );
+    expect(out).toContain('<html lang="en" dir="ltr">');
+    expect(out).toContain('<meta property="og:locale" content="en_US"');
+  });
+
+  it("falls back to English for an unrecognised Accept-Language value", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Tulip Bunch" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-en-unknown-lang-unique",
+      { ...BARE_OPTS, acceptLanguage: "zh-CN" },
+    );
+    expect(out).toContain('<html lang="en" dir="ltr">');
+    expect(out).toContain('<meta property="og:locale" content="en_US"');
+  });
+
+  it("uses the English fallback description when the product has no description and no lang hint", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ description: "" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-en-fallback-desc-unique",
+      { ...BARE_OPTS },
+    );
+    // genericFallbackDescription("en", "product") uses the English template
+    // "Order this gift for delivery in {city}, {country} with Presentail."
+    expect(out).toContain("Order this gift for delivery");
+  });
+
+  it("prefers ?lang= query param over Accept-Language header", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Orchid Vase" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-lang-priority-query-unique",
+      { ...BARE_OPTS, search: "?lang=fr", acceptLanguage: "ar" },
+    );
+    // ?lang=fr wins over Accept-Language: ar
+    expect(out).toContain('<html lang="fr" dir="ltr">');
+    expect(out).toContain('<meta property="og:locale" content="fr_FR"');
+  });
+
+  it("prefers hintLang over ?lang= query param and Accept-Language", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Orchid Vase" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-lang-priority-hint-unique",
+      { ...BARE_OPTS, hintLang: "ar", search: "?lang=fr", acceptLanguage: "en" },
+    );
+    // hintLang=ar wins over ?lang=fr and Accept-Language: en
+    expect(out).toContain('<html lang="ar" dir="rtl">');
+    expect(out).toContain('<meta property="og:locale" content="ar_AE"');
+  });
+
+  it("always uses countryCode=LB and cityId=lb-beirut for the bare product API call", async () => {
+    const fetchMock = makeBareProductFetch({ name: "Rose" });
+    vi.stubGlobal("fetch", fetchMock);
+    await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-country-city-unique",
+      { ...BARE_OPTS },
+    );
+    const productCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/api/woo/product"),
+    );
+    expect(productCall).toBeDefined();
+    expect(String(productCall![0])).toContain("countryCode=LB");
+    expect(String(productCall![0])).toContain("cityId=lb-beirut");
+  });
+
+  it("ignores an invalid ?lang= value and falls back to Accept-Language", async () => {
+    vi.stubGlobal("fetch", makeBareProductFetch({ name: "Rose" }));
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-invalid-query-lang-unique",
+      { ...BARE_OPTS, search: "?lang=xx", acceptLanguage: "ar" },
+    );
+    // "xx" is not in SUPPORTED_LANGS → falls through to Accept-Language: ar
+    expect(out).toContain('<html lang="ar" dir="rtl">');
+  });
+
+  it("falls back to generic preview when the product API returns ok=false", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({ ok: false, json: async () => ({ ok: false }) }),
+    );
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-not-found-unique",
+      { ...BARE_OPTS, acceptLanguage: "ar" },
+    );
+    // No product name in title — falls back to generic landing head.
+    expect(out).not.toContain("bare-not-found-unique | Presentail");
+    expect(out).not.toContain('property="product:price:amount"');
+  });
+
+  it("renders the product name and price in the head for a successful bare product fetch", async () => {
+    vi.stubGlobal(
+      "fetch",
+      makeBareProductFetch({
+        name: "Bare Rose Bouquet",
+        description: "Fresh roses.",
+        priceValue: 65,
+      }),
+    );
+    const out = await injectSeoTagsAsync(
+      BARE_HTML,
+      "/product/bare-success-full-unique",
+      { ...BARE_OPTS },
+    );
+    expect(out).toContain("<title>Bare Rose Bouquet | Presentail</title>");
+    expect(out).toContain('content="Fresh roses."');
+    expect(out).toContain('<meta property="product:price:amount" content="65.00"');
+    expect(out).toContain('<meta property="product:price:currency" content="USD"');
+  });
+});
+
 describe("genericSeoCache — cache-hit, TTL expiry, and FIFO eviction", () => {
   beforeEach(() => {
     genericSeoCache.clear();
