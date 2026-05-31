@@ -9,7 +9,7 @@
     "check-build-integrity": "node check-build-integrity.mjs",
     "start": "test -f dist/public/index.html || { echo 'ERROR: dist/public/index.html is missing — run the Vite build step before starting the server' >&2; exit 1; } && node serve.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm -w run typecheck:libs && tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "check:i18n": "pnpm --filter @workspace/scripts run check-unused-web-translations",
