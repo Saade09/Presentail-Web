@@ -132,9 +132,12 @@ export type DeliveryDay = {
   full: string;
 };
 
-export function dayLabels(todayLabel: string, tomLabel: string): DeliveryDay[] {
+export function dayLabels(
+  todayLabel: string,
+  tomLabel: string,
+  now: Date = new Date(),
+): DeliveryDay[] {
   const out: DeliveryDay[] = [];
-  const now = new Date();
   for (let i = 0; i < 10; i++) {
     const d = new Date(now);
     d.setDate(now.getDate() + i);

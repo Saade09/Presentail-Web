@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   dayLabels,
@@ -28,24 +28,13 @@ function utc(
 // ---------------------------------------------------------------------------
 
 describe("dayLabels — month-end boundaries", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("always returns exactly 10 days", () => {
-    // Freeze on the last day of January.
-    vi.setSystemTime(new Date(2026, 0, 31, 12, 0, 0)); // local noon Jan 31
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2026, 0, 31, 12, 0, 0));
     expect(days).toHaveLength(10);
   });
 
   it("rolls correctly from Jan 31 into February", () => {
-    vi.setSystemTime(new Date(2026, 0, 31, 12, 0, 0));
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2026, 0, 31, 12, 0, 0));
 
     expect(days[0].iso).toBe("2026-01-31");
     expect(days[0].label).toBe("Today");
@@ -60,8 +49,7 @@ describe("dayLabels — month-end boundaries", () => {
   });
 
   it("rolls correctly from Dec 31 into the new year", () => {
-    vi.setSystemTime(new Date(2025, 11, 31, 12, 0, 0));
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2025, 11, 31, 12, 0, 0));
 
     expect(days[0].iso).toBe("2025-12-31");
     expect(days[0].date).toBe("31");
@@ -74,8 +62,7 @@ describe("dayLabels — month-end boundaries", () => {
   });
 
   it("handles Feb 28 on a non-leap year, rolling into March 1", () => {
-    vi.setSystemTime(new Date(2026, 1, 28, 12, 0, 0)); // Feb 28 2026 (not a leap year)
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2026, 1, 28, 12, 0, 0)); // Feb 28 2026 (not a leap year)
 
     expect(days[0].iso).toBe("2026-02-28");
     expect(days[0].date).toBe("28");
@@ -85,8 +72,7 @@ describe("dayLabels — month-end boundaries", () => {
   });
 
   it("handles Feb 29 on a leap year, rolling into March 1", () => {
-    vi.setSystemTime(new Date(2028, 1, 29, 12, 0, 0)); // Feb 29 2028 (leap year)
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2028, 1, 29, 12, 0, 0)); // Feb 29 2028 (leap year)
 
     expect(days[0].iso).toBe("2028-02-29");
     expect(days[0].date).toBe("29");
@@ -96,8 +82,7 @@ describe("dayLabels — month-end boundaries", () => {
   });
 
   it("uses todayLabel and tomLabel only for the first two entries", () => {
-    vi.setSystemTime(new Date(2026, 0, 31, 12, 0, 0));
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2026, 0, 31, 12, 0, 0));
 
     expect(days[0].label).toBe("Today");
     expect(days[1].label).toBe("Tomorrow");
@@ -109,8 +94,7 @@ describe("dayLabels — month-end boundaries", () => {
   });
 
   it("each iso string is parseable and sequential", () => {
-    vi.setSystemTime(new Date(2025, 11, 30, 12, 0, 0)); // Dec 30 2025
-    const days = dayLabels("Today", "Tomorrow");
+    const days = dayLabels("Today", "Tomorrow", new Date(2025, 11, 30, 12, 0, 0)); // Dec 30 2025
 
     for (let i = 1; i < days.length; i++) {
       const prev = new Date(days[i - 1].iso + "T00:00:00Z");
