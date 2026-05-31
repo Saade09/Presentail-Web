@@ -34,14 +34,27 @@ const ENABLED = (() => {
 const TICK_MS = 60 * 60 * 1000; // 1 h
 
 // Key pages to audit — mirrors the KEY_PAGES list in the SEO debug UI.
-const KEY_PAGES: Array<{ label: string; url: string }> = [
-  { label: "Homepage (LB)", url: "https://new.presentail.com/en-lb/beirut" },
-  { label: "Homepage (AE — Dubai)", url: "https://new.presentail.com/en-ae/dubai" },
-  { label: "Homepage (CY)", url: "https://new.presentail.com/en-cy/nicosia" },
-  { label: "Product page", url: "https://new.presentail.com/en-lb/beirut/product/pink-roses" },
-  { label: "Brand page", url: "https://new.presentail.com/en-lb/beirut/brand/roses-only" },
-  { label: "Category page", url: "https://new.presentail.com/en-lb/beirut/shop?category=flowers" },
-  { label: "Occasion page", url: "https://new.presentail.com/en-lb/beirut/shop?occasion=birthday" },
+// Covers all three locales so a deploy that breaks OG injection only for
+// UAE or Cyprus is caught the same day.
+const KEY_PAGES: Array<{ label: string; url: string; locale: string }> = [
+  // ── Lebanon (en-lb/beirut) ────────────────────────────────────────────────
+  { locale: "LB", label: "Homepage",  url: "https://new.presentail.com/en-lb/beirut" },
+  { locale: "LB", label: "Product",   url: "https://new.presentail.com/en-lb/beirut/product/pink-roses" },
+  { locale: "LB", label: "Brand",     url: "https://new.presentail.com/en-lb/beirut/brand/roses-only" },
+  { locale: "LB", label: "Category",  url: "https://new.presentail.com/en-lb/beirut/shop?category=flowers" },
+  { locale: "LB", label: "Occasion",  url: "https://new.presentail.com/en-lb/beirut/shop?occasion=birthday" },
+  // ── UAE (en-ae/dubai) ────────────────────────────────────────────────────
+  { locale: "AE", label: "Homepage",  url: "https://new.presentail.com/en-ae/dubai" },
+  { locale: "AE", label: "Product",   url: "https://new.presentail.com/en-ae/dubai/product/pink-roses" },
+  { locale: "AE", label: "Brand",     url: "https://new.presentail.com/en-ae/dubai/brand/roses-only" },
+  { locale: "AE", label: "Category",  url: "https://new.presentail.com/en-ae/dubai/shop?category=flowers" },
+  { locale: "AE", label: "Occasion",  url: "https://new.presentail.com/en-ae/dubai/shop?occasion=birthday" },
+  // ── Cyprus (en-cy/nicosia) ───────────────────────────────────────────────
+  { locale: "CY", label: "Homepage",  url: "https://new.presentail.com/en-cy/nicosia" },
+  { locale: "CY", label: "Product",   url: "https://new.presentail.com/en-cy/nicosia/product/pink-roses" },
+  { locale: "CY", label: "Brand",     url: "https://new.presentail.com/en-cy/nicosia/brand/roses-only" },
+  { locale: "CY", label: "Category",  url: "https://new.presentail.com/en-cy/nicosia/shop?category=flowers" },
+  { locale: "CY", label: "Occasion",  url: "https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday" },
 ];
 
 // ── Module state ────────────────────────────────────────────────────────────
@@ -65,6 +78,7 @@ function previousUtcDay(): string {
 }
 
 interface SeoPageResult {
+  locale: string;
   label: string;
   url: string;
   ok: boolean;
@@ -166,10 +180,11 @@ function checkOgImageSize(
 
 const DEFAULT_OG_IMAGE_PATH = "/opengraph.jpg";
 
-async function auditPage(page: { label: string; url: string }): Promise<SeoPageResult> {
+async function auditPage(page: { locale: string; label: string; url: string }): Promise<SeoPageResult> {
   const html = await fetchPageHtml(page.url);
   if (!html) {
     return {
+      locale: page.locale,
       label: page.label,
       url: page.url,
       ok: false,
@@ -196,6 +211,7 @@ async function auditPage(page: { label: string; url: string }): Promise<SeoPageR
   }
 
   return {
+    locale: page.locale,
     label: page.label,
     url: page.url,
     ok: true,
@@ -254,26 +270,45 @@ export async function runOnce(): Promise<void> {
       return;
     }
 
-    // Build a concise digest of every page's status for the alert body.
-    const lines: string[] = [];
+    // Build a concise digest grouped by locale so the Slack message stays
+    // readable even as the page list grows.
+    const localeOrder = ["LB", "AE", "CY"];
+    const localeLabels: Record<string, string> = {
+      LB: "Lebanon (en-lb/beirut)",
+      AE: "UAE (en-ae/dubai)",
+      CY: "Cyprus (en-cy/nicosia)",
+    };
+
+    const resultsByLocale = new Map<string, SeoPageResult[]>();
     for (const r of results) {
-      const status = classifyResult(r);
-      const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
-      let detail = "";
-      if (r.fetchFailed) {
-        detail = "could not fetch page";
-      } else if (!r.ogImage) {
-        detail = "og:image missing";
-      } else if (r.ogImageReachable === false) {
-        detail = "og:image not reachable";
-      } else if (r.fallbackUsed) {
-        detail = "using fallback site-wide image";
-      } else if (r.ogImageSizeOk === false) {
-        detail = "og:image dimensions wrong";
-      } else {
-        detail = "ok";
+      if (!resultsByLocale.has(r.locale)) resultsByLocale.set(r.locale, []);
+      resultsByLocale.get(r.locale)!.push(r);
+    }
+
+    const lines: string[] = [];
+    for (const loc of localeOrder) {
+      const group = resultsByLocale.get(loc);
+      if (!group) continue;
+      lines.push(`*${localeLabels[loc] ?? loc}*`);
+      for (const r of group) {
+        const status = classifyResult(r);
+        const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
+        let detail = "";
+        if (r.fetchFailed) {
+          detail = "could not fetch page";
+        } else if (!r.ogImage) {
+          detail = "og:image missing";
+        } else if (r.ogImageReachable === false) {
+          detail = "og:image not reachable";
+        } else if (r.fallbackUsed) {
+          detail = "using fallback site-wide image";
+        } else if (r.ogImageSizeOk === false) {
+          detail = "og:image dimensions wrong";
+        } else {
+          detail = "ok";
+        }
+        lines.push(`  ${icon} *${r.label}* — ${detail}`);
       }
-      lines.push(`${icon} *${r.label}* — ${detail}`);
     }
 
     const summaryParts: string[] = [];
