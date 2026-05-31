@@ -779,10 +779,20 @@ jobs:
               return `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>\n`;
             }
 
+            const KIND_ORDER = ['jsx-text', 'jsx-prop', 'fallback-string', 'nav-option', 'standalone-text'];
+            const KIND_NAMES = {
+              'jsx-text':        'JSX text nodes',
+              'jsx-prop':        'JSX prop strings',
+              'fallback-string': '`??` fallback strings',
+              'nav-option':      'Navigation option strings',
+              'standalone-text': 'Standalone text lines',
+            };
+
             function kindLabel(hit) {
               if (hit.kind === 'jsx-text') return 'JSX text';
               if (hit.kind === 'jsx-prop') return `prop: ${hit.attr}`;
               if (hit.kind === 'fallback-string') return '?? fallback';
+              if (hit.kind === 'nav-option') return `nav: ${hit.attr}`;
               return 'standalone';
             }
 
@@ -791,13 +801,28 @@ jobs:
               if (!data) return '⚠️ Results file missing — the check may have failed before writing its output. Check the [workflow log](' + runUrl + ') for details.\n';
               if (data.passed) return null;
 
+              // Flatten all hits across files and group by violation category
+              const allHits = data.byFile.flatMap(({ file, hits }) =>
+                hits.map(h => ({ ...h, file }))
+              );
+
+              const byKind = new Map();
+              for (const h of allHits) {
+                if (!byKind.has(h.kind)) byKind.set(h.kind, []);
+                byKind.get(h.kind).push(h);
+              }
+
               const parts = [];
-              for (const { file, hits } of data.byFile) {
-                const lines = hits.map(h =>
-                  `- line ${h.line} \`[${kindLabel(h)}]\` — "${h.text}"`
-                ).join('\n');
+              for (const kind of KIND_ORDER) {
+                const kindHits = byKind.get(kind);
+                if (!kindHits || kindHits.length === 0) continue;
+                const lines = kindHits.map(h => {
+                  const attrPart = h.attr ? ` (\`${h.attr}\`)` : '';
+                  return `- \`${h.file}\` line ${h.line}${attrPart} — "${h.text}"`;
+                }).join('\n');
+                const kindName = KIND_NAMES[kind] ?? kind;
                 parts.push(details(
-                  `\`${file}\` (${hits.length} hit${hits.length === 1 ? '' : 's'})`,
+                  `${kindName} — ${kindHits.length} hit${kindHits.length === 1 ? '' : 's'}`,
                   lines
                 ));
               }
