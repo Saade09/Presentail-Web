@@ -8,6 +8,9 @@
  *
  * Run automatically via the "build" script in package.json:
  *   vite build && node compress-assets.mjs
+ *
+ * Exports `compressAssets(assetsDir)` so tests can invoke the core logic
+ * against a synthetic fixture without running the full build.
  */
 
 import fs from "node:fs";
@@ -18,9 +21,6 @@ import { fileURLToPath } from "node:url";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ASSETS_DIR = path.join(__dirname, "dist/public/assets");
 
 const BROTLI_OPTS = {
   params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
@@ -41,32 +41,55 @@ async function compressFile(filePath) {
   console.log(
     `  ${path.basename(filePath).padEnd(50)} ${origKb.padStart(7)}KB → br:${brKb.padStart(7)}KB  gz:${gzKb.padStart(7)}KB`
   );
+  return { filePath, brSize: brData.length, gzSize: gzData.length };
 }
 
-async function main() {
-  if (!fs.existsSync(ASSETS_DIR)) {
-    console.log(
-      "compress-assets: dist/public/assets not found — skipping (run vite build first)."
+/**
+ * Compress all JS/CSS files in `assetsDir`.
+ *
+ * Returns an array of `{ filePath, brSize, gzSize }` objects — one per file.
+ *
+ * Throws when `assetsDir` does not exist or contains no JS/CSS files so
+ * callers (and CI) get a loud failure instead of a silent no-op.
+ */
+export async function compressAssets(assetsDir) {
+  if (!fs.existsSync(assetsDir)) {
+    throw new Error(
+      `compress-assets: assets directory not found: ${assetsDir}`
     );
-    return;
   }
 
   const files = fs
-    .readdirSync(ASSETS_DIR)
+    .readdirSync(assetsDir)
     .filter((f) => f.endsWith(".js") || f.endsWith(".css"))
-    .map((f) => path.join(ASSETS_DIR, f));
+    .map((f) => path.join(assetsDir, f));
 
   if (files.length === 0) {
-    console.log("compress-assets: no JS/CSS assets found.");
-    return;
+    throw new Error(
+      `compress-assets: no JS/CSS assets found in ${assetsDir} — check vite build output`
+    );
   }
 
   console.log(`compress-assets: pre-compressing ${files.length} JS/CSS files…`);
-  await Promise.all(files.map(compressFile));
+  const results = await Promise.all(files.map(compressFile));
   console.log("compress-assets: done.");
+  return results;
 }
 
-main().catch((err) => {
-  console.error("compress-assets failed:", err);
-  process.exit(1);
-});
+// ---------------------------------------------------------------------------
+// CLI entry point
+// ---------------------------------------------------------------------------
+
+const isMain =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isMain) {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const assetsDir = path.join(__dirname, "dist/public/assets");
+
+  compressAssets(assetsDir).catch((err) => {
+    console.error(err.message ?? err);
+    process.exit(1);
+  });
+}
