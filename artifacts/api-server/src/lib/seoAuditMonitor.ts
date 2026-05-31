@@ -25,6 +25,13 @@ import { desc, eq, gte, lt } from "drizzle-orm";
 import { db, monitorStateTable, seoAuditLogTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
+import {
+  hasOsProducts,
+  getOsProductBySlug,
+  getOsBrands,
+  getOsCategories,
+  getOsOccasions,
+} from "./osProductsCache";
 
 const AUDIT_LOG_RETENTION_DAYS = 90;
 
@@ -92,6 +99,53 @@ const KEY_PAGES: Array<{ label: string; url: string; locale: string }> = [
   { locale: "CY", label: "Category (FR)",  url: "https://new.presentail.com/fr-cy/nicosia/shop?category=flowers" },
   { locale: "CY", label: "Occasion (FR)",  url: "https://new.presentail.com/fr-cy/nicosia/shop?occasion=birthday" },
 ];
+
+// ── Slug config ─────────────────────────────────────────────────────────────
+//
+// The unique slugs baked into KEY_PAGES, grouped by entity type.  These are
+// validated against the live OS catalog after each cache refresh so ops get a
+// distinct Slack alert when a slug is retired — which would otherwise cause
+// every AR/FR deep-page entry to appear as a fetch-fail / 404 in the daily
+// SEO audit, indistinguishable from a real OG-image regression.
+//
+// When you update KEY_PAGES slugs, keep these in sync.
+
+const KEY_PAGE_SLUGS = {
+  products:   ["pink-roses"],
+  brands:     ["roses-only"],
+  categories: ["flowers"],
+  occasions:  ["birthday"],
+} as const;
+
+// ── Stale-slug tracking ──────────────────────────────────────────────────────
+
+/**
+ * Slugs that were not found in the OS catalog on the most recent validation
+ * pass. Maps slug → entity type.  Cleared when the slug reappears in the
+ * catalog so the Slack alert fires exactly once per disappearance event.
+ */
+const staleSlugs = new Map<string, "product" | "brand" | "category" | "occasion">();
+
+/**
+ * Extract the entity slug from a KEY_PAGES URL so we can check whether a
+ * fetch-fail is caused by a retired slug rather than a real server error.
+ *
+ *   /product/{slug}        → product slug
+ *   /brand/{slug}          → brand slug
+ *   ?category={slug}       → category slug
+ *   ?occasion={slug}       → occasion slug
+ */
+function extractSlugFromUrl(url: string): string | null {
+  const productMatch = /\/product\/([^/?#]+)/.exec(url);
+  if (productMatch) return productMatch[1];
+  const brandMatch = /\/brand\/([^/?#]+)/.exec(url);
+  if (brandMatch) return brandMatch[1];
+  const categoryMatch = /[?&]category=([^&]+)/.exec(url);
+  if (categoryMatch) return categoryMatch[1];
+  const occasionMatch = /[?&]occasion=([^&]+)/.exec(url);
+  if (occasionMatch) return occasionMatch[1];
+  return null;
+}
 
 // ── Module state ────────────────────────────────────────────────────────────
 
@@ -227,6 +281,7 @@ export function __resetForTest(): void {
   lastEvaluatedDay = null;
   running = false;
   lastAuditSummary = null;
+  staleSlugs.clear();
 }
 
 /** Return the cached result of the most recent completed audit, or null if no run has completed since the last restart. */
@@ -494,7 +549,11 @@ export async function runAuditNow(): Promise<AuditSummary> {
           const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
           let detail = "";
           if (r.fetchFailed) {
-            detail = "could not fetch page";
+            const slug = extractSlugFromUrl(r.url);
+            detail =
+              slug && staleSlugs.has(slug)
+                ? "slug not found in catalog — update KEY_PAGES"
+                : "could not fetch page";
           } else if (!r.ogImage) {
             detail = "og:image missing";
           } else if (r.ogImageReachable === false) {
@@ -546,6 +605,152 @@ export async function runAuditNow(): Promise<AuditSummary> {
   }
 }
 
+// ── Slug validation ──────────────────────────────────────────────────────────
+
+/**
+ * Validate that every slug referenced in KEY_PAGES still exists in the live
+ * OS catalog.  Logs a WARN for each newly-stale slug and sends a single Slack
+ * alert when any are detected so ops know to update KEY_PAGES before the
+ * daily audit fires false-positive 404 errors.
+ *
+ * Sends a recovery log when a previously-stale slug reappears in the catalog.
+ *
+ * Safe to call at any point; skips silently when the OS cache is not yet
+ * populated (we cannot validate what we haven't loaded).
+ */
+export async function validateKeyPageSlugs(): Promise<void> {
+  if (!hasOsProducts()) {
+    logger.info(
+      "seoAuditMonitor: OS catalog not yet populated — skipping slug validation",
+    );
+    return;
+  }
+
+  const nowStale: Array<{ slug: string; type: string }> = [];
+  const nowRecovered: string[] = [];
+
+  // ── Products ────────────────────────────────────────────────────────────
+  for (const slug of KEY_PAGE_SLUGS.products) {
+    const found = getOsProductBySlug(slug) !== null;
+    if (!found) {
+      if (!staleSlugs.has(slug)) {
+        staleSlugs.set(slug, "product");
+        nowStale.push({ slug, type: "product" });
+        logger.warn(
+          { slug, type: "product" },
+          "seoAuditMonitor: KEY_PAGES product slug not found in OS catalog — update KEY_PAGES",
+        );
+      }
+    } else if (staleSlugs.has(slug)) {
+      staleSlugs.delete(slug);
+      nowRecovered.push(slug);
+      logger.info(
+        { slug, type: "product" },
+        "seoAuditMonitor: KEY_PAGES product slug is now live in OS catalog — stale-slug warning cleared",
+      );
+    }
+  }
+
+  // ── Brands ──────────────────────────────────────────────────────────────
+  const brandSlugsInCatalog = new Set((getOsBrands() ?? []).map((b) => b.slug));
+  for (const slug of KEY_PAGE_SLUGS.brands) {
+    const found = brandSlugsInCatalog.has(slug);
+    if (!found) {
+      if (!staleSlugs.has(slug)) {
+        staleSlugs.set(slug, "brand");
+        nowStale.push({ slug, type: "brand" });
+        logger.warn(
+          { slug, type: "brand" },
+          "seoAuditMonitor: KEY_PAGES brand slug not found in OS catalog — update KEY_PAGES",
+        );
+      }
+    } else if (staleSlugs.has(slug)) {
+      staleSlugs.delete(slug);
+      nowRecovered.push(slug);
+      logger.info(
+        { slug, type: "brand" },
+        "seoAuditMonitor: KEY_PAGES brand slug is now live in OS catalog — stale-slug warning cleared",
+      );
+    }
+  }
+
+  // ── Categories ──────────────────────────────────────────────────────────
+  const categorySlugsInCatalog = new Set(
+    (getOsCategories() ?? []).map((c) => c.slug),
+  );
+  for (const slug of KEY_PAGE_SLUGS.categories) {
+    const found = categorySlugsInCatalog.has(slug);
+    if (!found) {
+      if (!staleSlugs.has(slug)) {
+        staleSlugs.set(slug, "category");
+        nowStale.push({ slug, type: "category" });
+        logger.warn(
+          { slug, type: "category" },
+          "seoAuditMonitor: KEY_PAGES category slug not found in OS catalog — update KEY_PAGES",
+        );
+      }
+    } else if (staleSlugs.has(slug)) {
+      staleSlugs.delete(slug);
+      nowRecovered.push(slug);
+      logger.info(
+        { slug, type: "category" },
+        "seoAuditMonitor: KEY_PAGES category slug is now live in OS catalog — stale-slug warning cleared",
+      );
+    }
+  }
+
+  // ── Occasions ───────────────────────────────────────────────────────────
+  const occasionSlugsInCatalog = new Set(
+    (getOsOccasions() ?? []).map((o) => o.slug),
+  );
+  for (const slug of KEY_PAGE_SLUGS.occasions) {
+    const found = occasionSlugsInCatalog.has(slug);
+    if (!found) {
+      if (!staleSlugs.has(slug)) {
+        staleSlugs.set(slug, "occasion");
+        nowStale.push({ slug, type: "occasion" });
+        logger.warn(
+          { slug, type: "occasion" },
+          "seoAuditMonitor: KEY_PAGES occasion slug not found in OS catalog — update KEY_PAGES",
+        );
+      }
+    } else if (staleSlugs.has(slug)) {
+      staleSlugs.delete(slug);
+      nowRecovered.push(slug);
+      logger.info(
+        { slug, type: "occasion" },
+        "seoAuditMonitor: KEY_PAGES occasion slug is now live in OS catalog — stale-slug warning cleared",
+      );
+    }
+  }
+
+  if (nowStale.length === 0) return;
+
+  await sendAlert({
+    title: `SEO audit: ${nowStale.length} KEY_PAGES slug(s) missing from OS catalog`,
+    body:
+      `${nowStale.length} slug(s) referenced in KEY_PAGES no longer exist in the Presentail OS catalog. ` +
+      `Pages using these slugs will appear as 404 / fetch-fail in the daily SEO digest — ` +
+      `these are *config errors, NOT OG-image regressions*. ` +
+      `Update KEY_PAGES in \`seoAuditMonitor.ts\` with current slugs from the OS catalog.\n` +
+      nowStale
+        .map(({ slug, type }) => `  • \`${slug}\` (${type})`)
+        .join("\n"),
+    severity: "warn",
+    fields: [
+      {
+        title: "Stale slug(s)",
+        value: nowStale.map((s) => `${s.slug} (${s.type})`).join(", "),
+      },
+      {
+        title: "Action required",
+        value: "Update KEY_PAGE_SLUGS + KEY_PAGES in seoAuditMonitor.ts",
+      },
+    ],
+    source: "seoAuditMonitor.validateKeyPageSlugs",
+  });
+}
+
 // ── Core evaluation ─────────────────────────────────────────────────────────
 
 export async function runOnce(): Promise<void> {
@@ -566,6 +771,17 @@ export async function runOnce(): Promise<void> {
       { day: prevDay, pageCount: KEY_PAGES.length },
       "seoAuditMonitor: running daily audit",
     );
+
+    // Validate that the hardcoded slugs in KEY_PAGES still exist in the OS
+    // catalog before running the audit.  Stale slugs produce a separate Slack
+    // alert with a distinct message so ops can tell them apart from real
+    // OG-image regressions.
+    await validateKeyPageSlugs().catch((err) => {
+      logger.warn(
+        { err: (err as Error)?.message },
+        "seoAuditMonitor: slug validation failed — audit will continue",
+      );
+    });
 
     const ranAt = new Date().toISOString();
     const results = await Promise.all(KEY_PAGES.map(auditPage));
@@ -641,7 +857,11 @@ export async function runOnce(): Promise<void> {
         const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
         let detail = "";
         if (r.fetchFailed) {
-          detail = "could not fetch page";
+          const slug = extractSlugFromUrl(r.url);
+          detail =
+            slug && staleSlugs.has(slug)
+              ? "slug not found in catalog — update KEY_PAGES"
+              : "could not fetch page";
         } else if (!r.ogImage) {
           detail = "og:image missing";
         } else if (r.ogImageReachable === false) {
@@ -721,6 +941,15 @@ export function startSeoAuditMonitor(): void {
   baseline.unref?.();
 
   timer = setInterval(() => {
+    // Always re-validate slugs on every tick so stale-slug Slack alerts fire
+    // even on days when the daily audit guard has already run (lastEvaluatedDay
+    // matches prevDay and runOnce() returns early without calling validation).
+    validateKeyPageSlugs().catch((err) => {
+      logger.warn(
+        { err: (err as Error)?.message },
+        "seoAuditMonitor: hourly slug validation failed",
+      );
+    });
     runOnce().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
