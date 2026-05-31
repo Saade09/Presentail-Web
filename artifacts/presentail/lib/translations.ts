@@ -9,29 +9,62 @@
  * from one of the other locales.  A build (`pnpm run typecheck`) therefore
  * catches EN → AR/FR gaps before they reach production.
  *
- * ─── Adding new strings ──────────────────────────────────────────────────────
+ * ─── Adding new strings (do all three in the same commit) ───────────────────
  *
  * 1. Add the English string to the EN block, under the most relevant comment
  *    section.
  * 2. Add the matching Arabic string to the AR block (same key, same position).
  * 3. Add the matching French string to the FR block (same key, same position).
  *
- * Skipping step 2 or 3 is a compile error — the missing key will surface as a
- * TypeScript complaint on the `AR` or `FR` variable.
+ * All three changes must land in the same commit.  A PR that adds an EN key
+ * without its AR and FR counterparts will be caught by the CI
+ * check-translations step and blocked from merging.
  *
- * ─── Belt-and-suspenders script ──────────────────────────────────────────────
+ * Skipping step 2 or 3 is also a compile error — the missing key will surface
+ * as a TypeScript complaint on the `AR` or `FR` variable.
  *
- * As an extra safety net (and to catch keys accidentally added only to AR/FR
- * without a corresponding EN entry, or keys that are no longer referenced in
- * source), run the translation-consistency script before opening a PR:
+ * ─── Brand names and loan words (// no-translate) ────────────────────────────
+ *
+ * Some strings are intentionally identical in every locale — proper brand
+ * names, French loan words used unchanged in English and French, widely
+ * recognised abbreviations (e.g. "USD"), and strings that are pure template
+ * variables or digits with no human-translatable text.
+ *
+ * Mark these on the EN line with a `// no-translate` comment so the
+ * check-translations script skips the copy-paste and Arabic-script checks for
+ * that key:
+ *
+ *   boutique: "Boutique",  // no-translate — French loan word
+ *   usdLabel: "USD",       // no-translate — currency code, same in all locales
+ *
+ * Without the annotation the script will flag the AR/FR values as
+ * untranslated placeholders and fail CI.
+ *
+ * ─── Catching issues locally before push ─────────────────────────────────────
+ *
+ * Run the translation-consistency script before opening a PR to catch problems
+ * before CI does:
  *
  *   pnpm --filter @workspace/scripts run check-translations
  *
- * The script validates:
- *   • Every EN key is referenced somewhere in the mobile source tree.
- *   • AR and FR contain exactly the same keys as EN (no additions, no gaps).
+ * The script runs seven checks across the mobile and web catalogues:
+ *
+ *   1. UNUSED KEYS       — EN keys never referenced in any mobile source file.
+ *   2. LOCALE PARITY     — EN keys absent from AR or FR.
+ *   3. UNDEFINED REFS    — static t.key / t["key"] call sites for keys that
+ *                          don't exist in EN (would render as blank strings).
+ *   4. ORPHAN KEYS       — AR or FR keys absent from EN (unreachable at runtime).
+ *   5. COPY-PASTE VALUES — AR or FR values byte-for-byte identical to EN
+ *                          (unless annotated // no-translate), or AR values
+ *                          that contain no Arabic-script characters.
+ *   6. EMPTY VALUES      — AR or FR entries whose value is "" (blank text
+ *                          shown to shoppers on that locale).
+ *   7. AR vs FR PARITY   — keys present in one non-English locale but absent
+ *                          from the other (catches gaps invisible to EN-anchored
+ *                          checks).
  *
  * Exit 0 = all checks pass.  Exit 1 = details printed to stderr.
+ * Add --verbose to list every scanned source file.
  *
  * ─── Template variables ──────────────────────────────────────────────────────
  *
