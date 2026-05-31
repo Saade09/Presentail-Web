@@ -3,7 +3,6 @@ import type { Dict } from "./types";
 export const homeStrings: Dict = {
   "carousel.prev": { en: "Previous slide", ar: "الشريحة السابقة" },
   "carousel.next": { en: "Next slide", ar: "الشريحة التالية" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(titleKey) in BestSellersPreview
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
 
