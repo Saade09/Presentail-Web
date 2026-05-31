@@ -5,6 +5,23 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
 
+vi.mock("@/contexts/LocaleContext", () => ({
+  useLocale: () => ({
+    t: (key: string) => {
+      const strings: Record<string, string> = {
+        "product.prevMonth": "Previous month",
+        "product.nextMonth": "Next month",
+        "product.calendarAria": "Open calendar",
+        "checkout.deliveryDate": "Delivery date",
+        "checkout.deliveryTime": "Delivery time",
+      };
+      return strings[key] ?? key;
+    },
+    language: "en",
+    dir: "ltr",
+  }),
+}));
+
 // Compute anchors relative to the real clock so the strip is always
 // predictable: strip = [today, today+1, today+2]; anything ≥ today+10
 // is definitely outside it.

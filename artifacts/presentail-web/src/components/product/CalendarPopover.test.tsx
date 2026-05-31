@@ -5,6 +5,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CalendarPopover } from "./CalendarPopover";
 
+vi.mock("@/contexts/LocaleContext", () => ({
+  useLocale: () => ({
+    t: (key: string) => {
+      const strings: Record<string, string> = {
+        "product.prevMonth": "Previous month",
+        "product.nextMonth": "Next month",
+      };
+      return strings[key] ?? key;
+    },
+    language: "en",
+    dir: "ltr",
+  }),
+}));
+
 // Fix the reference date so the tests never depend on the real wall clock.
 // 2026-05-23 is a Saturday; May 2026 has 31 days, so May 22 (Friday) and
 // May 24 (Sunday) are both guaranteed to be in the same rendered month.
