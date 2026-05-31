@@ -611,6 +611,147 @@ async function fetchEntityForSeoCached(kind, fetcher, opts) {
   return value;
 }
 
+// ---------------------------------------------------------------------------
+// Image dimension cache + fetcher
+//
+// Crawlers that receive og:image without og:image:width / og:image:height may
+// downgrade the preview card to a thumbnail rather than a banner. We resolve
+// the actual pixel dimensions of entity images by fetching the first 4 KiB
+// (Range: bytes=0-4095) and parsing the format header — enough for PNG (24 B),
+// JPEG (scan SOF markers, typically within 2 KB), and WebP VP8X/VP8L.
+//
+// Results are cached for 1 hour so repeated crawler retries are free.
+// Null (parsed but couldn't determine dims) IS cached; network errors are NOT
+// (transient failures should be retried on the next crawler hit).
+// ---------------------------------------------------------------------------
+
+const IMAGE_DIMS_CACHE_TTL_MS = 3_600_000; // 1 hour
+const IMAGE_DIMS_CACHE_MAX_ENTRIES = 1_000;
+const IMAGE_DIM_FETCH_TIMEOUT_MS = 2_000;
+const imageDimsCache = new Map();
+
+function getCachedImageDims(url) {
+  const entry = imageDimsCache.get(url);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    imageDimsCache.delete(url);
+    return undefined;
+  }
+  imageDimsCache.delete(url);
+  imageDimsCache.set(url, entry);
+  return entry.value;
+}
+
+function setCachedImageDims(url, value) {
+  if (imageDimsCache.size >= IMAGE_DIMS_CACHE_MAX_ENTRIES) {
+    const oldest = imageDimsCache.keys().next().value;
+    if (oldest !== undefined) imageDimsCache.delete(oldest);
+  }
+  imageDimsCache.set(url, {
+    value,
+    expiresAt: Date.now() + IMAGE_DIMS_CACHE_TTL_MS,
+  });
+}
+
+function parsePngDims(b) {
+  if (b.length < 24) return null;
+  const w = ((b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]) >>> 0;
+  const h = ((b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]) >>> 0;
+  return w > 0 && h > 0 ? { width: w, height: h } : null;
+}
+
+function parseJpegDims(b) {
+  let i = 2;
+  while (i + 3 < b.length) {
+    if (b[i] !== 0xFF) break;
+    const marker = b[i + 1];
+    if (marker === 0xFF) { i++; continue; }
+    const segLen = (b[i + 2] << 8) | b[i + 3];
+    if (
+      (marker >= 0xC0 && marker <= 0xC3) ||
+      (marker >= 0xC5 && marker <= 0xC7) ||
+      (marker >= 0xC9 && marker <= 0xCB) ||
+      (marker >= 0xCD && marker <= 0xCF)
+    ) {
+      if (i + 8 < b.length) {
+        const h = ((b[i + 5] << 8) | b[i + 6]) >>> 0;
+        const w = ((b[i + 7] << 8) | b[i + 8]) >>> 0;
+        return w > 0 && h > 0 ? { width: w, height: h } : null;
+      }
+    }
+    if (segLen < 2) break;
+    i += 2 + segLen;
+  }
+  return null;
+}
+
+function parseWebpDims(b) {
+  if (b.length < 16) return null;
+  const chunk = String.fromCharCode(b[12], b[13], b[14], b[15]);
+  if (chunk === "VP8X" && b.length >= 30) {
+    const w = ((b[24] | (b[25] << 8) | (b[26] << 16)) >>> 0) + 1;
+    const h = ((b[27] | (b[28] << 8) | (b[29] << 16)) >>> 0) + 1;
+    return w > 0 && h > 0 ? { width: w, height: h } : null;
+  }
+  if (chunk === "VP8L" && b.length >= 25 && b[20] === 0x2F) {
+    const bits =
+      b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24);
+    const w = (bits & 0x3FFF) + 1;
+    const h = ((bits >>> 14) & 0x3FFF) + 1;
+    return w > 0 && h > 0 ? { width: w, height: h } : null;
+  }
+  return null;
+}
+
+function parseDimsFromBuffer(buf) {
+  const b = new Uint8Array(buf);
+  if (b.length < 4) return null;
+  // PNG
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) {
+    return parsePngDims(b);
+  }
+  // JPEG
+  if (b[0] === 0xFF && b[1] === 0xD8) {
+    return parseJpegDims(b);
+  }
+  // WebP (RIFF....WEBP)
+  if (
+    b.length >= 12 &&
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+    b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+  ) {
+    return parseWebpDims(b);
+  }
+  return null;
+}
+
+async function fetchImageDimensions(url) {
+  if (!url) return null;
+  const cached = getCachedImageDims(url);
+  if (cached !== undefined) return cached;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), IMAGE_DIM_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Range: "bytes=0-4095" },
+      signal: ac.signal,
+    });
+    if (!res.ok && res.status !== 206) {
+      setCachedImageDims(url, null);
+      return null;
+    }
+    const buf = await res.arrayBuffer();
+    const dims = parseDimsFromBuffer(buf);
+    setCachedImageDims(url, dims);
+    return dims;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function extractSlugFor(prefix, rest) {
   if (!rest || !rest.startsWith(prefix)) return null;
   const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/([^/?#]+)`);
@@ -700,6 +841,8 @@ async function fetchSharedFavoritesForSeo({ token, apiBaseUrl }) {
 function buildWishlistHead({
   count,
   imageUrl,
+  imageWidth,
+  imageHeight,
   basePath,
   origin,
   pathname,
@@ -716,6 +859,8 @@ function buildWishlistHead({
     description,
     imageUrl: imageUrl ?? null,
     imageAlt: "Presentail Gift Wishlist",
+    imageWidth,
+    imageHeight,
     basePath,
     origin,
     pathname,
@@ -866,6 +1011,8 @@ function buildEntityHead({
   description,
   imageUrl,
   imageAlt,
+  imageWidth,
+  imageHeight,
   basePath,
   origin,
   pathname,
@@ -894,6 +1041,9 @@ function buildEntityHead({
   if (!imageUrl) {
     lines.push(`<meta property="og:image:width" content="1200" />`);
     lines.push(`<meta property="og:image:height" content="630" />`);
+  } else if (imageWidth && imageHeight) {
+    lines.push(`<meta property="og:image:width" content="${escapeAttr(String(imageWidth))}" />`);
+    lines.push(`<meta property="og:image:height" content="${escapeAttr(String(imageHeight))}" />`);
   }
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
   lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
@@ -916,6 +1066,7 @@ function genericFallbackDescription(lang, key) {
 
 function buildProductHead({
   product,
+  imageDimensions,
   lang,
   basePath,
   origin,
@@ -986,6 +1137,8 @@ function buildProductHead({
     description,
     imageUrl,
     imageAlt: rawName || "Presentail product",
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
     basePath,
     origin,
     pathname,
@@ -1009,6 +1162,7 @@ const BRANDS_FILTER_DESCRIPTIONS = {
 
 function buildBrandsFilterHead({
   entity,
+  imageDimensions,
   lang,
   basePath,
   origin,
@@ -1042,6 +1196,8 @@ function buildBrandsFilterHead({
     description,
     imageUrl,
     imageAlt: rawName || "Presentail brands",
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
     basePath,
     origin,
     pathname,
@@ -1050,7 +1206,7 @@ function buildBrandsFilterHead({
   });
 }
 
-function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
+function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -1066,6 +1222,8 @@ function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
     description,
     imageUrl,
     imageAlt: rawName || "Presentail brand",
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
     basePath,
     origin,
     pathname,
@@ -1085,6 +1243,7 @@ function buildBrandHead({ brand, lang, basePath, origin, pathname }) {
 
 function buildCategoryHead({
   category,
+  imageDimensions,
   lang,
   basePath,
   origin,
@@ -1094,6 +1253,7 @@ function buildCategoryHead({
   return buildShopEntityHead({
     entity: category,
     altText: "Presentail category",
+    imageDimensions,
     lang,
     basePath,
     origin,
@@ -1104,6 +1264,7 @@ function buildCategoryHead({
 
 function buildOccasionHead({
   occasion,
+  imageDimensions,
   lang,
   basePath,
   origin,
@@ -1113,6 +1274,7 @@ function buildOccasionHead({
   return buildShopEntityHead({
     entity: occasion,
     altText: "Presentail occasion",
+    imageDimensions,
     lang,
     basePath,
     origin,
@@ -1124,6 +1286,7 @@ function buildOccasionHead({
 function buildShopEntityHead({
   entity,
   altText,
+  imageDimensions,
   lang,
   basePath,
   origin,
@@ -1145,6 +1308,8 @@ function buildShopEntityHead({
     description,
     imageUrl,
     imageAlt: rawName || altText,
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
     basePath,
     origin,
     pathname,
@@ -1213,9 +1378,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         }
       }
       if (wishlistResult) {
+        const wishlistImageDims = await fetchImageDimensions(wishlistResult.imageUrl);
         const result = buildWishlistHead({
           count: wishlistResult.count,
           imageUrl: wishlistResult.imageUrl,
+          imageWidth: wishlistImageDims?.width,
+          imageHeight: wishlistImageDims?.height,
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
           pathname,
@@ -1247,8 +1415,15 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         },
       );
       if (product) {
+        const bareImageUrl =
+          (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+          (Array.isArray(product.images) &&
+            product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+          null;
+        const bareImageDims = await fetchImageDimensions(bareImageUrl);
         const result = buildProductHead({
           product,
+          imageDimensions: bareImageDims,
           lang: generic.lang,
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
@@ -1311,28 +1486,46 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       slug: productSlug,
       ...fetchOpts,
     });
-    if (product) result = buildProductHead({ product, ...headOpts });
+    if (product) {
+      const productImageUrl =
+        (product.image && typeof product.image.uri === "string" && product.image.uri) ||
+        (Array.isArray(product.images) &&
+          product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
+        null;
+      const productImageDims = await fetchImageDimensions(productImageUrl);
+      result = buildProductHead({ product, imageDimensions: productImageDims, ...headOpts });
+    }
   } else if (brandSlug) {
     const brand = await fetchEntityForSeoCached("brand", fetchBrandForSeo, {
       slug: brandSlug,
       ...fetchOpts,
     });
-    if (brand) result = buildBrandHead({ brand, ...headOpts });
+    if (brand) {
+      const brandImageUrl = typeof brand.image === "string" && brand.image ? brand.image : null;
+      const brandImageDims = await fetchImageDimensions(brandImageUrl);
+      result = buildBrandHead({ brand, imageDimensions: brandImageDims, ...headOpts });
+    }
   } else if (categorySlug) {
     const category = await fetchEntityForSeoCached(
       "category",
       fetchCategoryForSeo,
       { slug: categorySlug, ...fetchOpts },
     );
-    if (category)
-      result = buildCategoryHead({ category, search, ...headOpts });
+    if (category) {
+      const catImageUrl = typeof category.image === "string" && category.image ? category.image : null;
+      const catImageDims = await fetchImageDimensions(catImageUrl);
+      result = buildCategoryHead({ category, imageDimensions: catImageDims, search, ...headOpts });
+    }
   } else if (occasionSlug) {
     const occasion = await fetchOccasionForSeo({
       slug: occasionSlug,
       ...fetchOpts,
     });
-    if (occasion)
-      result = buildOccasionHead({ occasion, search, ...headOpts });
+    if (occasion) {
+      const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
+      const occImageDims = await fetchImageDimensions(occImageUrl);
+      result = buildOccasionHead({ occasion, imageDimensions: occImageDims, search, ...headOpts });
+    }
   } else if (brandsFilter) {
     const fetcher =
       brandsFilter.kind === "category"
@@ -1343,14 +1536,18 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       fetcher,
       { slug: brandsFilter.slug, ...fetchOpts },
     );
-    if (entity)
+    if (entity) {
+      const bfImageUrl = typeof entity.image === "string" && entity.image ? entity.image : null;
+      const bfImageDims = await fetchImageDimensions(bfImageUrl);
       result = buildBrandsFilterHead({
         entity,
+        imageDimensions: bfImageDims,
         search,
         cityLabel: generic.cityLabel,
         countryLabel: generic.countryLabel,
         ...headOpts,
       });
+    }
   }
 
   if (!result) {
