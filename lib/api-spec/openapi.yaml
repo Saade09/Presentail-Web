@@ -1000,6 +1000,13 @@ components:
         broader purchase funnel that the server-side
         `checkoutPurchaseFunnelMonitor` evaluates step-to-step so we
         notice when any single step collapses.
+
+        `web_vital` events carry real-user Core Web Vital measurements
+        (LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`
+        and the raw value (ms for timing metrics, unitless for CLS) in
+        `metricValue`. The server-side `webVitalsMonitor` evaluates the
+        prior UTC day's LCP median and alerts via Slack when it crosses
+        the configured threshold.
       enum:
         - checkout_login_prompt_viewed
         - checkout_login_prompt_action
@@ -1019,6 +1026,7 @@ components:
         - order_push_tapped
         - fx_rates_fallback
         - seo_entity_fetch_failed
+        - web_vital
     AnalyticsEventRequest:
       type: object
       properties:
@@ -1074,6 +1082,11 @@ components:
             - plants
             - bears
             - candles
+            - LCP
+            - INP
+            - CLS
+            - TTFB
+            - FCP
         platform:
           type: string
           enum: [ios, android, web]
@@ -1127,6 +1140,15 @@ components:
           description: |
             For `order_push_tapped` events: the WooCommerce order id from
             the push notification payload.
+        metricValue:
+          type: number
+          format: float
+          description: |
+            For `web_vital` events: the raw metric value reported by the
+            web-vitals library. Timing metrics (LCP, INP, TTFB, FCP) are
+            in milliseconds. CLS is a unitless ratio. The metric name is
+            carried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside
+            [0, 60000] are clamped server-side before storage.
       required:
         - name
     AnalyticsEventResponse:

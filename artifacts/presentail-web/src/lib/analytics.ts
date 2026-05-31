@@ -11,7 +11,8 @@ type AnalyticsEventName =
   | "upsell_item_added"
   | "upsell_checkout_proceeded"
   | "signin_page_action"
-  | "seo_entity_fetch_failed";
+  | "seo_entity_fetch_failed"
+  | "web_vital";
 
 type AnalyticsSurface =
   | "cart"
@@ -46,7 +47,12 @@ type AnalyticsAction =
   | "chocolate"
   | "plants"
   | "bears"
-  | "candles";
+  | "candles"
+  | "LCP"
+  | "INP"
+  | "CLS"
+  | "TTFB"
+  | "FCP";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;
@@ -55,6 +61,7 @@ export type AnalyticsEvent = {
   appVersion?: string;
   errorCode?: string;
   productId?: string;
+  metricValue?: number;
 };
 
 function generateSessionId(): string {
@@ -128,4 +135,30 @@ export function trackEvent(event: AnalyticsEvent): void {
   } catch {
     // best-effort; never block UI on analytics
   }
+}
+
+/**
+ * Register web-vitals reporters. Call once from the app entry point.
+ * Each metric is reported at most once per page load. The function is
+ * a no-op in non-browser environments.
+ *
+ * Uses `reportAllChanges: false` so each metric is sent once (final
+ * value) rather than on every update — keeps event volume low while
+ * still capturing the authoritative reading.
+ */
+export function trackWebVitals(): void {
+  if (typeof window === "undefined") return;
+
+  import("web-vitals").then(({ onLCP, onINP, onCLS, onTTFB, onFCP }) => {
+    const report = (metricName: AnalyticsAction) => (metric: { value: number }) => {
+      trackEvent({ name: "web_vital", action: metricName, metricValue: metric.value });
+    };
+    onLCP(report("LCP"));
+    onINP(report("INP"));
+    onCLS(report("CLS"));
+    onTTFB(report("TTFB"));
+    onFCP(report("FCP"));
+  }).catch(() => {
+    // best-effort; never block on analytics
+  });
 }

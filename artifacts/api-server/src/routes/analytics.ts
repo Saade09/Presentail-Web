@@ -49,7 +49,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId, metricValue } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -67,6 +67,13 @@ router.post(
     const clippedAppOrderId = clip(appOrderId, 64);
     const clippedWcOrderId = clip(wcOrderId, 64);
 
+    // Clamp metric values to [0, 60000] — CLS ratios are tiny, timing
+    // metrics max out well below 60 s in practice.
+    const clampedMetricValue =
+      typeof metricValue === "number" && Number.isFinite(metricValue)
+        ? Math.min(Math.max(metricValue, 0), 60_000)
+        : null;
+
     req.log.info(
       {
         analytics: true,
@@ -81,6 +88,7 @@ router.post(
         state: clippedState,
         appOrderId: clippedAppOrderId,
         wcOrderId: clippedWcOrderId,
+        metricValue: clampedMetricValue,
         userId,
         signedIn: Boolean(userId),
       },
@@ -104,6 +112,7 @@ router.post(
         state: clippedState ?? null,
         appOrderId: clippedAppOrderId ?? null,
         wcOrderId: clippedWcOrderId ?? null,
+        metricValue: clampedMetricValue,
         userId: userId ?? null,
         signedIn: Boolean(userId),
       })

@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { setCustomHeadersGetter } from "@workspace/api-client-react";
 import App from "./App";
+import { trackWebVitals } from "./lib/analytics";
 import "./index.css";
 
 const LOCATION_STORAGE_KEY = "presentail_delivery_location_v1";
@@ -20,3 +21,4 @@ setCustomHeadersGetter(() => {
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
+trackWebVitals();

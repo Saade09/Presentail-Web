@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   pgTable,
   serial,
@@ -24,6 +25,7 @@ export const analyticsEventsTable = pgTable(
     state: text("state"),
     appOrderId: text("app_order_id"),
     wcOrderId: text("wc_order_id"),
+    metricValue: doublePrecision("metric_value"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

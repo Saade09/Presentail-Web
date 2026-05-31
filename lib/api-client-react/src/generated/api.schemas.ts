@@ -108,6 +108,13 @@ broader purchase funnel that the server-side
 `checkoutPurchaseFunnelMonitor` evaluates step-to-step so we
 notice when any single step collapses.
 
+`web_vital` events carry real-user Core Web Vital measurements
+(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`
+and the raw value (ms for timing metrics, unitless for CLS) in
+`metricValue`. The server-side `webVitalsMonitor` evaluates the
+prior UTC day's LCP median and alerts via Slack when it crosses
+the configured threshold.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -131,6 +138,7 @@ export const AnalyticsEventName = {
   order_push_tapped: "order_push_tapped",
   fx_rates_fallback: "fx_rates_fallback",
   seo_entity_fetch_failed: "seo_entity_fetch_failed",
+  web_vital: "web_vital",
 } as const;
 
 /**
@@ -197,6 +205,11 @@ export const AnalyticsEventRequestAction = {
   plants: "plants",
   bears: "bears",
   candles: "candles",
+  LCP: "LCP",
+  INP: "INP",
+  CLS: "CLS",
+  TTFB: "TTFB",
+  FCP: "FCP",
 } as const;
 
 /**
@@ -289,6 +302,13 @@ the push notification payload.
    * @maxLength 64
    */
   wcOrderId?: string;
+  /** For `web_vital` events: the raw metric value reported by the
+web-vitals library. Timing metrics (LCP, INP, TTFB, FCP) are
+in milliseconds. CLS is a unitless ratio. The metric name is
+carried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside
+[0, 60000] are clamped server-side before storage.
+ */
+  metricValue?: number;
 }
 
 export interface AnalyticsEventResponse {

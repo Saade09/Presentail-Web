@@ -48,4 +48,9 @@ export const AnalyticsEventRequestAction = {
   plants: "plants",
   bears: "bears",
   candles: "candles",
+  LCP: "LCP",
+  INP: "INP",
+  CLS: "CLS",
+  TTFB: "TTFB",
+  FCP: "FCP",
 } as const;

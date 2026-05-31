@@ -88,4 +88,11 @@ the push notification payload.
    * @maxLength 64
    */
   wcOrderId?: string;
+  /** For `web_vital` events: the raw metric value reported by the
+web-vitals library. Timing metrics (LCP, INP, TTFB, FCP) are
+in milliseconds. CLS is a unitless ratio. The metric name is
+carried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside
+[0, 60000] are clamped server-side before storage.
+ */
+  metricValue?: number;
 }

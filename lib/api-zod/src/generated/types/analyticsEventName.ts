@@ -16,6 +16,13 @@ broader purchase funnel that the server-side
 `checkoutPurchaseFunnelMonitor` evaluates step-to-step so we
 notice when any single step collapses.
 
+`web_vital` events carry real-user Core Web Vital measurements
+(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`
+and the raw value (ms for timing metrics, unitless for CLS) in
+`metricValue`. The server-side `webVitalsMonitor` evaluates the
+prior UTC day's LCP median and alerts via Slack when it crosses
+the configured threshold.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -39,4 +46,5 @@ export const AnalyticsEventName = {
   order_push_tapped: "order_push_tapped",
   fx_rates_fallback: "fx_rates_fallback",
   seo_entity_fetch_failed: "seo_entity_fetch_failed",
+  web_vital: "web_vital",
 } as const;

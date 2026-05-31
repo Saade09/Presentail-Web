@@ -233,9 +233,10 @@ export const RecordAnalyticsEventBody = zod.object({
       "order_push_tapped",
       "fx_rates_fallback",
       "seo_entity_fetch_failed",
+      "web_vital",
     ])
     .describe(
-      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n",
+      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n",
     ),
   surface: zod
     .enum([
@@ -278,6 +279,11 @@ export const RecordAnalyticsEventBody = zod.object({
       "plants",
       "bears",
       "candles",
+      "LCP",
+      "INP",
+      "CLS",
+      "TTFB",
+      "FCP",
     ])
     .optional()
     .describe(
@@ -332,6 +338,12 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `order_push_tapped` events: the WooCommerce order id from\nthe push notification payload.\n",
+    ),
+  metricValue: zod
+    .number()
+    .optional()
+    .describe(
+      "For `web_vital` events: the raw metric value reported by the\nweb-vitals library. Timing metrics (LCP, INP, TTFB, FCP) are\nin milliseconds. CLS is a unitless ratio. The metric name is\ncarried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside\n[0, 60000] are clamped server-side before storage.\n",
     ),
 });
 
