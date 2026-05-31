@@ -261,17 +261,29 @@ export function isLanguageNeutralValue(value: string): boolean {
 }
 
 /**
- * Returns the set of EN keys annotated with `// no-translate` on the same
- * line as their value.  These keys are intentionally identical across all
- * locales — either because the word is a French loan word used unchanged in
- * French, a proper brand name, or a universally recognised abbreviation —
- * and should be excluded from the placeholder / copy-paste check (Check 5).
+ * Returns the set of keys annotated with `// no-translate` on the same line
+ * as their value in the specified locale block (default: "EN").  These keys
+ * are intentionally identical across all locales — either because the word is
+ * a French loan word used unchanged in French, a proper brand name, or a
+ * universally recognised abbreviation — and should be excluded from the
+ * placeholder / copy-paste check (Check 5).
  *
- * Example annotation in the EN block:
- *   boutique: "Boutique",  // no-translate — French loan word
+ * The annotation can be placed on any locale block line.  Placing it on the
+ * EN line suppresses Check 5 for that key in every locale; placing it on an
+ * AR or FR line suppresses Check 5 only for that specific locale.
+ *
+ * Example annotations:
+ *   EN block:  boutique: "Boutique",  // no-translate — French loan word
+ *   AR block:  boutique: "Boutique",  // no-translate — same in Arabic context
  */
-export function extractNoTranslateKeys(src: string): Set<string> {
-  const blockRe = /^const EN(?:[^=]*)=\s*\{([\s\S]*?)^};/m;
+export function extractNoTranslateKeys(
+  src: string,
+  localeName = "EN",
+): Set<string> {
+  const blockRe = new RegExp(
+    `^const ${localeName}(?:[^=]*)=\\s*\\{([\\s\\S]*?)^};`,
+    "m",
+  );
   const match = src.match(blockRe);
   if (!match) return new Set();
   const block = match[1];
@@ -398,7 +410,11 @@ const frKeys = new Set(extractLocaleKeys(translationsSrc, "FR"));
 const enValues = extractLocaleKeyValues(translationsSrc, "EN");
 const arValues = extractLocaleKeyValues(translationsSrc, "AR");
 const frValues = extractLocaleKeyValues(translationsSrc, "FR");
-const noTranslateKeys = extractNoTranslateKeys(translationsSrc);
+// EN annotations suppress Check 5 for the key in every locale.
+// AR / FR annotations suppress Check 5 only for that specific locale.
+const enNoTranslateKeys = extractNoTranslateKeys(translationsSrc, "EN");
+const arNoTranslateKeys = extractNoTranslateKeys(translationsSrc, "AR");
+const frNoTranslateKeys = extractNoTranslateKeys(translationsSrc, "FR");
 
 // Collect every mobile source file except translations.ts itself.
 const files = collectFiles(SCAN_ROOT).filter((f) => f !== TRANSLATIONS_FILE);
@@ -710,9 +726,13 @@ for (const [locale, localeValueMap] of [
     // (e.g. pure template variables like "{country}").
     if (enValueIsUntranslatable(enVal)) continue;
     // Skip keys explicitly annotated as `// no-translate` in the EN block
-    // (brand names, French loan words used unchanged in FR, universal
-    // abbreviations — values that are legitimately identical across locales).
-    if (noTranslateKeys.has(key)) continue;
+    // (suppresses all locales) or in the specific locale block (suppresses
+    // only that locale).  Brand names, French loan words used unchanged in
+    // FR, universal abbreviations — values legitimately identical across
+    // locales — can be annotated on either the EN line or the locale line.
+    const localeNoTranslateKeys =
+      locale === "AR" ? arNoTranslateKeys : frNoTranslateKeys;
+    if (enNoTranslateKeys.has(key) || localeNoTranslateKeys.has(key)) continue;
 
     const hit = classifyPlaceholderHit(locale, key, enVal, localeVal);
     if (hit) placeholderHits.push(hit);

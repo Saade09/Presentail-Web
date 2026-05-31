@@ -313,7 +313,7 @@ describe("isLanguageNeutralValue", () => {
 // ── extractNoTranslateKeys ───────────────────────────────────────────────────
 
 describe("extractNoTranslateKeys", () => {
-  it("returns keys annotated with // no-translate on the same line", () => {
+  it("returns keys annotated with // no-translate on the same line (EN block, default)", () => {
     const src =
       makeLocaleBlock(
         "EN",
@@ -357,6 +357,43 @@ describe("extractNoTranslateKeys", () => {
     );
     const keys = extractNoTranslateKeys(src);
     expect(keys.has("presentailBrand")).toBe(true);
+  });
+
+  it("reads // no-translate from the AR block when localeName='AR'", () => {
+    const src =
+      makeLocaleBlock("EN", `  boutique: "Boutique",`) +
+      makeLocaleBlock("AR", `  boutique: "Boutique",  // no-translate — same in Arabic context`);
+    const enKeys = extractNoTranslateKeys(src, "EN");
+    const arKeys = extractNoTranslateKeys(src, "AR");
+    // EN block has no annotation — not suppressed by EN
+    expect(enKeys.has("boutique")).toBe(false);
+    // AR block has annotation — suppressed for AR
+    expect(arKeys.has("boutique")).toBe(true);
+  });
+
+  it("reads // no-translate from the FR block when localeName='FR'", () => {
+    const src =
+      makeLocaleBlock("EN", `  expressLabel: "Express",`) +
+      makeLocaleBlock("FR", `  expressLabel: "Express",  // no-translate — loan word`);
+    const frKeys = extractNoTranslateKeys(src, "FR");
+    expect(frKeys.has("expressLabel")).toBe(true);
+  });
+
+  it("AR annotation does not bleed into FR suppression (per-locale isolation)", () => {
+    const src =
+      makeLocaleBlock("EN", `  boutique: "Boutique",`) +
+      makeLocaleBlock("AR", `  boutique: "Boutique",  // no-translate`) +
+      makeLocaleBlock("FR", `  boutique: "Boutique",`);
+    const arKeys = extractNoTranslateKeys(src, "AR");
+    const frKeys = extractNoTranslateKeys(src, "FR");
+    expect(arKeys.has("boutique")).toBe(true);
+    expect(frKeys.has("boutique")).toBe(false);
+  });
+
+  it("returns an empty Set when the specified locale block is absent", () => {
+    const src = makeLocaleBlock("EN", `  heroTitle: "Send Flowers",  // no-translate`);
+    // FR block does not exist in this source
+    expect(extractNoTranslateKeys(src, "FR").size).toBe(0);
   });
 });
 

@@ -30,15 +30,27 @@
  * recognised abbreviations (e.g. "USD"), and strings that are pure template
  * variables or digits with no human-translatable text.
  *
- * Mark these on the EN line with a `// no-translate` comment so the
- * check-translations script skips the copy-paste and Arabic-script checks for
- * that key:
+ * Mark these with a `// no-translate` comment so the check-translations script
+ * skips the copy-paste and Arabic-script checks for that key.
  *
- *   boutique: "Boutique",  // no-translate — French loan word
- *   usdLabel: "USD",       // no-translate — currency code, same in all locales
+ * Two placement options (choose whichever is most natural):
  *
- * Without the annotation the script will flag the AR/FR values as
- * untranslated placeholders and fail CI.
+ *   • On the EN line — suppresses Check 5 for that key in EVERY locale:
+ *
+ *       EN block:  boutique: "Boutique",  // no-translate — French loan word
+ *
+ *   • On the AR or FR line — suppresses Check 5 only for THAT locale:
+ *
+ *       AR block:  boutique: "Boutique",  // no-translate — same spelling in Arabic
+ *       FR block:  boutique: "Boutique",  // no-translate — French loan word
+ *
+ * Use the EN-line annotation when the value is intentionally identical across
+ * all locales.  Use a per-locale annotation when only one locale legitimately
+ * keeps the EN value (e.g. a French loan word that stays the same in FR but
+ * would still need translation in AR).
+ *
+ * Without an annotation the script will flag the AR/FR values as untranslated
+ * placeholders and fail CI.
  *
  * ─── Catching issues locally before push ─────────────────────────────────────
  *
