@@ -148,7 +148,7 @@ function extractKeysWithType(src: string): {
  * brace block and checks whether it contains an `ar:` field.  Both single-line
  * and multi-line entry formats are handled.
  */
-function extractMissingArKeys(src: string): string[] {
+export function extractMissingArKeys(src: string): string[] {
   const missing: string[] = [];
   // Match the opening of every dict entry: "key.name": {
   const keyStartRe = /^\s+"([^"]+)":\s*\{/gm;

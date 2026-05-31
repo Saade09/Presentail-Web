@@ -107,7 +107,7 @@ function getLine(src: string, index: number): number {
  * to these files prevents false positives from the many other places in the
  * codebase that happen to use `t` as a generic variable name.
  */
-function usesTranslationObject(src: string): boolean {
+export function usesTranslationObject(src: string): boolean {
   return /\buseT\s*\(/.test(src) || /translations\s*\[/.test(src);
 }
 
@@ -128,7 +128,7 @@ function usesTranslationObject(src: string): boolean {
  *   t[`template`]      – template-literal bracket access
  *   t.push(…)          – method calls (property followed by `(`)
  */
-function extractLiteralKeyRefsWithLines(
+export function extractLiteralKeyRefsWithLines(
   src: string,
 ): Array<{ key: string; line: number }> {
   const results: Array<{ key: string; line: number }> = [];
@@ -179,7 +179,7 @@ function collectFiles(dir: string, results: string[] = []): string[] {
  * closing `};` appears at the start of a line — this avoids false positives
  * from nested objects inside the block.
  */
-function extractLocaleKeys(src: string, localeName: string): string[] {
+export function extractLocaleKeys(src: string, localeName: string): string[] {
   const blockRe = new RegExp(
     `^const ${localeName}(?:[^=]*)=\\s*\\{([\\s\\S]*?)^};`,
     "m",
@@ -207,7 +207,7 @@ function extractLocaleKeys(src: string, localeName: string): string[] {
  *
  * Returns a Map<key, rawValue> for the given locale block.
  */
-function extractLocaleKeyValues(
+export function extractLocaleKeyValues(
   src: string,
   localeName: string,
 ): Map<string, string> {
@@ -240,7 +240,7 @@ function extractLocaleKeyValues(
  * Returns true if the string contains at least one Arabic-script character
  * (Unicode block U+0600–U+06FF).
  */
-function containsArabicScript(value: string): boolean {
+export function containsArabicScript(value: string): boolean {
   return /[\u0600-\u06FF]/.test(value);
 }
 
@@ -250,7 +250,7 @@ function containsArabicScript(value: string): boolean {
  * are legitimately identical across all locales (e.g. "+961", "—", "USD").
  * Used to suppress false positives in the Arabic-script check.
  */
-function isLanguageNeutralValue(value: string): boolean {
+export function isLanguageNeutralValue(value: string): boolean {
   return value.replace(/[\d\s\p{P}\p{S}\p{N}]/gu, "").length === 0;
 }
 
@@ -261,7 +261,7 @@ function isLanguageNeutralValue(value: string): boolean {
  * Used to avoid false positives on values like `{country}` where AR/FR are
  * correctly identical to EN.
  */
-function enValueIsUntranslatable(enVal: string): boolean {
+export function enValueIsUntranslatable(enVal: string): boolean {
   // Strip all `{...}` template-variable tokens, then check if what remains
   // is language-neutral (digits, punctuation, whitespace, symbols only).
   const stripped = enVal.replace(/\{[^}]+\}/g, "");
@@ -274,13 +274,17 @@ function enValueIsUntranslatable(enVal: string): boolean {
  *   "keyName"   — double-quoted string literal (bracket or data access)
  *   'keyName'   — single-quoted string literal
  */
-function isKeyReferenced(key: string, corpus: string): boolean {
+export function isKeyReferenced(key: string, corpus: string): boolean {
   if (new RegExp(`\\.${key}(?![a-zA-Z0-9_])`).test(corpus)) return true;
   if (new RegExp(`['"]${key}['"]`).test(corpus)) return true;
   return false;
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
+// Guard lets unit tests import the exported functions without triggering I/O
+// or process.exit().  Vitest sets process.env.VITEST; the guard checks for it.
+
+if (!process.env.VITEST) {
 
 const translationsSrc = fs.readFileSync(TRANSLATIONS_FILE, "utf8");
 
@@ -682,3 +686,5 @@ if (!failed) {
 } else {
   process.exit(1);
 }
+
+} // end if (!process.env.VITEST)
