@@ -237,7 +237,12 @@ export const AnalyticsEventRequestAction = {
 } as const;
 
 /**
- * The client platform that produced the event.
+ * The client platform that produced the event. For `web_vital`
+events the web app sends `mobile_web` or `desktop_web` (derived
+from `navigator.userAgentData` or a viewport-width heuristic)
+so the dashboard can show per-device-type sparklines. All other
+web events use `web`.
+
  */
 export type AnalyticsEventRequestPlatform =
   (typeof AnalyticsEventRequestPlatform)[keyof typeof AnalyticsEventRequestPlatform];
@@ -246,6 +251,8 @@ export const AnalyticsEventRequestPlatform = {
   ios: "ios",
   android: "android",
   web: "web",
+  mobile_web: "mobile_web",
+  desktop_web: "desktop_web",
 } as const;
 
 export interface AnalyticsEventRequest {
@@ -270,7 +277,12 @@ user-controlled strings or anything that could be mistaken
 for a card message.
  */
   action?: AnalyticsEventRequestAction;
-  /** The client platform that produced the event. */
+  /** The client platform that produced the event. For `web_vital`
+events the web app sends `mobile_web` or `desktop_web` (derived
+from `navigator.userAgentData` or a viewport-width heuristic)
+so the dashboard can show per-device-type sparklines. All other
+web events use `web`.
+ */
   platform?: AnalyticsEventRequestPlatform;
   /** Optional app/build version string for debugging. */
   appVersion?: string;

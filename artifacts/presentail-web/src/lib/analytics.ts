@@ -65,6 +65,8 @@ export type AnalyticsEvent = {
   errorCode?: string;
   productId?: string;
   metricValue?: number;
+  /** Optional platform override. When set, takes precedence over the default "web" value added by trackEvent. */
+  platform?: string;
 };
 
 function generateSessionId(): string {
@@ -114,7 +116,8 @@ let SESSION_ID: string = getOrCreateSessionId();
 export function trackEvent(event: AnalyticsEvent): void {
   if (typeof window === "undefined") return;
   SESSION_ID = getOrCreateSessionId();
-  const payload = JSON.stringify({ ...event, platform: "web", sessionId: SESSION_ID });
+  // platform: "web" is the default; event.platform overrides it when explicitly set.
+  const payload = JSON.stringify({ platform: "web", ...event, sessionId: SESSION_ID });
   try {
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([payload], { type: "application/json" });
@@ -141,6 +144,29 @@ export function trackEvent(event: AnalyticsEvent): void {
 }
 
 /**
+ * Detect whether the current browser context is a mobile or desktop web
+ * session. Used exclusively for `web_vital` events so the dashboard can
+ * show per-device-type sparklines.
+ *
+ * Priority:
+ *  1. `navigator.userAgentData.mobile` (Chromium 90+, boolean, accurate)
+ *  2. Viewport-width heuristic (< 768 px → mobile_web)
+ */
+function detectWebPlatform(): "mobile_web" | "desktop_web" {
+  try {
+    if (typeof navigator !== "undefined") {
+      const uad = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData;
+      if (uad?.mobile === true) return "mobile_web";
+      if (uad?.mobile === false) return "desktop_web";
+    }
+    if (typeof window !== "undefined" && window.innerWidth < 768) return "mobile_web";
+  } catch {
+    // best-effort
+  }
+  return "desktop_web";
+}
+
+/**
  * Register web-vitals reporters. Call once from the app entry point.
  * Each metric is reported at most once per page load. The function is
  * a no-op in non-browser environments.
@@ -148,13 +174,18 @@ export function trackEvent(event: AnalyticsEvent): void {
  * Uses `reportAllChanges: false` so each metric is sent once (final
  * value) rather than on every update — keeps event volume low while
  * still capturing the authoritative reading.
+ *
+ * Each `web_vital` event carries a `platform` of `mobile_web` or
+ * `desktop_web` so the dashboard can split LCP/INP/CLS by device type.
  */
 export function trackWebVitals(): void {
   if (typeof window === "undefined") return;
 
+  const webPlatform = detectWebPlatform();
+
   import("web-vitals").then(({ onLCP, onINP, onCLS, onTTFB, onFCP }) => {
     const report = (metricName: AnalyticsAction) => (metric: { value: number }) => {
-      trackEvent({ name: "web_vital", action: metricName, metricValue: metric.value });
+      trackEvent({ name: "web_vital", action: metricName, metricValue: metric.value, platform: webPlatform });
     };
     onLCP(report("LCP"));
     onINP(report("INP"));

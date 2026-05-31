@@ -271,11 +271,13 @@ router.get("/admin/funnels/data", async (req, res) => {
         })),
       },
       // Per-day p50/p75/p95 for each web vital metric (LCP, INP, CLS, TTFB,
-      // FCP). Sourced from `web_vital` analytics events via the same
-      // `loadDailyWebVitalSummaries` helper that the webVitalsMonitor uses
-      // so the dashboard and Slack alerts can never disagree.
+      // FCP) split by platform (`mobile_web` / `desktop_web` / `web` / null
+      // for older events). Sourced from `web_vital` analytics events via the
+      // same `loadDailyWebVitalSummaries` helper that the webVitalsMonitor
+      // uses so the dashboard and Slack alerts can never disagree.
       webVitals: webVitalsDaily.map((r: DailyWebVitalSummary) => ({
         day: r.day,
+        platform: r.platform,
         metric: r.metric,
         count: r.count,
         p50: r.p50,
@@ -304,6 +306,7 @@ router.get("/admin/funnels/web-vitals", async (req, res) => {
       rangeEndUtc: end.toISOString(),
       daily: daily.map((r: DailyWebVitalSummary) => ({
         day: r.day,
+        platform: r.platform,
         metric: r.metric,
         count: r.count,
         p50: r.p50,

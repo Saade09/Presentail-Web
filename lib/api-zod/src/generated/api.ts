@@ -300,9 +300,11 @@ export const RecordAnalyticsEventBody = zod.object({
       "For checkout-login-prompt action events, which choice the\nshopper picked. For payment_method_selected and order_placed,\nthe chosen payment method id. For suggested_message_picked,\nthe suggested-messages catalog category id whose card was\ntapped (`general`, `love`, `birthday`, `graduation`,\n`getWellSoon`, `newBabyBorn`, `thankYou`, `sympathy`). We\ntrack category-only — not the message body — so we never log\nuser-controlled strings or anything that could be mistaken\nfor a card message.\n",
     ),
   platform: zod
-    .enum(["ios", "android", "web"])
+    .enum(["ios", "android", "web", "mobile_web", "desktop_web"])
     .optional()
-    .describe("The client platform that produced the event."),
+    .describe(
+      "The client platform that produced the event. For `web_vital`\nevents the web app sends `mobile_web` or `desktop_web` (derived\nfrom `navigator.userAgentData` or a viewport-width heuristic)\nso the dashboard can show per-device-type sparklines. All other\nweb events use `web`.\n",
+    ),
   appVersion: zod
     .string()
     .optional()

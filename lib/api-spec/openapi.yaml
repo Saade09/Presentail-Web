@@ -1113,8 +1113,13 @@ components:
             - occasion
         platform:
           type: string
-          enum: [ios, android, web]
-          description: The client platform that produced the event.
+          enum: [ios, android, web, mobile_web, desktop_web]
+          description: |
+            The client platform that produced the event. For `web_vital`
+            events the web app sends `mobile_web` or `desktop_web` (derived
+            from `navigator.userAgentData` or a viewport-width heuristic)
+            so the dashboard can show per-device-type sparklines. All other
+            web events use `web`.
         appVersion:
           type: string
           description: Optional app/build version string for debugging.

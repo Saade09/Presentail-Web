@@ -134,7 +134,11 @@ export type WebVitalSummary = {
   p95: number;
 };
 
-export type DailyWebVitalSummary = WebVitalSummary & { day: string };
+export type DailyWebVitalSummary = WebVitalSummary & {
+  day: string;
+  /** `mobile_web`, `desktop_web`, `web`, or `null` for rows without a platform value. */
+  platform: string | null;
+};
 
 // ── Shared query internals ──────────────────────────────────────────────────
 
@@ -169,22 +173,36 @@ export async function loadDailyWebVitalSummaries(
   start: Date,
   end: Date,
 ): Promise<DailyWebVitalSummary[]> {
-  type Row = { day: string; metric: string; count: number; p50: number; p75: number; p95: number };
+  type Row = {
+    day: string;
+    platform: string | null;
+    metric: string;
+    count: number;
+    p50: number;
+    p75: number;
+    p95: number;
+  };
 
   const DAY_EXPR = sql<string>`to_char(date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC'), 'YYYY-MM-DD')`;
   const DAY_TRUNC = sql`date_trunc('day', ${analyticsEventsTable.createdAt} at time zone 'UTC')`;
 
   const rows = (await db
-    .select({ day: DAY_EXPR, ...VITAL_AGGREGATES })
+    .select({ day: DAY_EXPR, platform: analyticsEventsTable.platform, ...VITAL_AGGREGATES })
     .from(analyticsEventsTable)
     .where(vitalWhere(start, end))
-    .groupBy(DAY_TRUNC, analyticsEventsTable.action)) as Array<
+    .groupBy(DAY_TRUNC, analyticsEventsTable.platform, analyticsEventsTable.action)) as Array<
     Row & { day: string | null; metric: string | null }
   >;
 
   return rows
     .filter((r): r is Row => typeof r.day === "string" && typeof r.metric === "string")
-    .sort((a, b) => a.day.localeCompare(b.day) || a.metric.localeCompare(b.metric));
+    .sort((a, b) => {
+      if (a.day !== b.day) return a.day.localeCompare(b.day);
+      const pa = a.platform ?? "";
+      const pb = b.platform ?? "";
+      if (pa !== pb) return pa.localeCompare(pb);
+      return a.metric.localeCompare(b.metric);
+    });
 }
 
 /**
