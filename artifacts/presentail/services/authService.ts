@@ -21,6 +21,7 @@ export type AuthErrorCode =
   | "lookup_failed"
   | "lookup_unavailable"
   | "wrong_password"
+  | "email_exists"
   | "server";
 
 export type AuthError = {
@@ -122,6 +123,13 @@ export async function createAccountWithEmail(
     lastName: input.lastName.trim(),
   });
   if (r.ok) return { ok: true };
+  // WooCommerce returns "Sorry, that email address is already registered."
+  // when the shopper tries to create an account with an existing email.
+  // Surface this as a dedicated error code so the UI can show a helpful
+  // message and navigate the shopper directly to the sign-in step.
+  if (/already registered/i.test(r.message ?? "")) {
+    return { ok: false, code: "email_exists" };
+  }
   return { ok: false, code: "server", serverMessage: r.message };
 }
 

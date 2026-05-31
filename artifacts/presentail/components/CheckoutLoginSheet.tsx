@@ -256,6 +256,8 @@ export function CheckoutLoginSheet({
         return t.authEmailCheckFailed;
       case "wrong_password":
         return t.authWrongPassword;
+      case "email_exists":
+        return t.authEmailAlreadyExists;
       case "server":
         return t.authGenericError;
     }
@@ -332,6 +334,12 @@ export function CheckoutLoginSheet({
     });
     setSignupBusy(false);
     if (!r.ok) {
+      if (r.code === "email_exists") {
+        setSignupError(null);
+        setPassword("");
+        setStep("passwordLogin");
+        return;
+      }
       setSignupError(errorText(r));
       return;
     }
