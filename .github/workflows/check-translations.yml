@@ -152,11 +152,18 @@ jobs:
       - name: Check for unused, missing, and undefined translation keys (mobile + web)
         id: check
         continue-on-error: true
+        env:
+          MOBILE_TRANSLATION_JSON_OUT: ${{ github.workspace }}/mobile-translation-results.json
+          WEB_TRANSLATION_JSON_OUT: ${{ github.workspace }}/web-translation-results.json
         run: |
           set +e
-          pnpm --filter @workspace/scripts run check-translations \
-            2> translation-check-output.txt
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          pnpm --filter @workspace/scripts run check-unused-mobile-translations
+          mobile_exit=$?
+          pnpm --filter @workspace/scripts run check-unused-web-translations
+          web_exit=$?
+          combined=$(( mobile_exit | web_exit ))
+          echo "exit_code=$combined" >> "$GITHUB_OUTPUT"
+          exit $combined
 
       - name: Post or update PR comment with translation check results
         if: github.event_name == 'pull_request'
@@ -169,6 +176,138 @@ jobs:
             const MARKER = '<!-- translation-check-bot -->';
             const passed = process.env.CHECK_OUTCOME === 'success';
 
+            function readJson(filePath) {
+              try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+              catch { return null; }
+            }
+
+            function details(summary, body) {
+              return `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>\n`;
+            }
+
+            function keyList(keys) {
+              return keys.map(k => `- \`${k}\``).join('\n');
+            }
+
+            function buildMobileSection(data) {
+              if (!data) return '### 📱 Mobile — ⚠️ results file missing\n\nThe mobile translation check may have failed before writing its results. Check the [workflow log](' + runUrl + ') for details.\n';
+              if (data.passed) return '### 📱 Mobile — ✅ all checks passed\n';
+              const c = data.checks;
+              const parts = [`### 📱 Mobile — ❌ issues found\n`];
+
+              if (c.unusedKeys?.length) {
+                parts.push(details(
+                  `🗑️ Unused keys (${c.unusedKeys.length})`,
+                  keyList(c.unusedKeys) +
+                    '\n\n_Remove these from all locale blocks (EN, AR, FR) in `artifacts/presentail/lib/translations.ts`._'
+                ));
+              }
+              for (const { locale, keys } of (c.missingLocale ?? [])) {
+                parts.push(details(
+                  `🌍 Missing ${locale} translations (${keys.length})`,
+                  keyList(keys) +
+                    `\n\n_Add these to the ${locale} locale block in \`artifacts/presentail/lib/translations.ts\`._`
+                ));
+              }
+              if (c.undefinedRefs?.length) {
+                const lines = c.undefinedRefs.flatMap(({ key, sites }) => [
+                  `- \`${key}\``,
+                  ...sites.map(({ file, line }) => `  - \`${file}:${line}\``),
+                ]);
+                parts.push(details(
+                  `❓ Undefined key references (${c.undefinedRefs.length})`,
+                  lines.join('\n') +
+                    '\n\n_Add these keys to all three locale blocks or fix the call sites._'
+                ));
+              }
+              for (const { locale, keys } of (c.orphanKeys ?? [])) {
+                parts.push(details(
+                  `🗑️ Orphan ${locale} keys (${keys.length})`,
+                  keyList(keys) +
+                    `\n\n_These exist in ${locale} but not in EN — remove or add to EN._`
+                ));
+              }
+              const placeholdersByLocale = {};
+              for (const hit of (c.placeholders ?? [])) {
+                (placeholdersByLocale[hit.locale] ??= []).push(hit);
+              }
+              for (const [locale, hits] of Object.entries(placeholdersByLocale)) {
+                const lines = hits.map(h =>
+                  h.reason === 'identical_to_en'
+                    ? `- \`${h.key}\` — value is identical to EN`
+                    : `- \`${h.key}\` — no Arabic-script characters found`
+                );
+                parts.push(details(
+                  `📋 Placeholder ${locale} translations (${hits.length})`,
+                  lines.join('\n') + '\n\n_Replace with real translations._'
+                ));
+              }
+              return parts.join('\n');
+            }
+
+            function buildWebSection(data) {
+              if (!data) return '### 🌐 Web — ⚠️ results file missing\n\nThe web translation check may have failed before writing its results. Check the [workflow log](' + runUrl + ') for details.\n';
+              if (data.passed) return '### 🌐 Web — ✅ all checks passed\n';
+              const c = data.checks;
+              const parts = [`### 🌐 Web — ❌ issues found\n`];
+
+              if (c.unusedKeys?.length) {
+                parts.push(details(
+                  `🗑️ Unused keys (${c.unusedKeys.length})`,
+                  keyList(c.unusedKeys) +
+                    '\n\n_Remove these from the appropriate locale domain file in `artifacts/presentail-web/src/locales/`._'
+                ));
+              }
+              if (c.missingFr?.length) {
+                const total = c.missingFr.reduce((s, f) => s + f.keys.length, 0);
+                const body = c.missingFr.map(({ file, keys }) =>
+                  `**\`${file}\`**\n${keyList(keys)}`
+                ).join('\n\n') +
+                  '\n\n_Add these to the corresponding `*StringsFr` export._';
+                parts.push(details(`🇫🇷 Missing French translations (${total})`, body));
+              }
+              if (c.orphanedFr?.length) {
+                parts.push(details(
+                  `🗑️ Orphaned French-only keys (${c.orphanedFr.length})`,
+                  keyList(c.orphanedFr) +
+                    '\n\n_Remove these or add matching base entries in `*Strings`._'
+                ));
+              }
+              if (c.undefinedRefs?.length) {
+                const lines = c.undefinedRefs.flatMap(({ key, sites }) => [
+                  `- \`${key}\``,
+                  ...sites.map(({ file, line }) => `  - \`${file}:${line}\``),
+                ]);
+                parts.push(details(
+                  `❓ Undefined key references (${c.undefinedRefs.length})`,
+                  lines.join('\n') +
+                    '\n\n_Add these keys (with both `en` and `ar` values) to the appropriate `*Strings` export._'
+                ));
+              }
+              if (c.missingAr?.length) {
+                const total = c.missingAr.reduce((s, f) => s + f.keys.length, 0);
+                const body = c.missingAr.map(({ file, keys }) =>
+                  `**\`${file}\`**\n${keyList(keys)}`
+                ).join('\n\n') +
+                  '\n\n_Add an `ar` field to each Dict entry in the locale file._';
+                parts.push(details(`🇸🇦 Missing Arabic field (${total})`, body));
+              }
+              if (c.emptyValues?.length) {
+                const total = c.emptyValues.reduce((s, f) => s + f.entries.length, 0);
+                const body = c.emptyValues.map(({ file, entries }) =>
+                  `**\`${file}\`**\n` +
+                  entries.map(({ key, fields }) => `- \`${key}\` (empty: ${fields.join(', ')})`).join('\n')
+                ).join('\n\n') +
+                  '\n\n_Fill in the empty values in the locale file._';
+                parts.push(details(`⬜ Empty translation values (${total})`, body));
+              }
+              return parts.join('\n');
+            }
+
+            const mobile = readJson('mobile-translation-results.json');
+            const web = readJson('web-translation-results.json');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
             let body;
             if (passed) {
               body = [
@@ -177,22 +316,21 @@ jobs:
                 '',
                 'All translation keys are present and accounted for.',
                 '',
-                `_Updated by the [check-translations](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) workflow._`,
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
               ].join('\n');
             } else {
-              const raw = fs.readFileSync('translation-check-output.txt', 'utf8').trim();
+              const mobileSection = buildMobileSection(mobile);
+              const webSection = buildWebSection(web);
               body = [
                 MARKER,
                 '## ❌ Translation check failed',
                 '',
-                'The following translation issues must be fixed before merging:',
+                'The following translation issues must be fixed before merging.',
                 '',
-                '```',
-                raw,
-                '```',
-                '',
-                `_Updated by the [check-translations](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) workflow._`,
-              ].join('\n');
+                mobileSection,
+                webSection,
+                `_Updated by the [check-translations](${runUrl}) workflow._`,
+              ].filter(s => s !== undefined).join('\n');
             }
 
             const { data: comments } = await github.rest.issues.listComments({

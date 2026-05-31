@@ -639,6 +639,41 @@ if (placeholderHits.length > 0) {
   );
 }
 
+// ── JSON output (for structured PR comment) ───────────────────────────────────
+const JSON_OUT = process.env["MOBILE_TRANSLATION_JSON_OUT"];
+if (JSON_OUT) {
+  const result = {
+    source: "mobile",
+    passed: !failed,
+    totalEnKeys: enKeys.length,
+    scannedFiles: files.length,
+    checks: {
+      unusedKeys,
+      missingLocale: localeGaps.map(({ locale, missingKeys }) => ({
+        locale,
+        keys: missingKeys,
+      })),
+      undefinedRefs: undefinedKeys.map((key) => ({
+        key,
+        sites: (keyCallSites.get(key) ?? []).map(({ file, line }) => ({
+          file: path.relative(REPO_ROOT, file),
+          line,
+        })),
+      })),
+      orphanKeys: localeOrphans.map(({ locale, orphanKeys }) => ({
+        locale,
+        keys: orphanKeys,
+      })),
+      placeholders: placeholderHits.map(({ locale, key, reason }) => ({
+        locale,
+        key,
+        reason,
+      })),
+    },
+  };
+  fs.writeFileSync(JSON_OUT, JSON.stringify(result, null, 2));
+}
+
 if (!failed) {
   console.log(
     `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, no empty locale values were detected, and no placeholder or copy-pasted translations were detected.`,

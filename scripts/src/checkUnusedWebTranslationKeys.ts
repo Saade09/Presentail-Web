@@ -940,6 +940,50 @@ if (SUMMARY_FILE) {
   }
 }
 
+// ── JSON output (for structured PR comment) ───────────────────────────────────
+const JSON_OUT = process.env["WEB_TRANSLATION_JSON_OUT"];
+if (JSON_OUT) {
+  const result = {
+    source: "web",
+    passed: !failed,
+    totalKeys: allKeys.length,
+    scannedFiles: files.length,
+    checks: {
+      unusedKeys,
+      missingFr: [
+        ...[...missingFrByFile.entries()].sort().map(([file, keys]) => ({
+          file,
+          keys: [...keys].sort(),
+        })),
+        ...(missingFrNoFile.length > 0
+          ? [{ file: "(source file unknown)", keys: [...missingFrNoFile].sort() }]
+          : []),
+      ],
+      orphanedFr,
+      undefinedRefs: missingFromStrings.sort().map((key) => ({
+        key,
+        sites: (staticCallSites.get(key) ?? []).map(({ file, line }) => ({
+          file: path.relative(REPO_ROOT, file),
+          line,
+        })),
+      })),
+      missingAr: [...missingArByFile.entries()].sort().map(([file, keys]) => ({
+        file,
+        keys: [...keys].sort(),
+      })),
+      emptyValues: [...emptyValuesByFile.entries()]
+        .sort()
+        .map(([file, entries]) => ({
+          file,
+          entries: [...entries]
+            .sort((a, b) => a.key.localeCompare(b.key))
+            .map(({ key, fields }) => ({ key, fields })),
+        })),
+    },
+  };
+  fs.writeFileSync(JSON_OUT, JSON.stringify(result, null, 2));
+}
+
 if (!failed) {
   console.log(
     `✓ All ${allKeys.length} web translation keys are in use, all values are non-empty, AR coverage is complete, FR coverage is complete (${stringsFrKeys.size}/${stringsKeys.size} keys translated), and all ${staticCallKeys.length} static t() call site${staticCallKeys.length === 1 ? "" : "s"} resolve to defined keys.`,
