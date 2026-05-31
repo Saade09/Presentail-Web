@@ -9,9 +9,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { occasions } from "@/data/catalog";
+import type { Occasion } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 
 const OCC_NAME_KEY: Record<string, string> = {
   housewarming: "occ_housewarming",
@@ -33,6 +35,97 @@ const OCC_DESC_KEY: Record<string, string> = {
   farewell: "occ_farewell_desc",
   condolences: "occ_condolences_desc",
 };
+
+type OccasionCardProps = {
+  o: Occasion;
+  displayName: string;
+  displayDesc: string;
+  isRTL: boolean;
+  ta: "left" | "right";
+  onPress: () => void;
+};
+
+function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: OccasionCardProps) {
+  const colors = useColors();
+  const t = useT();
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: isRTL ? "row-reverse" : "row",
+        alignItems: "center",
+        gap: 16,
+        borderRadius: 20,
+        overflow: "hidden",
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: colors.border,
+        opacity: pressed ? 0.9 : 1,
+      })}
+    >
+      <View style={{ width: 110, height: 110 }}>
+        {!imageLoaded && <ShimmerPlaceholder />}
+        <Image
+          source={o.image}
+          style={{ width: 110, height: 110 }}
+          contentFit="cover"
+          transition={200}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(true)}
+        />
+      </View>
+      <View style={{ flex: 1, paddingVertical: 16, paddingEnd: 16 }}>
+        <Text
+          style={{
+            fontFamily: "PlayfairDisplay_500Medium",
+            fontSize: 18,
+            color: colors.primary,
+            textAlign: ta,
+          }}
+        >
+          {displayName}
+        </Text>
+        <Text
+          numberOfLines={2}
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 12,
+            color: colors.mutedForeground,
+            marginTop: 4,
+            lineHeight: 17,
+            textAlign: ta,
+          }}
+        >
+          {displayDesc}
+        </Text>
+        <View
+          style={{
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 4,
+            marginTop: 10,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "Inter_500Medium",
+              fontSize: 12,
+              color: colors.gold,
+            }}
+          >
+            {t.seeAll}
+          </Text>
+          <Feather
+            name={isRTL ? "arrow-up-left" : "arrow-up-right"}
+            size={13}
+            color={colors.gold}
+          />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 function OccasionsScreen() {
   const colors = useColors();
@@ -156,78 +249,16 @@ function OccasionsScreen() {
           {occasions.map((o) => {
             const nameKey = OCC_NAME_KEY[o.id] as keyof typeof t;
             const descKey = OCC_DESC_KEY[o.id] as keyof typeof t;
-            const displayName = (t[nameKey] as string) || o.name;
-            const displayDesc = (t[descKey] as string) || o.description;
             return (
-              <Pressable
+              <OccasionCard
                 key={o.id}
+                o={o}
+                displayName={(t[nameKey] as string) || o.name}
+                displayDesc={(t[descKey] as string) || o.description || ""}
+                isRTL={isRTL}
+                ta={ta}
                 onPress={() => router.push({ pathname: "/occasion/[slug]", params: { slug: o.id } })}
-                style={({ pressed }) => ({
-                  flexDirection: isRTL ? "row-reverse" : "row",
-                  alignItems: "center",
-                  gap: 16,
-                  borderRadius: 20,
-                  overflow: "hidden",
-                  backgroundColor: "#fff",
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <Image
-                  source={o.image}
-                  style={{ width: 110, height: 110 }}
-                  contentFit="cover"
-                />
-                <View style={{ flex: 1, paddingVertical: 16, paddingEnd: 16 }}>
-                  <Text
-                    style={{
-                      fontFamily: "PlayfairDisplay_500Medium",
-                      fontSize: 18,
-                      color: colors.primary,
-                      textAlign: ta,
-                    }}
-                  >
-                    {displayName}
-                  </Text>
-                  <Text
-                    numberOfLines={2}
-                    style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 12,
-                      color: colors.mutedForeground,
-                      marginTop: 4,
-                      lineHeight: 17,
-                      textAlign: ta,
-                    }}
-                  >
-                    {displayDesc}
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      alignItems: "center",
-                      gap: 4,
-                      marginTop: 10,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: "Inter_500Medium",
-                        fontSize: 12,
-                        color: colors.gold,
-                      }}
-                    >
-                      {t.seeAll}
-                    </Text>
-                    <Feather
-                      name={isRTL ? "arrow-up-left" : "arrow-up-right"}
-                      size={13}
-                      color={colors.gold}
-                    />
-                  </View>
-                </View>
-              </Pressable>
+              />
             );
           })}
         </View>

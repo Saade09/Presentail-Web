@@ -218,6 +218,7 @@ function ProductDetail() {
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               onLoad={() => setHeroLoaded(true)}
+              onError={() => setHeroLoaded(true)}
             />
           ) : null}
           <LinearGradient

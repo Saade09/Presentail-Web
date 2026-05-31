@@ -114,6 +114,7 @@ function CategoryScreen() {
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               onLoad={() => setCoverLoaded(true)}
+              onError={() => setCoverLoaded(true)}
             />
           ) : null}
           {category && !coverLoaded && <ShimmerPlaceholder />}

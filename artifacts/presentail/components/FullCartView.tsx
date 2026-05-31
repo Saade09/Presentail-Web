@@ -71,6 +71,7 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
             style={{ width: 84, height: 84, borderRadius: 12 }}
             contentFit="cover"
             onLoad={() => setImageLoaded(true)}
+            onError={() => setImageLoaded(true)}
           />
         </View>
       </Pressable>

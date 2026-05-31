@@ -911,6 +911,7 @@ function CategoryTile({ item, tileWidth, imageSize, imageToLabelGap, onPress }: 
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               onLoad={() => setImageLoaded(true)}
+              onError={() => setImageLoaded(true)}
             />
             {!imageLoaded && <ShimmerPlaceholder />}
           </>
@@ -1077,6 +1078,7 @@ function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () =
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               onLoad={() => setImageLoaded(true)}
+              onError={() => setImageLoaded(true)}
             />
             {!imageLoaded && <ShimmerPlaceholder />}
           </>
@@ -1184,6 +1186,7 @@ function BrandTile({ item, onPress }: { item: BrandTileItem; onPress: () => void
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
               onLoad={() => setImageLoaded(true)}
+              onError={() => setImageLoaded(true)}
             />
             {!imageLoaded && <ShimmerPlaceholder />}
           </>

@@ -160,6 +160,7 @@ export function CartUpsells() {
             style={{ width: "100%", height: "100%" }}
             contentFit="cover"
             onLoad={() => setLoaded(true)}
+            onError={() => setLoaded(true)}
           />
         ) : null}
         {showExpress ? (

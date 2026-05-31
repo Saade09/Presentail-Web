@@ -65,6 +65,7 @@ export function ProductCard({ product, width, onPress }: Props) {
           contentFit="cover"
           transition={200}
           onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(true)}
         />
         {product.tag ? (
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>

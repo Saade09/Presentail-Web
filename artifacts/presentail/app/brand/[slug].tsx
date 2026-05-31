@@ -78,6 +78,7 @@ function BrandScreen() {
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               onLoad={() => setCoverLoaded(true)}
+              onError={() => setCoverLoaded(true)}
             />
             <LinearGradient
               colors={["rgba(0,65,78,0.25)", "rgba(0,65,78,0.85)"]}
