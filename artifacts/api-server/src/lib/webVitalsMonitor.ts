@@ -6,18 +6,20 @@ import { sendAlert } from "./alerts";
 // ── Configuration ──────────────────────────────────────────────────────────
 //
 // Runs once per UTC day (with a 1-minute delayed first run so DB is warm).
-// Queries the previous full UTC day's `web_vital` events, computes the p50
-// LCP (ms) across all web sessions, and fires a Slack alert when the median
-// exceeds WEB_VITALS_LCP_WARN_MS.
+// Queries the previous full UTC day's `web_vital` events and fires Slack
+// warn alerts when any of the following p-tile thresholds are breached:
+//   LCP p50 > WEB_VITALS_LCP_WARN_MS   (default 4000 ms — Google "poor")
+//   INP p75 > WEB_VITALS_INP_WARN_MS   (default 500 ms  — Google "needs improvement")
+//   CLS p75 > WEB_VITALS_CLS_WARN      (default 0.25    — Google "poor")
 //
 // Also queries `mobile_ttid` events (home + product screens) and includes
 // per-platform p50/p75/p95 rows in the same Slack digest so web and mobile
 // performance are visible together.
 //
 // Google's CrUX thresholds:
-//   LCP ≤ 2500 ms = good
-//   LCP ≤ 4000 ms = needs improvement
-//   LCP > 4000 ms = poor  ← default alert threshold
+//   LCP ≤ 2500 ms = good · ≤ 4000 ms = needs improvement · > 4000 ms = poor
+//   INP ≤ 200 ms  = good · ≤ 500 ms  = needs improvement · > 500 ms  = poor
+//   CLS ≤ 0.1     = good · ≤ 0.25    = needs improvement · > 0.25    = poor
 //
 // All env vars default to safe values so the monitor works without config.
 
@@ -31,6 +33,18 @@ const TICK_MS = 60 * 60 * 1000; // 1 h
 const LCP_WARN_MS = (() => {
   const raw = Number(process.env.WEB_VITALS_LCP_WARN_MS);
   if (!Number.isFinite(raw) || raw <= 0) return 4000;
+  return raw;
+})();
+
+const INP_WARN_MS = (() => {
+  const raw = Number(process.env.WEB_VITALS_INP_WARN_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return 500;
+  return raw;
+})();
+
+const CLS_WARN = (() => {
+  const raw = Number(process.env.WEB_VITALS_CLS_WARN);
+  if (!Number.isFinite(raw) || raw <= 0) return 0.25;
   return raw;
 })();
 
@@ -83,7 +97,13 @@ export function startWebVitalsMonitor(): void {
   timer.unref?.();
 
   logger.info(
-    { tickMs: TICK_MS, lcpWarnMs: LCP_WARN_MS, minSamples: MIN_SAMPLES },
+    {
+      tickMs: TICK_MS,
+      lcpWarnMs: LCP_WARN_MS,
+      inpWarnMs: INP_WARN_MS,
+      clsWarn: CLS_WARN,
+      minSamples: MIN_SAMPLES,
+    },
     "webVitalsMonitor: started",
   );
 }
@@ -270,18 +290,42 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     }
 
     const lcp = summaries.find((s) => s.metric === "LCP");
+    const inp = summaries.find((s) => s.metric === "INP");
+    const cls = summaries.find((s) => s.metric === "CLS");
 
     const allFields = [
       ...formatSummaryFields(summaries),
       ...formatMobileTtidFields(mobileSummaries),
     ];
 
+    // Collect any threshold breaches so we can send one consolidated alert.
+    const regressions: string[] = [];
+
     if (lcp && lcp.count >= MIN_SAMPLES && lcp.p50 > LCP_WARN_MS) {
+      regressions.push(
+        `LCP p50=${Math.round(lcp.p50)} ms > ${LCP_WARN_MS} ms threshold ` +
+          `(n=${lcp.count}, p75=${Math.round(lcp.p75)} ms, p95=${Math.round(lcp.p95)} ms)`,
+      );
+    }
+
+    if (inp && inp.count >= MIN_SAMPLES && inp.p75 > INP_WARN_MS) {
+      regressions.push(
+        `INP p75=${Math.round(inp.p75)} ms > ${INP_WARN_MS} ms threshold ` +
+          `(n=${inp.count}, p50=${Math.round(inp.p50)} ms, p95=${Math.round(inp.p95)} ms)`,
+      );
+    }
+
+    if (cls && cls.count >= MIN_SAMPLES && cls.p75 > CLS_WARN) {
+      regressions.push(
+        `CLS p75=${cls.p75.toFixed(3)} > ${CLS_WARN} threshold ` +
+          `(n=${cls.count}, p50=${cls.p50.toFixed(3)}, p95=${cls.p95.toFixed(3)})`,
+      );
+    }
+
+    if (regressions.length > 0) {
       await sendAlert({
-        title: `Web Vitals — LCP regression on ${day.iso} (UTC)`,
-        body:
-          `Median LCP ${Math.round(lcp.p50)} ms exceeds the ${LCP_WARN_MS} ms threshold ` +
-          `(n=${lcp.count}). p75=${Math.round(lcp.p75)} ms, p95=${Math.round(lcp.p95)} ms.`,
+        title: `Web Vitals — regression(s) on ${day.iso} (UTC)`,
+        body: regressions.join(" | "),
         severity: "warn",
         fields: allFields,
         source: "webVitalsMonitor",
@@ -289,7 +333,7 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     } else {
       await sendAlert({
         title: `Web Vitals — ${day.iso} (UTC)`,
-        body: buildDigestBody(lcp, mobileSummaries, day.iso),
+        body: buildDigestBody(lcp, inp, cls, mobileSummaries, day.iso),
         severity: "info",
         fields: allFields,
         source: "webVitalsMonitor",
@@ -304,13 +348,25 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
 
 function buildDigestBody(
   lcp: WebVitalSummary | undefined,
+  inp: WebVitalSummary | undefined,
+  cls: WebVitalSummary | undefined,
   mobile: MobileTtidSummary[],
   day: string,
 ): string {
   const lcpLine =
     !lcp || lcp.count < MIN_SAMPLES
       ? `Insufficient LCP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
-      : `Median LCP ${Math.round(lcp.p50)} ms is within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`;
+      : `LCP p50=${Math.round(lcp.p50)} ms within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`;
+
+  const inpLine =
+    !inp || inp.count < MIN_SAMPLES
+      ? `Insufficient INP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
+      : `INP p75=${Math.round(inp.p75)} ms within the ${INP_WARN_MS} ms threshold (n=${inp.count}).`;
+
+  const clsLine =
+    !cls || cls.count < MIN_SAMPLES
+      ? `Insufficient CLS samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
+      : `CLS p75=${cls.p75.toFixed(3)} within the ${CLS_WARN} threshold (n=${cls.count}).`;
 
   const TTID_SCREEN_ORDER = ["home", "product", "brand", "category", "occasion"];
   const mobileLine =
@@ -323,7 +379,7 @@ function buildDigestBody(
           );
         }).join(", ") + ".";
 
-  return `Web Vitals digest for ${day}. ${lcpLine} Mobile: ${mobileLine}`;
+  return `Web Vitals digest for ${day}. ${lcpLine} ${inpLine} ${clsLine} Mobile: ${mobileLine}`;
 }
 
 function formatSummaryFields(summaries: WebVitalSummary[]) {
