@@ -11,7 +11,7 @@ type LanguageContextType = {
   isReady: boolean;
 };
 
-const LanguageContext = createContext<LanguageContextType>({
+export const LanguageContext = createContext<LanguageContextType>({
   lang: "EN",
   setLang: () => {},
   isRTL: false,

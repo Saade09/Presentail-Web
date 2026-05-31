@@ -34,7 +34,7 @@ export type AuthUser = {
   birthdayShareMonthDay?: boolean;
 };
 
-type AuthState = {
+export type AuthState = {
   ready: boolean;
   user: AuthUser | null;
   token: string | null;
@@ -62,7 +62,7 @@ type AuthState = {
 const TOKEN_KEY = "presentail.auth.token";
 const USER_KEY = "presentail.auth.user";
 
-const AuthContext = createContext<AuthState | null>(null);
+export const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);

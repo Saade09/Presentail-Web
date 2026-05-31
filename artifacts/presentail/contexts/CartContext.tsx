@@ -11,7 +11,7 @@ export type CartCardMessage = { to: string; from: string; body: string };
 const CART_STORAGE_KEY = "@presentail/cart-v1";
 const CART_MESSAGE_STORAGE_KEY = "@presentail/cart-message-v1";
 
-type CartContextValue = {
+export type CartContextValue = {
   items: CartItem[];
   count: number;
   total: number;
@@ -40,7 +40,7 @@ type CartContextValue = {
   setCartMessage: (msg: CartCardMessage | null) => void;
 };
 
-const CartContext = createContext<CartContextValue | null>(null);
+export const CartContext = createContext<CartContextValue | null>(null);
 
 type PendingMutation =
   | { type: "add"; productId: string; qty: number }

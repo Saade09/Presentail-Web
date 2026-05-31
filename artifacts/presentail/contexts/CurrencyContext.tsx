@@ -44,7 +44,7 @@ type CurrencyContextValue = {
   list: Currency[];
 };
 
-const CurrencyContext = createContext<CurrencyContextValue | null>(null);
+export const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // Display currency precedence: manual pick (persisted across launches) →
