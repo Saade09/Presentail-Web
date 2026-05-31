@@ -53,7 +53,6 @@ import url from "node:url";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");
-const SCAN_ROOT = path.join(REPO_ROOT, "artifacts/presentail-web/src");
 
 export const SKIP_DIRS = new Set([
   "node_modules",
@@ -64,6 +63,20 @@ export const SKIP_DIRS = new Set([
   "locales", // translation source — scanning these would always flag false positives
   "ui",      // shadcn boilerplate — no user-authored strings
 ]);
+
+// Skip dirs used when scanning shared libs (subset — no web-specific exclusions)
+const LIB_SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  ".turbo",
+  "__generated__",
+]);
+
+// All source trees to scan: the web artifact plus shared libs
+const SCAN_ROOTS: Array<{ root: string; skipDirs: Set<string> }> = [
+  { root: path.join(REPO_ROOT, "artifacts/presentail-web/src"), skipDirs: SKIP_DIRS },
+  { root: path.join(REPO_ROOT, "lib"), skipDirs: LIB_SKIP_DIRS },
+];
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
@@ -79,11 +92,11 @@ interface Hit {
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-export function collectFiles(dir: string, results: string[] = []): string[] {
+export function collectFiles(dir: string, skipDirs: Set<string>, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      collectFiles(path.join(dir, entry.name), results);
+      if (skipDirs.has(entry.name)) continue;
+      collectFiles(path.join(dir, entry.name), skipDirs, results);
     } else if (
       /\.tsx?$/.test(entry.name) &&
       !/\.test\.(tsx?|jsx?)$/.test(entry.name) &&
@@ -198,7 +211,7 @@ export const META_TITLE_CONTENT_RE = /\bcontent=["']([^"'\n]{4,})["']/g;
 
 if (!process.env.VITEST) {
 
-const files = collectFiles(SCAN_ROOT);
+const files = SCAN_ROOTS.flatMap(({ root, skipDirs }) => collectFiles(root, skipDirs));
 const hits: Hit[] = [];
 
 for (const filePath of files) {

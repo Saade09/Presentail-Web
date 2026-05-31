@@ -51,7 +51,6 @@ import url from "node:url";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../");
-const SCAN_ROOT = path.join(REPO_ROOT, "artifacts/presentail");
 
 export const SKIP_DIRS = new Set([
   "node_modules",
@@ -67,6 +66,20 @@ export const SKIP_DIRS = new Set([
   "data",        // static data constants — not JSX rendering
   "assets",      // images / fonts — no source strings
 ]);
+
+// Skip dirs used when scanning shared libs (subset — no mobile-specific exclusions)
+const LIB_SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  ".turbo",
+  "__generated__",
+]);
+
+// All source trees to scan: the mobile artifact plus shared libs
+const SCAN_ROOTS: Array<{ root: string; skipDirs: Set<string> }> = [
+  { root: path.join(REPO_ROOT, "artifacts/presentail"), skipDirs: SKIP_DIRS },
+  { root: path.join(REPO_ROOT, "lib"), skipDirs: LIB_SKIP_DIRS },
+];
 
 // Files to skip by repo-relative path suffix
 export const SKIP_FILE_SUFFIXES = [
@@ -89,11 +102,11 @@ interface Hit {
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-export function collectFiles(dir: string, results: string[] = []): string[] {
+export function collectFiles(dir: string, skipDirs: Set<string>, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      collectFiles(path.join(dir, entry.name), results);
+      if (skipDirs.has(entry.name)) continue;
+      collectFiles(path.join(dir, entry.name), skipDirs, results);
     } else if (
       /\.tsx?$/.test(entry.name) &&
       !/\.test\.(tsx?|jsx?)$/.test(entry.name) &&
@@ -205,7 +218,7 @@ export const NAV_OPTION_RE =
 
 if (!process.env.VITEST) {
 
-const allFiles = collectFiles(SCAN_ROOT);
+const allFiles = SCAN_ROOTS.flatMap(({ root, skipDirs }) => collectFiles(root, skipDirs));
 const files = allFiles.filter((f) => {
   const rel = path.relative(REPO_ROOT, f);
   return !SKIP_FILE_SUFFIXES.some((suffix) => rel.endsWith(suffix));
