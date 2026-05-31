@@ -14,6 +14,15 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { freeDeliveryThresholdNative } from "@workspace/delivery";
 
+const imageLoadedCache = new Set<string>();
+
+function getImageUri(image: Product["image"]): string | null {
+  if (!image) return null;
+  if (typeof image === "string") return image || null;
+  if (typeof image === "object" && "uri" in image) return (image as { uri: string }).uri || null;
+  return null;
+}
+
 type Props = {
   product: Product;
   width: number;
@@ -30,7 +39,10 @@ export function ProductCard({ product, width, onPress }: Props) {
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const threshold = freeDeliveryThresholdNative(cc);
   const convertedPrice = convert(Number.isFinite(product.priceValue) ? product.priceValue : 0);
-  const [imageLoaded, setImageLoaded] = React.useState(false);
+  const imageUri = getImageUri(product.image);
+  const [imageLoaded, setImageLoaded] = React.useState(() =>
+    imageUri !== null && imageLoadedCache.has(imageUri),
+  );
   const favorited = isFavorited(product.id);
 
   const handlePress = () => {
@@ -64,8 +76,14 @@ export function ProductCard({ product, width, onPress }: Props) {
           style={styles.image}
           contentFit="cover"
           transition={200}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(true)}
+          onLoad={() => {
+            if (imageUri) imageLoadedCache.add(imageUri);
+            setImageLoaded(true);
+          }}
+          onError={() => {
+            if (imageUri) imageLoadedCache.add(imageUri);
+            setImageLoaded(true);
+          }}
         />
         {product.tag ? (
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
