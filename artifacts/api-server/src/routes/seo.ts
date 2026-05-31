@@ -7,7 +7,7 @@ const router = Router();
 const OG_MIN_WIDTH = 1200;
 const OG_TARGET_RATIO = 1.91;
 const OG_RATIO_TOLERANCE = 0.1;
-const BATCH_MAX_URLS = 25;
+const BATCH_MAX_URLS = 50;
 
 function requireAdmin(req: Request, res: Response): boolean {
   const expected = process.env.PUSH_ADMIN_TOKEN;
@@ -445,6 +445,12 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .size-warn-item { font-size: 11px; color: #856404; display: flex; align-items: center; gap: 4px; }
   .size-warn-item::before { content: "⚠️"; }
 
+  /* market selector tabs */
+  .market-tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .market-tab { font: inherit; font-size: 13px; padding: 5px 14px; border: 1px solid #ccc; border-radius: 20px; background: #f5f5f5; cursor: pointer; color: #444; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .market-tab:hover { background: #eef4ff; border-color: #99bbee; color: #0044aa; }
+  .market-tab.active { background: #0066cc; border-color: #0055aa; color: #fff; font-weight: 600; }
+
   /* batch audit table */
   #batchSection { display: none; margin-bottom: 28px; }
   #batchSection h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
@@ -457,6 +463,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .batch-table tr.row-yellow { background: #fffdf0; }
   .batch-table tr.row-red { background: #fff8f8; }
   .batch-table tr.row-error { background: #fdf2f2; }
+  .batch-table tr.row-market-header td { background: #f0f4f8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #445; padding: 5px 10px; border-bottom: 1px solid #ddd; }
   .batch-table .page-label { font-weight: 600; }
   .batch-table .page-url { font-size: 11px; color: #888; word-break: break-all; }
   .batch-table .issues-list { font-size: 12px; color: #666; margin-top: 2px; }
@@ -474,6 +481,13 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   <div class="token-row">
     <label>Admin token <input id="token" type="password" placeholder="x-push-admin-token"></label>
+  </div>
+
+  <div class="market-tabs" id="marketTabs">
+    <button class="market-tab active" data-market="all">All markets</button>
+    <button class="market-tab" data-market="Lebanon">Lebanon</button>
+    <button class="market-tab" data-market="UAE">UAE</button>
+    <button class="market-tab" data-market="Cyprus">Cyprus</button>
   </div>
 
   <div class="quick-section">
@@ -553,16 +567,51 @@ const SEO_DEBUG_HTML = `<!doctype html>
   // Restore saved token
   try { tokenEl.value = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
 
-  // Key pages for the audit
+  // Key pages for the audit — all active cities per market
   var KEY_PAGES = [
-    { label: 'Homepage (LB)', url: 'https://new.presentail.com/en-lb/beirut' },
-    { label: 'Homepage (AE — Dubai)', url: 'https://new.presentail.com/en-ae/dubai' },
-    { label: 'Homepage (CY)', url: 'https://new.presentail.com/en-cy/nicosia' },
-    { label: 'Product page', url: 'https://new.presentail.com/en-lb/beirut/product/pink-roses' },
-    { label: 'Brand page', url: 'https://new.presentail.com/en-lb/beirut/brand/roses-only' },
-    { label: 'Category page', url: 'https://new.presentail.com/en-lb/beirut/shop?category=flowers' },
-    { label: 'Occasion page', url: 'https://new.presentail.com/en-lb/beirut/shop?occasion=birthday' },
+    // ── Lebanon — city homepages ────────────────────────────────────────────
+    { market: 'Lebanon', label: 'Akkar', url: 'https://new.presentail.com/en-lb/akkar' },
+    { market: 'Lebanon', label: 'Aley', url: 'https://new.presentail.com/en-lb/aley' },
+    { market: 'Lebanon', label: 'Baabda', url: 'https://new.presentail.com/en-lb/baabda' },
+    { market: 'Lebanon', label: 'Baalbeck', url: 'https://new.presentail.com/en-lb/baalbeck' },
+    { market: 'Lebanon', label: 'Batroun', url: 'https://new.presentail.com/en-lb/batroun' },
+    { market: 'Lebanon', label: 'Bcharee', url: 'https://new.presentail.com/en-lb/bcharee' },
+    { market: 'Lebanon', label: 'Beirut', url: 'https://new.presentail.com/en-lb/beirut' },
+    { market: 'Lebanon', label: 'Bent Jbeil', url: 'https://new.presentail.com/en-lb/bent-jbeil' },
+    { market: 'Lebanon', label: 'Chouf', url: 'https://new.presentail.com/en-lb/chouf' },
+    { market: 'Lebanon', label: 'Hasbaya', url: 'https://new.presentail.com/en-lb/hasbaya' },
+    { market: 'Lebanon', label: 'Hermel', url: 'https://new.presentail.com/en-lb/hermel' },
+    { market: 'Lebanon', label: 'Jbail', url: 'https://new.presentail.com/en-lb/jbail' },
+    { market: 'Lebanon', label: 'Jezzine', url: 'https://new.presentail.com/en-lb/jezzine' },
+    { market: 'Lebanon', label: 'Kasserwan', url: 'https://new.presentail.com/en-lb/kasserwan' },
+    { market: 'Lebanon', label: 'Koura', url: 'https://new.presentail.com/en-lb/koura' },
+    { market: 'Lebanon', label: 'Marjayoun', url: 'https://new.presentail.com/en-lb/marjayoun' },
+    { market: 'Lebanon', label: 'Metn', url: 'https://new.presentail.com/en-lb/metn' },
+    { market: 'Lebanon', label: 'Minnieh-Dennaya', url: 'https://new.presentail.com/en-lb/minnieh-dennaya' },
+    { market: 'Lebanon', label: 'Nabatieh', url: 'https://new.presentail.com/en-lb/nabatieh' },
+    { market: 'Lebanon', label: 'Rechaya', url: 'https://new.presentail.com/en-lb/rechaya' },
+    { market: 'Lebanon', label: 'Saida', url: 'https://new.presentail.com/en-lb/saida' },
+    { market: 'Lebanon', label: 'Tripoli', url: 'https://new.presentail.com/en-lb/tripoli' },
+    { market: 'Lebanon', label: 'Tyre', url: 'https://new.presentail.com/en-lb/tyre' },
+    { market: 'Lebanon', label: 'West Bekaa', url: 'https://new.presentail.com/en-lb/west-bekaa' },
+    { market: 'Lebanon', label: 'Zahle', url: 'https://new.presentail.com/en-lb/zahle' },
+    { market: 'Lebanon', label: 'Zghorta', url: 'https://new.presentail.com/en-lb/zghorta' },
+    // ── Lebanon — content pages (Beirut) ────────────────────────────────────
+    { market: 'Lebanon', label: 'Product page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/product/pink-roses' },
+    { market: 'Lebanon', label: 'Brand page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/brand/roses-only' },
+    { market: 'Lebanon', label: 'Category page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/shop?category=flowers' },
+    { market: 'Lebanon', label: 'Occasion page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/shop?occasion=birthday' },
+    // ── UAE — city homepages ─────────────────────────────────────────────────
+    { market: 'UAE', label: 'Dubai', url: 'https://new.presentail.com/en-ae/dubai' },
+    { market: 'UAE', label: 'Abu Dhabi', url: 'https://new.presentail.com/en-ae/abu-dhabi' },
+    // ── Cyprus — city homepages ──────────────────────────────────────────────
+    { market: 'Cyprus', label: 'Larnaca', url: 'https://new.presentail.com/en-cy/larnaca' },
+    { market: 'Cyprus', label: 'Limassol', url: 'https://new.presentail.com/en-cy/limassol' },
+    { market: 'Cyprus', label: 'Nicosia', url: 'https://new.presentail.com/en-cy/nicosia' },
+    { market: 'Cyprus', label: 'Paphos', url: 'https://new.presentail.com/en-cy/paphos' },
   ];
+
+  var selectedMarket = 'all';
 
   function esc(s) {
     if (s == null) return '';
@@ -727,6 +776,21 @@ const SEO_DEBUG_HTML = `<!doctype html>
   checkBtn.addEventListener('click', doCheck);
   urlEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCheck(); });
 
+  // Market selector tabs
+  var marketTabEls = document.querySelectorAll('.market-tab');
+  marketTabEls.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      selectedMarket = tab.getAttribute('data-market') || 'all';
+      marketTabEls.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+    });
+  });
+
+  function activePages() {
+    if (selectedMarket === 'all') return KEY_PAGES;
+    return KEY_PAGES.filter(function (p) { return p.market === selectedMarket; });
+  }
+
   // Quick checks
   var quickItems = document.querySelectorAll('.quick-item');
   quickItems.forEach(function (btn) {
@@ -803,26 +867,35 @@ const SEO_DEBUG_HTML = `<!doctype html>
     if (!token) { statusEl.textContent = 'Paste your admin token first.'; statusEl.className = 'err'; return; }
     try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
 
+    var pages = activePages();
     checkBtn.disabled = true;
     auditBtn.disabled = true;
-    statusEl.textContent = 'Auditing ' + KEY_PAGES.length + ' pages\u2026';
+    var marketLabel = selectedMarket === 'all' ? 'all markets' : selectedMarket;
+    statusEl.textContent = 'Auditing ' + pages.length + ' pages (' + marketLabel + ')\u2026';
     statusEl.className = 'muted';
     resultEl.style.display = 'none';
 
-    // Show skeleton rows while waiting
+    // Show skeleton rows while waiting (grouped by market)
     batchSection.style.display = '';
-    batchSummary.textContent = 'Checking all pages in parallel\u2026';
-    batchBody.innerHTML = KEY_PAGES.map(function (p) {
-      return '<tr><td><div class="page-label">' + esc(p.label) + '</div>'
+    batchSummary.textContent = 'Checking ' + pages.length + ' pages in parallel\u2026';
+    var skeletonRows = '';
+    var skeletonMarket = null;
+    pages.forEach(function (p) {
+      if (p.market !== skeletonMarket) {
+        skeletonMarket = p.market;
+        skeletonRows += '<tr class="row-market-header"><td colspan="4">' + esc(p.market) + '</td></tr>';
+      }
+      skeletonRows += '<tr><td><div class="page-label">' + esc(p.label) + '</div>'
         + '<div class="page-url">' + esc(p.url) + '</div></td>'
         + '<td class="batch-status-cell"><span class="spinner"></span></td>'
         + '<td></td><td></td></tr>';
-    }).join('');
+    });
+    batchBody.innerHTML = skeletonRows;
 
     fetch('/api/seo/batch-debug', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-push-admin-token': token },
-      body: JSON.stringify({ urls: KEY_PAGES.map(function (p) { return p.url; }) }),
+      body: JSON.stringify({ urls: pages.map(function (p) { return p.url; }) }),
     })
       .then(function (r) {
         if (r.status === 401) throw new Error('Invalid admin token');
@@ -831,7 +904,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
       })
       .then(function (payload) {
         statusEl.textContent = '';
-        renderBatchResults(payload.results);
+        renderBatchResults(payload.results, pages);
       })
       .catch(function (err) {
         statusEl.textContent = err.message;
@@ -844,15 +917,28 @@ const SEO_DEBUG_HTML = `<!doctype html>
       });
   });
 
-  function renderBatchResults(results) {
+  function renderBatchResults(results, pages) {
     var green = 0, yellow = 0, red = 0, errCount = 0;
     var rows = '';
+    var currentMarket = null;
+
+    // Per-market counters for the summary breakdown
+    var marketStats = {};
 
     results.forEach(function (data, idx) {
-      var page = KEY_PAGES[idx] || { label: data.url, url: data.url };
+      var page = pages[idx] || { market: '', label: data.url, url: data.url };
+      var market = page.market || '';
+
+      // Market section header row
+      if (market && market !== currentMarket) {
+        currentMarket = market;
+        rows += '<tr class="row-market-header"><td colspan="4">' + esc(market) + '</td></tr>';
+        if (!marketStats[market]) marketStats[market] = { green: 0, yellow: 0, red: 0, err: 0 };
+      }
 
       if (!data.ok) {
         errCount++;
+        if (marketStats[market]) marketStats[market].err++;
         rows += '<tr class="row-error">'
           + '<td><div class="page-label">' + esc(page.label) + '</div>'
           + '<div class="page-url">' + esc(data.url) + '</div></td>'
@@ -866,9 +952,9 @@ const SEO_DEBUG_HTML = `<!doctype html>
       var issues = collectIssues(data);
       var color, rowClass;
       var critical = !data.ogImage || data.ogImageReachable === false || !data.title || !data.description;
-      if (issues.length === 0) { color = 'green'; rowClass = 'row-green'; green++; }
-      else if (critical)        { color = 'red';    rowClass = 'row-red';    red++; }
-      else                      { color = 'yellow'; rowClass = 'row-yellow'; yellow++; }
+      if (issues.length === 0) { color = 'green'; rowClass = 'row-green'; green++; if (marketStats[market]) marketStats[market].green++; }
+      else if (critical)        { color = 'red';    rowClass = 'row-red';    red++;   if (marketStats[market]) marketStats[market].red++; }
+      else                      { color = 'yellow'; rowClass = 'row-yellow'; yellow++; if (marketStats[market]) marketStats[market].yellow++; }
 
       var issueListHtml = issues.length
         ? issues.map(function (i) { return '<span class="issue-item">· ' + esc(i) + '</span>'; }).join('')
@@ -890,17 +976,27 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
     batchBody.innerHTML = rows;
 
-    // Summary line
+    // Summary line — overall + per-market breakdown
     var total = results.length;
-    var parts = [];
-    if (green) parts.push(green + ' good');
-    if (yellow) parts.push(yellow + ' warning' + (yellow > 1 ? 's' : ''));
-    if (red) parts.push(red + ' critical');
-    if (errCount) parts.push(errCount + ' error' + (errCount > 1 ? 's' : ''));
-    batchSummary.innerHTML = '<strong>' + total + ' pages checked</strong> — ' + parts.join(', ')
+    var overallParts = [];
+    if (green) overallParts.push(green + ' good');
+    if (yellow) overallParts.push(yellow + ' warning' + (yellow > 1 ? 's' : ''));
+    if (red) overallParts.push(red + ' critical');
+    if (errCount) overallParts.push(errCount + ' error' + (errCount > 1 ? 's' : ''));
+
+    var marketBreakdown = Object.keys(marketStats).map(function (m) {
+      var s = marketStats[m];
+      var total2 = s.green + s.yellow + s.red + s.err;
+      var issues2 = s.yellow + s.red + s.err;
+      var color2 = issues2 === 0 ? '#155724' : (s.red + s.err > 0 ? '#b00020' : '#856404');
+      return '<span style="color:' + color2 + '">' + esc(m) + ': ' + (issues2 === 0 ? 'all good' : issues2 + '/' + total2 + ' need attention') + '</span>';
+    }).join(' &nbsp;·&nbsp; ');
+
+    batchSummary.innerHTML = '<strong>' + total + ' pages checked</strong> — ' + overallParts.join(', ')
       + (red + errCount > 0
         ? ' <span style="color:#b00020">· ' + (red + errCount) + ' page' + (red + errCount > 1 ? 's' : '') + ' need attention</span>'
-        : ' <span style="color:#155724">· All good!</span>');
+        : ' <span style="color:#155724">· All good!</span>')
+      + (marketBreakdown ? '<br><span style="font-size:12px;color:#666">' + marketBreakdown + '</span>' : '');
 
     // Wire up "Details" buttons
     var detailBtns = batchBody.querySelectorAll('.batch-row-details');
