@@ -87,6 +87,10 @@ jobs:
           #   lib-typecheck  → "Type-check all lib packages"
           LIB_TYPECHECK="Lib type-check / Type-check all lib packages"
 
+          # codegen-check.yml (name: OpenAPI codegen check) defines one job:
+          #   verify-codegen  → "Verify codegen is up to date"
+          CODEGEN_CHECK="OpenAPI codegen check / Verify codegen is up to date"
+
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
           # The endpoint returns 404 when branch protection is not yet configured.
@@ -111,7 +115,8 @@ jobs:
             --arg webServeCheck   "$WEB_SERVE_CHECK" \
             --arg chunkBudget     "$CHUNK_BUDGET" \
             --arg libTypecheck    "$LIB_TYPECHECK" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck, $chunkBudget, $libTypecheck] | unique')
+            --arg codegenCheck    "$CODEGEN_CHECK" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck, $chunkBudget, $libTypecheck, $codegenCheck] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'

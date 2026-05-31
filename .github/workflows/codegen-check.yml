@@ -1,0 +1,73 @@
+name: OpenAPI codegen check
+
+# Verifies that the Orval-generated files (React Query hooks and Zod schemas)
+# are in sync with the OpenAPI spec.  If a PR edits the spec but forgets to
+# re-run codegen, this job fails with a clear message so the author knows
+# exactly what to fix.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/api-spec/openapi.yaml"
+      - "lib/api-spec/orval.config.ts"
+      - "lib/api-spec/package.json"
+      - "lib/api-client-react/**"
+      - "lib/api-zod/**"
+      - ".github/workflows/codegen-check.yml"
+  pull_request:
+    paths:
+      - "lib/api-spec/openapi.yaml"
+      - "lib/api-spec/orval.config.ts"
+      - "lib/api-spec/package.json"
+      - "lib/api-client-react/**"
+      - "lib/api-zod/**"
+      - ".github/workflows/codegen-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  verify-codegen:
+    name: Verify codegen is up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Orval codegen
+        # Run only the Orval step, not the full `codegen` script (which also
+        # runs typecheck:libs and writes .tsbuildinfo / .d.ts files that are
+        # not tracked here and would produce a spurious diff).
+        run: pnpm --filter @workspace/api-spec exec orval --config ./orval.config.ts
+
+      - name: Check for uncommitted changes in generated files
+        run: |
+          git diff --exit-code -- \
+            lib/api-client-react/src/generated \
+            lib/api-zod/src/generated \
+            || {
+              echo ""
+              echo "╔══════════════════════════════════════════════════════════════╗"
+              echo "║  OpenAPI codegen is out of sync with the spec.              ║"
+              echo "║                                                              ║"
+              echo "║  Run the following command and commit the result:            ║"
+              echo "║    pnpm --filter @workspace/api-spec run codegen             ║"
+              echo "╚══════════════════════════════════════════════════════════════╝"
+              exit 1
+            }
