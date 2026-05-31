@@ -141,6 +141,109 @@ describe("ScheduleInlinePanel — onChange callback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Time slot tests — controlled via the timeSlots prop so results are
+// deterministic regardless of the real wall clock or local hour.
+// cutoffHour=0  → always past on today  (localHour is always ≥ 0)
+// cutoffHour=24 → never past            (localHour is always < 24)
+// ---------------------------------------------------------------------------
+
+const FIXED_SLOTS = [
+  { label: "Morning", cutoffHour: 0 },
+  { label: "Evening", cutoffHour: 24 },
+];
+
+describe("ScheduleInlinePanel — time slot rendering", () => {
+  it("renders a button for each provided time slot", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    expect(screen.getByTestId("schedule-slot-0")).toBeTruthy();
+    expect(screen.getByTestId("schedule-slot-24")).toBeTruthy();
+  });
+
+  it("disables a slot whose cutoffHour has passed when the selected date is today", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    const morningBtn = screen.getByTestId("schedule-slot-0") as HTMLButtonElement;
+    expect(morningBtn.disabled).toBe(true);
+  });
+
+  it("does not disable any slot when the selected date is in the future", () => {
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TOMORROW_ISO}
+        timeSlots={FIXED_SLOTS}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    const morningBtn = screen.getByTestId("schedule-slot-0") as HTMLButtonElement;
+    expect(morningBtn.disabled).toBe(false);
+    const eveningBtn = screen.getByTestId("schedule-slot-24") as HTMLButtonElement;
+    expect(eveningBtn.disabled).toBe(false);
+  });
+
+  it("clicking an enabled slot is reflected in the next onChange call", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    // Use a future date so both slots are enabled; firstAvailableSlot returns
+    // "Morning" (cutoffHour=0 is always the first entry). Then click "Evening"
+    // to produce a genuine state change and a new onChange emission.
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TOMORROW_ISO}
+        timeSlots={FIXED_SLOTS}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+    // Clear the mount-time call so we can assert clean interaction output.
+    onChange.mockClear();
+    await user.click(screen.getByTestId("schedule-slot-24"));
+    expect(onChange).toHaveBeenCalled();
+    const lastCall = onChange.mock.calls.at(-1)![0] as {
+      mode: string;
+      date: string;
+      slotLabel: string;
+    };
+    expect(lastCall.slotLabel).toBe("Evening");
+    expect(lastCall.date).toBe(TOMORROW_ISO);
+  });
+
+  it("clicking a disabled slot does not trigger another onChange call", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TODAY_ISO}
+        timeSlots={FIXED_SLOTS}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+    onChange.mockClear();
+    await user.click(screen.getByTestId("schedule-slot-0"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Interaction tests — real timers so userEvent clicks don't time out
 // ---------------------------------------------------------------------------
 

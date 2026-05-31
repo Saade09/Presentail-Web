@@ -216,4 +216,102 @@ describe("CalendarPopover — month navigation", () => {
     await user.click(screen.getByLabelText("Previous month"));
     expect(screen.getByText("May 2026")).toBeTruthy();
   });
+
+  it("navigating forward from December wraps to January of the next year", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso={null}
+        todayIso="2026-12-15"
+        onSelect={() => {}}
+      />,
+      { locale },
+    );
+    expect(screen.getByText("December 2026")).toBeTruthy();
+    await user.click(screen.getByLabelText("Next month"));
+    expect(screen.getByText("January 2027")).toBeTruthy();
+  });
+
+  it("navigating backward from January wraps to December of the previous year", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso="2027-01-15"
+        todayIso="2026-12-15"
+        onSelect={() => {}}
+      />,
+      { locale },
+    );
+    expect(screen.getByText("January 2027")).toBeTruthy();
+    await user.click(screen.getByLabelText("Previous month"));
+    expect(screen.getByText("December 2026")).toBeTruthy();
+  });
+
+  it("clicking a day after forward year-wrap emits the correct ISO string", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso={null}
+        todayIso="2026-12-15"
+        onSelect={onSelect}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByLabelText("Next month"));
+    expect(screen.getByText("January 2027")).toBeTruthy();
+    await user.click(screen.getByTestId("cal-day-2027-01-05"));
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith("2027-01-05");
+  });
+
+  it("clicking a day after backward year-wrap emits the correct ISO string", async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso="2027-01-15"
+        todayIso="2026-12-15"
+        onSelect={onSelect}
+      />,
+      { locale },
+    );
+    await user.click(screen.getByLabelText("Previous month"));
+    expect(screen.getByText("December 2026")).toBeTruthy();
+    await user.click(screen.getByTestId("cal-day-2026-12-20"));
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith("2026-12-20");
+  });
+
+  it("today's button carries the today-highlight class when not selected", () => {
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso={null}
+        todayIso={TODAY_ISO}
+        onSelect={() => {}}
+      />,
+      { locale },
+    );
+    const todayBtn = screen.getByTestId(`cal-day-${TODAY_ISO}`) as HTMLButtonElement;
+    const classes = todayBtn.className.split(/\s+/);
+    // Highlight style: border ring only, no filled background.
+    expect(classes).toContain("border-primary");
+    expect(classes).not.toContain("bg-primary");
+  });
+
+  it("today's button uses the selected style (not the highlight style) when it is the selected day", () => {
+    renderWithProviders(
+      <CalendarPopover
+        selectedIso={TODAY_ISO}
+        todayIso={TODAY_ISO}
+        onSelect={() => {}}
+      />,
+      { locale },
+    );
+    const todayBtn = screen.getByTestId(`cal-day-${TODAY_ISO}`) as HTMLButtonElement;
+    const classes = todayBtn.className.split(/\s+/);
+    // Selected style: filled background, no highlight border ring.
+    expect(classes).toContain("bg-primary");
+    expect(classes).not.toContain("border-primary");
+  });
 });
