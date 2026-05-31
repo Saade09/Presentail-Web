@@ -115,6 +115,12 @@ and the raw value (ms for timing metrics, unitless for CLS) in
 prior UTC day's LCP median and alerts via Slack when it crosses
 the configured threshold.
 
+`mobile_ttid` events carry time-to-interactive measurements for
+key mobile screens (home, product). The screen name is stored in
+`action` and the elapsed time in ms in `metricValue`. The same
+`webVitalsMonitor` daily digest includes mobile TTID rows so web
+and mobile performance are visible in a single Slack message.
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -139,6 +145,7 @@ export const AnalyticsEventName = {
   fx_rates_fallback: "fx_rates_fallback",
   seo_entity_fetch_failed: "seo_entity_fetch_failed",
   web_vital: "web_vital",
+  mobile_ttid: "mobile_ttid",
 } as const;
 
 /**
@@ -210,6 +217,8 @@ export const AnalyticsEventRequestAction = {
   CLS: "CLS",
   TTFB: "TTFB",
   FCP: "FCP",
+  home: "home",
+  product: "product",
 } as const;
 
 /**

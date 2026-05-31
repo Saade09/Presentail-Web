@@ -5,6 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   Animated,
   AppState,
@@ -46,6 +47,11 @@ import {
   saveNotificationStatus,
 } from "@/services/notifications";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { trackScreenTTID } from "@/lib/analytics";
+
+// Captured at module-load time so it includes the JS bundle evaluation and
+// context-bootstrap cost that precedes the first HomeScreen mount.
+const HOME_SCREEN_START_MS = Date.now();
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
@@ -269,6 +275,15 @@ function HomeScreen() {
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [deliverySheetOpen, setDeliverySheetOpen] = useState(false);
   const { token: authToken, user } = useAuth();
+  const { loading: productsLoading } = useWooProducts();
+
+  // Fire a mobile TTID event the first time the home screen finishes its
+  // initial product load. Skipped on web (Expo Router runs on web too but
+  // web Vitals are already tracked via the web-vitals library instead).
+  useEffect(() => {
+    if (isWeb || productsLoading) return;
+    trackScreenTTID("home", HOME_SCREEN_START_MS);
+  }, [isWeb, productsLoading]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 

@@ -33,6 +33,7 @@ import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { trackScreenTTID } from "@/lib/analytics";
 import {
   freeDeliveryThresholdNative,
   getCountryHour,
@@ -98,6 +99,9 @@ function ProductDetail() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Capture the moment this screen component mounts so we can report
+  // how long it took for the product data to become available.
+  const mountMsRef = useRef(Date.now());
 
   useEffect(() => {
     return () => {
@@ -183,6 +187,17 @@ function ProductDetail() {
   // means we have only the static seed for this product and we keep the
   // existing fallback behaviour.
   const product = found && found.inStock === false ? null : found;
+
+  // Fire a mobile TTID event the first time this product screen has data to
+  // show. We place the effect before the early return so hooks are called
+  // unconditionally, but skip the actual work when product is null.
+  // Platform.OS check prevents double-counting on Expo web where web-vitals
+  // already handles performance measurement.
+  useEffect(() => {
+    if (!product || Platform.OS === "web") return;
+    trackScreenTTID("product", mountMsRef.current);
+  }, [product]);
+
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>

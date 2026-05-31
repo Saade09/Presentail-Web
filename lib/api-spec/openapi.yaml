@@ -1007,6 +1007,12 @@ components:
         `metricValue`. The server-side `webVitalsMonitor` evaluates the
         prior UTC day's LCP median and alerts via Slack when it crosses
         the configured threshold.
+
+        `mobile_ttid` events carry time-to-interactive measurements for
+        key mobile screens (home, product). The screen name is stored in
+        `action` and the elapsed time in ms in `metricValue`. The same
+        `webVitalsMonitor` daily digest includes mobile TTID rows so web
+        and mobile performance are visible in a single Slack message.
       enum:
         - checkout_login_prompt_viewed
         - checkout_login_prompt_action
@@ -1027,6 +1033,7 @@ components:
         - fx_rates_fallback
         - seo_entity_fetch_failed
         - web_vital
+        - mobile_ttid
     AnalyticsEventRequest:
       type: object
       properties:
@@ -1087,6 +1094,8 @@ components:
             - CLS
             - TTFB
             - FCP
+            - home
+            - product
         platform:
           type: string
           enum: [ios, android, web]

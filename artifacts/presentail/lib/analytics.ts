@@ -18,7 +18,8 @@ type AnalyticsEventName =
   | "upsell_item_added"
   | "upsell_checkout_proceeded"
   | "order_push_tapped"
-  | "fx_rates_fallback";
+  | "fx_rates_fallback"
+  | "mobile_ttid";
 
 type AnalyticsSurface =
   | "cart"
@@ -53,7 +54,9 @@ type AnalyticsAction =
   | "chocolate"
   | "plants"
   | "bears"
-  | "candles";
+  | "candles"
+  | "home"
+  | "product";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;
@@ -64,6 +67,7 @@ export type AnalyticsEvent = {
   state?: string;
   appOrderId?: string;
   wcOrderId?: string;
+  metricValue?: number;
 };
 
 const SESSION_STORAGE_KEY = "@presentail/analytics_session";
@@ -126,6 +130,26 @@ function resolvePlatform(): "ios" | "android" | "web" {
 function resolveAppVersion(): string | undefined {
   const v = Constants.expoConfig?.version;
   return typeof v === "string" && v.length > 0 ? v : undefined;
+}
+
+/**
+ * Screen time-to-interactive helper for mobile.
+ *
+ * Call once per screen mount when the primary content is ready to display.
+ * `startMs` should be `Date.now()` captured at the earliest measurable
+ * point (module load for the home screen, component mount for detail screens).
+ * The elapsed value is clamped to [0, 60 000] ms server-side.
+ *
+ * Fires at most once per `screen` value per JS runtime lifetime so that
+ * background/foreground cycles or React strict-mode double-invocations do
+ * not inflate the sample count.
+ */
+const _ttidFired = new Set<string>();
+export function trackScreenTTID(screen: "home" | "product", startMs: number): void {
+  if (_ttidFired.has(screen)) return;
+  _ttidFired.add(screen);
+  const elapsed = Math.max(0, Date.now() - startMs);
+  trackEvent({ name: "mobile_ttid", action: screen, metricValue: elapsed });
 }
 
 export function trackEvent(event: AnalyticsEvent): void {

@@ -53,4 +53,6 @@ export const AnalyticsEventRequestAction = {
   CLS: "CLS",
   TTFB: "TTFB",
   FCP: "FCP",
+  home: "home",
+  product: "product",
 } as const;

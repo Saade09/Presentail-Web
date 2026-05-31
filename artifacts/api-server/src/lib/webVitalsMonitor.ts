@@ -10,6 +10,10 @@ import { sendAlert } from "./alerts";
 // LCP (ms) across all web sessions, and fires a Slack alert when the median
 // exceeds WEB_VITALS_LCP_WARN_MS.
 //
+// Also queries `mobile_ttid` events (home + product screens) and includes
+// per-platform p50/p75/p95 rows in the same Slack digest so web and mobile
+// performance are visible together.
+//
 // Google's CrUX thresholds:
 //   LCP ≤ 2500 ms = good
 //   LCP ≤ 4000 ms = needs improvement
@@ -184,6 +188,66 @@ export async function loadWebVitalSummaries(
     .sort((a, b) => a.metric.localeCompare(b.metric));
 }
 
+export type MobileTtidSummary = {
+  platform: string;
+  screen: string;
+  count: number;
+  p50: number;
+  p75: number;
+  p95: number;
+};
+
+/**
+ * Load `mobile_ttid` event summaries for the given UTC window, grouped by
+ * (platform, screen). Only rows with a non-null metricValue are included.
+ */
+export async function loadMobileTtidSummaries(
+  start: Date,
+  end: Date,
+): Promise<MobileTtidSummary[]> {
+  type Row = {
+    platform: string;
+    screen: string;
+    count: number;
+    p50: number;
+    p75: number;
+    p95: number;
+  };
+
+  const rows = (await db
+    .select({
+      platform: analyticsEventsTable.platform,
+      screen: analyticsEventsTable.action,
+      count: sql<number>`count(*)::int`,
+      p50: sql<number>`percentile_cont(0.5) within group (order by ${analyticsEventsTable.metricValue})::float`,
+      p75: sql<number>`percentile_cont(0.75) within group (order by ${analyticsEventsTable.metricValue})::float`,
+      p95: sql<number>`percentile_cont(0.95) within group (order by ${analyticsEventsTable.metricValue})::float`,
+    })
+    .from(analyticsEventsTable)
+    .where(
+      and(
+        sql`${analyticsEventsTable.name} = 'mobile_ttid'`,
+        sql`${analyticsEventsTable.metricValue} is not null`,
+        gte(analyticsEventsTable.createdAt, start),
+        lt(analyticsEventsTable.createdAt, end),
+      )!,
+    )
+    .groupBy(analyticsEventsTable.platform, analyticsEventsTable.action)) as Array<
+    Row & { platform: string | null; screen: string | null }
+  >;
+
+  return rows
+    .filter(
+      (r): r is Row =>
+        typeof r.platform === "string" && typeof r.screen === "string",
+    )
+    .sort((a, b) =>
+      a.platform !== b.platform
+        ? a.platform.localeCompare(b.platform)
+        : a.screen.localeCompare(b.screen),
+    );
+}
+
 export async function runOnce(now: Date = new Date()): Promise<void> {
   if (running) return;
   running = true;
@@ -191,18 +255,26 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
     const day = previousUtcDay(now);
     if (lastEvaluatedDay === day.iso) return;
 
-    const summaries = await loadWebVitalSummaries(day.start, day.end);
+    const [summaries, mobileSummaries] = await Promise.all([
+      loadWebVitalSummaries(day.start, day.end),
+      loadMobileTtidSummaries(day.start, day.end),
+    ]);
 
-    if (summaries.length === 0) {
+    if (summaries.length === 0 && mobileSummaries.length === 0) {
       lastEvaluatedDay = day.iso;
       logger.info(
         { day: day.iso },
-        "webVitalsMonitor: no web_vital events for day, skipping",
+        "webVitalsMonitor: no web_vital or mobile_ttid events for day, skipping",
       );
       return;
     }
 
     const lcp = summaries.find((s) => s.metric === "LCP");
+
+    const allFields = [
+      ...formatSummaryFields(summaries),
+      ...formatMobileTtidFields(mobileSummaries),
+    ];
 
     if (lcp && lcp.count >= MIN_SAMPLES && lcp.p50 > LCP_WARN_MS) {
       await sendAlert({
@@ -211,15 +283,15 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
           `Median LCP ${Math.round(lcp.p50)} ms exceeds the ${LCP_WARN_MS} ms threshold ` +
           `(n=${lcp.count}). p75=${Math.round(lcp.p75)} ms, p95=${Math.round(lcp.p95)} ms.`,
         severity: "warn",
-        fields: formatSummaryFields(summaries),
+        fields: allFields,
         source: "webVitalsMonitor",
       });
     } else {
       await sendAlert({
         title: `Web Vitals — ${day.iso} (UTC)`,
-        body: buildDigestBody(lcp, day.iso),
+        body: buildDigestBody(lcp, mobileSummaries, day.iso),
         severity: "info",
-        fields: formatSummaryFields(summaries),
+        fields: allFields,
         source: "webVitalsMonitor",
       });
     }
@@ -230,22 +302,45 @@ export async function runOnce(now: Date = new Date()): Promise<void> {
   }
 }
 
-function buildDigestBody(lcp: WebVitalSummary | undefined, day: string): string {
-  if (!lcp || lcp.count < MIN_SAMPLES) {
-    return `Web Vitals digest for ${day}. Insufficient LCP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`;
-  }
-  return (
-    `Web Vitals digest for ${day}. Median LCP ${Math.round(lcp.p50)} ms ` +
-    `is within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`
-  );
+function buildDigestBody(
+  lcp: WebVitalSummary | undefined,
+  mobile: MobileTtidSummary[],
+  day: string,
+): string {
+  const lcpLine =
+    !lcp || lcp.count < MIN_SAMPLES
+      ? `Insufficient LCP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
+      : `Median LCP ${Math.round(lcp.p50)} ms is within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`;
+
+  const homeSummaries = mobile.filter((r) => r.screen === "home");
+  const mobileLine =
+    homeSummaries.length === 0
+      ? "No mobile TTID samples."
+      : homeSummaries
+          .map(
+            (r) =>
+              `${r.platform} home p50=${Math.round(r.p50)} ms (n=${r.count})`,
+          )
+          .join(", ") + ".";
+
+  return `Web Vitals digest for ${day}. ${lcpLine} Mobile: ${mobileLine}`;
 }
 
 function formatSummaryFields(summaries: WebVitalSummary[]) {
   return summaries.map((s) => ({
-    title: s.metric,
+    title: `web · ${s.metric}`,
     value:
       `n=${s.count} · p50=${fmtVal(s.metric, s.p50)} · ` +
       `p75=${fmtVal(s.metric, s.p75)} · p95=${fmtVal(s.metric, s.p95)}`,
+  }));
+}
+
+function formatMobileTtidFields(summaries: MobileTtidSummary[]) {
+  return summaries.map((s) => ({
+    title: `${s.platform} · ${s.screen} TTID`,
+    value:
+      `n=${s.count} · p50=${Math.round(s.p50)} ms · ` +
+      `p75=${Math.round(s.p75)} ms · p95=${Math.round(s.p95)} ms`,
   }));
 }
 
