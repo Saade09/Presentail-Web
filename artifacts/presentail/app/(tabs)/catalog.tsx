@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { getWooSearchQueryKey, useWooSearch } from "@workspace/api-client-react";
+import { getWooSearchQueryKey, useWooSearch, type WooSearchBrand } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -135,7 +135,7 @@ function CatalogScreen() {
     });
   }, [query, tRecord]);
 
-  const matchingBrands = searchData?.brands ?? [];
+  const matchingBrands: WooSearchBrand[] = (searchData as unknown as { brands?: WooSearchBrand[] })?.brands ?? [];
 
   const header = (
     <>
