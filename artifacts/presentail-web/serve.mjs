@@ -83,7 +83,37 @@ if (process.env.DATABASE_URL) {
       },
     });
 
-    console.log("Image dims L2 cache: PostgreSQL adapter active");
+    // ---------------------------------------------------------------------------
+    // Periodic cleanup — delete rows older than 7 days so the table doesn't grow
+    // unbounded as product photos are rotated. Runs once ~30 s after startup (to
+    // avoid delaying the server listen) and then every 24 h. Fire-and-forget so
+    // it never blocks the request path or the startup sequence.
+    // ---------------------------------------------------------------------------
+    const IMAGE_DIMS_PRUNE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    const IMAGE_DIMS_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+    async function pruneImageDims() {
+      try {
+        const cutoff = new Date(Date.now() - IMAGE_DIMS_PRUNE_AGE_MS).toISOString();
+        const { rowCount } = await pool.query(
+          "DELETE FROM image_dims WHERE fetched_at < $1",
+          [cutoff],
+        );
+        if (rowCount > 0) {
+          console.log(`Image dims L2 cache: pruned ${rowCount} stale row(s) older than 7 days`);
+        }
+      } catch (err) {
+        console.warn("Image dims L2 cache: prune failed —", err.message);
+      }
+    }
+
+    // Delay first run so it doesn't race with startup I/O.
+    setTimeout(() => {
+      pruneImageDims();
+      setInterval(pruneImageDims, IMAGE_DIMS_PRUNE_INTERVAL_MS).unref();
+    }, 30_000).unref();
+
+    console.log("Image dims L2 cache: PostgreSQL adapter active (daily prune after 30 s)");
   } catch (err) {
     console.warn("Image dims L2 cache: failed to initialise DB adapter —", err.message);
   }
