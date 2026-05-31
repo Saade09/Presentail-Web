@@ -704,19 +704,31 @@ const IMAGE_DIMS_CACHE_MAX_ENTRIES = 1_000;
 const IMAGE_DIM_FETCH_TIMEOUT_MS = 2_000;
 const imageDimsCache = new Map();
 
-function getCachedImageDims(url) {
-  const entry = imageDimsCache.get(url);
-  if (!entry) return undefined;
-  if (entry.expiresAt <= Date.now()) {
-    imageDimsCache.delete(url);
-    return undefined;
-  }
-  imageDimsCache.delete(url);
-  imageDimsCache.set(url, entry);
-  return entry.value;
+// ---------------------------------------------------------------------------
+// L2 durable store for image dims (injected by the production server at boot).
+//
+// Adapter interface: { get(url), set(url, dims), del(url) }
+//   get  → Promise<{width,height}|null|undefined>
+//           undefined = not in L2 (cache miss)
+//           null      = URL was probed but no parseable dims were found
+//           {width,height} = valid dimensions
+//   set  → Promise<void>  (dims is {width,height} or null)
+//   del  → Promise<void>
+// ---------------------------------------------------------------------------
+let imageDimsL2 = null;
+
+/**
+ * Inject a durable L2 backend for image dimensions (e.g. a PostgreSQL adapter).
+ * Must be called once at server startup before any requests are served. The
+ * in-process Map remains the L1; the adapter is consulted on an L1 miss and
+ * written to whenever a new network fetch produces a result.
+ * Pass null to disable L2 (the default; used in dev and tests).
+ */
+export function initImageDimsDb(adapter) {
+  imageDimsL2 = adapter;
 }
 
-function setCachedImageDims(url, value) {
+function _setCachedImageDimsL1(url, value) {
   if (imageDimsCache.size >= IMAGE_DIMS_CACHE_MAX_ENTRIES) {
     const oldest = imageDimsCache.keys().next().value;
     if (oldest !== undefined) imageDimsCache.delete(oldest);
@@ -727,13 +739,59 @@ function setCachedImageDims(url, value) {
   });
 }
 
-// Evict the image-dims cache entry for a given URL. Called when an entity is
-// freshly fetched (entity cache miss) so the image dimensions are re-fetched
-// alongside the refreshed entity data, rather than waiting up to 1 hour for
-// the dims TTL to expire. This handles cases where the CDN serves a new image
+async function getCachedImageDims(url) {
+  const entry = imageDimsCache.get(url);
+  if (entry !== undefined) {
+    if (entry.expiresAt > Date.now()) {
+      // L1 hit — move to tail for LRU behaviour and return.
+      imageDimsCache.delete(url);
+      imageDimsCache.set(url, entry);
+      return entry.value;
+    }
+    // L1 expired — evict and fall through to L2.
+    imageDimsCache.delete(url);
+  }
+  // L1 miss: consult L2 (if configured).
+  if (imageDimsL2) {
+    try {
+      const l2val = await imageDimsL2.get(url);
+      if (l2val !== undefined) {
+        // L2 hit — warm L1 and return.
+        _setCachedImageDimsL1(url, l2val);
+        return l2val;
+      }
+    } catch {
+      // L2 errors are non-fatal; fall through to a fresh network fetch.
+    }
+  }
+  return undefined;
+}
+
+function setCachedImageDims(url, value) {
+  _setCachedImageDimsL1(url, value);
+  // Fire-and-forget L2 write — errors are intentionally swallowed so a DB
+  // hiccup never blocks the SEO response.
+  if (imageDimsL2) {
+    imageDimsL2.set(url, value).catch(() => {});
+  }
+}
+
+// Evict the L1 image-dims cache entry for a given URL. Called when an entity
+// is freshly fetched (entity cache miss) so the image dimensions are
+// re-measured on the very next request rather than waiting up to 1 hour for
+// the L1 TTL to expire. This handles cases where the CDN serves a new image
 // at an unchanged URL (e.g. a product photo update).
+//
+// NOTE: Only the L1 in-process Map is evicted here. The L2 durable store
+// keeps its own TTL (default 24 h) and is intentionally NOT evicted on
+// routine entity cache misses — its purpose is to survive server restarts.
+// Evicting L2 here would mean that every post-restart entity fetch deletes
+// the persisted dims entry before measuring, defeating the whole point of L2.
 function evictImageDims(url) {
-  if (url && typeof url === "string") imageDimsCache.delete(url);
+  if (url && typeof url === "string") {
+    imageDimsCache.delete(url);
+    // L2 is NOT evicted here — see note above.
+  }
 }
 
 // Extract all image URLs an entity may carry. Handles both the product shape
@@ -832,7 +890,7 @@ export function parseDimsFromBuffer(buf) {
 
 async function fetchImageDimensions(url) {
   if (!url) return null;
-  const cached = getCachedImageDims(url);
+  const cached = await getCachedImageDims(url);
   if (cached !== undefined) return cached;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), IMAGE_DIM_FETCH_TIMEOUT_MS);

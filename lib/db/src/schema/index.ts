@@ -9,3 +9,4 @@ export * from "./loyaltyCoupons";
 export * from "./favorites";
 export * from "./osPriceSnapshots";
 export * from "./osPriceAlerts";
+export * from "./imageDims";

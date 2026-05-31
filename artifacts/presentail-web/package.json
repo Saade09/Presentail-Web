@@ -101,6 +101,7 @@
     "@clerk/react": "^6.6.2",
     "@clerk/themes": "^2.4.57",
     "country-flag-icons": "^1.6.17",
-    "html-to-image": "^1.11.13"
+    "html-to-image": "^1.11.13",
+    "pg": "^8.20.0"
   }
 }

@@ -9,7 +9,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { injectSeoTagsAsync } from "./seo-inject.mjs";
+import { injectSeoTagsAsync, initImageDimsDb } from "./seo-inject.mjs";
 import { collectSidecars } from "./sidecar-cache.mjs";
 
 const brotliCompress = promisify(zlib.brotliCompress);
@@ -25,6 +25,71 @@ const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
 // without an external HTTPS round-trip; can be overridden in unusual deploys.
 const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
+
+// ---------------------------------------------------------------------------
+// Image dims L2 cache — PostgreSQL via pg (if DATABASE_URL is configured).
+//
+// TTL: 24 hours.  The in-process L1 Map in seo-inject.mjs keeps a 1-hour
+// window; on L1 miss the adapter is consulted so dims survive server restarts
+// and cold-start crawler spikes pay only one CDN Range-fetch per URL per day.
+// ---------------------------------------------------------------------------
+const IMAGE_DIMS_L2_TTL_MS = 24 * 60 * 60 * 1000;
+
+if (process.env.DATABASE_URL) {
+  try {
+    const pg = await import("pg");
+    const Pool = pg.default?.Pool ?? pg.Pool;
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    // Ensure the table exists — idempotent DDL, run once at startup.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS image_dims (
+        url        TEXT PRIMARY KEY,
+        width      INTEGER,
+        height     INTEGER,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    initImageDimsDb({
+      async get(url) {
+        const { rows } = await pool.query(
+          "SELECT width, height, fetched_at FROM image_dims WHERE url = $1",
+          [url],
+        );
+        if (!rows.length) return undefined;
+        const row = rows[0];
+        const ageMs = Date.now() - new Date(row.fetched_at).getTime();
+        if (ageMs > IMAGE_DIMS_L2_TTL_MS) {
+          // Stale — treat as a miss so the next fetch refreshes both caches.
+          return undefined;
+        }
+        if (row.width == null || row.height == null) return null;
+        return { width: row.width, height: row.height };
+      },
+      async set(url, dims) {
+        await pool.query(
+          `INSERT INTO image_dims (url, width, height, fetched_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (url) DO UPDATE
+             SET width      = EXCLUDED.width,
+                 height     = EXCLUDED.height,
+                 fetched_at = NOW()`,
+          [url, dims?.width ?? null, dims?.height ?? null],
+        );
+      },
+      async del(url) {
+        await pool.query("DELETE FROM image_dims WHERE url = $1", [url]);
+      },
+    });
+
+    console.log("Image dims L2 cache: PostgreSQL adapter active");
+  } catch (err) {
+    console.warn("Image dims L2 cache: failed to initialise DB adapter —", err.message);
+  }
+} else {
+  console.log("Image dims L2 cache: DATABASE_URL not set, running L1-only");
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8",

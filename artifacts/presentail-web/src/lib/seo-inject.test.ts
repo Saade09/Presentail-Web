@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb } from "../../seo-inject.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -1967,5 +1967,351 @@ describe("ETag conditional requests — 200 branch (dims evicted on entity chang
     expect(entityFetchCount).toBe(2);
     expect(capturedHeaders[1]?.["If-Modified-Since"]).toBe(lastModifiedValue);
     expect(dimsFetchCount).toBe(1); // 304 → no dims eviction
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Image dims L2 cache — initImageDimsDb adapter tests
+//
+// These tests inject a mock L2 adapter and verify that:
+//   1. An L2 hit is returned on L1 miss (no network image fetch).
+//   2. A fresh fetch is stored in L2 via adapter.set().
+//   3. An L2 null entry (no parseable dims) is returned without a network fetch.
+//   4. evictImageDims (triggered by entity cache miss) does NOT call adapter.del()
+//      because L2 staleness is handled by its 24 h TTL.
+//   5. L2 errors are non-fatal — the fetch still proceeds normally.
+//
+// Each test uses a URL unique to its scenario to avoid L1 cache cross-talk.
+// initImageDimsDb(null) is called in afterEach to restore the default (L1-only)
+// mode for all other tests in this file.
+// ---------------------------------------------------------------------------
+
+function makePngBufferSimple(w: number, h: number): ArrayBuffer {
+  const b = new Uint8Array(24);
+  b[0] = 0x89; b[1] = 0x50; b[2] = 0x4e; b[3] = 0x47; // PNG sig
+  b[16] = (w >> 24) & 0xff; b[17] = (w >> 16) & 0xff;
+  b[18] = (w >> 8) & 0xff; b[19] = w & 0xff;
+  b[20] = (h >> 24) & 0xff; b[21] = (h >> 16) & 0xff;
+  b[22] = (h >> 8) & 0xff; b[23] = h & 0xff;
+  return b.buffer;
+}
+
+const L2_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const L2_OPTS = {
+  apiBaseUrl: "https://api.l2-test",
+  origin: "https://presentail.l2-test",
+  basePath: "",
+};
+
+describe("image dims L2 cache — initImageDimsDb adapter", () => {
+  afterEach(() => {
+    initImageDimsDb(null);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("serves dims from L2 on L1 miss without a network image fetch", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-hit-unique.png";
+    const l2Store: Map<string, { width: number; height: number } | null> = new Map();
+    l2Store.set(imageUrl, { width: 1200, height: 630 });
+
+    initImageDimsDb({
+      async get(url: string) { return l2Store.get(url); },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    let imageFetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Hit Product",
+              description: "Dims from L2.",
+              image: { uri: imageUrl },
+              priceValue: 70,
+            },
+          }),
+        };
+      }
+      // Any fetch to the image CDN should NOT happen (L2 hit).
+      imageFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(999, 999) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/product/l2-hit-product",
+      L2_OPTS,
+    );
+
+    expect(imageFetchCount).toBe(0);
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="630"');
+  });
+
+  it("writes freshly fetched dims to L2 via adapter.set()", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-write-unique.png";
+    const l2Writes: Array<{ url: string; dims: unknown }> = [];
+
+    initImageDimsDb({
+      async get(_url: string) { return undefined; }, // always miss
+      async set(url: string, dims: unknown) { l2Writes.push({ url, dims }); },
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Write Product",
+              description: "Dims written to L2.",
+              image: { uri: imageUrl },
+              priceValue: 55,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/product/l2-write-product",
+      L2_OPTS,
+    );
+
+    expect(l2Writes).toHaveLength(1);
+    expect(l2Writes[0].url).toBe(imageUrl);
+    expect(l2Writes[0].dims).toEqual({ width: 800, height: 600 });
+  });
+
+  it("serves a null entry from L2 (cached no-dims) without a network image fetch", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-null-unique.png";
+    const l2Store: Map<string, null> = new Map();
+    l2Store.set(imageUrl, null);
+
+    initImageDimsDb({
+      async get(url: string) { return l2Store.get(url) === undefined ? undefined : l2Store.get(url); },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    let imageFetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Null Product",
+              description: "No dims in L2.",
+              image: { uri: imageUrl },
+              priceValue: 40,
+            },
+          }),
+        };
+      }
+      imageFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(700, 500) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/product/l2-null-product",
+      L2_OPTS,
+    );
+
+    // L2 returned null (no parseable dims) → no image fetch, no width/height tags.
+    expect(imageFetchCount).toBe(0);
+    expect(out).not.toContain('property="og:image:width"');
+    expect(out).not.toContain('property="og:image:height"');
+  });
+
+  it("evictImageDims (entity cache miss) does NOT call adapter.del() — L2 preserves dims across restarts", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const imageUrl = "https://cdn.l2-test/l2-preservation-unique.png";
+    const l2Dels: string[] = [];
+
+    initImageDimsDb({
+      async get(_url: string) { return undefined; },
+      async set(_url: string, _dims: unknown) {},
+      async del(url: string) { l2Dels.push(url); },
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Preservation Product",
+              description: "Eviction test.",
+              image: { uri: imageUrl },
+              priceValue: 60,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(1200, 628) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity freshly fetched → evictImageDims evicts L1 only (not L2).
+    await injectSeoTagsAsync(L2_HTML, "/en-ae/dubai/product/l2-preservation-product", L2_OPTS);
+    // L2 must NOT be deleted: evictImageDims only touches L1 so dims survive restarts.
+    expect(l2Dels).toHaveLength(0);
+
+    // Advance past entity TTL so the entity cache expires.
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: entity cache miss → fresh entity fetch → evictImageDims (L1 only).
+    await injectSeoTagsAsync(L2_HTML, "/en-ae/dubai/product/l2-preservation-product", L2_OPTS);
+    // L2 still must not be deleted across the full lifecycle.
+    expect(l2Dels).toHaveLength(0);
+
+    vi.useRealTimers();
+  });
+
+  it("serves dims from L2 when entity cache is cold (restart simulation) — no CDN fetch", async () => {
+    // This test simulates a server restart: L1 is empty (in-process Map cleared),
+    // L2 has persisted dims from before the restart, entity cache is also cold.
+    // Expected: first crawl after restart uses L2 dims, no CDN Range-fetch fires.
+    const imageUrl = "https://cdn.l2-test/l2-restart-sim-unique.png";
+    let imageFetchCount = 0;
+
+    initImageDimsDb({
+      // L2 already has dims (persisted before the simulated restart).
+      async get(url: string) {
+        if (url === imageUrl) return { width: 1200, height: 628 };
+        return undefined;
+      },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Restart Sim Product",
+              description: "Dims must come from L2.",
+              image: { uri: imageUrl },
+              priceValue: 75,
+            },
+          }),
+        };
+      }
+      // Any CDN Range-fetch would be a test failure.
+      imageFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(999, 999) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/product/restart-sim-product",
+      L2_OPTS,
+    );
+
+    // L2 provided dims → no CDN Range-fetch.
+    expect(imageFetchCount).toBe(0);
+    // Correct dims from L2 are emitted in the HTML.
+    expect(out).toContain('<meta property="og:image:width" content="1200"');
+    expect(out).toContain('<meta property="og:image:height" content="628"');
+  });
+
+  it("continues normally when the L2 adapter throws on get()", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-error-unique.png";
+
+    initImageDimsDb({
+      async get(_url: string) { throw new Error("DB connection refused"); },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Error Product",
+              description: "L2 throws but fetch continues.",
+              image: { uri: imageUrl },
+              priceValue: 50,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(640, 480) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      L2_HTML,
+      "/en-ae/dubai/product/l2-error-product",
+      L2_OPTS,
+    );
+
+    // Despite L2 throwing, the network fetch still ran and dims are present.
+    expect(out).toContain('<meta property="og:image:width" content="640"');
+    expect(out).toContain('<meta property="og:image:height" content="480"');
+  });
+
+  it("populates L1 from L2 hit so a second call is served without L2 round-trip", async () => {
+    const imageUrl = "https://cdn.l2-test/l2-warm-l1-unique.png";
+    let l2GetCount = 0;
+
+    initImageDimsDb({
+      async get(_url: string) {
+        l2GetCount++;
+        return { width: 400, height: 300 };
+      },
+      async set(_url: string, _dims: unknown) {},
+      async del(_url: string) {},
+    });
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "L2 Warm L1 Product",
+              description: "L1 warmed from L2.",
+              image: { uri: imageUrl },
+              priceValue: 65,
+            },
+          }),
+        };
+      }
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBufferSimple(400, 300) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: L1 miss → L2 hit → L1 warmed.
+    await injectSeoTagsAsync(L2_HTML, "/en-ae/dubai/product/l2-warm-l1-product", L2_OPTS);
+    expect(l2GetCount).toBe(1);
+
+    // Second call: L1 is now warm → L2 not consulted.
+    await injectSeoTagsAsync(L2_HTML, "/en-ae/dubai/product/l2-warm-l1-product", L2_OPTS);
+    expect(l2GetCount).toBe(1); // still 1 — L1 served the second request
   });
 });
