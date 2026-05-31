@@ -5,7 +5,7 @@ import {
   Redirect,
   useLocation,
 } from "wouter";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ClerkProvider,
@@ -40,35 +40,36 @@ import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
+import { PageLoader } from "@/components/PageLoader";
 
-import Landing from "@/pages/Landing";
-import Home from "@/pages/Home";
-import Shop from "@/pages/Shop";
-import ProductDetail from "@/pages/ProductDetail";
-import Brands from "@/pages/Brands";
-import BrandDetail from "@/pages/BrandDetail";
-import Cart from "@/pages/Cart";
-import Checkout from "@/pages/Checkout";
-import OrderConfirmed from "@/pages/OrderConfirmed";
-import Account from "@/pages/Account";
-import PersonalInformation from "@/pages/PersonalInformation";
-import SignInPage from "@/pages/SignIn";
-import SignUpPage from "@/pages/SignUp";
-import Unauthorized from "@/pages/Unauthorized";
-import Careers from "@/pages/Careers";
-import Blog from "@/pages/Blog";
-import Partner from "@/pages/Partner";
-import DeliveryRates from "@/pages/DeliveryRates";
-import InvestorRelations from "@/pages/InvestorRelations";
-import Weddings from "@/pages/Weddings";
-import Corporate from "@/pages/Corporate";
-import Contact from "@/pages/Contact";
-import Faqs from "@/pages/Faqs";
-import Terms from "@/pages/Terms";
-import Privacy from "@/pages/Privacy";
-import Favorites from "@/pages/Favorites";
-import SharedFavorites from "@/pages/SharedFavorites";
-import NotFound from "@/pages/not-found";
+const Landing = lazy(() => import("@/pages/Landing"));
+const Home = lazy(() => import("@/pages/Home"));
+const Shop = lazy(() => import("@/pages/Shop"));
+const ProductDetail = lazy(() => import("@/pages/ProductDetail"));
+const Brands = lazy(() => import("@/pages/Brands"));
+const BrandDetail = lazy(() => import("@/pages/BrandDetail"));
+const Cart = lazy(() => import("@/pages/Cart"));
+const Checkout = lazy(() => import("@/pages/Checkout"));
+const OrderConfirmed = lazy(() => import("@/pages/OrderConfirmed"));
+const Account = lazy(() => import("@/pages/Account"));
+const PersonalInformation = lazy(() => import("@/pages/PersonalInformation"));
+const SignInPage = lazy(() => import("@/pages/SignIn"));
+const SignUpPage = lazy(() => import("@/pages/SignUp"));
+const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
+const Careers = lazy(() => import("@/pages/Careers"));
+const Blog = lazy(() => import("@/pages/Blog"));
+const Partner = lazy(() => import("@/pages/Partner"));
+const DeliveryRates = lazy(() => import("@/pages/DeliveryRates"));
+const InvestorRelations = lazy(() => import("@/pages/InvestorRelations"));
+const Weddings = lazy(() => import("@/pages/Weddings"));
+const Corporate = lazy(() => import("@/pages/Corporate"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const Faqs = lazy(() => import("@/pages/Faqs"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Favorites = lazy(() => import("@/pages/Favorites"));
+const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
+const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -136,50 +137,52 @@ function ShopShell() {
       <div className="min-h-screen flex flex-col">
         <HomepageHeader />
         <main className="flex-1">
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/shop" component={Shop} />
-            <Route path="/product/:slug" component={ProductDetail} />
-            <Route path="/brands" component={Brands} />
-            <Route path="/brand/:slug" component={BrandDetail} />
-            <Route path="/cart" component={Cart} />
-            <Route path="/checkout" component={Checkout} />
-            <Route path="/order-confirmed" component={OrderConfirmed} />
-            <Route path="/careers" component={Careers} />
-            <Route path="/blog" component={Blog} />
-            <Route path="/partner" component={Partner} />
-            <Route path="/delivery-rates" component={DeliveryRates} />
-            <Route path="/investor" component={InvestorRelations} />
-            <Route path="/weddings" component={Weddings} />
-            <Route path="/corporate" component={Corporate} />
-            <Route path="/contact" component={Contact} />
-            <Route path="/faqs" component={Faqs} />
-            <Route path="/terms" component={Terms} />
-            <Route path="/privacy" component={Privacy} />
-            {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
-                factor-one, ...) so their routes need wildcard suffixes. */}
-            <Route path="/sign-in/:rest*" component={SignInPage} />
-            <Route path="/sign-in" component={SignInPage} />
-            <Route path="/sign-up/:rest*" component={SignUpPage} />
-            <Route path="/sign-up" component={SignUpPage} />
-            <Route path="/unauthorized" component={Unauthorized} />
-            <Route path="/account/personal-information">
-              <CustomerOnly>
-                <PersonalInformation />
-              </CustomerOnly>
-            </Route>
-            <Route path="/account">
-              <CustomerOnly>
-                <Account />
-              </CustomerOnly>
-            </Route>
-            <Route path="/favorites">
-              <CustomerOnly>
-                <Favorites />
-              </CustomerOnly>
-            </Route>
-            <Route component={NotFound} />
-          </Switch>
+          <Suspense fallback={<PageLoader />}>
+            <Switch>
+              <Route path="/" component={Home} />
+              <Route path="/shop" component={Shop} />
+              <Route path="/product/:slug" component={ProductDetail} />
+              <Route path="/brands" component={Brands} />
+              <Route path="/brand/:slug" component={BrandDetail} />
+              <Route path="/cart" component={Cart} />
+              <Route path="/checkout" component={Checkout} />
+              <Route path="/order-confirmed" component={OrderConfirmed} />
+              <Route path="/careers" component={Careers} />
+              <Route path="/blog" component={Blog} />
+              <Route path="/partner" component={Partner} />
+              <Route path="/delivery-rates" component={DeliveryRates} />
+              <Route path="/investor" component={InvestorRelations} />
+              <Route path="/weddings" component={Weddings} />
+              <Route path="/corporate" component={Corporate} />
+              <Route path="/contact" component={Contact} />
+              <Route path="/faqs" component={Faqs} />
+              <Route path="/terms" component={Terms} />
+              <Route path="/privacy" component={Privacy} />
+              {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
+                  factor-one, ...) so their routes need wildcard suffixes. */}
+              <Route path="/sign-in/:rest*" component={SignInPage} />
+              <Route path="/sign-in" component={SignInPage} />
+              <Route path="/sign-up/:rest*" component={SignUpPage} />
+              <Route path="/sign-up" component={SignUpPage} />
+              <Route path="/unauthorized" component={Unauthorized} />
+              <Route path="/account/personal-information">
+                <CustomerOnly>
+                  <PersonalInformation />
+                </CustomerOnly>
+              </Route>
+              <Route path="/account">
+                <CustomerOnly>
+                  <Account />
+                </CustomerOnly>
+              </Route>
+              <Route path="/favorites">
+                <CustomerOnly>
+                  <Favorites />
+                </CustomerOnly>
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </Suspense>
         </main>
         <Footer />
       </div>
@@ -242,7 +245,11 @@ function UnprefixedRedirect() {
 }
 
 function RootRedirectFromLanding() {
-  return <Landing />;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Landing />
+    </Suspense>
+  );
 }
 
 function RootRouter() {
@@ -256,7 +263,11 @@ function RootRouter() {
   // Public shared-favorites page — accessible without locale prefix or sign-in.
   if (path.startsWith("/favorites/share/")) {
     const token = path.split("/")[3] ?? "";
-    return <SharedFavorites token={token} />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <SharedFavorites token={token} />
+      </Suspense>
+    );
   }
 
   if (parsed.hasLocalePrefix && parsed.lang && parsed.country) {
