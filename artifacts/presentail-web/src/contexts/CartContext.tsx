@@ -6,7 +6,7 @@ export type CartItem = {
   quantity: number;
 };
 
-type CartContextType = {
+export type CartContextType = {
   items: CartItem[];
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
@@ -16,7 +16,7 @@ type CartContextType = {
   itemCount: number;
 };
 
-const CartContext = createContext<CartContextType | null>(null);
+export const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);

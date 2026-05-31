@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useUser, useClerk } from "@clerk/react";
 
 // Thin compatibility shim so existing components (Navbar, Account, Checkout)
@@ -6,7 +6,7 @@ import { useUser, useClerk } from "@clerk/react";
 // All identity now flows from Clerk; there is no longer a locally-stored
 // `presentail_token` in localStorage and no `login()` mutation — sign-in is
 // handled by the Clerk-rendered `<SignIn />` form on `/sign-in`.
-type ShimUser = {
+export type ShimUser = {
   id: string;
   email: string;
   firstName: string;
@@ -14,7 +14,7 @@ type ShimUser = {
   phone?: string;
 };
 
-type AuthContextValue = {
+export type AuthContextValue = {
   user: ShimUser | null;
   // `token` is kept for backwards compatibility with callers that used it
   // as a truthy "is signed in" signal (e.g. `!!token`). It returns the
@@ -25,6 +25,11 @@ type AuthContextValue = {
   logout: () => Promise<void>;
 };
 
+// Allows tests to inject a static auth value without needing ClerkProvider.
+// Production code never sets this — it defaults to null, so useAuth falls
+// through to the real Clerk hooks.
+export const AuthOverrideContext = createContext<AuthContextValue | null>(null);
+
 // AuthProvider is intentionally pass-through: ClerkProvider (mounted in
 // App.tsx) is the real provider. We keep this component so callers don't
 // have to change their tree structure.
@@ -33,8 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth(): AuthContextValue {
+  const override = useContext(AuthOverrideContext);
+
+  // Clerk hooks must be called unconditionally (rules of hooks).
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
+
+  // Return the test override when present, bypassing Clerk result.
+  if (override) return override;
 
   const mappedUser: ShimUser | null = isSignedIn && user
     ? {

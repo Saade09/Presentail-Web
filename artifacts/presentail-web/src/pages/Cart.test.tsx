@@ -1,29 +1,20 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "@/test-utils";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before the component is imported so Vitest
 // can hoist them before any other import in this file.
+//
+// NOTE: CartContext, AuthContext, LocaleContext, and useDisplayCurrency are
+// intentionally NOT mocked here — renderWithProviders injects them all via
+// context providers with sensible defaults. Only modules that have no
+// provider equivalent (routing, animation, analytics, sub-components) still
+// need per-file vi.mock declarations.
 // ---------------------------------------------------------------------------
-
-vi.mock("@/contexts/CartContext", () => ({
-  useCart: vi.fn(),
-}));
-
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: vi.fn(),
-}));
-
-vi.mock("@/contexts/LocaleContext", () => ({
-  useLocale: vi.fn(),
-}));
-
-vi.mock("@/lib/useDisplayCurrency", () => ({
-  useDisplayCurrency: vi.fn(),
-}));
 
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
@@ -77,13 +68,9 @@ vi.mock("@/components/cart/CheckoutLoginDialog", () => ({
 // ---------------------------------------------------------------------------
 
 import Cart from "./Cart";
-import { useCart } from "@/contexts/CartContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { useLocale } from "@/contexts/LocaleContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Shared fixture
 // ---------------------------------------------------------------------------
 
 const FAKE_ITEM = {
@@ -91,44 +78,26 @@ const FAKE_ITEM = {
     id: "p1",
     name: "Red Roses Bouquet",
     priceValue: 75,
+    price: "75",
     image: null,
+    category: "flowers",
+    inStock: true,
+    occasions: [],
+    wcId: 1,
     slug: "red-roses-bouquet",
   },
   quantity: 1,
 };
 
-function setupMocks({
-  user = null as { id: string; email: string; firstName: string; lastName: string } | null,
-  isLoading = false,
-} = {}) {
-  (useCart as ReturnType<typeof vi.fn>).mockReturnValue({
-    items: [FAKE_ITEM],
-    updateQuantity: vi.fn(),
-    removeItem: vi.fn(),
-    subtotal: 75,
-    itemCount: 1,
-  });
+const CART_WITH_ITEM = {
+  items: [FAKE_ITEM],
+  subtotal: 75,
+  itemCount: 1,
+};
 
-  (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({
-    user,
-    isLoading,
-    token: user ? "clerk" : null,
-    logout: vi.fn(),
-  });
-
-  (useLocale as ReturnType<typeof vi.fn>).mockReturnValue({
-    t: (key: string) => key,
-    dir: "ltr",
-    lang: "en",
-  });
-
-  (useDisplayCurrency as ReturnType<typeof vi.fn>).mockReturnValue({
-    formatPrice: (v: number) => `$${v}`,
-  });
-
-  mockDialogProps.open = false;
-  mockSetLocation.mockClear();
-}
+const CURRENCY_FIXTURE = {
+  formatPrice: (v: number) => `$${v}`,
+};
 
 // ---------------------------------------------------------------------------
 // Tests: "Proceed to Checkout" button navigation / dialog behaviour
@@ -136,13 +105,17 @@ function setupMocks({
 
 describe("Cart — Proceed to Checkout button", () => {
   beforeEach(() => {
-    setupMocks();
+    mockDialogProps.open = false;
+    mockSetLocation.mockClear();
   });
 
   it("navigates directly to /checkout when auth is still loading (authLoading=true)", async () => {
-    setupMocks({ user: null, isLoading: true });
     const user = userEvent.setup();
-    render(<Cart />);
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: true, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
 
@@ -152,9 +125,12 @@ describe("Cart — Proceed to Checkout button", () => {
   });
 
   it("opens the login dialog when auth is loaded and shopper is signed out", async () => {
-    setupMocks({ user: null, isLoading: false });
     const user = userEvent.setup();
-    const { rerender } = render(<Cart />);
+    const { rerender } = renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
 
@@ -168,9 +144,12 @@ describe("Cart — Proceed to Checkout button", () => {
 
   it("does NOT open the login dialog and does NOT call setLocation when shopper is signed in", async () => {
     const signedInUser = { id: "u1", email: "a@b.com", firstName: "Ada", lastName: "B" };
-    setupMocks({ user: signedInUser, isLoading: false });
     const user = userEvent.setup();
-    render(<Cart />);
+    renderWithProviders(<Cart />, {
+      auth: { user: signedInUser, isLoading: false, token: "clerk" },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
 
     await user.click(screen.getByTestId("link-proceed-to-checkout"));
 

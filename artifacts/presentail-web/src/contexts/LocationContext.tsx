@@ -58,7 +58,7 @@ type LocationContextType = {
   closePicker: () => void;
 };
 
-const LocationContext = createContext<LocationContextType | null>(null);
+export const LocationContext = createContext<LocationContextType | null>(null);
 
 function readStored(): StoredLocation | null {
   if (typeof window === "undefined") return null;

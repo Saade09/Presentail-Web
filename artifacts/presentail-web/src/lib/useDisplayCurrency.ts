@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   countryFromLocale,
@@ -6,7 +6,11 @@ import {
 } from "@workspace/display-currency";
 import { apiFetch } from "./api";
 import { useCurrenciesData, useFxRates } from "./queries";
-import { useLocationSelection } from "@/contexts/LocationContext";
+import { LocationContext } from "@/contexts/LocationContext";
+import {
+  DisplayCurrencyOverrideContext,
+  type DisplayCurrencyOverrideValue,
+} from "./displayCurrencyOverride";
 import {
   formatPriceInCurrency,
   getCurrencySnapshot,
@@ -24,6 +28,8 @@ export {
   MANUAL_CURRENCY_KEY,
   MANUAL_CURRENCY_PERSISTENT_KEY,
 } from "./displayCurrencyStorage";
+export { DisplayCurrencyOverrideContext } from "./displayCurrencyOverride";
+export type { DisplayCurrencyOverrideValue } from "./displayCurrencyOverride";
 
 function useCurrencyTables() {
   return useSyncExternalStore(
@@ -104,6 +110,8 @@ function readBrowserLocaleCountry(): string | null {
  * on first paint instead of replaying whatever was cached from a previous
  * visit.
  */
+const DEFAULT_NOOP = () => {};
+
 export function useDisplayCurrency(): {
   currencyCode: string;
   isDetected: boolean;
@@ -115,7 +123,16 @@ export function useDisplayCurrency(): {
   supportedCurrencies: { code: string; name: string }[];
   formatPrice: (usdValue: number) => string;
 } {
-  const { countryCode } = useLocationSelection();
+  // Test override: when a DisplayCurrencyOverrideContext.Provider wraps the
+  // component, return the injected value directly. All other hooks below are
+  // still called unconditionally (React rules of hooks); their results are
+  // simply ignored when the override is active.
+  const override = useContext(DisplayCurrencyOverrideContext);
+
+  // Use LocationContext directly (non-throwing) so this hook can run in test
+  // environments that don't mount a full LocationProvider.
+  const locationCtx = useContext(LocationContext);
+  const countryCode = locationCtx?.countryCode ?? null;
   const hasSelectedCountry = !!countryCode;
   const snapshot = useCurrencyTables();
   useCurrenciesData();
@@ -208,6 +225,23 @@ export function useDisplayCurrency(): {
     resolved.mappedCurrency,
     resolved.finalCurrency,
   ]);
+
+  // After all hooks are called (rules of hooks satisfied), return the test
+  // override if one was injected via DisplayCurrencyOverrideContext.
+  if (override) {
+    return {
+      currencyCode: "USD",
+      isDetected: true,
+      isManual: false,
+      isManualPersistent: false,
+      setCurrencyCode: DEFAULT_NOOP,
+      setManualPersistent: DEFAULT_NOOP,
+      clearManualCurrency: DEFAULT_NOOP,
+      supportedCurrencies: [],
+      formatPrice: (v: number) => `$${v}`,
+      ...override,
+    };
+  }
 
   const setCurrencyCode = useCallback(
     (code: string, options?: { persist?: boolean }) => {
