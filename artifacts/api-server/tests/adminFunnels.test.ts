@@ -117,24 +117,33 @@ const { getOsProducts } = await import("../src/lib/osProductsCache");
 const adminFunnelsRouter = (await import("../src/routes/adminFunnels"))
   .default;
 
+// Relative-date helpers — keeps tests green on any calendar date.
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+// DAY_A is the "older" of two test days; DAY_B is the "newer" one.
+// They sort correctly as YYYY-MM-DD strings (DAY_A < DAY_B).
+const DAY_A = daysAgo(2);
+const DAY_B = daysAgo(1);
+
 describe("aggregateDailyPurchaseBuckets", () => {
   it("groups counts by day + platform and reuses the per-day aggregator", () => {
     const buckets = aggregateDailyPurchaseBuckets([
-      { day: "2026-05-10", name: "cart_viewed", platform: "ios", count: 100 },
-      { day: "2026-05-10", name: "checkout_started", platform: "ios", count: 40 },
-      { day: "2026-05-10", name: "payment_method_selected", platform: "ios", count: 25 },
-      { day: "2026-05-10", name: "order_placed", platform: "ios", count: 10 },
-      { day: "2026-05-11", name: "cart_viewed", platform: "ios", count: 50 },
-      { day: "2026-05-11", name: "cart_viewed", platform: "web", count: 80 },
+      { day: DAY_A, name: "cart_viewed", platform: "ios", count: 100 },
+      { day: DAY_A, name: "checkout_started", platform: "ios", count: 40 },
+      { day: DAY_A, name: "payment_method_selected", platform: "ios", count: 25 },
+      { day: DAY_A, name: "order_placed", platform: "ios", count: 10 },
+      { day: DAY_B, name: "cart_viewed", platform: "ios", count: 50 },
+      { day: DAY_B, name: "cart_viewed", platform: "web", count: 80 },
     ]);
     // Newest day first.
     expect(buckets.map((b) => `${b.day}:${b.platform}`)).toEqual([
-      "2026-05-11:ios",
-      "2026-05-11:web",
-      "2026-05-10:ios",
+      `${DAY_B}:ios`,
+      `${DAY_B}:web`,
+      `${DAY_A}:ios`,
     ]);
     const may10ios = buckets.find(
-      (b) => b.day === "2026-05-10" && b.platform === "ios",
+      (b) => b.day === DAY_A && b.platform === "ios",
     )!;
     expect(may10ios.cartViewed).toBe(100);
     expect(may10ios.checkoutStarted).toBe(40);
@@ -147,12 +156,12 @@ describe("aggregateDailyPurchaseBuckets", () => {
   it("attaches USD revenue from app_orders to the matching (day, platform) bucket", () => {
     const buckets = aggregateDailyPurchaseBuckets(
       [
-        { day: "2026-05-11", name: "order_placed", platform: "ios", count: 3 },
-        { day: "2026-05-11", name: "order_placed", platform: "web", count: 2 },
+        { day: DAY_B, name: "order_placed", platform: "ios", count: 3 },
+        { day: DAY_B, name: "order_placed", platform: "web", count: 2 },
       ],
       [
-        { day: "2026-05-11", platform: "ios", revenueUsdCents: 12345 },
-        { day: "2026-05-11", platform: "web", revenueUsdCents: 6789 },
+        { day: DAY_B, platform: "ios", revenueUsdCents: 12345 },
+        { day: DAY_B, platform: "web", revenueUsdCents: 6789 },
       ],
     );
     const ios = buckets.find((b) => b.platform === "ios")!;
@@ -164,11 +173,11 @@ describe("aggregateDailyPurchaseBuckets", () => {
   it("materialises a revenue-only bucket when orders exist without analytics events", () => {
     const buckets = aggregateDailyPurchaseBuckets(
       [],
-      [{ day: "2026-05-11", platform: "ios", revenueUsdCents: 5000 }],
+      [{ day: DAY_B, platform: "ios", revenueUsdCents: 5000 }],
     );
     expect(buckets).toHaveLength(1);
     expect(buckets[0]).toMatchObject({
-      day: "2026-05-11",
+      day: DAY_B,
       platform: "ios",
       cartViewed: 0,
       orderPlaced: 0,
@@ -179,9 +188,9 @@ describe("aggregateDailyPurchaseBuckets", () => {
   it("collapses null platform on app_orders to the same 'unknown' bucket as analytics events", () => {
     const buckets = aggregateDailyPurchaseBuckets(
       [
-        { day: "2026-05-11", name: "order_placed", platform: null, count: 1 },
+        { day: DAY_B, name: "order_placed", platform: null, count: 1 },
       ],
-      [{ day: "2026-05-11", platform: null, revenueUsdCents: 4200 }],
+      [{ day: DAY_B, platform: null, revenueUsdCents: 4200 }],
     );
     expect(buckets).toHaveLength(1);
     expect(buckets[0]).toMatchObject({
@@ -196,7 +205,7 @@ describe("aggregateDailyLoginBuckets", () => {
   it("groups by day + platform + surface and folds actions into bucket fields", () => {
     const buckets = aggregateDailyLoginBuckets([
       {
-        day: "2026-05-10",
+        day: DAY_A,
         name: "checkout_login_prompt_viewed",
         platform: "ios",
         surface: "cart",
@@ -204,7 +213,7 @@ describe("aggregateDailyLoginBuckets", () => {
         count: 100,
       },
       {
-        day: "2026-05-10",
+        day: DAY_A,
         name: "checkout_login_prompt_action",
         platform: "ios",
         surface: "cart",
@@ -212,7 +221,7 @@ describe("aggregateDailyLoginBuckets", () => {
         count: 30,
       },
       {
-        day: "2026-05-10",
+        day: DAY_A,
         name: "checkout_login_prompt_action",
         platform: "ios",
         surface: "cart",
@@ -222,7 +231,7 @@ describe("aggregateDailyLoginBuckets", () => {
     ]);
     expect(buckets).toHaveLength(1);
     expect(buckets[0]).toMatchObject({
-      day: "2026-05-10",
+      day: DAY_A,
       platform: "ios",
       surface: "cart",
       viewed: 100,
@@ -235,19 +244,19 @@ describe("aggregateDailyLoginBuckets", () => {
 describe("aggregateDailySocialFailureBuckets", () => {
   it("groups by (day, platform, provider) and ranks error codes desc", () => {
     const buckets = aggregateDailySocialFailureBuckets([
-      { day: "2026-05-10", platform: "ios", action: "google", errorCode: "DEVELOPER_ERROR", count: 4 },
-      { day: "2026-05-10", platform: "ios", action: "google", errorCode: "-61440", count: 2 },
-      { day: "2026-05-10", platform: "android", action: "google", errorCode: "DEVELOPER_ERROR", count: 1 },
-      { day: "2026-05-11", platform: "ios", action: "apple", errorCode: "no_identity_token", count: 3 },
+      { day: DAY_A, platform: "ios", action: "google", errorCode: "DEVELOPER_ERROR", count: 4 },
+      { day: DAY_A, platform: "ios", action: "google", errorCode: "-61440", count: 2 },
+      { day: DAY_A, platform: "android", action: "google", errorCode: "DEVELOPER_ERROR", count: 1 },
+      { day: DAY_B, platform: "ios", action: "apple", errorCode: "no_identity_token", count: 3 },
     ]);
     // Newest day first; alphabetical platform within a day.
     expect(buckets.map((b) => `${b.day}:${b.platform}:${b.provider}`)).toEqual([
-      "2026-05-11:ios:apple",
-      "2026-05-10:android:google",
-      "2026-05-10:ios:google",
+      `${DAY_B}:ios:apple`,
+      `${DAY_A}:android:google`,
+      `${DAY_A}:ios:google`,
     ]);
     const may10ios = buckets.find(
-      (b) => b.day === "2026-05-10" && b.platform === "ios",
+      (b) => b.day === DAY_A && b.platform === "ios",
     )!;
     expect(may10ios.total).toBe(6);
     expect(may10ios.errorCodes).toEqual([
@@ -276,7 +285,7 @@ describe("summariseDailyBuckets", () => {
     const summary = summariseDailyBuckets(
       [
         {
-          day: "2026-05-10",
+          day: DAY_A,
           platform: "ios",
           provider: "google",
           total: 5,
@@ -286,7 +295,7 @@ describe("summariseDailyBuckets", () => {
           ],
         },
         {
-          day: "2026-05-11",
+          day: DAY_B,
           platform: "ios",
           provider: "google",
           total: 4,
@@ -314,10 +323,10 @@ describe("summariseDailyBuckets", () => {
 describe("summariseSuggestedMessageBuckets", () => {
   it("sums picks across days per (platform, category) and sorts by descending count", () => {
     const summary = summariseSuggestedMessageBuckets([
-      { day: "2026-05-10", platform: "ios", category: "general", count: 3 },
-      { day: "2026-05-11", platform: "ios", category: "general", count: 5 },
-      { day: "2026-05-11", platform: "ios", category: "love", count: 9 },
-      { day: "2026-05-11", platform: "web", category: "birthday", count: 2 },
+      { day: DAY_A, platform: "ios", category: "general", count: 3 },
+      { day: DAY_B, platform: "ios", category: "general", count: 5 },
+      { day: DAY_B, platform: "ios", category: "love", count: 9 },
+      { day: DAY_B, platform: "web", category: "birthday", count: 2 },
     ]);
     // Same platform: highest count first.
     const ios = summary.filter((b) => b.platform === "ios");
@@ -365,7 +374,7 @@ describe("admin funnels routes", () => {
     process.env.PUSH_ADMIN_TOKEN = "secret-test-token";
     (loadDailyPurchaseBuckets as any).mockResolvedValueOnce([
       {
-        day: "2026-05-11",
+        day: DAY_B,
         platform: "ios",
         cartViewed: 200,
         checkoutStarted: 80,
@@ -376,7 +385,7 @@ describe("admin funnels routes", () => {
     ]);
     (loadDailyLoginBuckets as any).mockResolvedValueOnce([
       {
-        day: "2026-05-11",
+        day: DAY_B,
         platform: "web",
         surface: "cart",
         viewed: 100,
@@ -388,7 +397,7 @@ describe("admin funnels routes", () => {
     ]);
     (loadDailySocialFailureBuckets as any).mockResolvedValueOnce([
       {
-        day: "2026-05-11",
+        day: DAY_B,
         platform: "ios",
         provider: "google",
         total: 7,
@@ -399,9 +408,9 @@ describe("admin funnels routes", () => {
       },
     ]);
     (loadDailySuggestedMessageBuckets as any).mockResolvedValueOnce([
-      { day: "2026-05-11", platform: "ios", category: "love", count: 4 },
-      { day: "2026-05-11", platform: "ios", category: "general", count: 2 },
-      { day: "2026-05-10", platform: "ios", category: "love", count: 1 },
+      { day: DAY_B, platform: "ios", category: "love", count: 4 },
+      { day: DAY_B, platform: "ios", category: "general", count: 2 },
+      { day: DAY_A, platform: "ios", category: "love", count: 1 },
     ]);
     const app = makeApp();
     const res = await request(app)
@@ -410,9 +419,9 @@ describe("admin funnels routes", () => {
     expect(res.status).toBe(200);
     expect(res.body.days).toBe(30);
     expect(res.body.suggestedMessages.daily).toEqual([
-      { day: "2026-05-11", platform: "ios", category: "love", count: 4 },
-      { day: "2026-05-11", platform: "ios", category: "general", count: 2 },
-      { day: "2026-05-10", platform: "ios", category: "love", count: 1 },
+      { day: DAY_B, platform: "ios", category: "love", count: 4 },
+      { day: DAY_B, platform: "ios", category: "general", count: 2 },
+      { day: DAY_A, platform: "ios", category: "love", count: 1 },
     ]);
     // Summary sums per-(platform, category) across all days, sorted by
     // descending count within a platform.
@@ -421,7 +430,7 @@ describe("admin funnels routes", () => {
       { platform: "ios", category: "general", count: 2 },
     ]);
     expect(res.body.socialFailures.daily[0]).toMatchObject({
-      day: "2026-05-11",
+      day: DAY_B,
       platform: "ios",
       provider: "google",
       total: 7,
@@ -442,7 +451,7 @@ describe("admin funnels routes", () => {
       },
     ]);
     expect(res.body.purchase[0]).toMatchObject({
-      day: "2026-05-11",
+      day: DAY_B,
       platform: "ios",
       cartViewed: 200,
       cartToCheckoutPct: 40,
@@ -454,7 +463,7 @@ describe("admin funnels routes", () => {
       revenueUsd: 1235,
     });
     expect(res.body.login[0]).toMatchObject({
-      day: "2026-05-11",
+      day: DAY_B,
       platform: "web",
       surface: "cart",
       viewed: 100,
@@ -503,12 +512,9 @@ describe("admin funnels routes", () => {
 // 14-day display window (and the 7-day prior-week extension). Hardcoded
 // dates eventually drift outside the window as time passes, causing the
 // `r.day >= displayWindowStart` filter in buildUpsellPayload to exclude them.
-const RECENT_DAY = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-  .toISOString()
-  .slice(0, 10);
-const OLDER_DAY = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-  .toISOString()
-  .slice(0, 10);
+// daysAgo() is defined at module scope above.
+const RECENT_DAY = daysAgo(2);
+const OLDER_DAY = daysAgo(3);
 
 describe("upsell per-store local-currency prices", () => {
   // Shared test product with USD price $10.

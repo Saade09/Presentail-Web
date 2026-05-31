@@ -13,12 +13,19 @@ vi.mock("../src/lib/alerts", () => ({ sendAlert: vi.fn() }));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Relative-date helper — keeps tests green on any calendar date.
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+// TODAY represents the "current" evaluation day passed to sendRevenuePctDropAlert.
+const TODAY = daysAgo(0);
+
 /** Build a current-day row for a platform. */
 const cur = (
   platform: string,
   pct: number,
   orderCount: number,
-): PlatformRevenuePct => ({ day: "2026-05-28", platform, pct, orderCount });
+): PlatformRevenuePct => ({ day: TODAY, platform, pct, orderCount });
 
 /** Build a baseline-day row for a platform. */
 const base = (
@@ -27,10 +34,10 @@ const base = (
   pct: number,
 ): PlatformRevenuePct => ({ day, platform, pct, orderCount: 10 });
 
-/** Seven baseline days at a constant pct for a platform. */
+/** Seven baseline days at a constant pct for a platform (days 7..1 ago). */
 const sevenDays = (platform: string, pct: number): PlatformRevenuePct[] =>
   Array.from({ length: 7 }, (_, i) =>
-    base(platform, `2026-05-${String(21 + i).padStart(2, "0")}`, pct),
+    base(platform, daysAgo(7 - i), pct),
   );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -109,13 +116,13 @@ describe("evaluateRevenuePctDropPerPlatform", () => {
     it("exposes the correct currentPct, trailingAvg, and drop on the breach object", () => {
       // Baseline: 3 days at 20 % and 4 days at 10 % → avg = (3*20 + 4*10)/7 = 100/7 ≈ 14.29 %
       const baselineRows = [
-        base("ios", "2026-05-22", 20),
-        base("ios", "2026-05-23", 20),
-        base("ios", "2026-05-24", 20),
-        base("ios", "2026-05-25", 10),
-        base("ios", "2026-05-26", 10),
-        base("ios", "2026-05-27", 10),
-        base("ios", "2026-05-28", 10),
+        base("ios", daysAgo(7), 20),
+        base("ios", daysAgo(6), 20),
+        base("ios", daysAgo(5), 20),
+        base("ios", daysAgo(4), 10),
+        base("ios", daysAgo(3), 10),
+        base("ios", daysAgo(2), 10),
+        base("ios", daysAgo(1), 10),
       ];
       const currentRows = [cur("ios", 2, 10)];
 
@@ -136,9 +143,9 @@ describe("evaluateRevenuePctDropPerPlatform", () => {
 
     it("records baselineDays equal to the number of rows supplied for the platform", () => {
       const baselineRows = [
-        base("ios", "2026-05-26", 15),
-        base("ios", "2026-05-27", 15),
-        base("ios", "2026-05-28", 15),
+        base("ios", daysAgo(3), 15),
+        base("ios", daysAgo(2), 15),
+        base("ios", daysAgo(1), 15),
       ];
       const currentRows = [cur("ios", 5, 10)];
 
@@ -249,7 +256,7 @@ describe("evaluateRevenuePctDropPerPlatform", () => {
 
     it("skips a platform with exactly 1 baseline day", () => {
       const currentRows = [cur("ios", 0, 10)];
-      const baselineRows = [base("ios", "2026-05-27", 20)]; // only 1 day
+      const baselineRows = [base("ios", daysAgo(1), 20)]; // only 1 day
 
       const { breaches, eligibleCount } = evaluateRevenuePctDropPerPlatform(
         currentRows,
@@ -265,8 +272,8 @@ describe("evaluateRevenuePctDropPerPlatform", () => {
     it("evaluates a platform with exactly 2 baseline days", () => {
       const currentRows = [cur("ios", 0, 10)];
       const baselineRows = [
-        base("ios", "2026-05-26", 20),
-        base("ios", "2026-05-27", 20),
+        base("ios", daysAgo(2), 20),
+        base("ios", daysAgo(1), 20),
       ];
 
       const { breaches, eligibleCount } = evaluateRevenuePctDropPerPlatform(
@@ -376,7 +383,7 @@ describe("sendRevenuePctDropAlert", () => {
   });
 
   it("calls sendAlert with the correct title and source", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [breach("ios", 5, 15)]);
+    await sendRevenuePctDropAlert(TODAY, [breach("ios", 5, 15)]);
     expect(mockSendAlert()).toHaveBeenCalledOnce();
     const arg = mockSendAlert().mock.calls[0]![0];
     expect(arg.title).toBe("Upsell revenue contribution drop");
@@ -385,7 +392,7 @@ describe("sendRevenuePctDropAlert", () => {
   });
 
   it("includes each platform's current %, trailing avg, and drop (pp) in the field value", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [breach("ios", 5.3, 17.8, 7)]);
+    await sendRevenuePctDropAlert(TODAY, [breach("ios", 5.3, 17.8, 7)]);
     const { fields } = mockSendAlert().mock.calls[0]![0];
     expect(fields).toHaveLength(1);
     const field = fields[0];
@@ -400,7 +407,7 @@ describe("sendRevenuePctDropAlert", () => {
   });
 
   it("produces one field per breaching platform with the correct values", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [
+    await sendRevenuePctDropAlert(TODAY, [
       breach("ios", 3, 20, 7),
       breach("android", 8, 15, 5),
     ]);
@@ -421,14 +428,14 @@ describe("sendRevenuePctDropAlert", () => {
   });
 
   it("mentions the breaching platform in the alert body", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [breach("web", 2, 14, 7)]);
+    await sendRevenuePctDropAlert(TODAY, [breach("web", 2, 14, 7)]);
     const { body } = mockSendAlert().mock.calls[0]![0];
     expect(body).toContain("web");
-    expect(body).toContain("2026-05-28");
+    expect(body).toContain(TODAY);
   });
 
   it("lists all breaching platforms in the body when multiple platforms breach", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [
+    await sendRevenuePctDropAlert(TODAY, [
       breach("ios", 1, 20, 7),
       breach("android", 2, 18, 7),
     ]);
@@ -439,7 +446,7 @@ describe("sendRevenuePctDropAlert", () => {
   });
 
   it("uses the correct baselineDays count in the field value", async () => {
-    await sendRevenuePctDropAlert("2026-05-28", [breach("ios", 5, 15, 3)]);
+    await sendRevenuePctDropAlert(TODAY, [breach("ios", 5, 15, 3)]);
     const { fields } = mockSendAlert().mock.calls[0]![0];
     expect(fields[0].value).toContain("3-day avg");
     expect(fields[0].value).not.toContain("7-day avg");

@@ -17,8 +17,9 @@ vi.mock("@workspace/db", () => ({
 
 const { buildUpsellToOrderBySession } = await import("../src/lib/upsellAggregator");
 
-const START = new Date("2026-05-01T00:00:00Z");
-const END = new Date("2026-05-15T00:00:00Z");
+// Use relative dates so this test stays green on any calendar date.
+const END = new Date();
+const START = new Date(END.getTime() - 14 * 24 * 60 * 60 * 1000);
 
 function pushRows(rows: Array<{
   platform: string | null;
