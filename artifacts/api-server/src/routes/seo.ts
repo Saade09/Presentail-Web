@@ -616,7 +616,10 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   <!-- Monitor audit results (last cached or on-demand) -->
   <div id="monitorAuditSection">
-    <h2>Last monitor audit result</h2>
+    <div class="batch-controls">
+      <h2>Last monitor audit result</h2>
+      <button class="batch-filter-toggle" id="monitorFilterToggle">Show problems only</button>
+    </div>
     <div class="monitor-ran-at" id="monitorAuditRanAt"></div>
     <div class="monitor-summary" id="monitorAuditSummary"></div>
     <table class="batch-table">
@@ -1300,6 +1303,27 @@ const SEO_DEBUG_HTML = `<!doctype html>
         + '</tr>';
     });
     monitorAuditBody.innerHTML = rows;
+    applyMonitorFilter();
+  }
+
+  // ── Monitor "Show problems only" toggle ────────────────────────────────────
+  var monitorFilterToggle = document.getElementById('monitorFilterToggle');
+  var monitorProblemsOnly = false;
+  monitorFilterToggle.addEventListener('click', function () {
+    monitorProblemsOnly = !monitorProblemsOnly;
+    monitorFilterToggle.classList.toggle('active', monitorProblemsOnly);
+    applyMonitorFilter();
+  });
+
+  function applyMonitorFilter() {
+    var rows = monitorAuditBody.querySelectorAll('tr');
+    rows.forEach(function (row) {
+      if (monitorProblemsOnly && row.classList.contains('row-green')) {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+      }
+    });
   }
 
   // ── "Show problems only" toggle ────────────────────────────────────────────
