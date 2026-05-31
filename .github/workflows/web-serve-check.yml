@@ -61,5 +61,40 @@ jobs:
       - name: Check sidecar blocking (.br/.gz paths return 404)
         run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234
 
+      - name: Upload dist for chunk-budget job
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: artifacts/presentail-web/dist/public
+          retention-days: 1
+
+  chunk-budget:
+    name: Chunk budget (≤200 kB brotli per chunk)
+    runs-on: ubuntu-latest
+    needs: web-serve-check
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: artifacts/presentail-web/dist/public
+
       - name: Chunk budget report (instant vs on-demand, ≤200 kB brotli per chunk)
         run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public

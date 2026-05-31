@@ -75,10 +75,13 @@ jobs:
           WEB_LINT="Web lint / ESLint – web app"
           WEB_TEST="Web lint / Unit tests – web app"
 
-          # web-serve-check.yml (name: Web serve checks) defines one job:
+          # web-serve-check.yml (name: Web serve checks) defines two jobs:
           #   web-serve-check  → "Build → serve → compression + sidecar-blocking checks"
-          # This job also runs check-chunk-budget, so a budget violation blocks the PR.
+          #   chunk-budget     → "Chunk budget (≤200 kB brotli per chunk)"
+          # chunk-budget runs after web-serve-check (needs:) and downloads the dist
+          # artifact so it can fail independently with a clear, targeted context string.
           WEB_SERVE_CHECK="Web serve checks / Build → serve → compression + sidecar-blocking checks"
+          CHUNK_BUDGET="Web serve checks / Chunk budget (≤200 kB brotli per chunk)"
 
           # lib-typecheck.yml (name: Lib type-check) defines one job:
           #   lib-typecheck  → "Type-check all lib packages"
@@ -106,8 +109,9 @@ jobs:
             --arg webLint         "$WEB_LINT" \
             --arg webTest         "$WEB_TEST" \
             --arg webServeCheck   "$WEB_SERVE_CHECK" \
+            --arg chunkBudget     "$CHUNK_BUDGET" \
             --arg libTypecheck    "$LIB_TYPECHECK" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck, $libTypecheck] | unique')
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck, $chunkBudget, $libTypecheck] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
