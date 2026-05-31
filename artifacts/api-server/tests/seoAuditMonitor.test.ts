@@ -257,8 +257,19 @@ describe("runOnce — deduplication guard", () => {
     // Key page types appear as bold items within each locale group (EN/AR/FR variants).
     expect(alert.body).toMatch(/\*Homepage \(EN\)\*/);
     expect(alert.body).toMatch(/\*Product \(EN\)\*/);
+    expect(alert.body).toMatch(/\*Brand \(EN\)\*/);
+    expect(alert.body).toMatch(/\*Category \(EN\)\*/);
+    expect(alert.body).toMatch(/\*Occasion \(EN\)\*/);
     expect(alert.body).toMatch(/\*Homepage \(AR\)\*/);
+    expect(alert.body).toMatch(/\*Product \(AR\)\*/);
+    expect(alert.body).toMatch(/\*Brand \(AR\)\*/);
+    expect(alert.body).toMatch(/\*Category \(AR\)\*/);
+    expect(alert.body).toMatch(/\*Occasion \(AR\)\*/);
     expect(alert.body).toMatch(/\*Homepage \(FR\)\*/);
+    expect(alert.body).toMatch(/\*Product \(FR\)\*/);
+    expect(alert.body).toMatch(/\*Brand \(FR\)\*/);
+    expect(alert.body).toMatch(/\*Category \(FR\)\*/);
+    expect(alert.body).toMatch(/\*Occasion \(FR\)\*/);
     // LB section appears before AE which appears before CY.
     const lbIdx = alert.body.indexOf("*Lebanon*");
     const aeIdx = alert.body.indexOf("*UAE*");
