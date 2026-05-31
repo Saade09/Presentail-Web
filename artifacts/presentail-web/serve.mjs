@@ -9,8 +9,11 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { injectSeoTagsAsync, initImageDimsDb } from "./seo-inject.mjs";
-import { collectSidecars } from "./sidecar-cache.mjs";
+
+// seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
+// below so a missing or corrupt file produces a structured Slack alert rather
+// than an unstructured module-load crash.
+let injectSeoTagsAsync, initImageDimsDb, collectSidecars;
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
@@ -25,6 +28,140 @@ const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
 // without an external HTTPS round-trip; can be overridden in unusual deploys.
 const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
+
+// ---------------------------------------------------------------------------
+// Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
+// ---------------------------------------------------------------------------
+async function sendSlackAlert(text) {
+  const webhookUrl = process.env.ALERTS_SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5_000);
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      console.warn(`WARN: Slack webhook responded ${res.status} (startup alert)`);
+    }
+  } catch (err) {
+    console.warn(`WARN: Slack webhook send failed (startup alert): ${err?.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Startup file guards — shared helpers used below to check required build
+// artifacts before the HTTP server starts accepting connections.
+//
+// Behaviour on failure:
+//   production  — structured console.error + awaited Slack alert + process.exit(1)
+//   development — console.warn + process.exit(1) (no Slack call)
+//
+// All helpers are async so that in production the Slack alert is awaited before
+// process.exit() is called, ensuring deterministic exit ordering and no risk of
+// the process terminating before the alert is dispatched.
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit a structured error / warn, optionally await a Slack alert, then exit.
+ * Never returns — always calls process.exit(1).
+ *
+ * @param {string} slackMsg  Full Slack message body (Markdown-formatted).
+ * @param {string} logMsg    Plain-text log line (no Slack-specific markup).
+ */
+async function fatalStartupError(slackMsg, logMsg) {
+  if (process.env.NODE_ENV === "production") {
+    console.error(`ERROR: ${logMsg}`);
+    await sendSlackAlert(slackMsg);
+  } else {
+    console.warn(`WARN: ${logMsg}`);
+  }
+  process.exit(1);
+}
+
+/**
+ * Read a required build artifact from disk and return its UTF-8 content.
+ * Calls fatalStartupError (and never returns) if the file cannot be read.
+ *
+ * @param {string} filePath Absolute path of the expected build artifact.
+ * @param {string} label    Short human-readable name used in log / alert text.
+ * @param {string} fixHint  One-sentence remedy to include in the Slack alert.
+ * @returns {Promise<string>} File content on success.
+ */
+async function readStartupFile(filePath, label, fixHint) {
+  try {
+    return fs.readFileSync(filePath, "utf8");
+  } catch (err) {
+    const slackMsg =
+      `:rotating_light: *presentail-web: ${label} missing at startup*\n` +
+      `\`${filePath}\` could not be read (${err.code ?? err.message}). ` +
+      `${fixHint} ` +
+      "The server cannot serve the app and will exit now.";
+    await fatalStartupError(slackMsg, `${label} missing at startup: ${err.message}`);
+    // Unreachable — fatalStartupError always exits — satisfies TypeScript/linters.
+    throw err;
+  }
+}
+
+/**
+ * Assert that a required build artifact exists on disk via `fs.statSync`.
+ * Calls fatalStartupError (and never returns) if the file cannot be found.
+ * Use this when existence-only confirmation is sufficient.
+ *
+ * @param {string} filePath Absolute path of the expected build artifact.
+ * @param {string} label    Short human-readable name used in log / alert text.
+ * @param {string} fixHint  One-sentence remedy to include in the Slack alert.
+ * @returns {Promise<void>}
+ */
+async function checkStartupFile(filePath, label, fixHint) {
+  try {
+    fs.statSync(filePath);
+  } catch (err) {
+    const slackMsg =
+      `:rotating_light: *presentail-web: ${label} missing at startup*\n` +
+      `\`${filePath}\` could not be found (${err.code ?? err.message}). ` +
+      `${fixHint} ` +
+      "The server cannot serve the app and will exit now.";
+    await fatalStartupError(slackMsg, `${label} missing at startup: ${err.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Guarded dynamic imports for seo-inject.mjs and sidecar-cache.mjs.
+//
+// Must run before the DB-adapter block below, which calls initImageDimsDb.
+//
+// Using static `import` for these modules would cause an unstructured Node.js
+// crash if a file is missing or corrupt — before any guard code runs.  Dynamic
+// import lets us catch the failure and emit a structured Slack alert.
+// ---------------------------------------------------------------------------
+try {
+  ({ injectSeoTagsAsync, initImageDimsDb } = await import("./seo-inject.mjs"));
+} catch (err) {
+  await fatalStartupError(
+    ":rotating_light: *presentail-web: seo-inject.mjs failed to load at startup*\n" +
+      `Could not import \`seo-inject.mjs\` (${err.code ?? err.message}). ` +
+      "The file may be missing or contain a syntax error. " +
+      "The server cannot serve the app and will exit now.",
+    `seo-inject.mjs failed to load at startup: ${err.message}`,
+  );
+}
+
+try {
+  ({ collectSidecars } = await import("./sidecar-cache.mjs"));
+} catch (err) {
+  await fatalStartupError(
+    ":rotating_light: *presentail-web: sidecar-cache.mjs failed to load at startup*\n" +
+      `Could not import \`sidecar-cache.mjs\` (${err.code ?? err.message}). ` +
+      "The file may be missing or contain a syntax error. " +
+      "The server cannot serve the app and will exit now.",
+    `sidecar-cache.mjs failed to load at startup: ${err.message}`,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Image dims L2 cache — PostgreSQL via pg (if DATABASE_URL is configured).
@@ -180,49 +317,24 @@ function safeJoin(root, urlPath) {
 }
 
 // ---------------------------------------------------------------------------
-// Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
-// ---------------------------------------------------------------------------
-async function sendSlackAlert(text) {
-  const webhookUrl = process.env.ALERTS_SLACK_WEBHOOK_URL;
-  if (!webhookUrl) return;
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 5_000);
-    const res = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (!res.ok) {
-      console.warn(`WARN: Slack webhook responded ${res.status} (startup alert)`);
-    }
-  } catch (err) {
-    console.warn(`WARN: Slack webhook send failed (startup alert): ${err?.message}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Load index.html — fail fast with a structured alert if the dist folder is
 // absent (i.e. the Vite build step was skipped before this server started).
 // ---------------------------------------------------------------------------
-let indexHtml;
-try {
-  indexHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
-} catch (err) {
-  const msg =
-    ":rotating_light: *presentail-web: dist folder missing at startup*\n" +
-    `\`${DIST}/index.html\` could not be read — the Vite build step may not have run. ` +
-    "The server cannot serve the app and will exit now. " +
-    "Fix: run `vite build` (or the deploy build step) and restart the server.";
-  console.error(`ERROR: ${msg.replace(/[*`\n]/g, " ")}`);
-  if (process.env.NODE_ENV === "production") {
-    sendSlackAlert(msg).finally(() => process.exit(1));
-  } else {
-    process.exit(1);
-  }
-}
+const indexHtml = await readStartupFile(
+  path.join(DIST, "index.html"),
+  "dist/index.html",
+  "The Vite build step may not have run — fix by running `vite build` (or the deploy build step) and restarting the server.",
+);
+
+// ---------------------------------------------------------------------------
+// Check site.webmanifest — present in every Vite build; its absence indicates
+// a partial or failed build that may leave other assets broken as well.
+// ---------------------------------------------------------------------------
+await checkStartupFile(
+  path.join(DIST, "site.webmanifest"),
+  "dist/site.webmanifest",
+  "The Vite build step may not have run or completed only partially — fix by running `vite build` and restarting the server.",
+);
 
 // ---------------------------------------------------------------------------
 // Sidecar (.br / .gz) existence cache
