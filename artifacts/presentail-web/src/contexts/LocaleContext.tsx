@@ -29,7 +29,7 @@ type LocaleContextType = {
   cityName: (id: string, fallback: string) => string;
 };
 
-const LocaleContext = createContext<LocaleContextType | null>(null);
+export const LocaleContext = createContext<LocaleContextType | null>(null);
 
 const STORAGE_KEY = "presentail_lang_v1";
 const LEGACY_STORAGE_KEY = "presentail_language_v1";

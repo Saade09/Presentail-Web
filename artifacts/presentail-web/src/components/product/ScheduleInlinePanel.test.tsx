@@ -1,26 +1,24 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduleInlinePanel } from "./ScheduleInlinePanel";
+import { renderWithProviders } from "@/test-utils";
 
-vi.mock("@/contexts/LocaleContext", () => ({
-  useLocale: () => ({
-    t: (key: string) => {
-      const strings: Record<string, string> = {
-        "product.prevMonth": "Previous month",
-        "product.nextMonth": "Next month",
-        "product.calendarAria": "Open calendar",
-        "checkout.deliveryDate": "Delivery date",
-        "checkout.deliveryTime": "Delivery time",
-      };
-      return strings[key] ?? key;
-    },
-    language: "en",
-    dir: "ltr",
-  }),
-}));
+const LOCALE_T: Record<string, string> = {
+  "product.prevMonth": "Previous month",
+  "product.nextMonth": "Next month",
+  "product.calendarAria": "Open calendar",
+  "checkout.deliveryDate": "Delivery date",
+  "checkout.deliveryTime": "Delivery time",
+};
+
+const locale = {
+  t: (key: string) => LOCALE_T[key] ?? key,
+  language: "en" as const,
+  dir: "ltr" as const,
+};
 
 // Compute anchors relative to the real clock so the strip is always
 // predictable: strip = [today, today+1, today+2]; anything ≥ today+10
@@ -42,23 +40,25 @@ const FAR_DATE_ISO = addDays(30); // always outside the 3-day strip
 
 describe("ScheduleInlinePanel — synthetic chip for out-of-strip dates", () => {
   it("renders a synthetic chip when initialDate is outside the 3-day strip", () => {
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={FAR_DATE_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     expect(screen.getByTestId(`schedule-day-${FAR_DATE_ISO}`)).toBeTruthy();
   });
 
   it("does NOT render a synthetic chip when today is selected (in the strip)", () => {
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     // Today is in the strip → exactly one chip for TODAY_ISO, no synthetic duplicate.
     const chips = screen.getAllByTestId(`schedule-day-${TODAY_ISO}`);
@@ -66,24 +66,26 @@ describe("ScheduleInlinePanel — synthetic chip for out-of-strip dates", () => 
   });
 
   it("does NOT render a synthetic chip when tomorrow is selected (in the strip)", () => {
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TOMORROW_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     const chips = screen.getAllByTestId(`schedule-day-${TOMORROW_ISO}`);
     expect(chips).toHaveLength(1);
   });
 
   it("does NOT render a synthetic chip when the third strip day is selected", () => {
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={DAY3_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     const chips = screen.getAllByTestId(`schedule-day-${DAY3_ISO}`);
     expect(chips).toHaveLength(1);
@@ -97,12 +99,13 @@ describe("ScheduleInlinePanel — synthetic chip for out-of-strip dates", () => 
 describe("ScheduleInlinePanel — onChange callback", () => {
   it("calls onChange with mode='today_slot' when today is the selected date", () => {
     const onChange = vi.fn();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
         onChange={onChange}
       />,
+      { locale },
     );
     // The component fires onChange immediately on mount via useEffect.
     expect(onChange).toHaveBeenCalled();
@@ -119,12 +122,13 @@ describe("ScheduleInlinePanel — onChange callback", () => {
 
   it("calls onChange with mode='schedule' when a future date is selected", () => {
     const onChange = vi.fn();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={FAR_DATE_ISO}
         onChange={onChange}
       />,
+      { locale },
     );
     expect(onChange).toHaveBeenCalled();
     const lastCall = onChange.mock.calls.at(-1)![0] as {
@@ -143,12 +147,13 @@ describe("ScheduleInlinePanel — onChange callback", () => {
 describe("ScheduleInlinePanel — interactions", () => {
   it("synthetic chip disappears after a strip date is clicked", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={FAR_DATE_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     expect(screen.getByTestId(`schedule-day-${FAR_DATE_ISO}`)).toBeTruthy();
 
@@ -160,12 +165,13 @@ describe("ScheduleInlinePanel — interactions", () => {
   it("updates onChange output when the user picks a different strip date", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
         onChange={onChange}
       />,
+      { locale },
     );
     await user.click(screen.getByTestId(`schedule-day-${TOMORROW_ISO}`));
     const lastCall = onChange.mock.calls.at(-1)![0] as {
@@ -178,12 +184,13 @@ describe("ScheduleInlinePanel — interactions", () => {
 
   it("shows the CalendarPopover after clicking the calendar toggle chip", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
         onChange={() => {}}
       />,
+      { locale },
     );
     expect(screen.queryByTestId("calendar-popover")).toBeNull();
 
@@ -195,12 +202,13 @@ describe("ScheduleInlinePanel — interactions", () => {
   it("picking a date from the CalendarPopover creates a synthetic chip and closes the popover", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(
+    renderWithProviders(
       <ScheduleInlinePanel
         countryCode="LB"
         initialDate={TODAY_ISO}
         onChange={onChange}
       />,
+      { locale },
     );
 
     // Open the calendar popover.
