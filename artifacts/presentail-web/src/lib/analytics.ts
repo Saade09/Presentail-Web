@@ -12,7 +12,8 @@ type AnalyticsEventName =
   | "upsell_checkout_proceeded"
   | "signin_page_action"
   | "seo_entity_fetch_failed"
-  | "web_vital";
+  | "web_vital"
+  | "payment_error";
 
 type AnalyticsSurface =
   | "cart"
@@ -52,7 +53,9 @@ type AnalyticsAction =
   | "INP"
   | "CLS"
   | "TTFB"
-  | "FCP";
+  | "FCP"
+  | "network"
+  | "provider";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

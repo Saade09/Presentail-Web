@@ -33,6 +33,8 @@ export const AnalyticsEventRequestAction = {
   mamo: "mamo",
   whish: "whish",
   western: "western",
+  network: "network",
+  provider: "provider",
   general: "general",
   love: "love",
   birthday: "birthday",

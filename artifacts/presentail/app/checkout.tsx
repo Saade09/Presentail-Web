@@ -689,6 +689,7 @@ function CheckoutScreen() {
   const placeOrder = async () => {
     if (paying) return;
     setPaying(true);
+    try {
     const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
 
     const slotLabel = slot?.label ?? "";
@@ -813,6 +814,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       if (session.code === "stripe_not_configured") {
         Alert.alert(
           t.checkoutCardSoonTitle,
@@ -855,6 +857,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutMamoErrorTitle, session.code === "mamo_not_configured"
         ? t.checkoutMamoNotConfigured
         : t.checkoutPaymentNetworkError);
@@ -886,6 +889,7 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
+      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       Alert.alert(t.checkoutPaypalErrorTitle, session.code === "paypal_not_configured"
         ? t.checkoutPaypalNotConfigured
         : t.checkoutPaymentNetworkError);
@@ -898,6 +902,11 @@ function CheckoutScreen() {
     // never be reconciled. Surface a failure state if WC creation fails.
     await finishAfterPayment();
     setPaying(false);
+    } catch (err) {
+      trackEvent({ name: "payment_error", surface: "checkout", action: err instanceof TypeError ? "network" : "provider" });
+      Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+      setPaying(false);
+    }
   };
 
   if (items.length > 0 && productsLoading && detailed.length === 0) {

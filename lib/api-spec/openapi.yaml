@@ -1034,6 +1034,7 @@ components:
         - seo_entity_fetch_failed
         - web_vital
         - mobile_ttid
+        - payment_error
     AnalyticsEventRequest:
       type: object
       properties:
@@ -1074,6 +1075,8 @@ components:
             - mamo
             - whish
             - western
+            - network
+            - provider
             - general
             - love
             - birthday

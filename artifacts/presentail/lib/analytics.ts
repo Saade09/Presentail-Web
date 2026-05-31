@@ -19,7 +19,8 @@ type AnalyticsEventName =
   | "upsell_checkout_proceeded"
   | "order_push_tapped"
   | "fx_rates_fallback"
-  | "mobile_ttid";
+  | "mobile_ttid"
+  | "payment_error";
 
 type AnalyticsSurface =
   | "cart"
@@ -56,7 +57,9 @@ type AnalyticsAction =
   | "bears"
   | "candles"
   | "home"
-  | "product";
+  | "product"
+  | "network"
+  | "provider";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

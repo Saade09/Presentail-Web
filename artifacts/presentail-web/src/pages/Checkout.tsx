@@ -699,6 +699,7 @@ export default function Checkout() {
         description: t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError"),
         variant: "destructive",
       });
+      trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : "provider" });
     }
   };
 

@@ -54,4 +54,5 @@ export const AnalyticsEventName = {
   seo_entity_fetch_failed: "seo_entity_fetch_failed",
   web_vital: "web_vital",
   mobile_ttid: "mobile_ttid",
+  payment_error: "payment_error",
 } as const;
