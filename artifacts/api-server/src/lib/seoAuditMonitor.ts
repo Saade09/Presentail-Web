@@ -34,27 +34,35 @@ const ENABLED = (() => {
 const TICK_MS = 60 * 60 * 1000; // 1 h
 
 // Key pages to audit — mirrors the KEY_PAGES list in the SEO debug UI.
-// Covers all three locales so a deploy that breaks OG injection only for
-// UAE or Cyprus is caught the same day.
+// Covers all three countries and all supported language variants (EN, AR, FR)
+// so a deploy that breaks OG injection only for one locale is caught the same
+// day. AR/FR entries are homepage-only because the other page types share the
+// same server-side SEO inject path and a homepage regression is the canary.
 const KEY_PAGES: Array<{ label: string; url: string; locale: string }> = [
-  // ── Lebanon (en-lb/beirut) ────────────────────────────────────────────────
-  { locale: "LB", label: "Homepage",  url: "https://new.presentail.com/en-lb/beirut" },
-  { locale: "LB", label: "Product",   url: "https://new.presentail.com/en-lb/beirut/product/pink-roses" },
-  { locale: "LB", label: "Brand",     url: "https://new.presentail.com/en-lb/beirut/brand/roses-only" },
-  { locale: "LB", label: "Category",  url: "https://new.presentail.com/en-lb/beirut/shop?category=flowers" },
-  { locale: "LB", label: "Occasion",  url: "https://new.presentail.com/en-lb/beirut/shop?occasion=birthday" },
-  // ── UAE (en-ae/dubai) ────────────────────────────────────────────────────
-  { locale: "AE", label: "Homepage",  url: "https://new.presentail.com/en-ae/dubai" },
-  { locale: "AE", label: "Product",   url: "https://new.presentail.com/en-ae/dubai/product/pink-roses" },
-  { locale: "AE", label: "Brand",     url: "https://new.presentail.com/en-ae/dubai/brand/roses-only" },
-  { locale: "AE", label: "Category",  url: "https://new.presentail.com/en-ae/dubai/shop?category=flowers" },
-  { locale: "AE", label: "Occasion",  url: "https://new.presentail.com/en-ae/dubai/shop?occasion=birthday" },
-  // ── Cyprus (en-cy/nicosia) ───────────────────────────────────────────────
-  { locale: "CY", label: "Homepage",  url: "https://new.presentail.com/en-cy/nicosia" },
-  { locale: "CY", label: "Product",   url: "https://new.presentail.com/en-cy/nicosia/product/pink-roses" },
-  { locale: "CY", label: "Brand",     url: "https://new.presentail.com/en-cy/nicosia/brand/roses-only" },
-  { locale: "CY", label: "Category",  url: "https://new.presentail.com/en-cy/nicosia/shop?category=flowers" },
-  { locale: "CY", label: "Occasion",  url: "https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday" },
+  // ── Lebanon ───────────────────────────────────────────────────────────────
+  { locale: "LB", label: "Homepage (EN)",  url: "https://new.presentail.com/en-lb/beirut" },
+  { locale: "LB", label: "Product (EN)",   url: "https://new.presentail.com/en-lb/beirut/product/pink-roses" },
+  { locale: "LB", label: "Brand (EN)",     url: "https://new.presentail.com/en-lb/beirut/brand/roses-only" },
+  { locale: "LB", label: "Category (EN)",  url: "https://new.presentail.com/en-lb/beirut/shop?category=flowers" },
+  { locale: "LB", label: "Occasion (EN)",  url: "https://new.presentail.com/en-lb/beirut/shop?occasion=birthday" },
+  { locale: "LB", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-lb/beirut" },
+  { locale: "LB", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-lb/beirut" },
+  // ── UAE ───────────────────────────────────────────────────────────────────
+  { locale: "AE", label: "Homepage (EN)",  url: "https://new.presentail.com/en-ae/dubai" },
+  { locale: "AE", label: "Product (EN)",   url: "https://new.presentail.com/en-ae/dubai/product/pink-roses" },
+  { locale: "AE", label: "Brand (EN)",     url: "https://new.presentail.com/en-ae/dubai/brand/roses-only" },
+  { locale: "AE", label: "Category (EN)",  url: "https://new.presentail.com/en-ae/dubai/shop?category=flowers" },
+  { locale: "AE", label: "Occasion (EN)",  url: "https://new.presentail.com/en-ae/dubai/shop?occasion=birthday" },
+  { locale: "AE", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-ae/dubai" },
+  { locale: "AE", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-ae/dubai" },
+  // ── Cyprus ────────────────────────────────────────────────────────────────
+  { locale: "CY", label: "Homepage (EN)",  url: "https://new.presentail.com/en-cy/nicosia" },
+  { locale: "CY", label: "Product (EN)",   url: "https://new.presentail.com/en-cy/nicosia/product/pink-roses" },
+  { locale: "CY", label: "Brand (EN)",     url: "https://new.presentail.com/en-cy/nicosia/brand/roses-only" },
+  { locale: "CY", label: "Category (EN)",  url: "https://new.presentail.com/en-cy/nicosia/shop?category=flowers" },
+  { locale: "CY", label: "Occasion (EN)",  url: "https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday" },
+  { locale: "CY", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-cy/nicosia" },
+  { locale: "CY", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-cy/nicosia" },
 ];
 
 // ── Module state ────────────────────────────────────────────────────────────
@@ -354,9 +362,9 @@ export async function runOnce(): Promise<void> {
     // readable even as the page list grows.
     const localeOrder = ["LB", "AE", "CY"];
     const localeLabels: Record<string, string> = {
-      LB: "Lebanon (en-lb/beirut)",
-      AE: "UAE (en-ae/dubai)",
-      CY: "Cyprus (en-cy/nicosia)",
+      LB: "Lebanon",
+      AE: "UAE",
+      CY: "Cyprus",
     };
 
     const resultsByLocale = new Map<string, SeoPageResult[]>();
