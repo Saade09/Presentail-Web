@@ -16,7 +16,7 @@
  *   • `t.keyName`        — dot notation
  *   • `t["keyName"]`     — bracket notation with string literal
  *
- * Five checks are run:
+ * Six checks are run:
  *
  * 1. UNUSED KEYS — EN keys never referenced in any source file under
  *    `artifacts/presentail`.  Unused keys bloat the bundle and mislead
@@ -42,6 +42,12 @@
  *    translating), plus AR values that contain no Arabic-script characters
  *    (Unicode U+0600–U+06FF), which strongly indicates English text was
  *    committed verbatim as the Arabic translation.
+ *
+ * 6. EMPTY LOCALE VALUES — AR or FR entries whose value is an empty string
+ *    ("").  TypeScript cannot catch this because the key is present and
+ *    correctly typed; shoppers on those locales see blank text instead of a
+ *    translation.  The EN value and its translatability are checked first to
+ *    avoid false positives on language-neutral or purely-variable strings.
  *
  * Exit code 0 → all checks pass.
  * Exit code 1 → at least one check failed (details printed to stderr).
@@ -483,6 +489,66 @@ if (localeOrphans.length > 0) {
   );
 }
 
+// ── Check 6: empty locale values ─────────────────────────────────────────────
+// An AR or FR entry whose value is an empty string ("") renders as blank text
+// to shoppers on that locale. TypeScript cannot detect this because the key is
+// present and correctly typed — the script is the only safety net.
+//
+// Skipped when:
+//   • The EN value is also empty or not parseable — nothing to flag.
+//   • The EN value is entirely untranslatable (pure template variables, digits,
+//     punctuation) — there is no human text to be written.
+//
+// Template literals and multi-line values cannot be parsed by the simple regex
+// extractor, so they produce false negatives here — acceptable trade-off.
+
+type EmptyValueHit = { locale: string; key: string; enValue: string };
+
+const emptyValueHits: EmptyValueHit[] = [];
+
+for (const [locale, localeValueMap] of [
+  ["AR", arValues],
+  ["FR", frValues],
+] as [string, Map<string, string>][]) {
+  for (const key of enKeys) {
+    const enVal = enValues.get(key);
+    const localeVal = localeValueMap.get(key);
+
+    if (enVal === undefined || localeVal === undefined) continue;
+    if (enVal === "") continue;
+    if (enValueIsUntranslatable(enVal)) continue;
+    if (localeVal === "") {
+      emptyValueHits.push({ locale, key, enValue: enVal });
+    }
+  }
+}
+
+if (emptyValueHits.length > 0) {
+  failed = true;
+  const hitsByLocale = new Map<string, EmptyValueHit[]>();
+  for (const hit of emptyValueHits) {
+    if (!hitsByLocale.has(hit.locale)) hitsByLocale.set(hit.locale, []);
+    hitsByLocale.get(hit.locale)!.push(hit);
+  }
+  for (const [locale, hits] of hitsByLocale) {
+    console.error(
+      `\n✗ ${hits.length} ${locale} translation value${hits.length === 1 ? " is" : "s are"} empty (shoppers on this locale will see blank text):\n`,
+    );
+    for (const hit of hits) {
+      console.error(
+        `  - ${hit.key} [${locale}]: value is "" (EN: "${hit.enValue}")`,
+      );
+      annotateError(
+        `Empty ${locale} translation value`,
+        `Key "${hit.key}" has an empty value in the ${locale} locale block — shoppers will see blank text. Add a ${locale} translation in artifacts/presentail/lib/translations.ts.`,
+      );
+    }
+  }
+  console.error(
+    "\nFill in a real translation for each empty value in artifacts/presentail/lib/translations.ts.\n",
+  );
+}
+
 // ── Check 5: placeholder / copy-paste strings ─────────────────────────────────
 // Two classes of likely-untranslated strings are flagged:
 //   (a) AR or FR value is byte-for-byte identical to the EN value.
@@ -575,7 +641,7 @@ if (placeholderHits.length > 0) {
 
 if (!failed) {
   console.log(
-    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, and no placeholder or copy-pasted translations were detected.`,
+    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, no empty locale values were detected, and no placeholder or copy-pasted translations were detected.`,
   );
   process.exit(0);
 } else {
