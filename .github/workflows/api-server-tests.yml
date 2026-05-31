@@ -3,7 +3,17 @@ name: API server unit tests
 on:
   push:
     branches: [main]
+    paths:
+      - "artifacts/api-server/**"
+      - "lib/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/api-server-tests.yml"
   pull_request:
+    paths:
+      - "artifacts/api-server/**"
+      - "lib/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/api-server-tests.yml"
 
 jobs:
   api-server-tests:

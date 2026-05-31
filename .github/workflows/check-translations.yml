@@ -10,7 +10,16 @@ on:
       - "scripts/src/checkUnusedWebTranslationKeys.ts"
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/package.json"
+      - ".github/workflows/check-translations.yml"
   pull_request:
+    paths:
+      - "artifacts/presentail/**"
+      - "artifacts/presentail-web/**"
+      - "scripts/src/checkUnusedMobileTranslationKeys.ts"
+      - "scripts/src/checkUnusedWebTranslationKeys.ts"
+      - "scripts/src/checkHardcodedWebStrings.ts"
+      - "scripts/package.json"
+      - ".github/workflows/check-translations.yml"
 
 jobs:
   locale-dictionary-tests:
