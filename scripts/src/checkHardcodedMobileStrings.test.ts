@@ -24,6 +24,7 @@ import {
   SKIP_FILE_SUFFIXES,
   INLINE_JSX_TEXT_RE,
   STANDALONE_TEXT_RE,
+  STANDALONE_ARABIC_TEXT_RE,
   VISIBLE_PROP_RE,
   NULLISH_FALLBACK_RE,
   NAV_OPTION_RE,
@@ -547,6 +548,52 @@ describe("STANDALONE_TEXT_RE — standalone indented text line", () => {
   it("allows en-dash and em-dash in the middle", () => {
     const m = STANDALONE_TEXT_RE.exec("  Order \u2013 confirmed");
     expect(m).not.toBeNull();
+  });
+});
+
+// ── STANDALONE_ARABIC_TEXT_RE (Pattern B — Arabic) ────────────────────────────
+
+describe("STANDALONE_ARABIC_TEXT_RE — standalone indented Arabic text line", () => {
+  it("matches a two-space-indented Arabic phrase (the primary gap closed)", () => {
+    const m = STANDALONE_ARABIC_TEXT_RE.exec("  أرسل الزهور");
+    expect(m).not.toBeNull();
+    expect(m![1]).toBe("أرسل الزهور");
+  });
+
+  it("matches a four-space-indented Arabic phrase", () => {
+    const m = STANDALONE_ARABIC_TEXT_RE.exec("    حقيبتك فارغة");
+    expect(m).not.toBeNull();
+    expect(m![1]).toBe("حقيبتك فارغة");
+  });
+
+  it("matches a double-tab-indented Arabic phrase", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec("\t\tتابع إلى الدفع")).not.toBeNull();
+  });
+
+  it("matched text contains Arabic script (sanity gate)", () => {
+    const m = STANDALONE_ARABIC_TEXT_RE.exec("  أرسل الزهور");
+    expect(m).not.toBeNull();
+    expect(containsArabicScript(m![1])).toBe(true);
+  });
+
+  it("does not match unindented Arabic lines (no leading whitespace)", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec("أرسل الزهور")).toBeNull();
+  });
+
+  it("does not match a single-space-indented Arabic line (requires 2+)", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec(" أرسل الزهور")).toBeNull();
+  });
+
+  it("does not match Latin-only lines (those are handled by STANDALONE_TEXT_RE)", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec("  Send Flowers Today")).toBeNull();
+  });
+
+  it("does not match lines containing JSX angle brackets", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec("  <Text>أرسل الزهور</Text>")).toBeNull();
+  });
+
+  it("does not match lines containing double-quote characters (string literal context)", () => {
+    expect(STANDALONE_ARABIC_TEXT_RE.exec('  "أرسل الزهور"')).toBeNull();
   });
 });
 

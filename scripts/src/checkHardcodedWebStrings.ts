@@ -211,6 +211,23 @@ export const INLINE_JSX_TEXT_RE = />([^<\n]+)<\//g;
 export const STANDALONE_TEXT_RE =
   /^[ \t]{2,}([a-zA-Z][a-zA-Z0-9 !\u2019\u2013\u2014\u2026']{3,}[a-zA-Z0-9\u2026!.])$/;
 
+// B (Arabic): Standalone Arabic text line — a parallel to STANDALONE_TEXT_RE for
+//    lines whose content is Arabic-script characters.  STANDALONE_TEXT_RE requires
+//    the line to start with [a-zA-Z], so a developer who writes a multi-line JSX
+//    Arabic text node:
+//        <p>
+//          أرسل الزهور
+//        </p>
+//    would have the inner line go undetected without this companion pattern.
+//      • Requires 2+ leading spaces or a tab (indented)
+//      • Starts with an Arabic-script character (U+0600–U+06FF)
+//      • Middle: Arabic letters, Arabic punctuation (،؛؟), spaces, common
+//        typographic punctuation (– — … !)
+//      • Ends with an Arabic letter or Arabic/common punctuation
+//    containsArabicScript() is still checked in the loop as the final gate.
+export const STANDALONE_ARABIC_TEXT_RE =
+  /^[ \t]{2,}([\u0600-\u06FF][\u0600-\u06FF\u060C\u061B\u061F \u0021\u2019\u2013\u2014\u2026]{1,}[\u0600-\u06FF\u060C\u061F\u2026\u0021])$/;
+
 // Code keywords that must not be treated as standalone JSX text.
 export const CODE_KEYWORDS_RE =
   /^(return|throw|const|let|var|if|else|switch|case|import|export|async|await|try|catch|finally|new|delete|typeof|void|yield|function|class|extends|implements|interface|type|enum)\b/;
@@ -349,6 +366,18 @@ for (const filePath of files) {
           // (e.g. "Switch", "country", "replace") that slip through the regex.
           const wordTokens = text.match(/\b[a-zA-Z]{2,}\b/g) ?? [];
           if (wordTokens.length >= 2) {
+            hits.push({ file: rel, line: lineNum, kind: "standalone-text", text });
+          }
+        }
+      }
+
+      // B (Arabic): Standalone Arabic text — catches indented lines whose content
+      // is Arabic script (not caught by STANDALONE_TEXT_RE which requires [a-zA-Z]).
+      if (!hits.some((h) => h.file === rel && h.line === lineNum)) {
+        const am = STANDALONE_ARABIC_TEXT_RE.exec(raw);
+        if (am) {
+          const text = am[1].trim();
+          if (containsArabicScript(text)) {
             hits.push({ file: rel, line: lineNum, kind: "standalone-text", text });
           }
         }
