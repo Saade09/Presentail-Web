@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Link } from "wouter";
-import { useLocale } from "@/contexts/LocaleContext";
 import {
   ChevronLeft,
   ChevronRight,
@@ -118,8 +117,8 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                     className="flex-shrink-0 snap-start flex flex-col items-center gap-3"
                     data-carousel-card
                   >
-                    <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-muted animate-pulse" />
-                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    <div className="w-28 h-28 md:w-36 md:h-36 rounded-full animate-shimmer" />
+                    <div className="h-4 w-20 rounded animate-shimmer" />
                   </div>
                 ))
             : items.map((item) => (
