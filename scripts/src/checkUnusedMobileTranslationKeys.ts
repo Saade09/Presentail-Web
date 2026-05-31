@@ -16,7 +16,7 @@
  *   • `t.keyName`        — dot notation
  *   • `t["keyName"]`     — bracket notation with string literal
  *
- * Four checks are run:
+ * Five checks are run:
  *
  * 1. UNUSED KEYS — EN keys never referenced in any source file under
  *    `artifacts/presentail`.  Unused keys bloat the bundle and mislead
@@ -36,6 +36,12 @@
  *    These accumulate when a feature is partially rolled back or when a
  *    translator adds keys ahead of the EN copy landing.  They are
  *    unreachable at runtime and indicate drift between the locale objects.
+ *
+ * 5. PLACEHOLDER / COPY-PASTE STRINGS — AR or FR values that are
+ *    byte-for-byte identical to the EN value (copy-pasted without
+ *    translating), plus AR values that contain no Arabic-script characters
+ *    (Unicode U+0600–U+06FF), which strongly indicates English text was
+ *    committed verbatim as the Arabic translation.
  *
  * Exit code 0 → all checks pass.
  * Exit code 1 → at least one check failed (details printed to stderr).
@@ -187,6 +193,76 @@ function extractLocaleKeys(src: string, localeName: string): string[] {
 }
 
 /**
+ * Extract top-level key → value pairs from a locale block.
+ *
+ * Only handles single-line string values (single or double quoted).
+ * Template-literal values and multi-line values are skipped — they produce
+ * no false positives, only possible false negatives.
+ *
+ * Returns a Map<key, rawValue> for the given locale block.
+ */
+function extractLocaleKeyValues(
+  src: string,
+  localeName: string,
+): Map<string, string> {
+  const blockRe = new RegExp(
+    `^const ${localeName}(?:[^=]*)=\\s*\\{([\\s\\S]*?)^};`,
+    "m",
+  );
+  const match = src.match(blockRe);
+  if (!match) {
+    throw new Error(
+      `Could not locate \`const ${localeName} … = { … }\` block in translations.ts`,
+    );
+  }
+  const block = match[1];
+  const result = new Map<string, string>();
+  const pairRe =
+    /^\s+([a-zA-Z_][a-zA-Z0-9_]*):\s*"((?:[^"\\]|\\.)*)"|^\s+([a-zA-Z_][a-zA-Z0-9_]*):\s*'((?:[^'\\]|\\.)*)'/gm;
+  let m: RegExpExecArray | null;
+  while ((m = pairRe.exec(block)) !== null) {
+    if (m[1] !== undefined) {
+      result.set(m[1], m[2]);
+    } else if (m[3] !== undefined) {
+      result.set(m[3], m[4]);
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns true if the string contains at least one Arabic-script character
+ * (Unicode block U+0600–U+06FF).
+ */
+function containsArabicScript(value: string): boolean {
+  return /[\u0600-\u06FF]/.test(value);
+}
+
+/**
+ * Returns true when a string is composed entirely of language-neutral
+ * characters — digits, whitespace, punctuation, and common symbols — that
+ * are legitimately identical across all locales (e.g. "+961", "—", "USD").
+ * Used to suppress false positives in the Arabic-script check.
+ */
+function isLanguageNeutralValue(value: string): boolean {
+  return value.replace(/[\d\s\p{P}\p{S}\p{N}]/gu, "").length === 0;
+}
+
+/**
+ * Returns true when the EN value has no human-translatable text — i.e. its
+ * only "words" are template variables (`{…}`) or language-neutral content.
+ * Example: `"{country}"` → nothing to translate; `"you@example.com"` → no.
+ * Used to avoid false positives on values like `{country}` where AR/FR are
+ * correctly identical to EN.
+ */
+function enValueIsUntranslatable(enVal: string): boolean {
+  // Strip all `{...}` template-variable tokens, then check if what remains
+  // is language-neutral (digits, punctuation, whitespace, symbols only).
+  const stripped = enVal.replace(/\{[^}]+\}/g, "");
+  return stripped === "" || isLanguageNeutralValue(stripped);
+}
+
+/**
  * A key is considered referenced when it appears as:
  *   t.keyName   — dot-notation property access
  *   "keyName"   — double-quoted string literal (bracket or data access)
@@ -212,6 +288,10 @@ if (enKeys.length === 0) {
 
 const arKeys = new Set(extractLocaleKeys(translationsSrc, "AR"));
 const frKeys = new Set(extractLocaleKeys(translationsSrc, "FR"));
+
+const enValues = extractLocaleKeyValues(translationsSrc, "EN");
+const arValues = extractLocaleKeyValues(translationsSrc, "AR");
+const frValues = extractLocaleKeyValues(translationsSrc, "FR");
 
 // Collect every mobile source file except translations.ts itself.
 const files = collectFiles(SCAN_ROOT).filter((f) => f !== TRANSLATIONS_FILE);
@@ -362,9 +442,99 @@ if (localeOrphans.length > 0) {
   );
 }
 
+// ── Check 5: placeholder / copy-paste strings ─────────────────────────────────
+// Two classes of likely-untranslated strings are flagged:
+//   (a) AR or FR value is byte-for-byte identical to the EN value.
+//   (b) AR value contains no Arabic-script characters (U+0600–U+06FF) and is
+//       not language-neutral (digits, punctuation, symbols are fine as-is).
+//
+// Values that could not be parsed (template literals, multi-line) are silently
+// skipped — false negatives are acceptable, false positives are not.
+
+type PlaceholderHit = {
+  locale: string;
+  key: string;
+  reason: "identical_to_en" | "no_arabic_script";
+  enValue: string;
+  localeValue: string;
+};
+
+const placeholderHits: PlaceholderHit[] = [];
+
+for (const [locale, localeValueMap] of [
+  ["AR", arValues],
+  ["FR", frValues],
+] as [string, Map<string, string>][]) {
+  for (const key of enKeys) {
+    const enVal = enValues.get(key);
+    const localeVal = localeValueMap.get(key);
+
+    if (enVal === undefined || localeVal === undefined) continue;
+    if (enVal === "" || localeVal === "") continue;
+    // Skip values where there is nothing translatable in the EN string
+    // (e.g. pure template variables like "{country}").
+    if (enValueIsUntranslatable(enVal)) continue;
+
+    // (a) Identical to EN value
+    if (localeVal === enVal) {
+      placeholderHits.push({
+        locale,
+        key,
+        reason: "identical_to_en",
+        enValue: enVal,
+        localeValue: localeVal,
+      });
+      continue;
+    }
+
+    // (b) AR-specific: no Arabic-script characters in a non-neutral value
+    if (
+      locale === "AR" &&
+      !containsArabicScript(localeVal) &&
+      !isLanguageNeutralValue(localeVal)
+    ) {
+      placeholderHits.push({
+        locale,
+        key,
+        reason: "no_arabic_script",
+        enValue: enVal,
+        localeValue: localeVal,
+      });
+    }
+  }
+}
+
+if (placeholderHits.length > 0) {
+  failed = true;
+  const hitsByLocale = new Map<string, PlaceholderHit[]>();
+  for (const hit of placeholderHits) {
+    if (!hitsByLocale.has(hit.locale)) hitsByLocale.set(hit.locale, []);
+    hitsByLocale.get(hit.locale)!.push(hit);
+  }
+  for (const [locale, hits] of hitsByLocale) {
+    console.error(
+      `\n✗ ${hits.length} ${locale} translation${hits.length === 1 ? "" : "s"} look${hits.length === 1 ? "s" : ""} like placeholder or copy-pasted English text:\n`,
+    );
+    for (const hit of hits) {
+      if (hit.reason === "identical_to_en") {
+        console.error(
+          `  - ${hit.key} [${locale}]: value is identical to EN ("${hit.enValue}")`,
+        );
+      } else {
+        console.error(
+          `  - ${hit.key} [AR]: no Arabic-script characters found — value is "${hit.localeValue}" (EN: "${hit.enValue}")`,
+        );
+      }
+    }
+  }
+  console.error(
+    "\nReplace the flagged values with real translations in artifacts/presentail/lib/translations.ts.\n",
+  );
+}
+
 if (!failed) {
   console.log(
-    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, and no orphan AR/FR keys exist.`,
+    `✓ All ${enKeys.length} mobile EN keys are in use, AR/FR parity is complete, no undefined key references were found, no orphan AR/FR keys exist, and no placeholder or copy-pasted translations were detected.`,
   );
   process.exit(0);
 } else {
