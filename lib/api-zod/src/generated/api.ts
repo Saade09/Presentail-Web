@@ -239,7 +239,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "geo_currency_fallback",
     ])
     .describe(
-      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product). The screen name is stored in\n`action` and the elapsed time in ms in `metricValue`. The same\n`webVitalsMonitor` daily digest includes mobile TTID rows so web\nand mobile performance are visible in a single Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n",
+      "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n",
     ),
   surface: zod
     .enum([
@@ -291,6 +291,9 @@ export const RecordAnalyticsEventBody = zod.object({
       "FCP",
       "home",
       "product",
+      "brand",
+      "category",
+      "occasion",
     ])
     .optional()
     .describe(

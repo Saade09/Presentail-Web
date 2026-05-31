@@ -58,6 +58,9 @@ type AnalyticsAction =
   | "candles"
   | "home"
   | "product"
+  | "brand"
+  | "category"
+  | "occasion"
   | "network"
   | "provider";
 
@@ -148,7 +151,7 @@ function resolveAppVersion(): string | undefined {
  * not inflate the sample count.
  */
 const _ttidFired = new Set<string>();
-export function trackScreenTTID(screen: "home" | "product", startMs: number): void {
+export function trackScreenTTID(screen: "home" | "product" | "brand" | "category" | "occasion", startMs: number): void {
   if (_ttidFired.has(screen)) return;
   _ttidFired.add(screen);
   const elapsed = Math.max(0, Date.now() - startMs);

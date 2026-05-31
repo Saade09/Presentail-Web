@@ -2,11 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
+import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -40,6 +42,15 @@ function BrandScreen() {
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
+  // Capture mount time so the TTID includes the async product fetch.
+  const mountMsRef = useRef(Date.now());
+
+  // Fire a mobile TTID event the first time the brand screen has product
+  // data to show. Skipped on web (web-vitals handles performance there).
+  useEffect(() => {
+    if (loading || Platform.OS === "web") return;
+    trackScreenTTID("brand", mountMsRef.current);
+  }, [loading]);
 
   useEffect(() => {
     let cancelled = false;

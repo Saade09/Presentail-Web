@@ -116,10 +116,11 @@ prior UTC day's LCP median and alerts via Slack when it crosses
 the configured threshold.
 
 `mobile_ttid` events carry time-to-interactive measurements for
-key mobile screens (home, product). The screen name is stored in
-`action` and the elapsed time in ms in `metricValue`. The same
-`webVitalsMonitor` daily digest includes mobile TTID rows so web
-and mobile performance are visible in a single Slack message.
+key mobile screens (home, product, brand, category, occasion). The
+screen name is stored in `action` and the elapsed time in ms in
+`metricValue`. The same `webVitalsMonitor` daily digest includes
+mobile TTID rows so web and mobile performance are visible in a
+single Slack message.
 
 `geo_currency_fallback` is recorded server-side whenever the IP
 geolocation lookup for `/api/geo/currency` fails on both providers
@@ -230,6 +231,9 @@ export const AnalyticsEventRequestAction = {
   FCP: "FCP",
   home: "home",
   product: "product",
+  brand: "brand",
+  category: "category",
+  occasion: "occasion",
 } as const;
 
 /**

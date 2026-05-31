@@ -57,4 +57,7 @@ export const AnalyticsEventRequestAction = {
   FCP: "FCP",
   home: "home",
   product: "product",
+  brand: "brand",
+  category: "category",
+  occasion: "occasion",
 } as const;

@@ -312,16 +312,16 @@ function buildDigestBody(
       ? `Insufficient LCP samples (need ≥ ${MIN_SAMPLES}) — no threshold check performed.`
       : `Median LCP ${Math.round(lcp.p50)} ms is within the ${LCP_WARN_MS} ms threshold (n=${lcp.count}).`;
 
-  const homeSummaries = mobile.filter((r) => r.screen === "home");
+  const TTID_SCREEN_ORDER = ["home", "product", "brand", "category", "occasion"];
   const mobileLine =
-    homeSummaries.length === 0
+    mobile.length === 0
       ? "No mobile TTID samples."
-      : homeSummaries
-          .map(
-            (r) =>
-              `${r.platform} home p50=${Math.round(r.p50)} ms (n=${r.count})`,
-          )
-          .join(", ") + ".";
+      : TTID_SCREEN_ORDER.flatMap((screen) => {
+          const rows = mobile.filter((r) => r.screen === screen);
+          return rows.map(
+            (r) => `${r.platform} ${screen} p50=${Math.round(r.p50)} ms (n=${r.count})`,
+          );
+        }).join(", ") + ".";
 
   return `Web Vitals digest for ${day}. ${lcpLine} Mobile: ${mobileLine}`;
 }

@@ -2,11 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +29,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
+import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -58,6 +60,15 @@ function CategoryScreen() {
   const [wcCategoryName, setWcCategoryName] = useState<string>("");
   const [wcLoading, setWcLoading] = useState(true);
   const [coverLoaded, setCoverLoaded] = useState(false);
+  // Capture mount time so the TTID includes the async product fetch.
+  const mountMsRef = useRef(Date.now());
+
+  // Fire a mobile TTID event the first time the category screen has product
+  // data to show. Skipped on web (web-vitals handles performance there).
+  useEffect(() => {
+    if (wcLoading || Platform.OS === "web") return;
+    trackScreenTTID("category", mountMsRef.current);
+  }, [wcLoading]);
 
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;

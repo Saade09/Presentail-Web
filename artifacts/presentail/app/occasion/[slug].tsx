@@ -2,11 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +24,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, fetchBrandProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
+import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -48,6 +50,15 @@ function OccasionScreen() {
   const [brandProducts, setBrandProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const { selectedCountry, selectedCity } = useDeliveryLocation();
+  // Capture mount time so the TTID includes the async product fetch.
+  const mountMsRef = useRef(Date.now());
+
+  // Fire a mobile TTID event the first time the occasion screen has product
+  // data to show. Skipped on web (web-vitals handles performance there).
+  useEffect(() => {
+    if (loading || Platform.OS === "web") return;
+    trackScreenTTID("occasion", mountMsRef.current);
+  }, [loading]);
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;
 
