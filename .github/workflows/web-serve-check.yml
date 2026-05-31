@@ -1,0 +1,56 @@
+name: Web serve checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/presentail-web/**"
+      - ".github/workflows/web-serve-check.yml"
+  pull_request:
+    paths:
+      - "artifacts/presentail-web/**"
+      - ".github/workflows/web-serve-check.yml"
+
+jobs:
+  web-serve-check:
+    name: Build → serve → compression + sidecar-blocking checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Build web app (vite + compress-assets)
+        run: pnpm --filter @workspace/presentail-web run build
+
+      - name: Start serve.mjs
+        run: node artifacts/presentail-web/serve.mjs &
+        env:
+          PORT: 19234
+          BASE_PATH: /
+          NODE_ENV: production
+
+      - name: Wait for server to be ready
+        run: npx --yes wait-on http://localhost:19234/ --timeout 30000
+
+      - name: Check compression (HTML responses are gzip/br compressed)
+        run: node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/
+
+      - name: Check sidecar blocking (.br/.gz paths return 404)
+        run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234

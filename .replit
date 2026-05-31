@@ -39,12 +39,12 @@ isValidation = true
 name = "compression-check"
 author = "agent"
 
-[workflows.workflow.metadata]
-isValidation = true
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; EXIT=$?; kill $SERVER_PID 2>/dev/null; exit $EXIT'"
+args = "bash -c 'set -e; pnpm --filter @workspace/presentail-web run build; PORT=19234 BASE_PATH=\"/\" node artifacts/presentail-web/serve.mjs & SERVER_PID=$!; sleep 3; node artifacts/presentail-web/scripts/check-compression.mjs http://localhost:19234/; node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234; kill $SERVER_PID 2>/dev/null'"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
