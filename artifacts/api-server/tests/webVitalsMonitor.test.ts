@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   runOnce,
   loadWebVitalSummaries,
+  loadMobileTtidSummaries,
   __resetForTest,
   type WebVitalSummary,
+  type MobileTtidSummary,
 } from "../src/lib/webVitalsMonitor";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -27,7 +29,14 @@ vi.mock("../src/lib/logger", () => ({
 // The type intentionally allows `metric: string | null` to exercise the
 // null-filtering logic in loadWebVitalSummaries.
 type DbRow = WebVitalSummary & { metric: string | null };
-let mockDbRows: DbRow[] = [];
+
+// Mobile TTID rows use platform/screen instead of metric.
+// loadWebVitalSummaries filters these out (no `metric` field) while
+// loadMobileTtidSummaries keeps them — so tests can use `setMockRows` with
+// mobile rows to isolate the mobile code path without touching the web path.
+type MobileDbRow = MobileTtidSummary & { platform: string | null; screen: string | null };
+
+let mockDbRows: Array<DbRow | MobileDbRow> = [];
 
 const groupByMock = vi.fn(() => Promise.resolve(mockDbRows));
 
@@ -73,13 +82,127 @@ function makeLcpRow(overrides: Partial<WebVitalSummary> = {}): WebVitalSummary {
   };
 }
 
-function setMockRows(rows: DbRow[]): void {
+function setMockRows(rows: Array<DbRow | MobileDbRow>): void {
   mockDbRows = rows;
+}
+
+function makeTtidRow(overrides: Partial<MobileDbRow> = {}): MobileDbRow {
+  return {
+    platform: "ios",
+    screen: "home",
+    count: 30,
+    p50: 800,
+    p75: 1200,
+    p95: 2000,
+    ...overrides,
+  };
 }
 
 // A fixed "now" whose previous UTC day is deterministic.
 const NOW = new Date("2026-05-31T06:00:00Z");
 const PREV_DAY_ISO = "2026-05-30";
+
+// ── loadMobileTtidSummaries — query aggregation & transformation ──────────────
+
+describe("webVitalsMonitor — loadMobileTtidSummaries", () => {
+  beforeEach(() => {
+    groupByMock.mockClear();
+    setMockRows([]);
+  });
+
+  it("calls the DB query and returns typed summaries", async () => {
+    setMockRows([makeTtidRow({ platform: "ios", screen: "home", count: 25, p50: 700, p75: 1100, p95: 1800 })]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(groupByMock).toHaveBeenCalledOnce();
+    expect(results).toHaveLength(1);
+    expect(results[0].platform).toBe("ios");
+    expect(results[0].screen).toBe("home");
+    expect(results[0].count).toBe(25);
+    expect(results[0].p50).toBe(700);
+    expect(results[0].p75).toBe(1100);
+    expect(results[0].p95).toBe(1800);
+  });
+
+  it("filters out rows where platform is null", async () => {
+    setMockRows([
+      makeTtidRow({ platform: "ios", screen: "home" }),
+      makeTtidRow({ platform: null, screen: "product" }),
+    ]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].platform).toBe("ios");
+  });
+
+  it("filters out rows where screen is null", async () => {
+    setMockRows([
+      makeTtidRow({ platform: "android", screen: null }),
+      makeTtidRow({ platform: "ios", screen: "home" }),
+    ]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].screen).toBe("home");
+  });
+
+  it("sorts results by platform then screen", async () => {
+    setMockRows([
+      makeTtidRow({ platform: "ios", screen: "product" }),
+      makeTtidRow({ platform: "android", screen: "home" }),
+      makeTtidRow({ platform: "android", screen: "brand" }),
+      makeTtidRow({ platform: "ios", screen: "home" }),
+    ]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results.map((r) => `${r.platform}:${r.screen}`)).toEqual([
+      "android:brand",
+      "android:home",
+      "ios:home",
+      "ios:product",
+    ]);
+  });
+
+  it("returns an empty array when the DB returns no rows", async () => {
+    setMockRows([]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results).toEqual([]);
+  });
+
+  it("returns an empty array when all rows have null platform or screen", async () => {
+    setMockRows([
+      makeTtidRow({ platform: null, screen: "home" }),
+      makeTtidRow({ platform: "ios", screen: null }),
+    ]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results).toEqual([]);
+  });
+
+  it("preserves exact numeric percentile values", async () => {
+    setMockRows([makeTtidRow({ p50: 812.5, p75: 1234.1, p95: 2001.9 })]);
+    const results = await loadMobileTtidSummaries(
+      new Date("2026-05-30T00:00:00Z"),
+      new Date("2026-05-31T00:00:00Z"),
+    );
+    expect(results[0].p50).toBeCloseTo(812.5);
+    expect(results[0].p75).toBeCloseTo(1234.1);
+    expect(results[0].p95).toBeCloseTo(2001.9);
+  });
+});
 
 // ── loadWebVitalSummaries — query aggregation & transformation ────────────────
 
@@ -369,5 +492,129 @@ describe("webVitalsMonitor — runOnce", () => {
     const clsField = fields.find((f) => f.title === "web · CLS");
     expect(clsField?.value).not.toMatch("ms");
     expect(clsField?.value).toMatch("0.123");
+  });
+
+  // ── Mobile TTID only — no web vitals ─────────────────────────────────────
+
+  it("fires an info alert when only mobile TTID rows are present", async () => {
+    setMockRows([makeTtidRow()]);
+    await runOnce(NOW);
+    expect(sendAlertMock).toHaveBeenCalledOnce();
+    expect(sendAlertMock.mock.calls[0][0].severity).toBe("info");
+  });
+
+  it("does not send an alert when both web vitals and mobile TTID rows are absent", async () => {
+    setMockRows([]);
+    await runOnce(NOW);
+    expect(sendAlertMock).not.toHaveBeenCalled();
+  });
+
+  // ── formatMobileTtidFields — field title/value shape ─────────────────────
+
+  it("mobile TTID field title is '<platform> · <screen> TTID'", async () => {
+    setMockRows([makeTtidRow({ platform: "ios", screen: "home" })]);
+    await runOnce(NOW);
+    const fields: Array<{ title: string; value: string }> =
+      sendAlertMock.mock.calls[0][0].fields;
+    const ttidField = fields.find((f) => f.title === "ios · home TTID");
+    expect(ttidField).toBeDefined();
+  });
+
+  it("mobile TTID field value contains n=, p50=, p75=, p95= with ms units", async () => {
+    setMockRows([makeTtidRow({ platform: "android", screen: "product", count: 42, p50: 900, p75: 1300, p95: 2100 })]);
+    await runOnce(NOW);
+    const fields: Array<{ title: string; value: string }> =
+      sendAlertMock.mock.calls[0][0].fields;
+    const field = fields.find((f) => f.title === "android · product TTID");
+    expect(field).toBeDefined();
+    expect(field?.value).toMatch("n=42");
+    expect(field?.value).toMatch("p50=900 ms");
+    expect(field?.value).toMatch("p75=1300 ms");
+    expect(field?.value).toMatch("p95=2100 ms");
+  });
+
+  it("rounds fractional TTID p-tile values in the field value", async () => {
+    setMockRows([makeTtidRow({ p50: 812.7, p75: 1234.4, p95: 1999.9 })]);
+    await runOnce(NOW);
+    const fields: Array<{ title: string; value: string }> =
+      sendAlertMock.mock.calls[0][0].fields;
+    const field = fields.find((f) => f.title === "ios · home TTID");
+    expect(field?.value).toMatch("p50=813 ms");
+    expect(field?.value).toMatch("p75=1234 ms");
+    expect(field?.value).toMatch("p95=2000 ms");
+  });
+
+  it("produces one field per (platform, screen) combination", async () => {
+    setMockRows([
+      makeTtidRow({ platform: "ios", screen: "home" }),
+      makeTtidRow({ platform: "ios", screen: "product" }),
+      makeTtidRow({ platform: "android", screen: "home" }),
+    ]);
+    await runOnce(NOW);
+    const fields: Array<{ title: string }> = sendAlertMock.mock.calls[0][0].fields;
+    const ttidTitles = fields.map((f) => f.title).filter((t) => t.endsWith("TTID"));
+    expect(ttidTitles).toHaveLength(3);
+    expect(ttidTitles).toContain("ios · home TTID");
+    expect(ttidTitles).toContain("ios · product TTID");
+    expect(ttidTitles).toContain("android · home TTID");
+  });
+
+  it("mobile TTID fields appear alongside web vitals fields", async () => {
+    groupByMock
+      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })])
+      .mockResolvedValueOnce([makeTtidRow({ platform: "ios", screen: "home" })]);
+    await runOnce(NOW);
+    const fields: Array<{ title: string }> = sendAlertMock.mock.calls[0][0].fields;
+    expect(fields.some((f) => f.title === "web · LCP")).toBe(true);
+    expect(fields.some((f) => f.title === "ios · home TTID")).toBe(true);
+  });
+
+  // ── buildDigestBody — mobile TTID section ────────────────────────────────
+
+  it("digest body includes 'No mobile TTID samples.' when no mobile rows", async () => {
+    setMockRows([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })]);
+    // Force mobile call to return empty: mockResolvedValueOnce for web, then empty for mobile.
+    groupByMock
+      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS - 1 })])
+      .mockResolvedValueOnce([]);
+    await runOnce(NOW);
+    const body: string = sendAlertMock.mock.calls[0][0].body;
+    expect(body).toMatch(/No mobile TTID samples/i);
+  });
+
+  it("digest body includes platform and screen info when mobile rows are present", async () => {
+    setMockRows([makeTtidRow({ platform: "ios", screen: "home", p50: 750, count: 25 })]);
+    await runOnce(NOW);
+    const body: string = sendAlertMock.mock.calls[0][0].body;
+    expect(body).toMatch("ios");
+    expect(body).toMatch("home");
+    expect(body).toMatch("p50=750 ms");
+  });
+
+  it("digest body includes all platforms and screens when multiple TTID rows present", async () => {
+    setMockRows([
+      makeTtidRow({ platform: "ios", screen: "home", p50: 700, count: 20 }),
+      makeTtidRow({ platform: "android", screen: "product", p50: 900, count: 18 }),
+    ]);
+    await runOnce(NOW);
+    const body: string = sendAlertMock.mock.calls[0][0].body;
+    expect(body).toMatch("ios");
+    expect(body).toMatch("home");
+    expect(body).toMatch("android");
+    expect(body).toMatch("product");
+  });
+
+  it("warn alert body does not contain mobile TTID lines — mobile data appears only in fields", async () => {
+    groupByMock
+      .mockResolvedValueOnce([makeLcpRow({ p50: DEFAULT_LCP_WARN_MS + 1 })])
+      .mockResolvedValueOnce([makeTtidRow({ platform: "ios", screen: "home" })]);
+    await runOnce(NOW);
+    const alert = sendAlertMock.mock.calls[0][0];
+    expect(alert.severity).toBe("warn");
+    // Warn body is the regression line(s) — not the digest body — so no TTID line there.
+    expect(alert.body).not.toMatch("No mobile TTID samples");
+    // But TTID field is still present in the fields array.
+    const fields: Array<{ title: string }> = alert.fields;
+    expect(fields.some((f) => f.title === "ios · home TTID")).toBe(true);
   });
 });
