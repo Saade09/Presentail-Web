@@ -41,6 +41,12 @@ let running = false;
 // only fire once per failure run, not on every hourly tick while it persists.
 let lastAlertedAt: number | null = null;
 
+/** Reset in-process state. Only call this from tests. */
+export function __resetForTest(): void {
+  running = false;
+  lastAlertedAt = null;
+}
+
 export function startFxRatesFallbackMonitor(): void {
   if (process.env.NODE_ENV === "test") return;
   if (!ENABLED) {
