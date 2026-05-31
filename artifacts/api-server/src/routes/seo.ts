@@ -587,6 +587,22 @@ const SEO_DEBUG_HTML = `<!doctype html>
         <span class="quick-label">Category page</span>
         <span class="quick-badge"></span>
       </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-ae/dubai/product/pink-roses" data-label="UAE Product page">
+        <span class="quick-label">UAE Product page</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-ae/dubai/brand/roses-only" data-label="UAE Brand page">
+        <span class="quick-label">UAE Brand page</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-cy/nicosia/product/pink-roses" data-label="Cyprus Product page">
+        <span class="quick-label">Cyprus Product page</span>
+        <span class="quick-badge"></span>
+      </button>
+      <button class="quick-item" data-url="https://new.presentail.com/en-cy/nicosia/brand/roses-only" data-label="Cyprus Brand page">
+        <span class="quick-label">Cyprus Brand page</span>
+        <span class="quick-badge"></span>
+      </button>
     </div>
   </div>
 
