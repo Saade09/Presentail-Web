@@ -720,11 +720,21 @@ const SEO_DEBUG_HTML = `<!doctype html>
     // ── UAE — city homepages ─────────────────────────────────────────────────
     { market: 'UAE', label: 'Dubai', url: 'https://new.presentail.com/en-ae/dubai' },
     { market: 'UAE', label: 'Abu Dhabi', url: 'https://new.presentail.com/en-ae/abu-dhabi' },
+    // ── UAE — content pages (Dubai) ──────────────────────────────────────────
+    { market: 'UAE', label: 'Product page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/product/pink-roses' },
+    { market: 'UAE', label: 'Brand page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/brand/roses-only' },
+    { market: 'UAE', label: 'Category page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/shop?category=flowers' },
+    { market: 'UAE', label: 'Occasion page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/shop?occasion=birthday' },
     // ── Cyprus — city homepages ──────────────────────────────────────────────
     { market: 'Cyprus', label: 'Larnaca', url: 'https://new.presentail.com/en-cy/larnaca' },
     { market: 'Cyprus', label: 'Limassol', url: 'https://new.presentail.com/en-cy/limassol' },
     { market: 'Cyprus', label: 'Nicosia', url: 'https://new.presentail.com/en-cy/nicosia' },
     { market: 'Cyprus', label: 'Paphos', url: 'https://new.presentail.com/en-cy/paphos' },
+    // ── Cyprus — content pages (Nicosia) ─────────────────────────────────────
+    { market: 'Cyprus', label: 'Product page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/product/pink-roses' },
+    { market: 'Cyprus', label: 'Brand page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/brand/roses-only' },
+    { market: 'Cyprus', label: 'Category page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/shop?category=flowers' },
+    { market: 'Cyprus', label: 'Occasion page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday' },
   ];
 
   var selectedMarket = 'all';
