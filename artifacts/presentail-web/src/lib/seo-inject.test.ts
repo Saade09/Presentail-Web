@@ -1172,3 +1172,335 @@ describe("og:image:width / og:image:height via injectSeoTagsAsync", () => {
     expect(out).not.toContain('property="og:image:height"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Image dims cache invalidation — fetchEntityForSeoCached evicts dims entries
+// ---------------------------------------------------------------------------
+//
+// When the entity cache TTL expires (60 s) and the entity is freshly fetched,
+// fetchEntityForSeoCached calls evictImageDims() for each image URL carried by
+// the fresh entity.  This forces fetchImageDimensions to re-probe the CDN even
+// though the dims cache TTL (1 h) has not yet expired.  Without this eviction,
+// a CDN image update at an unchanged URL would serve stale dimensions for up to
+// an hour.
+//
+// Strategy:
+//   1. First injectSeoTagsAsync call → entity + dims both freshly fetched.
+//   2. Advance fake clock past entity TTL (60 s) but NOT past dims TTL (1 h).
+//   3. Second call → entity cache miss → fresh entity fetch → evictImageDims →
+//      dims cache entry deleted → dims re-fetched (not served from cache).
+//   4. Dims fetch count must be 2, proving eviction happened.
+//
+// We use `vi.useFakeTimers({ toFake: ['Date'] })` so only Date.now() is faked;
+// real setTimeout/clearTimeout still operate, keeping the AbortController timer
+// in fetchImageDimensions functional.
+// ---------------------------------------------------------------------------
+
+const CACHE_INV_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
+const CACHE_INV_OPTS = {
+  apiBaseUrl: "https://api.cache-inv-test",
+  origin: "https://presentail.cache-inv-test",
+  basePath: "",
+};
+
+describe("image dims cache invalidation — product (image.uri shape)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("re-fetches image dims when the entity cache expires and the entity is freshly fetched", async () => {
+    const pngBuf = makePngBuffer(1200, 630);
+    // Use a URL unique to this test so other tests' cached entries don't interfere.
+    const imageUrl = "https://cdn.cache-inv-test/product-cache-inv-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Cache Inv Product",
+              description: "Dims eviction test.",
+              image: { uri: imageUrl },
+              priceValue: 60,
+            },
+          }),
+        };
+      }
+      // Image dims Range request.
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity fetched fresh → dims fetched and cached.
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/product/cache-inv-product",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Advance time past entity cache TTL (60 s) but well under dims TTL (1 h).
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: entity cache expired → fresh entity fetch → evictImageDims
+    // removes the dims entry → dims re-probed from CDN.
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/product/cache-inv-product",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(2);
+    // Without eviction this would remain 1 (served from dims cache).
+    expect(dimsFetchCount).toBe(2);
+  });
+
+  it("does NOT re-fetch image dims when the entity is served from cache (dims reused)", async () => {
+    const pngBuf = makePngBuffer(800, 600);
+    const imageUrl = "https://cdn.cache-inv-test/product-cache-hit-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/product")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Cache Hit Product",
+              description: "Dims should be reused.",
+              image: { uri: imageUrl },
+              priceValue: 45,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity + dims freshly fetched.
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/product/cache-hit-product",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call immediately (entity cache still valid → no eviction → dims reused).
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/product/cache-hit-product",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(1); // entity served from cache
+    expect(dimsFetchCount).toBe(1);   // dims served from cache (no eviction)
+  });
+});
+
+describe("image dims cache invalidation — brand (string image field)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("re-fetches image dims after brand entity cache expires", async () => {
+    const pngBuf = makePngBuffer(600, 400);
+    const imageUrl = "https://cdn.cache-inv-test/brand-cache-inv-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/brand")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            brand: {
+              name: "Cache Inv Brand",
+              description: "Brand dims eviction test.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First call: entity + dims freshly fetched.
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/brand/cache-inv-brand",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Advance past entity TTL only.
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: entity cache miss → fresh fetch → evictImageDims → dims re-fetched.
+    await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/brand/cache-inv-brand",
+      CACHE_INV_OPTS,
+    );
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(2);
+  });
+});
+
+describe("image dims cache invalidation — wishlist path (evictImageDims on wishlist cache miss)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("re-fetches image dims after wishlist entity cache expires", async () => {
+    const pngBuf = makePngBuffer(900, 600);
+    // Use URLs unique to this test to avoid cache cross-contamination.
+    const imageUrl = "https://cdn.cache-inv-test/wishlist-hero-unique.png";
+    let wishlistFetchCount = 0;
+    let productFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        wishlistFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [
+              { productSlug: "wishlist-hero-product", countryCode: "AE" },
+            ],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        productFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Wishlist Hero",
+              description: "First product in the wishlist.",
+              image: { uri: imageUrl },
+              priceValue: 80,
+            },
+          }),
+        };
+      }
+      // Image dims Range request.
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const shareToken = "wishlist-cache-inv-tok01";
+
+    // First call: wishlist + product + dims all freshly fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, `/favorites/share/${shareToken}`, CACHE_INV_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Advance past entity TTL (60 s) so the wishlist cache entry expires.
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: wishlist cache miss → fresh fetch → evictImageDims(imageUrl) →
+    // dims cache entry deleted → dims re-fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, `/favorites/share/${shareToken}`, CACHE_INV_OPTS);
+    expect(wishlistFetchCount).toBe(2);
+    // The product used by the wishlist path goes through fetchEntityForSeoCached,
+    // so the product entity cache also expires here (same 60 s TTL).
+    expect(productFetchCount).toBe(2);
+    // Dims must be re-fetched because evictImageDims is called when the wishlist
+    // result is freshly computed (even though the dims TTL has not expired).
+    expect(dimsFetchCount).toBe(2);
+  });
+
+  it("reuses image dims when the wishlist entity cache is still valid", async () => {
+    const pngBuf = makePngBuffer(900, 600);
+    const imageUrl = "https://cdn.cache-inv-test/wishlist-hero-cache-hit-unique.png";
+    let wishlistFetchCount = 0;
+    let productFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/favorites/share/")) {
+        wishlistFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            favorites: [
+              { productSlug: "wishlist-cache-hit-product", countryCode: "LB" },
+            ],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/product")) {
+        productFetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            product: {
+              name: "Wishlist Cache Hit",
+              description: "Dims should be reused from cache.",
+              image: { uri: imageUrl },
+              priceValue: 70,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const shareToken = "wishlist-cache-hit-tok02";
+
+    // First call.
+    await injectSeoTagsAsync(CACHE_INV_HTML, `/favorites/share/${shareToken}`, CACHE_INV_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call immediately — wishlist cache valid, dims cache valid, nothing re-fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, `/favorites/share/${shareToken}`, CACHE_INV_OPTS);
+    expect(wishlistFetchCount).toBe(1);
+    expect(productFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+  });
+});
