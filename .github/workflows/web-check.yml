@@ -1,0 +1,44 @@
+name: Web type-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web-check.yml"
+  pull_request:
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web-check.yml"
+
+jobs:
+  web-typecheck:
+    name: Web app type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Type-check web app
+        run: pnpm --filter @workspace/presentail-web run typecheck

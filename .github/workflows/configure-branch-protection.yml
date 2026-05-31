@@ -65,6 +65,10 @@ jobs:
           #   mobile-typecheck  → "Mobile app type-check"
           MOBILE_TYPECHECK="Mobile type-check / Mobile app type-check"
 
+          # web-check.yml (name: Web type-check) defines one job:
+          #   web-typecheck  → "Web app type-check"
+          WEB_TYPECHECK="Web type-check / Web app type-check"
+
           # web-lint.yml (name: Web lint) defines two jobs:
           #   web-lint  → "ESLint – web app"
           #   web-test  → "Unit tests – web app"
@@ -94,10 +98,11 @@ jobs:
             --arg tsc             "$API_SERVER_TYPECHECK" \
             --arg mobileLint      "$MOBILE_LINT" \
             --arg mobileTsc       "$MOBILE_TYPECHECK" \
+            --arg webTsc          "$WEB_TYPECHECK" \
             --arg webLint         "$WEB_LINT" \
             --arg webTest         "$WEB_TEST" \
             --arg webServeCheck   "$WEB_SERVE_CHECK" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webLint, $webTest, $webServeCheck] | unique')
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'
