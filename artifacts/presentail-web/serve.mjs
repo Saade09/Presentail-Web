@@ -429,6 +429,7 @@ const server = http.createServer(async (req, res) => {
           origin,
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
+          acceptLanguage: req.headers["accept-language"],
         });
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
@@ -517,6 +518,7 @@ const server = http.createServer(async (req, res) => {
       origin,
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
+      acceptLanguage: req.headers["accept-language"],
     });
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);

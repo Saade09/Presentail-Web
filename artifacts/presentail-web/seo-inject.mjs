@@ -6,6 +6,23 @@
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
 
+/**
+ * Pick the best supported UI language from an HTTP Accept-Language header
+ * value (e.g. "ar,en-US;q=0.9,fr;q=0.8"). Returns the first tag whose
+ * primary subtag matches a SUPPORTED_LANGS entry, or null when none match.
+ * Exported so callers (serve.mjs, vite.config.ts) can test it independently.
+ */
+export function pickLangFromAcceptLanguage(header) {
+  if (!header) return null;
+  const parts = String(header).split(",");
+  for (const part of parts) {
+    const tag = part.split(";")[0].trim().toLowerCase();
+    const primary = tag.split("-")[0];
+    if (SUPPORTED_LANGS.includes(primary)) return primary;
+  }
+  return null;
+}
+
 // Mirror of CITY_SLUGS_BY_COUNTRY in src/lib/locale-route.ts. Keep in sync
 // with that file — both lists must agree or shoppers get an SEO-rendered
 // page for a slug the SPA refuses to route to.
@@ -1585,7 +1602,7 @@ function buildShopEntityHead({
  * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, search, ...rest } = opts;
+  const { apiBaseUrl, search, hintLang, acceptLanguage, ...rest } = opts;
   const generic = buildSeoHead(pathname, rest);
   const parsed = parseLocalePath(pathname);
   if (!apiBaseUrl) {
@@ -1595,7 +1612,23 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     // Handle shared wishlist links: /favorites/share/:token
     const shareToken = extractShareToken(pathname);
     if (shareToken) {
-      const cacheKey = entityCacheKey({ kind: "wishlist", slug: shareToken, lang: "en", countryCode: "", cityId: "" });
+      // Resolve language for the preview: explicit hint → ?lang= query param →
+      // Accept-Language header → English fallback. This ensures Arabic and
+      // French visitors see a localised social preview even though the wishlist
+      // share path (/favorites/share/:token) carries no locale prefix.
+      const langFromQuery = (() => {
+        if (!search) return null;
+        const s = search.startsWith("?") ? search.slice(1) : search;
+        const v = new URLSearchParams(s).get("lang")?.trim().toLowerCase();
+        return v && SUPPORTED_LANGS.includes(v) ? v : null;
+      })();
+      const wishlistLang =
+        hintLang ??
+        langFromQuery ??
+        pickLangFromAcceptLanguage(acceptLanguage) ??
+        "en";
+
+      const cacheKey = entityCacheKey({ kind: "wishlist", slug: shareToken, lang: wishlistLang, countryCode: "", cityId: "" });
       let wishlistResult = getCachedEntity(cacheKey);
       if (!wishlistResult) {
         const favorites = await fetchSharedFavoritesForSeo({ token: shareToken, apiBaseUrl });
@@ -1609,7 +1642,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
               fetchProductForSeo,
               {
                 slug: favorites[0].productSlug,
-                lang: "en",
+                lang: wishlistLang,
                 countryCode,
                 cityId: `${countryCode.toLowerCase()}-beirut`,
                 apiBaseUrl,
@@ -1640,11 +1673,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
           pathname,
-          lang: "en",
+          lang: wishlistLang,
         });
         return assembleHtml(html, {
-          lang: "en",
-          dir: "ltr",
+          lang: wishlistLang,
+          dir: wishlistLang === "ar" ? "rtl" : "ltr",
           headSnippet: result.headSnippet,
           titleTag: `<title>${escapeHtml(result.title)}</title>`,
         });
