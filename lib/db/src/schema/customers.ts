@@ -15,6 +15,11 @@ import {
 export const CUSTOMER_GENDERS = ["female", "male", "unspecified"] as const;
 export type CustomerGender = (typeof CUSTOMER_GENDERS)[number];
 
+// Supported language codes for push notifications and other locale-aware copy.
+// "en" is the default when the customer's preference is not recorded.
+export const CUSTOMER_LANGS = ["en", "ar", "fr"] as const;
+export type CustomerLang = (typeof CUSTOMER_LANGS)[number];
+
 // Canonical customer record for the project. This is the source of truth for
 // identity going forward; WooCommerce is treated as a downstream sync target
 // (see `wcCustomerId`). Email is stored lowercased and trimmed and is unique.
@@ -37,6 +42,10 @@ export const customersTable = pgTable(
     birthdayShareMonthDay: boolean("birthday_share_month_day")
       .notNull()
       .default(true),
+    // Preferred language for push notifications and locale-aware server copy.
+    // Defaults to "en". Set from the mobile app's active locale on sign-in /
+    // registration. Valid values: "en" | "ar" | "fr" (CUSTOMER_LANGS).
+    preferredLang: text("preferred_lang").notNull().default("en"),
     source: text("source").notNull().default("presentail.com"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

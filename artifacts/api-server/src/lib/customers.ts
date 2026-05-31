@@ -41,6 +41,10 @@ export type UpsertCustomerInput = {
   source?: string | null;
   authProvider?: string | null;
   authUserId?: string | null;
+  // Preferred language for push notifications and locale-aware copy.
+  // Valid values: "en" | "ar" | "fr". When provided, overwrites any existing
+  // value so the most recent device locale is always stored.
+  preferredLang?: string | null;
   // When provided we prefer to load this row (used for authenticated flows
   // where the caller already knows the canonical customer).
   preferredCustomerId?: number | null;
@@ -85,6 +89,15 @@ function buildPatch(
     if (!existing.authProvider || !existing.authUserId) {
       patch.authProvider = input.authProvider;
       patch.authUserId = input.authUserId;
+    }
+  }
+
+  // Language preference: always update to the latest value so the most recent
+  // device locale wins (a customer may switch app language between sessions).
+  const VALID_LANGS = new Set(["en", "ar", "fr"]);
+  if (input.preferredLang && VALID_LANGS.has(input.preferredLang)) {
+    if (existing.preferredLang !== input.preferredLang) {
+      patch.preferredLang = input.preferredLang;
     }
   }
 
@@ -164,6 +177,7 @@ export async function upsertCustomer(
     throw new Error("upsertCustomer: email is required to create a new customer");
   }
 
+  const VALID_LANGS_INSERT = new Set(["en", "ar", "fr"]);
   const insertValues = {
     email,
     phoneE164: phone,
@@ -176,6 +190,9 @@ export async function upsertCustomer(
       input.authProvider && input.authUserId ? input.authProvider : null,
     authUserId:
       input.authProvider && input.authUserId ? input.authUserId : null,
+    ...(input.preferredLang && VALID_LANGS_INSERT.has(input.preferredLang)
+      ? { preferredLang: input.preferredLang }
+      : {}),
   };
 
   // Insert. If a concurrent insert wins the race on the email unique index,

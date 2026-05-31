@@ -141,7 +141,7 @@ router.post("/payment/mamo", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
-    return res.status(422).json({ ok: false, message: catalogResult.message });
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
   }
 
   const resolvedDistrict = district ?? "Beirut";
@@ -379,7 +379,7 @@ router.post("/payment/paypal", async (req, res) => {
   const ppStore = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, ppStore);
   if (!catalogResult.ok) {
-    return res.status(422).json({ ok: false, message: catalogResult.message });
+    return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
   }
 
   const resolvedDistrict = district ?? "Beirut";

@@ -20,7 +20,7 @@ router.post("/admin/image-dims/prune", async (req, res) => {
   if (!adminToken || !supplied || supplied !== adminToken) {
     res
       .status(401)
-      .json({ ok: false, message: "Invalid or missing admin token" });
+      .json({ ok: false, message: "Invalid or missing admin token" }); // i18n-ignore
     return;
   }
 
@@ -38,7 +38,7 @@ router.post("/admin/image-dims/prune", async (req, res) => {
     logger.warn({ err: err?.message }, "adminImageDims: prune failed");
     res
       .status(500)
-      .json({ ok: false, message: err?.message ?? "Prune failed" });
+      .json({ ok: false, message: err?.message ?? "Prune failed" }); // i18n-ignore
   }
 });
 

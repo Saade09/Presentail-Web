@@ -105,6 +105,26 @@ function mapCustomer(c: any): CustomerProfile {
   };
 }
 
+// Normalize a raw language tag from x-app-lang / Accept-Language into one of
+// the three supported values ("en" | "ar" | "fr"). Falls back to "en".
+function normalizeLang(raw: string | null | undefined): "en" | "ar" | "fr" {
+  if (!raw) return "en";
+  const tag = raw.split(/[,;]/)[0].trim().toLowerCase();
+  if (tag.startsWith("ar")) return "ar";
+  if (tag.startsWith("fr")) return "fr";
+  return "en";
+}
+
+// Extract the customer's preferred language from an incoming request. Prefers
+// the dedicated `x-app-lang` header (set by the mobile Expo app) and falls
+// back to `Accept-Language` so any client can communicate locale.
+function langFromRequest(req: { headers: Record<string, any> }): "en" | "ar" | "fr" {
+  const appLang = (req.headers["x-app-lang"] as string | undefined) ?? null;
+  if (appLang) return normalizeLang(appLang);
+  const acceptLang = (req.headers["accept-language"] as string | undefined) ?? null;
+  return normalizeLang(acceptLang);
+}
+
 // Mirror an authenticated WC customer into our local `customers` table.
 // Best-effort: failures are logged but never break the auth flow, since
 // the WC mirror is still authoritative for orders during the migration.
@@ -116,6 +136,7 @@ async function mirrorWcCustomerLocally(
     lastName?: string;
     phone?: string;
     provider?: "apple" | "google" | "password";
+    preferredLang?: string;
   },
   log?: { warn?: (...args: any[]) => void },
 ): Promise<Customer | null> {
@@ -130,6 +151,7 @@ async function mirrorWcCustomerLocally(
       authUserId: profile.provider ? String(wcCustomerId) : null,
       preferredCustomerId: existing?.id ?? null,
       source: "presentail.com",
+      preferredLang: profile.preferredLang,
     });
     // Ensure the WC linkage is set on the local row. We already know the
     // WC id from the auth flow, so persist it directly rather than going
@@ -175,6 +197,7 @@ function mirrorAndPropagateToClerk(
     lastName?: string;
     phone?: string;
     provider?: "apple" | "google" | "password";
+    preferredLang?: string;
   },
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void },
 ): void {
@@ -521,7 +544,7 @@ router.get("/auth/diagnostics", async (req, res) => {
 router.post("/auth/login", loginIpLimiter, async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
-    return res.status(400).json({ ok: false, message: "Email and password are required" }); // i18n-ignore
+    return res.status(400).json({ ok: false, code: "missing_credentials", message: "Email and password are required" }); // i18n-ignore
   }
 
   // Check per-email failure cap before forwarding. Successful logins do NOT
@@ -605,20 +628,21 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
           lastName: customer.lastName,
           phone: customer.phone,
           provider: "password",
+          preferredLang: langFromRequest(req),
         },
         req.log,
       );
     }
     return res.json({ ok: true, token: tokenData.token, user: customer });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, message: e?.message ?? "Login failed" }); // i18n-ignore
+    return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Login failed" }); // i18n-ignore
   }
 });
 
 // ── Register: create a WooCommerce customer ──────────────────────────────────
 router.post("/auth/register", registerIpLimiter, async (req, res) => {
   if (!process.env.WC_CONSUMER_KEY) {
-    return res.status(503).json({ ok: false, message: "Registration unavailable" }); // i18n-ignore
+    return res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
   }
   const { email, password, firstName, lastName, phone } = req.body as {
     email?: string;
@@ -628,10 +652,10 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     phone?: string;
   };
   if (!email || !password) {
-    return res.status(400).json({ ok: false, message: "Email and password are required" }); // i18n-ignore
+    return res.status(400).json({ ok: false, code: "missing_credentials", message: "Email and password are required" }); // i18n-ignore
   }
   if (password.length < 8) {
-    return res.status(400).json({ ok: false, message: "Password must be at least 8 characters" }); // i18n-ignore
+    return res.status(400).json({ ok: false, code: "password_too_short", message: "Password must be at least 8 characters" }); // i18n-ignore
   }
 
   try {
@@ -650,6 +674,7 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     if (!r.ok) {
       return res.status(r.status).json({
         ok: false,
+        code: "registration_failed",
         message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed", // i18n-ignore
       });
     }
@@ -680,13 +705,14 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
           lastName: mapped.lastName,
           phone: mapped.phone,
           provider: "password",
+          preferredLang: langFromRequest(req),
         },
         req.log,
       );
     }
     return res.json({ ok: true, token, user: mapped });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, message: e?.message ?? "Registration failed" }); // i18n-ignore
+    return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
   }
 });
 
@@ -1403,7 +1429,7 @@ async function issueSocialSession(
   if (!store.consumerKey) {
     return res
       .status(503)
-      .json({ ok: false, message: "Sign-in is not available right now." }); // i18n-ignore
+      .json({ ok: false, code: "service_unavailable", message: "Sign-in is not available right now." }); // i18n-ignore
   }
   try {
     const customer = await ensureCustomerForSocial(profile, req);
@@ -1419,6 +1445,7 @@ async function issueSocialSession(
         lastName: mapped.lastName,
         phone: mapped.phone,
         provider,
+        preferredLang: langFromRequest(req),
       },
       req.log,
     );
@@ -1436,7 +1463,7 @@ async function issueSocialSession(
     );
     return res
       .status(500)
-      .json({ ok: false, message: e?.message ?? "Sign-in failed" });
+      .json({ ok: false, code: "server_error", message: e?.message ?? "Sign-in failed" }); // i18n-ignore
   }
 }
 
