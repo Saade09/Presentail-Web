@@ -2488,6 +2488,49 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     expect(dimsFetchCount).toBe(1);
   });
 
+  it("does NOT re-fetch image dims on a 304 response within cache TTL (brands-filter category)", async () => {
+    const pngBuf = makePngBuffer(600, 400);
+    const imageUrl = "https://cdn.etag-test/brands-cat-etag-304-withinttl-unique.png";
+    const entityEtag = '"etag-v1-within-ttl-brands-cat-304"';
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category")) {
+        entityFetchCount++;
+        const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
+        if (ifNoneMatch === entityEtag) {
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            category: { name: "ETag Within-TTL Brands Category", description: "Brands-filter category within-TTL test.", image: imageUrl },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const brandsCategoryOpts = { ...ETAG_OPTS, search: "?category=etag-304-withinttl-brands-cat-unique" };
+
+    // First call: entity + dims freshly fetched; ETag stored in entity cache.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brands", brandsCategoryOpts);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call within TTL: conditional request with If-None-Match → 304 → no dims re-fetch.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brands", brandsCategoryOpts);
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(1);
+  });
+
   it("sends If-None-Match on the second request within TTL (not just after expiry)", async () => {
     const imageUrl = "https://cdn.etag-test/product-etag-hdrcheck-withinttl-unique.png";
     const entityEtag = '"etag-hdrcheck-within-ttl-v1"';
