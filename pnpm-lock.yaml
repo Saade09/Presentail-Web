@@ -214,6 +214,9 @@ importers:
       http-proxy-middleware:
         specifier: ^4.0.0
         version: 4.0.0
+      image-size:
+        specifier: ^2.0.2
+        version: 2.0.2
       jose:
         specifier: ^6.2.3
         version: 6.2.3
@@ -5442,6 +5445,11 @@ packages:
 
   image-size@1.2.1:
     resolution: {integrity: sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==}
+    engines: {node: '>=16.x'}
+    hasBin: true
+
+  image-size@2.0.2:
+    resolution: {integrity: sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w==}
     engines: {node: '>=16.x'}
     hasBin: true
 
@@ -14052,6 +14060,8 @@ snapshots:
   image-size@1.2.1:
     dependencies:
       queue: 6.0.2
+
+  image-size@2.0.2: {}
 
   import-fresh@3.3.1:
     dependencies:

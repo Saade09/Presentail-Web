@@ -1,7 +1,12 @@
 import { Router, type Request, type Response } from "express";
+import { imageSize } from "image-size";
 import { logger } from "../lib/logger";
 
 const router = Router();
+
+const OG_MIN_WIDTH = 1200;
+const OG_TARGET_RATIO = 1.91;
+const OG_RATIO_TOLERANCE = 0.1;
 
 function requireAdmin(req: Request, res: Response): boolean {
   const expected = process.env.PUSH_ADMIN_TOKEN;
@@ -67,31 +72,125 @@ async function fetchPageHtml(pageUrl: string): Promise<string | null> {
   }
 }
 
-async function checkImageReachability(
+function checkOgImageDimensions(
+  width: number,
+  height: number,
+): { widthOk: boolean; ratioOk: boolean; sizeOk: boolean } {
+  const widthOk = width >= OG_MIN_WIDTH;
+  const ratio = width / height;
+  const ratioOk =
+    Math.abs(ratio - OG_TARGET_RATIO) / OG_TARGET_RATIO <= OG_RATIO_TOLERANCE;
+  return { widthOk, ratioOk, sizeOk: widthOk && ratioOk };
+}
+
+async function resolveImageDimensions(
   imageUrl: string,
-): Promise<{ reachable: boolean; bytes: number | null }> {
+): Promise<{ width: number; height: number } | null> {
+  const CHUNK_SIZES = [4096, 65536];
+  for (const chunkSize of CHUNK_SIZES) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const resp = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: { Range: `bytes=0-${chunkSize - 1}` },
+      });
+      if (!resp.ok && resp.status !== 206) break;
+      const buffer = await resp.arrayBuffer();
+      const uint8 = new Uint8Array(buffer);
+      try {
+        const result = imageSize(uint8);
+        if (result.width && result.height) {
+          return { width: result.width, height: result.height };
+        }
+      } catch {
+        if (chunkSize === CHUNK_SIZES[CHUNK_SIZES.length - 1]) return null;
+      }
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return null;
+}
+
+async function checkImageReachability(imageUrl: string): Promise<{
+  reachable: boolean;
+  bytes: number | null;
+  actualWidth: number | null;
+  actualHeight: number | null;
+  widthOk: boolean | null;
+  ratioOk: boolean | null;
+  sizeOk: boolean | null;
+}> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
+  let reachable = false;
+  let bytes: number | null = null;
   try {
     const resp = await fetch(imageUrl, {
       method: "HEAD",
       signal: controller.signal,
     });
     const contentLength = resp.headers.get("content-length");
-    return {
-      reachable: resp.ok,
-      bytes: contentLength != null ? parseInt(contentLength, 10) : null,
-    };
+    reachable = resp.ok;
+    bytes = contentLength != null ? parseInt(contentLength, 10) : null;
   } catch {
-    return { reachable: false, bytes: null };
+    return {
+      reachable: false,
+      bytes: null,
+      actualWidth: null,
+      actualHeight: null,
+      widthOk: null,
+      ratioOk: null,
+      sizeOk: null,
+    };
   } finally {
     clearTimeout(timer);
   }
+
+  if (!reachable) {
+    return {
+      reachable: false,
+      bytes,
+      actualWidth: null,
+      actualHeight: null,
+      widthOk: null,
+      ratioOk: null,
+      sizeOk: null,
+    };
+  }
+
+  const dims = await resolveImageDimensions(imageUrl);
+  if (!dims) {
+    return {
+      reachable: true,
+      bytes,
+      actualWidth: null,
+      actualHeight: null,
+      widthOk: null,
+      ratioOk: null,
+      sizeOk: null,
+    };
+  }
+
+  const { widthOk, ratioOk, sizeOk } = checkOgImageDimensions(
+    dims.width,
+    dims.height,
+  );
+  return {
+    reachable: true,
+    bytes,
+    actualWidth: dims.width,
+    actualHeight: dims.height,
+    widthOk,
+    ratioOk,
+    sizeOk,
+  };
 }
 
 router.get("/seo/debug/ui", (_req: Request, res: Response) => {
-  // No auth on the page shell — the JSON endpoint enforces the token.
-  // The page stores the token in localStorage once the operator pastes it.
   res.type("html").send(SEO_DEBUG_HTML);
 });
 
@@ -137,10 +236,21 @@ router.get("/seo/debug", async (req: Request, res: Response) => {
 
   let ogImageReachable: boolean | null = null;
   let ogImageBytes: number | null = null;
+  let ogImageActualWidth: number | null = null;
+  let ogImageActualHeight: number | null = null;
+  let ogImageWidthOk: boolean | null = null;
+  let ogImageRatioOk: boolean | null = null;
+  let ogImageSizeOk: boolean | null = null;
+
   if (ogImage) {
-    const { reachable, bytes } = await checkImageReachability(ogImage);
-    ogImageReachable = reachable;
-    ogImageBytes = bytes;
+    const result = await checkImageReachability(ogImage);
+    ogImageReachable = result.reachable;
+    ogImageBytes = result.bytes;
+    ogImageActualWidth = result.actualWidth;
+    ogImageActualHeight = result.actualHeight;
+    ogImageWidthOk = result.widthOk;
+    ogImageRatioOk = result.ratioOk;
+    ogImageSizeOk = result.sizeOk;
   }
 
   res.json({
@@ -156,6 +266,11 @@ router.get("/seo/debug", async (req: Request, res: Response) => {
     twitterImageAlt,
     ogImageReachable,
     ogImageBytes,
+    ogImageActualWidth,
+    ogImageActualHeight,
+    ogImageWidthOk,
+    ogImageRatioOk,
+    ogImageSizeOk,
     fallbackUsed,
   });
 });
@@ -208,10 +323,11 @@ const SEO_DEBUG_HTML = `<!doctype html>
   .badge-red { background: #f8d7da; color: #721c24; }
   .badge-yellow { background: #fff3cd; color: #856404; }
 
-  .reachability { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 4px; }
+  .reachability { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 4px; flex-wrap: wrap; }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .dot-green { background: #28a745; }
   .dot-red { background: #dc3545; }
+  .dot-yellow { background: #e6a817; }
 
   /* token row */
   .token-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
@@ -231,6 +347,11 @@ const SEO_DEBUG_HTML = `<!doctype html>
 
   /* fallback banner */
   .fallback-banner { background: #fff3cd; border: 1px solid #ffc107; color: #856404; border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
+
+  /* size warning */
+  .size-warnings { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+  .size-warn-item { font-size: 11px; color: #856404; display: flex; align-items: center; gap: 4px; }
+  .size-warn-item::before { content: "⚠️"; }
 </style>
 </head>
 <body>
@@ -334,6 +455,59 @@ const SEO_DEBUG_HTML = `<!doctype html>
     return html;
   }
 
+  function renderOgImageField(data) {
+    if (!data.ogImage) {
+      return field('og:image', '<span class="missing">missing</span>');
+    }
+
+    var reachDot, reachBadge;
+    if (data.ogImageReachable === true) {
+      // Yellow dot when reachable but size fails; green when all good or unknown
+      var sizeKnownBad = data.ogImageSizeOk === false;
+      reachDot = '<span class="dot ' + (sizeKnownBad ? 'dot-yellow' : 'dot-green') + '"></span>';
+      var sizeHint = data.ogImageBytes ? ' · ' + Math.round(data.ogImageBytes / 1024) + ' KB' : '';
+      var reachLabel = sizeKnownBad ? 'reachable · size issues' : 'reachable';
+      reachBadge = badge(reachLabel, sizeKnownBad ? 'yellow' : 'green');
+      var reachRow = '<div class="reachability">' + reachDot + reachBadge + sizeHint + '</div>';
+
+      // Actual dimensions
+      var dimsHtml = '';
+      if (data.ogImageActualWidth && data.ogImageActualHeight) {
+        var ratio = (data.ogImageActualWidth / data.ogImageActualHeight).toFixed(2);
+        dimsHtml = data.ogImageActualWidth + ' × ' + data.ogImageActualHeight + ' px · ratio ' + ratio + ':1';
+      }
+
+      // Per-issue warnings
+      var warnings = [];
+      if (data.ogImageWidthOk === false) {
+        warnings.push('Image is ' + (data.ogImageActualWidth || '?') + ' px wide — minimum 1200 px required for rich link cards on WhatsApp / iMessage.');
+      }
+      if (data.ogImageRatioOk === false) {
+        var actualRatio = data.ogImageActualWidth && data.ogImageActualHeight
+          ? (data.ogImageActualWidth / data.ogImageActualHeight).toFixed(2)
+          : '?';
+        warnings.push('Ratio ' + actualRatio + ':1 deviates from the recommended 1.91:1 by more than 10%. This may cause letterboxing or cropping in link previews.');
+      }
+
+      var warningsHtml = '';
+      if (warnings.length) {
+        warningsHtml = '<div class="size-warnings">'
+          + warnings.map(function (w) { return '<div class="size-warn-item">' + esc(w) + '</div>'; }).join('')
+          + '</div>';
+      }
+
+      var urlHtml = fieldValue(data.ogImage);
+      return field('og:image', urlHtml + reachRow + warningsHtml, dimsHtml || null);
+
+    } else if (data.ogImageReachable === false) {
+      var unreachRow = '<div class="reachability"><span class="dot dot-red"></span>'
+        + badge('unreachable', 'red') + ' — image URL returned an error</div>';
+      return field('og:image', fieldValue(data.ogImage) + unreachRow);
+    }
+
+    return field('og:image', fieldValue(data.ogImage));
+  }
+
   function render(data) {
     resolvedUrlEl.textContent = data.url;
     fallbackBanner.style.display = data.fallbackUsed ? '' : 'none';
@@ -353,26 +527,8 @@ const SEO_DEBUG_HTML = `<!doctype html>
       ? '<a href="' + esc(data.canonical) + '" target="_blank" rel="noopener">' + esc(data.canonical) + '</a>'
       : '<span class="missing">missing</span>');
 
-    // OG image reachability
-    var imgReach = '';
-    if (data.ogImage) {
-      if (data.ogImageReachable === true) {
-        var sizeHint = data.ogImageBytes ? ' · ' + Math.round(data.ogImageBytes / 1024) + ' KB' : '';
-        imgReach = '<div class="reachability"><span class="dot dot-green"></span>'
-          + badge('reachable', 'green') + sizeHint + '</div>';
-      } else if (data.ogImageReachable === false) {
-        imgReach = '<div class="reachability"><span class="dot dot-red"></span>'
-          + badge('unreachable', 'red') + ' — image URL returned an error</div>';
-      }
-      // dimensions
-      var dims = '';
-      if (data.ogImageWidth && data.ogImageHeight) {
-        dims = data.ogImageWidth + ' × ' + data.ogImageHeight + ' px';
-      }
-      html += field('og:image', fieldValue(data.ogImage) + imgReach, dims || null);
-    } else {
-      html += field('og:image', '<span class="missing">missing</span>');
-    }
+    // OG image (reachability + size check)
+    html += renderOgImageField(data);
 
     // og:image:alt
     html += field('og:image:alt / twitter:image:alt',
@@ -387,15 +543,21 @@ const SEO_DEBUG_HTML = `<!doctype html>
     else if (data.description.length < 50) issues.push('description too short');
     if (!data.ogImage) issues.push('no og:image');
     else if (data.ogImageReachable === false) issues.push('og:image unreachable');
+    else if (data.ogImageWidthOk === false) issues.push('og:image too small (< 1200 px)');
+    else if (data.ogImageRatioOk === false) issues.push('og:image wrong ratio');
     if (data.fallbackUsed) issues.push('using default image');
     if (!data.canonical) issues.push('no canonical');
     if (!(data.ogImageAlt || data.twitterImageAlt)) issues.push('no image alt');
+
+    var summaryColor = issues.length === 0 ? 'green'
+      : (data.ogImageReachable === false || !data.ogImage || !data.title || !data.description) ? 'red'
+      : 'yellow';
 
     var summaryHtml;
     if (issues.length === 0) {
       summaryHtml = badge('All good', 'green');
     } else {
-      summaryHtml = badge(issues.length + ' issue' + (issues.length > 1 ? 's' : ''), 'red')
+      summaryHtml = badge(issues.length + ' issue' + (issues.length > 1 ? 's' : ''), summaryColor)
         + ' <span class="muted" style="font-size:12px">' + issues.map(esc).join(' · ') + '</span>';
     }
     html = field('Summary', summaryHtml) + html;
