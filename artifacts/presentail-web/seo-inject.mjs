@@ -1695,16 +1695,28 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     }
 
     // Fallback: handle bare /product/<slug> paths (e.g. links shared before
-    // the locale-prefix fix, or external integrations). Use default locale
-    // values so the web server can still inject per-product OG tags.
+    // the locale-prefix fix, or external integrations, or mobile app shares).
+    // Resolve the language from ?lang=, Accept-Language, or hintLang so that
+    // Arabic and French social previews work the same as the wishlist path.
     const bareProductSlug = extractProductSlug(pathname);
     if (bareProductSlug) {
+      const bareProductLangFromQuery = (() => {
+        if (!search) return null;
+        const s = search.startsWith("?") ? search.slice(1) : search;
+        const v = new URLSearchParams(s).get("lang")?.trim().toLowerCase();
+        return v && SUPPORTED_LANGS.includes(v) ? v : null;
+      })();
+      const bareProductLang =
+        hintLang ??
+        bareProductLangFromQuery ??
+        pickLangFromAcceptLanguage(acceptLanguage) ??
+        "en";
       const product = await fetchEntityForSeoCached(
         "product",
         fetchProductForSeo,
         {
           slug: bareProductSlug,
-          lang: "en",
+          lang: bareProductLang,
           countryCode: "LB",
           cityId: "lb-beirut",
           apiBaseUrl,
@@ -1720,14 +1732,14 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const result = buildProductHead({
           product,
           imageDimensions: bareImageDims,
-          lang: generic.lang,
+          lang: bareProductLang,
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
           pathname,
         });
         return assembleHtml(html, {
-          lang: generic.lang,
-          dir: generic.dir,
+          lang: bareProductLang,
+          dir: bareProductLang === "ar" ? "rtl" : "ltr",
           headSnippet: result.headSnippet,
           titleTag: `<title>${escapeHtml(result.title)}</title>`,
         });
