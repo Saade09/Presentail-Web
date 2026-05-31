@@ -62,8 +62,27 @@ jobs:
         run: pnpm --filter @workspace/scripts run check-presentail-native-modules
         working-directory: .
 
+      - name: Run compress-assets fixture tests
+        # Verifies that compress-assets.mjs correctly produces .br/.gz sidecars
+        # and fails loudly when the assets directory is missing or empty.
+        # Running this before the EAS build ensures a broken compression pipeline
+        # is caught here rather than silently shipping under-compressed web assets.
+        run: pnpm --filter @workspace/presentail-web run test
+        working-directory: .
+
       - name: Run mobile tests
         run: pnpm --filter @workspace/presentail run test
+        working-directory: .
+
+      - name: Build web app (vite + compress-assets)
+        # Required so the Brotli sidecars exist for the chunk budget check below.
+        run: pnpm --filter @workspace/presentail-web run build
+        working-directory: .
+
+      - name: Chunk budget check (≤200 kB brotli per chunk)
+        # Blocks the TestFlight submission when any JS chunk exceeds the budget,
+        # matching the gate that runs in the web-serve-check CI workflow.
+        run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
         working-directory: .
 
       - name: Setup EAS CLI

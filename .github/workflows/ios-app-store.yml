@@ -91,6 +91,16 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
+      - name: Build web app (vite + compress-assets)
+        # Required so the Brotli sidecars exist for the chunk budget check below.
+        run: pnpm --filter @workspace/presentail-web run build
+
+      - name: Chunk budget check (≤200 kB brotli per chunk)
+        # Blocks the App Store promotion when any JS chunk exceeds the budget,
+        # matching the gate that runs in the web-serve-check CI workflow and the
+        # Android Play Store workflow.
+        run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
+
       - name: Promote build to App Store
         run: pnpm --filter @workspace/scripts run promote-ios-to-app-store
         env:
