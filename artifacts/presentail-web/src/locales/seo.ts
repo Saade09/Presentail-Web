@@ -83,12 +83,12 @@ export const seoStrings: Dict = {
     ar: "أدر بيانات حساب Presentail والطلبات والعناوين المحفوظة.",
   },
   "seo.landing.title": {
-    en: "Presentail | Luxury Flower & Gift Delivery Across the GCC",
-    ar: "Presentail | توصيل الأزهار والهدايا الفاخرة في الخليج",
+    en: "Online Flower & Gift Delivery | Presentail | Express Delivery",
+    ar: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
   },
   "seo.landing.description": {
-    en: "Presentail delivers signature bouquets, cakes and luxury gifts across Lebanon, the UAE and Cyprus.",
-    ar: "تقدّم Presentail باقات وكعك وهدايا فاخرة في لبنان والإمارات وقبرص.",
+    en: "Send luxury flowers, gifts, cakes, and curated arrangements across the GCC with Presentail. Same-day delivery available in selected cities.",
+    ar: "أرسل أزهاراً وهدايا وكعكاً وتشكيلات منتقاة في دول الخليج مع Presentail. توصيل في اليوم ذاته متاح في مدن مختارة.",
   },
 };
 
@@ -114,6 +114,6 @@ export const seoStringsFr: Record<string, string> = {
   "seo.auth.description": "Connectez-vous ou créez un compte Presentail pour gérer vos commandes et adresses.",
   "seo.account.title": "Mon compte | Presentail",
   "seo.account.description": "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
-  "seo.landing.title": "Presentail | Livraison de fleurs et cadeaux de luxe dans le Golfe",
-  "seo.landing.description": "Presentail livre des bouquets, gâteaux et cadeaux de luxe au Liban, aux Émirats arabes unis et à Chypre.",
+  "seo.landing.title": "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
+  "seo.landing.description": "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
 };

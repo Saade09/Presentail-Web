@@ -158,6 +158,39 @@ export function SeoHead() {
       head,
     );
 
+    const defaultOgImage = `${origin}${basePrefix}/opengraph.jpg`;
+    const defaultOgImageAlt = "Presentail — Luxury Flower & Gift Delivery";
+    setMeta(
+      'meta[property="og:image"]',
+      { property: "og:image", content: defaultOgImage },
+      head,
+    );
+    setMeta(
+      'meta[property="og:image:width"]',
+      { property: "og:image:width", content: "1200" },
+      head,
+    );
+    setMeta(
+      'meta[property="og:image:height"]',
+      { property: "og:image:height", content: "630" },
+      head,
+    );
+    setMeta(
+      'meta[property="og:image:alt"]',
+      { property: "og:image:alt", content: defaultOgImageAlt },
+      head,
+    );
+    setMeta(
+      'meta[name="twitter:image"]',
+      { name: "twitter:image", content: defaultOgImage },
+      head,
+    );
+    setMeta(
+      'meta[name="twitter:image:alt"]',
+      { name: "twitter:image:alt", content: defaultOgImageAlt },
+      head,
+    );
+
     const alternates = inLocale ? buildLanguageAlternates(path) : [];
     if (alternates.length && parsed.country) {
       for (const alt of alternates) {

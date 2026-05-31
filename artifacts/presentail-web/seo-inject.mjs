@@ -105,7 +105,7 @@ const CITY_NAMES = {
 
 const TITLES = {
   en: {
-    landing: "Presentail | Luxury Flower & Gift Delivery Across the GCC",
+    landing: "Online Flower & Gift Delivery | Presentail | Express Delivery",
     home: "Flower & Gift Delivery in {city} | Presentail",
     shop: "Shop Flowers & Gifts in {city} | Presentail",
     product: "Gift Delivery in {city} | Presentail",
@@ -129,7 +129,7 @@ const TITLES = {
     privacy: "Privacy Policy | Presentail",
   },
   ar: {
-    landing: "Presentail | توصيل الأزهار والهدايا الفاخرة في الخليج",
+    landing: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
     home: "توصيل الأزهار والهدايا في {city} | Presentail",
     shop: "تسوّق الأزهار والهدايا في {city} | Presentail",
     product: "توصيل الهدايا في {city} | Presentail",
@@ -154,7 +154,7 @@ const TITLES = {
     privacy: "سياسة الخصوصية | Presentail",
   },
   fr: {
-    landing: "Presentail | Livraison de fleurs et cadeaux de luxe dans le Golfe",
+    landing: "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
     home: "Livraison de fleurs et cadeaux à {city} | Presentail",
     shop: "Boutique fleurs et cadeaux à {city} | Presentail",
     product: "Livraison de cadeaux à {city} | Presentail",
@@ -183,7 +183,7 @@ const TITLES = {
 const DESCRIPTIONS = {
   en: {
     landing:
-      "Presentail delivers signature bouquets, cakes and luxury gifts across Lebanon, the UAE and Cyprus.",
+      "Send luxury flowers, gifts, cakes, and curated arrangements across the GCC with Presentail. Same-day delivery available in selected cities.",
     home: "Send luxury flowers, cakes and gifts in {city}, {country} with same-day delivery from Presentail.",
     shop: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
     product: "Order this gift for delivery in {city}, {country} with Presentail.",
@@ -211,7 +211,7 @@ const DESCRIPTIONS = {
   },
   ar: {
     landing:
-      "تقدّم Presentail باقات وكعك وهدايا فاخرة في لبنان والإمارات وقبرص.",
+      "أرسل أزهاراً وهدايا وكعكاً وتشكيلات منتقاة في دول الخليج مع Presentail. توصيل في اليوم ذاته متاح في مدن مختارة.",
     home: "أرسل الأزهار الفاخرة والكعك والهدايا في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
     shop: "تصفّح باقات Presentail المنتقاة والكعك والهدايا الفاخرة للتوصيل في {city}، {country}.",
     product: "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail.",
@@ -238,7 +238,7 @@ const DESCRIPTIONS = {
   },
   fr: {
     landing:
-      "Presentail livre des bouquets, gâteaux et cadeaux de luxe au Liban, aux Émirats arabes unis et à Chypre.",
+      "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
     home: "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
     shop: "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
     product: "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
@@ -470,9 +470,13 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   );
   // Default OG / Twitter image for generic (non-entity) pages.
   const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
+  const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery";
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
-  lines.push(`<meta property="og:image:alt" content="Presentail" />`);
+  lines.push(`<meta property="og:image:width" content="1200" />`);
+  lines.push(`<meta property="og:image:height" content="630" />`);
+  lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
+  lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   // Organization JSON-LD on every generic page.
   lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
 
@@ -884,20 +888,21 @@ function buildEntityHead({
     `<meta property="og:locale" content="${escapeAttr(OG_LOCALE[lang] ?? "en_US")}" />`,
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
-  if (imageUrl) {
-    lines.push(`<meta property="og:image" content="${escapeAttr(imageUrl)}" />`);
-    lines.push(
-      `<meta property="og:image:alt" content="${escapeAttr(imageAlt)}" />`,
-    );
-    lines.push(`<meta name="twitter:image" content="${escapeAttr(imageUrl)}" />`);
+  const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg`;
+  const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery";
+  lines.push(`<meta property="og:image" content="${escapeAttr(effectiveImageUrl)}" />`);
+  if (!imageUrl) {
+    lines.push(`<meta property="og:image:width" content="1200" />`);
+    lines.push(`<meta property="og:image:height" content="630" />`);
   }
-  lines.push(
-    `<meta name="twitter:card" content="${imageUrl ? "summary_large_image" : "summary"}" />`,
-  );
+  lines.push(`<meta property="og:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
+  lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
   lines.push(`<meta name="twitter:title" content="${escapeAttr(title)}" />`);
   lines.push(
     `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
   );
+  lines.push(`<meta name="twitter:image" content="${escapeAttr(effectiveImageUrl)}" />`);
+  lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(effectiveImageAlt)}" />`);
   // Organization JSON-LD on every entity page.
   lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
   for (const extra of extraLines) lines.push(extra);

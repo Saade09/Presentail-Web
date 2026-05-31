@@ -21,6 +21,7 @@ import loyaltyRouter from "./loyalty";
 import favoritesRouter from "./favorites";
 import osWebhookRouter from "./osWebhook";
 import wooWebhookRouter from "./wooWebhook";
+import seoRouter from "./seo";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(loyaltyRouter);
 router.use(favoritesRouter);
 router.use(osWebhookRouter);
 router.use(wooWebhookRouter);
+router.use(seoRouter);
 
 export default router;
