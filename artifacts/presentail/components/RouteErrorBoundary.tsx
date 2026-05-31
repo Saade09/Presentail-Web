@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorFallbackProps } from "@/components/ErrorFallback";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
 
 type RouteErrorFallbackProps = ErrorFallbackProps & { routeName: string };
@@ -26,6 +27,7 @@ function RouteErrorFallback({
 }: RouteErrorFallbackProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const t = useT();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const canGoBack = router.canGoBack();
@@ -60,7 +62,7 @@ function RouteErrorFallback({
       {__DEV__ ? (
         <Pressable
           onPress={() => setIsModalVisible(true)}
-          accessibilityLabel="View error details"
+          accessibilityLabel="View error details" // i18n-ignore
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.topButton,
@@ -77,7 +79,7 @@ function RouteErrorFallback({
 
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.foreground }]}>
-          Something went wrong on this screen
+          {t.errorScreenSomethingWrong}
         </Text>
         <Text style={[styles.message, { color: colors.mutedForeground }]}>
           You can go back and try again. The rest of the app is still working.
@@ -98,7 +100,7 @@ function RouteErrorFallback({
             <Text
               style={[styles.buttonText, { color: colors.primaryForeground }]}
             >
-              Try Again
+              {t.errorTryAgain}
             </Text>
           </Pressable>
 
@@ -142,11 +144,11 @@ function RouteErrorFallback({
                 ]}
               >
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-                  Error Details
+                  Error Details {/* i18n-ignore */}
                 </Text>
                 <Pressable
                   onPress={() => setIsModalVisible(false)}
-                  accessibilityLabel="Close error details"
+                  accessibilityLabel="Close error details" // i18n-ignore
                   accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.closeButton,

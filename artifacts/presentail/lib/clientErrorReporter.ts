@@ -159,11 +159,11 @@ export function reportClientError(input: ReportInput): void {
   const message =
     (err instanceof Error && err.message) ||
     (typeof err === "string" && err) ||
-    "Unknown error";
+    "Unknown error"; // i18n-ignore
   const stack = err instanceof Error ? err.stack ?? undefined : undefined;
 
   const body = {
-    message: clip(message, 2000) ?? "Unknown error",
+    message: clip(message, 2000) ?? "Unknown error", // i18n-ignore
     stack: clip(stack, 8000),
     componentStack: clip(input.componentStack ?? undefined, 4000),
     route: clip(input.route, 200),

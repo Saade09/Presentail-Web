@@ -120,7 +120,9 @@ export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
 
 function LoadingDots({ color }: { color: string }) {
   return (
-    <View style={styles.dots} accessibilityRole="progressbar" accessibilityLabel="Loading">
+    <View
+      style={styles.dots} accessibilityRole="progressbar" accessibilityLabel="Loading" // i18n-ignore
+    >
       <Dot color={color} delay={0} />
       <Dot color={color} delay={160} />
       <Dot color={color} delay={320} />

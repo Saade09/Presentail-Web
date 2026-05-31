@@ -12,6 +12,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
+import { useT } from "@/hooks/useT";
 import { freeDeliveryThresholdNative } from "@workspace/delivery";
 
 const imageLoadedCache = new Set<string>();
@@ -31,6 +32,7 @@ type Props = {
 
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
+  const t = useT();
   const router = useRouter();
   const { currencyCode, convert } = useCurrency();
   const { selectedCountry } = useDeliveryLocation();
@@ -119,7 +121,7 @@ export function ProductCard({ product, width, onPress }: Props) {
           />
           {convertedPrice >= threshold ? (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
-              FREE DELIVERY
+              {t.freeDelivery}
             </Text>
           ) : null}
         </View>

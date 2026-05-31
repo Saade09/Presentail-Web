@@ -3,13 +3,14 @@ import { Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 // Mirror of the server-side tier table. Keep in sync with
 // `artifacts/api-server/src/lib/loyalty.ts`.
 export const LOYALTY_TIERS_INFO = [
-  { key: "regular", label: "Regular", threshold: 300, discountPercent: 10 },
-  { key: "loyal", label: "Loyal", threshold: 600, discountPercent: 15 },
-  { key: "vip", label: "VIP", threshold: 1000, discountPercent: 20 },
+  { key: "regular", label: "Regular", threshold: 300, discountPercent: 10 }, // i18n-ignore
+  { key: "loyal", label: "Loyal", threshold: 600, discountPercent: 15 }, // i18n-ignore
+  { key: "vip", label: "VIP", threshold: 1000, discountPercent: 20 }, // i18n-ignore
 ] as const;
 
 export function LoyaltyTiersExplainer({
@@ -20,6 +21,7 @@ export function LoyaltyTiersExplainer({
   points?: number;
 }) {
   const colors = useColors();
+  const t = useT();
   return (
     <View style={{ gap: 14 }}>
       <Text
@@ -31,9 +33,7 @@ export function LoyaltyTiersExplainer({
           opacity: 0.85,
         }}
       >
-        Earn 1 point for every $1 you spend at Presentail. Points are credited
-        once your order is delivered. Reach a tier and we'll mint a personal
-        discount coupon you can use on your next order.
+        {t.loyaltyTiersExplainer}
       </Text>
       <View
         style={{

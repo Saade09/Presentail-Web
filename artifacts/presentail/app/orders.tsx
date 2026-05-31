@@ -187,7 +187,7 @@ function OrdersScreen() {
               fontSize: 13,
             }}
           >
-            Your order history will appear here.
+            {t.ordersHistoryEmpty}
           </Text>
         </View>
       ) : (

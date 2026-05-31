@@ -4,6 +4,7 @@ import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native"
 
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 type Props = {
   label: string;
@@ -25,6 +26,7 @@ export function PhoneField({
   placeholder = "3000000",
 }: Props) {
   const colors = useColors();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -148,7 +150,7 @@ export function PhoneField({
                 color: colors.primary,
               }}
             >
-              Select country
+              {t.phoneSelectCountry}
             </Text>
             <Pressable onPress={() => setOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
@@ -177,7 +179,7 @@ export function PhoneField({
               <TextInput
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search country or code"
+                placeholder={t.phoneSearchCountry}
                 placeholderTextColor={colors.mutedForeground}
                 style={{
                   flex: 1,

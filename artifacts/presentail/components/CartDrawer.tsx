@@ -175,7 +175,7 @@ export function CartDrawer() {
           <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
             <Feather name="shopping-bag" size={40} color={colors.mutedForeground} />
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground }}>
-              Your cart is empty
+              {t.cartEmpty}
             </Text>
           </View>
         ) : (
@@ -458,7 +458,7 @@ export function CartDrawer() {
                 })}
               >
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1 }}>
-                  VIEW FULL CART
+                  {t.cartViewFullCart}
                 </Text>
               </Pressable>
             </View>

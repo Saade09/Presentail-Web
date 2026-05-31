@@ -36,7 +36,7 @@ export async function createMamoPayment(payload: {
     });
     return await res.json();
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? "Network error" };
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
   }
 }
 
@@ -60,6 +60,6 @@ export async function createPayPalOrder(payload: {
     });
     return await res.json();
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? "Network error" };
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
   }
 }

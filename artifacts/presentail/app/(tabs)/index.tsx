@@ -242,7 +242,7 @@ function HomeHeader({
             <Pressable
               hitSlop={10}
               onPress={() => router.push("/(tabs)/catalog")}
-              accessibilityLabel="Search"
+              accessibilityLabel="Search" // i18n-ignore
             >
               <Animated.View>
                 <Feather name="search" size={26} color="#fff" />
@@ -1413,7 +1413,7 @@ function ReviewsSection() {
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
         <SectionTitle
           eyebrow="From our clients"
-          title="Rated 4.6 over 837 reviews"
+          title="Rated 4.6 over 837 reviews" // i18n-ignore
         />
       </View>
       <FlatList

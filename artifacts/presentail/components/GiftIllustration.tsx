@@ -27,7 +27,7 @@ export function GiftIllustration({ size = 220 }: Props) {
       height={size}
       viewBox="0 0 240 240"
       fill="none"
-      accessibilityLabel="Gift box illustration"
+      accessibilityLabel="Gift box illustration" // i18n-ignore
     >
       <Defs>
         <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">

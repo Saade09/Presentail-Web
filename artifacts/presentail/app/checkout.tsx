@@ -2390,7 +2390,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                         label={t.expiryLabel}
                         value={cardExpiry}
                         onChangeText={(v: string) => setCardExpiry(fmtExpiry(v))}
-                        placeholder="MM/YY"
+                        placeholder="MM/YY" // i18n-ignore
                         keyboardType="number-pad"
                         maxLength={5}
                       />
@@ -2444,7 +2444,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           colors={colors}
           active={payMethod === "paypal"}
           onPress={() => tap("paypal")}
-          title="PayPal"
+          title="PayPal" // i18n-ignore
           payIcons="paypal"
         >
           {payMethod === "paypal" ? <SecurityNote colors={colors} /> : null}
@@ -2455,7 +2455,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           colors={colors}
           active={payMethod === "whish"}
           onPress={() => tap("whish")}
-          title="Whish Money"
+          title="Whish Money" // i18n-ignore
           payIcons="whish"
         />
               ) : null}
@@ -2464,7 +2464,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           colors={colors}
           active={payMethod === "western"}
           onPress={() => tap("western")}
-          title="Western Union"
+          title="Western Union" // i18n-ignore
           payIcons="western"
         />
               ) : null}

@@ -35,7 +35,7 @@ export function Wordmark({ size = 28, color, inverse }: WordmarkProps) {
       {isReady ? (
         <Image
           source={source}
-          accessibilityLabel="Presentail"
+          accessibilityLabel="Presentail" // i18n-ignore
           resizeMode="contain"
           style={{ width, height }}
         />

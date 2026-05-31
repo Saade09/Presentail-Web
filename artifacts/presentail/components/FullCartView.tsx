@@ -458,7 +458,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                     onPress={() => setCartMessage(null)}
                     hitSlop={10}
                     accessibilityRole="button"
-                    accessibilityLabel="Remove message"
+                    accessibilityLabel={t.cartRemoveMessage}
                   >
                     <Feather name="x-circle" size={16} color={colors.mutedForeground} />
                   </Pressable>

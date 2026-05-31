@@ -60,7 +60,7 @@ function FavoritesTab() {
       });
       const data = (await res.json()) as { ok: boolean; token?: string; message?: string };
       if (!data.ok || !data.token) {
-        throw new Error(data.message ?? "Could not create share link");
+        throw new Error(data.message ?? "Could not create share link"); // i18n-ignore
       }
       const shareUrl = `${WEB_BASE_URL}/favorites/share/${data.token}`;
       const sharePayload =
@@ -222,7 +222,7 @@ function FavoritesTab() {
               letterSpacing: 0.8,
             }}
           >
-            Discover products
+            {t.favoritesDiscoverProducts}
           </Text>
         </Pressable>
       </ScrollView>
@@ -279,7 +279,7 @@ function FavoritesTab() {
               opacity: pressed || sharing ? 0.6 : 1,
               backgroundColor: colors.background,
             })}
-            accessibilityLabel="Share my list"
+            accessibilityLabel={t.favoritesShareList}
           >
             <Ionicons name="share-outline" size={16} color={colors.primary} />
             <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>

@@ -60,6 +60,8 @@ const EN = {
   favoritesSignInDesc: "Create an account or sign in to save products you love.",
   favoritesSingular: "item saved",
   favoritesPlural: "items saved",
+  favoritesDiscoverProducts: "Discover products",
+  favoritesShareList: "Share my list",
 
   // Hero
   heroTitle: "Send a feeling, wrapped in petals.",
@@ -395,6 +397,8 @@ const EN = {
   cartClearConfirmCancel: "Cancel",
   cartClearConfirmAction: "Clear",
   cartEmptyDesc: "Add a bouquet, cake or boutique gift and it will appear here.",
+  cartViewFullCart: "VIEW FULL CART",
+  cartRemoveMessage: "Remove message",
   cartBrowseBoutique: "Browse the boutique",
   cartDelivery: "Delivery",
   cartFree: "Free",
@@ -592,6 +596,7 @@ const EN = {
   ordersItem: "item",
   ordersItems: "items",
   ordersTrackOrder: "Track order",
+  ordersHistoryEmpty: "Your order history will appear here.",
 
   // ── Brand page ──
 
@@ -804,6 +809,26 @@ const EN = {
   cartUpsellsTabBears: "Bears",
   cartUpsellsTabCandles: "Candles",
   cartUpsellsAddedToast: "Added to your cart",
+
+  // ── Phone field ──
+  phoneSelectCountry: "Select country",
+  phoneSearchCountry: "Search country or code",
+
+  // ── Product card ──
+  freeDelivery: "FREE DELIVERY",
+
+  // ── Loyalty screen ──
+  loyaltyActiveCoupons: "Your active coupons",
+  loyaltyHowTiersWork: "How tiers work",
+  loyaltyCurrentTier: "Current tier",
+  loyaltyTopTierThankYou: "You're at our top tier — thank you for being a Presentail VIP.",
+  loyaltyTiersExplainer: "Earn 1 point for every $1 you spend at Presentail. Points are credited once your order is delivered. Reach a tier and we'll mint a personal discount coupon you can use on your next order.",
+
+  // ── Error boundaries ──
+  errorSomethingWrong: "Something went wrong",
+  errorReloadApp: "Please reload the app to continue.",
+  errorTryAgain: "Try Again",
+  errorScreenSomethingWrong: "Something went wrong on this screen",
 };
 
 const AR: typeof EN = {
@@ -822,6 +847,8 @@ const AR: typeof EN = {
   favoritesSignInDesc: "أنشئ حساباً أو سجّل دخولك لحفظ المنتجات التي تعجبك.",
   favoritesSingular: "عنصر محفوظ",
   favoritesPlural: "عناصر محفوظة",
+  favoritesDiscoverProducts: "اكتشف المنتجات",
+  favoritesShareList: "مشاركة قائمتي",
 
   // Hero
   heroTitle: "أهدِ شعوراً، ملفوفاً بالبتلات.",
@@ -1157,6 +1184,8 @@ const AR: typeof EN = {
   cartClearConfirmCancel: "إلغاء",
   cartClearConfirmAction: "مسح",
   cartEmptyDesc: "أضف باقة أو كعكة أو هدية من البوتيك وستظهر هنا.",
+  cartViewFullCart: "عرض السلة كاملة",
+  cartRemoveMessage: "إزالة الرسالة",
   cartBrowseBoutique: "تصفّح البوتيك",
   cartDelivery: "التوصيل",
   cartFree: "مجاني",
@@ -1349,6 +1378,7 @@ const AR: typeof EN = {
   ordersItem: "عنصر",
   ordersItems: "عناصر",
   ordersTrackOrder: "تتبّع الطلب",
+  ordersHistoryEmpty: "سيظهر سجل طلباتك هنا.",
 
   // ── Brand page ──
 
@@ -1561,6 +1591,26 @@ const AR: typeof EN = {
   cartUpsellsTabBears: "دببة",
   cartUpsellsTabCandles: "شموع",
   cartUpsellsAddedToast: "تمت الإضافة إلى العربة",
+
+  // ── Phone field ──
+  phoneSelectCountry: "اختر الدولة",
+  phoneSearchCountry: "ابحث عن دولة أو رمز",
+
+  // ── Product card ──
+  freeDelivery: "توصيل مجاني",
+
+  // ── Loyalty screen ──
+  loyaltyActiveCoupons: "قسائمك النشطة",
+  loyaltyHowTiersWork: "كيف تعمل المستويات",
+  loyaltyCurrentTier: "مستواك الحالي",
+  loyaltyTopTierThankYou: "أنت في أعلى مستوياتنا — شكراً لكونك من VIP Presentail.",
+  loyaltyTiersExplainer: "اكسب نقطة واحدة مقابل كل دولار تنفقه في Presentail. تُضاف النقاط بمجرد تسليم طلبك. بلّغ مستوى معيناً ونمنحك قسيمة خصم شخصية لاستخدامها في طلبك التالي.",
+
+  // ── Error boundaries ──
+  errorSomethingWrong: "حدث خطأ ما",
+  errorReloadApp: "يرجى إعادة تحميل التطبيق للمتابعة.",
+  errorTryAgain: "حاول مجدداً",
+  errorScreenSomethingWrong: "حدث خطأ في هذه الشاشة",
 };
 
 const FR: typeof EN = {
@@ -1579,6 +1629,8 @@ const FR: typeof EN = {
   favoritesSignInDesc: "Créez un compte ou connectez-vous pour sauvegarder les produits que vous aimez.",
   favoritesSingular: "article enregistré",
   favoritesPlural: "articles enregistrés",
+  favoritesDiscoverProducts: "Découvrir les produits",
+  favoritesShareList: "Partager ma liste",
 
   // Hero
   heroTitle: "Offrez une émotion, enveloppée de pétales.",
@@ -1914,6 +1966,8 @@ const FR: typeof EN = {
   cartClearConfirmCancel: "Annuler",
   cartClearConfirmAction: "Vider",
   cartEmptyDesc: "Ajoutez un bouquet, un gâteau ou un cadeau et il apparaîtra ici.",
+  cartViewFullCart: "VOIR LE PANIER",
+  cartRemoveMessage: "Supprimer le message",
   cartBrowseBoutique: "Parcourir la boutique",
   cartDelivery: "Livraison",
   cartFree: "Offerte",
@@ -2109,6 +2163,7 @@ const FR: typeof EN = {
   ordersItem: "article",
   ordersItems: "articles",
   ordersTrackOrder: "Suivre la commande",
+  ordersHistoryEmpty: "Votre historique de commandes apparaîtra ici.",
 
   // ── Brand page ──
 
@@ -2321,6 +2376,26 @@ const FR: typeof EN = {
   cartUpsellsTabBears: "Ours",
   cartUpsellsTabCandles: "Bougies",
   cartUpsellsAddedToast: "Ajouté à votre panier",
+
+  // ── Phone field ──
+  phoneSelectCountry: "Sélectionner un pays",
+  phoneSearchCountry: "Rechercher un pays ou un indicatif",
+
+  // ── Product card ──
+  freeDelivery: "LIVRAISON GRATUITE",
+
+  // ── Loyalty screen ──
+  loyaltyActiveCoupons: "Vos bons actifs",
+  loyaltyHowTiersWork: "Comment fonctionnent les paliers",
+  loyaltyCurrentTier: "Palier actuel",
+  loyaltyTopTierThankYou: "Vous êtes à notre palier le plus élevé — merci d'être un VIP Presentail.",
+  loyaltyTiersExplainer: "Gagnez 1 point pour chaque dollar dépensé chez Presentail. Les points sont crédités dès la livraison de votre commande. Atteignez un palier et nous vous offrirons un bon de réduction personnel à utiliser sur votre prochaine commande.",
+
+  // ── Error boundaries ──
+  errorSomethingWrong: "Une erreur s'est produite",
+  errorReloadApp: "Veuillez recharger l'application pour continuer.",
+  errorTryAgain: "Réessayer",
+  errorScreenSomethingWrong: "Une erreur s'est produite sur cet écran",
 };
 
 export const translations: Record<Lang, typeof EN> = { EN, AR, FR };

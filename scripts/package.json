@@ -19,6 +19,7 @@
     "check-unused-mobile-translations": "tsx ./src/checkUnusedMobileTranslationKeys.ts",
     "check-unused-web-translations": "tsx ./src/checkUnusedWebTranslationKeys.ts",
     "check-hardcoded-web-strings": "tsx ./src/checkHardcodedWebStrings.ts",
+    "check-hardcoded-mobile-strings": "tsx ./src/checkHardcodedMobileStrings.ts",
     "check-translations": "tsx ./src/checkUnusedMobileTranslationKeys.ts && tsx ./src/checkUnusedWebTranslationKeys.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

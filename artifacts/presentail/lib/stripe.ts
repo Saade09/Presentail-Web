@@ -69,6 +69,6 @@ export async function createStripeCheckoutSession(payload: {
     const json = await res.json();
     return json;
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? "Network error" };
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
   }
 }

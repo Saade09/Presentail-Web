@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { LoyaltyTiersExplainer } from "@/components/loyalty/LoyaltyTiersInfo";
@@ -44,6 +45,7 @@ type FetchState =
 
 function LoyaltyScreen() {
   const colors = useColors();
+  const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isRTL } = useLanguage();
@@ -69,7 +71,7 @@ function LoyaltyScreen() {
       if (!res.ok || !data.ok || !data.loyalty) {
         setState({
           kind: "error",
-          message: data.message ?? "Couldn't load your points.",
+          message: data.message ?? "Couldn't load your points.", // i18n-ignore
         });
         return;
       }
@@ -77,7 +79,7 @@ function LoyaltyScreen() {
     } catch (err: any) {
       setState({
         kind: "error",
-        message: err?.message ?? "Couldn't load your points.",
+        message: err?.message ?? "Couldn't load your points.", // i18n-ignore
       });
     }
   }, [token]);
@@ -127,7 +129,7 @@ function LoyaltyScreen() {
             textAlign: isRTL ? "right" : "left",
           }}
         >
-          Presentail Points
+          Presentail Points {/* i18n-ignore */}
         </Text>
       </View>
 
@@ -177,7 +179,7 @@ function LoyaltyScreen() {
                   textAlign: isRTL ? "right" : "left",
                 }}
               >
-                Your active coupons
+                {t.loyaltyActiveCoupons}
               </Text>
               {state.loyalty.coupons.map((c) => (
                 <CouponRow
@@ -200,7 +202,7 @@ function LoyaltyScreen() {
                 textAlign: isRTL ? "right" : "left",
               }}
             >
-              How tiers work
+              {t.loyaltyHowTiersWork}
             </Text>
             <LoyaltyTiersExplainer
               current={state.loyalty.tier.key}
@@ -290,7 +292,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
               textTransform: "uppercase",
             }}
           >
-            Current tier
+            {t.loyaltyCurrentTier}
           </Text>
           <Text
             style={{
@@ -342,7 +344,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
             color: colors.mutedForeground,
           }}
         >
-          You're at our top tier — thank you for being a Presentail VIP.
+          {t.loyaltyTopTierThankYou}
         </Text>
       )}
     </View>

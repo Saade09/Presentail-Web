@@ -132,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, message: `${e?.message ?? "Network error"} (URL: ${url.split("?")[0]})` };
+      return { ok: false, message: `${e?.message ?? "Network error"} (URL: ${url.split("?")[0]})` }; // i18n-ignore
     }
   }, [persist]);
 
@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        return { ok: false, message: data?.message ?? "Registration failed" };
+        return { ok: false, message: data?.message ?? "Registration failed" }; // i18n-ignore
       }
       if (data.token && data.user) {
         setToken(data.token);
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, message: e?.message ?? "Network error" };
+      return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
     }
   }, [persist]);
 
@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist, token]);
 
   const deleteAccount: AuthState["deleteAccount"] = useCallback(async () => {
-    if (!user || !token) return { ok: false, message: "Not signed in" };
+    if (!user || !token) return { ok: false, message: "Not signed in" }; // i18n-ignore
     try {
       const res = await fetch(`${API_BASE}/api/auth/me`, {
         method: "DELETE",
@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        return { ok: false, message: data?.message ?? "Delete failed" };
+        return { ok: false, message: data?.message ?? "Delete failed" }; // i18n-ignore
       }
       // Token cleanup happens inside logout(), but we also call it here
       // explicitly with the still-valid token so the server can remove
@@ -205,12 +205,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await logout();
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, message: e?.message ?? "Network error" };
+      return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
     }
   }, [user, token, logout]);
 
   const updateProfile: AuthState["updateProfile"] = useCallback(async (input) => {
-    if (!user || !token) return { ok: false, message: "Not signed in" };
+    if (!user || !token) return { ok: false, message: "Not signed in" }; // i18n-ignore
     try {
       const res = await fetch(`${API_BASE}/api/auth/me`, {
         method: "PUT",
@@ -223,13 +223,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        return { ok: false, message: data?.message ?? "Update failed" };
+        return { ok: false, message: data?.message ?? "Update failed" }; // i18n-ignore
       }
       setUser(data.user ?? user);
       await persist(token, data.user ?? user);
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, message: e?.message ?? "Network error" };
+      return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
     }
   }, [user, token, persist]);
 
