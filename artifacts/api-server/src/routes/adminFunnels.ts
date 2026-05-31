@@ -841,7 +841,7 @@ const DASHBOARD_HTML = `<!doctype html>
 </head>
 <body>
   <h1>Checkout Funnels</h1>
-  <div class="sub">Per-day, per-platform conversion. Numbers come from the same aggregator the Slack alerts use, so this view never disagrees with the alert thresholds.</div>
+  <div class="sub">Per-day, per-platform conversion. Numbers come from the same aggregator the Slack alerts use, so this view never disagrees with the alert thresholds. &nbsp;·&nbsp; <a href="/api/admin/fx-health/dashboard">FX Rate Health &rarr;</a></div>
 
   <div id="coverageAlertBanner" role="alert" aria-live="polite"></div>
 
