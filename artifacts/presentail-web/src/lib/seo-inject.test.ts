@@ -296,6 +296,66 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     expect(fetchMock.mock.calls[0][0]).not.toContain("/api/woo/occasion");
     expect(out).toContain("<title>Roses | Presentail</title>");
   });
+
+  it("serves occasion from entity cache on second call within TTL (no extra API call)", async () => {
+    const pngBuf = makePngBuffer(800, 533);
+    const imageUrl = "https://cdn.cache-hit-test/occasion-cache-hit-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "Cache Hit Occasion",
+              description: "Occasion served from cache on second call.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const callOpts = {
+      apiBaseUrl: "https://api.cache-hit-test",
+      origin: "https://presentail.cache-hit-test",
+      basePath: "",
+      search: "?occasion=cache-hit-occasion-unique-slug",
+    };
+
+    // First call (miss): entity fetched from API and cached.
+    const out1 = await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/shop",
+      callOpts,
+    );
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+    expect(out1).toContain("<title>Cache Hit Occasion | Presentail</title>");
+
+    // Second call immediately (TTL not expired, no ETag): served from cache.
+    const out2 = await injectSeoTagsAsync(
+      CACHE_INV_HTML,
+      "/en-ae/dubai/shop",
+      callOpts,
+    );
+    expect(entityFetchCount).toBe(1); // entity served from cache
+    expect(dimsFetchCount).toBe(1);   // dims served from cache
+    expect(out2).toContain("<title>Cache Hit Occasion | Presentail</title>");
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 });
 
 describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
@@ -353,7 +413,7 @@ describe("injectSeoTagsAsync — /brands?category=<slug>", () => {
     });
     const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/brands", {
       ...OPTS,
-      search: "?occasion=birthday",
+      search: "?occasion=birthday-brands-unique",
     });
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(out).toContain(
@@ -1388,6 +1448,108 @@ describe("image dims cache invalidation — brand (string image field)", () => {
   });
 });
 
+describe("image dims cache invalidation — occasion (string image field)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("re-fetches image dims after occasion entity cache expires", async () => {
+    const pngBuf = makePngBuffer(600, 400);
+    const imageUrl = "https://cdn.cache-inv-test/occasion-cache-inv-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "Cache Inv Occasion",
+              description: "Occasion dims eviction test.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const callOpts = {
+      ...CACHE_INV_OPTS,
+      search: "?occasion=cache-inv-occasion-unique-slug",
+    };
+
+    // First call: entity + dims freshly fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Advance past entity TTL only (dims TTL is 1 h, far in the future).
+    vi.setSystemTime(new Date(Date.now() + 61_000));
+
+    // Second call: entity cache miss → fresh fetch → evictImageDims → dims re-fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(2);
+  });
+
+  it("does NOT re-fetch image dims when occasion entity is served from cache (dims reused)", async () => {
+    const pngBuf = makePngBuffer(800, 533);
+    const imageUrl = "https://cdn.cache-inv-test/occasion-cache-dims-hit-unique.png";
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion")) {
+        entityFetchCount++;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            occasion: {
+              name: "Cache Dims Hit Occasion",
+              description: "Dims should be reused within TTL.",
+              image: imageUrl,
+            },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const callOpts = {
+      ...CACHE_INV_OPTS,
+      search: "?occasion=cache-dims-hit-occasion-unique-slug",
+    };
+
+    // First call: entity + dims freshly fetched.
+    await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call immediately (entity cache still valid → no eviction → dims reused).
+    await injectSeoTagsAsync(CACHE_INV_HTML, "/en-ae/dubai/shop", callOpts);
+    expect(entityFetchCount).toBe(1); // entity served from cache
+    expect(dimsFetchCount).toBe(1);   // dims served from cache (no eviction)
+  });
+});
+
 describe("image dims cache invalidation — wishlist path (evictImageDims on wishlist cache miss)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -1774,6 +1936,49 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
 
     // Second call within TTL: conditional request → 304 → no dims re-fetch.
     await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/brand/etag-304-withinttl-brand", ETAG_OPTS);
+    expect(entityFetchCount).toBe(2);
+    expect(dimsFetchCount).toBe(1);
+  });
+
+  it("does NOT re-fetch image dims on a 304 response within cache TTL (occasion)", async () => {
+    const pngBuf = makePngBuffer(600, 400);
+    const imageUrl = "https://cdn.etag-test/occasion-etag-304-withinttl-unique.png";
+    const entityEtag = '"etag-v1-within-ttl-occasion-304"';
+    let entityFetchCount = 0;
+    let dimsFetchCount = 0;
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        entityFetchCount++;
+        const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
+        if (ifNoneMatch === entityEtag) {
+          return { ok: false, status: 304, headers: makeFakeHeaders({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: makeFakeHeaders({ etag: entityEtag }),
+          json: async () => ({
+            ok: true,
+            occasion: { name: "ETag Within-TTL Occasion", description: "Occasion within-TTL test.", image: imageUrl },
+          }),
+        };
+      }
+      dimsFetchCount++;
+      return { ok: true, status: 206, arrayBuffer: async () => pngBuf };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const occasionOpts = { ...ETAG_OPTS, search: "?occasion=etag-304-withinttl-occasion-unique" };
+
+    // First call: entity + dims freshly fetched; ETag stored in entity cache.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/shop", occasionOpts);
+    expect(entityFetchCount).toBe(1);
+    expect(dimsFetchCount).toBe(1);
+
+    // Second call within TTL: conditional request with If-None-Match → 304 → no dims re-fetch.
+    await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/shop", occasionOpts);
     expect(entityFetchCount).toBe(2);
     expect(dimsFetchCount).toBe(1);
   });

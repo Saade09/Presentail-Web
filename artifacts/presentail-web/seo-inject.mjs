@@ -1770,11 +1770,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       result = buildCategoryHead({ category, imageDimensions: catImageDims, search, ...headOpts });
     }
   } else if (occasionSlug) {
-    const occasionResult = await fetchOccasionForSeo({
+    const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
       slug: occasionSlug,
       ...fetchOpts,
     });
-    const occasion = occasionResult?.value ?? null;
     if (occasion) {
       const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
       const occImageDims = await fetchImageDimensions(occImageUrl);
