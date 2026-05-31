@@ -80,6 +80,10 @@ jobs:
           # This job also runs check-chunk-budget, so a budget violation blocks the PR.
           WEB_SERVE_CHECK="Web serve checks / Build → serve → compression + sidecar-blocking checks"
 
+          # lib-typecheck.yml (name: Lib type-check) defines one job:
+          #   lib-typecheck  → "Type-check all lib packages"
+          LIB_TYPECHECK="Lib type-check / Type-check all lib packages"
+
           echo "Fetching current required-status-check config for ${BRANCH}…"
 
           # The endpoint returns 404 when branch protection is not yet configured.
@@ -102,7 +106,8 @@ jobs:
             --arg webLint         "$WEB_LINT" \
             --arg webTest         "$WEB_TEST" \
             --arg webServeCheck   "$WEB_SERVE_CHECK" \
-            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck] | unique')
+            --arg libTypecheck    "$LIB_TYPECHECK" \
+            '(.contexts // []) + [$mobile, $web, $dict, $hc, $hcm, $api, $tsc, $mobileLint, $mobileTsc, $webTsc, $webLint, $webTest, $webServeCheck, $libTypecheck] | unique')
 
           echo "Resulting required contexts:"
           echo "$MERGED" | jq -r '.[]'

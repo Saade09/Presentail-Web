@@ -1,0 +1,40 @@
+name: Lib type-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - ".github/workflows/lib-typecheck.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - ".github/workflows/lib-typecheck.yml"
+
+jobs:
+  lib-typecheck:
+    name: Type-check all lib packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build & type-check all composite libs
+        run: pnpm run typecheck:libs
+
+      - name: Per-lib type-check (composite libs)
+        run: pnpm -r --filter "./lib/**" --if-present run typecheck
