@@ -1,8 +1,8 @@
 /**
  * checkTranslations
  *
- * Unified translation-health orchestrator.  Runs all four translation checkers
- * in sequence and aggregates their results into a single pass/fail report:
+ * Unified translation-health orchestrator.  Runs all translation checkers
+ * in parallel and aggregates their results into a single pass/fail report:
  *
  *   1. checkUnusedMobileTranslationKeys — unused/missing/placeholder keys in
  *      the mobile three-locale catalogue (EN / AR / FR).
@@ -12,11 +12,14 @@
  *      useT() on mobile.
  *   4. checkHardcodedWebStrings        — JSX text that should go through t()
  *      on the web storefront.
+ *   5. checkHardcodedApiStrings        — user-facing strings that should be
+ *      localised in the API server responses.
  *
  * Each checker is spawned as a child process so its own process.exit() calls
- * are contained.  stdout and stderr are forwarded in real time.  At the end a
- * compact summary table is printed and this process exits with code 1 when any
- * checker failed.
+ * are contained.  All checkers run concurrently; stdout/stderr are buffered
+ * per checker and flushed to the terminal in a single grouped block once the
+ * checker finishes.  At the end a compact summary table is printed and this
+ * process exits with code 1 when any checker failed.
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run check-translations [--verbose]
@@ -24,7 +27,7 @@
  * --verbose is forwarded to each sub-checker that supports it.
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -58,30 +61,51 @@ const CHECKERS: { name: string; script: string }[] = [
 type Result = {
   name: string;
   passed: boolean;
+  output: string;
 };
 
-const results: Result[] = [];
+function runChecker(checker: { name: string; script: string }): Promise<Result> {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, checker.script);
+    const args = verbose ? ["--verbose"] : [];
 
-for (const checker of CHECKERS) {
-  const scriptPath = path.join(__dirname, checker.script);
-  const args = verbose ? ["--verbose"] : [];
+    const chunks: Buffer[] = [];
 
+    const proc = spawn(
+      process.execPath,
+      ["--import", "tsx/esm", scriptPath, ...args],
+      { env: { ...process.env } },
+    );
+
+    proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    proc.stderr.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+    proc.on("error", (err) => {
+      chunks.push(Buffer.from(`\nFailed to spawn checker: ${err.message}\n`));
+      resolve({ name: checker.name, passed: false, output: Buffer.concat(chunks).toString() });
+    });
+
+    proc.on("close", (code) => {
+      resolve({
+        name: checker.name,
+        passed: code === 0,
+        output: Buffer.concat(chunks).toString(),
+      });
+    });
+  });
+}
+
+// ── Run all checkers concurrently ─────────────────────────────────────────────
+
+const results = await Promise.all(CHECKERS.map(runChecker));
+
+// ── Print buffered output grouped per checker ─────────────────────────────────
+
+for (const result of results) {
   console.log(`\n${"─".repeat(72)}`);
-  console.log(`▶  ${checker.name}`);
+  console.log(`▶  ${result.name}`);
   console.log(`${"─".repeat(72)}`);
-
-  const proc = spawnSync(
-    process.execPath,
-    ["--import", "tsx/esm", scriptPath, ...args],
-    { stdio: "inherit", env: { ...process.env } },
-  );
-
-  const passed = proc.status === 0;
-  results.push({ name: checker.name, passed });
-
-  if (proc.error) {
-    console.error(`\nFailed to spawn checker: ${proc.error.message}`);
-  }
+  process.stdout.write(result.output);
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
