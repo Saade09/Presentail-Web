@@ -109,7 +109,7 @@ function AuthScreen() {
       case "lookup_unavailable":
         return t.authEmailCheckFailed;
       case "server":
-        return err.serverMessage || t.authGenericError;
+        return t.authGenericError;
     }
   };
 

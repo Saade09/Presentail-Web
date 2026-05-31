@@ -63,7 +63,7 @@ function ResetPasswordScreen() {
       else if (r.code === "weak_password") setErrorMessage(t.authResetWeak);
       else if (r.code === "missing_link") setErrorMessage(t.authResetMissingLink);
       else if (r.code === "network") setErrorMessage(t.authNetworkError);
-      else setErrorMessage(r.serverMessage || t.authGenericError);
+      else setErrorMessage(t.authGenericError);
       return;
     }
     setSuccess(true);
