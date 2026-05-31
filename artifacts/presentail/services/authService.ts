@@ -20,6 +20,7 @@ export type AuthErrorCode =
   | "unknown_email"
   | "lookup_failed"
   | "lookup_unavailable"
+  | "wrong_password"
   | "server";
 
 export type AuthError = {
@@ -77,7 +78,7 @@ export async function checkEmailExists(
 export type LoginFn = (
   email: string,
   password: string,
-) => Promise<{ ok: true } | { ok: false; message: string }>;
+) => Promise<{ ok: true } | { ok: false; message: string; code?: string }>;
 
 export type RegisterFn = (input: {
   email: string;
@@ -99,6 +100,9 @@ export async function signInWithEmail(
 ): Promise<AuthResult> {
   const r = await login(email.trim(), password);
   if (r.ok) return { ok: true };
+  if (!r.ok && /incorrect_password/i.test(r.code ?? "")) {
+    return { ok: false, code: "wrong_password" };
+  }
   return { ok: false, code: "server", serverMessage: r.message };
 }
 

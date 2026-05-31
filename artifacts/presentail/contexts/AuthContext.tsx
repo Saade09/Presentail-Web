@@ -38,7 +38,7 @@ export type AuthState = {
   ready: boolean;
   user: AuthUser | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>;
+  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string; code?: string }>;
   register: (input: {
     email: string;
     password: string;
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON */ }
       if (!res.ok || !data?.ok) {
         const fallback = `HTTP ${res.status} from ${url.split("?")[0]}${text ? ` — ${text.slice(0, 100)}` : ""}`;
-        return { ok: false, message: data?.message ?? fallback };
+        return { ok: false, message: data?.message ?? fallback, code: data?.code };
       }
       setToken(data.token ?? null);
       setUser(data.user ?? null);

@@ -554,8 +554,10 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
 
     if (!tokenRes.ok || !tokenData?.token) {
       loginEmailLimiter.record(email);
+      const wpCode = typeof tokenData?.code === "string" ? tokenData.code : undefined;
       return res.status(401).json({
         ok: false,
+        code: wpCode,
         message: tokenData?.message?.replace(/<[^>]*>/g, "") ?? "Invalid email or password",
       });
     }

@@ -108,6 +108,8 @@ function AuthScreen() {
       case "lookup_failed":
       case "lookup_unavailable":
         return t.authEmailCheckFailed;
+      case "wrong_password":
+        return t.authWrongPassword;
       case "server":
         return t.authGenericError;
     }
