@@ -68,7 +68,7 @@ export default [
       reportUnusedDisableDirectives: "off",
     },
     rules: {
-      "presentail/no-orphan-translation-key": "warn",
+      "presentail/no-orphan-translation-key": "error",
     },
   },
 ];
