@@ -156,6 +156,7 @@ export default function SignInPage() {
       return;
     }
     setEmailError(null);
+    trackEvent({ name: "signin_page_action", action: "continue" });
     if (!isLoaded || !signIn) {
       toast({
         title: t("auth.toast.error"),
