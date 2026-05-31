@@ -34,17 +34,18 @@ on:
   # correct for push-to-main scenarios (dorny/paths-filter behaves differently
   # on push vs pull_request — it compares against the previous commit rather
   # than the PR base).  Select which artifact to simulate as changed; all
-  # downstream jobs obey the same "mobile"/"web" outputs so you can confirm
-  # that, e.g., choosing "mobile-only" skips every web job and vice-versa.
+  # downstream jobs obey the same "mobile"/"web"/"libs" outputs so you can
+  # confirm that, e.g., choosing "libs-only" triggers both jobs even when no
+  # artifact file changed.
   workflow_dispatch:
     inputs:
       simulate_changed:
         description: >
           Simulate which artifact changed.  Use "detect" to run the normal
           paths-filter against the HEAD commit (useful after a direct push to
-          main); use "mobile-only", "web-only", "api-only", or "all" to
-          force-enable the corresponding downstream jobs without relying on git
-          diff.
+          main); use "mobile-only", "web-only", "api-only", "libs-only", or
+          "all" to force-enable the corresponding downstream jobs without
+          relying on git diff.
         required: false
         default: detect
         type: choice
@@ -53,6 +54,7 @@ on:
           - mobile-only
           - web-only
           - api-only
+          - libs-only
           - both
           - all
 
@@ -75,6 +77,10 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile || steps.override.outputs.mobile }}
       web: ${{ steps.filter.outputs.web || steps.override.outputs.web }}
       api: ${{ steps.filter.outputs.api || steps.override.outputs.api }}
+      # libs is true when only shared-library files change (no artifact source
+      # touched).  Downstream jobs OR this with their own artifact outputs so
+      # a lib-only PR never silently skips the hardcoded-strings check.
+      libs: ${{ steps.filter.outputs.libs || steps.override.outputs.libs }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -100,7 +106,6 @@ jobs:
               - 'artifacts/presentail/**'
               - 'artifacts/presentail/app/**/*.tsx'
               - 'artifacts/presentail/src/**/*.tsx'
-              - 'lib/**'
               - 'scripts/src/checkTranslations.ts'
               - 'scripts/src/checkUnusedMobileTranslationKeys.ts'
               - 'scripts/src/checkHardcodedMobileStrings.ts'
@@ -109,7 +114,6 @@ jobs:
             web:
               - 'artifacts/presentail-web/**'
               - 'artifacts/presentail-web/src/**/*.tsx'
-              - 'lib/**'
               - 'scripts/src/checkTranslations.ts'
               - 'scripts/src/checkUnusedWebTranslationKeys.ts'
               - 'scripts/src/checkHardcodedWebStrings.ts'
@@ -119,6 +123,14 @@ jobs:
               - 'artifacts/api-server/**'
               - 'artifacts/api-server/src/**/*.ts'
               - 'scripts/src/checkTranslations.ts'
+              - 'scripts/src/checkHardcodedApiStrings.ts'
+              - 'scripts/package.json'
+              - '.github/workflows/check-translations.yml'
+            libs:
+              - 'lib/**'
+              - 'scripts/src/checkTranslations.ts'
+              - 'scripts/src/checkHardcodedMobileStrings.ts'
+              - 'scripts/src/checkHardcodedWebStrings.ts'
               - 'scripts/src/checkHardcodedApiStrings.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
@@ -133,22 +145,27 @@ jobs:
           mobile=false
           web=false
           api=false
+          libs=false
           case "$sim" in
             mobile-only) mobile=true ;;
             web-only)    web=true ;;
             api-only)    api=true ;;
+            libs-only)   libs=true ;;
             both)        mobile=true; web=true ;;
-            all)         mobile=true; web=true; api=true ;;
+            all)         mobile=true; web=true; api=true; libs=true ;;
           esac
           echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
           echo "web=$web"       >> "$GITHUB_OUTPUT"
           echo "api=$api"       >> "$GITHUB_OUTPUT"
-          echo "Smoke-test: simulate_changed=$sim → mobile=$mobile web=$web api=$api"
+          echo "libs=$libs"     >> "$GITHUB_OUTPUT"
+          echo "Smoke-test: simulate_changed=$sim → mobile=$mobile web=$web api=$api libs=$libs"
 
   locale-dictionary-tests:
     name: Locale dictionary tests (web)
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: >
+      needs.changes.outputs.web == 'true' ||
+      needs.changes.outputs.libs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -253,7 +270,8 @@ jobs:
     if: >
       needs.changes.outputs.mobile == 'true' ||
       needs.changes.outputs.web == 'true' ||
-      needs.changes.outputs.api == 'true'
+      needs.changes.outputs.api == 'true' ||
+      needs.changes.outputs.libs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
