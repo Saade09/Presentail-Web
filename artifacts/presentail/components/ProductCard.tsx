@@ -13,6 +13,10 @@ import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
+import {
+  loadProductDetailScreen,
+  prefetchOnInteraction,
+} from "@/lib/prefetchScreens";
 import { freeDeliveryThresholdNative } from "@workspace/delivery";
 
 const imageLoadedCache = new Set<string>();
@@ -70,6 +74,7 @@ export function ProductCard({ product, width, onPress }: Props) {
     <Animated.View style={{ opacity: fadeAnim, width }}>
     <Pressable
       onPress={handlePress}
+      {...prefetchOnInteraction(loadProductDetailScreen)}
       style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
     >
       <View

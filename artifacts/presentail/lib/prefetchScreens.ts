@@ -30,6 +30,28 @@ export function prefetchOnIdle(loaders: Loader[]): void {
   });
 }
 
+/**
+ * Returns an `onPressIn` prop that triggers a dynamic-import prefetch the
+ * first time the user begins pressing an element — the mobile equivalent of
+ * the web's `onMouseEnter` hover-prefetch pattern.
+ *
+ * Because `onPressIn` fires before the press completes, the JS module starts
+ * loading during the ~100–200 ms the user holds their finger down, so the
+ * screen transition that follows is noticeably faster.
+ *
+ * Pass the same loader function reference on every render (e.g. a
+ * module-level constant) so the `prefetched` set de-duplication works
+ * correctly and the import is only issued once.
+ */
+export function prefetchOnInteraction(loader: Loader): { onPressIn: () => void } {
+  const trigger = () => {
+    if (prefetched.has(loader)) return;
+    prefetched.add(loader);
+    loader().catch(() => {});
+  };
+  return { onPressIn: trigger };
+}
+
 // Module-level constants so the Set deduplication works correctly:
 // the same function reference is passed on every render.
 export const loadCatalogScreen = () => import("../app/(tabs)/catalog");

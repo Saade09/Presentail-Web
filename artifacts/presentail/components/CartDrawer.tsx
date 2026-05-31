@@ -34,6 +34,7 @@ import {
 } from "@workspace/delivery";
 import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
 import { trackEvent } from "@/lib/analytics";
+import { loadCheckoutScreen, prefetchOnIdle } from "@/lib/prefetchScreens";
 
 export function CartDrawer() {
   const colors = useColors();
@@ -68,10 +69,13 @@ export function CartDrawer() {
   // Emit one cart_viewed funnel event each time the drawer opens. Using
   // a wasOpen ref so quick re-renders while the drawer is already open
   // don't duplicate the entry-point event.
+  // Also kick off a checkout-screen prefetch — opening the cart is a
+  // strong signal that the user may proceed to checkout.
   const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
     if (isCartOpen && !wasOpenRef.current) {
       trackEvent({ name: "cart_viewed", surface: "cart" });
+      prefetchOnIdle([loadCheckoutScreen]);
     }
     wasOpenRef.current = isCartOpen;
   }, [isCartOpen]);
