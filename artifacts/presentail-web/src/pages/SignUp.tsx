@@ -1,6 +1,7 @@
 import { useRef, useMemo, useState } from "react";
 import { useSignUp } from "@clerk/react/legacy";
 import { useLocation, useRouter } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -156,6 +157,23 @@ export default function SignUpPage() {
         className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm"
         data-testid="signup-card"
       >
+        {step === "details" && (
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                setLocation("/sign-in");
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+            data-testid="button-signup-back-page"
+          >
+            <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            {t("checkout.back")}
+          </button>
+        )}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-serif">{t("auth.signup")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
