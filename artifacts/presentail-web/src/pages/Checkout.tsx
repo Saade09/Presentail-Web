@@ -492,10 +492,12 @@ export default function Checkout() {
 
   const currentCountryCities = activeCities;
   const _selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
-  // Per-city fees come from the OS cache (via /api/delivery-locations) so
-  // toggling a fee in Presentail OS propagates within the polling interval.
-  // Falling back to 0 keeps the math safe if the API payload is missing.
+  // Per-city fees and free-delivery rules come from the OS cache (via
+  // /api/delivery-locations) so changes in Presentail OS propagate within
+  // the polling interval. The OS threshold/enabled flag override the
+  // hardcoded per-country defaults in checkoutFees.ts.
   const selectedCity = selectedCityData;
+  const osCountryData = locations?.countries.find((c) => c.code === countryCode);
   const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
     subtotal,
     countryCode,
@@ -504,6 +506,8 @@ export default function Checkout() {
     deliveryMode,
     timeSlots,
     deliverySlot,
+    freeDeliveryThresholdUsd: osCountryData?.freeDeliveryThresholdUsd,
+    freeDeliveryEnabled: osCountryData?.freeDeliveryEnabled,
   });
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"

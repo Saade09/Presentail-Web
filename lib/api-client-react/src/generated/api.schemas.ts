@@ -546,6 +546,10 @@ export interface DeliveryCountry {
   /** Optional id of the city to highlight as the default. */
   preferredDefaultCityId?: string;
   localizedNames?: LocalizedNames;
+  /** Free-delivery threshold in USD from Presentail OS. Use for fee calculation at checkout. Falls back to the hardcoded per-country default when absent. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total. */
+  freeDeliveryEnabled?: boolean;
 }
 
 export type HomepageBannerMediaType =
@@ -955,14 +959,6 @@ export interface OccasionDeleteResponse {
   ok: boolean;
 }
 
-export interface ReferralCodeResponse {
-  ok: boolean;
-  /** Stable referral code unique to this customer (e.g. PT1A2B3C). */
-  code: string;
-  /** A pre-built share URL the client can pass directly to a share sheet. */
-  shareUrl: string;
-}
-
 export interface PhoneOtpSendRequest {
   /** E.164-formatted phone number (e.g. "+9613000000"). */
   phone: string;
@@ -970,6 +966,14 @@ export interface PhoneOtpSendRequest {
 
 export interface PhoneOtpSendResponse {
   ok: boolean;
+}
+
+export interface ReferralCodeResponse {
+  ok: boolean;
+  /** Stable referral code unique to this customer (e.g. PT1A2B3C). */
+  code: string;
+  /** A pre-built share URL the client can pass directly to a share sheet. */
+  shareUrl: string;
 }
 
 export interface PhoneOtpVerifyRequest {

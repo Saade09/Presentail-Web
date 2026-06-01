@@ -27,6 +27,17 @@ export interface CheckoutFeeInput {
    * Defaults to 0 when the city isn't found or the API hasn't loaded yet.
    */
   cityFee: number;
+  /**
+   * Free-delivery threshold in USD from the OS /delivery-locations payload.
+   * When provided this overrides the hardcoded per-country default.
+   */
+  freeDeliveryThresholdUsd?: number;
+  /**
+   * Whether free delivery is enabled for this country (from OS).
+   * When false, the district fee is always charged regardless of cart total.
+   * Defaults to true when absent.
+   */
+  freeDeliveryEnabled?: boolean;
   /** "express" triggers a per-country surcharge; "schedule" adds no surcharge. */
   deliveryMode: CheckoutDeliveryMode;
   /**
@@ -56,14 +67,23 @@ export interface CheckoutFeeOutput {
  * rules here automatically propagate to both the component and the tests.
  */
 export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
-  const { subtotal, countryCode, noAddress, cityFee, deliveryMode, timeSlots, deliverySlot } =
-    input;
+  const {
+    subtotal,
+    countryCode,
+    noAddress,
+    cityFee,
+    deliveryMode,
+    timeSlots,
+    deliverySlot,
+    freeDeliveryThresholdUsd: thresholdOverride,
+    freeDeliveryEnabled = true,
+  } = input;
 
-  const threshold = freeDeliveryThresholdUsd(countryCode);
+  const threshold = thresholdOverride ?? freeDeliveryThresholdUsd(countryCode);
   const surcharge = expressSurchargeForCountry(countryCode);
 
   const baseFee = noAddress ? 35 : cityFee;
-  const districtFee = subtotal >= threshold ? 0 : baseFee;
+  const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;
   const expressFee = deliveryMode === "express" ? surcharge : 0;
   const slotFee =
     deliveryMode !== "express"

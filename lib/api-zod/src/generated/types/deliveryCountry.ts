@@ -22,4 +22,8 @@ export interface DeliveryCountry {
   /** Optional id of the city to highlight as the default. */
   preferredDefaultCityId?: string;
   localizedNames?: LocalizedNames;
+  /** Free-delivery threshold in USD from Presentail OS. Use for fee calculation at checkout. Falls back to the hardcoded per-country default when absent. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total. */
+  freeDeliveryEnabled?: boolean;
 }

@@ -1801,6 +1801,12 @@ components:
           description: Optional id of the city to highlight as the default.
         localizedNames:
           $ref: "#/components/schemas/LocalizedNames"
+        freeDeliveryThresholdUsd:
+          type: number
+          description: Free-delivery threshold in USD from Presentail OS. Use for fee calculation at checkout. Falls back to the hardcoded per-country default when absent.
+        freeDeliveryEnabled:
+          type: boolean
+          description: Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total.
       required:
         - id
         - name

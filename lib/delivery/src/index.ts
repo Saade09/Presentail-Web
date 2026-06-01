@@ -19,29 +19,32 @@
 // ---------------------------------------------------------------------------
 
 /**
- * The free-delivery threshold in the store's native currency.
- * AE → AED 330, CY → EUR 120, LB (default) → USD 130.
+ * Hardcoded fallback free-delivery threshold in the store's native currency.
+ * AE → AED 330, CY → EUR 120, LB (default) → USD 90.
  *
  * Used for display on the product detail screen and product cards so the
  * shopper sees the threshold in the currency they're already looking at.
+ * The live OS value overrides this in components that fetch delivery-config.
  */
 export function freeDeliveryThresholdNative(countryCode?: string | null): number {
   if (countryCode === "AE") return 330;
   if (countryCode === "CY") return 120;
-  return 130;
+  return 90;
 }
 
 /**
- * The free-delivery threshold in USD (the cart's internal currency).
- * AE → 89.84, CY → 120, LB (default) → 130.
+ * Hardcoded fallback free-delivery threshold in USD (the cart's internal currency).
+ * AE → 89.84, CY → 120, LB (default) → 90.
  *
- * Used for fee calculation at checkout where all prices are stored in USD.
- * Single source of truth — both web and mobile checkout use this helper.
+ * Used as a safe fallback while the OS delivery-config fetch is in-flight.
+ * The live value from /api/delivery-config (or /api/delivery-locations) always
+ * takes precedence once loaded — prefer passing the OS threshold explicitly
+ * rather than relying on this function for runtime fee decisions.
  */
 export function freeDeliveryThresholdUsd(countryCode?: string | null): number {
   if (countryCode === "AE") return 89.84;
   if (countryCode === "CY") return 120;
-  return 130;
+  return 90;
 }
 
 // ---------------------------------------------------------------------------

@@ -25,8 +25,8 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("freeDeliveryThresholdUsd — per-country free-delivery thresholds in USD", () => {
-  it("LB threshold is $130", () => {
-    expect(freeDeliveryThresholdUsd("LB")).toBe(130);
+  it("LB threshold is $90", () => {
+    expect(freeDeliveryThresholdUsd("LB")).toBe(90);
   });
 
   it("AE threshold is $89.84 (≈ AED 330 / ~3.67 rate)", () => {
@@ -37,10 +37,10 @@ describe("freeDeliveryThresholdUsd — per-country free-delivery thresholds in U
     expect(freeDeliveryThresholdUsd("CY")).toBe(120);
   });
 
-  it("unknown country falls back to the LB default ($130)", () => {
-    expect(freeDeliveryThresholdUsd("XX")).toBe(130);
-    expect(freeDeliveryThresholdUsd(null)).toBe(130);
-    expect(freeDeliveryThresholdUsd(undefined)).toBe(130);
+  it("unknown country falls back to the LB default ($90)", () => {
+    expect(freeDeliveryThresholdUsd("XX")).toBe(90);
+    expect(freeDeliveryThresholdUsd(null)).toBe(90);
+    expect(freeDeliveryThresholdUsd(undefined)).toBe(90);
   });
 });
 
@@ -74,9 +74,9 @@ describe("expressSurchargeForCountry — per-country express surcharge", () => {
 describe("calcCheckoutFees: districtFee — waived when subtotal meets the free-delivery threshold", () => {
   const cityFee = 8;
 
-  it("LB: charges the city fee when subtotal is below $130", () => {
+  it("LB: charges the city fee when subtotal is below $90", () => {
     const { districtFee } = calcCheckoutFees({
-      subtotal: 100,
+      subtotal: 60,
       countryCode: "LB",
       noAddress: false,
       cityFee,
@@ -87,9 +87,9 @@ describe("calcCheckoutFees: districtFee — waived when subtotal meets the free-
     expect(districtFee).toBe(cityFee);
   });
 
-  it("LB: waives the fee when subtotal equals the threshold exactly ($130)", () => {
+  it("LB: waives the fee when subtotal equals the threshold exactly ($90)", () => {
     const { districtFee } = calcCheckoutFees({
-      subtotal: 130,
+      subtotal: 90,
       countryCode: "LB",
       noAddress: false,
       cityFee,
@@ -154,7 +154,7 @@ describe("calcCheckoutFees: districtFee — waived when subtotal meets the free-
 
   it("no-address fee is also waived when subtotal meets the threshold", () => {
     const { districtFee } = calcCheckoutFees({
-      subtotal: 130,
+      subtotal: 90,
       countryCode: "LB",
       noAddress: true,
       cityFee: 0,

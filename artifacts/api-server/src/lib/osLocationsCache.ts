@@ -506,3 +506,31 @@ export function stopOsLocationSync(): void {
     timer = null;
   }
 }
+
+/**
+ * Returns the free-delivery threshold in USD for the given country code from
+ * the live OS locations cache, or `undefined` when the cache has no entry for
+ * that country (caller should fall back to the hardcoded per-country default).
+ *
+ * Safe to call at any time — returns `undefined` while the initial OS fetch is
+ * still in-flight rather than blocking.
+ */
+export function getOsCountryFreeDeliveryThresholdUsd(
+  countryCode: string,
+): number | undefined {
+  return cachedCountries
+    ?.find((c) => c.code === countryCode.toUpperCase())
+    ?.freeDeliveryThresholdUsd;
+}
+
+/**
+ * Returns whether free delivery is enabled for the given country code from the
+ * live OS locations cache, or `undefined` when the cache has no entry for that
+ * country (caller should fall back to the hardcoded default of true).
+ */
+export function getOsCountryFreeDeliveryEnabled(
+  countryCode: string,
+): boolean | undefined {
+  return cachedCountries?.find((c) => c.code === countryCode.toUpperCase())
+    ?.freeDeliveryEnabled;
+}

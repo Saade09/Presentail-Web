@@ -909,6 +909,18 @@ export const GetDeliveryLocationsResponse = zod.object({
         .describe(
           'Optional translations of a display name. Keys are lowercase\nISO 639-1 language codes (\"ar\", \"fr\"). English is implicit in\nthe parent\'s `name` field. Missing translations should fall\nback to `name`.\n',
         ),
+      freeDeliveryThresholdUsd: zod
+        .number()
+        .optional()
+        .describe(
+          "Free-delivery threshold in USD from Presentail OS. Use for fee calculation at checkout. Falls back to the hardcoded per-country default when absent.",
+        ),
+      freeDeliveryEnabled: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total.",
+        ),
     }),
   ),
 });
