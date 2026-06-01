@@ -138,6 +138,12 @@ uri = "file://artifacts/presentail-web/public/opengraph-new.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "OqdGJLhLxBuS0SPZ4PHvV"
+uri = "file://artifacts/mockup-sandbox/public/images/bloom-eternal.png"
+type = "image"
+title = "Bloom Eternal Rose Bouquet"
+
 [[outputs]]
 id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"
