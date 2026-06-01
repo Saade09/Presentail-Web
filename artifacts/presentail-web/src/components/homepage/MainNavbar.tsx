@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, Heart, Menu, Search, ShoppingCart, User } from "lucide-react";
+import { ChevronDown, Menu, Search, ShoppingCart, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -14,7 +14,7 @@ import { useBrands } from "@/lib/queries";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
-  loadFavorites,
+  loadAccount,
   loadSignIn,
   loadShop,
 } from "@/lib/pageLoaders";
@@ -318,23 +318,11 @@ export function MainNavbar() {
             brandName={activeBrand?.name ?? undefined}
           />
 
-          {user && (
-            <Link href="/favorites" aria-label={t("nav.favoritesAria")} {...prefetchProps(loadFavorites)}>
-              <Button variant="ghost" size="icon" data-testid="button-favorites">
-                <Heart className="w-5 h-5" />
-              </Button>
-            </Link>
-          )}
-
-          {user ? (
-            <AccountDropdown />
-          ) : (
-            <Link href="/sign-in" aria-label={t("nav.accountAria")} {...prefetchProps(loadSignIn)}>
-              <Button variant="ghost" size="icon" data-testid="button-account">
-                <User className="w-5 h-5" />
-              </Button>
-            </Link>
-          )}
+          <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")} {...prefetchProps(user ? loadAccount : loadSignIn)}>
+            <Button variant="ghost" size="icon" data-testid="button-account">
+              <User className="w-5 h-5" />
+            </Button>
+          </Link>
 
           <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
             <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">

@@ -240,9 +240,7 @@ function ShopShell() {
               </CustomerOnly>
             </Route>
             <Route path="/favorites">
-              <CustomerOnly>
-                <FavoritesRoute />
-              </CustomerOnly>
+              <Redirect to="/account?tab=favorites" replace />
             </Route>
             <Route component={NotFoundRoute} />
           </Switch>
