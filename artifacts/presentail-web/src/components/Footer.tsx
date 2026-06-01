@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Facebook, Instagram, Linkedin, MapPin } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -88,6 +88,8 @@ export function Footer() {
   const { t, language } = useLocale();
   const { city, countryCode, openPicker } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
+  const [currentPath] = useLocation();
+  const isOnContactPage = currentPath === "/contact" || currentPath.endsWith("/contact");
   const isAE = countryCode?.toUpperCase() === "AE";
   const year = new Date().getFullYear();
   const cityLabel = city ? city.name : t("footer.selectCity");
@@ -178,9 +180,20 @@ export function Footer() {
             <ColumnHeading>{t("footer.getInTouch")}</ColumnHeading>
             <ul className="space-y-2">
               <li>
-                <InLink href="/contact" testId="footer-link-contact">
-                  {t("footer.contactUs")}
-                </InLink>
+                {isOnContactPage ? (
+                  <button
+                    type="button"
+                    data-testid="footer-link-contact"
+                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                    className="text-sm text-white/75 hover:text-white transition-colors"
+                  >
+                    {t("footer.contactUs")}
+                  </button>
+                ) : (
+                  <InLink href="/contact" testId="footer-link-contact">
+                    {t("footer.contactUs")}
+                  </InLink>
+                )}
               </li>
               <li>
                 <InLink href="/faqs" testId="footer-link-faqs">
