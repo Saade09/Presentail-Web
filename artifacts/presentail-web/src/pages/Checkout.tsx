@@ -811,7 +811,7 @@ export default function Checkout() {
     <div className="min-h-screen" style={{ backgroundColor: "#faf9f7" }}>
       {/* ── Checkout header ── */}
       <header className="sticky top-0 z-40" style={{ backgroundColor: "#0d2b1e" }}>
-        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
           <Link
             href="/cart"
             className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
@@ -872,7 +872,6 @@ export default function Checkout() {
           </div>
         </div>
       </header>
-
       {/* ── Page content ── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -1383,7 +1382,6 @@ export default function Checkout() {
 
         </div>
       </div>
-
       {/* ── Dialogs ── */}
       <SuggestedMessagesDialog
         open={suggestedOpen}
@@ -1391,7 +1389,6 @@ export default function Checkout() {
         onSelect={(msg) => setRecipient({ ...recipient, cardMessage: msg })}
         maxLength={400}
       />
-
       <CardPreviewDialog
         open={cardPreviewOpen}
         onOpenChange={setCardPreviewOpen}
@@ -1401,7 +1398,6 @@ export default function Checkout() {
         dir={dir}
         t={t}
       />
-
       <DeliveryPickerModal
         open={deliveryPickerOpen}
         onOpenChange={setDeliveryPickerOpen}
