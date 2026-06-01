@@ -810,7 +810,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#faf9f7" }}>
       {/* ── Checkout header ── */}
-      <header className="sticky top-0 z-40" style={{ backgroundColor: "#0d2b1e" }}>
+      <header className="sticky top-0 z-40" style={{ backgroundColor: "#00414e" }}>
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
           <Link
             href="/cart"
@@ -843,9 +843,9 @@ export default function Checkout() {
                     <div
                       className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
                         done
-                          ? "border-emerald-400 bg-emerald-400 text-[#0d2b1e]"
+                          ? "border-emerald-400 bg-emerald-400 text-[#00414e]"
                           : active
-                          ? "border-white bg-white text-[#0d2b1e]"
+                          ? "border-white bg-white text-[#00414e]"
                           : "border-white/25 bg-transparent text-white/30"
                       }`}
                     >
@@ -883,22 +883,19 @@ export default function Checkout() {
             {step === 1 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.personalizeGift")}</h1>
+                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.personalizeGift")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.personalizeGiftDesc")}</p>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
                     {t("checkout.cardMessageSection")}
                   </p>
 
                   {/* To */}
                   <div className="mb-5">
                     <label className="text-sm font-medium text-gray-700 mb-2 block">{t("checkout.previewCardTo")}</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
-                      <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
-                    </div>
+                    <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} data-testid="input-recipient-first-name" />
                   </div>
 
                   {/* Message */}
@@ -934,20 +931,17 @@ export default function Checkout() {
                         <Link href="/account/personal-information" className="text-xs text-primary underline underline-offset-2 ms-auto">{t("checkout.editInAccount")}</Link>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-sender-first-name" />
-                        <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-sender-last-name" />
-                      </div>
+                      <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
                     )}
                   </div>
 
-                  <button type="button" onClick={() => setCardPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90" style={{ borderColor: "rgba(13,43,30,0.35)", color: "#0d2b1e", backgroundColor: "rgba(13,43,30,0.05)" }} data-testid="button-preview-card">
+                  <button type="button" onClick={() => setCardPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90" style={{ borderColor: "rgba(0,65,78,0.35)", color: "#00414e", backgroundColor: "rgba(0,65,78,0.05)" }} data-testid="button-preview-card">
                     <Eye className="h-4 w-4" />
                     {t("checkout.previewCard")}
                   </button>
                 </div>
 
-                <Button size="lg" className="w-full h-14 rounded-xl text-white font-semibold" style={{ backgroundColor: "#0d2b1e" }} onClick={() => setStep(2)} data-testid="button-continue-to-delivery">
+                <Button size="lg" className="w-full h-14 rounded-xl text-white font-semibold" style={{ backgroundColor: "#00414e" }} onClick={() => setStep(2)} data-testid="button-continue-to-delivery">
                   {t("checkout.continueToDelivery")}
                 </Button>
               </div>
@@ -957,13 +951,13 @@ export default function Checkout() {
             {step === 2 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.step.deliveryDetails")}</h1>
+                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step.deliveryDetails")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
 
                 {/* Recipient Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
 
                   {savedAddresses.length > 0 && (
                     <div className="mb-5">
@@ -1090,7 +1084,7 @@ export default function Checkout() {
 
                 {/* Sender Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
 
                   {isSignedIn ? (
                     <div className="mb-4 rounded-xl border bg-secondary/40 p-4" data-testid="sender-summary">
@@ -1141,7 +1135,7 @@ export default function Checkout() {
 
                 {/* Delivery Time */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
                       type="button"
@@ -1149,9 +1143,9 @@ export default function Checkout() {
                       disabled={!expressAvailable}
                       data-testid="delivery-mode-express"
                       className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-[#0d2b1e]/30"
+                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-[#00414e]/30"
                       } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                      style={deliveryMode === "express" ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : {}}
+                      style={deliveryMode === "express" ? { borderColor: "#00414e", backgroundColor: "#00414e" } : {}}
                     >
                       <div className="font-semibold">{t("checkout.expressDelivery")}</div>
                       <div className="text-xs opacity-80 mt-1">{expressAvailable ? `+${fmt(expressSurcharge)}` : t("checkout.expressUnavailable")}</div>
@@ -1161,9 +1155,9 @@ export default function Checkout() {
                       onClick={() => setDeliveryMode("schedule")}
                       data-testid="delivery-mode-schedule"
                       className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-[#0d2b1e]/30"
+                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-[#00414e]/30"
                       }`}
-                      style={deliveryMode === "schedule" ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : {}}
+                      style={deliveryMode === "schedule" ? { borderColor: "#00414e", backgroundColor: "#00414e" } : {}}
                     >
                       <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
                       <div className="text-xs opacity-80 mt-1">{t("checkout.scheduleDeliveryDesc")}</div>
@@ -1188,7 +1182,7 @@ export default function Checkout() {
                   <Button
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
-                    style={{ backgroundColor: "#0d2b1e" }}
+                    style={{ backgroundColor: "#00414e" }}
                     onClick={() => setStep(3)}
                     disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
@@ -1203,13 +1197,13 @@ export default function Checkout() {
             {step === 3 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.step3.title")}</h1>
+                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step3.title")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
                 </div>
 
                 {/* Note for team */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
                   <textarea
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
@@ -1221,7 +1215,7 @@ export default function Checkout() {
 
                 {/* Payment methods */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
+                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
                   <div className="mb-5">
                     <PaymentMethods label={t("payments.waysToPay")} countryCode={countryCode} currencyCode={currencyCode} className="flex flex-wrap items-center gap-2" />
                   </div>
@@ -1231,13 +1225,13 @@ export default function Checkout() {
                       return (
                         <div
                           key={m.id}
-                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-[#0d2b1e]/25 hover:bg-secondary/30"}`}
-                          style={paymentMethod === m.id ? { borderColor: "#0d2b1e", backgroundColor: "rgba(13,43,30,0.04)", outlineColor: "rgba(13,43,30,0.15)" } : {}}
+                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-[#00414e]/25 hover:bg-secondary/30"}`}
+                          style={paymentMethod === m.id ? { borderColor: "#00414e", backgroundColor: "rgba(0,65,78,0.04)", outlineColor: "rgba(0,65,78,0.15)" } : {}}
                           onClick={() => setPaymentMethod(m.id)}
                           data-testid={`option-payment-${m.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === m.id ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : { borderColor: "rgba(0,0,0,0.25)" }}>
+                            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === m.id ? { borderColor: "#00414e", backgroundColor: "#00414e" } : { borderColor: "rgba(0,0,0,0.25)" }}>
                               {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-white" />}
                             </div>
                             <span className="font-medium text-sm">{t(m.labelKey)}</span>
@@ -1253,7 +1247,7 @@ export default function Checkout() {
 
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(2)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#0d2b1e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
+                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#00414e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
                     {isProcessing ? t("checkout.processing") : t("checkout.placeOrderNow", { amount: fmt(total) })}
                   </Button>
                 </div>
@@ -1272,8 +1266,8 @@ export default function Checkout() {
           <div className="w-full lg:w-80 xl:w-[340px] shrink-0">
             <div className="sticky top-36">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "rgba(13,43,30,0.05)" }}>
-                  <h3 className="text-sm font-semibold" style={{ color: "#0d2b1e" }}>{t("checkout.summary")}</h3>
+                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "rgba(0,65,78,0.05)" }}>
+                  <h3 className="text-sm font-semibold" style={{ color: "#00414e" }}>{t("checkout.summary")}</h3>
                 </div>
                 <div className="px-6 py-5">
                   {/* Items */}
@@ -1286,7 +1280,7 @@ export default function Checkout() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#0d2b1e" }}>{fmt(item.product.priceValue * item.quantity)}</p>
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#00414e" }}>{fmt(item.product.priceValue * item.quantity)}</p>
                         </div>
                       </div>
                     ))}
@@ -1296,7 +1290,7 @@ export default function Checkout() {
                   <div className="border-t border-gray-100 pt-4 mb-4">
                     {couponApplied ? (
                       <>
-                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "#0d2b1e" }} data-testid="row-coupon-discount">
+                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "#00414e" }} data-testid="row-coupon-discount">
                           <div className="flex items-center gap-1.5">
                             <Tag className="w-3 h-3 shrink-0" />
                             <span className="font-medium">{couponInput}</span>
@@ -1308,7 +1302,7 @@ export default function Checkout() {
                       </>
                     ) : (
                       <>
-                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "#0d2b1e" }} data-testid="button-coupon-toggle">
+                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "#00414e" }} data-testid="button-coupon-toggle">
                           {t("checkout.coupon.toggle")}
                         </button>
                         {couponOpen && (
@@ -1360,8 +1354,8 @@ export default function Checkout() {
 
                   {/* Total */}
                   <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
-                    <span style={{ color: "#0d2b1e" }}>{t("cart.total")}</span>
-                    <span style={{ color: "#0d2b1e" }} data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
+                    <span style={{ color: "#00414e" }}>{t("cart.total")}</span>
+                    <span style={{ color: "#00414e" }} data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
                   </div>
 
                   <div className="mt-4">
@@ -1371,7 +1365,7 @@ export default function Checkout() {
 
                 {/* Delivery Summary */}
                 <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#faf9f7" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#0d2b1e" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#00414e" }}>
                     {t("checkout.deliverySummary")}
                   </p>
                   <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
