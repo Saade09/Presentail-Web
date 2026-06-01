@@ -3,8 +3,6 @@ import { useHomepageBanners } from "@/lib/banners";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
-import { EditorialSection } from "@/components/homepage/EditorialSection";
-
 export default function Home() {
   const { country } = useLocationSelection();
   const countryCode = country?.code ?? "*";
@@ -40,7 +38,6 @@ export default function Home() {
         testId="section-collection-cakes"
       />
 
-      <EditorialSection />
     </div>
   );
 }

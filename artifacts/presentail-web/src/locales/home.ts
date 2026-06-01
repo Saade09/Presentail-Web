@@ -26,19 +26,6 @@ export const homeStrings: Dict = {
   },
   "brands.viewAll": { en: "Discover All Brands", ar: "اكتشف كل العلامات" },
 
-  "editorial.eyebrow": { en: "The Atelier", ar: "الأتيليه" },
-  "editorial.title": { en: "Designed with Love, Delivered with Care", ar: "مصمَّم بحب، يُسلَّم بعناية" },
-  "editorial.body": {
-    en: "Every Presentail arrangement begins in our Gemmayzeh studio — where seasonal blooms, hand-tied ribbons, and considered details come together. We believe a gift should feel like an event, not an errand.",
-    ar: "تبدأ كل تنسيقات بريزانتيل في استوديو الجميزة لدينا — حيث تجتمع الأزهار الموسمية والأشرطة المنسوجة يدوياً والتفاصيل المدروسة. نؤمن بأن الهدية يجب أن تكون حدثاً، لا مهمّة.",
-  },
-  "editorial.cta": { en: "Our Story", ar: "قصّتنا" },
-  "editorial.feature1.title": { en: "Seasonal Sourcing", ar: "مصادر موسمية" },
-  "editorial.feature1.desc": { en: "Direct from the finest growers worldwide.", ar: "مباشرة من أفضل المزارعين حول العالم." },
-  "editorial.feature2.title": { en: "Signature Wrapping", ar: "تغليف مميّز" },
-  "editorial.feature2.desc": { en: "Our envelope-style boxes are made to keep.", ar: "علب على شكل مغلّف مصمّمة لتُحتفظ." },
-  "editorial.imageAlt": { en: "Presentail atelier", ar: "أتيليه بريزانتيل" },
-
   "newsletter.eyebrow": { en: "Stay in Bloom", ar: "ابقَ مع الورد" },
   "newsletter.title": { en: "Join the Presentail List", ar: "انضم إلى قائمة بريزانتيل" },
   "newsletter.subtitle": {
@@ -66,16 +53,6 @@ export const homeStringsFr: Record<string, string> = {
   "brands.title": "Marques que nous aimons",
   "brands.subtitle": "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",
   "brands.viewAll": "Découvrir toutes les marques",
-
-  "editorial.eyebrow": "L'Atelier",
-  "editorial.title": "Conçu avec amour, livré avec soin",
-  "editorial.body": "Chaque composition Presentail commence dans notre atelier de Gemmayzeh — où fleurs de saison, rubans noués à la main et détails soignés se réunissent. Nous croyons qu'un cadeau doit être un événement, pas une corvée.",
-  "editorial.cta": "Notre histoire",
-  "editorial.feature1.title": "Approvisionnement saisonnier",
-  "editorial.feature1.desc": "Directement des meilleurs producteurs du monde.",
-  "editorial.feature2.title": "Emballage signature",
-  "editorial.feature2.desc": "Nos boîtes en forme d'enveloppe sont faites pour durer.",
-  "editorial.imageAlt": "Atelier Presentail",
 
   "newsletter.eyebrow": "Restez en fleur",
   "newsletter.title": "Rejoignez la liste Presentail",
