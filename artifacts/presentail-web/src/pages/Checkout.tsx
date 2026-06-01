@@ -30,6 +30,7 @@ import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
+import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { trackEvent } from "@/lib/analytics";
 import { useNow } from "@/lib/useNow";
@@ -414,14 +415,17 @@ export default function Checkout() {
 
   if (showLoginGate) {
     return (
-      <CheckoutLoginDialog
-        open
-        onOpenChange={(open) => {
-          if (!open) setLocation("/cart");
-        }}
-        onContinueAsGuest={() => setGuestAcked(true)}
-        surface="checkout-direct"
-      />
+      <>
+        <CheckoutSkeleton />
+        <CheckoutLoginDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setLocation("/cart");
+          }}
+          onContinueAsGuest={() => setGuestAcked(true)}
+          surface="checkout-direct"
+        />
+      </>
     );
   }
 
