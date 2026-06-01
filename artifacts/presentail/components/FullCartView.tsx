@@ -239,7 +239,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         ) : (
           <View style={{ width: 22 }} />
         )}
-        <Text style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
+        <AppText style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
           {t.cartTitle}
         </AppText>
         <Pressable
@@ -275,7 +275,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           >
             <Feather name="shopping-bag" size={28} color={colors.primary} />
           </View>
-          <Text style={{ fontFamily: headingFontMedium, fontSize: 22, color: colors.primary, textAlign: "center" }}>
+          <AppText style={{ fontFamily: headingFontMedium, fontSize: 22, color: colors.primary, textAlign: "center" }}>
             {t.cartEmpty}
           </AppText>
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
@@ -599,7 +599,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </View>
             ) : null}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 18 }}>
+              <AppText style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 18 }}>
                 {t.cartTotal}
               </AppText>
               <Price
