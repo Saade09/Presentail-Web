@@ -138,7 +138,7 @@ export default function Checkout() {
   const showLoginGate = !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir } = useLocale();
-  const { countryCode, country } = useLocationSelection();
+  const { countryCode, country, city: locationCity } = useLocationSelection();
   const { formatPrice, currencyCode } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
   const createOrder = useCreateOrder();
@@ -166,7 +166,7 @@ export default function Checkout() {
     firstName: "",
     lastName: "",
     phone: "",
-    district: "",
+    district: locationCity?.name ?? "",
     address: "",
     deliveryDate:
       seededDeliverySelection.date && seededDeliverySelection.mode !== "express"
