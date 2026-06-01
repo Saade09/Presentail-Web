@@ -379,6 +379,7 @@ export default function SignInPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void onContinueEmail();
                 }}
+                className="h-12 rounded-sm"
               />
               {emailError ? (
                 <p
@@ -454,6 +455,7 @@ export default function SignInPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void onVerifyCode();
                 }}
+                className="h-12 rounded-sm"
               />
             </div>
             <Button
