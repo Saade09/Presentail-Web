@@ -34,6 +34,10 @@ tags:
     description: Saved favorite products for the signed-in customer
   - name: partner
     description: Partner application submission
+  - name: occasions
+    description: Saved occasions (birthdays, anniversaries, etc.) for the signed-in customer
+  - name: referral
+    description: Referral code for the signed-in customer
 paths:
   /healthz:
     get:
@@ -913,6 +917,147 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Server error
+  /me/occasions:
+    get:
+      operationId: listMyOccasions
+      tags: [occasions]
+      summary: List the signed-in customer's saved occasions
+      description: |
+        Returns every saved occasion (birthday, anniversary, etc.) belonging to
+        the authenticated customer, sorted by month and day ascending.
+        Requires a Bearer token or Clerk session.
+      responses:
+        "200":
+          description: Saved occasions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OccasionListResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createMyOccasion
+      tags: [occasions]
+      summary: Save a new occasion to the customer's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OccasionInput"
+      responses:
+        "200":
+          description: Occasion created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OccasionResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/occasions/{id}:
+    put:
+      operationId: updateMyOccasion
+      tags: [occasions]
+      summary: Update one of the customer's saved occasions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OccasionInput"
+      responses:
+        "200":
+          description: Occasion updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OccasionResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Occasion not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMyOccasion
+      tags: [occasions]
+      summary: Delete one of the customer's saved occasions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Occasion removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OccasionDeleteResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Occasion not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /me/referral-code:
+    get:
+      operationId: getMyReferralCode
+      tags: [referral]
+      summary: Get the signed-in customer's unique referral code
+      description: |
+        Returns a stable referral code derived from the customer's local ID
+        (base-36 encoded, uppercased, prefixed with PT). No database storage
+        required — the code is fully deterministic. Requires a Bearer token or
+        Clerk session.
+      responses:
+        "200":
+          description: Referral code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralCodeResponse"
+        "401":
+          description: Not signed in
           content:
             application/json:
               schema:
@@ -2276,3 +2421,97 @@ components:
         - ok
         - favorites
         - expiresAt
+    OccasionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        day:
+          type: integer
+          minimum: 1
+          maximum: 31
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - label
+        - month
+        - day
+        - createdAt
+    OccasionInput:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        day:
+          type: integer
+          minimum: 1
+          maximum: 31
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+      required:
+        - label
+        - month
+        - day
+    OccasionListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        occasions:
+          type: array
+          items:
+            $ref: "#/components/schemas/OccasionItem"
+      required:
+        - ok
+        - occasions
+    OccasionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        occasion:
+          $ref: "#/components/schemas/OccasionItem"
+      required:
+        - ok
+        - occasion
+    OccasionDeleteResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    ReferralCodeResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        code:
+          type: string
+          description: Stable referral code unique to this customer (e.g. PT1A2B3C).
+        shareUrl:
+          type: string
+          description: A pre-built share URL the client can pass directly to a share sheet.
+      required:
+        - ok
+        - code
+        - shareUrl

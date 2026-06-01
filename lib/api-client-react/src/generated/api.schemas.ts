@@ -903,6 +903,65 @@ export interface SharedFavoritesResponse {
   expiresAt: string;
 }
 
+export interface OccasionItem {
+  id: number;
+  label: string;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  /**
+   * @minimum 1
+   * @maximum 31
+   */
+  day: number;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface OccasionInput {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  label: string;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  /**
+   * @minimum 1
+   * @maximum 31
+   */
+  day: number;
+  /** @maxLength 500 */
+  note?: string | null;
+}
+
+export interface OccasionListResponse {
+  ok: boolean;
+  occasions: OccasionItem[];
+}
+
+export interface OccasionResponse {
+  ok: boolean;
+  occasion: OccasionItem;
+}
+
+export interface OccasionDeleteResponse {
+  ok: boolean;
+}
+
+export interface ReferralCodeResponse {
+  ok: boolean;
+  /** Stable referral code unique to this customer (e.g. PT1A2B3C). */
+  code: string;
+  /** A pre-built share URL the client can pass directly to a share sheet. */
+  shareUrl: string;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

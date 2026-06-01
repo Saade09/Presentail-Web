@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useEffect, useState, useMemo } from "react";
 import {
   Package,
@@ -23,8 +23,10 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountOrderCard, AccountOrderCardSkeleton } from "@/components/account/AccountOrderCard";
 import { AccountShortcutCards } from "@/components/account/AccountShortcutCards";
-import { AccountSidebar, MobileTabStrip } from "@/components/account/AccountSidebar";
+import { AccountSidebar, MobileTabStrip, type AccountTab } from "@/components/account/AccountSidebar";
 import { EmptyState } from "@/components/account/EmptyState";
+import { OccasionsPanel } from "@/components/account/OccasionsPanel";
+import { ReferralsPanel } from "@/components/account/ReferralsPanel";
 import { CountryFlag } from "@/components/CountryFlag";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -42,7 +44,16 @@ const SUPPORTED_COUNTRIES = [
   { code: "CY", name: "Cyprus", phoneCode: "+357" },
 ] as const;
 
-type AccountTab = "profile" | "orders" | "loyalty" | "favorites" | "addresses" | "notifications";
+const VALID_TABS: AccountTab[] = [
+  "profile", "orders", "loyalty", "favorites", "addresses",
+  "notifications", "occasions", "referrals",
+];
+
+function parseTabParam(search: string): AccountTab {
+  const params = new URLSearchParams(search);
+  const raw = params.get("tab") ?? "";
+  return (VALID_TABS.includes(raw as AccountTab) ? raw : "profile") as AccountTab;
+}
 
 type MeUser = {
   id: number;
@@ -58,13 +69,36 @@ export default function Account() {
   const { user, logout, isLoading } = useAuth();
   const { isSignedIn } = useClerkAuth();
   const { t } = useLocale();
-  const [tab, setTab] = useState<AccountTab>("profile");
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  const [tab, setTab] = useState<AccountTab>(() => parseTabParam(search));
+  const [points, setPoints] = useState<number | null>(null);
+
+  // Keep tab in sync with URL query param (e.g. from AccountDropdown links)
+  useEffect(() => {
+    setTab(parseTabParam(search));
+  }, [search]);
+
+  // Update URL when user manually picks a tab
+  const handleSelectTab = (newTab: AccountTab) => {
+    setLocation(`/account?tab=${newTab}`, { replace: true });
+  };
+
+  // Pre-fetch loyalty points for sidebar display
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    apiFetch<{ ok: boolean; loyalty: { points: number } }>("/loyalty/me")
+      .then((r) => { if (!cancelled) setPoints(r.loyalty.points); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !user) {
       setLocation("/sign-in");
     }
-  }, [user, isLoading, setLocation]);
+  }, [user, isLoading]);
 
   if (isLoading || !user)
     return (
@@ -86,22 +120,24 @@ export default function Account() {
         <div className="flex gap-7 items-start">
           <AccountSidebar
             activeTab={tab}
-            onSelect={(t) => setTab(t as AccountTab)}
+            onSelect={handleSelectTab}
             onLogout={handleLogout}
             t={t}
+            user={user}
+            points={points}
           />
 
           <div className="flex-1 min-w-0">
             <MobileTabStrip
               activeTab={tab}
-              onSelect={(t) => setTab(t as AccountTab)}
+              onSelect={handleSelectTab}
               t={t}
             />
 
             {tab === "profile" && (
               <>
                 <AccountShortcutCards
-                  onNavigate={(id) => setTab(id as AccountTab)}
+                  onNavigate={(id) => handleSelectTab(id as AccountTab)}
                 />
                 <ProfilePanel user={user} t={t} />
               </>
@@ -113,6 +149,8 @@ export default function Account() {
             {tab === "favorites" && <FavoritesSection t={t} />}
             {tab === "addresses" && <AddressesSection t={t} />}
             {tab === "notifications" && <NotificationsSection signedIn={!!isSignedIn} t={t} />}
+            {tab === "occasions" && <OccasionsPanel t={t} />}
+            {tab === "referrals" && <ReferralsPanel t={t} />}
           </div>
         </div>
       </div>

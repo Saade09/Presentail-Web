@@ -1404,3 +1404,134 @@ export const SubmitPartnerApplicationResponse = zod.object({
   ok: zod.boolean(),
   id: zod.number(),
 });
+
+/**
+ * Returns every saved occasion (birthday, anniversary, etc.) belonging to
+the authenticated customer, sorted by month and day ascending.
+Requires a Bearer token or Clerk session.
+
+ * @summary List the signed-in customer's saved occasions
+ */
+export const listMyOccasionsResponseOccasionsItemMonthMax = 12;
+
+export const listMyOccasionsResponseOccasionsItemDayMax = 31;
+
+export const ListMyOccasionsResponse = zod.object({
+  ok: zod.boolean(),
+  occasions: zod.array(
+    zod.object({
+      id: zod.number(),
+      label: zod.string(),
+      month: zod
+        .number()
+        .min(1)
+        .max(listMyOccasionsResponseOccasionsItemMonthMax),
+      day: zod.number().min(1).max(listMyOccasionsResponseOccasionsItemDayMax),
+      note: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save a new occasion to the customer's profile
+ */
+export const createMyOccasionBodyLabelMax = 100;
+
+export const createMyOccasionBodyMonthMax = 12;
+
+export const createMyOccasionBodyDayMax = 31;
+
+export const createMyOccasionBodyNoteMax = 500;
+
+export const CreateMyOccasionBody = zod.object({
+  label: zod.string().min(1).max(createMyOccasionBodyLabelMax),
+  month: zod.number().min(1).max(createMyOccasionBodyMonthMax),
+  day: zod.number().min(1).max(createMyOccasionBodyDayMax),
+  note: zod.string().max(createMyOccasionBodyNoteMax).nullish(),
+});
+
+export const createMyOccasionResponseOccasionMonthMax = 12;
+
+export const createMyOccasionResponseOccasionDayMax = 31;
+
+export const CreateMyOccasionResponse = zod.object({
+  ok: zod.boolean(),
+  occasion: zod.object({
+    id: zod.number(),
+    label: zod.string(),
+    month: zod.number().min(1).max(createMyOccasionResponseOccasionMonthMax),
+    day: zod.number().min(1).max(createMyOccasionResponseOccasionDayMax),
+    note: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update one of the customer's saved occasions
+ */
+export const UpdateMyOccasionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateMyOccasionBodyLabelMax = 100;
+
+export const updateMyOccasionBodyMonthMax = 12;
+
+export const updateMyOccasionBodyDayMax = 31;
+
+export const updateMyOccasionBodyNoteMax = 500;
+
+export const UpdateMyOccasionBody = zod.object({
+  label: zod.string().min(1).max(updateMyOccasionBodyLabelMax),
+  month: zod.number().min(1).max(updateMyOccasionBodyMonthMax),
+  day: zod.number().min(1).max(updateMyOccasionBodyDayMax),
+  note: zod.string().max(updateMyOccasionBodyNoteMax).nullish(),
+});
+
+export const updateMyOccasionResponseOccasionMonthMax = 12;
+
+export const updateMyOccasionResponseOccasionDayMax = 31;
+
+export const UpdateMyOccasionResponse = zod.object({
+  ok: zod.boolean(),
+  occasion: zod.object({
+    id: zod.number(),
+    label: zod.string(),
+    month: zod.number().min(1).max(updateMyOccasionResponseOccasionMonthMax),
+    day: zod.number().min(1).max(updateMyOccasionResponseOccasionDayMax),
+    note: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete one of the customer's saved occasions
+ */
+export const DeleteMyOccasionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteMyOccasionResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Returns a stable referral code derived from the customer's local ID
+(base-36 encoded, uppercased, prefixed with PT). No database storage
+required — the code is fully deterministic. Requires a Bearer token or
+Clerk session.
+
+ * @summary Get the signed-in customer's unique referral code
+ */
+export const GetMyReferralCodeResponse = zod.object({
+  ok: zod.boolean(),
+  code: zod
+    .string()
+    .describe("Stable referral code unique to this customer (e.g. PT1A2B3C)."),
+  shareUrl: zod
+    .string()
+    .describe(
+      "A pre-built share URL the client can pass directly to a share sheet.",
+    ),
+});

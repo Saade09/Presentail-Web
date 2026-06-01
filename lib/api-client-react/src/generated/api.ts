@@ -47,6 +47,10 @@ import type {
   HomepageCollectionResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
+  OccasionDeleteResponse,
+  OccasionInput,
+  OccasionListResponse,
+  OccasionResponse,
   PartnerApplicationInput,
   PartnerApplicationResponse,
   PushOrderEventRequest,
@@ -55,6 +59,7 @@ import type {
   PushRegisterResponse,
   PushUnregisterRequest,
   PushUnregisterResponse,
+  ReferralCodeResponse,
   SharedFavoritesResponse,
   WooSearchParams,
   WooSearchResult,
@@ -2846,3 +2851,332 @@ export const useSubmitPartnerApplication = <
 > => {
   return useMutation(getSubmitPartnerApplicationMutationOptions(options));
 };
+
+/**
+ * Returns every saved occasion (birthday, anniversary, etc.) belonging to
+the authenticated customer, sorted by month and day ascending.
+Requires a Bearer token or Clerk session.
+
+ * @summary List the signed-in customer's saved occasions
+ */
+export const getListMyOccasionsUrl = () => {
+  return `/api/me/occasions`;
+};
+
+export const listMyOccasions = async (
+  options?: RequestInit,
+): Promise<OccasionListResponse> => {
+  return customFetch<OccasionListResponse>(getListMyOccasionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyOccasionsQueryKey = () => {
+  return [`/api/me/occasions`] as const;
+};
+
+export const getListMyOccasionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyOccasions>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyOccasionsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyOccasions>>> = ({
+    signal,
+  }) => listMyOccasions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyOccasions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyOccasionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyOccasions>>
+>;
+export type ListMyOccasionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List the signed-in customer's saved occasions
+ */
+
+export function useListMyOccasions<
+  TData = Awaited<ReturnType<typeof listMyOccasions>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyOccasionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a new occasion to the customer's profile
+ */
+export const getCreateMyOccasionUrl = () => {
+  return `/api/me/occasions`;
+};
+
+export const createMyOccasion = async (
+  occasionInput: OccasionInput,
+  options?: RequestInit,
+): Promise<OccasionResponse> => {
+  return customFetch<OccasionResponse>(getCreateMyOccasionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(occasionInput),
+  });
+};
+
+export const getCreateMyOccasionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyOccasion>>,
+    TError,
+    { id: number; data: BodyType<OccasionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyOccasion>>,
+  TError,
+  { id: number; data: BodyType<OccasionInput> },
+  TContext
+> => {
+  const mutationKey = ["updateMyOccasion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyOccasion>>,
+    { id: number; data: BodyType<OccasionInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateMyOccasion(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyOccasionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyOccasion>>
+>;
+export type UpdateMyOccasionMutationBody = BodyType<OccasionInput>;
+export type UpdateMyOccasionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update one of the customer's saved occasions
+ */
+export const useUpdateMyOccasion = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyOccasion>>,
+    TError,
+    { id: number; data: BodyType<OccasionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyOccasion>>,
+  TError,
+  { id: number; data: BodyType<OccasionInput> },
+  TContext
+> => {
+  return useMutation(getUpdateMyOccasionMutationOptions(options));
+};
+
+/**
+ * @summary Delete one of the customer's saved occasions
+ */
+export const getDeleteMyOccasionUrl = (id: number) => {
+  return `/api/me/occasions/${id}`;
+};
+
+export const deleteMyOccasion = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OccasionDeleteResponse> => {
+  return customFetch<OccasionDeleteResponse>(getDeleteMyOccasionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMyOccasionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyOccasion>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMyOccasion>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMyOccasion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMyOccasion>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMyOccasion(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMyOccasionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMyOccasion>>
+>;
+
+export type DeleteMyOccasionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete one of the customer's saved occasions
+ */
+export const useDeleteMyOccasion = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyOccasion>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMyOccasion>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMyOccasionMutationOptions(options));
+};
+
+/**
+ * Returns a stable referral code derived from the customer's local ID
+(base-36 encoded, uppercased, prefixed with PT). No database storage
+required — the code is fully deterministic. Requires a Bearer token or
+Clerk session.
+
+ * @summary Get the signed-in customer's unique referral code
+ */
+export const getGetMyReferralCodeUrl = () => {
+  return `/api/me/referral-code`;
+};
+
+export const getMyReferralCode = async (
+  options?: RequestInit,
+): Promise<ReferralCodeResponse> => {
+  return customFetch<ReferralCodeResponse>(getGetMyReferralCodeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyReferralCodeQueryKey = () => {
+  return [`/api/me/referral-code`] as const;
+};
+
+export const getGetMyReferralCodeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyReferralCode>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReferralCode>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyReferralCodeQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyReferralCode>>
+  > = ({ signal }) => getMyReferralCode({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReferralCode>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyReferralCodeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyReferralCode>>
+>;
+export type GetMyReferralCodeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the signed-in customer's unique referral code
+ */
+
+export function useGetMyReferralCode<
+  TData = Awaited<ReturnType<typeof getMyReferralCode>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReferralCode>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyReferralCodeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
