@@ -101,7 +101,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       isPickerCountryCode(code) ? (order.get(code) ?? 99) : 99;
     return all
       .filter((c) => isPickerCountryCode(c.code) && c.isActive !== false)
-      .sort((a, b) => orderOf(a.code) - orderOf(b.code));
+      .sort((a, b) => orderOf(a.code) - orderOf(b.code))
+      .map((c) => ({ ...c, cities: c.cities.filter((city) => city.isActive !== false) }));
   }, [data]);
 
   // URL is the source of truth when it carries a valid locale prefix.
