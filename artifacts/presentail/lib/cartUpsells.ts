@@ -68,7 +68,10 @@ export const UPSELL_TABS: UpsellTabDef[] = [
   },
   {
     id: "chocolate",
-    productNames: ["Classic Chocolate Box"],
+    productNames: [
+      "Carré Mix Sablés + Chocolate Box",
+      "Sweet Love",
+    ],
   },
   {
     id: "plants",
