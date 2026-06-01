@@ -174,18 +174,23 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               { countryCode: code },
               "osLocationsCache: OS returned 0 cities for country — serving hardcoded fallback cities until OS data is available",
             );
-            return hardcoded.cities.map((city) => ({
-              id: city.id,
-              name: city.name,
-              isActive: city.isActive,
-              fee: feeForDistrict(code, city.name),
-              // OS returned 0 cities for this country — use hardcoded defaults.
-              expressAvailable: true,
-              expressDeliveryLabel: "",
-              sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
-              timeSlots: [] as OSTimeSlot[],
-              localizedNames: localizedNamesForCity(city.id),
-            }));
+            return hardcoded.cities.map((city) => {
+              const cfg = resolveDeliveryConfig(code, city.id);
+              return {
+                id: city.id,
+                name: city.name,
+                isActive: city.isActive,
+                fee: feeForDistrict(code, city.name),
+                // OS returned 0 cities for this country — use hardcoded defaults.
+                expressAvailable: true,
+                expressDeliveryLabel: "",
+                sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+                timeSlots: [] as OSTimeSlot[],
+                localizedNames: localizedNamesForCity(city.id),
+                freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
+                freeDeliveryEnabled: cfg.freeDeliveryEnabled,
+              };
+            });
           })()
         : osCountry.cities.map((c) => {
             // Resolve the canonical city id regardless of what slug OS uses.
@@ -214,10 +219,16 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               // Normalise to an array even when OS omits the field.
               timeSlots: c.timeSlots ?? [],
               localizedNames: localizedNamesForCity(canonicalId),
-              // Per-city free-delivery settings — undefined when not set in OS
-              // so callers can fall back to the country-level setting cleanly.
-              freeDeliveryThresholdUsd: c.freeDeliveryThresholdUsd,
-              freeDeliveryEnabled: c.freeDeliveryEnabled,
+              // Per-city free-delivery settings: OS value takes precedence; fall
+              // back to the hardcoded deliveryConfig entry so callers always get
+              // a defined value (and freeDeliveryEnabled is never silently true
+              // for cities that don't offer free delivery).
+              freeDeliveryThresholdUsd:
+                c.freeDeliveryThresholdUsd ??
+                resolveDeliveryConfig(code, canonicalId).freeDeliveryThresholdUsd,
+              freeDeliveryEnabled:
+                c.freeDeliveryEnabled ??
+                resolveDeliveryConfig(code, canonicalId).freeDeliveryEnabled,
             };
           });
 
@@ -276,18 +287,23 @@ function hardcodedFallback(): CachedCountry[] {
     isActive: c.isActive,
     preferredDefaultCityId: c.preferredDefaultCityId,
     localizedNames: localizedNamesForCountry(c.code),
-    cities: c.cities.map((city) => ({
-      id: city.id,
-      name: city.name,
-      isActive: city.isActive,
-      fee: feeForDistrict(c.code, city.name),
-      // OS unreachable — use hardcoded defaults.
-      expressAvailable: true,
-      expressDeliveryLabel: "",
-      sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
-      timeSlots: [] as OSTimeSlot[],
-      localizedNames: localizedNamesForCity(city.id),
-    })),
+    cities: c.cities.map((city) => {
+      const cfg = resolveDeliveryConfig(c.code, city.id);
+      return {
+        id: city.id,
+        name: city.name,
+        isActive: city.isActive,
+        fee: feeForDistrict(c.code, city.name),
+        // OS unreachable — use hardcoded defaults.
+        expressAvailable: true,
+        expressDeliveryLabel: "",
+        sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+        timeSlots: [] as OSTimeSlot[],
+        localizedNames: localizedNamesForCity(city.id),
+        freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
+        freeDeliveryEnabled: cfg.freeDeliveryEnabled,
+      };
+    }),
   }));
 }
 

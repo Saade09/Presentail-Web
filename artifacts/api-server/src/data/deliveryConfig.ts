@@ -36,14 +36,21 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
     },
   },
   LB: {
+    // Most LB cities outside Beirut/Aley/Baabda do not offer free delivery.
     default: {
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
-      freeDeliveryThreshold: "$130",
+      freeDeliveryThreshold: "$90",
       currency: "USD",
-      freeDeliveryThresholdUsd: 130,
-      freeDeliveryEnabled: true,
+      freeDeliveryThresholdUsd: 90,
+      freeDeliveryEnabled: false,
     },
-    cities: {},
+    cities: {
+      // Greater Beirut area — free delivery above $90.
+      "lb-beirut": { freeDeliveryThreshold: "$90", freeDeliveryThresholdUsd: 90, freeDeliveryEnabled: true },
+      // Mount Lebanon districts — free delivery above $140.
+      "lb-aley":   { freeDeliveryThreshold: "$140", freeDeliveryThresholdUsd: 140, freeDeliveryEnabled: true },
+      "lb-baabda": { freeDeliveryThreshold: "$140", freeDeliveryThresholdUsd: 140, freeDeliveryEnabled: true },
+    },
   },
   CY: {
     default: {

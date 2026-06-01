@@ -22,7 +22,7 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   },
   LB: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
-    freeDeliveryThreshold: "$130",
+    freeDeliveryThreshold: "$90",
     currency: "USD",
   },
   CY: {

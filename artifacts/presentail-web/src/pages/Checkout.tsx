@@ -1371,9 +1371,11 @@ export default function Checkout() {
                     <span style={{ color: "#00414e" }} data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
                   </div>
 
+                  {effectiveFreeDeliveryEnabled !== false && (
                   <div className="mt-4">
                     <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
                   </div>
+                  )}
                 </div>
 
                 {/* Delivery Summary */}

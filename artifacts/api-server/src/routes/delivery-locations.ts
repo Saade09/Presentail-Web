@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { GetDeliveryLocationsResponse } from "@workspace/api-zod";
 import { getLocations } from "../lib/osLocationsCache";
+import { resolveDeliveryConfig } from "../data/deliveryConfig";
 
 const router: IRouter = Router();
 
@@ -10,9 +11,21 @@ const router: IRouter = Router();
 // unreachable. Toggling a country/city active in Presentail OS propagates
 // within the polling interval without requiring a code deploy.
 router.get("/delivery-locations", (_req, res) => {
-  const data = GetDeliveryLocationsResponse.parse({
-    countries: getLocations(),
-  });
+  const locations = getLocations();
+  const enriched = locations.map((country) => ({
+    ...country,
+    cities: country.cities.map((city) => {
+      const cfg = resolveDeliveryConfig(country.code, city.id);
+      return {
+        ...city,
+        freeDeliveryThresholdUsd:
+          city.freeDeliveryThresholdUsd ?? cfg.freeDeliveryThresholdUsd,
+        freeDeliveryEnabled:
+          city.freeDeliveryEnabled ?? cfg.freeDeliveryEnabled,
+      };
+    }),
+  }));
+  const data = GetDeliveryLocationsResponse.parse({ countries: enriched });
   res.json(data);
 });
 
