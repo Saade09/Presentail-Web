@@ -109,7 +109,8 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent
         dir={dir}
-        className="max-w-2xl w-full p-0 overflow-hidden flex flex-col"
+        className="z-[70] max-w-2xl w-full p-0 overflow-hidden flex flex-col"
+        overlayClassName="z-[70]"
         style={{ maxHeight: "90vh" }}
         closeLabel={t("cart.upsells.modal.close")}
         data-testid="dialog-upsell-modal"
