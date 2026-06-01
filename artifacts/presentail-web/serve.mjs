@@ -492,7 +492,7 @@ const SITEMAP_LANGS = ["en", "ar", "fr"];
 // Representative city per country for product / brand canonical URLs.
 const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
 // Static sub-paths included for every lang / country / city combination.
-const SITEMAP_STATIC_PATHS = ["/", "/shop", "/brands", "/delivery-rates", "/contact", "/faqs"];
+const SITEMAP_STATIC_PATHS = ["/", "/shop", "/brands", "/contact", "/faqs"];
 
 let sitemapCache = null;
 let sitemapCacheTsMs = 0;

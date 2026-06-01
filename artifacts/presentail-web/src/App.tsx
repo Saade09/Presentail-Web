@@ -97,7 +97,6 @@ const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
 const Careers = lazy(() => import("@/pages/Careers"));
 const Blog = lazy(() => import("@/pages/Blog"));
 const Partner = lazy(() => import("@/pages/Partner"));
-const DeliveryRates = lazy(() => import("@/pages/DeliveryRates"));
 const Weddings = lazy(() => import("@/pages/Weddings"));
 const Corporate = lazy(() => import("@/pages/Corporate"));
 const Contact = lazy(() => import("@/pages/Contact"));
@@ -128,7 +127,6 @@ const UnauthorizedRoute = withSuspense(Unauthorized, PageLoader);
 const CareersRoute = withSuspense(Careers, PageLoader);
 const BlogRoute = withSuspense(Blog, PageLoader);
 const PartnerRoute = withSuspense(Partner, PageLoader);
-const DeliveryRatesRoute = withSuspense(DeliveryRates, PageLoader);
 const WeddingsRoute = withSuspense(Weddings, PageLoader);
 const CorporateRoute = withSuspense(Corporate, PageLoader);
 const ContactRoute = withSuspense(Contact, PageLoader);
@@ -215,7 +213,6 @@ function ShopShell() {
             <Route path="/careers" component={CareersRoute} />
             <Route path="/blog" component={BlogRoute} />
             <Route path="/partner" component={PartnerRoute} />
-            <Route path="/delivery-rates" component={DeliveryRatesRoute} />
             <Route path="/weddings" component={WeddingsRoute} />
             <Route path="/corporate" component={CorporateRoute} />
             <Route path="/contact" component={ContactRoute} />
