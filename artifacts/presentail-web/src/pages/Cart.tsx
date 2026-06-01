@@ -16,7 +16,7 @@ import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 
 function CartSkeleton() {
   return (
-    <div className="min-h-screen pt-24 pb-24">
+    <div className="min-h-screen bg-white pt-24 pb-24">
       <div className="container mx-auto px-4 max-w-5xl">
         <Skeleton className="h-10 w-48 mb-12" />
         <div className="flex flex-col lg:flex-row gap-12">
@@ -95,7 +95,7 @@ export default function Cart() {
 
   if (itemCount === 0) {
     return (
-      <div className="min-h-[70vh] pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-4">
+      <div className="min-h-[70vh] bg-white pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-4">
         <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
           <ShoppingCart className="w-10 h-10" />
         </div>
@@ -111,7 +111,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-24">
+    <div className="min-h-screen bg-white pt-24 pb-24">
       <div className="container mx-auto px-4 max-w-5xl">
         <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
 
