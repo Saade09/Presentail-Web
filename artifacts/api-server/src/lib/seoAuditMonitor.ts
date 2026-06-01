@@ -27,7 +27,7 @@ import { logger } from "./logger";
 import { sendAlert } from "./alerts";
 import {
   hasOsProducts,
-  getOsProductBySlug,
+  getOsProducts,
   getOsBrands,
   getOsCategories,
   getOsOccasions,
@@ -44,108 +44,98 @@ const ENABLED = (() => {
 // ensures we alert even if the server restarts after midnight UTC.
 const TICK_MS = 60 * 60 * 1000; // 1 h
 
-// Key pages to audit — mirrors the KEY_PAGES list in the SEO debug UI.
-// Covers all three countries and all supported language variants (EN, AR, FR)
-// for every key page type (Homepage, Product, Brand, Category, Occasion) so a
-// deploy that breaks OG injection only for a specific locale+page-type
-// combination (e.g. ar-lb product pages) is caught the same day.
-const KEY_PAGES: Array<{ label: string; url: string; locale: string }> = [
-  // ── Lebanon ───────────────────────────────────────────────────────────────
-  { locale: "LB", label: "Homepage (EN)",  url: "https://new.presentail.com/en-lb/beirut" },
-  { locale: "LB", label: "Product (EN)",   url: "https://new.presentail.com/en-lb/beirut/product/pink-roses" },
-  { locale: "LB", label: "Brand (EN)",     url: "https://new.presentail.com/en-lb/beirut/brand/roses-only" },
-  { locale: "LB", label: "Category (EN)",  url: "https://new.presentail.com/en-lb/beirut/shop?category=flowers" },
-  { locale: "LB", label: "Occasion (EN)",  url: "https://new.presentail.com/en-lb/beirut/shop?occasion=birthday" },
-  { locale: "LB", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-lb/beirut" },
-  { locale: "LB", label: "Product (AR)",   url: "https://new.presentail.com/ar-lb/beirut/product/pink-roses" },
-  { locale: "LB", label: "Brand (AR)",     url: "https://new.presentail.com/ar-lb/beirut/brand/roses-only" },
-  { locale: "LB", label: "Category (AR)",  url: "https://new.presentail.com/ar-lb/beirut/shop?category=flowers" },
-  { locale: "LB", label: "Occasion (AR)",  url: "https://new.presentail.com/ar-lb/beirut/shop?occasion=birthday" },
-  { locale: "LB", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-lb/beirut" },
-  { locale: "LB", label: "Product (FR)",   url: "https://new.presentail.com/fr-lb/beirut/product/pink-roses" },
-  { locale: "LB", label: "Brand (FR)",     url: "https://new.presentail.com/fr-lb/beirut/brand/roses-only" },
-  { locale: "LB", label: "Category (FR)",  url: "https://new.presentail.com/fr-lb/beirut/shop?category=flowers" },
-  { locale: "LB", label: "Occasion (FR)",  url: "https://new.presentail.com/fr-lb/beirut/shop?occasion=birthday" },
-  // ── UAE ───────────────────────────────────────────────────────────────────
-  { locale: "AE", label: "Homepage (EN)",  url: "https://new.presentail.com/en-ae/dubai" },
-  { locale: "AE", label: "Product (EN)",   url: "https://new.presentail.com/en-ae/dubai/product/pink-roses" },
-  { locale: "AE", label: "Brand (EN)",     url: "https://new.presentail.com/en-ae/dubai/brand/roses-only" },
-  { locale: "AE", label: "Category (EN)",  url: "https://new.presentail.com/en-ae/dubai/shop?category=flowers" },
-  { locale: "AE", label: "Occasion (EN)",  url: "https://new.presentail.com/en-ae/dubai/shop?occasion=birthday" },
-  { locale: "AE", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-ae/dubai" },
-  { locale: "AE", label: "Product (AR)",   url: "https://new.presentail.com/ar-ae/dubai/product/pink-roses" },
-  { locale: "AE", label: "Brand (AR)",     url: "https://new.presentail.com/ar-ae/dubai/brand/roses-only" },
-  { locale: "AE", label: "Category (AR)",  url: "https://new.presentail.com/ar-ae/dubai/shop?category=flowers" },
-  { locale: "AE", label: "Occasion (AR)",  url: "https://new.presentail.com/ar-ae/dubai/shop?occasion=birthday" },
-  { locale: "AE", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-ae/dubai" },
-  { locale: "AE", label: "Product (FR)",   url: "https://new.presentail.com/fr-ae/dubai/product/pink-roses" },
-  { locale: "AE", label: "Brand (FR)",     url: "https://new.presentail.com/fr-ae/dubai/brand/roses-only" },
-  { locale: "AE", label: "Category (FR)",  url: "https://new.presentail.com/fr-ae/dubai/shop?category=flowers" },
-  { locale: "AE", label: "Occasion (FR)",  url: "https://new.presentail.com/fr-ae/dubai/shop?occasion=birthday" },
-  // ── Cyprus ────────────────────────────────────────────────────────────────
-  { locale: "CY", label: "Homepage (EN)",  url: "https://new.presentail.com/en-cy/nicosia" },
-  { locale: "CY", label: "Product (EN)",   url: "https://new.presentail.com/en-cy/nicosia/product/pink-roses" },
-  { locale: "CY", label: "Brand (EN)",     url: "https://new.presentail.com/en-cy/nicosia/brand/roses-only" },
-  { locale: "CY", label: "Category (EN)",  url: "https://new.presentail.com/en-cy/nicosia/shop?category=flowers" },
-  { locale: "CY", label: "Occasion (EN)",  url: "https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday" },
-  { locale: "CY", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-cy/nicosia" },
-  { locale: "CY", label: "Product (AR)",   url: "https://new.presentail.com/ar-cy/nicosia/product/pink-roses" },
-  { locale: "CY", label: "Brand (AR)",     url: "https://new.presentail.com/ar-cy/nicosia/brand/roses-only" },
-  { locale: "CY", label: "Category (AR)",  url: "https://new.presentail.com/ar-cy/nicosia/shop?category=flowers" },
-  { locale: "CY", label: "Occasion (AR)",  url: "https://new.presentail.com/ar-cy/nicosia/shop?occasion=birthday" },
-  { locale: "CY", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-cy/nicosia" },
-  { locale: "CY", label: "Product (FR)",   url: "https://new.presentail.com/fr-cy/nicosia/product/pink-roses" },
-  { locale: "CY", label: "Brand (FR)",     url: "https://new.presentail.com/fr-cy/nicosia/brand/roses-only" },
-  { locale: "CY", label: "Category (FR)",  url: "https://new.presentail.com/fr-cy/nicosia/shop?category=flowers" },
-  { locale: "CY", label: "Occasion (FR)",  url: "https://new.presentail.com/fr-cy/nicosia/shop?occasion=birthday" },
-];
-
-// ── Slug config ─────────────────────────────────────────────────────────────
+// ── Dynamic key-page builder ─────────────────────────────────────────────────
 //
-// The unique slugs baked into KEY_PAGES, grouped by entity type.  These are
-// validated against the live OS catalog after each cache refresh so ops get a
-// distinct Slack alert when a slug is retired — which would otherwise cause
-// every AR/FR deep-page entry to appear as a fetch-fail / 404 in the daily
-// SEO audit, indistinguishable from a real OG-image regression.
+// Rather than hardcoding slugs that must be manually updated whenever the OS
+// catalog changes, `buildKeyPages` picks the first available slug from each
+// entity type (product, brand, category, occasion) in the live OS catalog at
+// audit time. This ensures the audited URLs are always valid — no manual
+// maintenance and no stale-slug false-positives in the daily digest.
 //
-// When you update KEY_PAGES slugs, keep these in sync.
-
-const KEY_PAGE_SLUGS = {
-  products:   ["pink-roses"],
-  brands:     ["roses-only"],
-  categories: ["flowers"],
-  occasions:  ["birthday"],
-} as const;
-
-// ── Stale-slug tracking ──────────────────────────────────────────────────────
+// Returns null when the catalog is not yet populated or is missing an entity
+// type; callers skip the audit in that case and rely on `validateKeyPageSlugs`
+// to fire a Slack alert about the coverage gap.
 
 /**
- * Slugs that were not found in the OS catalog on the most recent validation
- * pass. Maps slug → entity type.  Cleared when the slug reappears in the
- * catalog so the Slack alert fires exactly once per disappearance event.
- */
-const staleSlugs = new Map<string, "product" | "brand" | "category" | "occasion">();
-
-/**
- * Extract the entity slug from a KEY_PAGES URL so we can check whether a
- * fetch-fail is caused by a retired slug rather than a real server error.
+ * Build the list of key Presentail pages to audit using live slugs from the OS
+ * catalog. Covers all three countries and all supported language variants
+ * (EN, AR, FR) for every key page type (Homepage, Product, Brand, Category,
+ * Occasion) so a deploy that breaks OG injection for a specific locale+page-type
+ * combination is caught the same day.
  *
- *   /product/{slug}        → product slug
- *   /brand/{slug}          → brand slug
- *   ?category={slug}       → category slug
- *   ?occasion={slug}       → occasion slug
+ * Returns null when the OS catalog is not populated or any entity type has no
+ * entries.
  */
-function extractSlugFromUrl(url: string): string | null {
-  const productMatch = /\/product\/([^/?#]+)/.exec(url);
-  if (productMatch) return productMatch[1];
-  const brandMatch = /\/brand\/([^/?#]+)/.exec(url);
-  if (brandMatch) return brandMatch[1];
-  const categoryMatch = /[?&]category=([^&]+)/.exec(url);
-  if (categoryMatch) return categoryMatch[1];
-  const occasionMatch = /[?&]occasion=([^&]+)/.exec(url);
-  if (occasionMatch) return occasionMatch[1];
-  return null;
+export function buildKeyPages(): Array<{ label: string; url: string; locale: string }> | null {
+  if (!hasOsProducts()) return null;
+
+  const productSlug = (getOsProducts() ?? [])[0]?.id;
+  const brandSlug = (getOsBrands() ?? [])[0]?.slug;
+  const categorySlug = (getOsCategories() ?? [])[0]?.slug;
+  const occasionSlug = (getOsOccasions() ?? [])[0]?.slug;
+
+  if (!productSlug || !brandSlug || !categorySlug || !occasionSlug) return null;
+
+  return [
+    // ── Lebanon ───────────────────────────────────────────────────────────────
+    { locale: "LB", label: "Homepage (EN)",  url: "https://new.presentail.com/en-lb/beirut" },
+    { locale: "LB", label: "Product (EN)",   url: `https://new.presentail.com/en-lb/beirut/product/${productSlug}` },
+    { locale: "LB", label: "Brand (EN)",     url: `https://new.presentail.com/en-lb/beirut/brand/${brandSlug}` },
+    { locale: "LB", label: "Category (EN)",  url: `https://new.presentail.com/en-lb/beirut/shop?category=${categorySlug}` },
+    { locale: "LB", label: "Occasion (EN)",  url: `https://new.presentail.com/en-lb/beirut/shop?occasion=${occasionSlug}` },
+    { locale: "LB", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-lb/beirut" },
+    { locale: "LB", label: "Product (AR)",   url: `https://new.presentail.com/ar-lb/beirut/product/${productSlug}` },
+    { locale: "LB", label: "Brand (AR)",     url: `https://new.presentail.com/ar-lb/beirut/brand/${brandSlug}` },
+    { locale: "LB", label: "Category (AR)",  url: `https://new.presentail.com/ar-lb/beirut/shop?category=${categorySlug}` },
+    { locale: "LB", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-lb/beirut/shop?occasion=${occasionSlug}` },
+    { locale: "LB", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-lb/beirut" },
+    { locale: "LB", label: "Product (FR)",   url: `https://new.presentail.com/fr-lb/beirut/product/${productSlug}` },
+    { locale: "LB", label: "Brand (FR)",     url: `https://new.presentail.com/fr-lb/beirut/brand/${brandSlug}` },
+    { locale: "LB", label: "Category (FR)",  url: `https://new.presentail.com/fr-lb/beirut/shop?category=${categorySlug}` },
+    { locale: "LB", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-lb/beirut/shop?occasion=${occasionSlug}` },
+    // ── UAE ───────────────────────────────────────────────────────────────────
+    { locale: "AE", label: "Homepage (EN)",  url: "https://new.presentail.com/en-ae/dubai" },
+    { locale: "AE", label: "Product (EN)",   url: `https://new.presentail.com/en-ae/dubai/product/${productSlug}` },
+    { locale: "AE", label: "Brand (EN)",     url: `https://new.presentail.com/en-ae/dubai/brand/${brandSlug}` },
+    { locale: "AE", label: "Category (EN)",  url: `https://new.presentail.com/en-ae/dubai/shop?category=${categorySlug}` },
+    { locale: "AE", label: "Occasion (EN)",  url: `https://new.presentail.com/en-ae/dubai/shop?occasion=${occasionSlug}` },
+    { locale: "AE", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-ae/dubai" },
+    { locale: "AE", label: "Product (AR)",   url: `https://new.presentail.com/ar-ae/dubai/product/${productSlug}` },
+    { locale: "AE", label: "Brand (AR)",     url: `https://new.presentail.com/ar-ae/dubai/brand/${brandSlug}` },
+    { locale: "AE", label: "Category (AR)",  url: `https://new.presentail.com/ar-ae/dubai/shop?category=${categorySlug}` },
+    { locale: "AE", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-ae/dubai/shop?occasion=${occasionSlug}` },
+    { locale: "AE", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-ae/dubai" },
+    { locale: "AE", label: "Product (FR)",   url: `https://new.presentail.com/fr-ae/dubai/product/${productSlug}` },
+    { locale: "AE", label: "Brand (FR)",     url: `https://new.presentail.com/fr-ae/dubai/brand/${brandSlug}` },
+    { locale: "AE", label: "Category (FR)",  url: `https://new.presentail.com/fr-ae/dubai/shop?category=${categorySlug}` },
+    { locale: "AE", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-ae/dubai/shop?occasion=${occasionSlug}` },
+    // ── Cyprus ────────────────────────────────────────────────────────────────
+    { locale: "CY", label: "Homepage (EN)",  url: "https://new.presentail.com/en-cy/nicosia" },
+    { locale: "CY", label: "Product (EN)",   url: `https://new.presentail.com/en-cy/nicosia/product/${productSlug}` },
+    { locale: "CY", label: "Brand (EN)",     url: `https://new.presentail.com/en-cy/nicosia/brand/${brandSlug}` },
+    { locale: "CY", label: "Category (EN)",  url: `https://new.presentail.com/en-cy/nicosia/shop?category=${categorySlug}` },
+    { locale: "CY", label: "Occasion (EN)",  url: `https://new.presentail.com/en-cy/nicosia/shop?occasion=${occasionSlug}` },
+    { locale: "CY", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-cy/nicosia" },
+    { locale: "CY", label: "Product (AR)",   url: `https://new.presentail.com/ar-cy/nicosia/product/${productSlug}` },
+    { locale: "CY", label: "Brand (AR)",     url: `https://new.presentail.com/ar-cy/nicosia/brand/${brandSlug}` },
+    { locale: "CY", label: "Category (AR)",  url: `https://new.presentail.com/ar-cy/nicosia/shop?category=${categorySlug}` },
+    { locale: "CY", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-cy/nicosia/shop?occasion=${occasionSlug}` },
+    { locale: "CY", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-cy/nicosia" },
+    { locale: "CY", label: "Product (FR)",   url: `https://new.presentail.com/fr-cy/nicosia/product/${productSlug}` },
+    { locale: "CY", label: "Brand (FR)",     url: `https://new.presentail.com/fr-cy/nicosia/brand/${brandSlug}` },
+    { locale: "CY", label: "Category (FR)",  url: `https://new.presentail.com/fr-cy/nicosia/shop?category=${categorySlug}` },
+    { locale: "CY", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-cy/nicosia/shop?occasion=${occasionSlug}` },
+  ];
 }
+
+// ── Catalog-coverage tracking ─────────────────────────────────────────────────
+
+/**
+ * Set to true after a Slack alert has been sent for an empty entity type so we
+ * don't send duplicate alerts on every hourly tick. Cleared when the catalog
+ * recovers (all entity types populated again).
+ */
+let catalogCoverageAlerted = false;
 
 // ── Module state ────────────────────────────────────────────────────────────
 
@@ -281,7 +271,7 @@ export function __resetForTest(): void {
   lastEvaluatedDay = null;
   running = false;
   lastAuditSummary = null;
-  staleSlugs.clear();
+  catalogCoverageAlerted = false;
 }
 
 /** Return the cached result of the most recent completed audit, or null if no run has completed since the last restart. */
@@ -481,13 +471,18 @@ export async function runAuditNow(): Promise<AuditSummary> {
   }
   running = true;
   try {
+    const pages = buildKeyPages();
+    if (!pages) {
+      throw new Error("OS catalog not ready — cannot build page list for audit");
+    }
+
     const ranAt = new Date().toISOString();
     logger.info(
-      { pageCount: KEY_PAGES.length },
+      { pageCount: pages.length },
       "seoAuditMonitor: on-demand audit started",
     );
 
-    const results = await Promise.all(KEY_PAGES.map(auditPage));
+    const results = await Promise.all(pages.map(auditPage));
 
     const failing = results.filter((r) => classifyResult(r) === "error");
     const warned = results.filter((r) => classifyResult(r) === "warn");
@@ -549,11 +544,7 @@ export async function runAuditNow(): Promise<AuditSummary> {
           const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
           let detail = "";
           if (r.fetchFailed) {
-            const slug = extractSlugFromUrl(r.url);
-            detail =
-              slug && staleSlugs.has(slug)
-                ? "slug not found in catalog — update KEY_PAGES"
-                : "could not fetch page";
+            detail = "could not fetch page";
           } else if (!r.ogImage) {
             detail = "og:image missing";
           } else if (r.ogImageReachable === false) {
@@ -605,146 +596,70 @@ export async function runAuditNow(): Promise<AuditSummary> {
   }
 }
 
-// ── Slug validation ──────────────────────────────────────────────────────────
+// ── Catalog coverage check ───────────────────────────────────────────────────
 
 /**
- * Validate that every slug referenced in KEY_PAGES still exists in the live
- * OS catalog.  Logs a WARN for each newly-stale slug and sends a single Slack
- * alert when any are detected so ops know to update KEY_PAGES before the
- * daily audit fires false-positive 404 errors.
+ * Verify the OS catalog has at least one entry for each entity type that
+ * `buildKeyPages` needs (product, brand, category, occasion). Fires a single
+ * Slack alert when any type is empty and clears it when the catalog recovers.
  *
- * Sends a recovery log when a previously-stale slug reappears in the catalog.
+ * This replaces the old per-slug stale-slug check. Because `buildKeyPages`
+ * picks slugs dynamically, there is nothing to validate about specific slug
+ * values — we only need to confirm the catalog is populated enough to produce
+ * a full page list.
  *
- * Safe to call at any point; skips silently when the OS cache is not yet
- * populated (we cannot validate what we haven't loaded).
+ * Safe to call at any point; skips when the OS cache is not yet populated.
  */
 export async function validateKeyPageSlugs(): Promise<void> {
   if (!hasOsProducts()) {
     logger.info(
-      "seoAuditMonitor: OS catalog not yet populated — skipping slug validation",
+      "seoAuditMonitor: OS catalog not yet populated — skipping catalog coverage check",
     );
     return;
   }
 
-  const nowStale: Array<{ slug: string; type: string }> = [];
-  const nowRecovered: string[] = [];
+  const products = getOsProducts() ?? [];
+  const brands = getOsBrands() ?? [];
+  const categories = getOsCategories() ?? [];
+  const occasions = getOsOccasions() ?? [];
 
-  // ── Products ────────────────────────────────────────────────────────────
-  for (const slug of KEY_PAGE_SLUGS.products) {
-    const found = getOsProductBySlug(slug) !== null;
-    if (!found) {
-      if (!staleSlugs.has(slug)) {
-        staleSlugs.set(slug, "product");
-        nowStale.push({ slug, type: "product" });
-        logger.warn(
-          { slug, type: "product" },
-          "seoAuditMonitor: KEY_PAGES product slug not found in OS catalog — update KEY_PAGES",
-        );
-      }
-    } else if (staleSlugs.has(slug)) {
-      staleSlugs.delete(slug);
-      nowRecovered.push(slug);
+  const empty: string[] = [];
+  if (products.length === 0) empty.push("products");
+  if (brands.length === 0) empty.push("brands");
+  if (categories.length === 0) empty.push("categories");
+  if (occasions.length === 0) empty.push("occasions");
+
+  if (empty.length === 0) {
+    if (catalogCoverageAlerted) {
+      catalogCoverageAlerted = false;
       logger.info(
-        { slug, type: "product" },
-        "seoAuditMonitor: KEY_PAGES product slug is now live in OS catalog — stale-slug warning cleared",
+        "seoAuditMonitor: catalog coverage restored — all entity types now populated",
       );
     }
+    return;
   }
 
-  // ── Brands ──────────────────────────────────────────────────────────────
-  const brandSlugsInCatalog = new Set((getOsBrands() ?? []).map((b) => b.slug));
-  for (const slug of KEY_PAGE_SLUGS.brands) {
-    const found = brandSlugsInCatalog.has(slug);
-    if (!found) {
-      if (!staleSlugs.has(slug)) {
-        staleSlugs.set(slug, "brand");
-        nowStale.push({ slug, type: "brand" });
-        logger.warn(
-          { slug, type: "brand" },
-          "seoAuditMonitor: KEY_PAGES brand slug not found in OS catalog — update KEY_PAGES",
-        );
-      }
-    } else if (staleSlugs.has(slug)) {
-      staleSlugs.delete(slug);
-      nowRecovered.push(slug);
-      logger.info(
-        { slug, type: "brand" },
-        "seoAuditMonitor: KEY_PAGES brand slug is now live in OS catalog — stale-slug warning cleared",
-      );
-    }
-  }
+  if (catalogCoverageAlerted) return;
+  catalogCoverageAlerted = true;
 
-  // ── Categories ──────────────────────────────────────────────────────────
-  const categorySlugsInCatalog = new Set(
-    (getOsCategories() ?? []).map((c) => c.slug),
+  logger.warn(
+    { empty },
+    "seoAuditMonitor: OS catalog has no entries for some entity types — SEO audit may be skipped until catalog is populated",
   );
-  for (const slug of KEY_PAGE_SLUGS.categories) {
-    const found = categorySlugsInCatalog.has(slug);
-    if (!found) {
-      if (!staleSlugs.has(slug)) {
-        staleSlugs.set(slug, "category");
-        nowStale.push({ slug, type: "category" });
-        logger.warn(
-          { slug, type: "category" },
-          "seoAuditMonitor: KEY_PAGES category slug not found in OS catalog — update KEY_PAGES",
-        );
-      }
-    } else if (staleSlugs.has(slug)) {
-      staleSlugs.delete(slug);
-      nowRecovered.push(slug);
-      logger.info(
-        { slug, type: "category" },
-        "seoAuditMonitor: KEY_PAGES category slug is now live in OS catalog — stale-slug warning cleared",
-      );
-    }
-  }
-
-  // ── Occasions ───────────────────────────────────────────────────────────
-  const occasionSlugsInCatalog = new Set(
-    (getOsOccasions() ?? []).map((o) => o.slug),
-  );
-  for (const slug of KEY_PAGE_SLUGS.occasions) {
-    const found = occasionSlugsInCatalog.has(slug);
-    if (!found) {
-      if (!staleSlugs.has(slug)) {
-        staleSlugs.set(slug, "occasion");
-        nowStale.push({ slug, type: "occasion" });
-        logger.warn(
-          { slug, type: "occasion" },
-          "seoAuditMonitor: KEY_PAGES occasion slug not found in OS catalog — update KEY_PAGES",
-        );
-      }
-    } else if (staleSlugs.has(slug)) {
-      staleSlugs.delete(slug);
-      nowRecovered.push(slug);
-      logger.info(
-        { slug, type: "occasion" },
-        "seoAuditMonitor: KEY_PAGES occasion slug is now live in OS catalog — stale-slug warning cleared",
-      );
-    }
-  }
-
-  if (nowStale.length === 0) return;
 
   await sendAlert({
-    title: `SEO audit: ${nowStale.length} KEY_PAGES slug(s) missing from OS catalog`,
+    title: `SEO audit: OS catalog missing entries for ${empty.join(", ")}`,
     body:
-      `${nowStale.length} slug(s) referenced in KEY_PAGES no longer exist in the Presentail OS catalog. ` +
-      `Pages using these slugs will appear as 404 / fetch-fail in the daily SEO digest — ` +
-      `these are *config errors, NOT OG-image regressions*. ` +
-      `Update KEY_PAGES in \`seoAuditMonitor.ts\` with current slugs from the OS catalog.\n` +
-      nowStale
-        .map(({ slug, type }) => `  • \`${slug}\` (${type})`)
-        .join("\n"),
+      `The Presentail OS catalog has no entries for: ${empty.join(", ")}. ` +
+      `The daily SEO audit builds page URLs from the first available slug per entity type — ` +
+      `it will be skipped until all entity types are populated. ` +
+      `This is a catalog health issue, not an OG-image regression.`,
     severity: "warn",
     fields: [
+      { title: "Empty entity types", value: empty.join(", ") },
       {
-        title: "Stale slug(s)",
-        value: nowStale.map((s) => `${s.slug} (${s.type})`).join(", "),
-      },
-      {
-        title: "Action required",
-        value: "Update KEY_PAGE_SLUGS + KEY_PAGES in seoAuditMonitor.ts",
+        title: "Effect",
+        value: "Daily SEO audit skipped until catalog is fully populated",
       },
     ],
     source: "seoAuditMonitor.validateKeyPageSlugs",
@@ -767,24 +682,26 @@ export async function runOnce(): Promise<void> {
       return;
     }
 
+    // Build page list from live OS catalog slugs. Skip the audit if the
+    // catalog is not yet populated or is missing an entity type — the hourly
+    // `validateKeyPageSlugs` call will already have sent a Slack alert about
+    // the coverage gap.
+    const pages = buildKeyPages();
+    if (!pages) {
+      logger.info(
+        { day: prevDay },
+        "seoAuditMonitor: catalog not ready — skipping daily audit (will retry next tick)",
+      );
+      return;
+    }
+
     logger.info(
-      { day: prevDay, pageCount: KEY_PAGES.length },
+      { day: prevDay, pageCount: pages.length },
       "seoAuditMonitor: running daily audit",
     );
 
-    // Validate that the hardcoded slugs in KEY_PAGES still exist in the OS
-    // catalog before running the audit.  Stale slugs produce a separate Slack
-    // alert with a distinct message so ops can tell them apart from real
-    // OG-image regressions.
-    await validateKeyPageSlugs().catch((err) => {
-      logger.warn(
-        { err: (err as Error)?.message },
-        "seoAuditMonitor: slug validation failed — audit will continue",
-      );
-    });
-
     const ranAt = new Date().toISOString();
-    const results = await Promise.all(KEY_PAGES.map(auditPage));
+    const results = await Promise.all(pages.map(auditPage));
     lastEvaluatedDay = prevDay;
 
     const failing = results.filter((r) => classifyResult(r) === "error");
@@ -857,11 +774,7 @@ export async function runOnce(): Promise<void> {
         const icon = status === "error" ? "🔴" : status === "warn" ? "🟡" : "🟢";
         let detail = "";
         if (r.fetchFailed) {
-          const slug = extractSlugFromUrl(r.url);
-          detail =
-            slug && staleSlugs.has(slug)
-              ? "slug not found in catalog — update KEY_PAGES"
-              : "could not fetch page";
+          detail = "could not fetch page";
         } else if (!r.ogImage) {
           detail = "og:image missing";
         } else if (r.ogImageReachable === false) {
@@ -941,13 +854,13 @@ export function startSeoAuditMonitor(): void {
   baseline.unref?.();
 
   timer = setInterval(() => {
-    // Always re-validate slugs on every tick so stale-slug Slack alerts fire
-    // even on days when the daily audit guard has already run (lastEvaluatedDay
-    // matches prevDay and runOnce() returns early without calling validation).
+    // Check catalog coverage on every tick so Slack alerts fire even on days
+    // when the daily audit guard has already run (lastEvaluatedDay matches
+    // prevDay and runOnce() returns early).
     validateKeyPageSlugs().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },
-        "seoAuditMonitor: hourly slug validation failed",
+        "seoAuditMonitor: hourly catalog coverage check failed",
       );
     });
     runOnce().catch((err) => {
@@ -959,7 +872,7 @@ export function startSeoAuditMonitor(): void {
   }, TICK_MS);
   timer.unref?.();
 
-  logger.info({ tickMs: TICK_MS, pageCount: KEY_PAGES.length }, "seoAuditMonitor: started");
+  logger.info({ tickMs: TICK_MS }, "seoAuditMonitor: started");
 }
 
 export function stopSeoAuditMonitor(): void {

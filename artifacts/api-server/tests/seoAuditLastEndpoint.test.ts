@@ -22,6 +22,16 @@ vi.mock("../src/lib/logger", () => ({
   },
 }));
 
+// Provide a fully-populated catalog so buildKeyPages() always returns a valid
+// page list in these endpoint-focused tests.
+vi.mock("../src/lib/osProductsCache", () => ({
+  hasOsProducts: () => true,
+  getOsProducts: () => [{ id: "red-roses" }],
+  getOsBrands: () => [{ slug: "bloom-studio" }],
+  getOsCategories: () => [{ slug: "flowers" }],
+  getOsOccasions: () => [{ slug: "birthday" }],
+}));
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeResponse(ok: boolean, body = ""): Response {

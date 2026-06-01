@@ -22,6 +22,16 @@ vi.mock("../src/lib/logger", () => ({
   },
 }));
 
+// Provide a fully-populated catalog so buildKeyPages() always returns a valid
+// page list, keeping these tests focused on audit logic rather than catalog state.
+vi.mock("../src/lib/osProductsCache", () => ({
+  hasOsProducts: () => true,
+  getOsProducts: () => [{ id: "red-roses" }],
+  getOsBrands: () => [{ slug: "bloom-studio" }],
+  getOsCategories: () => [{ slug: "flowers" }],
+  getOsOccasions: () => [{ slug: "birthday" }],
+}));
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 type PageResult = Parameters<typeof classifyResult>[0];

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   validateKeyPageSlugs,
+  buildKeyPages,
   runOnce,
   __resetForTest,
 } from "../src/lib/seoAuditMonitor";
@@ -26,14 +27,14 @@ vi.mock("../src/lib/logger", () => ({
 }));
 
 const hasOsProductsMock = vi.fn<[], boolean>();
-const getOsProductBySlugMock = vi.fn<[string], unknown>();
+const getOsProductsMock = vi.fn<[], Array<{ id: string }> | null>();
 const getOsBrandsMock = vi.fn<[], Array<{ slug: string }>>();
 const getOsCategoriesMock = vi.fn<[], Array<{ slug: string }>>();
 const getOsOccasionsMock = vi.fn<[], Array<{ slug: string }>>();
 
 vi.mock("../src/lib/osProductsCache", () => ({
   hasOsProducts: () => hasOsProductsMock(),
-  getOsProductBySlug: (slug: string) => getOsProductBySlugMock(slug),
+  getOsProducts: () => getOsProductsMock(),
   getOsBrands: () => getOsBrandsMock(),
   getOsCategories: () => getOsCategoriesMock(),
   getOsOccasions: () => getOsOccasionsMock(),
@@ -41,26 +42,25 @@ vi.mock("../src/lib/osProductsCache", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Return catalog mocks where every KEY_PAGE slug is present — all healthy. */
+/** Catalog where all entity types have at least one entry. */
 function setupHealthyCatalog(): void {
   hasOsProductsMock.mockReturnValue(true);
-  getOsProductBySlugMock.mockReturnValue({ slug: "pink-roses" });
-  getOsBrandsMock.mockReturnValue([{ slug: "roses-only" }]);
+  getOsProductsMock.mockReturnValue([{ id: "red-roses" }]);
+  getOsBrandsMock.mockReturnValue([{ slug: "bloom-studio" }]);
   getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
   getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
 }
 
-/** Return catalog mocks where every KEY_PAGE slug is absent — all stale. */
+/** Catalog where every entity type is empty. */
 function setupEmptyCatalog(): void {
   hasOsProductsMock.mockReturnValue(true);
-  getOsProductBySlugMock.mockReturnValue(null);
+  getOsProductsMock.mockReturnValue([]);
   getOsBrandsMock.mockReturnValue([]);
   getOsCategoriesMock.mockReturnValue([]);
   getOsOccasionsMock.mockReturnValue([]);
 }
 
-// ── Minimal fetch stubs for runOnce ──────────────────────────────────────────
-
+/** Minimal fetch stubs for runOnce tests. */
 function makeResponse(ok: boolean, body = ""): Response {
   return {
     ok,
@@ -76,7 +76,7 @@ const HEALTHY_HTML = `
 </head><body></body></html>
 `.trim();
 
-// ── Suite: validateKeyPageSlugs ───────────────────────────────────────────────
+// ── Suite: validateKeyPageSlugs (catalog coverage check) ─────────────────────
 
 describe("validateKeyPageSlugs", () => {
   beforeEach(() => {
@@ -84,7 +84,7 @@ describe("validateKeyPageSlugs", () => {
     loggerWarnMock.mockReset();
     loggerInfoMock.mockReset();
     hasOsProductsMock.mockReset();
-    getOsProductBySlugMock.mockReset();
+    getOsProductsMock.mockReset();
     getOsBrandsMock.mockReset();
     getOsCategoriesMock.mockReset();
     getOsOccasionsMock.mockReset();
@@ -98,7 +98,6 @@ describe("validateKeyPageSlugs", () => {
 
     expect(sendAlertMock).not.toHaveBeenCalled();
     expect(loggerWarnMock).not.toHaveBeenCalled();
-    // One info log explaining the skip
     expect(loggerInfoMock).toHaveBeenCalledOnce();
     expect(loggerInfoMock.mock.calls[0]).toEqual(
       expect.arrayContaining([
@@ -107,103 +106,209 @@ describe("validateKeyPageSlugs", () => {
     );
   });
 
-  it("logs a WARN and sends a Slack alert on first stale detection", async () => {
+  it("is a no-op when all entity types have entries", async () => {
+    setupHealthyCatalog();
+
+    await validateKeyPageSlugs();
+
+    expect(sendAlertMock).not.toHaveBeenCalled();
+    expect(loggerWarnMock).not.toHaveBeenCalled();
+  });
+
+  it("logs a WARN and sends a Slack alert when all entity types are empty", async () => {
     setupEmptyCatalog();
 
     await validateKeyPageSlugs();
 
-    // One WARN per stale slug (product, brand, category, occasion)
-    expect(loggerWarnMock).toHaveBeenCalledTimes(4);
-    const warnMessages = loggerWarnMock.mock.calls.map((c) => c[1] as string);
-    expect(warnMessages.some((m) => m.includes("product slug not found"))).toBe(true);
-    expect(warnMessages.some((m) => m.includes("brand slug not found"))).toBe(true);
-    expect(warnMessages.some((m) => m.includes("category slug not found"))).toBe(true);
-    expect(warnMessages.some((m) => m.includes("occasion slug not found"))).toBe(true);
+    expect(loggerWarnMock).toHaveBeenCalledOnce();
+    const [, msg] = loggerWarnMock.mock.calls[0];
+    expect(msg).toMatch(/no entries for some entity types/);
 
-    // Exactly one Slack alert bundling all stale slugs
     expect(sendAlertMock).toHaveBeenCalledOnce();
     const alert = sendAlertMock.mock.calls[0][0];
     expect(alert.severity).toBe("warn");
-    expect(alert.title).toMatch(/KEY_PAGES slug\(s\) missing/);
-    expect(alert.body).toMatch(/pink-roses/);
-    expect(alert.body).toMatch(/roses-only/);
-    expect(alert.body).toMatch(/flowers/);
-    expect(alert.body).toMatch(/birthday/);
+    expect(alert.title).toMatch(/OS catalog missing entries/);
+    expect(alert.body).toMatch(/products/);
+    expect(alert.body).toMatch(/brands/);
+    expect(alert.body).toMatch(/categories/);
+    expect(alert.body).toMatch(/occasions/);
+    expect(alert.source).toBe("seoAuditMonitor.validateKeyPageSlugs");
   });
 
-  it("does not send a duplicate Slack alert on a second call with the same stale slugs", async () => {
+  it("alerts when only one entity type is empty (e.g. brands)", async () => {
+    hasOsProductsMock.mockReturnValue(true);
+    getOsProductsMock.mockReturnValue([{ id: "red-roses" }]);
+    getOsBrandsMock.mockReturnValue([]); // empty
+    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
+    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
+
+    await validateKeyPageSlugs();
+
+    expect(sendAlertMock).toHaveBeenCalledOnce();
+    const alert = sendAlertMock.mock.calls[0][0];
+    expect(alert.body).toMatch(/brands/);
+    expect(alert.body).not.toMatch(/products,/);
+  });
+
+  it("does not send a duplicate alert on a second call with the same empty catalog", async () => {
     setupEmptyCatalog();
 
     await validateKeyPageSlugs();
     expect(sendAlertMock).toHaveBeenCalledOnce();
 
-    // Reset call counters but keep module state (staleSlugs remain set)
     sendAlertMock.mockReset();
     loggerWarnMock.mockReset();
 
     await validateKeyPageSlugs();
 
-    // Slugs were already marked stale — no new WARN logs, no new Slack alert
     expect(loggerWarnMock).not.toHaveBeenCalled();
     expect(sendAlertMock).not.toHaveBeenCalled();
   });
 
-  it("clears staleSlugs and logs info recovery when a slug reappears in the catalog", async () => {
-    // First pass: mark all slugs as stale
+  it("logs recovery when a previously-empty catalog becomes fully populated", async () => {
     setupEmptyCatalog();
     await validateKeyPageSlugs();
     expect(sendAlertMock).toHaveBeenCalledOnce();
 
     sendAlertMock.mockReset();
-    loggerWarnMock.mockReset();
     loggerInfoMock.mockReset();
 
-    // Second pass: catalog is now healthy — slugs should be recovered
     setupHealthyCatalog();
     await validateKeyPageSlugs();
 
-    // No new stale alert
     expect(sendAlertMock).not.toHaveBeenCalled();
-    // Recovery info log for each previously-stale slug
-    const infoCalls = loggerInfoMock.mock.calls.map((c) => c[1] as string);
-    expect(infoCalls.some((m) => m.includes("now live in OS catalog"))).toBe(true);
-    expect(infoCalls.filter((m) => m.includes("now live in OS catalog")).length).toBe(4);
+    const infoCalls = loggerInfoMock.mock.calls.map((c) => c[0] as string);
+    expect(infoCalls.some((m) => m.includes("catalog coverage restored"))).toBe(true);
   });
 
-  it("sends a fresh Slack alert if a recovered slug later goes stale again", async () => {
-    // 1. Mark all stale
+  it("fires a fresh alert after a catalog recovers then goes empty again", async () => {
     setupEmptyCatalog();
     await validateKeyPageSlugs();
     expect(sendAlertMock).toHaveBeenCalledOnce();
 
     sendAlertMock.mockReset();
-
-    // 2. Recover
     setupHealthyCatalog();
     await validateKeyPageSlugs();
     expect(sendAlertMock).not.toHaveBeenCalled();
 
-    // 3. Go stale again — should fire a new alert
     setupEmptyCatalog();
     await validateKeyPageSlugs();
     expect(sendAlertMock).toHaveBeenCalledOnce();
   });
 });
 
-// ── Suite: audit detail annotation ───────────────────────────────────────────
-//
-// When a page's slug is in staleSlugs, a fetch-fail for that page is annotated
-// with "slug not found in catalog — update KEY_PAGES" instead of the generic
-// "could not fetch page" message, both in the scheduled `runOnce` digest and in
-// the on-demand `runAuditNow` path.
+// ── Suite: buildKeyPages ──────────────────────────────────────────────────────
 
-describe("runOnce — stale-slug annotation in Slack alert", () => {
+describe("buildKeyPages", () => {
+  beforeEach(() => {
+    hasOsProductsMock.mockReset();
+    getOsProductsMock.mockReset();
+    getOsBrandsMock.mockReset();
+    getOsCategoriesMock.mockReset();
+    getOsOccasionsMock.mockReset();
+  });
+
+  it("returns null when the OS cache is not populated", () => {
+    hasOsProductsMock.mockReturnValue(false);
+
+    expect(buildKeyPages()).toBeNull();
+  });
+
+  it("returns null when a required entity type has no entries", () => {
+    hasOsProductsMock.mockReturnValue(true);
+    getOsProductsMock.mockReturnValue([]); // no products
+    getOsBrandsMock.mockReturnValue([{ slug: "bloom-studio" }]);
+    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
+    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
+
+    expect(buildKeyPages()).toBeNull();
+  });
+
+  it("returns null when brands are empty", () => {
+    hasOsProductsMock.mockReturnValue(true);
+    getOsProductsMock.mockReturnValue([{ id: "red-roses" }]);
+    getOsBrandsMock.mockReturnValue([]);
+    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
+    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
+
+    expect(buildKeyPages()).toBeNull();
+  });
+
+  it("builds pages using the first slug from each entity type", () => {
+    hasOsProductsMock.mockReturnValue(true);
+    getOsProductsMock.mockReturnValue([{ id: "red-roses" }, { id: "white-tulips" }]);
+    getOsBrandsMock.mockReturnValue([{ slug: "bloom-studio" }, { slug: "other-brand" }]);
+    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }, { slug: "plants" }]);
+    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }, { slug: "anniversary" }]);
+
+    const pages = buildKeyPages();
+
+    expect(pages).not.toBeNull();
+    expect(pages!.length).toBe(45); // 3 countries × 3 langs × 5 page types (1 homepage + 4 entity pages)
+
+    // Product slug is the id of the first product
+    const productPages = pages!.filter((p) => p.url.includes("/product/"));
+    expect(productPages.every((p) => p.url.includes("/product/red-roses"))).toBe(true);
+
+    // Brand slug
+    const brandPages = pages!.filter((p) => p.url.includes("/brand/"));
+    expect(brandPages.every((p) => p.url.includes("/brand/bloom-studio"))).toBe(true);
+
+    // Category slug
+    const categoryPages = pages!.filter((p) => p.url.includes("category="));
+    expect(categoryPages.every((p) => p.url.includes("category=flowers"))).toBe(true);
+
+    // Occasion slug
+    const occasionPages = pages!.filter((p) => p.url.includes("occasion="));
+    expect(occasionPages.every((p) => p.url.includes("occasion=birthday"))).toBe(true);
+  });
+
+  it("covers all three countries (LB, AE, CY) with all three language variants", () => {
+    setupHealthyCatalog();
+
+    const pages = buildKeyPages()!;
+    const locales = [...new Set(pages.map((p) => p.locale))];
+    expect(locales.sort()).toEqual(["AE", "CY", "LB"]);
+
+    const lbPages = pages.filter((p) => p.locale === "LB");
+    const labels = lbPages.map((p) => p.label);
+    expect(labels).toContain("Homepage (EN)");
+    expect(labels).toContain("Homepage (AR)");
+    expect(labels).toContain("Homepage (FR)");
+    expect(labels).toContain("Product (EN)");
+    expect(labels).toContain("Brand (AR)");
+    expect(labels).toContain("Category (FR)");
+    expect(labels).toContain("Occasion (EN)");
+  });
+
+  it("uses the new slugs immediately when the catalog changes between calls", () => {
+    hasOsProductsMock.mockReturnValue(true);
+    getOsProductsMock.mockReturnValue([{ id: "red-roses" }]);
+    getOsBrandsMock.mockReturnValue([{ slug: "bloom-studio" }]);
+    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
+    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
+
+    const first = buildKeyPages()!;
+    expect(first.some((p) => p.url.includes("red-roses"))).toBe(true);
+
+    // Catalog changes — new first product
+    getOsProductsMock.mockReturnValue([{ id: "white-tulips" }]);
+
+    const second = buildKeyPages()!;
+    expect(second.some((p) => p.url.includes("white-tulips"))).toBe(true);
+    expect(second.some((p) => p.url.includes("red-roses"))).toBe(false);
+  });
+});
+
+// ── Suite: runOnce skips gracefully when catalog is empty ─────────────────────
+
+describe("runOnce — catalog not ready", () => {
   beforeEach(() => {
     sendAlertMock.mockReset();
     loggerWarnMock.mockReset();
     loggerInfoMock.mockReset();
     hasOsProductsMock.mockReset();
-    getOsProductBySlugMock.mockReset();
+    getOsProductsMock.mockReset();
     getOsBrandsMock.mockReset();
     getOsCategoriesMock.mockReset();
     getOsOccasionsMock.mockReset();
@@ -214,57 +319,34 @@ describe("runOnce — stale-slug annotation in Slack alert", () => {
     vi.unstubAllGlobals();
   });
 
-  it("annotates fetch-failed pages whose slug is stale with 'slug not found in catalog'", async () => {
-    // Catalog: product slug is stale; everything else is healthy
-    hasOsProductsMock.mockReturnValue(true);
-    getOsProductBySlugMock.mockReturnValue(null); // "pink-roses" not found
-    getOsBrandsMock.mockReturnValue([{ slug: "roses-only" }]);
-    getOsCategoriesMock.mockReturnValue([{ slug: "flowers" }]);
-    getOsOccasionsMock.mockReturnValue([{ slug: "birthday" }]);
+  it("skips the audit and does not fire a Slack alert when buildKeyPages returns null", async () => {
+    hasOsProductsMock.mockReturnValue(false); // catalog not ready
 
-    // Pages: product pages return 404 (fetchFailed), all others return healthy HTML
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((url: string, init?: RequestInit) => {
-        if (init?.method === "HEAD") return Promise.resolve(makeResponse(true));
-        if (url.includes("/product/")) return Promise.resolve(makeResponse(false));
-        return Promise.resolve(makeResponse(true, HEALTHY_HTML));
-      }),
-    );
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(makeResponse(true, HEALTHY_HTML))));
 
     await runOnce();
 
-    // At least one alert should have been sent (product pages are failing)
-    expect(sendAlertMock).toHaveBeenCalled();
+    expect(sendAlertMock).not.toHaveBeenCalled();
 
-    // The SEO health digest is the alert sourced from "seoAuditMonitor" (not the slug alert)
-    const digestAlert = sendAlertMock.mock.calls.find(
-      (c) => c[0].source === "seoAuditMonitor",
-    )?.[0];
-    expect(digestAlert).toBeDefined();
-    expect(digestAlert.body).toMatch(/slug not found in catalog — update KEY_PAGES/);
+    // logger.info({...}, "message") — the message is the second argument (index 1)
+    const infoMessages = loggerInfoMock.mock.calls.map((c) => c[1] as string ?? c[0] as string);
+    expect(infoMessages.some((m) => typeof m === "string" && m.includes("catalog not ready"))).toBe(true);
   });
 
-  it("does NOT annotate a generic fetch-fail whose slug is healthy in the catalog", async () => {
-    // All slugs are healthy — fetch failures are real errors, not stale slugs
-    setupHealthyCatalog();
-
-    // All page fetches fail (genuine network error simulation)
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((_url: string, init?: RequestInit) => {
-        if (init?.method === "HEAD") return Promise.resolve(makeResponse(true));
-        return Promise.resolve(makeResponse(false));
-      }),
-    );
+  it("runs the audit when the catalog becomes ready on a subsequent tick", async () => {
+    // First tick: catalog not ready → skip
+    hasOsProductsMock.mockReturnValue(false);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(makeResponse(true, HEALTHY_HTML))));
 
     await runOnce();
+    expect(sendAlertMock).not.toHaveBeenCalled();
 
-    const digestAlert = sendAlertMock.mock.calls.find(
-      (c) => c[0].source === "seoAuditMonitor",
-    )?.[0];
-    expect(digestAlert).toBeDefined();
-    expect(digestAlert.body).not.toMatch(/slug not found in catalog/);
-    expect(digestAlert.body).toMatch(/could not fetch page/);
+    // Second tick: catalog ready → audit runs (all pages healthy → no alert)
+    __resetForTest();
+    setupHealthyCatalog();
+    await runOnce();
+
+    // No failing/warned pages → no alert expected
+    expect(sendAlertMock).not.toHaveBeenCalled();
   });
 });
