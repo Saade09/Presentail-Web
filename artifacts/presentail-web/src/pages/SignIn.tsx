@@ -157,18 +157,13 @@ export default function SignInPage() {
     }
     setEmailError(null);
     trackEvent({ name: "signin_page_action", action: "continue" });
-    if (!isLoaded || !signIn) {
-      toast({
-        title: t("auth.toast.error"),
-        description: t("auth.checkFailed"),
-        variant: "destructive",
-      });
-      return;
-    }
     setBusy(true);
     try {
-      // Step 1: server-side bridge. Using a relative URL so the storefront's
-      // base path / proxy routing applies in both dev and prod.
+      // Step 1: server-side bridge — check WP/WC before touching Clerk.
+      // We intentionally do this BEFORE checking Clerk's `isLoaded` so
+      // that new emails (exists: false) always route to sign-up even
+      // when Clerk hasn't finished initialising (e.g. prod keys on a
+      // non-production domain).
       const bridgeRes = await fetch("/api/auth/web-bridge", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -227,7 +222,18 @@ export default function SignInPage() {
         return;
       }
 
-      // Step 2: ask Clerk to send an email-code first factor. Clerk's
+      // Step 2: now we know the user exists and Clerk is ready — check
+      // that the Clerk SDK has finished loading before proceeding.
+      if (!isLoaded || !signIn) {
+        toast({
+          title: t("auth.toast.error"),
+          description: t("auth.checkFailed"),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Step 3: ask Clerk to send an email-code first factor. Clerk's
       // sign-in `create({identifier})` returns supported first factors;
       // we only need the email-code path.
       const created = await signIn.create({ identifier: trimmed });
