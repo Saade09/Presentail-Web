@@ -11,6 +11,12 @@ type Props = {
    * falls back to the static "Free delivery on orders above X" message.
    */
   subtotal?: number;
+  /**
+   * When provided, overrides the threshold amount from useDeliveryConfig with
+   * the per-city value. Pass the raw USD amount; the banner formats it using
+   * the store currency for the active country.
+   */
+  overrideThresholdUsd?: number;
 };
 
 function parseThresholdAmount(label: string): number {
@@ -19,13 +25,24 @@ function parseThresholdAmount(label: string): number {
   return parseFloat(match[0].replace(/,/g, ""));
 }
 
-export function FreeDeliveryBanner({ className, subtotal }: Props) {
+export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
   const { freeDeliveryThreshold, expressDeliveryTimeLabel } =
     useDeliveryConfig();
   const { countryCode } = useLocationSelection();
 
+  // When the caller provides an explicit city-level threshold (USD), use it;
+  // otherwise fall back to the formatted string from useDeliveryConfig.
+  const effectiveThresholdAmount =
+    typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
+      ? overrideThresholdUsd
+      : parseThresholdAmount(freeDeliveryThreshold);
+  const effectiveThresholdLabel =
+    typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
+      ? formatStorePrice(overrideThresholdUsd, countryCode)
+      : freeDeliveryThreshold;
+
   const showProgress = typeof subtotal === "number" && subtotal >= 0;
-  const thresholdAmount = parseThresholdAmount(freeDeliveryThreshold);
+  const thresholdAmount = effectiveThresholdAmount;
   const hasThreshold = Number.isFinite(thresholdAmount) && thresholdAmount > 0;
 
   const remaining = showProgress && hasThreshold
@@ -67,7 +84,7 @@ export function FreeDeliveryBanner({ className, subtotal }: Props) {
         ) : (
           <>
             <p className="font-semibold text-foreground">
-              Free delivery on orders above {freeDeliveryThreshold}
+              Free delivery on orders above {effectiveThresholdLabel}
             </p>
             <p className="text-muted-foreground mt-0.5">
               {expressDeliveryTimeLabel} with express delivery.

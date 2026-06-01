@@ -32,6 +32,10 @@ export type DeliveryCity = {
   /** Per-city delivery time slots from Presentail OS. Empty means use hardcoded defaults. */
   timeSlots?: Array<{ label: string; cutoffHour: number; extraFee?: number }>;
   localizedNames?: { ar?: string; fr?: string };
+  /** Per-city free-delivery threshold in USD from Presentail OS. Overrides the country-level threshold when present. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is enabled for this city. Overrides the country-level flag when present. */
+  freeDeliveryEnabled?: boolean;
 };
 export type DeliveryCountry = {
   id: string;
@@ -43,6 +47,10 @@ export type DeliveryCountry = {
   cities: DeliveryCity[];
   preferredDefaultCityId?: string;
   localizedNames?: { ar?: string; fr?: string };
+  /** Free-delivery threshold in USD from Presentail OS. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is enabled for this country. */
+  freeDeliveryEnabled?: boolean;
 };
 export type DeliveryLocationsResponse = { countries: DeliveryCountry[] };
 

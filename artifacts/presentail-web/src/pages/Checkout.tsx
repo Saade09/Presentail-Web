@@ -501,6 +501,12 @@ export default function Checkout() {
   // selectedCity comes from the OS cache via /api/delivery-locations and
   // now carries per-city freeDeliveryThresholdUsd / freeDeliveryEnabled.
   const osCountryData = locations?.countries.find((c) => c.code === countryCode);
+  // Effective threshold/enabled for the currently selected city — used both
+  // for fee calculation and for the FreeDeliveryBanner in the order summary.
+  const effectiveFreeDeliveryThresholdUsd =
+    selectedCity?.freeDeliveryThresholdUsd ?? osCountryData?.freeDeliveryThresholdUsd;
+  const effectiveFreeDeliveryEnabled =
+    selectedCity?.freeDeliveryEnabled ?? osCountryData?.freeDeliveryEnabled;
   const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
     subtotal,
     countryCode,
@@ -509,10 +515,8 @@ export default function Checkout() {
     deliveryMode,
     timeSlots,
     deliverySlot,
-    freeDeliveryThresholdUsd:
-      selectedCity?.freeDeliveryThresholdUsd ?? osCountryData?.freeDeliveryThresholdUsd,
-    freeDeliveryEnabled:
-      selectedCity?.freeDeliveryEnabled ?? osCountryData?.freeDeliveryEnabled,
+    freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
+    freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
@@ -1368,7 +1372,7 @@ export default function Checkout() {
                   </div>
 
                   <div className="mt-4">
-                    <FreeDeliveryBanner />
+                    <FreeDeliveryBanner overrideThresholdUsd={effectiveFreeDeliveryThresholdUsd} />
                   </div>
                 </div>
 
