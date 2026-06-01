@@ -2,15 +2,20 @@ import { MapPin, Navigation, Truck } from "lucide-react";
 
 type Props = {
   freeDeliveryThreshold: string;
+  freeDeliveryEnabled?: boolean;
 };
 
-export function ProductBenefits({ freeDeliveryThreshold }: Props) {
+export function ProductBenefits({ freeDeliveryThreshold, freeDeliveryEnabled = true }: Props) {
   const items = [
-    {
-      icon: <Truck className="w-5 h-5" />,
-      title: "Free Standard Delivery",
-      sub: `On orders above ${freeDeliveryThreshold}.`,
-    },
+    ...(freeDeliveryEnabled
+      ? [
+          {
+            icon: <Truck className="w-5 h-5" />,
+            title: "Free Standard Delivery",
+            sub: `On orders above ${freeDeliveryThreshold}.`,
+          },
+        ]
+      : []),
     {
       icon: <MapPin className="w-5 h-5" />,
       title: "No Address Hassle",

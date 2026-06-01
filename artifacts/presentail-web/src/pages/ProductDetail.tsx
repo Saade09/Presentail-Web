@@ -296,7 +296,10 @@ export default function ProductDetail() {
               </Button>
             </div>
 
-            <ProductBenefits freeDeliveryThreshold={delivery.freeDeliveryThreshold} />
+            <ProductBenefits
+              freeDeliveryThreshold={delivery.freeDeliveryThreshold}
+              freeDeliveryEnabled={delivery.freeDeliveryEnabled}
+            />
 
             <PaymentMethods
               label={t("payments.waysToPay")}

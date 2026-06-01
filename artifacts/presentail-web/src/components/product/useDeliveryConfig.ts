@@ -6,12 +6,14 @@ export type DeliveryConfig = {
   expressDeliveryTimeLabel: string;
   freeDeliveryThreshold: string;
   currency: string;
+  freeDeliveryEnabled: boolean;
 };
 
 const FALLBACK: DeliveryConfig = {
   expressDeliveryTimeLabel: "Arrives in 90 minutes",
   freeDeliveryThreshold: "AED 330",
   currency: "AED",
+  freeDeliveryEnabled: true,
 };
 
 const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
@@ -19,16 +21,19 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "AED 330",
     currency: "AED",
+    freeDeliveryEnabled: true,
   },
   LB: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "$90",
     currency: "USD",
+    freeDeliveryEnabled: true,
   },
   CY: {
     expressDeliveryTimeLabel: "Arrives same day",
     freeDeliveryThreshold: "€120",
     currency: "EUR",
+    freeDeliveryEnabled: true,
   },
 };
 
