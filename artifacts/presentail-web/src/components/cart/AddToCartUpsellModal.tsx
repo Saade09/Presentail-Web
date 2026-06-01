@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Zap } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 
 import {
@@ -22,7 +21,6 @@ import {
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
-import { isExpressDeliveryAvailable } from "@workspace/delivery";
 
 function tabLabelKey(id: UpsellTabId): string {
   switch (id) {
@@ -81,11 +79,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
       setActiveId(tabs[0].id);
     }
   }, [tabs, activeId]);
-
-  const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode),
-    [countryCode],
-  );
 
   const handleAddUpsell = (product: ResolvedUpsellProduct) => {
     addItem(product, 1);
@@ -185,7 +178,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           ) : active ? (
             <div className="grid grid-cols-3 gap-3">
               {active.products.map((product) => {
-                const showExpress = expressAvailable && product.supportsExpress;
                 return (
                   <div
                     key={product.id}
@@ -201,12 +193,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                             loading="lazy"
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
-                        ) : null}
-                        {showExpress ? (
-                          <div className="absolute top-2 start-2 inline-flex items-center gap-1 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-                            <Zap className="w-2.5 h-2.5" />
-                            <span>{t("cart.upsells.express")}</span>
-                          </div>
                         ) : null}
                       </div>
                     </Link>

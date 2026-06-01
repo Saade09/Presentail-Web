@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Zap } from "lucide-react";
 
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -15,7 +14,6 @@ import {
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
-import { isExpressDeliveryAvailable } from "@workspace/delivery";
 
 const SKELETON_COUNT = 4;
 
@@ -97,11 +95,6 @@ export function CartUpsells() {
     }
   }, [tabs, activeId]);
 
-  const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode),
-    [countryCode],
-  );
-
   const handleAdd = (product: ResolvedUpsellProduct) => {
     addItem(product, 1);
     toast({
@@ -150,7 +143,6 @@ export function CartUpsells() {
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {active.products.map((product) => {
-          const showExpress = expressAvailable && product.supportsExpress;
           return (
             <div
               key={product.id}
@@ -166,12 +158,6 @@ export function CartUpsells() {
                       loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                  ) : null}
-                  {showExpress ? (
-                    <div className="absolute top-2 start-2 inline-flex items-center gap-1 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-                      <Zap className="w-2.5 h-2.5" />
-                      <span>{t("cart.upsells.express")}</span>
-                    </div>
                   ) : null}
                 </div>
               </Link>
