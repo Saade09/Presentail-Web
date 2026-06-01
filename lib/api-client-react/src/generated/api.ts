@@ -2974,7 +2974,7 @@ export const submitPartnerApplication = async (
 };
 
 export const getSubmitPartnerApplicationMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3016,13 +3016,14 @@ export type SubmitPartnerApplicationMutationResult = NonNullable<
 >;
 export type SubmitPartnerApplicationMutationBody =
   BodyType<PartnerApplicationInput>;
-export type SubmitPartnerApplicationMutationError = ErrorType<ErrorResponse>;
+export type SubmitPartnerApplicationMutationError =
+  ErrorType<ErrorResponse | void>;
 
 /**
  * @summary Submit a partner application
  */
 export const useSubmitPartnerApplication = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3140,6 +3141,93 @@ export const createMyOccasion = async (
 };
 
 export const getCreateMyOccasionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyOccasion>>,
+    TError,
+    { data: BodyType<OccasionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMyOccasion>>,
+  TError,
+  { data: BodyType<OccasionInput> },
+  TContext
+> => {
+  const mutationKey = ["createMyOccasion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMyOccasion>>,
+    { data: BodyType<OccasionInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMyOccasion(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMyOccasionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMyOccasion>>
+>;
+export type CreateMyOccasionMutationBody = BodyType<OccasionInput>;
+export type CreateMyOccasionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save a new occasion to the customer's profile
+ */
+export const useCreateMyOccasion = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyOccasion>>,
+    TError,
+    { data: BodyType<OccasionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMyOccasion>>,
+  TError,
+  { data: BodyType<OccasionInput> },
+  TContext
+> => {
+  return useMutation(getCreateMyOccasionMutationOptions(options));
+};
+
+/**
+ * @summary Update one of the customer's saved occasions
+ */
+export const getUpdateMyOccasionUrl = (id: number) => {
+  return `/api/me/occasions/${id}`;
+};
+
+export const updateMyOccasion = async (
+  id: number,
+  occasionInput: OccasionInput,
+  options?: RequestInit,
+): Promise<OccasionResponse> => {
+  return customFetch<OccasionResponse>(getUpdateMyOccasionUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(occasionInput),
+  });
+};
+
+export const getUpdateMyOccasionMutationOptions = <
   TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
