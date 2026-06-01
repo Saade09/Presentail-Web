@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, Heart, Menu, Search, ShoppingBag, User } from "lucide-react";
+import { ChevronDown, Heart, Menu, Search, ShoppingCart, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -336,7 +336,7 @@ export function MainNavbar() {
           {!isShopPage && (
             <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
               <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingCart className="w-5 h-5" />
                 <AnimatePresence>
                   {itemCount > 0 && (
                     <motion.span

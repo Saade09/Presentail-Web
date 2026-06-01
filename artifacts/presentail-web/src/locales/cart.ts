@@ -1,10 +1,10 @@
 import type { Dict } from "./types";
 
 export const cartStrings: Dict = {
-  "cart.empty.title": { en: "Your bag is empty", ar: "حقيبتك فارغة" },
+  "cart.empty.title": { en: "Your cart is empty", ar: "سلتك فارغة" },
   "cart.empty.desc": { en: "Find the perfect floral arrangement or luxury gift for your next special occasion.", ar: "اعثر على باقة الزهور أو الهدية الفاخرة المثالية لمناسبتك القادمة." },
   "cart.empty.cta": { en: "Start Shopping", ar: "ابدأ التسوّق" },
-  "cart.title": { en: "Your Bag", ar: "حقيبتك" },
+  "cart.title": { en: "Your Cart", ar: "سلتك" },
   "cart.summary": { en: "Order Summary", ar: "ملخص الطلب" },
   "cart.subtotal": { en: "Subtotal", ar: "المجموع الفرعي" },
   "cart.total": { en: "Total", ar: "الإجمالي" },

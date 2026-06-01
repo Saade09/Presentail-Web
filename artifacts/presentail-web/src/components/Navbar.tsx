@@ -3,7 +3,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { ShoppingBag, User, Search, Menu, MapPin } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -111,7 +111,7 @@ export function Navbar() {
 
           <Link href="/cart">
             <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")}>
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingCart className="w-5 h-5" />
               <AnimatePresence>
                 {itemCount > 0 && (
                   <motion.span

@@ -4,8 +4,8 @@ export const checkoutStrings: Dict = {
   "checkout.payment.orderTitle": { en: "Presentail Order", ar: "طلب Presentail" },
   "checkout.payment.orderDesc": { en: "Order from {name}", ar: "طلب من {name}" },
 
-  "checkout.backToCart": { en: "Back to Cart", ar: "العودة إلى الحقيبة" },
-  "checkout.empty.title": { en: "Your bag is empty", ar: "حقيبتك فارغة" },
+  "checkout.backToCart": { en: "Back to Cart", ar: "العودة إلى السلة" },
+  "checkout.empty.title": { en: "Your cart is empty", ar: "سلتك فارغة" },
   "checkout.empty.cta": { en: "Back to Shop", ar: "العودة إلى المتجر" },
   "checkout.step1.title": { en: "Who is receiving this?", ar: "من سيستلم هذه الهدية؟" },
   "checkout.step1.desc": { en: "Enter the recipient's details for delivery.", ar: "أدخل بيانات المستلم لتأكيد التوصيل." },

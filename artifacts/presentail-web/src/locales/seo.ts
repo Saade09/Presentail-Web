@@ -43,12 +43,12 @@ export const seoStrings: Dict = {
     ar: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
   },
   "seo.cart.title": {
-    en: "Your Bag | Presentail",
-    ar: "حقيبتك | Presentail",
+    en: "Your Cart | Presentail",
+    ar: "سلتك | Presentail",
   },
   "seo.cart.description": {
-    en: "Review your Presentail bag and proceed to a secure checkout.",
-    ar: "راجع حقيبة Presentail وتابع إلى الدفع الآمن.",
+    en: "Review your Presentail cart and proceed to a secure checkout.",
+    ar: "راجع سلة Presentail وتابع إلى الدفع الآمن.",
   },
   "seo.checkout.title": {
     en: "Checkout | Presentail",
@@ -104,8 +104,8 @@ export const seoStringsFr: Record<string, string> = {
   "seo.brands.description": "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
   "seo.brand.title": "Collection de la marque à {city} | Presentail",
   "seo.brand.description": "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
-  "seo.cart.title": "Votre sac | Presentail",
-  "seo.cart.description": "Revoyez votre sac Presentail et passez au paiement sécurisé.",
+  "seo.cart.title": "Votre panier | Presentail",
+  "seo.cart.description": "Revoyez votre panier Presentail et passez au paiement sécurisé.",
   "seo.checkout.title": "Paiement | Presentail",
   "seo.checkout.description": "Finalisez votre commande Presentail par carte, PayPal ou Mamo en toute sécurité.",
   "seo.orderConfirmed.title": "Commande confirmée | Presentail",

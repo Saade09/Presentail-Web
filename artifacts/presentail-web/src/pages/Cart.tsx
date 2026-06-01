@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, X, ArrowRight, ShoppingBag } from "lucide-react";
+import { Minus, Plus, X, ArrowRight, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,7 +97,7 @@ export default function Cart() {
     return (
       <div className="min-h-[70vh] pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-4">
         <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
-          <ShoppingBag className="w-10 h-10" />
+          <ShoppingCart className="w-10 h-10" />
         </div>
         <h1 className="text-3xl font-serif mb-4">{t("cart.empty.title")}</h1>
         <p className="text-muted-foreground mb-8 max-w-md text-center">

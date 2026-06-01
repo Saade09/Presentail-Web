@@ -11,7 +11,7 @@ export const navStrings: Dict = {
   "nav.brands": { en: "Brands", ar: "العلامات" },
   "nav.searchAria": { en: "Search", ar: "بحث" },
   "nav.accountAria": { en: "Account", ar: "الحساب" },
-  "nav.bagAria": { en: "Bag", ar: "الحقيبة" },
+  "nav.bagAria": { en: "Cart", ar: "سلة التسوق" },
   "navbar.selectCity": { en: "Select city", ar: "اختر المدينة" },
   "lang.label.en": { en: "English", ar: "English" },
   "lang.label.ar": { en: "العربية", ar: "العربية" },
