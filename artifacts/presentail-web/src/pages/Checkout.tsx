@@ -14,8 +14,9 @@ import {
   useStripeCheckoutSession,
   useMamoPayment,
   usePaypalPayment,
+  type CreateWcOrderResponse,
 } from "@/lib/queries";
-import { ArrowLeft, CheckCircle2, Circle, MapPin, BookUser, ChevronDown } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -111,6 +112,13 @@ function todayIso(): string {
 }
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
+const COUPON_STORAGE_KEY = "presentail_coupon_v1";
+
+// Typed shape of the /api/woo/order response. The generated hook uses `any`,
+// so we narrow it here to avoid `as any` casts in the order-handling code.
+type CreateOrderResponse =
+  | { ok: true; wcOrderId: number | null; orderKey?: string; couponDiscount: number }
+  | { ok: false; message?: string; code?: string; queued?: boolean };
 
 export default function Checkout() {
   const { items, subtotal, clearCart, itemCount } = useCart();
@@ -163,7 +171,7 @@ export default function Checkout() {
       seededDeliverySelection.date && seededDeliverySelection.mode !== "express"
         ? seededDeliverySelection.date
         : "",
-    cardMessage: "",
+    cardMessage: (() => { try { return localStorage.getItem("presentail_card_message_v1") ?? ""; } catch { return ""; } })(),
   });
 
   const [sender, setSender] = useState({
@@ -282,6 +290,49 @@ export default function Checkout() {
   const [identitySecret, setIdentitySecret] = useState(false);
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
+
+  // Coupon / gift card — seeded from localStorage so a code entered on the
+  // cart page survives the cart → checkout navigation without re-entry.
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState(() => {
+    try { return localStorage.getItem(COUPON_STORAGE_KEY) ?? ""; } catch { return ""; }
+  });
+  const [couponApplied, setCouponApplied] = useState(() => {
+    try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
+  });
+  // Inline error shown below the coupon input when the order fails due to an
+  // invalid/expired coupon code. Cleared when the shopper edits or re-applies.
+  const [couponError, setCouponError] = useState<string | null>(null);
+  // Discount amount confirmed by WC after order creation (display currency).
+  // Zero until WC responds; populated in finalizeOrderNow so the summary can
+  // show the actual deduction before the success-page redirect.
+  const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(0);
+  const couponInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCouponApply = () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    try { localStorage.setItem(COUPON_STORAGE_KEY, code); } catch { /* best-effort */ }
+    setCouponInput(code);
+    setCouponApplied(true);
+    setCouponError(null);
+  };
+
+  const handleCouponRemove = () => {
+    try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+    setCouponInput("");
+    setCouponApplied(false);
+    setCouponOpen(false);
+    setCouponError(null);
+  };
+
+  const handleCouponToggle = () => {
+    const next = !couponOpen;
+    setCouponOpen(next);
+    if (next) {
+      setTimeout(() => couponInputRef.current?.focus(), 80);
+    }
+  };
 
   // Sync confirmed selection from the in-summary picker into checkout's
   // local state. Called synchronously by DeliveryPickerModal.handleConfirm
@@ -521,14 +572,21 @@ export default function Checkout() {
     paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     currencyCode: "USD",
+    ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
   });
 
   const finalizeOrderNow = async (paymentRef?: string) => {
     const payload = buildOrderPayload({ paymentRef });
-    const res = await createOrder.mutateAsync(payload);
+    const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
     if (res.ok) {
+      // Update the confirmed discount in state so the summary briefly shows
+      // the deduction before the redirect (and WC returns it in the response).
+      if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
       clearCart();
+      // Clear the coupon code after a successful order so it doesn't
+      // persist into the next checkout session.
+      try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
       // Fire-and-forget — runs after the order is confirmed in WC so a
       // profile-update failure never blocks order completion.
       void maybeSaveProfilePhone();
@@ -538,6 +596,14 @@ export default function Checkout() {
         action: paymentMethod,
       });
       setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+    } else if (res.code === "coupon_invalid") {
+      // Coupon-specific error: surface inline below the coupon field (using
+      // WC's specific message when available) so the shopper can correct the
+      // code without dismissing a generic toast.
+      setCouponError(res.message || t("checkout.coupon.invalidError"));
+      setCouponApplied(false);
+      setCouponOpen(true);
+      setTimeout(() => couponInputRef.current?.focus(), 80);
     } else {
       toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
     }
@@ -1129,10 +1195,82 @@ export default function Checkout() {
                     <span>{fmt(slotFee)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-medium text-lg pt-3 border-t">
+              </div>
+
+              {/* Coupon / gift card */}
+              <div className="mt-4 pt-4 border-t border-primary/10">
+                {couponApplied ? (
+                  <>
+                    {/* Coupon discount line in the price breakdown */}
+                    <div className="flex justify-between text-sm text-primary mb-2" data-testid="row-coupon-discount">
+                      <div className="flex items-center gap-1.5">
+                        <Tag className="w-3 h-3 shrink-0" />
+                        <span className="font-medium">{couponInput}</span>
+                        <span className="text-muted-foreground text-xs">· {t("checkout.coupon.applied")}</span>
+                      </div>
+                      <span className="font-medium">
+                        {confirmedCouponDiscount > 0 ? `−${fmt(confirmedCouponDiscount)}` : "—"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCouponRemove}
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors"
+                    >
+                      {t("checkout.coupon.remove")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCouponToggle}
+                      className="text-sm text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+                      data-testid="button-coupon-toggle"
+                    >
+                      {t("checkout.coupon.toggle")}
+                    </button>
+                    {couponOpen && (
+                      <div className="mt-3">
+                        <div className={`flex gap-2 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                          <Input
+                            ref={couponInputRef}
+                            value={couponInput}
+                            onChange={(e) => {
+                              setCouponInput(e.target.value.toUpperCase());
+                              if (couponError) setCouponError(null);
+                            }}
+                            onKeyDown={(e) => e.key === "Enter" && handleCouponApply()}
+                            placeholder={t("checkout.coupon.placeholder")}
+                            className={`h-10 text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                            data-testid="input-coupon-code-checkout"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-10 shrink-0"
+                            onClick={handleCouponApply}
+                            disabled={!couponInput.trim()}
+                            data-testid="button-coupon-apply-checkout"
+                          >
+                            {t("checkout.coupon.apply")}
+                          </Button>
+                        </div>
+                        {couponError && (
+                          <p className="mt-1.5 text-xs text-destructive" data-testid="text-coupon-error-checkout">
+                            {couponError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-between font-medium text-lg pt-4 mt-4 border-t border-primary/10">
                   <span>{t("cart.total")}</span>
-                  <span data-testid="text-total">{fmt(total)}</span>
-                </div>
+                  <span data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@ import {
   WooOrderSchema,
   attemptCreateWcOrder,
   enqueuePendingWcOrder,
+  isCouponErrorCode,
   listPendingWooOrders,
   normalizePlatform,
   recordSuccessfulWcOrder,
@@ -1429,6 +1430,78 @@ router.post("/woo/order", async (req, res) => {
   });
 
   if (!result.ok) {
+    // Coupon validation failures are deterministic — retrying with the same
+    // invalid/expired code will never succeed.
+    if (isCouponErrorCode(result.wcErrorCode)) {
+      if (!paymentVerified) {
+        // No payment has been captured yet. Return a structured inline error
+        // so the client can surface it under the coupon field without a toast.
+        // Skipping reconciliation is safe here — there is nothing to recover.
+        req.log?.warn?.(
+          {
+            appOrderId: body.orderId,
+            wcErrorCode: result.wcErrorCode,
+            message: result.message,
+          },
+          "woo.order: WC coupon error before payment capture — returning inline error",
+        );
+        return res
+          .status(200)
+          .json({ ok: false, message: result.message, code: "coupon_invalid" });
+      }
+
+      // Payment has already been captured (Stripe / Mamo / PayPal redirect
+      // flows). We cannot abandon the order — retry immediately without the
+      // coupon so fulfillment can proceed. If the retry succeeds the order
+      // is recorded; if it also fails we fall through to reconciliation.
+      req.log?.warn?.(
+        {
+          appOrderId: body.orderId,
+          wcErrorCode: result.wcErrorCode,
+          message: result.message,
+        },
+        "woo.order: WC coupon error after payment capture — retrying without coupon",
+      );
+      const { couponCode: _dropped, ...bodyWithoutCoupon } = body;
+      const retryResult = await attemptCreateWcOrder(bodyWithoutCoupon, {
+        paymentVerified,
+        wcCustomerId,
+        store,
+      });
+      if (retryResult.ok) {
+        void recordSuccessfulWcOrder({
+          body: bodyWithoutCoupon,
+          wcOrderId: retryResult.wcOrderId,
+          userId: resolvedUserId,
+          customerId: resolvedCustomerId,
+          recipientName: retryResult.recipientName,
+          totalUsdCents: retryResult.totalUsdCents,
+          platform: requestPlatform,
+          storeKey: store.storeKey,
+          log: req.log,
+        });
+        // Signal to the client that the order succeeded but the coupon was
+        // not applied (payment was already captured; we cannot inline-error).
+        // The client should display a non-blocking warning to the shopper.
+        return res.json({
+          ok: true,
+          wcOrderId: retryResult.wcOrderId,
+          orderKey: retryResult.orderKey,
+          couponDiscount: 0,
+          couponRejected: true,
+          couponMessage: result.message,
+        });
+      }
+      // Retry also failed — fall through to the reconciliation queue below.
+      req.log?.warn?.(
+        {
+          appOrderId: body.orderId,
+          retryMessage: retryResult.message,
+        },
+        "woo.order: retry without coupon also failed — queueing for reconciliation",
+      );
+    }
+
     // Payment already succeeded but WC order creation failed. Persist the
     // payload to the reconciliation queue so the worker can keep retrying.
     const storeCtx = readStoreContext(req);
@@ -1475,6 +1548,9 @@ router.post("/woo/order", async (req, res) => {
     ok: true,
     wcOrderId: result.wcOrderId,
     orderKey: result.orderKey,
+    // Discount applied by coupon lines (display currency, from WC discount_total).
+    // Zero when no coupon was applied or WC didn't return the field.
+    couponDiscount: result.couponDiscount,
   });
 });
 

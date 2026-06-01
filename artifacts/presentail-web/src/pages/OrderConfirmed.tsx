@@ -76,6 +76,7 @@ export default function OrderConfirmed() {
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         if (res.ok) {
           clearCart();
+          try { localStorage.removeItem("presentail_coupon_v1"); } catch { /* best-effort */ }
           // Funnel terminal: shoppers who completed a redirect-based
           // payment (Stripe / Mamo / PayPal) only land on order_placed
           // here, since the Checkout page emits it for the inline path.

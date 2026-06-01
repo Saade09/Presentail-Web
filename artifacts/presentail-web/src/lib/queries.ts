@@ -217,17 +217,51 @@ export const useMyOrders = (enabled: boolean) => {
   });
 };
 
+// Typed contract for the /api/woo/order request body.
+// couponCode is optional — omit when no coupon has been applied.
+export type CreateWcOrderRequest = {
+  orderId: string;
+  paymentMethod: string;
+  paymentRef?: string;
+  currencyCode?: string;
+  couponCode?: string;
+  [key: string]: unknown;
+};
+
+// Typed contract for the /api/woo/order response body.
+// The server always returns { ok: boolean } plus method-specific fields.
+export type CreateWcOrderResponse =
+  | {
+      ok: true;
+      wcOrderId: number | null;
+      orderKey?: string;
+      /** Coupon discount in display currency (from WC discount_total). Zero when no coupon. */
+      couponDiscount: number;
+      /** True when the coupon was rejected post-payment and the order was created without it. */
+      couponRejected?: boolean;
+      /** WC's coupon error message when couponRejected is true. */
+      couponMessage?: string;
+    }
+  | {
+      ok: false;
+      message?: string;
+      /** "coupon_invalid" when the coupon was rejected and no payment had been captured. */
+      code?: string;
+      queued?: boolean;
+    };
+
 // Order Hooks
 export const useCreateOrder = () => {
   return useMutation({
-    mutationFn: (data: any) => apiFetch<{ ok: boolean; wcOrderId?: number; orderKey?: string; message?: string }>("/woo/order", {
-      method: "POST",
-      body: JSON.stringify(data),
-      // Tag the request with the source platform so the admin funnel
-      // dashboard can attribute revenue to "web" the same way analytics
-      // events attribute counts.
-      headers: { "x-app-platform": "web" },
-    })
+    mutationFn: (data: CreateWcOrderRequest) =>
+      apiFetch<CreateWcOrderResponse>("/woo/order", {
+        method: "POST",
+        body: JSON.stringify(data),
+        // Tag the request with the source platform so the admin funnel
+        // dashboard can attribute revenue to "web" the same way analytics
+        // events attribute counts.
+        headers: { "x-app-platform": "web" },
+      }),
   });
 };
 

@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, X, ArrowRight, ShoppingCart } from "lucide-react";
+import { Minus, Plus, X, ArrowRight, ShoppingCart, MessageSquare, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,9 @@ import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
+import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
+
+export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 
 function CartSkeleton() {
   return (
@@ -46,10 +49,6 @@ function CartSkeleton() {
                   <Skeleton className="h-4 w-16" />
                 </div>
               </div>
-              <div className="flex justify-between items-center mb-8">
-                <Skeleton className="h-5 w-12" />
-                <Skeleton className="h-8 w-24" />
-              </div>
               <Skeleton className="h-14 w-full rounded-xl" />
             </div>
           </div>
@@ -66,6 +65,32 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
+
+  // Card message — persisted to localStorage so it pre-populates checkout.
+  const [cardMessage, setCardMessage] = useState(() => {
+    try { return localStorage.getItem(CARD_MESSAGE_KEY) ?? ""; } catch { return ""; }
+  });
+  const [messageOpen, setMessageOpen] = useState(() => {
+    try { return (localStorage.getItem(CARD_MESSAGE_KEY) ?? "").length > 0; } catch { return false; }
+  });
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
+
+  const handleMessageChange = (val: string) => {
+    setCardMessage(val);
+    try { 
+      if (val.trim()) {
+        localStorage.setItem(CARD_MESSAGE_KEY, val);
+      } else {
+        localStorage.removeItem(CARD_MESSAGE_KEY);
+      }
+    } catch { /* best-effort */ }
+  };
+
+  const handleClearMessage = () => {
+    handleMessageChange("");
+    setMessageOpen(false);
+  };
+
   // Mirror the mobile checkout login sheet: when a logged-out shopper taps
   // Proceed to Checkout we open a dismissible prompt that offers email +
   // social sign-in or a clearly visible "Checkout as Guest" button. Signed-in
@@ -171,6 +196,89 @@ export default function Cart() {
             ))}
 
             <CartUpsells />
+
+            {/* Gift Card & Message */}
+            <div className="pt-2 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-serif">{t("cart.cardMessage.title")}</h2>
+                <span className="text-xs font-medium text-primary bg-primary/10 rounded-full px-2.5 py-0.5">
+                  {t("cart.cardMessage.free")}
+                </span>
+              </div>
+
+              <div className="mb-3">
+                {/* Message panel — full width */}
+                {messageOpen ? (
+                  <div className="rounded-2xl border border-primary/30 bg-primary/5 flex flex-col overflow-hidden">
+                    <textarea
+                      value={cardMessage}
+                      onChange={(e) => handleMessageChange(e.target.value)}
+                      placeholder={t("cart.cardMessage.placeholder")}
+                      maxLength={400}
+                      rows={4}
+                      className="resize-none bg-transparent p-4 text-sm outline-none placeholder:text-muted-foreground/60 leading-relaxed"
+                      data-testid="input-cart-card-message"
+                      autoFocus
+                    />
+                    <div className={`flex gap-2 px-4 pb-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => setSuggestedOpen(true)}
+                        className="text-[11px] text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
+                        data-testid="button-cart-message-suggestions"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        {t("cart.cardMessage.suggestions")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMessageOpen(true)}
+                    className="w-full rounded-2xl border-2 border-dashed border-primary/25 bg-secondary/20 py-8 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors group"
+                    data-testid="button-cart-add-message"
+                  >
+                    <MessageSquare className="w-7 h-7 text-primary/30 group-hover:text-primary/60 transition-colors" />
+                    <span className="text-sm font-medium text-muted-foreground group-hover:text-primary/80 transition-colors">
+                      {t("cart.cardMessage.addMessage")}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {/* Actions row when message exists */}
+              {cardMessage.trim().length > 0 && (
+                <div className={`flex gap-3 items-center ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                  <button
+                    type="button"
+                    onClick={() => setMessageOpen(true)}
+                    className="text-xs text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+                  >
+                    {t("cart.cardMessage.edit")}
+                  </button>
+                  <span className="text-muted-foreground/40 text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={handleClearMessage}
+                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors"
+                  >
+                    {t("cart.cardMessage.clear")}
+                  </button>
+                </div>
+              )}
+
+              {!messageOpen && !cardMessage.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSuggestedOpen(true)}
+                  className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+                  data-testid="button-cart-message-suggestions-empty"
+                >
+                  {t("cart.cardMessage.suggestions")}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Order Summary */}
@@ -187,7 +295,7 @@ export default function Cart() {
                 </div>
                 <DeliveryDateRow />
               </div>
-              
+
               <div className="flex justify-between items-center mb-8">
                 <span className="font-medium">{t("cart.total")}</span>
                 <span className="text-2xl font-serif">{fmt(subtotal)}</span>
@@ -206,11 +314,22 @@ export default function Cart() {
           </div>
         </div>
       </div>
+
+      <SuggestedMessagesDialog
+        open={suggestedOpen}
+        onOpenChange={setSuggestedOpen}
+        onSelect={(msg) => {
+          handleMessageChange(msg);
+          setMessageOpen(true);
+          setSuggestedOpen(false);
+        }}
+        maxLength={400}
+      />
+
       <CheckoutLoginDialog
         open={loginOpen}
         onOpenChange={setLoginOpen}
-        onContinueAsGuest={goToCheckout}
-        surface="cart"
+        onGuestCheckout={goToCheckout}
       />
     </div>
   );

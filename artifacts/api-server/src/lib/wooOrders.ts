@@ -101,6 +101,7 @@ export const WooOrderSchema = z.object({
   identitySecret: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
+  couponCode: z.string().trim().optional(),
 });
 
 export type WooOrderPayload = z.infer<typeof WooOrderSchema>;
@@ -109,6 +110,11 @@ type WcOrderResponse = {
   id?: number;
   order_key?: string;
   message?: string;
+  // WooCommerce machine-readable error code (present on non-2xx responses).
+  code?: string;
+  // Total discount applied by coupon lines (string decimal, e.g. "12.50").
+  // Present on successful WC order creation responses when a coupon was applied.
+  discount_total?: string;
 };
 
 export type WcOrderAttemptResult =
@@ -121,13 +127,37 @@ export type WcOrderAttemptResult =
       // non-catalog fee items). Always returned on success so the caller can
       // persist it on the app_orders row for reporting.
       totalUsdCents: number;
+      // Discount applied by coupon lines in the display currency, parsed from
+      // WC's discount_total field. Zero when no coupon was applied.
+      couponDiscount: number;
     }
   | {
       ok: false;
       status: number;
       message: string;
       recipientName: string;
+      // WooCommerce machine-readable error code forwarded from the WC REST API.
+      // Present only when WC returned a structured error body.
+      wcErrorCode?: string;
     };
+
+// WooCommerce coupon error codes (returned as `code` in the WC REST error body).
+// These indicate deterministic validation failures — retrying with the same
+// payload will never succeed, so they must bypass the reconciliation queue.
+const COUPON_ERROR_CODE_PREFIXES = [
+  "woocommerce_coupon_",
+  "woocommerce_rest_coupon_",
+];
+
+/**
+ * Returns true when a WooCommerce error code indicates a coupon-validation
+ * failure (expired, not found, usage limit, excluded product, etc.).
+ * Used by the route handler to skip reconciliation for deterministic failures.
+ */
+export function isCouponErrorCode(code: string | undefined): boolean {
+  if (!code) return false;
+  return COUPON_ERROR_CODE_PREFIXES.some((prefix) => code.startsWith(prefix));
+}
 
 // Accepted source-platform values for the analytics-funnel revenue join.
 // Anything else collapses to null so we don't spray unbounded user-controlled
@@ -362,9 +392,15 @@ export async function attemptCreateWcOrder(
     { key: "_presented_currency", value: presentedCurrency },
   );
 
+  // Attach coupon code when provided — WooCommerce will apply the discount
+  // server-side and return an error if the code is invalid or expired.
+  const couponLines: { code: string }[] =
+    body.couponCode ? [{ code: body.couponCode }] : [];
+
   const orderPayload: Record<string, unknown> = {
     status: "processing",
     currency: presentedCurrency,
+    ...(couponLines.length > 0 ? { coupon_lines: couponLines } : {}),
     payment_method:
       body.paymentMethod === "card" || body.paymentMethod === "wallet"
         ? "stripe"
@@ -415,6 +451,7 @@ export async function attemptCreateWcOrder(
         ok: false,
         status: r.status,
         message: data?.message ?? "WooCommerce order failed", // i18n-ignore
+        wcErrorCode: data?.code,
         recipientName: recipientFullName,
       };
     }
@@ -424,6 +461,9 @@ export async function attemptCreateWcOrder(
       orderKey: data.order_key,
       recipientName: recipientFullName,
       totalUsdCents,
+      // Parse WC's discount_total (string decimal in the display currency).
+      // Defaults to 0 when absent (no coupon applied or old WC version).
+      couponDiscount: parseFloat(data.discount_total ?? "0") || 0,
     };
   } catch (err: any) {
     return {

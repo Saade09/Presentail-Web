@@ -94,6 +94,12 @@ export const checkoutStrings: Dict = {
   "checkout.savedAddresses": { en: "Saved addresses", ar: "العناوين المحفوظة" },
   "checkout.defaultLabel": { en: "Default", ar: "افتراضي" },
   "checkout.defaultCity": { en: "Beirut", ar: "بيروت" },
+  "checkout.coupon.toggle": { en: "Have a gift card or coupon?", ar: "هل لديك بطاقة هدايا أو كوبون؟" },
+  "checkout.coupon.placeholder": { en: "Enter code", ar: "أدخل الرمز" },
+  "checkout.coupon.apply": { en: "Apply", ar: "تطبيق" },
+  "checkout.coupon.remove": { en: "Remove", ar: "إزالة" },
+  "checkout.coupon.applied": { en: "Coupon applied", ar: "تم تطبيق الكوبون" },
+  "checkout.coupon.invalidError": { en: "This coupon is invalid or has expired. Please check the code and try again.", ar: "هذا الكوبون غير صالح أو منتهي الصلاحية. يرجى التحقق من الرمز والمحاولة مجدداً." },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -182,4 +188,10 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.savedAddresses": "Adresses enregistrées",
   "checkout.defaultLabel": "Par défaut",
   "checkout.defaultCity": "Beyrouth",
+  "checkout.coupon.toggle": "Vous avez un chèque-cadeau ou un coupon ?",
+  "checkout.coupon.placeholder": "Saisissez le code",
+  "checkout.coupon.apply": "Appliquer",
+  "checkout.coupon.remove": "Supprimer",
+  "checkout.coupon.applied": "Coupon appliqué",
+  "checkout.coupon.invalidError": "Ce coupon est invalide ou a expiré. Veuillez vérifier le code et réessayer.",
 };
