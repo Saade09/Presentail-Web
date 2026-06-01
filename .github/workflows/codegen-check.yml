@@ -4,6 +4,23 @@ name: OpenAPI codegen check
 # are in sync with the OpenAPI spec.  If a PR edits the spec but forgets to
 # re-run codegen, this job fails with a clear message so the author knows
 # exactly what to fix.
+#
+# Trigger policy
+# ──────────────
+# pull_request: runs on EVERY PR, no path filter.
+#   Rationale: generated files may have been committed stale in a prior PR.
+#   A PR that touches only consumer code (e.g. artifacts/api-server) would not
+#   trigger a path-filtered check, leaving drift undetected until something
+#   breaks at runtime.  Running unconditionally on every PR is the only way to
+#   guarantee the repo is always in a clean state when code merges to main.
+#   The job is fast (pnpm install is cached; orval takes ~15 s) so the overhead
+#   is acceptable.
+#
+# push to main: path-filtered.
+#   Rationale: main is already clean after the PR gate above, so re-running on
+#   every push to main would be redundant.  The path filter lets the job run
+#   as a last-resort safety net when spec or generated files land directly on
+#   main (e.g. automated bumps, merge commits after a force-push).
 
 on:
   push:
@@ -16,13 +33,6 @@ on:
       - "lib/api-zod/**"
       - ".github/workflows/codegen-check.yml"
   pull_request:
-    paths:
-      - "lib/api-spec/openapi.yaml"
-      - "lib/api-spec/orval.config.ts"
-      - "lib/api-spec/package.json"
-      - "lib/api-client-react/**"
-      - "lib/api-zod/**"
-      - ".github/workflows/codegen-check.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
