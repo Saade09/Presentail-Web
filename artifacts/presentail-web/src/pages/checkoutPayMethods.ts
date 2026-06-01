@@ -17,7 +17,7 @@ import {
 
 export type WebPaymentMethodId = Extract<
   PayMethodId,
-  "card" | "paypal" | "whish" | "mamo" | "wallet"
+  "card" | "paypal" | "whish" | "mamo" | "wallet" | "western"
 >;
 
 export const WEB_PAY_METHODS: readonly WebPaymentMethodId[] = [
@@ -26,6 +26,7 @@ export const WEB_PAY_METHODS: readonly WebPaymentMethodId[] = [
   "mamo",
   "wallet",
   "whish",
+  "western",
 ] as const;
 
 export type WebPayMethodCtx = {
@@ -57,6 +58,8 @@ export function webPaymentMethodLabelKey(
       return "checkout.pay.wallet";
     case "whish":
       return "checkout.pay.whish";
+    case "western":
+      return "checkout.pay.western";
   }
 }
 

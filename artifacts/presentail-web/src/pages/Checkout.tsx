@@ -1127,19 +1127,32 @@ export default function Checkout() {
                   />
 
                   <div className="space-y-3 mb-8">
-                    {paymentOptions.map((m) => (
-                      <div
-                        key={m.id}
-                        className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-secondary/50"}`}
-                        onClick={() => setPaymentMethod(m.id)}
-                        data-testid={`option-payment-${m.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {paymentMethod === m.id ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
-                          <span className="font-medium">{t(m.labelKey)}</span>
+                    {paymentOptions.map((m) => {
+                      const offlineDesc =
+                        m.id === "whish"
+                          ? t("checkout.pay.whishDesc")
+                          : m.id === "western"
+                          ? t("checkout.pay.westernDesc")
+                          : null;
+                      return (
+                        <div
+                          key={m.id}
+                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-secondary/50"}`}
+                          onClick={() => setPaymentMethod(m.id)}
+                          data-testid={`option-payment-${m.id}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {paymentMethod === m.id ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
+                            <span className="font-medium">{t(m.labelKey)}</span>
+                          </div>
+                          {paymentMethod === m.id && offlineDesc && (
+                            <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">
+                              {offlineDesc}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex gap-4">

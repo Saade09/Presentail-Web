@@ -73,6 +73,20 @@ export const checkoutStrings: Dict = {
   "checkout.continuePayment": { en: "Continue to Payment", ar: "المتابعة إلى الدفع" },
   "checkout.step3.title": { en: "Payment", ar: "الدفع" },
   "checkout.step3.desc": { en: "Choose how you'd like to pay securely. You'll be redirected to your provider to complete payment.", ar: "اختر طريقة الدفع الآمنة. ستتم إعادة توجيهك إلى مزوّد الدفع لإكمال العملية." },
+
+  // Payment method labels (used by webPaymentMethodLabelKey in checkoutPayMethods.ts)
+  "checkout.pay.card": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
+  "checkout.pay.wallet": { en: "Apple Pay / Google Pay", ar: "Apple Pay / Google Pay" },
+  "checkout.pay.mamo": { en: "Mamo", ar: "مامو" },
+  "checkout.pay.paypal": { en: "PayPal", ar: "PayPal" },
+  "checkout.pay.whish": { en: "Whish Money", ar: "ويش موني" },
+  "checkout.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
+  "checkout.pay.payByCard": { en: "Pay by Card", ar: "الدفع بالبطاقة" },
+
+  // Descriptions shown under offline payment options
+  "checkout.pay.whishDesc": { en: "Place your order and our team will send you Whish Money payment instructions shortly.", ar: "أكمل طلبك وسيرسل فريقنا تعليمات الدفع عبر ويش موني قريباً." },
+  "checkout.pay.westernDesc": { en: "Place your order and our team will contact you with Western Union transfer details.", ar: "أكمل طلبك وسيتواصل معك فريقنا بتفاصيل التحويل عبر ويسترن يونيون." },
+
   "checkout.processing": { en: "Processing...", ar: "جارٍ المعالجة..." },
   "checkout.payAmount": { en: "Pay {amount}", ar: "ادفع {amount}" },
   "checkout.summary": { en: "Order Summary", ar: "ملخص الطلب" },
@@ -187,6 +201,18 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.paypalUnavailableDesc": "PayPal n'est pas disponible pour le moment.",
   "checkout.toast.mamoUnavailable": "Mamo indisponible",
   "checkout.toast.mamoUnavailableDesc": "Mamo n'est pas disponible pour le moment.",
+
+  // Payment method labels
+  "checkout.pay.card": "Carte de crédit / débit",
+  "checkout.pay.wallet": "Apple Pay / Google Pay",
+  "checkout.pay.mamo": "Mamo",
+  "checkout.pay.paypal": "PayPal",
+  "checkout.pay.whish": "Whish Money",
+  "checkout.pay.western": "Western Union",
+  "checkout.pay.payByCard": "Payer par carte",
+  "checkout.pay.whishDesc": "Passez votre commande et notre équipe vous enverra les instructions de paiement Whish Money.",
+  "checkout.pay.westernDesc": "Passez votre commande et notre équipe vous contactera avec les détails du virement Western Union.",
+
   "checkout.toast.errorTitle": "Erreur de paiement",
   "checkout.toast.networkError": "Une erreur s'est produite lors de la connexion au prestataire de paiement. Veuillez réessayer.",
   "checkout.toast.networkTimeout": "Impossible de joindre le prestataire de paiement. Vérifiez votre connexion et réessayez.",
