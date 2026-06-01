@@ -1,19 +1,15 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "@/components/AppText";
 
 import { Price } from "@/components/Price";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
-import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
-import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useTypography } from "@/hooks/useTypography";
 import {
@@ -44,18 +40,12 @@ export function ProductCard({ product, width, onPress }: Props) {
   const t = useT();
   const router = useRouter();
   const { currencyCode, convert } = useCurrency();
-  const { selectedCountry } = useDeliveryLocation();
-  const { user } = useAuth();
-  const { isFavorited, toggleFavorite } = useFavorites();
-  const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
   const { freeDeliveryEnabled, freeDeliveryThresholdNative: threshold } = useDeliveryConfig();
   const convertedPrice = convert(Number.isFinite(product.priceValue) ? product.priceValue : 0);
   const imageUri = getImageUri(product.image);
   const [imageLoaded, setImageLoaded] = React.useState(() =>
     imageUri !== null && imageLoadedCache.has(imageUri),
   );
-  const favorited = isFavorited(product.id);
-
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -68,11 +58,6 @@ export function ProductCard({ product, width, onPress }: Props) {
   const handlePress = () => {
     if (onPress) return onPress();
     router.push({ pathname: "/product/[slug]", params: { slug: product.id } });
-  };
-
-  const handleHeartPress = (e: { stopPropagation?: () => void }) => {
-    if (e.stopPropagation) e.stopPropagation();
-    void toggleFavorite(product.id, cc);
   };
 
   return (
@@ -111,20 +96,6 @@ export function ProductCard({ product, width, onPress }: Props) {
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
             <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{product.tag}</AppText>
           </View>
-        ) : null}
-        {user ? (
-          <Pressable
-            onPress={handleHeartPress}
-            style={styles.heartButton}
-            accessibilityLabel={favorited ? "Remove from favorites" : "Add to favorites"}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={favorited ? "heart" : "heart-outline"}
-              size={18}
-              color={favorited ? "#e11d48" : "#fff"}
-            />
-          </Pressable>
         ) : null}
       </View>
       <View style={{ paddingTop: 12, gap: 4 }}>
@@ -173,16 +144,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
     textTransform: "uppercase",
-  },
-  heartButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(0,0,0,0.28)",
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
