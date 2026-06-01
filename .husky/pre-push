@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Pre-push hook: fail if committed OpenAPI spec changes produced codegen drift.
+# To install: cp .husky/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+pnpm run check-codegen
