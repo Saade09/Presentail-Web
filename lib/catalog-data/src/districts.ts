@@ -32,7 +32,6 @@ export const LB_DISTRICTS: District[] = [
 export const AE_DISTRICTS: District[] = [
   { name: "Dubai", fee: 13.61 },
   { name: "Ras Al Khaimah", fee: 13.61 },
-  { name: "Umm Al Quwain", fee: 13.61 },
   { name: "Fujairah", fee: 13.61 },
   { name: "Ajman", fee: 13.61 },
   { name: "Sharjah", fee: 13.61 },

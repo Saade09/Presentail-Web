@@ -64,7 +64,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
-import { districtsForCountry, type District } from "@/data/districts";
+import { districtsForCountry, feeForDistrict, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -278,7 +278,24 @@ function CheckoutScreen() {
   const [couponOpen, setCouponOpen] = useState(false);
 
   // Step 2 — Delivery Details
-  const districts = districtsForCountry(effectiveCountry);
+  // Derive the district picker list from OS-filtered active cities when
+  // selectedCountry is available (populated from the API's /delivery-locations
+  // endpoint, or the static fallback). This ensures inactive cities (e.g.
+  // ae-umm-al-quwain) are hidden here too, and that future OS-side deactivations
+  // propagate without a code deploy. Falls back to the static list only when
+  // selectedCountry has no cities (e.g. during the initial loading window).
+  const districts = useMemo<District[]>(() => {
+    const activeCities = (selectedCountry?.cities ?? []).filter(
+      (c) => c.isActive !== false,
+    );
+    if (activeCities.length > 0) {
+      return activeCities.map((c) => ({
+        name: c.name,
+        fee: feeForDistrict(effectiveCountry, c.name),
+      }));
+    }
+    return districtsForCountry(effectiveCountry);
+  }, [selectedCountry, effectiveCountry]);
   const cityDistrictMatch = selectedCity
     ? districts.find((d) => d.name === selectedCity.name)
     : null;
@@ -310,18 +327,18 @@ function CheckoutScreen() {
       setSenderCountry(newDial);
     }
     if (districtManuallyEdited.current) return;
-    const list = districtsForCountry(resolveCountryCode(selectedCountry?.code, currencyCode));
     if (selectedCity) {
-      const match = list.find((d) => d.name === selectedCity.name);
+      const match = districts.find((d) => d.name === selectedCity.name);
       if (match) {
         setDistrict(match);
         return;
       }
     }
     if (countryChanged) {
-      setDistrict(list[0]);
+      if (districts[0]) setDistrict(districts[0]);
     }
-  }, [selectedCountry, selectedCity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCountry, selectedCity, districts]);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [noAddress, setNoAddress] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState("");
