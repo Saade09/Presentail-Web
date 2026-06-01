@@ -808,7 +808,7 @@ export default function Checkout() {
   ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#faf9f7" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
       <header className="sticky top-0 z-40" style={{ backgroundColor: "#00414e" }}>
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
@@ -1364,7 +1364,7 @@ export default function Checkout() {
                 </div>
 
                 {/* Delivery Summary */}
-                <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#faf9f7" }}>
+                <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#f4f4f5" }}>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#00414e" }}>
                     {t("checkout.deliverySummary")}
                   </p>
