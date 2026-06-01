@@ -238,7 +238,7 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="bg-background min-h-screen relative z-0">
+    <div className="bg-white min-h-screen relative z-0">
       <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-2">
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
