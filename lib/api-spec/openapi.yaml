@@ -885,6 +885,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /auth/otp/send:
+    post:
+      operationId: sendPhoneOtp
+      tags: [auth]
+      summary: Send a one-time code to a phone number
+      description: |
+        Generates a 6-digit numeric OTP, stores it hashed with a 10-minute
+        expiry, and dispatches it via SMS to the supplied phone number.
+        Rate-limited to 3 sends per phone per 10 minutes. Used by the
+        multi-step sign-up flow to verify the shopper's phone before
+        completing registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneOtpSendRequest"
+      responses:
+        "200":
+          description: OTP dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneOtpSendResponse"
+        "400":
+          description: Invalid phone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many OTP requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/otp/verify:
+    post:
+      operationId: verifyPhoneOtp
+      tags: [auth]
+      summary: Verify OTP and complete registration
+      description: |
+        Validates the supplied 6-digit code against the stored hash and
+        expiry for the phone number, then completes account registration
+        using the provided credentials. The OTP row is deleted on success.
+        Returns `{ ok: false, code: "invalid_otp" }` for a wrong code,
+        `{ ok: false, code: "expired_otp" }` for an expired code, or
+        `{ ok: false, code: "too_many_attempts" }` after 5 wrong guesses.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneOtpVerifyRequest"
+      responses:
+        "200":
+          description: OTP verified and account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneOtpVerifyResponse"
+        "400":
+          description: Invalid request or wrong/expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many verification attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /partner-application:
     post:
       operationId: submitPartnerApplication
@@ -1281,6 +1354,7 @@ components:
         - mobile_ttid
         - payment_error
         - geo_currency_fallback
+        - signup_step_completed
     AnalyticsEventRequest:
       type: object
       properties:
@@ -2500,6 +2574,21 @@ components:
           type: boolean
       required:
         - ok
+    PhoneOtpSendRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          description: E.164-formatted phone number (e.g. "+9613000000").
+      required:
+        - phone
+    PhoneOtpSendResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
     ReferralCodeResponse:
       type: object
       properties:
@@ -2515,3 +2604,46 @@ components:
         - ok
         - code
         - shareUrl
+    PhoneOtpVerifyRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          description: E.164-formatted phone number matching the send call.
+        code:
+          type: string
+          description: The 6-digit numeric code received via SMS.
+        email:
+          type: string
+        password:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required:
+        - phone
+        - code
+        - email
+        - password
+        - firstName
+        - lastName
+    PhoneOtpVerifyResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        token:
+          type: string
+          nullable: true
+        user:
+          $ref: "#/components/schemas/AuthMeResponse"
+        code:
+          type: string
+          description: Error code when ok is false.
+          enum:
+            - invalid_otp
+            - expired_otp
+            - too_many_attempts
+      required:
+        - ok

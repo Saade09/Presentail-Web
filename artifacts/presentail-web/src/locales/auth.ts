@@ -3,7 +3,6 @@ import type { Dict } from "./types";
 export const authStrings: Dict = {
   "auth.signupDesc": { en: "Join Presentail for a faster checkout experience.", ar: "انضم إلى Presentail لتجربة دفع أسرع." },
   "auth.signup": { en: "Sign Up", ar: "إنشاء حساب" },
-  "auth.noAccount": { en: "Don't have an account? ", ar: "ليس لديك حساب؟ " },
   "auth.toast.error": { en: "Error", ar: "خطأ" },
   "auth.continue": { en: "Continue", ar: "متابعة" },
   "auth.changeEmail": { en: "Use a different email", ar: "استخدم بريدًا إلكترونيًا آخر" },
@@ -40,7 +39,6 @@ export const authStrings: Dict = {
 
   "auth.fullNamePlaceholder": { en: "Your full name", ar: "اسمك الكامل" },
   "auth.selectGender": { en: "Select gender", ar: "اختر الجنس" },
-  "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
   "auth.unauthorized.title": { en: "You're signed in elsewhere", ar: "أنت مسجّل الدخول في مكان آخر" },
   "auth.unauthorized.desc": {
     en: "This account isn't a Presentail shopper. Switch to a customer account to access your orders and profile.",
@@ -52,7 +50,6 @@ export const authStrings: Dict = {
 export const authStringsFr: Record<string, string> = {
   "auth.signupDesc": "Rejoignez Presentail pour un paiement plus rapide.",
   "auth.signup": "S'inscrire",
-  "auth.noAccount": "Vous n'avez pas de compte ? ",
   "auth.toast.error": "Erreur",
   "auth.continue": "Continuer",
   "auth.changeEmail": "Utiliser un autre email",
@@ -83,7 +80,6 @@ export const authStringsFr: Record<string, string> = {
 
   "auth.fullNamePlaceholder": "Votre nom complet",
   "auth.selectGender": "Sélectionner le genre",
-  "auth.signIn": "Se connecter",
   "auth.unauthorized.title": "Vous êtes connecté ailleurs",
   "auth.unauthorized.desc": "Ce compte n'est pas un compte acheteur Presentail. Passez à un compte client pour accéder à vos commandes et votre profil.",
   "auth.unauthorized.backToShop": "Retour à la boutique",

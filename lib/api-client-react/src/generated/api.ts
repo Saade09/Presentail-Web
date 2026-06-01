@@ -53,6 +53,10 @@ import type {
   OccasionResponse,
   PartnerApplicationInput,
   PartnerApplicationResponse,
+  PhoneOtpSendRequest,
+  PhoneOtpSendResponse,
+  PhoneOtpVerifyRequest,
+  PhoneOtpVerifyResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -2734,6 +2738,191 @@ export const useRemoveFavorite = <
   TContext
 > => {
   return useMutation(getRemoveFavoriteMutationOptions(options));
+};
+
+/**
+ * Generates a 6-digit numeric OTP, stores it hashed with a 10-minute
+expiry, and dispatches it via SMS to the supplied phone number.
+Rate-limited to 3 sends per phone per 10 minutes. Used by the
+multi-step sign-up flow to verify the shopper's phone before
+completing registration.
+
+ * @summary Send a one-time code to a phone number
+ */
+export const getSendPhoneOtpUrl = () => {
+  return `/api/auth/otp/send`;
+};
+
+export const sendPhoneOtp = async (
+  phoneOtpSendRequest: PhoneOtpSendRequest,
+  options?: RequestInit,
+): Promise<PhoneOtpSendResponse> => {
+  return customFetch<PhoneOtpSendResponse>(getSendPhoneOtpUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(phoneOtpSendRequest),
+  });
+};
+
+export const getSendPhoneOtpMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPhoneOtp>>,
+    TError,
+    { data: BodyType<PhoneOtpSendRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendPhoneOtp>>,
+  TError,
+  { data: BodyType<PhoneOtpSendRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendPhoneOtp"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendPhoneOtp>>,
+    { data: BodyType<PhoneOtpSendRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendPhoneOtp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendPhoneOtpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendPhoneOtp>>
+>;
+export type SendPhoneOtpMutationBody = BodyType<PhoneOtpSendRequest>;
+export type SendPhoneOtpMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Send a one-time code to a phone number
+ */
+export const useSendPhoneOtp = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPhoneOtp>>,
+    TError,
+    { data: BodyType<PhoneOtpSendRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendPhoneOtp>>,
+  TError,
+  { data: BodyType<PhoneOtpSendRequest> },
+  TContext
+> => {
+  return useMutation(getSendPhoneOtpMutationOptions(options));
+};
+
+/**
+ * Validates the supplied 6-digit code against the stored hash and
+expiry for the phone number, then completes account registration
+using the provided credentials. The OTP row is deleted on success.
+Returns `{ ok: false, code: "invalid_otp" }` for a wrong code,
+`{ ok: false, code: "expired_otp" }` for an expired code, or
+`{ ok: false, code: "too_many_attempts" }` after 5 wrong guesses.
+
+ * @summary Verify OTP and complete registration
+ */
+export const getVerifyPhoneOtpUrl = () => {
+  return `/api/auth/otp/verify`;
+};
+
+export const verifyPhoneOtp = async (
+  phoneOtpVerifyRequest: PhoneOtpVerifyRequest,
+  options?: RequestInit,
+): Promise<PhoneOtpVerifyResponse> => {
+  return customFetch<PhoneOtpVerifyResponse>(getVerifyPhoneOtpUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(phoneOtpVerifyRequest),
+  });
+};
+
+export const getVerifyPhoneOtpMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPhoneOtp>>,
+    TError,
+    { data: BodyType<PhoneOtpVerifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyPhoneOtp>>,
+  TError,
+  { data: BodyType<PhoneOtpVerifyRequest> },
+  TContext
+> => {
+  const mutationKey = ["verifyPhoneOtp"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyPhoneOtp>>,
+    { data: BodyType<PhoneOtpVerifyRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyPhoneOtp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyPhoneOtpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyPhoneOtp>>
+>;
+export type VerifyPhoneOtpMutationBody = BodyType<PhoneOtpVerifyRequest>;
+export type VerifyPhoneOtpMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Verify OTP and complete registration
+ */
+export const useVerifyPhoneOtp = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPhoneOtp>>,
+    TError,
+    { data: BodyType<PhoneOtpVerifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyPhoneOtp>>,
+  TError,
+  { data: BodyType<PhoneOtpVerifyRequest> },
+  TContext
+> => {
+  return useMutation(getVerifyPhoneOtpMutationOptions(options));
 };
 
 /**

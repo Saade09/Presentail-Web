@@ -237,6 +237,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "mobile_ttid",
       "payment_error",
       "geo_currency_fallback",
+      "signup_step_completed",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n",
@@ -1373,6 +1374,88 @@ export const RemoveFavoriteParams = zod.object({
 
 export const RemoveFavoriteResponse = zod.object({
   ok: zod.boolean(),
+});
+
+/**
+ * Generates a 6-digit numeric OTP, stores it hashed with a 10-minute
+expiry, and dispatches it via SMS to the supplied phone number.
+Rate-limited to 3 sends per phone per 10 minutes. Used by the
+multi-step sign-up flow to verify the shopper's phone before
+completing registration.
+
+ * @summary Send a one-time code to a phone number
+ */
+export const SendPhoneOtpBody = zod.object({
+  phone: zod
+    .string()
+    .describe('E.164-formatted phone number (e.g. \"+9613000000\").'),
+});
+
+export const SendPhoneOtpResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Validates the supplied 6-digit code against the stored hash and
+expiry for the phone number, then completes account registration
+using the provided credentials. The OTP row is deleted on success.
+Returns `{ ok: false, code: "invalid_otp" }` for a wrong code,
+`{ ok: false, code: "expired_otp" }` for an expired code, or
+`{ ok: false, code: "too_many_attempts" }` after 5 wrong guesses.
+
+ * @summary Verify OTP and complete registration
+ */
+export const VerifyPhoneOtpBody = zod.object({
+  phone: zod
+    .string()
+    .describe("E.164-formatted phone number matching the send call."),
+  code: zod.string().describe("The 6-digit numeric code received via SMS."),
+  email: zod.string(),
+  password: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+});
+
+export const VerifyPhoneOtpResponse = zod.object({
+  ok: zod.boolean(),
+  token: zod.string().nullish(),
+  user: zod
+    .object({
+      ok: zod.boolean(),
+      user: zod
+        .union([
+          zod.object({
+            id: zod.number(),
+            email: zod.string().email(),
+            firstName: zod.string(),
+            lastName: zod.string(),
+            username: zod.string().optional(),
+            phone: zod.string().optional(),
+            gender: zod
+              .union([zod.enum(["female", "male", "unspecified"]), zod.null()])
+              .optional()
+              .describe(
+                "Optional gender. `null` means the customer prefers not to say.",
+              ),
+            birthday: zod
+              .string()
+              .nullish()
+              .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
+            birthdayShareMonthDay: zod
+              .boolean()
+              .describe(
+                "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
+              ),
+          }),
+          zod.null(),
+        ])
+        .optional(),
+    })
+    .optional(),
+  code: zod
+    .enum(["invalid_otp", "expired_otp", "too_many_attempts"])
+    .optional()
+    .describe("Error code when ok is false."),
 });
 
 /**

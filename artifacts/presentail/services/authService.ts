@@ -22,6 +22,10 @@ export type AuthErrorCode =
   | "lookup_unavailable"
   | "wrong_password"
   | "email_exists"
+  | "invalid_otp"
+  | "expired_otp"
+  | "too_many_attempts"
+  | "too_many_requests"
   | "server";
 
 export type AuthError = {
@@ -105,6 +109,78 @@ export async function signInWithEmail(
     return { ok: false, code: "wrong_password" };
   }
   return { ok: false, code: "server", serverMessage: r.message };
+}
+
+export async function sendOtp(
+  phone: string,
+): Promise<{ ok: true } | { ok: false; code: AuthErrorCode }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/otp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
+      body: JSON.stringify({ phone }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      code?: string;
+    };
+    if (res.status === 429) return { ok: false, code: "too_many_requests" };
+    if (!res.ok || !data?.ok) return { ok: false, code: "server" };
+    return { ok: true };
+  } catch {
+    return { ok: false, code: "network" };
+  }
+}
+
+export async function verifyOtpAndRegister(
+  applySession: ApplySessionFn,
+  input: {
+    phone: string;
+    code: string;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  },
+): Promise<{ ok: true } | { ok: false; code: AuthErrorCode }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getStoredStoreHeaders() },
+      body: JSON.stringify({
+        phone: input.phone,
+        code: input.code,
+        email: input.email.trim(),
+        password: input.password,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      code?: string;
+      token?: string;
+      user?: AuthUser;
+      message?: string;
+    };
+    if (res.status === 429 && data?.code === "too_many_attempts") {
+      return { ok: false, code: "too_many_attempts" };
+    }
+    if (res.status === 429) return { ok: false, code: "too_many_requests" };
+    if (!res.ok || !data?.ok) {
+      if (data?.code === "invalid_otp") return { ok: false, code: "invalid_otp" };
+      if (data?.code === "expired_otp") return { ok: false, code: "expired_otp" };
+      if (data?.code === "too_many_attempts") return { ok: false, code: "too_many_attempts" };
+      if (/already registered/i.test(data?.message ?? "")) return { ok: false, code: "email_exists" };
+      return { ok: false, code: "server" };
+    }
+    if (data.token && data.user) {
+      await applySession({ token: data.token, user: data.user });
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, code: "network" };
+  }
 }
 
 export async function createAccountWithEmail(

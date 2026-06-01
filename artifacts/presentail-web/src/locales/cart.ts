@@ -14,7 +14,6 @@ export const cartStrings: Dict = {
   "cart.increaseAria": { en: "Increase quantity", ar: "زيادة الكمية" },
   "cart.upsells.title": { en: "Make it perfect", ar: "اجعلها مثالية" },
   "cart.upsells.add": { en: "Add", ar: "إضافة" },
-  "cart.upsells.express": { en: "Express", ar: "سريع" },
   "cart.upsells.modal.continueShopping": { en: "Continue Shopping", ar: "متابعة التسوق" },
   "cart.upsells.modal.close": { en: "Close", ar: "إغلاق" },
 };
@@ -33,7 +32,6 @@ export const cartStringsFr: Record<string, string> = {
   "cart.increaseAria": "Augmenter la quantité",
   "cart.upsells.title": "Rendez-le parfait",
   "cart.upsells.add": "Ajouter",
-  "cart.upsells.express": "Express",
   "cart.upsells.modal.continueShopping": "Continuer mes achats",
   "cart.upsells.modal.close": "Fermer",
 };

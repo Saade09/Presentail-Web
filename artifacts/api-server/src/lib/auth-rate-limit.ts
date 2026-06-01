@@ -147,3 +147,19 @@ export const loginEmailLimiter = makeEmailLimiter({ limit: 5, windowMs: 15 * 60 
  * Call `check()` first — if already over the limit, skip the WP call.
  */
 export const resetEmailLimiter = makeEmailLimiter({ limit: 3, windowMs: 60 * 60 * 1000 });
+
+/**
+ * OTP send: 3 sends per phone per 10 minutes.
+ *
+ * Usage: call `check(phone)` first — if blocked, reject without sending.
+ * Call `record(phone)` on every send (we count sends, not failures).
+ */
+export const otpPhoneLimiter = makeEmailLimiter({ limit: 3, windowMs: 10 * 60 * 1000 });
+
+/** POST /auth/otp/send — 10 requests / 10 min per IP */
+export const otpSendIpLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 10 * 60 * 1000,
+  limit: 10,
+  message: undefined,
+});

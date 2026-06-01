@@ -1,11 +1,11 @@
 import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash, randomInt } from "node:crypto";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
-import { and, eq, isNull } from "drizzle-orm";
-import { db, customersTable, CUSTOMER_GENDERS } from "@workspace/db";
+import { and, eq, isNull, gt } from "drizzle-orm";
+import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
 import { upsertCustomer, getCustomerByWcId, normalizePhoneE164 } from "../lib/customers";
 import { validateStoredPhone } from "../lib/phoneValidation";
 import {
@@ -23,6 +23,8 @@ import {
   socialIpLimiter,
   loginEmailLimiter,
   resetEmailLimiter,
+  otpPhoneLimiter,
+  otpSendIpLimiter,
 } from "../lib/auth-rate-limit";
 import {
   classifyAuthExists,
@@ -1872,6 +1874,222 @@ router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
     firstName: givenName,
     lastName: familyName,
   });
+});
+
+// ── OTP send ─────────────────────────────────────────────────────────────────
+// Generates a 6-digit numeric code, stores it hashed (SHA-256, 10-min TTL),
+// and dispatches it via Twilio SMS. Rate-limited to 3 sends per phone per 10
+// minutes (in-memory) plus 10 requests per IP per 10 minutes.
+router.post("/auth/otp/send", otpSendIpLimiter, async (req, res) => {
+  const { phone } = req.body as { phone?: string };
+  if (!phone || phone.trim().length < 7) {
+    res.status(400).json({ ok: false, code: "invalid_phone", message: "A valid phone number is required" }); // i18n-ignore
+    return;
+  }
+  const normalizedPhone = phone.trim();
+
+  const limCheck = otpPhoneLimiter.check(normalizedPhone);
+  if (!limCheck.allowed) {
+    res.status(429).json({ ok: false, code: "too_many_requests", message: "Too many OTP requests for this number. Please wait and try again." }); // i18n-ignore
+    return;
+  }
+
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const codeHash = createHash("sha256").update(code).digest("hex");
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  try {
+    await db
+      .delete(phoneOtpsTable)
+      .where(eq(phoneOtpsTable.phone, normalizedPhone));
+
+    await db.insert(phoneOtpsTable).values({
+      phone: normalizedPhone,
+      codeHash,
+      expiresAt,
+    });
+  } catch (err: any) {
+    req.log?.error?.({ err: err?.message }, "auth.otp.send: DB error");
+    res.status(500).json({ ok: false, code: "server_error", message: "Failed to store OTP" }); // i18n-ignore
+    return;
+  }
+
+  otpPhoneLimiter.record(normalizedPhone);
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM ?? process.env.TWILIO_FROM_LB ?? "";
+
+  if (!accountSid || !authToken || !fromNumber) {
+    req.log?.warn?.({ phone: normalizedPhone }, "auth.otp.send: Twilio not configured — OTP not sent (DEV mode)");
+    if (process.env.NODE_ENV !== "production") {
+      req.log?.info?.({ code }, "auth.otp.send: DEV code (Twilio not configured)");
+    }
+    res.json({ ok: true });
+    return;
+  }
+
+  const body = `Presentail: Your verification code is ${code}. It expires in 10 minutes.`; // i18n-ignore
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  try {
+    const r = await fetch(twilioUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ From: fromNumber, To: normalizedPhone, Body: body }).toString(),
+    });
+    if (!r.ok) {
+      const text = await r.text().catch(() => "");
+      req.log?.warn?.({ phone: normalizedPhone, status: r.status, body: text.slice(0, 200) }, "auth.otp.send: Twilio error (non-fatal)");
+    } else {
+      req.log?.info?.({ phone: normalizedPhone }, "auth.otp.send: SMS dispatched");
+    }
+  } catch (err: any) {
+    req.log?.warn?.({ err: err?.message, phone: normalizedPhone }, "auth.otp.send: Twilio fetch failed (non-fatal)");
+  }
+
+  res.json({ ok: true });
+});
+
+// ── OTP verify + register ─────────────────────────────────────────────────────
+// Validates the supplied 6-digit code against the stored hash + expiry, then
+// completes account registration and returns an auth token. On success the OTP
+// row is deleted. Wrong codes increment the `attempts` counter; after 5 wrong
+// guesses the row is deleted and the shopper must request a new code.
+router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
+  const { phone, code, email, password, firstName, lastName } = req.body as {
+    phone?: string;
+    code?: string;
+    email?: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+
+  if (!phone || !code || !email || !password) {
+    res.status(400).json({ ok: false, code: "missing_fields", message: "phone, code, email and password are required" }); // i18n-ignore
+    return;
+  }
+
+  const normalizedPhone = phone.trim();
+  const trimmedCode = code.trim();
+
+  const now = new Date();
+  let rows: typeof phoneOtpsTable.$inferSelect[];
+  try {
+    rows = await db
+      .select()
+      .from(phoneOtpsTable)
+      .where(
+        and(
+          eq(phoneOtpsTable.phone, normalizedPhone),
+          gt(phoneOtpsTable.expiresAt, now),
+        ),
+      )
+      .limit(1);
+  } catch (err: any) {
+    req.log?.error?.({ err: err?.message }, "auth.otp.verify: DB select error");
+    res.status(500).json({ ok: false, code: "server_error", message: "Failed to look up OTP" }); // i18n-ignore
+    return;
+  }
+
+  if (rows.length === 0) {
+    res.status(400).json({ ok: false, code: "expired_otp", message: "OTP not found or expired" }); // i18n-ignore
+    return;
+  }
+
+  const row = rows[0];
+
+  if (row.attempts >= 5) {
+    await db.delete(phoneOtpsTable).where(eq(phoneOtpsTable.id, row.id)).catch(() => {});
+    res.status(429).json({ ok: false, code: "too_many_attempts", message: "Too many incorrect attempts. Please request a new code." }); // i18n-ignore
+    return;
+  }
+
+  const expectedHash = createHash("sha256").update(trimmedCode).digest("hex");
+  if (expectedHash !== row.codeHash) {
+    const newAttempts = row.attempts + 1;
+    if (newAttempts >= 5) {
+      await db.delete(phoneOtpsTable).where(eq(phoneOtpsTable.id, row.id)).catch(() => {});
+      res.status(429).json({ ok: false, code: "too_many_attempts", message: "Too many incorrect attempts. Please request a new code." }); // i18n-ignore
+    } else {
+      await db
+        .update(phoneOtpsTable)
+        .set({ attempts: newAttempts })
+        .where(eq(phoneOtpsTable.id, row.id))
+        .catch(() => {});
+      res.status(400).json({ ok: false, code: "invalid_otp", message: "Incorrect code. Please try again." }); // i18n-ignore
+    }
+    return;
+  }
+
+  await db.delete(phoneOtpsTable).where(eq(phoneOtpsTable.id, row.id)).catch(() => {});
+
+  if (!process.env.WC_CONSUMER_KEY) {
+    res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ ok: false, code: "password_too_short", message: "Password must be at least 8 characters" }); // i18n-ignore
+    return;
+  }
+
+  try {
+    const r = await wcFetch("/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        first_name: firstName?.trim() ?? "",
+        last_name: lastName?.trim() ?? "",
+        billing: { phone: normalizedPhone },
+      }),
+    }, req);
+
+    const data = (await r.json().catch(() => ({}))) as any;
+    if (!r.ok) {
+      res.status(r.status).json({
+        ok: false,
+        code: "registration_failed",
+        message: data?.message?.replace(/<[^>]*>/g, "") ?? "Registration failed", // i18n-ignore
+      });
+      return;
+    }
+
+    let token: string | null = null;
+    try {
+      const tokenRes = await wpFetch(`/jwt-auth/v1/token`, {
+        method: "POST",
+        body: JSON.stringify({ username: email.trim(), password }),
+      }, req);
+      const tokenData = (await tokenRes.json().catch(() => ({}))) as any;
+      if (tokenRes.ok && tokenData?.token) token = tokenData.token;
+    } catch {
+      // ignore - user can log in manually
+    }
+
+    const mapped = mapCustomer(data);
+    if (mapped.id) {
+      mirrorAndPropagateToClerk(
+        mapped.id,
+        {
+          email: mapped.email,
+          firstName: mapped.firstName,
+          lastName: mapped.lastName,
+          phone: normalizedPhone,
+          provider: "password",
+          preferredLang: langFromRequest(req),
+        },
+        req.log,
+      );
+    }
+    res.json({ ok: true, token, user: mapped });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
+  }
 });
 
 export default router;

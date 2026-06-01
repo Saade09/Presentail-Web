@@ -63,6 +63,8 @@ export function SignupStep({
     lastName.trim().length > 0 &&
     passwordMeetsAll(password);
 
+  const submitLabel = t.authContinue;
+
   return (
     <View style={{ gap: 22 }}>
       <View style={{ gap: 8 }}>
@@ -301,7 +303,7 @@ export function SignupStep({
               letterSpacing: 0.6,
             }}
           >
-            {t.authCreateAccount}
+            {submitLabel}
           </AppText>
         )}
       </Pressable>

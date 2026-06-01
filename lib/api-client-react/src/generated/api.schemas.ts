@@ -177,6 +177,7 @@ export const AnalyticsEventName = {
   mobile_ttid: "mobile_ttid",
   payment_error: "payment_error",
   geo_currency_fallback: "geo_currency_fallback",
+  signup_step_completed: "signup_step_completed",
 } as const;
 
 /**
@@ -960,6 +961,46 @@ export interface ReferralCodeResponse {
   code: string;
   /** A pre-built share URL the client can pass directly to a share sheet. */
   shareUrl: string;
+}
+
+export interface PhoneOtpSendRequest {
+  /** E.164-formatted phone number (e.g. "+9613000000"). */
+  phone: string;
+}
+
+export interface PhoneOtpSendResponse {
+  ok: boolean;
+}
+
+export interface PhoneOtpVerifyRequest {
+  /** E.164-formatted phone number matching the send call. */
+  phone: string;
+  /** The 6-digit numeric code received via SMS. */
+  code: string;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+/**
+ * Error code when ok is false.
+ */
+export type PhoneOtpVerifyResponseCode =
+  (typeof PhoneOtpVerifyResponseCode)[keyof typeof PhoneOtpVerifyResponseCode];
+
+export const PhoneOtpVerifyResponseCode = {
+  invalid_otp: "invalid_otp",
+  expired_otp: "expired_otp",
+  too_many_attempts: "too_many_attempts",
+} as const;
+
+export interface PhoneOtpVerifyResponse {
+  ok: boolean;
+  token?: string | null;
+  user?: AuthMeResponse;
+  /** Error code when ok is false. */
+  code?: PhoneOtpVerifyResponseCode;
 }
 
 export type GetHomepageBannersParams = {

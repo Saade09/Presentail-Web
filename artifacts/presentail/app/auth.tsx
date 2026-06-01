@@ -16,6 +16,7 @@ import { ForgotPasswordSentStep } from "@/components/auth/ForgotPasswordSentStep
 import { ForgotPasswordStep } from "@/components/auth/ForgotPasswordStep";
 import { PasswordLoginStep } from "@/components/auth/PasswordLoginStep";
 import { SignupStep } from "@/components/auth/SignupStep";
+import { PhoneVerificationStep } from "@/components/auth/PhoneVerificationStep";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -23,11 +24,12 @@ import { useT } from "@/hooks/useT";
 import {
   AuthError,
   checkEmailExists,
-  createAccountWithEmail,
   requestPasswordReset,
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
+  sendOtp,
+  verifyOtpAndRegister,
 } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -37,6 +39,7 @@ type Step =
   | "email"
   | "passwordLogin"
   | "signup"
+  | "signupPhone"
   | "forgot"
   | "forgotSent"
   | "forgotPasteLink";
@@ -90,10 +93,6 @@ function AuthScreen() {
       case "apple_failed":
         return t.authAppleFailed;
       case "google_failed":
-        // Surface a friendly message regardless of native code (e.g. -61440
-        // = errSecMissingEntitlement). The native code/serverMessage is
-        // already logged via __DEV__ console.warn in authService and on the
-        // server, so we don't need to leak hex-looking codes to shoppers.
         return t.authGoogleFailed;
       case "canceled":
         return "";
@@ -132,6 +131,10 @@ function AuthScreen() {
     }
     if (step === "forgot") {
       setStep("passwordLogin");
+      return;
+    }
+    if (step === "signupPhone") {
+      setStep("signup");
       return;
     }
     setStep("email");
@@ -177,27 +180,9 @@ function AuthScreen() {
     close();
   };
 
-  const onSubmitSignup = async () => {
-    setSignupError(null);
-    setSignupBusy(true);
-    const r = await createAccountWithEmail(register, {
-      email,
-      password,
-      firstName,
-      lastName,
-    });
-    setSignupBusy(false);
-    if (!r.ok) {
-      if (r.code === "email_exists") {
-        setSignupError(null);
-        setPassword("");
-        setStep("passwordLogin");
-        return;
-      }
-      setSignupError(errorText(r));
-      return;
-    }
-    close();
+  const onSubmitSignup = () => {
+    trackEvent({ name: "signup_step_completed", action: "namePassword" });
+    setStep("signupPhone");
   };
 
   const onApple = async () => {
@@ -292,6 +277,30 @@ function AuthScreen() {
     } catch {
       setPasteLinkError(t.authForgotPasteLinkInvalid);
     }
+  };
+
+  const onSendOtp = async (phone: string): Promise<{ ok: true } | { ok: false; code: string }> => {
+    return sendOtp(phone);
+  };
+
+  const onVerifyOtp = async (
+    phone: string,
+    code: string,
+  ): Promise<{ ok: true } | { ok: false; code: string }> => {
+    const r = await verifyOtpAndRegister(applySession, {
+      phone,
+      code,
+      email,
+      password,
+      firstName,
+      lastName,
+    });
+    if (r.ok) {
+      trackEvent({ name: "signup_step_completed", action: "otp" });
+      close();
+      return { ok: true };
+    }
+    return r;
   };
 
   const isFirstStep = step === "email";
@@ -439,6 +448,15 @@ function AuthScreen() {
                 setPassword("");
                 setStep("passwordLogin");
               }}
+            />
+          ) : null}
+
+          {step === "signupPhone" ? (
+            <PhoneVerificationStep
+              email={email}
+              onVerified={() => {}}
+              onSendOtp={onSendOtp}
+              onVerifyOtp={onVerifyOtp}
             />
           ) : null}
         </ScrollView>

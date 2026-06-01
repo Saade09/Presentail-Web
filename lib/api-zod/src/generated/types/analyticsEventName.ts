@@ -64,4 +64,5 @@ export const AnalyticsEventName = {
   mobile_ttid: "mobile_ttid",
   payment_error: "payment_error",
   geo_currency_fallback: "geo_currency_fallback",
+  signup_step_completed: "signup_step_completed",
 } as const;
