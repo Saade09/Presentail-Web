@@ -117,7 +117,9 @@ export default function Shop() {
       ? t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion, {})
         || catalogOccasion?.name
         || occasion
-      : t("shop.allCollection");
+      : brand
+        ? (brandProducts.data?.brandName ?? brand)
+        : t("shop.allCollection");
 
   const occasionDescription = catalogOccasion?.description;
 
@@ -158,7 +160,14 @@ export default function Shop() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8 border-b">
           <div>
-            <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">{pageTitle}</h1>
+            <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">
+              {pageTitle}
+              {!isLoading && (
+                <span className="text-muted-foreground font-sans text-2xl md:text-3xl font-normal">
+                  {" "}<span className="mx-2 opacity-40">/</span>{t("shop.productCount", { count: String(products.length) })}
+                </span>
+              )}
+            </h1>
             <p className="text-muted-foreground text-lg max-w-xl">
               {occasion && occasionDescription
                 ? occasionDescription

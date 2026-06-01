@@ -32,6 +32,7 @@ export const shopStrings: Dict = {
   "shop.popularPicks": { en: "Popular picks", ar: "اختيارات شائعة" },
   "shop.browseAll": { en: "Browse all collections", ar: "تصفح كل المجموعات" },
   "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
+  "shop.productCount": { en: "{count} Products", ar: "{count} منتج" },
 
 };
 
@@ -67,5 +68,6 @@ export const shopStringsFr: Record<string, string> = {
   "shop.popularPicks": "Coups de cœur",
   "shop.browseAll": "Parcourir toutes les collections",
   "shop.removeBrandFilter": "Supprimer le filtre de marque",
+  "shop.productCount": "{count} Produits",
 
 };
