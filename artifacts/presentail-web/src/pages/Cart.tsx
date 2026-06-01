@@ -142,7 +142,9 @@ export default function Cart() {
 
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Cart Items */}
-          <div className="flex-1 space-y-8 min-w-0">
+          <div className="flex-1 min-w-0">
+            <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
+            <div className="space-y-8">
             {items.map((item, index) => (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -279,14 +281,13 @@ export default function Cart() {
                 </button>
               )}
             </div>
+            </div>
           </div>
 
           {/* Order Summary */}
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               <h2 className="text-2xl font-serif mb-6">{t("cart.summary")}</h2>
-
-              <FreeDeliveryBanner className="mb-6" subtotal={subtotal} />
 
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
