@@ -1504,6 +1504,12 @@ components:
         label:
           type: string
           description: Human-readable slot label (e.g. "Morning (9 AM – 12 PM)").
+        startHour:
+          type: integer
+          description: Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). Optional; absent when the OS has not configured window boundaries.
+        endHour:
+          type: integer
+          description: Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). Optional; absent when the OS has not configured window boundaries.
         cutoffHour:
           type: number
           description: Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.
@@ -1545,6 +1551,10 @@ components:
         - id
         - name
         - isActive
+        - timeSlots
+        - expressAvailable
+        - sameDayCutoffHour
+        - expressDeliveryLabel
     DeliveryCountry:
       type: object
       properties:

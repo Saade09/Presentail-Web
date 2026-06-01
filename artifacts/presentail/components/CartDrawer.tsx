@@ -26,6 +26,8 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import {
+  EXPRESS_CLOSE_HOUR,
+  EXPRESS_OPEN_HOUR,
   dayLabels,
   expressSurchargeForCountry,
   formatDeliveryRow,
@@ -83,7 +85,7 @@ export function CartDrawer() {
     wasOpenRef.current = isCartOpen;
   }, [isCartOpen]);
   const { formatPrice, currencyCode, convert } = useCurrency();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
   const deliverySelection = useDeliverySelection();
 
@@ -105,17 +107,39 @@ export function CartDrawer() {
   // Resolve persisted slot against current country + country-local hour for
   // display; see FullCartView for the rationale (do not rewrite persisted
   // state here — checkout's mount effect repairs it).
+  // Use OS-configured slots for the selected city when available, falling back
+  // to the hardcoded per-country table so existing behaviour is preserved.
+  const cityTimeSlots = React.useMemo(
+    () =>
+      selectedCity?.timeSlots?.length
+        ? selectedCity.timeSlots
+        : timeSlotsForCountry(countryCode),
+    [selectedCity, countryCode],
+  );
+  // Express availability: honour the OS flag/cutoff when the city has OS config,
+  // otherwise fall back to the hardcoded 8 AM–10 PM window.
+  const expressAvailableForCity = React.useMemo(() => {
+    if (selectedCity?.expressAvailable === false) return false;
+    const h = getCountryHour(countryCode);
+    const closeHour =
+      typeof selectedCity?.sameDayCutoffHour === "number"
+        ? selectedCity.sameDayCutoffHour
+        : EXPRESS_CLOSE_HOUR;
+    if (typeof selectedCity?.expressAvailable === "boolean") {
+      return h >= EXPRESS_OPEN_HOUR && h < closeHour;
+    }
+    return isExpressDeliveryAvailable(countryCode);
+  }, [selectedCity, countryCode]);
   const displaySlotLabel = React.useMemo(() => {
     if (deliverySelection.mode !== "today_slot") return deliverySelection.slotLabel;
-    const slots = timeSlotsForCountry(countryCode);
     const isToday = deliverySelection.date === days[0]?.iso;
     return resolveSlotLabel(
       deliverySelection.slotLabel,
-      slots,
+      cityTimeSlots,
       isToday,
       getCountryHour(countryCode),
     );
-  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days]);
+  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days, cityTimeSlots]);
   const deliveryRowValue = formatDeliveryRow({
     mode: deliverySelection.mode,
     date: deliverySelection.date,
@@ -479,7 +503,7 @@ export function CartDrawer() {
       visible={rescheduleVisible}
       onClose={() => setRescheduleVisible(false)}
       initialMode={deliverySelection.mode}
-      expressAvailable={isExpressDeliveryAvailable(countryCode)}
+      expressAvailable={expressAvailableForCity}
       expressSurchargeUsd={expressSurchargeForCountry(countryCode)}
     />
     <CheckoutLoginSheet

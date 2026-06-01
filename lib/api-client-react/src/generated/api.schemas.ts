@@ -504,6 +504,10 @@ export interface LocalizedNames {
 export interface DeliveryTimeSlot {
   /** Human-readable slot label (e.g. "Morning (9 AM – 12 PM)"). */
   label: string;
+  /** Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). Optional; absent when the OS has not configured window boundaries. */
+  startHour?: number;
+  /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). Optional; absent when the OS has not configured window boundaries. */
+  endHour?: number;
   /** Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. */
   cutoffHour: number;
   /** Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee. */
@@ -517,13 +521,13 @@ export interface DeliveryCity {
   /** Delivery fee in the country's native currency. */
   fee?: number;
   /** Whether express/same-day delivery is available for this city. */
-  expressAvailable?: boolean;
+  expressAvailable: boolean;
   /** Human-readable express delivery promise for this city (e.g. "Arrives in 90 minutes"). */
-  expressDeliveryLabel?: string;
+  expressDeliveryLabel: string;
   /** Hour of day (0–23, local time) after which same-day delivery cannot be booked. */
-  sameDayCutoffHour?: number;
+  sameDayCutoffHour: number;
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
-  timeSlots?: DeliveryTimeSlot[];
+  timeSlots: DeliveryTimeSlot[];
   localizedNames?: LocalizedNames;
 }
 

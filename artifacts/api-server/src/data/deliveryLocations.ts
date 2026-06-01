@@ -28,6 +28,12 @@ export const DELIVERY_COUNTRIES: DeliveryCountry[] = LIB_DELIVERY_COUNTRIES.map(
       name: city.name,
       isActive: city.isActive,
       fee: feeForDistrict(country.code, city.name),
+      // Required DeliveryCity fields — hardcoded defaults for static data.
+      // OS-sourced data (osLocationsCache.ts) will override these at runtime.
+      timeSlots: [],
+      expressAvailable: true,
+      sameDayCutoffHour: 22,
+      expressDeliveryLabel: "",
       localizedNames: localizedNamesForCity(city.id),
     })),
   }),

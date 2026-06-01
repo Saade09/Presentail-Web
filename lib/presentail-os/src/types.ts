@@ -8,6 +8,10 @@
 
 export type OSTimeSlot = {
   label: string;
+  /** Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). */
+  startHour?: number;
+  /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). */
+  endHour?: number;
   cutoffHour: number;
   /** Additional surcharge for booking this slot (USD). e.g. night-slot fee. */
   extraFee?: number;

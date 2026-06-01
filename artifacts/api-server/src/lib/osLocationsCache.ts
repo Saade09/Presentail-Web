@@ -33,6 +33,11 @@ import {
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 import { logger } from "./logger";
 
+// Mirrors lib/delivery EXPRESS_CLOSE_HOUR. Using a local constant avoids
+// adding @workspace/delivery as a runtime dep of api-server; update both
+// together if the express window ever changes.
+const EXPRESS_CLOSE_HOUR = 22;
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type CachedCity = {
@@ -40,10 +45,13 @@ type CachedCity = {
   name: string;
   isActive: boolean;
   fee?: number;
-  expressAvailable?: boolean;
-  expressDeliveryLabel?: string;
-  sameDayCutoffHour?: number;
-  timeSlots?: OSTimeSlot[];
+  /** Whether this city supports express/same-day delivery at all (time-gated on client). */
+  expressAvailable: boolean;
+  /** Human-readable delivery promise label; empty string means "use client translation". */
+  expressDeliveryLabel: string;
+  /** Hour of day (0–23) after which same-day booking is disabled. Defaults to EXPRESS_CLOSE_HOUR. */
+  sameDayCutoffHour: number;
+  timeSlots: OSTimeSlot[];
   localizedNames?: { ar?: string; fr?: string };
 };
 
@@ -159,6 +167,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               name: city.name,
               isActive: city.isActive,
               fee: feeForDistrict(code, city.name),
+              // OS returned 0 cities for this country — use hardcoded defaults.
+              expressAvailable: true,
+              expressDeliveryLabel: "",
+              sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+              timeSlots: [] as OSTimeSlot[],
               localizedNames: localizedNamesForCity(city.id),
             }));
           })()
@@ -181,10 +194,13 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               name: c.name,
               isActive: c.isActive ?? true,
               fee: c.deliveryFee ?? feeForDistrict(code, c.name),
-              expressAvailable: c.expressAvailable,
-              expressDeliveryLabel: c.expressDeliveryLabel,
-              sameDayCutoffHour: c.sameDayCutoffHour,
-              timeSlots: c.timeSlots,
+              // When OS omits a field fall back to hardcoded defaults so the
+              // shape is always complete and required schema fields are present.
+              expressAvailable: c.expressAvailable ?? true,
+              expressDeliveryLabel: c.expressDeliveryLabel ?? "",
+              sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
+              // Normalise to an array even when OS omits the field.
+              timeSlots: c.timeSlots ?? [],
               localizedNames: localizedNamesForCity(canonicalId),
             };
           });
@@ -222,6 +238,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
       name: city.name,
       isActive: city.isActive,
       fee: feeForDistrict(c.code, city.name),
+      // Country not yet in OS — use hardcoded defaults.
+      expressAvailable: true,
+      expressDeliveryLabel: "",
+      sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+      timeSlots: [] as OSTimeSlot[],
       localizedNames: localizedNamesForCity(city.id),
     })),
   }));
@@ -244,6 +265,11 @@ function hardcodedFallback(): CachedCountry[] {
       name: city.name,
       isActive: city.isActive,
       fee: feeForDistrict(c.code, city.name),
+      // OS unreachable — use hardcoded defaults.
+      expressAvailable: true,
+      expressDeliveryLabel: "",
+      sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+      timeSlots: [] as OSTimeSlot[],
       localizedNames: localizedNamesForCity(city.id),
     })),
   }));

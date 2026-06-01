@@ -15,12 +15,12 @@ export interface DeliveryCity {
   /** Delivery fee in the country's native currency. */
   fee?: number;
   /** Whether express/same-day delivery is available for this city. */
-  expressAvailable?: boolean;
+  expressAvailable: boolean;
   /** Human-readable express delivery promise for this city (e.g. "Arrives in 90 minutes"). */
-  expressDeliveryLabel?: string;
+  expressDeliveryLabel: string;
   /** Hour of day (0–23, local time) after which same-day delivery cannot be booked. */
-  sameDayCutoffHour?: number;
+  sameDayCutoffHour: number;
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
-  timeSlots?: DeliveryTimeSlot[];
+  timeSlots: DeliveryTimeSlot[];
   localizedNames?: LocalizedNames;
 }

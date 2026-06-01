@@ -84,6 +84,14 @@ export type DeliveryCityData = {
   id: string;
   name: string;
   isActive: boolean;
+  /** Available delivery time slots from Presentail OS. Empty when not yet configured in OS. */
+  timeSlots?: Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>;
+  /** Whether express/same-day delivery is offered for this city (from OS). */
+  expressAvailable?: boolean;
+  /** Hour (0–23, local time) after which same-day/express delivery can no longer be booked (from OS). */
+  sameDayCutoffHour?: number;
+  /** Human-readable express delivery time promise, e.g. "Arrives in 90 minutes" (from OS). */
+  expressDeliveryLabel?: string;
 };
 
 export type DeliveryCountryData = {

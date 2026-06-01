@@ -61,7 +61,7 @@ export function RescheduleDeliverySheet({
   const insets = useSafeAreaInsets();
   const t = useT();
   const deliverySelection = useDeliverySelection();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { currencyCode, convert, formatNative } = useCurrency();
 
   const countryCode =
@@ -72,9 +72,14 @@ export function RescheduleDeliverySheet({
     () => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow),
     [t.checkoutDayToday, t.checkoutDayTomorrow],
   );
+  // Use OS-configured slots for the selected city when available, falling back
+  // to the hardcoded per-country table so existing behaviour is preserved.
   const timeSlots = React.useMemo(
-    () => timeSlotsForCountry(countryCode),
-    [countryCode],
+    () =>
+      selectedCity?.timeSlots?.length
+        ? selectedCity.timeSlots
+        : timeSlotsForCountry(countryCode),
+    [selectedCity, countryCode],
   );
   const localHour = React.useMemo(
     () => getCountryHour(countryCode),

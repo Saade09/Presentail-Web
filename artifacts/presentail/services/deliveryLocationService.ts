@@ -67,11 +67,42 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
         const cid = typeof cobj.id === "string" ? cobj.id : null;
         const cname = typeof cobj.name === "string" ? cobj.name : null;
         if (!cid || !cname) return null;
-        return {
+        const city: DeliveryCountry["cities"][number] = {
           id: cid,
           name: cname,
           isActive: cobj.isActive !== false,
         };
+        if (typeof cobj.expressAvailable === "boolean") {
+          city.expressAvailable = cobj.expressAvailable;
+        }
+        if (typeof cobj.sameDayCutoffHour === "number") {
+          city.sameDayCutoffHour = cobj.sameDayCutoffHour;
+        }
+        if (typeof cobj.expressDeliveryLabel === "string") {
+          city.expressDeliveryLabel = cobj.expressDeliveryLabel;
+        }
+        if (Array.isArray(cobj.timeSlots)) {
+          const sanitizedSlots = (cobj.timeSlots as unknown[])
+            .filter(
+              (s): s is { label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number } =>
+                !!s &&
+                typeof s === "object" &&
+                typeof (s as Record<string, unknown>).label === "string" &&
+                typeof (s as Record<string, unknown>).cutoffHour === "number",
+            )
+            .map((s) => ({
+              label: s.label,
+              ...(typeof s.startHour === "number" ? { startHour: s.startHour } : {}),
+              ...(typeof s.endHour === "number" ? { endHour: s.endHour } : {}),
+              cutoffHour: s.cutoffHour,
+              ...(typeof s.extraFee === "number" ? { extraFee: s.extraFee } : {}),
+            }));
+          // Always assign, even when empty — an empty array is a deliberate
+          // signal from the server that no OS slots are configured for this
+          // city; callers fall back to lib/delivery hardcoded tables.
+          city.timeSlots = sanitizedSlots;
+        }
+        return city;
       })
       .filter(Boolean) as DeliveryCountry["cities"];
 

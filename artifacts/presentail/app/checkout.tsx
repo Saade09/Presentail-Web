@@ -72,6 +72,8 @@ import { useT } from "@/hooks/useT";
 import {
   AE_EXPRESS_SURCHARGE,
   LB_EXPRESS_SURCHARGE,
+  EXPRESS_OPEN_HOUR,
+  EXPRESS_CLOSE_HOUR,
   dayLabels,
   expressSurchargeForCountry,
   getCountryHour,
@@ -296,7 +298,11 @@ function CheckoutScreen() {
     }
     if (countryChanged) {
       const cc = resolveCountryCode(selectedCountry?.code, currencyCode);
-      const newSlots = timeSlotsForCountry(cc);
+      // When the new city already has OS-configured slots, use those; otherwise
+      // fall back to the hardcoded per-country table so the picker is never empty.
+      const newSlots = (selectedCity?.timeSlots?.length
+        ? selectedCity.timeSlots
+        : timeSlotsForCountry(cc)) as TimeSlot[];
       const h = getCountryHour(cc);
       setSlot(newSlots.find(s => s.cutoffHour > h) ?? newSlots[0] ?? null);
       const newDial = COUNTRY_DIAL_CODES.find((d) => d.code === (cc ?? "LB")) ?? COUNTRY_DIAL_CODES[0];
@@ -480,11 +486,27 @@ function CheckoutScreen() {
   }, [authUser, savedAddresses, districts]);
   const days = useMemo(() => dayLabels(t.checkoutDayToday, t.checkoutDayTomorrow), [t.checkoutDayToday, t.checkoutDayTomorrow]);
   const now = useNow();
-  const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(effectiveCountry, now),
-    [effectiveCountry, now],
-  );
-  const timeSlots = timeSlotsForCountry(effectiveCountry);
+  // Use OS-provided slots for the selected city when available; fall back to
+  // the hardcoded per-country slot table so existing behaviour is preserved
+  // when the city has no OS config yet.
+  const timeSlots = (selectedCity?.timeSlots?.length
+    ? selectedCity.timeSlots
+    : timeSlotsForCountry(effectiveCountry)) as TimeSlot[];
+  // Express availability: when OS explicitly configures the city, honour the
+  // OS flag and cutoff hour. Otherwise fall back to the hardcoded 8 AM–10 PM
+  // window so the feature keeps working for cities without OS config yet.
+  const expressAvailable = useMemo(() => {
+    if (selectedCity?.expressAvailable === false) return false;
+    const h = getCountryHour(effectiveCountry, now);
+    const closeHour =
+      typeof selectedCity?.sameDayCutoffHour === "number"
+        ? selectedCity.sameDayCutoffHour
+        : EXPRESS_CLOSE_HOUR;
+    if (typeof selectedCity?.expressAvailable === "boolean") {
+      return h >= EXPRESS_OPEN_HOUR && h < closeHour;
+    }
+    return isExpressDeliveryAvailable(effectiveCountry, now);
+  }, [selectedCity, effectiveCountry, now]);
   const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
   const { freeDeliveryEnabled: isFreeDeliveryEnabled, freeDeliveryThresholdUsd: freeDeliveryThreshold } = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();

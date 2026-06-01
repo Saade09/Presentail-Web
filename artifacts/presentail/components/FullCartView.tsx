@@ -29,6 +29,8 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import {
+  EXPRESS_CLOSE_HOUR,
+  EXPRESS_OPEN_HOUR,
   dayLabels,
   expressSurchargeForCountry,
   formatDeliveryRow,
@@ -145,7 +147,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
   const { detailed, total, setQty, remove, clear, cartMessage, setCartMessage } = useCart();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { currencyCode, convert } = useCurrency();
   const t = useT();
   const deliverySelection = useDeliverySelection();
@@ -172,17 +174,39 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   // displays as the next available slot instead of one that can no longer
   // be booked. The persisted state itself is left untouched here — checkout's
   // mount effect repairs it when the user opens checkout.
+  // Use OS-configured slots for the selected city when available, falling back
+  // to the hardcoded per-country table so existing behaviour is preserved.
+  const cityTimeSlots = React.useMemo(
+    () =>
+      selectedCity?.timeSlots?.length
+        ? selectedCity.timeSlots
+        : timeSlotsForCountry(countryCode),
+    [selectedCity, countryCode],
+  );
+  // Express availability: honour the OS flag/cutoff when the city has OS config,
+  // otherwise fall back to the hardcoded 8 AM–10 PM window.
+  const expressAvailableForCity = React.useMemo(() => {
+    if (selectedCity?.expressAvailable === false) return false;
+    const h = getCountryHour(countryCode);
+    const closeHour =
+      typeof selectedCity?.sameDayCutoffHour === "number"
+        ? selectedCity.sameDayCutoffHour
+        : EXPRESS_CLOSE_HOUR;
+    if (typeof selectedCity?.expressAvailable === "boolean") {
+      return h >= EXPRESS_OPEN_HOUR && h < closeHour;
+    }
+    return isExpressDeliveryAvailable(countryCode);
+  }, [selectedCity, countryCode]);
   const displaySlotLabel = React.useMemo(() => {
     if (deliverySelection.mode !== "today_slot") return deliverySelection.slotLabel;
-    const slots = timeSlotsForCountry(countryCode);
     const isToday = deliverySelection.date === days[0]?.iso;
     return resolveSlotLabel(
       deliverySelection.slotLabel,
-      slots,
+      cityTimeSlots,
       isToday,
       getCountryHour(countryCode),
     );
-  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days]);
+  }, [deliverySelection.mode, deliverySelection.slotLabel, deliverySelection.date, countryCode, days, cityTimeSlots]);
   const deliveryRowValue = formatDeliveryRow({
     mode: deliverySelection.mode,
     date: deliverySelection.date,
@@ -625,7 +649,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
       visible={rescheduleVisible}
       onClose={() => setRescheduleVisible(false)}
       initialMode={deliverySelection.mode}
-      expressAvailable={isExpressDeliveryAvailable(countryCode)}
+      expressAvailable={expressAvailableForCity}
       expressSurchargeUsd={expressSurchargeUsd}
     />
     <CheckoutLoginSheet
