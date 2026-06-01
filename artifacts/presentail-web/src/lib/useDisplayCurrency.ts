@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   countryFromLocale,
@@ -18,6 +18,7 @@ import {
 import {
   readManualCurrency,
   writeManualCurrency,
+  subscribeManualCurrency,
   type ManualCurrencyState,
 } from "./displayCurrencyStorage";
 
@@ -155,7 +156,15 @@ export function useDisplayCurrency(): {
     [snapshot],
   );
 
-  const [manual, setManual] = useState<ManualState>(() => readManualCurrency());
+  // Shared external store — all useDisplayCurrency callers across the tree
+  // re-render together when any one of them (e.g. the footer switcher) writes a
+  // new manual currency. Without this, each caller has its own useState copy
+  // and writing in one component is invisible to the others.
+  const manual = useSyncExternalStore(
+    subscribeManualCurrency,
+    readManualCurrency,
+    () => null, // SSR snapshot — no storage available server-side
+  );
 
   // One-shot cleanup of the legacy persisted value so existing visitors
   // don't keep seeing a stale auto-detected currency from a previous visit.
@@ -245,31 +254,24 @@ export function useDisplayCurrency(): {
   const setCurrencyCode = useCallback(
     (code: string, options?: { persist?: boolean }) => {
       if (!SUPPORTED_CODES.has(code)) return;
-      setManual((prev) => {
-        const persistent =
-          typeof options?.persist === "boolean"
-            ? options.persist
-            : prev?.persistent ?? false;
-        const next: ManualState = { code, persistent };
-        writeManualCurrency(next);
-        return next;
-      });
+      const prev = readManualCurrency();
+      const persistent =
+        typeof options?.persist === "boolean"
+          ? options.persist
+          : prev?.persistent ?? false;
+      writeManualCurrency({ code, persistent });
     },
     [],
   );
 
   const setManualPersistent = useCallback((persistent: boolean) => {
-    setManual((prev) => {
-      if (!prev) return prev;
-      if (prev.persistent === persistent) return prev;
-      const next: ManualState = { code: prev.code, persistent };
-      writeManualCurrency(next);
-      return next;
-    });
+    const prev = readManualCurrency();
+    if (!prev) return;
+    if (prev.persistent === persistent) return;
+    writeManualCurrency({ code: prev.code, persistent });
   }, []);
 
   const clearManualCurrency = useCallback(() => {
-    setManual(null);
     writeManualCurrency(null);
   }, []);
 

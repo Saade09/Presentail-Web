@@ -75,7 +75,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
           {CURRENCY_FLAG[currencyCode] && (
             <CountryFlag
               code={CURRENCY_FLAG[currencyCode]}
-              className="w-5 h-auto rounded-[2px]"
+              className="w-5 aspect-[3/2] shrink-0"
             />
           )}
           <span>{currencyCode}</span>
@@ -98,7 +98,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
               className="flex items-center gap-2.5 cursor-pointer"
             >
               {flagCode && (
-                <CountryFlag code={flagCode} className="w-5 h-auto rounded-[2px] shrink-0" />
+                <CountryFlag code={flagCode} className="w-5 aspect-[3/2] shrink-0" />
               )}
               <span className="w-10 shrink-0 text-sm font-medium">{code}</span>
               <span className="flex-1 text-xs text-muted-foreground truncate">{name}</span>

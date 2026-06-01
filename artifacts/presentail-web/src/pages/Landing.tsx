@@ -142,7 +142,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                       data-testid={`button-country-${row.code.toLowerCase()}`}
                     >
                       <div className="flex items-center gap-3">
-                        <CountryFlag code={row.code} className="w-7 h-auto rounded-sm shrink-0" />
+                        <CountryFlag code={row.code} className="w-7 aspect-[3/2] shrink-0" />
                         <span className="text-base font-medium leading-tight">
                           {countryName(row.code, row.name)}
                         </span>

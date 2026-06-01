@@ -463,7 +463,7 @@ function AddressCard({
           </div>
           {countryCode && countryDisplayName && (
             <div className="flex items-center gap-1.5 mb-1">
-              <CountryFlag code={countryCode} className="w-4 h-auto rounded-[2px] shrink-0" />
+              <CountryFlag code={countryCode} className="w-4 aspect-[3/2] shrink-0" />
               <span className="text-xs text-muted-foreground">{countryDisplayName}</span>
             </div>
           )}

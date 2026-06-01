@@ -56,7 +56,7 @@ export function TopUtilityBar() {
             data-testid="button-country-selector"
           >
             {country ? (
-              <CountryFlag code={country.code} className="w-[18px] h-auto" />
+              <CountryFlag code={country.code} className="w-[18px] aspect-[3/2] shrink-0" />
             ) : (
               <span className="text-base leading-none">🌍</span>
             )}

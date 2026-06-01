@@ -27,7 +27,7 @@ type Props = {
  * Renders an SVG country/region flag for a given ISO-3166-1 alpha-2 or
  * region code (EU supported). Falls back to null for unknown codes.
  */
-export function CountryFlag({ code, title, className = "w-5 h-auto" }: Props) {
+export function CountryFlag({ code, title, className = "w-5 aspect-[3/2] shrink-0" }: Props) {
   const Flag = FLAGS[code.toUpperCase()];
   if (!Flag) return null;
   return (

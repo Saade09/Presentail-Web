@@ -1,6 +1,11 @@
 /**
  * Pure storage helpers for the manual display-currency override.
  * No React imports — safe to import from tests without React or query setup.
+ *
+ * Also exposes a tiny pub/sub store so every `useDisplayCurrency` call
+ * across the component tree re-renders when the visitor picks a new currency,
+ * even when the pick originates in a different component (e.g. the footer
+ * switcher updating product-card prices on the same page).
  */
 
 export const MANUAL_CURRENCY_KEY = "presentail_display_currency_manual_v1";
@@ -22,6 +27,18 @@ const SUPPORTED_CODES = new Set([
 ]);
 
 export type ManualCurrencyState = { code: string; persistent: boolean } | null;
+
+const manualListeners = new Set<() => void>();
+
+/** Subscribe to manual-currency changes (for useSyncExternalStore). */
+export function subscribeManualCurrency(fn: () => void): () => void {
+  manualListeners.add(fn);
+  return () => manualListeners.delete(fn);
+}
+
+function notifyManualListeners(): void {
+  for (const fn of manualListeners) fn();
+}
 
 /**
  * Read the visitor's manual currency override from storage.
@@ -53,7 +70,8 @@ export function readManualCurrency(): ManualCurrencyState {
 }
 
 /**
- * Persist (or clear) the visitor's manual currency override.
+ * Persist (or clear) the visitor's manual currency override, then notify
+ * all useSyncExternalStore subscribers so every component re-renders.
  *
  * - `persistent: true`  → localStorage  (survives page reloads / new tabs)
  * - `persistent: false` → sessionStorage (current tab only)
@@ -79,4 +97,5 @@ export function writeManualCurrency(state: ManualCurrencyState): void {
   } catch {
     // best-effort persistence
   }
+  notifyManualListeners();
 }
