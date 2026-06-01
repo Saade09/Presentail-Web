@@ -54,6 +54,7 @@ export function prefetchOnInteraction(loader: Loader): { onPressIn: () => void }
 
 // Module-level constants so the Set deduplication works correctly:
 // the same function reference is passed on every render.
+export const loadHomeScreen = () => import("../app/(tabs)/index");
 export const loadCatalogScreen = () => import("../app/(tabs)/catalog");
 export const loadProductDetailScreen = () => import("../app/product/[slug]");
 export const loadCartScreen = () => import("../app/(tabs)/cart");

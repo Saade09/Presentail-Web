@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { useTypography } from "@/hooks/useTypography";
 import { translations } from "@/lib/translations";
-import { loadCartScreen, loadCatalogScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
+import { loadCartScreen, loadCatalogScreen, loadHomeScreen, prefetchOnInteraction } from "@/lib/prefetchScreens";
 
 function TabLayout() {
   const colors = useColors();
@@ -80,6 +80,15 @@ function TabLayout() {
             ) : (
               <Feather name="home" size={20} color={color} />
             ),
+          tabBarButton: (props) => (
+            <Pressable
+              {...(props as React.ComponentProps<typeof Pressable>)}
+              onPressIn={(e) => {
+                prefetchOnInteraction(loadHomeScreen).onPressIn();
+                props.onPressIn?.(e);
+              }}
+            />
+          ),
         }}
       />
       <Tabs.Screen
