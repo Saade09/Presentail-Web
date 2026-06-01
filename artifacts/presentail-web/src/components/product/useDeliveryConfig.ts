@@ -21,7 +21,7 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
     currency: "AED",
   },
   LB: {
-    expressDeliveryTimeLabel: "Arrives in 2 hours",
+    expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "$130",
     currency: "USD",
   },

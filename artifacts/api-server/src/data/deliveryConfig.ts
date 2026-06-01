@@ -37,15 +37,13 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
   },
   LB: {
     default: {
-      expressDeliveryTimeLabel: "Arrives in 2 hours",
+      expressDeliveryTimeLabel: "Arrives in 90 minutes",
       freeDeliveryThreshold: "$130",
       currency: "USD",
       freeDeliveryThresholdUsd: 130,
       freeDeliveryEnabled: true,
     },
-    cities: {
-      "lb-beirut": { expressDeliveryTimeLabel: "Arrives in 90 minutes" },
-    },
+    cities: {},
   },
   CY: {
     default: {
