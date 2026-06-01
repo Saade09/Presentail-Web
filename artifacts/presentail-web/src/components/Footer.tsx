@@ -120,7 +120,6 @@ export function Footer() {
   const knowUs: { label: string; href: string; testId: string; external?: boolean }[] = [
     { label: t("footer.know.partner"), href: "/partner", testId: "footer-link-partner" },
     { label: t("footer.know.deliveryRates"), href: "/delivery-rates", testId: "footer-link-delivery" },
-    { label: t("footer.know.investor"), href: "/investor", testId: "footer-link-investor" },
     { label: t("footer.know.weddings"), href: "/weddings", testId: "footer-link-weddings" },
     { label: t("footer.know.corporate"), href: "/corporate", testId: "footer-link-corporate" },
     { label: t("footer.know.careers"), href: "/careers", testId: "footer-link-careers" },
