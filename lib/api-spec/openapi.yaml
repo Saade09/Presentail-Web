@@ -1601,6 +1601,12 @@ components:
         currency:
           type: string
           description: ISO 4217 currency code that the threshold is denominated in.
+        freeDeliveryThresholdUsd:
+          type: number
+          description: Free-delivery threshold in USD (the cart's internal currency). Use for fee calculation at checkout.
+        freeDeliveryEnabled:
+          type: boolean
+          description: Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total.
       required:
         - expressDeliveryTimeLabel
         - freeDeliveryThreshold

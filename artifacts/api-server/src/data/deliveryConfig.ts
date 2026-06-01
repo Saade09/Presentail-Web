@@ -11,6 +11,8 @@ export const GLOBAL_DEFAULT: DeliveryConfigResponse = {
   expressDeliveryTimeLabel: "Arrives in 90 minutes",
   freeDeliveryThreshold: "AED 330",
   currency: "AED",
+  freeDeliveryThresholdUsd: 89.84,
+  freeDeliveryEnabled: true,
 };
 
 export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
@@ -19,6 +21,8 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
       freeDeliveryThreshold: "AED 330",
       currency: "AED",
+      freeDeliveryThresholdUsd: 89.84,
+      freeDeliveryEnabled: true,
     },
     cities: {
       "ae-dubai": { expressDeliveryTimeLabel: "Arrives in 60 minutes" },
@@ -36,6 +40,8 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       expressDeliveryTimeLabel: "Arrives in 2 hours",
       freeDeliveryThreshold: "$130",
       currency: "USD",
+      freeDeliveryThresholdUsd: 130,
+      freeDeliveryEnabled: true,
     },
     cities: {
       "lb-beirut": { expressDeliveryTimeLabel: "Arrives in 90 minutes" },
@@ -46,6 +52,8 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       expressDeliveryTimeLabel: "Arrives same day",
       freeDeliveryThreshold: "€120",
       currency: "EUR",
+      freeDeliveryThresholdUsd: 120,
+      freeDeliveryEnabled: true,
     },
   },
 };

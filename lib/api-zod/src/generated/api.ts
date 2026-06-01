@@ -552,6 +552,18 @@ export const GetDeliveryConfigResponse = zod.object({
   currency: zod
     .string()
     .describe("ISO 4217 currency code that the threshold is denominated in."),
+  freeDeliveryThresholdUsd: zod
+    .number()
+    .optional()
+    .describe(
+      "Free-delivery threshold in USD (the cart's internal currency). Use for fee calculation at checkout.",
+    ),
+  freeDeliveryEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total.",
+    ),
 });
 
 /**

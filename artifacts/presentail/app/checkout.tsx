@@ -80,7 +80,7 @@ import {
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
-import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
+import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
 import {
   isPayMethodSupported,
@@ -163,10 +163,6 @@ function countryFromCurrency(currencyCode?: string): string | undefined {
 
 function resolveCountryCode(selectedCountryCode?: string, currencyCode?: string): string | undefined {
   return selectedCountryCode || countryFromCurrency(currencyCode);
-}
-
-function freeDeliveryThresholdForCountry(code?: string): number {
-  return freeDeliveryThresholdUsd(code);
 }
 
 function CheckoutLoadingSkeleton() {
@@ -490,7 +486,7 @@ function CheckoutScreen() {
   );
   const timeSlots = timeSlotsForCountry(effectiveCountry);
   const expressSurcharge = expressSurchargeForCountry(effectiveCountry);
-  const freeDeliveryThreshold = freeDeliveryThresholdForCountry(effectiveCountry);
+  const { freeDeliveryEnabled: isFreeDeliveryEnabled, freeDeliveryThresholdUsd: freeDeliveryThreshold } = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
   const todayIso = days[0].iso;
   const defaultSlotForToday = useMemo<TimeSlot | null>(() => {
@@ -572,11 +568,11 @@ function CheckoutScreen() {
   const fees = useMemo(() => {
     const subtotal = total;
     const baseDeliveryFee = noAddress ? 35 : district.fee;
-    const districtFee = subtotal >= freeDeliveryThreshold ? 0 : baseDeliveryFee;
+    const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
     const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
     const grand = subtotal + districtFee + expressFee;
     return { subtotal, districtFee, expressFee, grand };
-  }, [total, deliveryMode, district, freeDeliveryThreshold, expressSurcharge, noAddress]);
+  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress]);
 
   const isSignedIn = !!authUser;
   const senderNameRequired = !isSignedIn;

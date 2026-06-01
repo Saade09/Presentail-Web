@@ -34,7 +34,7 @@ import {
   resolveSlotLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
-import { freeDeliveryThresholdUsd } from "@/lib/freeDelivery";
+import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { trackEvent } from "@/lib/analytics";
 import { loadCheckoutScreen, prefetchOnIdle } from "@/lib/prefetchScreens";
 
@@ -90,7 +90,7 @@ export function CartDrawer() {
   const countryCode =
     selectedCountry?.code ||
     (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
-  const thresholdUsd = freeDeliveryThresholdUsd(countryCode);
+  const { freeDeliveryEnabled, freeDeliveryThresholdUsd: thresholdUsd } = useDeliveryConfig();
   const remainingUsd = Math.max(thresholdUsd - total, 0);
   const unlocked = total >= thresholdUsd;
   const progress = thresholdUsd > 0 ? Math.min(total / thresholdUsd, 1) : 1;
@@ -192,6 +192,7 @@ export function CartDrawer() {
               contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}
               showsVerticalScrollIndicator={false}
             >
+              {freeDeliveryEnabled && (
               <View
                 style={{
                   flexDirection: "row",
@@ -301,6 +302,7 @@ export function CartDrawer() {
                   </View>
                 </View>
               </View>
+              )}
 
               {detailed.map(({ product, qty, lineTotal }) => (
                 <View

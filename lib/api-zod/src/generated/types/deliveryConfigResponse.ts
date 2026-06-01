@@ -13,4 +13,8 @@ export interface DeliveryConfigResponse {
   freeDeliveryThreshold: string;
   /** ISO 4217 currency code that the threshold is denominated in. */
   currency: string;
+  /** Free-delivery threshold in USD (the cart's internal currency). Use for fee calculation at checkout. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total. */
+  freeDeliveryEnabled?: boolean;
 }

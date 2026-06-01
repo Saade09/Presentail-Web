@@ -37,11 +37,11 @@ import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
 import {
-  freeDeliveryThresholdNative,
   getCountryHour,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
+import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { calcRewardPoints } from "@workspace/display-currency";
 import { useNow } from "@/lib/useNow";
 
@@ -542,6 +542,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontRegular = useHeadingFont("400Regular");
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
+  const { freeDeliveryEnabled, freeDeliveryThresholdNative } = useDeliveryConfig();
   const points = calcRewardPoints(priceValue);
 
   // Seed defaults used when the shopper switches to scheduled delivery
@@ -651,10 +652,10 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         }}
       >
         {[
-          { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative(cc))}.` },
+          freeDeliveryEnabled ? { icon: "truck-fast", title: t.freeStandardDelivery, sub: `${t.onOrdersAbove} ${formatNative(freeDeliveryThresholdNative)}.` } : null,
           { icon: "map-marker-question", title: t.noAddressHassle, sub: t.collectAddressForYou },
           { icon: "map-marker-path", title: t.liveOrderTracking, sub: t.realTimeUpdates },
-        ].map((b, i, _arr) => (
+        ].filter((b): b is NonNullable<typeof b> => b !== null).map((b, i, _arr) => (
           <View
             key={b.title}
             style={{

@@ -57,6 +57,8 @@ type CachedCountry = {
   isActive: boolean;
   preferredDefaultCityId?: string;
   localizedNames?: { ar?: string; fr?: string };
+  freeDeliveryThresholdUsd?: number;
+  freeDeliveryEnabled?: boolean;
   cities: CachedCity[];
 };
 
@@ -197,6 +199,8 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
       preferredDefaultCityId:
         osCountry.preferredDefaultCityId ?? hardcoded?.preferredDefaultCityId,
       localizedNames: localizedNamesForCountry(code),
+      freeDeliveryThresholdUsd: osCountry.freeDeliveryThresholdUsd,
+      freeDeliveryEnabled: osCountry.freeDeliveryEnabled,
       cities,
     };
   });
@@ -316,9 +320,20 @@ export function getExpressConfig(cityId: string | null | undefined): OSExpressCo
 }
 
 /**
+ * Returns the cached country entry by its uppercase ISO code, or undefined
+ * when the code is absent from the cache.
+ */
+function getCachedCountry(code: string): CachedCountry | undefined {
+  const countries = cachedCountries ?? null;
+  if (!countries) return undefined;
+  return countries.find((c) => c.code === code.toUpperCase());
+}
+
+/**
  * Returns the resolved delivery config for a country/city, merging the
  * OS express label and same-day cutoff (when available) with the hardcoded
- * threshold and currency.
+ * threshold and currency, and overriding free-delivery fields from the OS
+ * country entry when present.
  */
 export function resolveOsDeliveryConfig(
   countryCode: string | undefined,
@@ -326,10 +341,30 @@ export function resolveOsDeliveryConfig(
 ) {
   const base = resolveDeliveryConfig(countryCode, cityId);
   const express = getExpressConfig(cityId);
-  if (express.expressDeliveryLabel) {
-    return { ...base, expressDeliveryTimeLabel: express.expressDeliveryLabel };
+
+  let result = express.expressDeliveryLabel
+    ? { ...base, expressDeliveryTimeLabel: express.expressDeliveryLabel }
+    : { ...base };
+
+  if (countryCode) {
+    const osCountry = getCachedCountry(countryCode);
+    if (osCountry) {
+      if (typeof osCountry.freeDeliveryThresholdUsd === "number") {
+        result = { ...result, freeDeliveryThresholdUsd: osCountry.freeDeliveryThresholdUsd };
+      }
+      if (typeof osCountry.freeDeliveryEnabled === "boolean") {
+        result = { ...result, freeDeliveryEnabled: osCountry.freeDeliveryEnabled };
+      }
+      // When OS explicitly disables free delivery, force threshold high enough
+      // that it is never reached so fee calculation is unaffected regardless of
+      // whether callers check freeDeliveryEnabled first.
+      if (osCountry.freeDeliveryEnabled === false) {
+        result = { ...result, freeDeliveryEnabled: false };
+      }
+    }
   }
-  return base;
+
+  return result;
 }
 
 /**

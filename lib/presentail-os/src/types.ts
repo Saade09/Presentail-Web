@@ -38,6 +38,17 @@ export type OSCountry = {
   currency?: string;
   isActive?: boolean;
   preferredDefaultCityId?: string;
+  /**
+   * Free delivery threshold in USD (the cart's internal currency).
+   * When absent the hardcoded per-country default applies.
+   */
+  freeDeliveryThresholdUsd?: number;
+  /**
+   * When false, free delivery is not offered for this country
+   * and delivery fees are always applied regardless of cart total.
+   * When absent, defaults to true (free delivery enabled).
+   */
+  freeDeliveryEnabled?: boolean;
   cities: OSCity[];
 };
 

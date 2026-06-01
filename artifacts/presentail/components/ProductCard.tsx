@@ -20,7 +20,7 @@ import {
   loadProductDetailScreen,
   prefetchOnInteraction,
 } from "@/lib/prefetchScreens";
-import { freeDeliveryThresholdNative } from "@workspace/delivery";
+import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 
 const imageLoadedCache = new Set<string>();
 
@@ -48,7 +48,7 @@ export function ProductCard({ product, width, onPress }: Props) {
   const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const cc = selectedCountry?.code || (currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "LB");
-  const threshold = freeDeliveryThresholdNative(cc);
+  const { freeDeliveryEnabled, freeDeliveryThresholdNative: threshold } = useDeliveryConfig();
   const convertedPrice = convert(Number.isFinite(product.priceValue) ? product.priceValue : 0);
   const imageUri = getImageUri(product.image);
   const [imageLoaded, setImageLoaded] = React.useState(() =>
@@ -139,7 +139,7 @@ export function ProductCard({ product, width, onPress }: Props) {
             value={product.priceValue}
             style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
           />
-          {convertedPrice >= threshold ? (
+          {freeDeliveryEnabled && convertedPrice >= threshold ? (
             <AppText style={{ fontFamily: typo.regular, fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               {t.freeDelivery}
             </AppText>
