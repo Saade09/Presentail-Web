@@ -6,7 +6,6 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
-import { CountryFlag } from "@/components/CountryFlag";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 
 // TikTok ships its own glyph below since lucide-react doesn't export one.
@@ -86,14 +85,12 @@ function InLink({
 }
 
 export function Footer() {
-  const { t, language, countryName } = useLocale();
-  const { country, countryCode, openPicker } = useLocationSelection();
+  const { t, language } = useLocale();
+  const { city, countryCode, openPicker } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const isAE = countryCode?.toUpperCase() === "AE";
   const year = new Date().getFullYear();
-  const countryLabel = country
-    ? countryName(country.code, country.name)
-    : t("footer.selectCountry");
+  const cityLabel = city ? city.name : t("footer.selectCity");
 
 
   const popularCategories: { label: string; href: string; external?: boolean; testId: string }[] = [
@@ -250,17 +247,16 @@ export function Footer() {
             </div>
 
             <div>
-              <ColumnHeading>{t("footer.country")}</ColumnHeading>
+              <ColumnHeading>{t("footer.city")}</ColumnHeading>
               <button
                 type="button"
-                onClick={() => openPicker({ forceCountryStep: true })}
-                aria-label={t("footer.openCountry")}
-                data-testid="footer-country-trigger"
+                onClick={() => openPicker()}
+                aria-label={t("footer.openCity")}
+                data-testid="footer-city-trigger"
                 className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
               >
-                {country && <CountryFlag code={country.code} className="w-5 h-auto rounded-[2px]" />}
-                <span>{countryLabel}</span>
                 <MapPin className="w-3.5 h-3.5 opacity-70" />
+                <span>{cityLabel}</span>
               </button>
             </div>
           </div>
