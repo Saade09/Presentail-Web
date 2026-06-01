@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -16,7 +16,7 @@ import {
   usePaypalPayment,
   type CreateWcOrderResponse,
 } from "@/lib/queries";
-import { ArrowLeft, CheckCircle2, Circle, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
+import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -148,8 +148,8 @@ export default function Checkout() {
   const { data: locations } = useDeliveryLocations();
 
   const [step, setStep] = useState(1);
+  const [orderNote, setOrderNote] = useState("");
   const [suggestedOpen, setSuggestedOpen] = useState(false);
-  const deliverySectionRef = useRef<HTMLDivElement>(null);
 
   // Saved addresses for signed-in shoppers
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -801,30 +801,170 @@ export default function Checkout() {
     if (fallback !== paymentMethod) setPaymentMethodState(fallback);
   }, [currencyCode, countryCode, paymentMethod]);
 
+  const stepLabels = [
+    t("checkout.step.customize"),
+    t("checkout.step.deliveryDetails"),
+    t("checkout.step3.title"),
+  ];
+
   return (
-    <div className="min-h-screen pt-24 pb-24 bg-background">
-      <div className="container mx-auto px-4 max-w-5xl">
-        <div className="mb-8 flex items-center justify-between border-b pb-8">
-          <Link href="/cart" className="inline-flex items-center text-sm font-medium hover:text-primary transition-colors" data-testid="link-back-to-cart">
-            <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("checkout.backToCart")}
+    <div className="min-h-screen" style={{ backgroundColor: "#faf9f7" }}>
+      {/* ── Checkout header ── */}
+      <header className="sticky top-0 z-40" style={{ backgroundColor: "#0d2b1e" }}>
+        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+          <Link
+            href="/cart"
+            className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
+            style={{ color: "rgba(255,255,255,0.72)" }}
+            data-testid="link-back-to-cart"
+          >
+            <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
           </Link>
-          <div className="flex items-center gap-2">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                {s < step ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className={`w-5 h-5 ${s === step ? "fill-primary text-primary" : "text-muted-foreground"}`} />}
-                {s < 3 && <div className="w-8 h-px bg-border" />}
-              </div>
-            ))}
+          <span className="font-serif text-xl tracking-[0.22em] uppercase select-none text-white">
+            Presentail
+          </span>
+          <div className="w-8 sm:w-24" />
+        </div>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-center">
+            {stepLabels.map((label, i) => {
+              const n = i + 1;
+              const done = step > n;
+              const active = step === n;
+              return (
+                <Fragment key={i}>
+                  <button
+                    type="button"
+                    onClick={() => { if (done) setStep(n); }}
+                    className="flex flex-col items-center gap-1.5"
+                    aria-label={label}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
+                        done
+                          ? "border-emerald-400 bg-emerald-400 text-[#0d2b1e]"
+                          : active
+                          ? "border-white bg-white text-[#0d2b1e]"
+                          : "border-white/25 bg-transparent text-white/30"
+                      }`}
+                    >
+                      {done ? <Check className="w-3.5 h-3.5" /> : n}
+                    </div>
+                    <span
+                      className={`text-[11px] font-medium leading-none hidden sm:block tracking-wide ${
+                        active ? "text-white" : done ? "text-white/65" : "text-white/30"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                  {i < 2 && (
+                    <div
+                      className={`w-10 sm:w-20 h-px mx-3 mb-5 transition-colors ${
+                        done ? "bg-emerald-400/50" : "bg-white/15"
+                      }`}
+                    />
+                  )}
+                </Fragment>
+              );
+            })}
           </div>
         </div>
+      </header>
 
-        <div className="flex flex-col lg:flex-row gap-12">
-          <div className="flex-1">
+      {/* ── Page content ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+
+          {/* ── Main form ── */}
+          <div className="flex-1 min-w-0">
+
+            {/* ── STEP 1 · Customize ── */}
             {step === 1 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                <div>
-                  <h2 className="text-3xl font-serif mb-2">{t("checkout.step1.title")}</h2>
-                  <p className="text-muted-foreground mb-8">{t("checkout.step1.desc")}</p>
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.personalizeGift")}</h1>
+                  <p className="text-sm text-muted-foreground">{t("checkout.personalizeGiftDesc")}</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">
+                    {t("checkout.cardMessageSection")}
+                  </p>
+
+                  {/* To */}
+                  <div className="mb-5">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">{t("checkout.previewCardTo")}</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
+                      <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
+                    </div>
+                  </div>
+
+                  {/* Message */}
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">{t("checkout.cardMessage")}</label>
+                      <span className="text-xs text-muted-foreground tabular-nums">{recipient.cardMessage.length}/400</span>
+                    </div>
+                    <textarea
+                      value={recipient.cardMessage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRecipient({ ...recipient, cardMessage: val });
+                        try { localStorage.setItem("presentail_card_message_v1", val); } catch { /* best-effort */ }
+                      }}
+                      placeholder={t("checkout.cardMessagePh")}
+                      maxLength={400}
+                      rows={4}
+                      data-testid="input-card-message"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                    />
+                    <button type="button" onClick={() => setSuggestedOpen(true)} className="mt-2 text-xs text-primary underline underline-offset-2 hover:opacity-75 transition-opacity" data-testid="button-open-suggested-messages">
+                      {t("checkout.notSureWhatToSay")}
+                    </button>
+                  </div>
+
+                  {/* From */}
+                  <div className="mb-6">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">{t("checkout.previewCardFrom")}</label>
+                    {isSignedIn ? (
+                      <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
+                        <span className="text-sm text-foreground">{`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "—"}</span>
+                        <Link href="/account/personal-information" className="text-xs text-primary underline underline-offset-2 ms-auto">{t("checkout.editInAccount")}</Link>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-sender-first-name" />
+                        <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-sender-last-name" />
+                      </div>
+                    )}
+                  </div>
+
+                  <button type="button" onClick={() => setCardPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90" style={{ borderColor: "rgba(13,43,30,0.35)", color: "#0d2b1e", backgroundColor: "rgba(13,43,30,0.05)" }} data-testid="button-preview-card">
+                    <Eye className="h-4 w-4" />
+                    {t("checkout.previewCard")}
+                  </button>
+                </div>
+
+                <Button size="lg" className="w-full h-14 rounded-xl text-white font-semibold" style={{ backgroundColor: "#0d2b1e" }} onClick={() => setStep(2)} data-testid="button-continue-to-delivery">
+                  {t("checkout.continueToDelivery")}
+                </Button>
+              </div>
+            )}
+
+            {/* ── STEP 2 · Delivery Details ── */}
+            {step === 2 && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.step.deliveryDetails")}</h1>
+                  <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
+                </div>
+
+                {/* Recipient Details */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
 
                   {savedAddresses.length > 0 && (
                     <div className="mb-5">
@@ -872,24 +1012,24 @@ export default function Checkout() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="space-y-1.5">
                       <label className="text-sm font-medium">{t("checkout.firstName")}</label>
                       <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label className="text-sm font-medium">{t("checkout.lastName")}</label>
                       <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
                     </div>
                   </div>
 
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-1.5 mb-4">
                     <label className="text-sm font-medium">{t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}</label>
                     <Input value={recipient.phone} onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })} placeholder={t("checkout.phonePh")} data-testid="input-recipient-phone" />
                   </div>
 
                   <div
-                    className={`flex items-center gap-3 mb-4 rounded-xl border bg-card px-3.5 py-3 transition-colors ${
+                    className={`flex items-center gap-3 mb-4 rounded-xl border px-3.5 py-3 bg-card transition-colors ${
                       noAddress ? "border-primary" : "border-border"
                     }`}
                     data-testid="check-no-address-label"
@@ -947,138 +1087,40 @@ export default function Checkout() {
                     </>
                   )}
 
-                  <div ref={deliverySectionRef} className="space-y-2 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.deliveryWhen")}</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => expressAvailable && setDeliveryMode("express")}
-                        disabled={!expressAvailable}
-                        className={`px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
-                          deliveryMode === "express"
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card text-foreground hover:border-foreground/20"
-                        } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                        data-testid="delivery-mode-express"
-                      >
-                        <div className="font-semibold">{t("checkout.expressDelivery")}</div>
-                        <div className="text-xs opacity-80 mt-0.5">
-                          {expressAvailable
-                            ? `+${fmt(expressSurcharge)}`
-                            : t("checkout.expressUnavailable")}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryMode("schedule")}
-                        className={`px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
-                          deliveryMode === "schedule"
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card text-foreground hover:border-foreground/20"
-                        }`}
-                        data-testid="delivery-mode-schedule"
-                      >
-                        <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
-                        <div className="text-xs opacity-80 mt-0.5">{t("checkout.scheduleDeliveryDesc")}</div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {deliveryMode === "schedule" && (
-                    <div className="mb-4">
-                      <ScheduleInlinePanel
-                        countryCode={countryCode}
-                        initialDate={recipient.deliveryDate || undefined}
-                        initialSlotLabel={deliverySlot || undefined}
-                        timeSlots={timeSlots}
-                        onChange={({ date, slotLabel }) => {
-                          setRecipient((r) => ({ ...r, deliveryDate: date }));
-                          setDeliverySlot(slotLabel);
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-2 mb-3">
-                    <label className="text-sm font-medium">{t("checkout.cardMessage")}</label>
-                    <Input value={recipient.cardMessage} onChange={(e) => setRecipient({ ...recipient, cardMessage: e.target.value })} placeholder={t("checkout.cardMessagePh")} maxLength={400} data-testid="input-card-message" />
-                    <button
-                      type="button"
-                      onClick={() => setSuggestedOpen(true)}
-                      className="text-xs text-primary underline underline-offset-2 hover:opacity-80"
-                      data-testid="button-open-suggested-messages"
-                    >
-                      {t("checkout.notSureWhatToSay")}
-                    </button>
-                  </div>
-                  <SuggestedMessagesDialog
-                    open={suggestedOpen}
-                    onOpenChange={setSuggestedOpen}
-                    onSelect={(msg) => setRecipient({ ...recipient, cardMessage: msg })}
-                    maxLength={400}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setCardPreviewOpen(true)}
-                    className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-card px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
-                    data-testid="button-preview-card"
-                  >
-                    <Eye className="h-4 w-4" />
-                    {t("checkout.previewCard")}
-                  </button>
-
-                  <Button size="lg" className="w-full h-14 rounded-xl" onClick={() => setStep(2)} disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address)} data-testid="button-continue-to-sender">
-                    {t("checkout.continueSender")}
-                  </Button>
                 </div>
-              </div>
-            )}
 
-            {step === 2 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                <div>
-                  <h2 className="text-3xl font-serif mb-2">{t("checkout.step2.title")}</h2>
-                  <p className="text-muted-foreground mb-8">{t("checkout.step2.desc")}</p>
+                {/* Sender Details */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
 
                   {isSignedIn ? (
-                    <div
-                      className="mb-4 rounded-xl border bg-secondary/40 p-4"
-                      data-testid="sender-summary"
-                    >
+                    <div className="mb-4 rounded-xl border bg-secondary/40 p-4" data-testid="sender-summary">
                       <p className="text-sm">
                         {t("checkout.sendingAs", {
                           summary: [
                             `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
                             user?.email ?? "",
                             profilePhone,
-                          ]
-                            .filter((s) => s && s.trim())
-                            .join(" · "),
+                          ].filter((s) => s && s.trim()).join(" · "),
                         })}
                       </p>
-                      <Link
-                        href="/account/personal-information"
-                        className="mt-1 inline-block text-xs underline"
-                        data-testid="link-edit-account"
-                      >
+                      <Link href="/account/personal-information" className="mt-1 inline-block text-xs underline" data-testid="link-edit-account">
                         {t("checkout.editInAccount")}
                       </Link>
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="space-y-1.5">
                           <label className="text-sm font-medium">{t("checkout.firstName")}</label>
                           <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           <label className="text-sm font-medium">{t("checkout.lastName")}</label>
                           <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} data-testid="input-sender-last-name" />
                         </div>
                       </div>
-
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-1.5 mb-4">
                         <label className="text-sm font-medium">{t("checkout.emailAddress")}</label>
                         <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
                       </div>
@@ -1086,210 +1128,269 @@ export default function Checkout() {
                   )}
 
                   {!hasProfilePhone && (
-                    <div className="space-y-2 mb-4">
+                    <div className="space-y-1.5 mb-4">
                       <label className="text-sm font-medium">{t("checkout.phoneNumber")}</label>
                       <Input value={sender.phone} onChange={(e) => setSender({ ...sender, phone: e.target.value })} data-testid="input-sender-phone" />
                     </div>
                   )}
 
-                  <label className="flex items-start gap-3 mb-8 cursor-pointer select-none" data-testid="check-identity-secret-label">
-                    <input
-                      type="checkbox"
-                      checked={identitySecret}
-                      onChange={(e) => setIdentitySecret(e.target.checked)}
-                      className="mt-1 h-4 w-4 accent-primary cursor-pointer"
-                      data-testid="check-identity-secret"
-                    />
+                  <label className="flex items-start gap-3 cursor-pointer select-none" data-testid="check-identity-secret-label">
+                    <input type="checkbox" checked={identitySecret} onChange={(e) => setIdentitySecret(e.target.checked)} className="mt-1 h-4 w-4 accent-primary cursor-pointer" data-testid="check-identity-secret" />
                     <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
                   </label>
+                </div>
 
-                  <div className="flex gap-4">
-                    <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-recipient">{t("checkout.back")}</Button>
-                    <Button size="lg" className="flex-1 h-14 rounded-xl" onClick={() => setStep(3)} disabled={(!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())} data-testid="button-continue-to-payment">
-                      {t("checkout.continuePayment")}
-                    </Button>
+                {/* Delivery Time */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => expressAvailable && setDeliveryMode("express")}
+                      disabled={!expressAvailable}
+                      data-testid="delivery-mode-express"
+                      className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
+                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-[#0d2b1e]/30"
+                      } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
+                      style={deliveryMode === "express" ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : {}}
+                    >
+                      <div className="font-semibold">{t("checkout.expressDelivery")}</div>
+                      <div className="text-xs opacity-80 mt-1">{expressAvailable ? `+${fmt(expressSurcharge)}` : t("checkout.expressUnavailable")}</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode("schedule")}
+                      data-testid="delivery-mode-schedule"
+                      className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
+                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-[#0d2b1e]/30"
+                      }`}
+                      style={deliveryMode === "schedule" ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : {}}
+                    >
+                      <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
+                      <div className="text-xs opacity-80 mt-1">{t("checkout.scheduleDeliveryDesc")}</div>
+                    </button>
                   </div>
+                  {deliveryMode === "schedule" && (
+                    <ScheduleInlinePanel
+                      countryCode={countryCode}
+                      initialDate={recipient.deliveryDate || undefined}
+                      initialSlotLabel={deliverySlot || undefined}
+                      timeSlots={timeSlots}
+                      onChange={({ date, slotLabel }) => {
+                        setRecipient((r) => ({ ...r, deliveryDate: date }));
+                        setDeliverySlot(slotLabel);
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-recipient">{t("checkout.back")}</Button>
+                  <Button
+                    size="lg"
+                    className="flex-1 h-14 rounded-xl text-white font-semibold"
+                    style={{ backgroundColor: "#0d2b1e" }}
+                    onClick={() => setStep(3)}
+                    disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
+                    data-testid="button-continue-to-payment"
+                  >
+                    {t("checkout.continuePayment")}
+                  </Button>
                 </div>
               </div>
             )}
 
+            {/* ── STEP 3 · Payment ── */}
             {step === 3 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                <div>
-                  <h2 className="text-3xl font-serif mb-2">{t("checkout.step3.title")}</h2>
-                  <p className="text-muted-foreground mb-8">{t("checkout.step3.desc")}</p>
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-serif text-[#0d2b1e] mb-1">{t("checkout.step3.title")}</h1>
+                  <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
+                </div>
 
-                  <PaymentMethods
-                    label={t("payments.waysToPay")}
-                    countryCode={countryCode}
-                    currencyCode={currencyCode}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6"
+                {/* Note for team */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
+                  <textarea
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    placeholder={t("checkout.noteForTeamPh")}
+                    rows={3}
+                    className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
                   />
+                </div>
 
-                  <div className="space-y-3 mb-8">
+                {/* Payment methods */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                  <p className="text-xs font-semibold text-[#0d2b1e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
+                  <div className="mb-5">
+                    <PaymentMethods label={t("payments.waysToPay")} countryCode={countryCode} currencyCode={currencyCode} className="flex flex-wrap items-center gap-2" />
+                  </div>
+                  <div className="space-y-3">
                     {paymentOptions.map((m) => {
-                      const offlineDesc =
-                        m.id === "whish"
-                          ? t("checkout.pay.whishDesc")
-                          : m.id === "western"
-                          ? t("checkout.pay.westernDesc")
-                          : null;
+                      const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
                       return (
                         <div
                           key={m.id}
-                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-secondary/50"}`}
+                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-[#0d2b1e]/25 hover:bg-secondary/30"}`}
+                          style={paymentMethod === m.id ? { borderColor: "#0d2b1e", backgroundColor: "rgba(13,43,30,0.04)", outlineColor: "rgba(13,43,30,0.15)" } : {}}
                           onClick={() => setPaymentMethod(m.id)}
                           data-testid={`option-payment-${m.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            {paymentMethod === m.id ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
-                            <span className="font-medium">{t(m.labelKey)}</span>
+                            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === m.id ? { borderColor: "#0d2b1e", backgroundColor: "#0d2b1e" } : { borderColor: "rgba(0,0,0,0.25)" }}>
+                              {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <span className="font-medium text-sm">{t(m.labelKey)}</span>
                           </div>
                           {paymentMethod === m.id && offlineDesc && (
-                            <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">
-                              {offlineDesc}
-                            </p>
+                            <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{offlineDesc}</p>
                           )}
                         </div>
                       );
                     })}
                   </div>
+                </div>
 
-                  <div className="flex gap-4">
-                    <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(2)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                    <Button size="lg" className="flex-1 h-14 rounded-xl" onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
-                      {isProcessing ? t("checkout.processing") : t("checkout.payAmount", { amount: fmt(total) })}
-                    </Button>
-                  </div>
+                <div className="flex gap-3 mb-4">
+                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(2)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
+                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#0d2b1e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
+                    {isProcessing ? t("checkout.processing") : t("checkout.placeOrderNow", { amount: fmt(total) })}
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
+                  <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                  {t("checkout.securePayments")}
                 </div>
               </div>
             )}
           </div>
 
-          <div className="w-full lg:w-96 shrink-0">
-            <div className="bg-secondary/30 rounded-3xl p-6 lg:p-8 sticky top-32">
-              <h3 className="text-xl font-serif mb-6">{t("checkout.summary")}</h3>
-              <FreeDeliveryBanner className="mb-6" />
-              <div className="space-y-4 mb-6 max-h-60 overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.product.id} className="flex gap-4" data-testid={`row-summary-${item.product.id}`}>
-                    <div className="w-16 h-16 bg-background rounded-lg overflow-hidden shrink-0">
-                      {item.product.image?.uri && <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">{t("checkout.qty")}: {item.quantity}</p>
-                      <p className="text-sm font-medium mt-1">{fmt(item.product.priceValue * item.quantity)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-3 pt-6 border-t text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("cart.subtotal")}</span>
-                  <span data-testid="text-subtotal">{fmt(subtotal)}</span>
+          {/* ── Order Summary Sidebar ── */}
+          <div className="w-full lg:w-80 xl:w-[340px] shrink-0">
+            <div className="sticky top-36">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "rgba(13,43,30,0.05)" }}>
+                  <h3 className="text-sm font-semibold" style={{ color: "#0d2b1e" }}>{t("checkout.summary")}</h3>
                 </div>
-                <DeliveryDateRow
-                  rowText={deliveryRowText}
-                  onChangeClick={() => setDeliveryPickerOpen(true)}
-                />
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("checkout.deliveryEstimated")}</span>
-                  <span>{fmt(districtFee)}</span>
-                </div>
-                {expressFee > 0 && (
-                  <div className="flex justify-between text-muted-foreground" data-testid="row-express-fee">
-                    <span>{t("checkout.expressDeliveryLabel")}</span>
-                    <span>{fmt(expressFee)}</span>
-                  </div>
-                )}
-                {slotFee > 0 && (
-                  <div className="flex justify-between text-muted-foreground" data-testid="row-slot-fee">
-                    <span>{t("checkout.nightDeliverySurcharge") || "Night Delivery"}</span>
-                    <span>{fmt(slotFee)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Coupon / gift card */}
-              <div className="mt-4 pt-4 border-t border-primary/10">
-                {couponApplied ? (
-                  <>
-                    {/* Coupon discount line in the price breakdown */}
-                    <div className="flex justify-between text-sm text-primary mb-2" data-testid="row-coupon-discount">
-                      <div className="flex items-center gap-1.5">
-                        <Tag className="w-3 h-3 shrink-0" />
-                        <span className="font-medium">{couponInput}</span>
-                        <span className="text-muted-foreground text-xs">· {t("checkout.coupon.applied")}</span>
-                      </div>
-                      <span className="font-medium">
-                        {confirmedCouponDiscount > 0 ? `−${fmt(confirmedCouponDiscount)}` : "—"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCouponRemove}
-                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors"
-                    >
-                      {t("checkout.coupon.remove")}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCouponToggle}
-                      className="text-sm text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
-                      data-testid="button-coupon-toggle"
-                    >
-                      {t("checkout.coupon.toggle")}
-                    </button>
-                    {couponOpen && (
-                      <div className="mt-3">
-                        <div className={`flex gap-2 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                          <Input
-                            ref={couponInputRef}
-                            value={couponInput}
-                            onChange={(e) => {
-                              setCouponInput(e.target.value.toUpperCase());
-                              if (couponError) setCouponError(null);
-                            }}
-                            onKeyDown={(e) => e.key === "Enter" && handleCouponApply()}
-                            placeholder={t("checkout.coupon.placeholder")}
-                            className={`h-10 text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
-                            data-testid="input-coupon-code-checkout"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-10 shrink-0"
-                            onClick={handleCouponApply}
-                            disabled={!couponInput.trim()}
-                            data-testid="button-coupon-apply-checkout"
-                          >
-                            {t("checkout.coupon.apply")}
-                          </Button>
+                <div className="px-6 py-5">
+                  {/* Items */}
+                  <div className="space-y-4 mb-5 max-h-56 overflow-y-auto">
+                    {items.map((item) => (
+                      <div key={item.product.id} className="flex gap-3" data-testid={`row-summary-${item.product.id}`}>
+                        <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                          {item.product.image?.uri && <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />}
                         </div>
-                        {couponError && (
-                          <p className="mt-1.5 text-xs text-destructive" data-testid="text-coupon-error-checkout">
-                            {couponError}
-                          </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#0d2b1e" }}>{fmt(item.product.priceValue * item.quantity)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Coupon */}
+                  <div className="border-t border-gray-100 pt-4 mb-4">
+                    {couponApplied ? (
+                      <>
+                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "#0d2b1e" }} data-testid="row-coupon-discount">
+                          <div className="flex items-center gap-1.5">
+                            <Tag className="w-3 h-3 shrink-0" />
+                            <span className="font-medium">{couponInput}</span>
+                            <span className="text-muted-foreground text-xs">· {t("checkout.coupon.applied")}</span>
+                          </div>
+                          <span className="font-medium">{confirmedCouponDiscount > 0 ? `−${fmt(confirmedCouponDiscount)}` : "—"}</span>
+                        </div>
+                        <button type="button" onClick={handleCouponRemove} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors">{t("checkout.coupon.remove")}</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "#0d2b1e" }} data-testid="button-coupon-toggle">
+                          {t("checkout.coupon.toggle")}
+                        </button>
+                        {couponOpen && (
+                          <div className="mt-3">
+                            <div className={`flex gap-2 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                              <Input
+                                ref={couponInputRef}
+                                value={couponInput}
+                                onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); if (couponError) setCouponError(null); }}
+                                onKeyDown={(e) => e.key === "Enter" && handleCouponApply()}
+                                placeholder={t("checkout.coupon.placeholder")}
+                                className={`h-10 text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                                data-testid="input-coupon-code-checkout"
+                              />
+                              <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" onClick={handleCouponApply} disabled={!couponInput.trim()} data-testid="button-coupon-apply-checkout">
+                                {t("checkout.coupon.apply")}
+                              </Button>
+                            </div>
+                            {couponError && <p className="mt-1.5 text-xs text-destructive" data-testid="text-coupon-error-checkout">{couponError}</p>}
+                          </div>
                         )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Line items */}
+                  <div className="space-y-2.5 border-t border-gray-100 pt-4">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>{t("cart.subtotal")}</span>
+                      <span data-testid="text-subtotal">{fmt(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>{t("checkout.deliveryEstimated")}</span>
+                      <span>{fmt(districtFee)}</span>
+                    </div>
+                    {expressFee > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
+                        <span>{t("checkout.expressDeliveryLabel")}</span>
+                        <span>{fmt(expressFee)}</span>
                       </div>
                     )}
-                  </>
-                )}
-              </div>
+                    {slotFee > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
+                        <span>{t("checkout.nightDeliverySurcharge") || "Night Delivery"}</span>
+                        <span>{fmt(slotFee)}</span>
+                      </div>
+                    )}
+                  </div>
 
-              <div className="flex justify-between font-medium text-lg pt-4 mt-4 border-t border-primary/10">
-                  <span>{t("cart.total")}</span>
-                  <span data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
+                  {/* Total */}
+                  <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
+                    <span style={{ color: "#0d2b1e" }}>{t("cart.total")}</span>
+                    <span style={{ color: "#0d2b1e" }} data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
+                  </div>
+
+                  <div className="mt-4">
+                    <FreeDeliveryBanner />
+                  </div>
+                </div>
+
+                {/* Delivery Summary */}
+                <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#faf9f7" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#0d2b1e" }}>
+                    {t("checkout.deliverySummary")}
+                  </p>
+                  <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
+                </div>
               </div>
             </div>
           </div>
+
         </div>
       </div>
+
+      {/* ── Dialogs ── */}
+      <SuggestedMessagesDialog
+        open={suggestedOpen}
+        onOpenChange={setSuggestedOpen}
+        onSelect={(msg) => setRecipient({ ...recipient, cardMessage: msg })}
+        maxLength={400}
+      />
 
       <CardPreviewDialog
         open={cardPreviewOpen}

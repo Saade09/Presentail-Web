@@ -196,10 +196,12 @@ function CustomerOnly({ children }: { children: React.ReactNode }) {
 }
 
 function ShopShell() {
+  const [path] = useLocation();
+  const isCheckoutPage = path.endsWith("/checkout") || path.endsWith("/order-confirmed");
   return (
     <LocationPickerGate>
       <div className="min-h-screen flex flex-col">
-        <HomepageHeader />
+        {!isCheckoutPage && <HomepageHeader />}
         <main className="flex-1">
           <Switch>
             <Route path="/" component={HomeRoute} />
@@ -242,7 +244,7 @@ function ShopShell() {
             <Route component={NotFoundRoute} />
           </Switch>
         </main>
-        <Footer />
+        {!isCheckoutPage && <Footer />}
       </div>
     </LocationPickerGate>
   );
