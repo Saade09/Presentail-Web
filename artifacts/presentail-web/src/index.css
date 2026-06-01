@@ -246,6 +246,11 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* Swap heading font to Noto Naskh Arabic when the page is in Arabic */
+[lang="ar"] {
+  --app-font-serif: 'Noto Naskh Arabic', Georgia, serif;
+}
+
 @layer base {
   * {
     @apply border-border;

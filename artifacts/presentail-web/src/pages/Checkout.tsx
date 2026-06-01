@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
@@ -1181,6 +1182,7 @@ function CardPreviewDialog({
   const exportRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const headingFont = useHeadingFont();
   const canSave = trimmed.length > 0;
 
   const handleSave = async () => {
@@ -1259,7 +1261,7 @@ function CardPreviewDialog({
           style={{
             // Bottom-end corner: right in LTR, left in RTL.
             ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
-            fontFamily: '"Playfair Display", Georgia, serif',
+            fontFamily: headingFont,
             fontWeight: 500,
             fontSize: "11px",
             letterSpacing: "0.2em",
