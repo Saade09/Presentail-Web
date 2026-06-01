@@ -213,7 +213,7 @@ export default function ProductDetail() {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-12 pb-24">
         <Skeleton className="h-4 w-64 mb-8" />
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
+        <div className="grid lg:grid-cols-[3fr_2fr] gap-10 lg:gap-16">
           <Skeleton className="aspect-square rounded-3xl" />
           <div className="space-y-6">
             <Skeleton className="h-10 w-3/4" />
@@ -243,7 +243,7 @@ export default function ProductDetail() {
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
       <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-4 sm:pt-6 pb-16 sm:pb-20">
-        <div className="grid lg:grid-cols-2 lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
+        <div className="grid lg:grid-cols-[3fr_2fr] lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
           <div className="h-full">
             <ProductGallery
               images={vm.galleryImages}

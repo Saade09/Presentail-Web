@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Calendar, CircleCheck, Circle, Info, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type DeliveryChoice = "express" | "scheduled";
 
@@ -42,6 +44,8 @@ export function DeliveryOptions({
             : expressUnavailableLabel ?? t("checkout.expressUnavailable")
         }
         showInfo
+        infoTitle={t("checkout.expressInfo.title")}
+        infoBody={t("checkout.expressInfo.body")}
         testId="delivery-option-express"
       />
 
@@ -70,6 +74,8 @@ function DeliveryRow({
   title,
   subtitle,
   showInfo,
+  infoTitle,
+  infoBody,
   testId,
   disabled,
 }: {
@@ -79,9 +85,13 @@ function DeliveryRow({
   title: string;
   subtitle: string;
   showInfo?: boolean;
+  infoTitle?: string;
+  infoBody?: string;
   testId?: string;
   disabled?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
     <button
       type="button"
@@ -109,8 +119,39 @@ function DeliveryRow({
           {subtitle}
         </span>
       </span>
-      {showInfo && (
-        <Info className="w-4 h-4 text-muted-foreground shrink-0" />
+      {showInfo && infoTitle && infoBody && (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <span
+              role="button"
+              aria-label={infoTitle}
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setOpen((prev) => !prev);
+                }
+              }}
+              className="shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+            >
+              <Info className="w-4 h-4" />
+            </span>
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="end"
+            className="w-64 text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold mb-1">{infoTitle}</p>
+            <p className="text-muted-foreground leading-relaxed">{infoBody}</p>
+          </PopoverContent>
+        </Popover>
       )}
       {active ? (
         <CircleCheck className="w-5 h-5 text-gold shrink-0" />
