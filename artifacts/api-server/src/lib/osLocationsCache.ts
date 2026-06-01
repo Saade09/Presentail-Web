@@ -53,6 +53,18 @@ type CachedCity = {
   sameDayCutoffHour: number;
   timeSlots: OSTimeSlot[];
   localizedNames?: { ar?: string; fr?: string };
+  /**
+   * Per-city free-delivery threshold in USD from Presentail OS.
+   * When present, overrides the country-level threshold.
+   * Undefined means the city inherits the country's setting.
+   */
+  freeDeliveryThresholdUsd?: number;
+  /**
+   * Per-city flag controlling whether free delivery is offered.
+   * When present, overrides the country-level freeDeliveryEnabled flag.
+   * Undefined means the city inherits the country's setting.
+   */
+  freeDeliveryEnabled?: boolean;
 };
 
 type CachedCountry = {
@@ -202,6 +214,10 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               // Normalise to an array even when OS omits the field.
               timeSlots: c.timeSlots ?? [],
               localizedNames: localizedNamesForCity(canonicalId),
+              // Per-city free-delivery settings — undefined when not set in OS
+              // so callers can fall back to the country-level setting cleanly.
+              freeDeliveryThresholdUsd: c.freeDeliveryThresholdUsd,
+              freeDeliveryEnabled: c.freeDeliveryEnabled,
             };
           });
 
@@ -358,8 +374,10 @@ function getCachedCountry(code: string): CachedCountry | undefined {
 /**
  * Returns the resolved delivery config for a country/city, merging the
  * OS express label and same-day cutoff (when available) with the hardcoded
- * threshold and currency, and overriding free-delivery fields from the OS
- * country entry when present.
+ * threshold and currency, and overriding free-delivery fields from the OS.
+ *
+ * City-level free-delivery settings take precedence over country-level when
+ * the OS has configured them for the specific city.
  */
 export function resolveOsDeliveryConfig(
   countryCode: string | undefined,
@@ -372,22 +390,20 @@ export function resolveOsDeliveryConfig(
     ? { ...base, expressDeliveryTimeLabel: express.expressDeliveryLabel }
     : { ...base };
 
-  if (countryCode) {
-    const osCountry = getCachedCountry(countryCode);
-    if (osCountry) {
-      if (typeof osCountry.freeDeliveryThresholdUsd === "number") {
-        result = { ...result, freeDeliveryThresholdUsd: osCountry.freeDeliveryThresholdUsd };
-      }
-      if (typeof osCountry.freeDeliveryEnabled === "boolean") {
-        result = { ...result, freeDeliveryEnabled: osCountry.freeDeliveryEnabled };
-      }
-      // When OS explicitly disables free delivery, force threshold high enough
-      // that it is never reached so fee calculation is unaffected regardless of
-      // whether callers check freeDeliveryEnabled first.
-      if (osCountry.freeDeliveryEnabled === false) {
-        result = { ...result, freeDeliveryEnabled: false };
-      }
-    }
+  // City-level overrides country-level; country-level overrides base defaults.
+  const osCity = cityId ? cityIndex.get(cityId) : undefined;
+  const osCountry = countryCode ? getCachedCountry(countryCode) : undefined;
+
+  // Free-delivery threshold: city wins → country → keep base default.
+  const threshold = osCity?.freeDeliveryThresholdUsd ?? osCountry?.freeDeliveryThresholdUsd;
+  if (typeof threshold === "number") {
+    result = { ...result, freeDeliveryThresholdUsd: threshold };
+  }
+
+  // Free-delivery enabled flag: city wins → country → keep base default.
+  const enabled = osCity?.freeDeliveryEnabled ?? osCountry?.freeDeliveryEnabled;
+  if (typeof enabled === "boolean") {
+    result = { ...result, freeDeliveryEnabled: enabled };
   }
 
   return result;
@@ -533,4 +549,42 @@ export function getOsCountryFreeDeliveryEnabled(
 ): boolean | undefined {
   return cachedCountries?.find((c) => c.code === countryCode.toUpperCase())
     ?.freeDeliveryEnabled;
+}
+
+/**
+ * Finds a city in the OS cache by country code and city name.
+ * City name comparison is case-insensitive.
+ */
+function getCachedCityByName(
+  countryCode: string,
+  cityName: string,
+): CachedCity | undefined {
+  const country = getCachedCountry(countryCode);
+  if (!country) return undefined;
+  const lower = cityName.toLowerCase();
+  return country.cities.find((c) => c.name.toLowerCase() === lower);
+}
+
+/**
+ * Returns the per-city free-delivery threshold in USD from the OS cache, or
+ * `undefined` when the city is absent or hasn't set a city-specific threshold
+ * (caller should fall back to the country-level threshold).
+ */
+export function getOsCityFreeDeliveryThresholdUsd(
+  countryCode: string,
+  cityName: string,
+): number | undefined {
+  return getCachedCityByName(countryCode, cityName)?.freeDeliveryThresholdUsd;
+}
+
+/**
+ * Returns the per-city free-delivery enabled flag from the OS cache, or
+ * `undefined` when the city is absent or hasn't set a city-specific flag
+ * (caller should fall back to the country-level flag).
+ */
+export function getOsCityFreeDeliveryEnabled(
+  countryCode: string,
+  cityName: string,
+): boolean | undefined {
+  return getCachedCityByName(countryCode, cityName)?.freeDeliveryEnabled;
 }

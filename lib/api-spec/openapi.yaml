@@ -1766,6 +1766,12 @@ components:
             $ref: "#/components/schemas/DeliveryTimeSlot"
         localizedNames:
           $ref: "#/components/schemas/LocalizedNames"
+        freeDeliveryThresholdUsd:
+          type: number
+          description: Free-delivery threshold in USD for this city from Presentail OS. Overrides the country-level threshold when present.
+        freeDeliveryEnabled:
+          type: boolean
+          description: Whether free delivery is enabled for this city. Overrides the country-level flag when present.
       required:
         - id
         - name

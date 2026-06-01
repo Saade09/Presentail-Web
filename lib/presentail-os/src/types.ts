@@ -26,6 +26,16 @@ export type OSCity = {
   expressDeliveryLabel?: string;
   sameDayCutoffHour?: number;
   timeSlots?: OSTimeSlot[];
+  /**
+   * Free delivery threshold in USD for this specific city.
+   * When present, overrides the country-level freeDeliveryThresholdUsd.
+   */
+  freeDeliveryThresholdUsd?: number;
+  /**
+   * Whether free delivery is enabled for this specific city.
+   * When present, overrides the country-level freeDeliveryEnabled.
+   */
+  freeDeliveryEnabled?: boolean;
 };
 
 export type OSCountry = {

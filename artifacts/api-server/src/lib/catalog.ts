@@ -6,6 +6,8 @@ import { getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 import {
   getOsCountryFreeDeliveryThresholdUsd,
   getOsCountryFreeDeliveryEnabled,
+  getOsCityFreeDeliveryThresholdUsd,
+  getOsCityFreeDeliveryEnabled,
 } from "./osLocationsCache";
 
 // District delivery fees in USD. Mirrors the client-side list but lives
@@ -90,18 +92,23 @@ export const NO_ADDRESS_DELIVERY_FEE_USD = 35;
 // Returns the effective district fee after applying the free-delivery threshold.
 // When `noAddress` is true, the flat NO_ADDRESS_DELIVERY_FEE_USD is used instead
 // of the per-district fee (still subject to the free-delivery threshold).
-// Reads the threshold and freeDeliveryEnabled flag from the live OS locations
-// cache when available; falls back to the hardcoded per-country defaults.
+// City-level OS settings take precedence over country-level; both fall back to
+// the hardcoded per-country defaults when the OS cache is empty.
 export function computeDistrictFeeUsd(
   district: string,
   subtotalUsd: number,
   noAddress = false,
 ): number {
   const country = countryForDistrict(district);
+  // City-level wins over country-level, country-level wins over hardcoded.
   const threshold =
+    getOsCityFreeDeliveryThresholdUsd(country, district) ??
     getOsCountryFreeDeliveryThresholdUsd(country) ??
     freeDeliveryThresholdUsd(country);
-  const freeDeliveryEnabled = getOsCountryFreeDeliveryEnabled(country) ?? true;
+  const freeDeliveryEnabled =
+    getOsCityFreeDeliveryEnabled(country, district) ??
+    getOsCountryFreeDeliveryEnabled(country) ??
+    true;
   if (freeDeliveryEnabled && subtotalUsd >= threshold) return 0;
   return noAddress ? NO_ADDRESS_DELIVERY_FEE_USD : baseDistrictFeeUsd(district);
 }

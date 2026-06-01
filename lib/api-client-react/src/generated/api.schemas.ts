@@ -530,6 +530,10 @@ export interface DeliveryCity {
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
   timeSlots: DeliveryTimeSlot[];
   localizedNames?: LocalizedNames;
+  /** Free-delivery threshold in USD for this city from Presentail OS. Overrides the country-level threshold when present. */
+  freeDeliveryThresholdUsd?: number;
+  /** Whether free delivery is enabled for this city. Overrides the country-level flag when present. */
+  freeDeliveryEnabled?: boolean;
 }
 
 export interface DeliveryCountry {

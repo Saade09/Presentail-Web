@@ -497,6 +497,9 @@ export default function Checkout() {
   // the polling interval. The OS threshold/enabled flag override the
   // hardcoded per-country defaults in checkoutFees.ts.
   const selectedCity = selectedCityData;
+  // City-level free-delivery settings take precedence over country-level.
+  // selectedCity comes from the OS cache via /api/delivery-locations and
+  // now carries per-city freeDeliveryThresholdUsd / freeDeliveryEnabled.
   const osCountryData = locations?.countries.find((c) => c.code === countryCode);
   const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
     subtotal,
@@ -506,8 +509,10 @@ export default function Checkout() {
     deliveryMode,
     timeSlots,
     deliverySlot,
-    freeDeliveryThresholdUsd: osCountryData?.freeDeliveryThresholdUsd,
-    freeDeliveryEnabled: osCountryData?.freeDeliveryEnabled,
+    freeDeliveryThresholdUsd:
+      selectedCity?.freeDeliveryThresholdUsd ?? osCountryData?.freeDeliveryThresholdUsd,
+    freeDeliveryEnabled:
+      selectedCity?.freeDeliveryEnabled ?? osCountryData?.freeDeliveryEnabled,
   });
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
