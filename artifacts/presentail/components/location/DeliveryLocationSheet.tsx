@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
+import { CountryFlag } from "@/components/CountryFlag";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { CityList } from "@/components/location/CityList";
@@ -132,7 +133,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
               flex: 1,
             }}
           >
-            <AppText style={{ fontSize: 22 }}>{draftCountry.flag}</AppText>
+            <CountryFlag code={draftCountry.code} width={28} height={19} />
             <AppText
               style={{
                 fontFamily: "Inter_600SemiBold",

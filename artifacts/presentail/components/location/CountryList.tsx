@@ -1,7 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { AppText } from "@/components/AppText";
+import { CountryFlag } from "@/components/CountryFlag";
 
 import type { DeliveryCountry } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,7 +39,7 @@ export function CountryList({ countries, onSelect, selectedId }: Props) {
               gap: 14,
             })}
           >
-            <AppText style={{ fontSize: 26 }}>{country.flag}</AppText>
+            <CountryFlag code={country.code} width={32} height={21} />
             <AppText
               style={{
                 flex: 1,

@@ -23,6 +23,7 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle, Wordmark } from "@/components/Brand";
+import { CountryFlag } from "@/components/CountryFlag";
 import { DeliveryLocationSheet } from "@/components/location/DeliveryLocationSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { ProductCard } from "@/components/ProductCard";
@@ -105,7 +106,6 @@ function HomeHeader({
     selectedCountry?.code,
     selectedCountry?.name ?? "Lebanon",
   );
-  const countryFlag = selectedCountry?.flag ?? "🇱🇧";
   const deliveryPlaceName = selectedCity?.name ?? countryName;
 
   const sideRowDir = isRTL ? "row-reverse" : "row";
@@ -175,7 +175,7 @@ function HomeHeader({
                   borderRadius: 999,
                 }}
               />
-              <AppText style={{ fontSize: 13 }}>{countryFlag}</AppText>
+              <CountryFlag code={selectedCountry?.code ?? "LB"} width={20} height={13} />
               <View
                 style={{
                   flexDirection: "column",

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { AppText } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CountryFlag } from "@/components/CountryFlag";
 
 import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocations";
 import { useCart } from "@/contexts/CartContext";
@@ -214,7 +215,7 @@ export function OnboardingLocationScreen() {
                         gap: 6,
                       }}
                     >
-                      <AppText style={{ fontSize: 30 }}>{country.flag}</AppText>
+                      <CountryFlag code={country.code} width={36} height={24} />
                       <AppText
                         numberOfLines={2}
                         style={{
