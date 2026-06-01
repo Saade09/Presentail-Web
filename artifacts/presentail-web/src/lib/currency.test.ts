@@ -147,15 +147,13 @@ describe("formatPriceInCurrency — edge-case amounts", () => {
   });
 });
 
-describe("formatPriceInCurrency — KWD decimal override", () => {
-  it("KWD is forced to 3 decimals by WEB_DECIMAL_OVERRIDES; all-zero fraction is stripped", () => {
-    // toFixed(3) → "10.000"; /\.0+$/ strips the ".000" → "KD10"
+describe("formatPriceInCurrency — KWD rounding (no decimals)", () => {
+  it("KWD whole number formats without decimals", () => {
     expect(formatPriceInCurrency(10, "KWD")).toBe("KD10");
   });
 
-  it("KWD non-zero fraction: toFixed(3) keeps all three places ('KD10.500')", () => {
-    // /\.0+$/ only matches all-zero decimals; ".500" has a leading 5 so it stays
-    expect(formatPriceInCurrency(10.5, "KWD")).toBe("KD10.500");
+  it("KWD fractional amount is rounded to nearest integer", () => {
+    expect(formatPriceInCurrency(10.5, "KWD")).toBe("KD11");
   });
 });
 

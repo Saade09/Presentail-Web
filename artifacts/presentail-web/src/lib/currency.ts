@@ -23,10 +23,6 @@ export type CurrencySnapshot = {
   countryToCurrency: Record<string, string>;
 };
 
-const WEB_DECIMAL_OVERRIDES: Record<string, number> = {
-  KWD: 3,
-  OMR: 3,
-};
 
 const FALLBACK_SNAPSHOT: CurrencySnapshot = {
   currencies: [
@@ -54,7 +50,7 @@ function buildFormatTable(snap: CurrencySnapshot): Record<string, CurrencyConfig
       symbol: c.symbol,
       position: c.symbolPosition,
       space: c.spaceBetween,
-      decimals: WEB_DECIMAL_OVERRIDES[c.code] ?? c.decimals,
+      decimals: 0,
     };
   }
   return out;
