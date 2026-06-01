@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 export default function BrandDetail() {
   const [, params] = useRoute("/brand/:slug");
@@ -13,7 +14,7 @@ export default function BrandDetail() {
   const { t, dir, language } = useLocale();
   const { countryCode, cityId, country, openPicker } = useLocationSelection();
 
-  const { data: brandsData } = useBrands({ lang: language, countryCode: countryCode ?? undefined, cityId: cityId ?? undefined });
+  const { data: brandsData, isLoading: isBrandsLoading } = useBrands({ lang: language, countryCode: countryCode ?? undefined, cityId: cityId ?? undefined });
   const brand = brandsData?.brands.find(b => b.slug === slug);
   const brandQueryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) brandQueryParams.countryCode = countryCode;
@@ -22,8 +23,17 @@ export default function BrandDetail() {
 
   const brandName = brand?.name || slug || "";
 
+  const breadcrumbCrumbs = [
+    { label: t("nav.home"), href: "/" },
+    { label: t("nav.brands"), href: "/brands" },
+    isBrandsLoading && !brand ? ({ skeleton: true } as const) : { label: brandName },
+  ];
+
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">
+      <div className="container mx-auto">
+        <PageBreadcrumb crumbs={breadcrumbCrumbs} />
+      </div>
       <div className="container mx-auto px-4">
         <Link href="/brands" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
           <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("brand.backToBrands")}

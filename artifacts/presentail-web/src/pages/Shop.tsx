@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { Filter, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 
 const CATEGORIES = [
   { slug: "hand-bouquets", labelKey: "shop.cat.handBouquets" },
@@ -127,8 +128,33 @@ export default function Shop() {
       ? `/shop?category=${category}`
       : "/shop";
 
+  const breadcrumbCrumbs = useMemo((): Crumb[] => {
+    if (!category && !occasion && !brand) return [];
+    const home: Crumb = { label: t("nav.home"), href: "/" };
+    if (category) {
+      const label =
+        t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category, {}) ||
+        catalogCategory?.name ||
+        category;
+      return [home, { label }];
+    }
+    if (occasion) {
+      const label =
+        t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion, {}) ||
+        catalogOccasion?.name ||
+        occasion;
+      return [home, { label }];
+    }
+    return [home, { label: brandDisplayName }];
+  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName]);
+
   return (
     <div className="min-h-screen pt-24 pb-24">
+      {breadcrumbCrumbs.length > 0 && (
+        <div className="container mx-auto">
+          <PageBreadcrumb crumbs={breadcrumbCrumbs} />
+        </div>
+      )}
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8 border-b">
           <div>

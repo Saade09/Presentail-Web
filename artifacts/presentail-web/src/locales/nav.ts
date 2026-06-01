@@ -1,6 +1,7 @@
 import type { Dict } from "./types";
 
 export const navStrings: Dict = {
+  "nav.home": { en: "Home", ar: "الرئيسية" },
   "utility.deliverTo": { en: "Delivering to", ar: "التوصيل إلى" },
   "utility.fastCheckout": { en: "Fast Checkout", ar: "دفع سريع" },
   "utility.sameDayDelivery": { en: "Same Day Delivery till 10:00 PM", ar: "توصيل في نفس اليوم حتى 10:00 مساءً" },
@@ -26,6 +27,7 @@ export const navStrings: Dict = {
 };
 
 export const navStringsFr: Record<string, string> = {
+  "nav.home": "Accueil",
   "utility.deliverTo": "Livraison à",
   "utility.fastCheckout": "Paiement rapide",
   "utility.sameDayDelivery": "Livraison le jour même jusqu'à 22h",

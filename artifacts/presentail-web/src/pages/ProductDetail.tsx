@@ -9,7 +9,8 @@ import { AddToCartUpsellModal } from "@/components/cart/AddToCartUpsellModal";
 import { useToast } from "@/hooks/use-toast";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { useProducts } from "@/lib/queries";
+import { useProducts, useCatalogMetadata } from "@/lib/queries";
+import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useAuth as useClerkAuth } from "@clerk/react";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -54,6 +55,7 @@ export default function ProductDetail() {
   if (countryCode) locParams.countryCode = countryCode;
   if (cityId) locParams.cityId = cityId;
   const { data: allData, isLoading } = useProducts(locParams);
+  const { data: catalogMetadata } = useCatalogMetadata();
   const product = allData?.products?.find((p) => p.id === slug);
 
   // Express Delivery is only offered between 8 AM and 10 PM in the
@@ -97,6 +99,23 @@ export default function ProductDetail() {
     () => (product ? buildProductViewModel(product) : null),
     [product],
   );
+
+  const productBreadcrumbs = useMemo((): Crumb[] => {
+    const home: Crumb = { label: t("nav.home"), href: "/" };
+    if (!product) return [home];
+    const catSlug = product.category;
+    const catEntry = catSlug
+      ? catalogMetadata?.categories.find((c) => c.id === catSlug)
+      : undefined;
+    if (catEntry) {
+      return [
+        home,
+        { label: catEntry.name, href: `/shop?category=${catSlug}` },
+        { label: product.name },
+      ];
+    }
+    return [home, { label: product.name }];
+  }, [product, catalogMetadata, t]);
 
   const effectiveDescription = useMemo(() => {
     const wooDesc = product?.description?.trim() ?? "";
@@ -220,7 +239,10 @@ export default function ProductDetail() {
 
   return (
     <div className="bg-background min-h-screen relative z-0">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-6 sm:pt-8 pb-16 sm:pb-20">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-2">
+        <PageBreadcrumb crumbs={productBreadcrumbs} />
+      </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-4 sm:pt-6 pb-16 sm:pb-20">
         <div className="grid lg:grid-cols-2 lg:items-start gap-6 sm:gap-8 lg:gap-16">
           <div className="flex flex-col gap-6 sm:gap-8">
             <ProductGallery
