@@ -14,7 +14,6 @@ import { useBrands } from "@/lib/queries";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
-  loadAccount,
   loadSignIn,
   loadShop,
 } from "@/lib/pageLoaders";
@@ -318,11 +317,15 @@ export function MainNavbar() {
             brandName={activeBrand?.name ?? undefined}
           />
 
-          <Link href={user ? "/account" : "/sign-in"} aria-label={t("nav.accountAria")} {...prefetchProps(user ? loadAccount : loadSignIn)}>
-            <Button variant="ghost" size="icon" data-testid="button-account">
-              <User className="w-5 h-5" />
-            </Button>
-          </Link>
+          {user ? (
+            <AccountDropdown />
+          ) : (
+            <Link href="/sign-in" aria-label={t("nav.accountAria")} {...prefetchProps(loadSignIn)}>
+              <Button variant="ghost" size="icon" data-testid="button-account">
+                <User className="w-5 h-5" />
+              </Button>
+            </Link>
+          )}
 
           <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
             <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">

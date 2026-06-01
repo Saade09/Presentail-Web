@@ -52,6 +52,14 @@ export function AccountDropdown() {
   const [open, setOpen] = useState(false);
   const [points, setPoints] = useState<number | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const scheduleClose = () => {
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpen(false), 180);
+  };
+
+  const cancelClose = () => clearTimeout(closeTimerRef.current);
 
   useEffect(() => {
     if (!open || !user) return;
@@ -124,7 +132,12 @@ export function AccountDropdown() {
     : t("account.title");
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div
+      ref={wrapperRef}
+      className="relative"
+      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseLeave={scheduleClose}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
