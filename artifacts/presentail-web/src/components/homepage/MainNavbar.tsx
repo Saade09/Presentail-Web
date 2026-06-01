@@ -164,7 +164,6 @@ export function MainNavbar() {
   const { countryCode, cityId } = useLocationSelection();
   const [searchOpen, setSearchOpen] = useState(false);
   const [location] = useLocation();
-  const isShopPage = location === "/shop" || location.startsWith("/shop?") || location.startsWith("/shop/");
 
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
@@ -333,25 +332,23 @@ export function MainNavbar() {
             </Button>
           </Link>
 
-          {!isShopPage && (
-            <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
-              <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
-                <ShoppingCart className="w-5 h-5" />
-                <AnimatePresence>
-                  {itemCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
-                    >
-                      {itemCount}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Button>
-            </Link>
-          )}
+          <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
+            <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
+              <ShoppingCart className="w-5 h-5" />
+              <AnimatePresence>
+                {itemCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
+                  >
+                    {itemCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Button>
+          </Link>
         </div>
       </div>
 
