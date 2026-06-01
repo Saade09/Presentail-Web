@@ -5,6 +5,7 @@ import { AppText } from "@/components/AppText";
 
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 type Props = {
@@ -27,6 +28,7 @@ export function PhoneField({
   placeholder = "3000000",
 }: Props) {
   const colors = useColors();
+  const headingFontBold = useHeadingFont("700Bold");
   const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -146,7 +148,7 @@ export function PhoneField({
           >
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_700Bold",
+                fontFamily: headingFontBold,
                 fontSize: 17,
                 color: colors.primary,
               }}

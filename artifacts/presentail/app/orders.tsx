@@ -24,6 +24,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
@@ -63,6 +64,7 @@ function statusStyle(status: string | null): { bg: string; text: string } {
 
 function OrdersScreen() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -133,7 +135,7 @@ function OrdersScreen() {
         <AppText
           style={{
             flex: 1,
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: "#fff",
             textAlign: isRTL ? "right" : "left",
@@ -170,7 +172,7 @@ function OrdersScreen() {
           <AppText
             style={{
               marginTop: 14,
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 18,
               color: colors.primary,
               textAlign: "center",
@@ -280,6 +282,7 @@ function OrderCard({
   colors: ReturnType<typeof useColors>;
   isRTL: boolean;
 }) {
+  const headingFontMedium = useHeadingFont("500Medium");
   const [expanded, setExpanded] = useState(false);
   const placed = formatDate(order.createdAt);
   const itemWord = order.itemsCount === 1 ? t.ordersItem : t.ordersItems;
@@ -332,7 +335,7 @@ function OrderCard({
           </AppText>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 18,
               color: colors.primary,
               marginTop: 4,

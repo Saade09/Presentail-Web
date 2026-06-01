@@ -14,6 +14,7 @@ import { Pressable, ScrollView, Text } from "react-native";
 import { AppText } from "@/components/AppText";
 
 import type { DeliveryDay } from "@workspace/delivery";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 
 export type DateStripColors = {
   primary: string;
@@ -30,6 +31,7 @@ export type DateStripProps = {
 };
 
 export function DateStrip({ days, selectedDate, onSelectDate, colors }: DateStripProps) {
+  const headingFontMedium = useHeadingFont("500Medium");
   return (
     <ScrollView
       horizontal
@@ -65,7 +67,7 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors }: DateStri
             </AppText>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 16,
                 color: active ? "#fff" : colors.primary,
               }}

@@ -17,6 +17,7 @@ import {
 import { BottomSheet } from "@/components/BottomSheet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { trackEvent } from "@/lib/analytics";
 
@@ -34,6 +35,7 @@ export function SuggestedMessagesSheet({
   maxLength,
 }: Props) {
   const colors = useColors();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const t = useT();
   const { lang } = useLanguage();
 
@@ -106,7 +108,7 @@ export function SuggestedMessagesSheet({
           <View style={{ width: 28 }} />
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 18,
               letterSpacing: 2,
               color: colors.primary,

@@ -18,6 +18,7 @@ import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -50,6 +51,7 @@ function tabLabel(t: ReturnType<typeof useT>, id: UpsellTabId): string {
 
 export function CartUpsells() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const t = useT();
   const { isRTL } = useLanguage();
@@ -201,7 +203,7 @@ export function CartUpsells() {
     <View style={{ gap: 14 }}>
       <AppText
         style={{
-          fontFamily: "PlayfairDisplay_500Medium",
+          fontFamily: headingFontMedium,
           fontSize: 20,
           color: colors.primary,
           writingDirection: isRTL ? "rtl" : "ltr",
@@ -310,7 +312,7 @@ export function CartUpsells() {
                   <Price
                     value={Number.isFinite(product.priceValue) ? product.priceValue : 0}
                     style={{
-                      fontFamily: "PlayfairDisplay_500Medium",
+                      fontFamily: headingFontMedium,
                       fontSize: 15,
                       color: colors.primary,
                     }}

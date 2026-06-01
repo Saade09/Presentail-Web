@@ -33,6 +33,7 @@ import {
 } from "@/data/catalog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { localizedCountryName } from "@/data/countryNamesLocalized";
@@ -390,6 +391,7 @@ function Hero() {
   const router = useRouter();
   const t = useT();
   const { isRTL } = useLanguage();
+  const headingFont = useHeadingFont("400Regular");
   const ta = isRTL ? "right" : "left";
   const alignSelf = isRTL ? "flex-end" : "flex-start";
 
@@ -526,7 +528,7 @@ function Hero() {
         <View style={styles.heroContent}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_400Regular",
+              fontFamily: headingFont,
               fontSize: 38,
               lineHeight: 44,
               color: "#ffffff",
@@ -1382,6 +1384,7 @@ function BrandStorySection() {
   const colors = useColors();
   const t = useT();
   const { isRTL } = useLanguage();
+  const headingFont = useHeadingFont("400Regular");
   const pillars = [
     { title: t.pillar1Title, text: t.pillar1Text },
     { title: t.pillar2Title, text: t.pillar2Text },
@@ -1409,7 +1412,7 @@ function BrandStorySection() {
           <View key={p.title} style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 16 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_400Regular",
+                fontFamily: headingFont,
                 color: colors.goldSoft,
                 fontSize: 22,
                 width: 32,
@@ -1447,6 +1450,7 @@ function BrandStorySection() {
 
 function ReviewsSection() {
   const colors = useColors();
+  const headingFont = useHeadingFont("400Regular");
   return (
     <View style={{ marginTop: 56 }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 18 }}>
@@ -1480,7 +1484,7 @@ function ReviewsSection() {
             </View>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_400Regular",
+                fontFamily: headingFont,
                 fontSize: 16,
                 lineHeight: 24,
                 color: colors.primary,

@@ -12,6 +12,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -85,6 +86,7 @@ function CartLoadingSkeleton({
 
 function CartTab() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   // Guard against environments where useBottomTabBarHeight() resolves to 0
@@ -133,7 +135,7 @@ function CartTab() {
         <View style={{ alignItems: "center", gap: 14, paddingHorizontal: 8 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 26,
               lineHeight: 32,
               color: colors.primary,

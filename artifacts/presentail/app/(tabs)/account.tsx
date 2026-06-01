@@ -23,6 +23,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { CurrencyCode } from "@/data/currencies";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import type { Lang } from "@/lib/translations";
 import {
@@ -37,6 +38,7 @@ import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 function AccountTab() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -259,7 +261,7 @@ function AccountTab() {
       <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8, maxHeight: 520 }}>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: colors.primary,
             textAlign: isRTL ? "right" : "left",
@@ -333,7 +335,7 @@ function AccountTab() {
             </View>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 22,
                 color: "#fff",
                 textAlign: "center",
@@ -442,7 +444,7 @@ function AccountTab() {
           <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 22,
                 color: colors.primary,
                 textAlign: isRTL ? "right" : "left",
@@ -495,7 +497,7 @@ function AccountTab() {
           <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 22,
                 color: colors.primary,
                 textAlign: isRTL ? "right" : "left",
@@ -634,7 +636,7 @@ function AccountTab() {
           alignItems: "center",
         }}
       >
-        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
+        <Text style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff" }}>
           {t.accountMyAccount}
         </AppText>
       </View>
@@ -665,7 +667,7 @@ function AccountTab() {
           >
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 22,
                 color: "#fff",
               }}
@@ -677,7 +679,7 @@ function AccountTab() {
           <View style={{ flex: 1 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 19,
                 color: "#fff",
                 textAlign: isRTL ? "right" : "left",
@@ -857,7 +859,7 @@ function AccountTab() {
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 22,
               color: colors.primary,
               textAlign: isRTL ? "right" : "left",

@@ -16,6 +16,7 @@ import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocation
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 type Props = {
@@ -27,6 +28,7 @@ type Step = "country" | "city";
 
 export function DeliveryLocationSheet({ visible, onClose }: Props) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const { isRTL } = useLanguage();
   const {
@@ -89,7 +91,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
       >
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: colors.primary,
             textAlign: isRTL ? "right" : "left",

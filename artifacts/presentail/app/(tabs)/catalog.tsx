@@ -22,6 +22,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { categories, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -58,6 +59,7 @@ const OCC_NAME_KEY: Record<string, string> = {
 
 function CatalogScreen() {
   const colors = useColors();
+  const headingFontRegular = useHeadingFont("400Regular");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { count: _count } = useCart();
@@ -397,7 +399,7 @@ function CatalogScreen() {
   const empty = (
     <View style={{ padding: 48, alignItems: "center", gap: 8 }}>
       <Feather name="search" size={28} color={colors.mutedForeground} />
-      <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18, textAlign: "center" }}>
+      <Text style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 18, textAlign: "center" }}>
         {t.noMatches}
       </AppText>
       <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>

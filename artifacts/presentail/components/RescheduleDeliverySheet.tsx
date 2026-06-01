@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -56,6 +57,7 @@ export function RescheduleDeliverySheet({
   expressSurchargeUsd = 0,
 }: Props) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const insets = useSafeAreaInsets();
   const t = useT();
   const deliverySelection = useDeliverySelection();
@@ -178,7 +180,7 @@ export function RescheduleDeliverySheet({
           <View style={{ flex: 1, paddingRight: 12 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 18,
                 color: colors.primary,
               }}
@@ -323,7 +325,7 @@ export function RescheduleDeliverySheet({
                     </AppText>
                     <AppText
                       style={{
-                        fontFamily: "PlayfairDisplay_500Medium",
+                        fontFamily: headingFontMedium,
                         fontSize: 16,
                         color: active ? "#fff" : colors.primary,
                       }}

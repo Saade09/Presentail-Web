@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useT } from "@/hooks/useT";
 import { COUNTRY_DIAL_CODES } from "@/data/countryCodes";
@@ -46,6 +47,8 @@ export default function SavedAddressesScreen() {
   const t = useT();
   const { user } = useAuth();
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const { isRTL } = useLanguage();
   const qc = useQueryClient();
   const enabled = !!user;
@@ -187,7 +190,7 @@ export default function SavedAddressesScreen() {
           </View>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 20,
               color: colors.primary,
               textAlign: "center",
@@ -291,6 +294,7 @@ function Header({
   title: string;
   colors: ReturnType<typeof useColors>;
 }) {
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   return (
     <View
       style={{
@@ -313,7 +317,7 @@ function Header({
       <AppText
         style={{
           flex: 1,
-          fontFamily: "PlayfairDisplay_600SemiBold",
+          fontFamily: headingFontSemiBold,
           fontSize: 18,
           color: colors.primary,
           textAlign: "center",

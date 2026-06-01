@@ -22,6 +22,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getOccasion, occasions } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchOccasionProducts, fetchBrandProducts, type OccasionGroup, type WooProduct } from "@/lib/woo";
@@ -41,6 +42,8 @@ function OccasionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontRegular = useHeadingFont("400Regular");
   const { count } = useCart();
   const occasion = getOccasion(String(slug));
 
@@ -141,7 +144,7 @@ function OccasionScreen() {
                 ? t.occasionFromBrand.replace("{brand}", activeBrandName)
                 : t.occasionForTheOccasion}
             </AppText>
-            <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 30, color: "#fff", marginTop: 6 }}>
+            <AppText style={{ fontFamily: headingFontMedium, fontSize: 30, color: "#fff", marginTop: 6 }}>
               {occasion?.name ?? t.occasionFallback}
             </AppText>
             {!activeBrandName && occasion?.description ? (
@@ -195,7 +198,7 @@ function OccasionScreen() {
           ) : brandProducts.length === 0 ? (
             <View style={{ paddingHorizontal: 24, paddingTop: 40, alignItems: "center", gap: 10 }}>
               <Feather name="inbox" size={28} color={colors.mutedForeground} />
-              <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+              <AppText style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 20, textAlign: "center" }}>
                 {t.occasionSoldOutTitle}
               </AppText>
               <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
@@ -228,7 +231,7 @@ function OccasionScreen() {
           <View>
             <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
               <Feather name="inbox" size={28} color={colors.mutedForeground} />
-              <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+              <AppText style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 20, textAlign: "center" }}>
                 {t.occasionSoldOutTitle}
               </AppText>
               <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
@@ -300,6 +303,7 @@ function CategorySection({
   onProduct: (id: string) => void;
   onSeeAll: () => void;
 }) {
+  const headingFontMedium = useHeadingFont("500Medium");
   return (
     <View style={{ marginTop: 28 }}>
       <View
@@ -314,7 +318,7 @@ function CategorySection({
         <View>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 18,
               color: colors.primary,
             }}

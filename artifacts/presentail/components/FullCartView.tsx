@@ -25,6 +25,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import {
@@ -51,6 +52,7 @@ type CartItemRowProps = {
 };
 
 function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }: CartItemRowProps) {
+  const headingFontMedium = useHeadingFont("500Medium");
   const [imageLoaded, setImageLoaded] = React.useState(false);
   return (
     <View
@@ -82,7 +84,7 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
         </AppText>
         <Price
           value={lineTotal}
-          style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
+          style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
         />
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
           <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
@@ -122,6 +124,7 @@ type FullCartViewProps = {
 };
 
 export function FullCartView({ showBackButton = true, bottomOffset }: FullCartViewProps) {
+  const headingFontMedium = useHeadingFont("500Medium");
   // Funnel entry: shoppers landing on the cart tab/screen. Counted once
   // per mount so navigating away and returning correctly registers a
   // fresh cart_viewed.
@@ -212,7 +215,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
         ) : (
           <View style={{ width: 22 }} />
         )}
-        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+        <Text style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
           {t.cartTitle}
         </AppText>
         <Pressable
@@ -248,7 +251,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
           >
             <Feather name="shopping-bag" size={28} color={colors.primary} />
           </View>
-          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+          <Text style={{ fontFamily: headingFontMedium, fontSize: 22, color: colors.primary, textAlign: "center" }}>
             {t.cartEmpty}
           </AppText>
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
@@ -570,12 +573,12 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               </View>
             ) : null}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 18 }}>
+              <Text style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 18 }}>
                 {t.cartTotal}
               </AppText>
               <Price
                 value={grandTotalUsd}
-                style={{ fontFamily: "PlayfairDisplay_500Medium", color: colors.primary, fontSize: 22 }}
+                style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 22 }}
               />
             </View>
             <Pressable

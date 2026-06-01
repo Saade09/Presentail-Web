@@ -27,6 +27,7 @@ import {
   type Product,
 } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchCategoryProducts, type WooProduct } from "@/lib/woo";
@@ -39,6 +40,8 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 type SortKey = "featured" | "priceUp" | "priceDown" | "name";
 
 function CategoryScreen() {
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontRegular = useHeadingFont("400Regular");
   const { slug: routeSlug } = useLocalSearchParams<{ slug: string }>();
   const [activeSlug, setActiveSlug] = useState<string>(String(routeSlug));
   useEffect(() => {
@@ -176,7 +179,7 @@ function CategoryScreen() {
             </AppText>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 32,
                 color: "#fff",
                 marginTop: 6,
@@ -280,7 +283,7 @@ function CategoryScreen() {
     <View>
       <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, alignItems: "center", gap: 10 }}>
         <Feather name="inbox" size={28} color={colors.mutedForeground} />
-        <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 20, textAlign: "center" }}>
+        <Text style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 20, textAlign: "center" }}>
           {t.categorySoldOutTitle}
         </AppText>
         <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>

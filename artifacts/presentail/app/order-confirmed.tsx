@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 function OrderConfirmed() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { formatNative } = useCurrency();
@@ -71,7 +73,7 @@ function OrderConfirmed() {
         </AppText>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 30,
             color: colors.primary,
             textAlign: "center",
@@ -251,6 +253,7 @@ function OrderConfirmed() {
 }
 
 function Row({ colors, icon, label, value, highlight }: any) {
+  const headingFontMedium = useHeadingFont("500Medium");
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
       <View
@@ -268,8 +271,8 @@ function Row({ colors, icon, label, value, highlight }: any) {
       <View style={{ flex: 1 }}>
         <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: colors.mutedForeground }}>
           {label}
-        </AppText>
-        <AppText style={{ fontFamily: highlight ? "PlayfairDisplay_500Medium" : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
+        </Text>
+        <Text style={{ fontFamily: highlight ? headingFontMedium : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
           {value}
         </AppText>
       </View>

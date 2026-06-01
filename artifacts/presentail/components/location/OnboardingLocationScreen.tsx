@@ -14,6 +14,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useTypography } from "@/hooks/useTypography";
@@ -40,6 +41,7 @@ function defaultCityFor(country: DeliveryCountry | null): DeliveryCity | null {
 export function OnboardingLocationScreen() {
   const colors = useColors();
   const typo = useTypography();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const { isRTL } = useLanguage();
   const {
@@ -112,7 +114,7 @@ export function OnboardingLocationScreen() {
           <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 22,
                 color: colors.primary,
                 textAlign: isRTL ? "right" : "left",
@@ -232,7 +234,7 @@ export function OnboardingLocationScreen() {
               <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8 }}>
                 <AppText
                   style={{
-                    fontFamily: "PlayfairDisplay_500Medium",
+                    fontFamily: headingFontMedium,
                     fontSize: 22,
                     color: colors.primary,
                     textAlign: isRTL ? "right" : "left",

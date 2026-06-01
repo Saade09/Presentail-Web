@@ -66,6 +66,7 @@ import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import {
@@ -230,6 +231,9 @@ function CheckoutScreen() {
   const { token: authToken, user: authUser, updateProfile } = useAuth();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const t = useT();
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontRegular = useHeadingFont("400Regular");
+  const headingFontBold = useHeadingFont("700Bold");
   const effectiveCountry = resolveCountryCode(selectedCountry?.code, currencyCode);
 
   // Resolved lazily inside placeOrder to avoid hitting AsyncStorage on
@@ -938,7 +942,7 @@ function CheckoutScreen() {
   if (detailed.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
-        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: colors.primary, textAlign: "center" }}>
+        <AppText style={{ fontFamily: headingFontMedium, fontSize: 22, color: colors.primary, textAlign: "center" }}>
           {t.checkoutCartEmpty}
         </AppText>
         <Pressable onPress={() => router.replace("/(tabs)/catalog")} style={{ marginTop: 14 }}>
@@ -974,7 +978,7 @@ function CheckoutScreen() {
         >
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>
-        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 22, color: "#fff" }}>
+        <AppText style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff" }}>
           {t.checkoutBrandHeader}
         </AppText>
       </View>
@@ -1292,6 +1296,7 @@ function CharsLeft({ maxLength, value, colors }: { maxLength: number; value?: st
 }
 
 function Card({ children, colors, title }: any) {
+  const headingFontMedium = useHeadingFont("500Medium");
   return (
     <View
       style={{
@@ -1304,7 +1309,7 @@ function Card({ children, colors, title }: any) {
       }}
     >
       {title ? (
-        <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary }}>
+        <AppText style={{ fontFamily: headingFontMedium, fontSize: 18, color: colors.primary }}>
           {title}
         </AppText>
       ) : null}
@@ -1356,6 +1361,8 @@ function CardPreviewModal({
   colors: any;
 }) {
   const t = useT();
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontRegular = useHeadingFont("400Regular");
   const { lang } = useLanguage();
   const isRtl = lang === "AR";
   const { width: winW, height: winH } = useWindowDimensions();
@@ -1450,7 +1457,7 @@ function CardPreviewModal({
       >
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 18,
             color: stationeryInk,
             textAlign: "center",
@@ -1464,7 +1471,7 @@ function CardPreviewModal({
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 4, paddingVertical: 14 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_400Regular",
+              fontFamily: headingFontRegular,
               fontSize: messageFont,
               color: stationeryInk,
               textAlign: "center",
@@ -1478,7 +1485,7 @@ function CardPreviewModal({
         </View>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 18,
             color: stationeryInk,
             textAlign: "center",
@@ -1502,7 +1509,7 @@ function CardPreviewModal({
         >
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 11,
               color: colors.gold,
               opacity: 0.6,
@@ -1763,6 +1770,8 @@ function CardMessageReviewCard({
 // =============== Step 2: Delivery Details ===============
 
 function DeliveryDetailsStep(props: any) {
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontBold = useHeadingFont("700Bold");
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
@@ -1833,7 +1842,7 @@ function DeliveryDetailsStep(props: any) {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-              <AppText style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.checkoutSavedAddressPickerTitle}</AppText>
+              <AppText style={{ fontFamily: headingFontBold, fontSize: 17, color: colors.primary }}>{t.checkoutSavedAddressPickerTitle}</AppText>
               <Pressable onPress={() => setSavedAddressPickerOpen(false)}>
                 <Feather name="x" size={20} color={colors.primary} />
               </Pressable>
@@ -2012,7 +2021,7 @@ function DeliveryDetailsStep(props: any) {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-                <AppText style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</AppText>
+                <AppText style={{ fontFamily: headingFontBold, fontSize: 17, color: colors.primary }}>{t.selectDistrictTitle}</AppText>
                 <Pressable onPress={() => setDistrictOpen(false)}>
                   <Feather name="x" size={20} color={colors.primary} />
                 </Pressable>
@@ -2591,6 +2600,7 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
 
 function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
   const { formatPrice } = useCurrency();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   return (
     <Card colors={colors} title={t.checkoutOrderSummaryCard}>
@@ -2613,7 +2623,7 @@ function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupo
               </View>
             </View>
             <View style={{ alignItems: "flex-end", gap: 6 }}>
-              <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 14, color: colors.primary }}>
+              <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
                 {formatPrice(lineTotal)}
               </AppText>
               <Pressable onPress={() => remove(product.id)} hitSlop={6}>

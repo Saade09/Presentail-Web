@@ -15,6 +15,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { type CartCardMessage } from "@/contexts/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 const BODY_MAX_LENGTH = 400;
@@ -28,6 +29,7 @@ type Props = {
 
 export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Props) {
   const colors = useColors();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const t = useT();
 
   const [to, setTo] = useState(initial?.to ?? "");
@@ -80,7 +82,7 @@ export function CartCardMessageSheet({ visible, onClose, initial, onSave }: Prop
               <View style={{ width: 28 }} />
               <AppText
                 style={{
-                  fontFamily: "PlayfairDisplay_600SemiBold",
+                  fontFamily: headingFontSemiBold,
                   fontSize: 18,
                   letterSpacing: 2,
                   color: colors.primary,

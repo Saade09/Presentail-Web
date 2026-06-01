@@ -5,6 +5,7 @@ import { AppText } from "@/components/AppText";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 type Props = {
@@ -23,6 +24,7 @@ export function ForgotPasswordSentStep({
   onPasteLink,
 }: Props) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const { isRTL } = useLanguage();
   const align = isRTL ? "right" : "left";
@@ -48,7 +50,7 @@ export function ForgotPasswordSentStep({
       <View style={{ gap: 8 }}>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 28,
             color: colors.primary,
             textAlign: align,

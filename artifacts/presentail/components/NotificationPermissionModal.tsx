@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 type Props = {
@@ -25,6 +26,7 @@ type Props = {
 
 export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const insets = useSafeAreaInsets();
   const t = useT();
   const { isRTL } = useLanguage();
@@ -152,7 +154,7 @@ export function NotificationPermissionModal({ visible, onAllow, onSkip }: Props)
 
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 24,
                 lineHeight: 30,
                 color: colors.primary,

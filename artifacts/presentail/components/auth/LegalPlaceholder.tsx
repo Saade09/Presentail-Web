@@ -7,10 +7,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 export function LegalPlaceholder({ title, body }: { title: string; body: string }) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -39,7 +41,7 @@ export function LegalPlaceholder({ title, body }: { title: string; body: string 
         </Pressable>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: "#fff",
             flex: 1,

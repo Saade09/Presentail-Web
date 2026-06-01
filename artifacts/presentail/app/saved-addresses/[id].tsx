@@ -27,6 +27,7 @@ import {
 } from "@workspace/api-client-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
@@ -43,6 +44,7 @@ const colors = {
 type LabelOpt = "home" | "work" | "other";
 
 export default function SavedAddressFormScreen() {
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const t = useT();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const idStr = Array.isArray(id) ? id[0] : id;
@@ -400,7 +402,7 @@ export default function SavedAddressFormScreen() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormDistrict}</AppText>
+            <AppText style={{ fontFamily: headingFontSemiBold, fontSize: 17, color: colors.primary }}>{t.addressFormDistrict}</AppText>
             <Pressable onPress={() => setDistrictOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
             </Pressable>
@@ -454,7 +456,7 @@ export default function SavedAddressFormScreen() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f0ebe3" }}>
-            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 17, color: colors.primary }}>{t.addressFormCountry}</AppText>
+            <AppText style={{ fontFamily: headingFontSemiBold, fontSize: 17, color: colors.primary }}>{t.addressFormCountry}</AppText>
             <Pressable onPress={() => setCountryOpen(false)}>
               <Feather name="x" size={20} color={colors.primary} />
             </Pressable>
@@ -497,6 +499,7 @@ export default function SavedAddressFormScreen() {
 }
 
 function Header({ title }: { title: string }) {
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   return (
     <View
       style={{
@@ -515,7 +518,7 @@ function Header({ title }: { title: string }) {
       <AppText
         style={{
           flex: 1,
-          fontFamily: "PlayfairDisplay_600SemiBold",
+          fontFamily: headingFontSemiBold,
           fontSize: 18,
           color: colors.primary,
           textAlign: "center",

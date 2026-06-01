@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -31,6 +32,8 @@ const HORIZONTAL_PADDING = 20;
 
 function FavoritesTab() {
   const colors = useColors();
+  const headingFontRegular = useHeadingFont("400Regular");
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -109,7 +112,7 @@ function FavoritesTab() {
         <Ionicons name="heart-outline" size={56} color={colors.mutedForeground} style={{ marginBottom: 20 }} />
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_400Regular",
+            fontFamily: headingFontRegular,
             fontSize: 24,
             color: colors.primary,
             textAlign: "center",
@@ -183,7 +186,7 @@ function FavoritesTab() {
         </View>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: colors.primary,
             textAlign: "center",
@@ -246,7 +249,7 @@ function FavoritesTab() {
           <View style={{ flex: 1 }}>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_400Regular",
+                fontFamily: headingFontRegular,
                 fontSize: 28,
                 color: colors.primary,
               }}

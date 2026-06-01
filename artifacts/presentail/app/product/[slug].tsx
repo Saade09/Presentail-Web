@@ -32,6 +32,7 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import { getCategory } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
@@ -160,6 +161,7 @@ function ProductDetail() {
   const t = useT();
   const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
+  const headingFontRegular = useHeadingFont("400Regular");
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
   const [heroLoaded, setHeroLoaded] = useState(false);
@@ -271,7 +273,7 @@ function ProductDetail() {
   if (!product) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <AppText style={{ fontFamily: "PlayfairDisplay_400Regular", color: colors.primary, fontSize: 18 }}>
+        <AppText style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 18 }}>
           {t.productNotFound}
         </AppText>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
@@ -537,6 +539,8 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   };
   const [tab, setTab] = useState<"description" | "care">("description");
   const t = useT();
+  const headingFontMedium = useHeadingFont("500Medium");
+  const headingFontRegular = useHeadingFont("400Regular");
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const points = calcRewardPoints(priceValue);
 
@@ -565,7 +569,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 14 }}>
-      <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 28, color: colors.primary, lineHeight: 34 }}>
+      <AppText style={{ fontFamily: headingFontMedium, fontSize: 28, color: colors.primary, lineHeight: 34 }}>
         {product.name}
       </AppText>
 
@@ -573,7 +577,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Price
             value={priceValue}
-            style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 24, color: colors.primary }}
+            style={{ fontFamily: headingFontMedium, fontSize: 24, color: colors.primary }}
           />
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
             {t.taxInclusive}

@@ -12,6 +12,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import type { Product } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useTypography } from "@/hooks/useTypography";
@@ -39,6 +40,7 @@ type Props = {
 export function ProductCard({ product, width, onPress }: Props) {
   const colors = useColors();
   const typo = useTypography();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const router = useRouter();
   const { currencyCode, convert } = useCurrency();
@@ -135,7 +137,7 @@ export function ProductCard({ product, width, onPress }: Props) {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Price
             value={product.priceValue}
-            style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 16, color: colors.primary }}
+            style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
           />
           {convertedPrice >= threshold ? (
             <AppText style={{ fontFamily: typo.regular, fontSize: 11, color: colors.gold, letterSpacing: 1 }}>

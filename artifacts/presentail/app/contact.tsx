@@ -11,6 +11,7 @@ import {
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -51,6 +52,7 @@ const SOCIALS = [
 
 function ContactScreen() {
   const colors = useColors();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -105,7 +107,7 @@ function ContactScreen() {
         <View style={{ flex: 1 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 22,
               color: "#fff",
             }}
@@ -134,7 +136,7 @@ function ContactScreen() {
         <View style={{ paddingTop: 28, gap: 8 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 24,
               color: colors.primary,
               lineHeight: 32,
@@ -211,7 +213,7 @@ function ContactScreen() {
         <View style={{ gap: 14 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 18,
               color: colors.primary,
             }}
@@ -276,7 +278,7 @@ function ContactScreen() {
         <View style={{ gap: 14 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 18,
               color: colors.primary,
             }}

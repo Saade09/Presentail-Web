@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/ProductCard";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { fetchBrandProducts, type WooProduct } from "@/lib/woo";
@@ -34,6 +35,8 @@ function BrandScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
+  const headingFontMedium = useHeadingFont("500Medium");
 
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,7 +120,7 @@ function BrandScreen() {
             <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2, textTransform: "uppercase" }}>
               {t.brandSlugLabel}
             </AppText>
-            <AppText style={{ fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 22, color: "#fff", marginTop: 2 }}>
+            <AppText style={{ fontFamily: headingFontSemiBold, fontSize: 22, color: "#fff", marginTop: 2 }}>
               {brandName}
             </AppText>
           </View>
@@ -148,7 +151,7 @@ function BrandScreen() {
       ) : products.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 40 }}>
           <Feather name="package" size={40} color={colors.mutedForeground} />
-          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 18, color: colors.primary, textAlign: "center" }}>
+          <AppText style={{ fontFamily: headingFontMedium, fontSize: 18, color: colors.primary, textAlign: "center" }}>
             {t.brandSlugNoProducts}
           </AppText>
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>

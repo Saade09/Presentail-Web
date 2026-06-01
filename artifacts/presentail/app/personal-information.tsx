@@ -24,6 +24,7 @@ import { validateNationalNumber } from "@/data/phoneLengths";
 import { useAuth, type AuthGender } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
 import { getStoredStoreHeaders } from "@/lib/storeHeaders";
@@ -82,6 +83,7 @@ function pad2(s: string): string {
 
 function PersonalInformationScreen() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -279,7 +281,7 @@ function PersonalInformationScreen() {
         <AppText
           style={{
             flex: 1,
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 22,
             color: "#fff",
             textAlign: "center",
@@ -627,7 +629,7 @@ function PersonalInformationScreen() {
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 12 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 22,
               color: colors.primary,
               textAlign: align,
@@ -654,7 +656,7 @@ function PersonalInformationScreen() {
         <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_500Medium",
+              fontFamily: headingFontMedium,
               fontSize: 22,
               color: colors.primary,
               textAlign: align,

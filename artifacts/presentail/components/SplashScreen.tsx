@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 
 const LOGO = require("@/assets/images/splash-icon-cream.png");
@@ -24,6 +25,7 @@ type Props = {
 };
 
 export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
+  const headingFontMedium = useHeadingFont("500Medium");
   const c = useColors();
   const t = useT();
   const { lang, isReady: langReady } = useLanguage();
@@ -103,7 +105,7 @@ export function AnimatedSplash({ fadingOut = false, onFadeOutEnd }: Props) {
             allowFontScaling={false}
             style={[
               styles.tagline,
-              { color: c.teal800, fontFamily: "PlayfairDisplay_500Medium" },
+              { color: c.teal800, fontFamily: headingFontMedium },
               taglineStyle,
             ]}
           >

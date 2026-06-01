@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import type { TranslationKey } from "@/lib/translations";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -82,6 +83,7 @@ function FAQItem({
   colors: ReturnType<typeof useColors>;
   isRTL: boolean;
 }) {
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const [open, setOpen] = useState(false);
   return (
     <View
@@ -138,6 +140,7 @@ function FAQItem({
 
 function FAQScreen() {
   const colors = useColors();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -167,7 +170,7 @@ function FAQScreen() {
         <View style={{ flex: 1 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 22,
               color: "#fff",
               textAlign: isRTL ? "right" : "left",
@@ -271,7 +274,7 @@ function FAQScreen() {
                 </View>
                 <AppText
                   style={{
-                    fontFamily: "PlayfairDisplay_600SemiBold",
+                    fontFamily: headingFontSemiBold,
                     fontSize: 17,
                     color: colors.primary,
                     textAlign: isRTL ? "right" : "left",
@@ -307,7 +310,7 @@ function FAQScreen() {
           <Feather name="message-circle" size={28} color={colors.gold} />
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 18,
               color: "#fff",
               textAlign: "center",

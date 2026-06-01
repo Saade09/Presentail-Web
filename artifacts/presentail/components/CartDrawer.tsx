@@ -22,6 +22,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import {
@@ -39,6 +40,7 @@ import { loadCheckoutScreen, prefetchOnIdle } from "@/lib/prefetchScreens";
 
 export function CartDrawer() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const insets = useSafeAreaInsets();
   const { user: _user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
@@ -168,7 +170,7 @@ export function CartDrawer() {
             borderBottomColor: colors.border,
           }}
         >
-          <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+          <AppText style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
             Your Cart {count > 0 ? `(${count})` : ""}
           </AppText>
           <Pressable onPress={closeCart} hitSlop={12}>
@@ -325,7 +327,7 @@ export function CartDrawer() {
                     >
                       {product.name}
                     </AppText>
-                    <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 15, color: colors.primary }}>
+                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
                       {formatPrice(lineTotal)}
                     </AppText>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -448,7 +450,7 @@ export function CartDrawer() {
                 <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.mutedForeground }}>
                   Total
                 </AppText>
-                <AppText style={{ fontFamily: "PlayfairDisplay_500Medium", fontSize: 20, color: colors.primary }}>
+                <AppText style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
                   {formatPrice(grandTotalUsd)}
                 </AppText>
               </View>

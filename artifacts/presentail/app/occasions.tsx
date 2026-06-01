@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { occasions } from "@/data/catalog";
 import type { Occasion } from "@/data/catalog";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
@@ -48,6 +49,7 @@ type OccasionCardProps = {
 
 function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: OccasionCardProps) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const [imageLoaded, setImageLoaded] = React.useState(false);
   return (
@@ -79,7 +81,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
       <View style={{ flex: 1, paddingVertical: 16, paddingEnd: 16 }}>
         <AppText
           style={{
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 18,
             color: colors.primary,
             textAlign: ta,
@@ -130,6 +132,7 @@ function OccasionCard({ o, displayName, displayDesc, isRTL, ta, onPress }: Occas
 
 function OccasionsScreen() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { count } = useCart();
@@ -222,7 +225,7 @@ function OccasionsScreen() {
             </AppText>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 34,
                 color: "#fff",
                 marginTop: 6,

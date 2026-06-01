@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -46,6 +47,7 @@ type FetchState =
 
 function LoyaltyScreen() {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -124,7 +126,7 @@ function LoyaltyScreen() {
         <AppText
           style={{
             flex: 1,
-            fontFamily: "PlayfairDisplay_500Medium",
+            fontFamily: headingFontMedium,
             fontSize: 20,
             color: "#fff",
             textAlign: isRTL ? "right" : "left",
@@ -218,6 +220,7 @@ function LoyaltyScreen() {
 
 function SummaryCard({ summary }: { summary: LoyaltySummary }) {
   const colors = useColors();
+  const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
   const pct = summary.nextTier
     ? Math.min(
@@ -264,7 +267,7 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
           <View>
             <AppText
               style={{
-                fontFamily: "PlayfairDisplay_500Medium",
+                fontFamily: headingFontMedium,
                 fontSize: 28,
                 color: colors.primary,
               }}

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import type { TranslationKey } from "@/lib/translations";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -28,6 +29,7 @@ const SECTIONS: PrivacySection[] = [
 
 function PrivacyScreen() {
   const colors = useColors();
+  const headingFontSemiBold = useHeadingFont("600SemiBold");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -63,7 +65,7 @@ function PrivacyScreen() {
         <View style={{ flex: 1 }}>
           <AppText
             style={{
-              fontFamily: "PlayfairDisplay_600SemiBold",
+              fontFamily: headingFontSemiBold,
               fontSize: 22,
               color: "#fff",
               textAlign: isRTL ? "right" : "left",
@@ -154,7 +156,7 @@ function PrivacyScreen() {
               <AppText
                 style={{
                   flex: 1,
-                  fontFamily: "PlayfairDisplay_600SemiBold",
+                  fontFamily: headingFontSemiBold,
                   fontSize: 17,
                   color: colors.primary,
                   textAlign: isRTL ? "right" : "left",

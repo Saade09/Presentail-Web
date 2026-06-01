@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { AppText } from "@/components/AppText";
 
 import { useColors } from "@/hooks/useColors";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTypography } from "@/hooks/useTypography";
 
@@ -59,6 +60,7 @@ type SectionTitleProps = {
 export function SectionTitle({ eyebrow, title, description, align = "left", inverse = false }: SectionTitleProps) {
   const colors = useColors();
   const typo = useTypography();
+  const headingFont = useHeadingFont("500Medium");
   const titleColor = inverse ? "#ffffff" : colors.primary;
   const eyebrowColor = inverse ? colors.goldSoft : colors.gold;
   const descColor = inverse ? "rgba(255,255,255,0.78)" : colors.mutedForeground;
@@ -79,7 +81,7 @@ export function SectionTitle({ eyebrow, title, description, align = "left", inve
       ) : null}
       <AppText
         style={{
-          fontFamily: "PlayfairDisplay_500Medium",
+          fontFamily: headingFont,
           fontSize: 30,
           lineHeight: 36,
           color: titleColor,
