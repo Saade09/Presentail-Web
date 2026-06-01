@@ -15,14 +15,7 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
   const { t } = useLocale();
   return (
     <div>
-      <h1
-        className="font-serif text-3xl md:text-4xl leading-tight text-foreground mb-3"
-        data-testid="product-title"
-      >
-        {name}
-      </h1>
-
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-baseline gap-3">
           <span
             className="font-serif text-2xl md:text-3xl text-foreground"
@@ -51,6 +44,13 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
           </span>
         </button>
       </div>
+
+      <h1
+        className="font-serif text-3xl md:text-4xl leading-tight text-foreground"
+        data-testid="product-title"
+      >
+        {name}
+      </h1>
 
       <LoyaltyInfoModal open={open} onClose={() => setOpen(false)} />
     </div>

@@ -243,8 +243,8 @@ export default function ProductDetail() {
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
       <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-4 sm:pt-6 pb-16 sm:pb-20">
-        <div className="grid lg:grid-cols-2 lg:items-start gap-6 sm:gap-8 lg:gap-16">
-          <div className="flex flex-col gap-6 sm:gap-8">
+        <div className="grid lg:grid-cols-2 lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
+          <div className="h-full">
             <ProductGallery
               images={vm.galleryImages}
               productName={product.name}
@@ -252,19 +252,9 @@ export default function ProductDetail() {
               onFavorite={isSignedIn && product ? () => void toggleFavorite(product.id, locationCountry ?? null) : undefined}
               isFavorited={product ? isFavorited(product.id) : false}
             />
-            {/* Description / Care Tips sit directly under the image with
-                no large grid-row gap. On mobile the tabs render below
-                the right-column info block via the order-* override. */}
-            <div className="order-2 lg:order-none">
-              <ProductTabs
-                description={effectiveDescription}
-                bouquetIncludes={vm.bouquetIncludes}
-                careTips={vm.careTips}
-              />
-            </div>
           </div>
 
-          <div className="flex flex-col gap-6 sm:gap-7">
+          <div className="flex flex-col gap-6 sm:gap-7 h-full">
             <ProductInfo
               name={product.name}
               price={formatDisplayPrice(product.priceValue)}
@@ -315,6 +305,11 @@ export default function ProductDetail() {
           </div>
         </div>
 
+        <ProductTabs
+          description={effectiveDescription}
+          bouquetIncludes={vm.bouquetIncludes}
+          careTips={vm.careTips}
+        />
       </div>
 
       <AddToCartUpsellModal
