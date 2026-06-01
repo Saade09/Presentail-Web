@@ -6,6 +6,10 @@ export const homeStrings: Dict = {
   "bestSellers.title": { en: "Best Sellers", ar: "الأكثر مبيعاً" },
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
 
+  "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
+  "collections.boxes.title": { en: "Gift Boxes", ar: "صناديق الهدايا" },
+  "collections.cakes.title": { en: "Celebration Cakes", ar: "كعك الاحتفالات" },
+
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
   "categories.title": { en: "Shop by Category", ar: "تسوّق حسب الفئة" },
   "categories.subtitle": {
@@ -42,6 +46,10 @@ export const homeStringsFr: Record<string, string> = {
   "carousel.next": "Diapositive suivante",
   "bestSellers.title": "Meilleures ventes",
   "bestSellers.viewAll": "Tout voir",
+
+  "collections.summer.title": "Sélections estivales",
+  "collections.boxes.title": "Coffrets cadeaux",
+  "collections.cakes.title": "Gâteaux de fête",
 
   "categories.eyebrow": "Collections sélectionnées",
   "categories.title": "Acheter par catégorie",
