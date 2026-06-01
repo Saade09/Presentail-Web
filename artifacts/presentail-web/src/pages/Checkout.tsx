@@ -234,6 +234,39 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Best-effort: save the typed delivery address to the shopper's profile
+  // when they've toggled "Save this address" and are signed in. Never
+  // blocks the order flow — failures are silently swallowed.
+  const maybeSaveNewAddress = async () => {
+    if (!isSignedIn || !saveAddress || noAddress) return;
+    const district = recipient.district.trim();
+    const addressLine = recipient.address.trim();
+    if (!district || !addressLine) return;
+    const cc = (countryCode ?? "LB").toUpperCase().slice(0, 2);
+    try {
+      await apiFetch("/me/addresses", {
+        method: "POST",
+        body: JSON.stringify({
+          label: "home",
+          countryCode: cc,
+          district,
+          addressLine,
+          building: null,
+          apartment: null,
+          directions: null,
+          nickname: null,
+          recipientFirstName: recipient.firstName.trim() || null,
+          recipientLastName: recipient.lastName.trim() || null,
+          recipientPhone: recipient.phone.trim() || null,
+          recipientPhoneCountryCode: null,
+          isDefault: false,
+        }),
+      });
+    } catch {
+      // best-effort — never block the order
+    }
+  };
+
   // Best-effort: persist the typed WhatsApp number to the profile when
   // a signed-in shopper had no phone on file before this checkout. Never
   // blocks the order flow — failures are logged and swallowed.
@@ -288,6 +321,7 @@ export default function Checkout() {
     });
   };
   const [noAddress, setNoAddress] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
@@ -663,6 +697,10 @@ export default function Checkout() {
 
   const handleSubmit = async () => {
     try {
+      // Fire-and-forget before any redirect so the address is saved even
+      // for hosted-payment flows where we never return to this page.
+      void maybeSaveNewAddress();
+
       const origin = window.location.origin;
       const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       const successUrl = `${origin}${base}/order-confirmed?status=success&pid={CHECKOUT_SESSION_ID}`;
@@ -1090,6 +1128,21 @@ export default function Checkout() {
                         <label className="text-sm font-medium">{t("checkout.address")}</label>
                         <Input value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </div>
+
+                      {isSignedIn && (
+                        <label className="flex items-center gap-3 cursor-pointer select-none mb-1" data-testid="check-save-address-label">
+                          <Switch
+                            checked={saveAddress}
+                            onCheckedChange={setSaveAddress}
+                            data-testid="check-save-address"
+                            aria-label={t("checkout.saveAddress")}
+                          />
+                          <div>
+                            <div className="text-sm font-medium">{t("checkout.saveAddress")}</div>
+                            <div className="text-xs text-muted-foreground">{t("checkout.saveAddressHint")}</div>
+                          </div>
+                        </label>
+                      )}
                     </>
                   )}
 

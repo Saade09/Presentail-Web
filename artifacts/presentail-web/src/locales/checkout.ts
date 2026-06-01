@@ -129,6 +129,8 @@ export const checkoutStrings: Dict = {
   "checkout.securePayments": { en: "100% Secure & Safe Payments", ar: "مدفوعات آمنة 100%" },
   "checkout.placeOrderNow": { en: "Place Order · {amount}", ar: "تأكيد الطلب · {amount}" },
   "checkout.section.payment": { en: "Payment Method", ar: "طريقة الدفع" },
+  "checkout.saveAddress": { en: "Save this address to my profile", ar: "حفظ هذا العنوان في ملفي" },
+  "checkout.saveAddressHint": { en: "Prefilled automatically next time you shop", ar: "يُملأ تلقائياً في مرة القادمة" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -247,4 +249,6 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.securePayments": "Paiements 100 % sécurisés",
   "checkout.placeOrderNow": "Passer la commande · {amount}",
   "checkout.section.payment": "Mode de paiement",
+  "checkout.saveAddress": "Enregistrer cette adresse dans mon profil",
+  "checkout.saveAddressHint": "Préremplie automatiquement lors de votre prochaine commande",
 };
