@@ -31,6 +31,7 @@ import {
   getOsBrands,
   getOsCategories,
   getOsOccasions,
+  registerOnFirstPopulatedCallback,
 } from "./osProductsCache";
 
 const AUDIT_LOG_RETENTION_DAYS = 90;
@@ -841,9 +842,39 @@ export function startSeoAuditMonitor(): void {
     );
   });
 
+  // Register a first-population callback so `validateKeyPageSlugs` fires
+  // immediately when the OS cache transitions from empty → populated for the
+  // first time after startup. This is the primary mechanism: it fires within
+  // seconds of the first successful OS fetch rather than waiting up to an
+  // hour for the hourly setInterval tick to run.
+  //
+  // If the cache is already warm when `startSeoAuditMonitor` is called (e.g.
+  // the monitor is started after the cache), `registerOnFirstPopulatedCallback`
+  // schedules the call on the next microtask — so the coverage check always
+  // fires at least once before the first hourly tick.
+  registerOnFirstPopulatedCallback(() => {
+    validateKeyPageSlugs().catch((err) => {
+      logger.warn(
+        { err: (err as Error)?.message },
+        "seoAuditMonitor: first-population catalog coverage check failed",
+      );
+    });
+  });
+
   // Run once shortly after boot so we don't wait up to an hour on a server
-  // that restarts just after midnight UTC.
+  // that restarts just after midnight UTC. Also run the catalog coverage check
+  // here as a belt-and-suspenders fallback: if the OS API was unreachable
+  // during the first-population window and the cache is still cold at 90 s,
+  // the coverage check will log "not yet populated" (no alert), and the
+  // hourly tick will retry. If the cache is warm by 90 s this call is a
+  // harmless no-op (dedup flag prevents a duplicate alert).
   const baseline = setTimeout(() => {
+    validateKeyPageSlugs().catch((err) => {
+      logger.warn(
+        { err: (err as Error)?.message },
+        "seoAuditMonitor: startup catalog coverage check failed",
+      );
+    });
     runOnce().catch((err) => {
       logger.warn(
         { err: (err as Error)?.message },

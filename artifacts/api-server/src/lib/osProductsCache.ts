@@ -105,6 +105,68 @@ let cachedOccasions: OSProductOccasion[] | null = null;
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
+// ── First-population callback ───────────────────────────────────────────────
+
+/**
+ * Callback to invoke exactly once when the OS product cache transitions from
+ * empty → populated for the first time after startup (or after a reset).
+ * Cleared immediately after firing so it cannot run twice.
+ */
+let onFirstPopulatedCallback: (() => void) | null = null;
+
+/**
+ * Whether the first-populated callback has already fired. Once set to true
+ * subsequent calls to `fetchAndStore` do not re-fire it even if the cache
+ * was populated before this flag was checked.
+ */
+let firstPopulatedFired = false;
+
+/**
+ * Register a function to be called exactly once the next time the OS product
+ * cache successfully transitions from empty → populated.
+ *
+ * If the cache is already populated when this is called the function is
+ * scheduled on the next microtask so callers never need to handle synchronous
+ * execution ordering.
+ *
+ * Registering a second time before the cache first populates overwrites the
+ * previous registration.
+ *
+ * Intended for monitors (e.g. `seoAuditMonitor`) that need to run a check
+ * immediately after the first successful OS fetch, without relying on a
+ * fixed-interval timer.
+ */
+export function registerOnFirstPopulatedCallback(fn: () => void): void {
+  if (firstPopulatedFired) {
+    // Cache already warm — fire asynchronously so callers don't need to
+    // handle synchronous execution ordering.
+    Promise.resolve().then(fn).catch(() => undefined);
+    return;
+  }
+  onFirstPopulatedCallback = fn;
+}
+
+/**
+ * Reset first-populated callback state. Only call from tests.
+ */
+export function __resetFirstPopulatedForTest(): void {
+  onFirstPopulatedCallback = null;
+  firstPopulatedFired = false;
+}
+
+/**
+ * Simulate the first-populated event in tests without a real OS fetch.
+ * Fires the registered callback (if any) exactly once and marks the state
+ * as having fired.
+ */
+export function __triggerFirstPopulatedForTest(): void {
+  if (firstPopulatedFired) return;
+  firstPopulatedFired = true;
+  const fn = onFirstPopulatedCallback;
+  onFirstPopulatedCallback = null;
+  fn?.();
+}
+
 /** UTC date (YYYY-MM-DD) of the most recently persisted daily snapshot, or null. */
 let lastPersistedSnapshotDate: string | null = null;
 
@@ -515,6 +577,18 @@ async function fetchAndStore(): Promise<void> {
     if (occasionsResp.status === "fulfilled") {
       const occasions = occasionsResp.value.occasions ?? [];
       if (occasions.length > 0) cachedOccasions = occasions;
+    }
+
+    // ── First-population callback ─────────────────────────────────────────
+    // Fire exactly once when the cache transitions empty → populated. Placed
+    // after all store and taxonomy updates so the callback sees a fully
+    // consistent cache state (hasOsProducts(), getOsBrands(), etc. all
+    // reflect the current fetch before the callback runs).
+    if (!firstPopulatedFired && storeCache.size > 0 && onFirstPopulatedCallback) {
+      firstPopulatedFired = true;
+      const fn = onFirstPopulatedCallback;
+      onFirstPopulatedCallback = null;
+      fn();
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

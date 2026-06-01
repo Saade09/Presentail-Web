@@ -38,6 +38,9 @@ vi.mock("../src/lib/osProductsCache", () => ({
   getOsBrands: () => getOsBrandsMock(),
   getOsCategories: () => getOsCategoriesMock(),
   getOsOccasions: () => getOsOccasionsMock(),
+  // seoAuditMonitor imports this but tests exercise validateKeyPageSlugs
+  // directly; the callback mechanism is covered by the integration test suite.
+  registerOnFirstPopulatedCallback: vi.fn(),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -297,6 +300,92 @@ describe("buildKeyPages", () => {
     const second = buildKeyPages()!;
     expect(second.some((p) => p.url.includes("white-tulips"))).toBe(true);
     expect(second.some((p) => p.url.includes("red-roses"))).toBe(false);
+  });
+});
+
+// ── Suite: startup-time validation ───────────────────────────────────────────
+//
+// Verifies that `validateKeyPageSlugs` behaves correctly when called eagerly
+// at startup (as `startSeoAuditMonitor` now does in the 90-second baseline
+// timer), rather than only on the hourly interval tick.
+
+describe("startup-time validation", () => {
+  beforeEach(() => {
+    sendAlertMock.mockReset();
+    loggerWarnMock.mockReset();
+    loggerInfoMock.mockReset();
+    hasOsProductsMock.mockReset();
+    getOsProductsMock.mockReset();
+    getOsBrandsMock.mockReset();
+    getOsCategoriesMock.mockReset();
+    getOsOccasionsMock.mockReset();
+    __resetForTest();
+  });
+
+  it("fires the Slack alert exactly once when an empty catalog is detected at startup", async () => {
+    // Simulate the OS cache having just populated with missing entity types
+    // (e.g. a deploy that shipped with a broken catalog endpoint).
+    setupEmptyCatalog();
+
+    // Startup-time eager call (mirrors what startSeoAuditMonitor now does in
+    // the 90-second baseline timer instead of only in the hourly setInterval).
+    await validateKeyPageSlugs();
+
+    expect(sendAlertMock).toHaveBeenCalledOnce();
+    const alert = sendAlertMock.mock.calls[0][0];
+    expect(alert.severity).toBe("warn");
+    expect(alert.title).toMatch(/OS catalog missing entries/);
+    expect(alert.source).toBe("seoAuditMonitor.validateKeyPageSlugs");
+  });
+
+  it("deduplicates on all subsequent hourly ticks after the startup alert", async () => {
+    setupEmptyCatalog();
+
+    // Startup eager call fires the alert.
+    await validateKeyPageSlugs();
+    expect(sendAlertMock).toHaveBeenCalledOnce();
+
+    // Hourly ticks with the same empty catalog must NOT re-fire.
+    for (let tick = 1; tick <= 3; tick++) {
+      sendAlertMock.mockReset();
+      loggerWarnMock.mockReset();
+      await validateKeyPageSlugs();
+      expect(sendAlertMock).not.toHaveBeenCalled();
+      expect(loggerWarnMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("is a no-op at startup when the OS cache is not yet populated and does not fire an alert", async () => {
+    // The OS cache may not have responded yet by the time the 90-second timer
+    // fires if OS is slow. validateKeyPageSlugs must skip gracefully so the
+    // hourly tick can catch it later once the cache is warm.
+    hasOsProductsMock.mockReturnValue(false);
+
+    await validateKeyPageSlugs();
+
+    expect(sendAlertMock).not.toHaveBeenCalled();
+    expect(loggerWarnMock).not.toHaveBeenCalled();
+  });
+
+  it("fires a fresh alert after catalog recovers and then empties again (across restarts)", async () => {
+    // First boot: empty catalog → alert fires.
+    setupEmptyCatalog();
+    await validateKeyPageSlugs();
+    expect(sendAlertMock).toHaveBeenCalledOnce();
+
+    // Catalog recovers (next polling tick populates data).
+    sendAlertMock.mockReset();
+    setupHealthyCatalog();
+    await validateKeyPageSlugs();
+    expect(sendAlertMock).not.toHaveBeenCalled();
+
+    // Second startup (process restart clears module state via __resetForTest,
+    // which mirrors what NODE_ENV=test cleanup does). Catalog is empty again.
+    sendAlertMock.mockReset();
+    __resetForTest();
+    setupEmptyCatalog();
+    await validateKeyPageSlugs();
+    expect(sendAlertMock).toHaveBeenCalledOnce();
   });
 });
 
