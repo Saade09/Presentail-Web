@@ -287,22 +287,6 @@ export default function SignUpPage() {
             >
               {busy ? t("checkout.processing") : t("auth.signup")}
             </Button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              {t("auth.noAccount")}
-              <button
-                type="button"
-                onClick={() =>
-                  setLocation(
-                    `/sign-in${email ? `?email_address=${encodeURIComponent(email)}` : ""}`,
-                  )
-                }
-                className="text-primary hover:underline font-medium"
-                data-testid="link-signup-signin"
-              >
-                {t("auth.signIn")}
-              </button>
-            </p>
           </div>
         ) : (
           <div className="space-y-4">
