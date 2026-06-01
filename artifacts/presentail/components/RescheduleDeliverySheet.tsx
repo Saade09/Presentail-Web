@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -279,6 +280,17 @@ export function RescheduleDeliverySheet({
             {openedFromExpress && (
               <Feather name="check" size={16} color="#fff" />
             )}
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); Alert.alert(t.expressInfoPopupTitle, t.expressInfoPopupBody); }}
+              hitSlop={8}
+              style={{ position: "absolute", top: 8, right: 8 }}
+            >
+              <Feather
+                name="info"
+                size={14}
+                color={openedFromExpress ? "rgba(255,255,255,0.7)" : colors.mutedForeground}
+              />
+            </Pressable>
           </Pressable>
         </View>
 

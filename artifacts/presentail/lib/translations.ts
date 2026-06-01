@@ -448,6 +448,8 @@ const EN = {
   rescheduleCancel: "Cancel",
   rescheduleExpressTile: "Express Delivery · 1–3 hrs",
   rescheduleExpressUnavailable: "Not available right now",
+  expressInfoPopupTitle: "Express Delivery",
+  expressInfoPopupBody: "Express is premium delivery delivered within 90 minutes.",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Order Summary",
@@ -1224,6 +1226,8 @@ const AR: typeof EN = {
   rescheduleCancel: "إلغاء",
   rescheduleExpressTile: "توصيل سريع · 1–3 ساعات",
   rescheduleExpressUnavailable: "غير متاح الآن",
+  expressInfoPopupTitle: "التوصيل السريع",
+  expressInfoPopupBody: "التوصيل السريع هو خدمة توصيل مميزة تصل خلال 90 دقيقة.",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "ملخص الطلب",
@@ -1994,6 +1998,8 @@ const FR: typeof EN = {
   rescheduleCancel: "Annuler",
   rescheduleExpressTile: "Livraison express · 1–3 h",
   rescheduleExpressUnavailable: "Non disponible pour le moment",
+  expressInfoPopupTitle: "Livraison express",
+  expressInfoPopupBody: "La livraison express est une livraison premium effectuée en 90 minutes.",
 
   // ── Checkout additions ──
   checkoutOrderSummaryCard: "Récapitulatif",

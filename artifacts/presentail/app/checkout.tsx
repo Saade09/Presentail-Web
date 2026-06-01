@@ -2215,7 +2215,7 @@ function DeliveryDetailsStep(props: any) {
   );
 }
 
-function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled, onPress }: any) {
+function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled, onPress, onInfoPress }: any) {
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -2230,6 +2230,15 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
         opacity: disabled ? 0.55 : 1,
       }}
     >
+      {onInfoPress ? (
+        <Pressable
+          onPress={(e) => { e.stopPropagation(); onInfoPress(); }}
+          hitSlop={8}
+          style={{ position: "absolute", top: 6, right: 6 }}
+        >
+          <Feather name="info" size={13} color={colors.mutedForeground} />
+        </Pressable>
+      ) : null}
       {icon ? (
         <Feather name={icon} size={14} color={disabled ? colors.mutedForeground : active ? colors.primary : colors.mutedForeground} />
       ) : null}
@@ -2267,6 +2276,7 @@ function DeliveryTimeCard({
           active={deliveryMode === "express"}
           disabled={!expressAvailable}
           onPress={() => setDeliveryMode("express")}
+          onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, t.expressInfoPopupBody)}
         />
         <DeliveryTile
           colors={colors}
