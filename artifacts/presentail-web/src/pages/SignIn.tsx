@@ -489,17 +489,6 @@ export default function SignInPage() {
             </div>
           </div>
         )}
-
-        <p className="text-xs text-center text-muted-foreground mt-6">
-          {t("auth.noAccount")}
-          <a
-            href={`${base}/sign-up`}
-            className="text-primary hover:underline"
-            data-testid="link-signin-to-signup"
-          >
-            {t("auth.signup")}
-          </a>
-        </p>
       </div>
     </div>
   );
