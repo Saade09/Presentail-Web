@@ -1,5 +1,6 @@
 import {
   useGetDeliveryConfig,
+  getGetDeliveryConfigQueryKey,
 } from "@workspace/api-client-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -42,10 +43,13 @@ export function useDeliveryConfig(): DeliveryConfig {
 
   const fallbackUsd = hardcodedThresholdUsd(cc);
 
-  const query = useGetDeliveryConfig(
-    { countryCode: cc, ...(cityId ? { cityId } : {}) },
-    { query: { staleTime: 5 * 60 * 1000 } },
-  );
+  const queryParams = { countryCode: cc, ...(cityId ? { cityId } : {}) };
+  const query = useGetDeliveryConfig(queryParams, {
+    query: {
+      queryKey: getGetDeliveryConfigQueryKey(queryParams),
+      staleTime: 5 * 60 * 1000,
+    },
+  });
 
   if (!query.data) {
     return {

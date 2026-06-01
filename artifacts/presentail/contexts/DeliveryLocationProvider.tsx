@@ -148,6 +148,16 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     loadLocations();
   }, [loadLocations]);
 
+  // Background poll: re-fetch delivery locations every 10 minutes so city
+  // availability and delivery fees reflect the latest OS data without needing
+  // the user to restart the app.
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadLocations().catch(() => {});
+    }, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [loadLocations]);
+
   // Kick off country detection in parallel with the locations fetch so the
   // first paint can pick the right delivery store (and therefore the right
   // currency / payment methods) without the user opening the country sheet.

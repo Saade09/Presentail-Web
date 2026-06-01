@@ -123,6 +123,11 @@ export const useDeliveryLocations = () => {
       }));
       return { ...data, countries };
     },
+    // Poll every 10 minutes so city availability, fees, and free-delivery
+    // thresholds from Presentail OS propagate to the web app automatically
+    // without a page reload.
+    staleTime: 10 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
   });
 };
 

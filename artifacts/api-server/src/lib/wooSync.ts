@@ -10,6 +10,7 @@ import {
   getOsProductHash,
   persistDailySnapshotIfNeeded,
 } from "./osProductsCache";
+import { consumeLocationsChanged } from "./osLocationsCache";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -87,9 +88,19 @@ export async function runWooSyncOnce(
       logger.warn({ err: err?.message }, "wooSync: banners refresh crashed");
     }
 
+    // Delivery-location changes (fees, thresholds, city enable/disable) are
+    // global — check once per tick and notify all stores so every device
+    // re-fetches its delivery config.
+    let locationsChanged = false;
+    try {
+      locationsChanged = consumeLocationsChanged();
+    } catch (err: any) {
+      logger.warn({ err: err?.message }, "wooSync: locations hash check failed");
+    }
+
     for (const spec of STORES) {
       const store = spec.resolve();
-      await syncOneStore(spec, store, { bannersChanged, pushOnChange });
+      await syncOneStore(spec, store, { bannersChanged, locationsChanged, pushOnChange });
     }
 
     // Persist today's product prices to the DB once per UTC day so the
@@ -152,7 +163,7 @@ export function stopWooSyncWorker(): void {
 async function syncOneStore(
   spec: StoreSpec,
   store: WooStoreConfig,
-  ctx: { bannersChanged: boolean; pushOnChange: boolean },
+  ctx: { bannersChanged: boolean; locationsChanged: boolean; pushOnChange: boolean },
 ): Promise<void> {
   const t0 = Date.now();
   let reconciledCustomers = 0;
@@ -196,7 +207,9 @@ async function syncOneStore(
   const osProductHash = getOsProductHash(spec.storeKey);
   const snapshot: Snapshot = { osProductHash };
   const prev = lastSnapshot.get(spec.key);
-  const contentChanged = !!prev && prev.osProductHash !== snapshot.osProductHash;
+  const contentChanged =
+    !!prev &&
+    (prev.osProductHash !== snapshot.osProductHash || ctx.locationsChanged);
   lastSnapshot.set(spec.key, snapshot);
 
   const shouldPush =
@@ -208,6 +221,7 @@ async function syncOneStore(
       reconciledCustomers,
       contentChanged,
       bannersChanged: ctx.bannersChanged,
+      locationsChanged: ctx.locationsChanged,
       durationMs: Date.now() - t0,
     },
     "wooSync: store synced",

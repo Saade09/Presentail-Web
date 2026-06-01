@@ -106,6 +106,39 @@ let cityIndex = new Map<string, CachedCity>();
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
+/** Change-detection: tracks key delivery fields across OS polls. */
+let lastLocationsSignature: string | null = null;
+let locationsChangedFlag = false;
+
+/** Stable digest of the fields that matter for delivery rate / availability changes. */
+function locationsSignature(countries: CachedCountry[]): string {
+  return JSON.stringify(
+    countries.map((c) => ({
+      id: c.id,
+      code: c.code,
+      isActive: c.isActive,
+      cities: c.cities.map((city) => ({
+        id: city.id,
+        isActive: city.isActive,
+        fee: city.fee,
+        freeDeliveryThresholdUsd: city.freeDeliveryThresholdUsd,
+        freeDeliveryEnabled: city.freeDeliveryEnabled,
+      })),
+    })),
+  );
+}
+
+/**
+ * Returns true (and resets the flag) when the OS delivery-locations payload
+ * has changed since the last time this function was called.
+ * Designed to be called once per wooSync tick.
+ */
+export function consumeLocationsChanged(): boolean {
+  const changed = locationsChangedFlag;
+  locationsChangedFlag = false;
+  return changed;
+}
+
 // ── Transform helpers ──────────────────────────────────────────────────────
 
 function buildCityIndex(countries: CachedCountry[]): Map<string, CachedCity> {
@@ -318,8 +351,13 @@ async function fetchAndStore(): Promise<void> {
     const countries = transformOsResponse(resp);
     cachedCountries = countries;
     cityIndex = buildCityIndex(countries);
+    const sig = locationsSignature(countries);
+    if (lastLocationsSignature !== null && lastLocationsSignature !== sig) {
+      locationsChangedFlag = true;
+    }
+    lastLocationsSignature = sig;
     logger.info(
-      { countryCount: countries.length },
+      { countryCount: countries.length, locationsChanged: locationsChangedFlag },
       "osLocationsCache: locations refreshed from Presentail OS",
     );
   } catch (err: unknown) {

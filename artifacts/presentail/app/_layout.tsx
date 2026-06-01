@@ -115,6 +115,9 @@ function DataRefreshPushListener() {
       qc.invalidateQueries({ queryKey: ["/api/homepage/categories"] });
       qc.invalidateQueries({ queryKey: ["/api/homepage/occasions"] });
       qc.invalidateQueries({ queryKey: ["/api/homepage/banners"] });
+      // Re-fetch per-city delivery config so free-delivery thresholds and
+      // city availability reflect the latest OS data after a content push.
+      qc.invalidateQueries({ queryKey: ["/api/delivery-config"] });
     };
     const sub = Notifications.addNotificationReceivedListener((notif) => {
       const data = notif?.request?.content?.data ?? {};
