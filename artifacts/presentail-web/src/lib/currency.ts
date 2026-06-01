@@ -36,7 +36,7 @@ const FALLBACK_SNAPSHOT: CurrencySnapshot = {
       symbol: "$",
       symbolPosition: "left",
       spaceBetween: false,
-      decimals: 2,
+      decimals: 0,
     },
   ],
   fallbackCode: "USD",
@@ -54,7 +54,7 @@ function buildFormatTable(snap: CurrencySnapshot): Record<string, CurrencyConfig
       symbol: c.symbol,
       position: c.symbolPosition,
       space: c.spaceBetween,
-      decimals: WEB_DECIMAL_OVERRIDES[c.code] ?? 2,
+      decimals: WEB_DECIMAL_OVERRIDES[c.code] ?? c.decimals,
     };
   }
   return out;
@@ -96,7 +96,7 @@ function configFor(currencyCode: string | null | undefined): CurrencyConfig {
     symbol: "$",
     position: "left",
     space: false,
-    decimals: 2,
+    decimals: 0,
   };
 }
 

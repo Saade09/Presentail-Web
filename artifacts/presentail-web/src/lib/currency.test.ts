@@ -40,7 +40,7 @@ const TEST_SNAPSHOT: CurrencySnapshot = {
       symbol: "$",
       symbolPosition: "left",
       spaceBetween: false,
-      decimals: 2,
+      decimals: 0,
     },
     {
       code: "AED",
@@ -48,7 +48,7 @@ const TEST_SNAPSHOT: CurrencySnapshot = {
       symbol: "AED",
       symbolPosition: "right",
       spaceBetween: true,
-      decimals: 2,
+      decimals: 0,
     },
     {
       code: "EUR",
@@ -56,7 +56,7 @@ const TEST_SNAPSHOT: CurrencySnapshot = {
       symbol: "€",
       symbolPosition: "left",
       spaceBetween: false,
-      decimals: 2,
+      decimals: 0,
     },
     {
       code: "GBP",
@@ -64,7 +64,7 @@ const TEST_SNAPSHOT: CurrencySnapshot = {
       symbol: "£",
       symbolPosition: "left",
       spaceBetween: false,
-      decimals: 2,
+      decimals: 0,
     },
     {
       code: "KWD",
@@ -86,29 +86,28 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("formatPriceInCurrency — symbol placement", () => {
-  it("left-symbol, no space: $50.00", () => {
+  it("left-symbol, no space: $50", () => {
     expect(formatPriceInCurrency(50, "USD")).toBe("$50");
   });
 
-  it("left-symbol, no space, fractional value: $49.99", () => {
-    expect(formatPriceInCurrency(49.99, "USD")).toBe("$49.99");
+  it("left-symbol, no space, fractional value rounds to nearest whole: $50", () => {
+    expect(formatPriceInCurrency(49.99, "USD")).toBe("$50");
   });
 
   it("right-symbol, with space: '100 AED'", () => {
     expect(formatPriceInCurrency(100, "AED")).toBe("100 AED");
   });
 
-  it("right-symbol fractional: '49.50 AED'", () => {
-    // toFixed(2) → "49.50"; /\.0+$/ only strips all-zero decimals, not "50"
-    expect(formatPriceInCurrency(49.5, "AED")).toBe("49.50 AED");
+  it("right-symbol fractional rounds to nearest whole: '50 AED'", () => {
+    expect(formatPriceInCurrency(49.5, "AED")).toBe("50 AED");
   });
 
   it("left-symbol euro: '€75'", () => {
     expect(formatPriceInCurrency(75, "EUR")).toBe("€75");
   });
 
-  it("left-symbol pound: '£99.99'", () => {
-    expect(formatPriceInCurrency(99.99, "GBP")).toBe("£99.99");
+  it("left-symbol pound, fractional rounds to nearest whole: '£100'", () => {
+    expect(formatPriceInCurrency(99.99, "GBP")).toBe("£100");
   });
 });
 
@@ -118,13 +117,13 @@ describe("formatPriceInCurrency — decimal stripping", () => {
     expect(formatPriceInCurrency(100, "EUR")).toBe("€100");
   });
 
-  it("preserves non-zero decimals when present (toFixed(2) → '$10.50')", () => {
-    // /\.0+$/ strips ".00" but not ".50" — both non-zero digits are kept
-    expect(formatPriceInCurrency(10.5, "USD")).toBe("$10.50");
+  it("rounds fractional amounts to whole number (decimals:0 → toFixed(0))", () => {
+    // USD has decimals:0 — 10.5 rounds to 11, strip has nothing to strip
+    expect(formatPriceInCurrency(10.5, "USD")).toBe("$11");
   });
 
-  it("preserves two decimal places when non-zero", () => {
-    expect(formatPriceInCurrency(10.99, "USD")).toBe("$10.99");
+  it("rounds up when fraction ≥ 0.5", () => {
+    expect(formatPriceInCurrency(10.99, "USD")).toBe("$11");
   });
 });
 
