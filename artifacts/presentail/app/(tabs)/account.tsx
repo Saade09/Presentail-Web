@@ -638,7 +638,7 @@ function AccountTab() {
       >
         <Text style={{ fontFamily: headingFontMedium, fontSize: 22, color: "#fff" }}>
           {t.accountMyAccount}
-        </AppText>
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 120 }}>

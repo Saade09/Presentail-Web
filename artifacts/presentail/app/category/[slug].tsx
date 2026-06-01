@@ -285,7 +285,7 @@ function CategoryScreen() {
         <Feather name="inbox" size={28} color={colors.mutedForeground} />
         <Text style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 20, textAlign: "center" }}>
           {t.categorySoldOutTitle}
-        </AppText>
+        </Text>
         <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
           {t.categorySoldOutDesc}
         </AppText>

@@ -217,7 +217,7 @@ export function MainNavbar() {
   }, [activeMenu]);
 
   return (
-    <div ref={wrapperRef} className="bg-background relative border-b border-border">
+    <div ref={wrapperRef} className="bg-white relative border-b border-gray-200">
       <div className="container mx-auto px-4 h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
 
         {/* ── Left: nav ────────────────────────────────────── */}
@@ -278,7 +278,7 @@ export function MainNavbar() {
                 aria-haspopup="true"
                 aria-expanded={activeMenu === menu.key}
                 data-testid={`nav-trigger-${menu.key}`}
-                className={`text-sm font-medium flex items-center gap-0.5 transition-colors py-1 ${
+                className={`text-sm font-semibold flex items-center gap-0.5 transition-colors py-1 ${
                   activeMenu === menu.key ? "text-primary" : "text-foreground hover:text-primary/80"
                 }`}
               >

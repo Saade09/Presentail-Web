@@ -401,7 +401,7 @@ function CatalogScreen() {
       <Feather name="search" size={28} color={colors.mutedForeground} />
       <Text style={{ fontFamily: headingFontRegular, color: colors.primary, fontSize: 18, textAlign: "center" }}>
         {t.noMatches}
-      </AppText>
+      </Text>
       <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13, textAlign: "center" }}>
         {t.noMatchesDesc}
       </AppText>

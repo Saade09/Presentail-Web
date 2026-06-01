@@ -271,10 +271,10 @@ function Row({ colors, icon, label, value, highlight }: any) {
       <View style={{ flex: 1 }}>
         <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: colors.mutedForeground }}>
           {label}
-        </Text>
+        </AppText>
         <Text style={{ fontFamily: highlight ? headingFontMedium : "Inter_500Medium", fontSize: highlight ? 18 : 14, color: colors.primary, marginTop: 2 }}>
           {value}
-        </AppText>
+        </Text>
       </View>
     </View>
   );
