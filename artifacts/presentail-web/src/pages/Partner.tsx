@@ -1,5 +1,5 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
-import { Button } from "@/components/ui/button";
+import PartnerForm from "@/components/PartnerForm";
 
 type Copy = {
   eyebrow: string;
@@ -9,13 +9,7 @@ type Copy = {
   why: { title: string; body: string }[];
   whoHeading: string;
   who: string[];
-  ctaHeading: string;
-  ctaBody: string;
-  ctaButton: string;
-  ctaSubject: string;
 };
-
-const PARTNER_EMAIL = "partners@presentail.com";
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -44,11 +38,6 @@ const COPY: Record<Language, Copy> = {
       "Chocolatiers, patissiers and bakers with consistent same-day production.",
       "Lifestyle, beauty and home brands that pair well with a gift moment.",
     ],
-    ctaHeading: "Tell us about your atelier",
-    ctaBody:
-      "Send us a short note about what you make, where you're based, and links to your work. We reply within a week.",
-    ctaButton: "Email partnerships",
-    ctaSubject: "Partner with Presentail",
   },
   ar: {
     eyebrow: "كن شريكاً معنا",
@@ -76,11 +65,6 @@ const COPY: Record<Language, Copy> = {
       "صنّاع شوكولاتة ومعجّنات ومخابز بإنتاج يومي ثابت.",
       "علامات نمط حياة وجمال ومنزل تناسب لحظة الإهداء.",
     ],
-    ctaHeading: "حدّثنا عن أتيليهك",
-    ctaBody:
-      "أرسل لنا رسالة قصيرة عمّا تصنعه ومكان إقامتك وروابط لأعمالك. نردّ خلال أسبوع.",
-    ctaButton: "راسل قسم الشراكات",
-    ctaSubject: "شراكة مع بريزانتيل",
   },
   fr: {
     eyebrow: "Devenir partenaire",
@@ -108,18 +92,12 @@ const COPY: Record<Language, Copy> = {
       "Chocolatiers, pâtissiers et boulangers avec une production fiable le jour même.",
       "Marques art de vivre, beauté et maison qui s'accordent à un moment cadeau.",
     ],
-    ctaHeading: "Parlez-nous de votre atelier",
-    ctaBody:
-      "Envoyez-nous un court message sur ce que vous créez, où vous êtes basé(e) et des liens vers votre travail. Nous répondons sous une semaine.",
-    ctaButton: "Écrire à l'équipe partenariats",
-    ctaSubject: "Partenariat avec Presentail",
   },
 };
 
 export default function Partner() {
   const { language } = useLocale();
   const c = COPY[language] ?? COPY.en;
-  const mailto = `mailto:${PARTNER_EMAIL}?subject=${encodeURIComponent(c.ctaSubject)}`;
 
   return (
     <div className="bg-background" data-testid="partner-page" lang={language}>
@@ -166,15 +144,8 @@ export default function Partner() {
       </section>
 
       <section className="container mx-auto px-4 pb-20 md:pb-24 max-w-4xl">
-        <div className="rounded-lg bg-primary text-primary-foreground p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-serif mb-3">
-            {c.ctaHeading}
-          </h2>
-          <p className="opacity-90 mb-6 max-w-xl mx-auto">{c.ctaBody}</p>
-          <a href={mailto} data-testid="partner-cta-email">
-            <Button variant="secondary">{c.ctaButton}</Button>
-          </a>
-          <p className="mt-4 text-sm opacity-80">{PARTNER_EMAIL}</p>
+        <div className="rounded-lg border border-border bg-card p-8 md:p-12">
+          <PartnerForm />
         </div>
       </section>
     </div>

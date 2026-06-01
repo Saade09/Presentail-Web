@@ -1366,3 +1366,33 @@ export const RemoveFavoriteParams = zod.object({
 export const RemoveFavoriteResponse = zod.object({
   ok: zod.boolean(),
 });
+
+/**
+ * Accepts a multipart/form-data partner application form including two
+file uploads (brand profile PDF/image, product list PDF/Excel/Word).
+Stores the submission in the database and attempts to send an email
+notification to the partnerships team. Email delivery is best-effort
+and gated on SMTP configuration — the row is always saved regardless.
+
+ * @summary Submit a partner application
+ */
+export const SubmitPartnerApplicationBody = zod.object({
+  country: zod.string(),
+  city: zod.string(),
+  brandName: zod.string(),
+  website: zod.string(),
+  categories: zod.array(zod.string()),
+  otherCategory: zod.string().optional(),
+  socialMedia: zod.string().optional(),
+  contactFirstName: zod.string(),
+  contactLastName: zod.string(),
+  contactRole: zod.string(),
+  email: zod.string().email(),
+  dialCode: zod.string(),
+  phone: zod.string(),
+});
+
+export const SubmitPartnerApplicationResponse = zod.object({
+  ok: zod.boolean(),
+  id: zod.number(),
+});

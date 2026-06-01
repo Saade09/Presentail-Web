@@ -69,6 +69,8 @@ export * from "./loyaltySummary";
 export * from "./loyaltyTier";
 export * from "./loyaltyTierKey";
 export * from "./orderEventState";
+export * from "./partnerApplicationInput";
+export * from "./partnerApplicationResponse";
 export * from "./pushOrderEventRequest";
 export * from "./pushOrderEventResponse";
 export * from "./pushPlatform";

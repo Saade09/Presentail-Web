@@ -109,6 +109,7 @@ import { orderStrings, orderStringsFr } from "./order";
 import { seoStrings, seoStringsFr } from "./seo";
 import { footerStrings, footerStringsFr } from "./footer";
 import { commonStrings, commonStringsFr } from "./common";
+import { partnerStrings, partnerStringsFr } from "./partner";
 
 export type { Dict };
 
@@ -126,6 +127,7 @@ export const STRINGS: Dict = {
   ...seoStrings,
   ...footerStrings,
   ...commonStrings,
+  ...partnerStrings,
 };
 
 export const STRINGS_FR: Record<string, string> = {
@@ -142,4 +144,5 @@ export const STRINGS_FR: Record<string, string> = {
   ...seoStringsFr,
   ...footerStringsFr,
   ...commonStringsFr,
+  ...partnerStringsFr,
 };

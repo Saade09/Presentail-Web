@@ -5,6 +5,27 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PartnerApplicationInput {
+  country: string;
+  city: string;
+  brandName: string;
+  website: string;
+  categories: string[];
+  otherCategory?: string;
+  socialMedia?: string;
+  contactFirstName: string;
+  contactLastName: string;
+  contactRole: string;
+  email: string;
+  dialCode: string;
+  phone: string;
+}
+
+export interface PartnerApplicationResponse {
+  ok: boolean;
+  id: number;
+}
+
 export interface HealthStatus {
   status: string;
 }

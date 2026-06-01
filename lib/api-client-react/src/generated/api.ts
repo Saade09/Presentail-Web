@@ -47,6 +47,8 @@ import type {
   HomepageCollectionResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
+  PartnerApplicationInput,
+  PartnerApplicationResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -2727,4 +2729,120 @@ export const useRemoveFavorite = <
   TContext
 > => {
   return useMutation(getRemoveFavoriteMutationOptions(options));
+};
+
+/**
+ * Accepts a multipart/form-data partner application form including two
+file uploads (brand profile PDF/image, product list PDF/Excel/Word).
+Stores the submission in the database and attempts to send an email
+notification to the partnerships team. Email delivery is best-effort
+and gated on SMTP configuration — the row is always saved regardless.
+
+ * @summary Submit a partner application
+ */
+export const getSubmitPartnerApplicationUrl = () => {
+  return `/api/partner-application`;
+};
+
+export const submitPartnerApplication = async (
+  partnerApplicationInput: PartnerApplicationInput,
+  options?: RequestInit,
+): Promise<PartnerApplicationResponse> => {
+  const formData = new FormData();
+  formData.append(`country`, partnerApplicationInput.country);
+  formData.append(`city`, partnerApplicationInput.city);
+  formData.append(`brandName`, partnerApplicationInput.brandName);
+  formData.append(`website`, partnerApplicationInput.website);
+  partnerApplicationInput.categories.forEach((value) =>
+    formData.append(`categories`, value),
+  );
+  if (partnerApplicationInput.otherCategory !== undefined) {
+    formData.append(`otherCategory`, partnerApplicationInput.otherCategory);
+  }
+  if (partnerApplicationInput.socialMedia !== undefined) {
+    formData.append(`socialMedia`, partnerApplicationInput.socialMedia);
+  }
+  formData.append(`contactFirstName`, partnerApplicationInput.contactFirstName);
+  formData.append(`contactLastName`, partnerApplicationInput.contactLastName);
+  formData.append(`contactRole`, partnerApplicationInput.contactRole);
+  formData.append(`email`, partnerApplicationInput.email);
+  formData.append(`dialCode`, partnerApplicationInput.dialCode);
+  formData.append(`phone`, partnerApplicationInput.phone);
+
+  return customFetch<PartnerApplicationResponse>(
+    getSubmitPartnerApplicationUrl(),
+    {
+      ...options,
+      method: "POST",
+      body: formData,
+    },
+  );
+};
+
+export const getSubmitPartnerApplicationMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPartnerApplication>>,
+    TError,
+    { data: BodyType<PartnerApplicationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitPartnerApplication>>,
+  TError,
+  { data: BodyType<PartnerApplicationInput> },
+  TContext
+> => {
+  const mutationKey = ["submitPartnerApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitPartnerApplication>>,
+    { data: BodyType<PartnerApplicationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitPartnerApplication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitPartnerApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitPartnerApplication>>
+>;
+export type SubmitPartnerApplicationMutationBody =
+  BodyType<PartnerApplicationInput>;
+export type SubmitPartnerApplicationMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a partner application
+ */
+export const useSubmitPartnerApplication = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPartnerApplication>>,
+    TError,
+    { data: BodyType<PartnerApplicationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitPartnerApplication>>,
+  TError,
+  { data: BodyType<PartnerApplicationInput> },
+  TContext
+> => {
+  return useMutation(getSubmitPartnerApplicationMutationOptions(options));
 };

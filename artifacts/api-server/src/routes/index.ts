@@ -25,6 +25,7 @@ import favoritesRouter from "./favorites";
 import osWebhookRouter from "./osWebhook";
 import wooWebhookRouter from "./wooWebhook";
 import seoRouter from "./seo";
+import partnerApplicationRouter from "./partnerApplication";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(favoritesRouter);
 router.use(osWebhookRouter);
 router.use(wooWebhookRouter);
 router.use(seoRouter);
+router.use(partnerApplicationRouter);
 
 export default router;

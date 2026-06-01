@@ -32,6 +32,8 @@ tags:
     description: Loyalty points and tier coupons for the signed-in customer
   - name: favorites
     description: Saved favorite products for the signed-in customer
+  - name: partner
+    description: Partner application submission
 paths:
   /healthz:
     get:
@@ -879,8 +881,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /partner-application:
+    post:
+      operationId: submitPartnerApplication
+      tags: [partner]
+      summary: Submit a partner application
+      description: |
+        Accepts a multipart/form-data partner application form including two
+        file uploads (brand profile PDF/image, product list PDF/Excel/Word).
+        Stores the submission in the database and attempts to send an email
+        notification to the partnerships team. Email delivery is best-effort
+        and gated on SMTP configuration — the row is always saved regardless.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PartnerApplicationInput"
+      responses:
+        "200":
+          description: Application received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerApplicationResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    PartnerApplicationInput:
+      type: object
+      properties:
+        country:
+          type: string
+        city:
+          type: string
+        brandName:
+          type: string
+        website:
+          type: string
+        categories:
+          type: array
+          items:
+            type: string
+        otherCategory:
+          type: string
+        socialMedia:
+          type: string
+        contactFirstName:
+          type: string
+        contactLastName:
+          type: string
+        contactRole:
+          type: string
+        email:
+          type: string
+          format: email
+        dialCode:
+          type: string
+        phone:
+          type: string
+      required:
+        - country
+        - city
+        - brandName
+        - website
+        - categories
+        - contactFirstName
+        - contactLastName
+        - contactRole
+        - email
+        - dialCode
+        - phone
+    PartnerApplicationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: integer
+      required:
+        - ok
+        - id
     HealthStatus:
       type: object
       properties:
