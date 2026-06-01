@@ -37,6 +37,7 @@ import { trackEvent } from "@/lib/analytics";
 import { useNow } from "@/lib/useNow";
 import {
   dayLabels,
+  expressSurchargeForCountry,
   formatDeliveryRow,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
