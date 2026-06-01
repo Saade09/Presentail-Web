@@ -199,3 +199,15 @@ jobs:
           add-paths: |
             artifacts/presentail/app.json
             artifacts/presentail/shipped-native-modules.json
+
+  seo-audit:
+    name: OG image audit (post-Play-Store-submit)
+    needs: build-and-submit
+    # The Play Store publish doesn't change the web/API, so a short settle time
+    # is enough to confirm the current live state rather than waiting for a deploy.
+    uses: ./.github/workflows/seo-audit-post-deploy.yml
+    with:
+      settle_seconds: 60
+    secrets:
+      PUSH_ADMIN_TOKEN: ${{ secrets.PUSH_ADMIN_TOKEN }}
+      PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
