@@ -2317,15 +2317,11 @@ components:
           type: string
           nullable: true
           description: Optional birthday in `YYYY-MM-DD` form, or null.
-        birthdayShareMonthDay:
-          type: boolean
-          description: Whether the customer is OK with us sharing month/day for birthday wishes (year is never shared).
       required:
         - id
         - email
         - firstName
         - lastName
-        - birthdayShareMonthDay
     WooSearchProduct:
       type: object
       properties:
@@ -2419,8 +2415,6 @@ components:
           type: string
           nullable: true
           description: ISO calendar date `YYYY-MM-DD`, or null to clear.
-        birthdayShareMonthDay:
-          type: boolean
     FavoriteItem:
       type: object
       properties:

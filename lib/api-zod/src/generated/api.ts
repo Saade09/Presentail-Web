@@ -1259,11 +1259,6 @@ export const GetAuthMeResponse = zod.object({
           .string()
           .nullish()
           .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
-        birthdayShareMonthDay: zod
-          .boolean()
-          .describe(
-            "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
-          ),
       }),
       zod.null(),
     ])
@@ -1290,7 +1285,6 @@ export const UpdateAuthMeBody = zod
       .string()
       .nullish()
       .describe("ISO calendar date `YYYY-MM-DD`, or null to clear."),
-    birthdayShareMonthDay: zod.boolean().optional(),
   })
   .describe("Partial profile update. Omit a field to leave it unchanged.");
 
@@ -1315,11 +1309,6 @@ export const UpdateAuthMeResponse = zod.object({
           .string()
           .nullish()
           .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
-        birthdayShareMonthDay: zod
-          .boolean()
-          .describe(
-            "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
-          ),
       }),
       zod.null(),
     ])
@@ -1465,11 +1454,6 @@ export const VerifyPhoneOtpResponse = zod.object({
               .string()
               .nullish()
               .describe("Optional birthday in `YYYY-MM-DD` form, or null."),
-            birthdayShareMonthDay: zod
-              .boolean()
-              .describe(
-                "Whether the customer is OK with us sharing month\/day for birthday wishes (year is never shared).",
-              ),
           }),
           zod.null(),
         ])

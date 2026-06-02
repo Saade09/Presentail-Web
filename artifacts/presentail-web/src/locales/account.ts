@@ -98,15 +98,6 @@ export const accountStrings: Dict = {
   "pi.birthday.dd": { en: "DD", ar: "يوم" },
   "pi.birthday.mm": { en: "MM", ar: "شهر" },
   "pi.birthday.yyyy": { en: "YYYY", ar: "سنة" },
-  "pi.birthday.sharingOn": {
-    en: "Birthday sharing on",
-    ar: "مشاركة عيد الميلاد مفعّلة",
-  },
-  "pi.birthday.howItWorks": { en: "How it works?", ar: "كيف يعمل ذلك؟" },
-  "pi.birthday.howItWorksBody": {
-    en: "When sharing is on, we may use your birthday's month and day to send you a small surprise or a seasonal offer. Your birth year is never shared and is only kept for our records.",
-    ar: "عندما تكون المشاركة مفعّلة، قد نستخدم يوم وشهر ميلادك لإرسال مفاجأة صغيرة أو عرض موسمي إليك. لا تتم مشاركة سنة ميلادك أبداً وتُحفظ فقط في سجلاتنا.",
-  },
   "pi.update": { en: "Update", ar: "تحديث" },
   "pi.updated.title": { en: "Saved", ar: "تم الحفظ" },
   "pi.updated.msg": {
@@ -333,9 +324,6 @@ export const accountStringsFr: Record<string, string> = {
   "pi.birthday.dd": "JJ",
   "pi.birthday.mm": "MM",
   "pi.birthday.yyyy": "AAAA",
-  "pi.birthday.sharingOn": "Partage de l'anniversaire activé",
-  "pi.birthday.howItWorks": "Comment ça marche ?",
-  "pi.birthday.howItWorksBody": "Lorsque le partage est activé, nous pouvons utiliser le jour et le mois de votre anniversaire pour vous envoyer une petite surprise ou une offre saisonnière. Votre année de naissance n'est jamais partagée et reste uniquement dans nos archives.",
   "pi.update": "Mettre à jour",
   "pi.updated.title": "Enregistré",
   "pi.updated.msg": "Vos informations personnelles ont été mises à jour.",

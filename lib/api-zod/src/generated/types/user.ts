@@ -18,6 +18,4 @@ export interface User {
   gender?: Gender | null;
   /** Optional birthday in `YYYY-MM-DD` form, or null. */
   birthday?: string | null;
-  /** Whether the customer is OK with us sharing month/day for birthday wishes (year is never shared). */
-  birthdayShareMonthDay: boolean;
 }

@@ -17,5 +17,4 @@ export interface AuthMeUpdateRequest {
   gender?: Gender | null;
   /** ISO calendar date `YYYY-MM-DD`, or null to clear. */
   birthday?: string | null;
-  birthdayShareMonthDay?: boolean;
 }

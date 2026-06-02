@@ -78,7 +78,6 @@ type CustomerProfile = {
   phone: string;
   gender: string | null;
   birthday: string | null;
-  birthdayShareMonthDay: boolean;
 };
 
 function readWcMetaString(meta: any[] | undefined, key: string): string | null {
@@ -93,7 +92,6 @@ function readWcMetaString(meta: any[] | undefined, key: string): string | null {
 function mapCustomer(c: any): CustomerProfile {
   const gender = readWcMetaString(c?.meta_data, "presentail_gender");
   const birthday = readWcMetaString(c?.meta_data, "presentail_birthday");
-  const shareRaw = readWcMetaString(c?.meta_data, "presentail_birthday_share");
   return {
     id: c.id as number,
     email: c.email as string,
@@ -103,7 +101,6 @@ function mapCustomer(c: any): CustomerProfile {
     phone: (c.billing?.phone ?? "") as string,
     gender,
     birthday,
-    birthdayShareMonthDay: shareRaw === null ? true : shareRaw !== "false" && shareRaw !== "0",
   };
 }
 
@@ -617,7 +614,6 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
         phone: "",
         gender: null,
         birthday: null,
-        birthdayShareMonthDay: true,
       };
     }
 
@@ -775,7 +771,6 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           phone: local.phoneE164 ?? "",
           gender: local.gender ?? null,
           birthday: local.birthday ?? null,
-          birthdayShareMonthDay: local.birthdayShareMonthDay,
         },
       });
     } catch (e: any) {
@@ -805,7 +800,6 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           phone: local.phoneE164 ?? "",
           gender: local.gender ?? null,
           birthday: local.birthday ?? null,
-          birthdayShareMonthDay: local.birthdayShareMonthDay,
         },
       });
       return;
@@ -878,7 +872,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       phone?: string;
       gender?: string | null;
       birthday?: string | null;
-      birthdayShareMonthDay?: boolean;
     };
     let validatedTeamPhone: string | undefined;
     if (body.phone !== undefined) {
@@ -917,10 +910,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
       normalizedTeamBirthday = parsed.value;
     }
-    const normalizedTeamShare =
-      typeof body.birthdayShareMonthDay === "boolean"
-        ? body.birthdayShareMonthDay
-        : undefined;
     try {
       const putClaims = clerkSession?.sessionClaims as any;
       let putEmail: string | null = putClaims?.email ?? null;
@@ -960,7 +949,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
       }
       if (normalizedTeamGender !== undefined) patch.gender = normalizedTeamGender;
       if (normalizedTeamBirthday !== undefined) patch.birthday = normalizedTeamBirthday;
-      if (normalizedTeamShare !== undefined) patch.birthdayShareMonthDay = normalizedTeamShare;
       let local = existing;
       if (Object.keys(patch).length > 0) {
         const [updated] = await db
@@ -981,7 +969,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           phone: local.phoneE164 ?? "",
           gender: local.gender ?? null,
           birthday: local.birthday ?? null,
-          birthdayShareMonthDay: local.birthdayShareMonthDay,
         },
       });
     } catch (e: any) {
@@ -1001,7 +988,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     phone?: string;
     gender?: string | null;
     birthday?: string | null;
-    birthdayShareMonthDay?: boolean;
   };
 
   // When the client sends a phone, it must be a strict-E.164 string and
@@ -1053,11 +1039,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     normalizedBirthday = parsed.value;
   }
 
-  const normalizedShare =
-    typeof body.birthdayShareMonthDay === "boolean"
-      ? body.birthdayShareMonthDay
-      : undefined;
-
   // First, persist to the canonical local row so the change is durable
   // even if the WC mirror call below fails.
   let localPatchApplied = false;
@@ -1075,7 +1056,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     }
     if (normalizedGender !== undefined) localPatch.gender = normalizedGender;
     if (normalizedBirthday !== undefined) localPatch.birthday = normalizedBirthday;
-    if (normalizedShare !== undefined) localPatch.birthdayShareMonthDay = normalizedShare;
     if (Object.keys(localPatch).length > 0) {
       await db
         .update(customersTable)
@@ -1102,9 +1082,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
   }
   if (normalizedBirthday !== undefined) {
     metaUpdates.push({ key: "presentail_birthday", value: normalizedBirthday ?? "" });
-  }
-  if (normalizedShare !== undefined) {
-    metaUpdates.push({ key: "presentail_birthday_share", value: String(normalizedShare) });
   }
   if (metaUpdates.length > 0) wcPayload.meta_data = metaUpdates;
 
@@ -1156,7 +1133,6 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
         phone: mapped?.phone ?? local.phoneE164 ?? "",
         gender: local.gender ?? null,
         birthday: local.birthday ?? null,
-        birthdayShareMonthDay: local.birthdayShareMonthDay,
       };
       res.json({ ok: true, user });
       return;

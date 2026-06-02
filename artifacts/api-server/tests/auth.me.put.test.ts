@@ -9,10 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 //   3. body.birthday goes through parseBirthday: must be a real past
 //      calendar date in YYYY-MM-DD form, no future dates, not older than
 //      130 years, non-string types are rejected. Malformed → 400.
-//   4. body.birthdayShareMonthDay must be a boolean to take effect.
-//   5. The local customers row is patched with whatever fields were
+//   4. The local customers row is patched with whatever fields were
 //      provided, then a best-effort WC mirror PUT is attempted. The final
-//      response overlays gender/birthday/share from the local row.
+//      response overlays gender/birthday from the local row.
 
 vi.mock("@clerk/express", () => ({
   getAuth: () => ({ userId: null, sessionClaims: null }),
@@ -131,7 +130,6 @@ const baseLocal = {
   wcCustomerId: 555,
   gender: null as string | null,
   birthday: null as string | null,
-  birthdayShareMonthDay: true,
 };
 
 describe("PUT /api/auth/me — authentication", () => {
@@ -178,7 +176,6 @@ describe("PUT /api/auth/me — valid updates", () => {
       phoneE164: "+96170999999",
       gender: "female",
       birthday: "1990-05-15",
-      birthdayShareMonthDay: false,
     });
 
     const res = await request(app)
@@ -190,7 +187,6 @@ describe("PUT /api/auth/me — valid updates", () => {
         phone: "+96170999999",
         gender: "female",
         birthday: "1990-05-15",
-        birthdayShareMonthDay: false,
       });
 
     expect(res.status).toBe(200);
@@ -199,7 +195,6 @@ describe("PUT /api/auth/me — valid updates", () => {
       id: 555,
       gender: "female",
       birthday: "1990-05-15",
-      birthdayShareMonthDay: false,
     });
 
     expect(dbUpdateSet).toHaveBeenCalledTimes(1);
@@ -210,7 +205,6 @@ describe("PUT /api/auth/me — valid updates", () => {
       phoneE164: "+96170999999",
       gender: "female",
       birthday: "1990-05-15",
-      birthdayShareMonthDay: false,
     });
 
     const wcPut = wcCalls.find((c) => c.init?.method === "PUT");
@@ -221,7 +215,6 @@ describe("PUT /api/auth/me — valid updates", () => {
       expect.arrayContaining([
         { key: "presentail_gender", value: "female" },
         { key: "presentail_birthday", value: "1990-05-15" },
-        { key: "presentail_birthday_share", value: "false" },
       ]),
     );
   });
@@ -274,48 +267,6 @@ describe("PUT /api/auth/me — valid updates", () => {
     ]);
   });
 
-  it("toggles birthdayShareMonthDay independently", async () => {
-    authedOk();
-    getCustomerByWcIdMock.mockResolvedValue({
-      ...baseLocal,
-      birthdayShareMonthDay: false,
-    });
-
-    const res = await request(app)
-      .put("/api/auth/me")
-      .set("Authorization", "Bearer good")
-      .send({ birthdayShareMonthDay: false });
-
-    expect(res.status).toBe(200);
-    expect(res.body.user.birthdayShareMonthDay).toBe(false);
-
-    const patch = dbUpdateSet.mock.calls[0]![0] as Record<string, unknown>;
-    expect(patch).toMatchObject({ birthdayShareMonthDay: false });
-
-    const wcPut = wcCalls.find((c) => c.init?.method === "PUT");
-    const body = JSON.parse(String(wcPut!.init!.body));
-    expect(body.meta_data).toEqual([
-      { key: "presentail_birthday_share", value: "false" },
-    ]);
-  });
-
-  it("ignores non-boolean birthdayShareMonthDay values", async () => {
-    authedOk();
-    getCustomerByWcIdMock.mockResolvedValue({ ...baseLocal });
-
-    const res = await request(app)
-      .put("/api/auth/me")
-      .set("Authorization", "Bearer good")
-      .send({ firstName: "X", birthdayShareMonthDay: "yes" });
-
-    expect(res.status).toBe(200);
-    const patch = dbUpdateSet.mock.calls[0]![0] as Record<string, unknown>;
-    expect("birthdayShareMonthDay" in patch).toBe(false);
-
-    const wcPut = wcCalls.find((c) => c.init?.method === "PUT");
-    const body = JSON.parse(String(wcPut!.init!.body));
-    expect(body.meta_data).toBeUndefined();
-  });
 });
 
 describe("PUT /api/auth/me — gender handling", () => {

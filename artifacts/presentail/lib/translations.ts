@@ -545,11 +545,6 @@ const EN = {
   piBirthdayDD: "DD",
   piBirthdayMM: "MM", // no-translate — date format placeholder, identical across all locales
   piBirthdayYYYY: "YYYY",
-  piBirthdaySharingOn: "Birthday sharing on",
-  piBirthdayHowItWorks: "How it works?",
-  piHowItWorksTitle: "Birthday sharing",
-  piHowItWorksBody:
-    "When sharing is on, we may use your birthday's month and day to send you a small surprise or a seasonal offer. Your birth year is never shared and is only kept for our records.",
   piUpdate: "Update",
   piUpdatedTitle: "Saved",
   piUpdatedMsg: "Your personal information has been updated.",
@@ -1338,11 +1333,6 @@ const AR: typeof EN = {
   piBirthdayDD: "يوم",
   piBirthdayMM: "شهر",
   piBirthdayYYYY: "سنة",
-  piBirthdaySharingOn: "مشاركة عيد الميلاد مفعّلة",
-  piBirthdayHowItWorks: "كيف يعمل ذلك؟",
-  piHowItWorksTitle: "مشاركة عيد الميلاد",
-  piHowItWorksBody:
-    "عند تفعيل المشاركة، قد نستخدم يوم وشهر ميلادك لإرسال مفاجأة صغيرة أو عرض خاص. لا تتم مشاركة سنة ميلادك أبداً، وتُحفظ فقط ضمن سجلاتنا.",
   piUpdate: "تحديث",
   piUpdatedTitle: "تم الحفظ",
   piUpdatedMsg: "تم تحديث معلوماتك الشخصية.",
@@ -2126,11 +2116,6 @@ const FR: typeof EN = {
   piBirthdayDD: "JJ",
   piBirthdayMM: "MM",
   piBirthdayYYYY: "AAAA",
-  piBirthdaySharingOn: "Partage de l'anniversaire activé",
-  piBirthdayHowItWorks: "Comment ça marche ?",
-  piHowItWorksTitle: "Partage de l'anniversaire",
-  piHowItWorksBody:
-    "Lorsque le partage est activé, nous pouvons utiliser le jour et le mois de votre anniversaire pour vous envoyer une petite surprise ou une offre saisonnière. Votre année de naissance n'est jamais partagée et reste uniquement dans nos archives.",
   piUpdate: "Mettre à jour",
   piUpdatedTitle: "Enregistré",
   piUpdatedMsg: "Vos informations personnelles ont été mises à jour.",

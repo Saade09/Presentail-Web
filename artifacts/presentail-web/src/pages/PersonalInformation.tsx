@@ -5,8 +5,6 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,7 +34,6 @@ type MeUser = {
   phone?: string;
   gender?: string | null;
   birthday?: string | null;
-  birthdayShareMonthDay?: boolean;
 };
 
 type MeResponse = { ok: boolean; user: MeUser | null };
@@ -88,7 +85,6 @@ export default function PersonalInformation() {
   const [bDay, setBDay] = useState("");
   const [bMonth, setBMonth] = useState("");
   const [bYear, setBYear] = useState("");
-  const [shareBirthday, setShareBirthday] = useState(true);
   const [bdayError, setBdayError] = useState<string | null>(null);
 
   const [phoneCountry, setPhoneCountry] = useState<CountryDialCode>(
@@ -142,11 +138,6 @@ export default function PersonalInformation() {
         setBYear(bd ? bd.slice(0, 4) : "");
         setBMonth(bd ? bd.slice(5, 7) : "");
         setBDay(bd ? bd.slice(8, 10) : "");
-        setShareBirthday(
-          typeof u.birthdayShareMonthDay === "boolean"
-            ? u.birthdayShareMonthDay
-            : true,
-        );
         const split = splitPhone(u.phone ?? "");
         setPhoneCountry(split.country);
         setPhoneLocal(split.local);
@@ -186,7 +177,6 @@ export default function PersonalInformation() {
           lastName: lastName.trim(),
           gender,
           birthday,
-          birthdayShareMonthDay: shareBirthday,
         }),
       });
       // Best-effort sync of Clerk's first/last name so the navbar greeting
@@ -386,25 +376,6 @@ export default function PersonalInformation() {
                 </p>
               ) : null}
 
-              <div className="flex items-center gap-3 mt-4">
-                <Switch
-                  checked={shareBirthday}
-                  onCheckedChange={setShareBirthday}
-                  id="pi-share-birthday"
-                  data-testid="pi-share-birthday"
-                />
-                <Label htmlFor="pi-share-birthday" className="cursor-pointer text-sm">
-                  {t("pi.birthday.sharingOn")}
-                </Label>
-              </div>
-              <details className="mt-2">
-                <summary className="text-xs text-primary underline cursor-pointer">
-                  {t("pi.birthday.howItWorks")}
-                </summary>
-                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  {t("pi.birthday.howItWorksBody")}
-                </p>
-              </details>
             </Field>
           </div>
 

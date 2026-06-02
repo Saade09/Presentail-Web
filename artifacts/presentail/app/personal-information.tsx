@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
@@ -106,17 +105,12 @@ function PersonalInformationScreen() {
   const [bYear, setBYear] = useState(
     initialBirthday ? initialBirthday.slice(0, 4) : "",
   );
-  const [shareBirthday, setShareBirthday] = useState<boolean>(
-    user?.birthdayShareMonthDay ?? true,
-  );
-
   const initialPhoneSplit = useMemo(() => splitPhone(user?.phone), [user?.phone]);
   const [phoneCountry, setPhoneCountry] = useState<CountryDialCode>(
     initialPhoneSplit.country,
   );
   const [phoneLocal, setPhoneLocal] = useState<string>(initialPhoneSplit.local);
   const [phoneOpen, setPhoneOpen] = useState(false);
-  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [phoneBusy, setPhoneBusy] = useState(false);
@@ -146,9 +140,6 @@ function PersonalInformationScreen() {
         setBYear(bd ? bd.slice(0, 4) : "");
         setBMonth(bd ? bd.slice(5, 7) : "");
         setBDay(bd ? bd.slice(8, 10) : "");
-        setShareBirthday(
-          typeof u.birthdayShareMonthDay === "boolean" ? u.birthdayShareMonthDay : true,
-        );
         const split = splitPhone(u.phone ?? "");
         setPhoneCountry(split.country);
         setPhoneLocal(split.local);
@@ -188,7 +179,6 @@ function PersonalInformationScreen() {
       lastName: lastName.trim(),
       gender,
       birthday,
-      birthdayShareMonthDay: shareBirthday,
     });
     setBusy(false);
     if (!r.ok) {
@@ -442,53 +432,6 @@ function PersonalInformationScreen() {
                 {bdayError}
               </AppText>
             ) : null}
-
-            <View
-              style={{
-                marginTop: 14,
-                flexDirection: isRTL ? "row-reverse" : "row",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <Switch
-                value={shareBirthday}
-                onValueChange={setShareBirthday}
-                trackColor={{ true: colors.primary, false: colors.border }}
-                thumbColor="#fff"
-              />
-              <AppText
-                style={{
-                  flex: 1,
-                  fontFamily: "Inter_400Regular",
-                  fontSize: 13,
-                  color: colors.primary,
-                  textAlign: align,
-                }}
-              >
-                {t.piBirthdaySharingOn}
-              </AppText>
-            </View>
-
-            <Pressable
-              onPress={() => setHowItWorksOpen(true)}
-              style={({ pressed }) => ({
-                marginTop: 8,
-                opacity: pressed ? 0.7 : 1,
-                alignSelf: isRTL ? "flex-end" : "flex-start",
-              })}
-            >
-              <AppText
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 12,
-                  color: colors.primary,
-                  textDecorationLine: "underline",
-                }}
-              >
-                {t.piBirthdayHowItWorks}
-              </AppText>
-            </Pressable>
           </Field>
 
           <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 }}>
@@ -623,33 +566,6 @@ function PersonalInformationScreen() {
           </View>
         </Card>
       </ScrollView>
-
-      {/* ── How it works sheet ── */}
-      <BottomSheet visible={howItWorksOpen} onClose={() => setHowItWorksOpen(false)}>
-        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 12 }}>
-          <AppText
-            style={{
-              fontFamily: headingFontMedium,
-              fontSize: 22,
-              color: colors.primary,
-              textAlign: align,
-            }}
-          >
-            {t.piHowItWorksTitle}
-          </AppText>
-          <AppText
-            style={{
-              fontFamily: "Inter_400Regular",
-              fontSize: 14,
-              lineHeight: 22,
-              color: colors.primary,
-              textAlign: align,
-            }}
-          >
-            {t.piHowItWorksBody}
-          </AppText>
-        </View>
-      </BottomSheet>
 
       {/* ── Phone update sheet ── */}
       <BottomSheet visible={phoneOpen} onClose={() => setPhoneOpen(false)}>
