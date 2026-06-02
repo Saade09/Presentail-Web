@@ -171,6 +171,21 @@ export default function ProductDetail() {
 
   const handleAdd = () => {
     if (!product) return;
+    if (!deliverySelection.mode) {
+      if (deliveryChoice === "express") {
+        deliverySelection.setSelection({
+          mode: "express",
+          date: new Date().toISOString().slice(0, 10),
+          slotLabel: null,
+        });
+      } else {
+        deliverySelection.setSelection({
+          mode: "today_slot",
+          date: new Date().toISOString().slice(0, 10),
+          slotLabel: null,
+        });
+      }
+    }
     addItem(product, 1);
     setUpsellOpen(true);
   };
