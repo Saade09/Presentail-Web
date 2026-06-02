@@ -122,55 +122,59 @@ export function ScheduleInlinePanel({
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
           {t("checkout.deliveryDate")}
         </p>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 items-start">
-          {days.map((d) => {
-            const active = d.iso === date;
-            return (
+        <div className="flex gap-2 items-start -mx-1 px-1">
+          {/* Scrollable chip strip — overflow is contained here so it never clips the popover */}
+          <div className="flex gap-2 overflow-x-auto pb-1 items-start flex-1 min-w-0">
+            {days.map((d) => {
+              const active = d.iso === date;
+              return (
+                <button
+                  key={d.iso}
+                  type="button"
+                  onClick={() => {
+                    setDate(d.iso);
+                    setCalendarOpen(false);
+                  }}
+                  className={cn(
+                    "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground border-border hover:border-foreground/30",
+                  )}
+                  data-testid={`schedule-day-${d.iso}`}
+                >
+                  <span className="block text-[11px] font-semibold leading-tight">
+                    {d.label}
+                  </span>
+                  <span className="block text-xs opacity-80 leading-tight">
+                    {d.date} {monthShort(d.iso)}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Synthetic chip for a calendar-picked date outside the strip */}
+            {!dateInStrip && (
               <button
-                key={d.iso}
                 type="button"
-                onClick={() => {
-                  setDate(d.iso);
-                  setCalendarOpen(false);
-                }}
                 className={cn(
                   "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-foreground border-border hover:border-foreground/30",
+                  "bg-primary text-primary-foreground border-primary",
                 )}
-                data-testid={`schedule-day-${d.iso}`}
+                data-testid={`schedule-day-${date}`}
               >
                 <span className="block text-[11px] font-semibold leading-tight">
-                  {d.label}
+                  {weekdayShort(date)}
                 </span>
                 <span className="block text-xs opacity-80 leading-tight">
-                  {d.date} {monthShort(d.iso)}
+                  {dayOfMonth(date)} {monthShort(date)}
                 </span>
               </button>
-            );
-          })}
+            )}
+          </div>
 
-          {/* Synthetic chip for a calendar-picked date outside the strip */}
-          {!dateInStrip && (
-            <button
-              type="button"
-              className={cn(
-                "shrink-0 rounded-xl border px-4 py-2 text-center transition-colors",
-                "bg-primary text-primary-foreground border-primary",
-              )}
-              data-testid={`schedule-day-${date}`}
-            >
-              <span className="block text-[11px] font-semibold leading-tight">
-                {weekdayShort(date)}
-              </span>
-              <span className="block text-xs opacity-80 leading-tight">
-                {dayOfMonth(date)} {monthShort(date)}
-              </span>
-            </button>
-          )}
-
-          {/* Calendar icon chip — toggles the popover */}
+          {/* Calendar icon chip — sits outside the overflow-x-auto strip so its
+              popover can extend freely without being clipped */}
           <div className="relative shrink-0" ref={calendarRef}>
             <button
               type="button"
@@ -189,7 +193,7 @@ export function ScheduleInlinePanel({
             </button>
 
             {calendarOpen && (
-              <div className="absolute z-50 top-full left-0 mt-2">
+              <div className="absolute z-50 top-full right-0 mt-2">
                 <CalendarPopover
                   selectedIso={date}
                   todayIso={todayIso}
