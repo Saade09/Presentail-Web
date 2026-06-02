@@ -254,11 +254,11 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                   surface: "upsell_modal",
                 });
                 onClose();
-                setLocation("/checkout");
+                setLocation("/cart");
               }}
               data-testid="upsell-modal-proceed-checkout"
             >
-              {t("cart.proceed")}
+              {t("cart.viewCart")}
             </Button>
           </div>
         </div>
