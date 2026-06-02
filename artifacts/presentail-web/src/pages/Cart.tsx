@@ -241,7 +241,7 @@ export default function Cart() {
               />
             )}
             <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
-              {t("cart.summary")}
+              {t("cart.deliverySummary")}
             </p>
             <div className="space-y-6">
             {items.map((item, index) => (
@@ -462,7 +462,7 @@ export default function Cart() {
                 )}
               </div>
 
-              <h2 className="text-2xl font-serif mb-4">{t("cart.summary")}</h2>
+              <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
 
               <div className="text-sm mb-6 pb-6 border-b border-primary/10">
                 <DeliveryDateRow />
