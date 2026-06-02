@@ -125,11 +125,6 @@ export default function PersonalInformation() {
         setBYear(bd ? bd.slice(0, 4) : "");
         setBMonth(bd ? bd.slice(5, 7) : "");
         setBDay(bd ? bd.slice(8, 10) : "");
-        setShareBirthday(
-          typeof u.birthdayShareMonthDay === "boolean"
-            ? u.birthdayShareMonthDay
-            : true,
-        );
         setPhone((u.phone ?? "") as PhoneValue || undefined);
       } catch {
         if (!cancelled) setHydrateFailed(true);
