@@ -860,6 +860,7 @@ const EN = {
   // ── Phone field ──
   phoneSelectCountry: "Select country",
   phoneSearchCountry: "Search country or code",
+  phoneInvalidNumber: "Please enter a valid phone number for this country",
 
   // ── Product card ──
   freeDelivery: "FREE DELIVERY",
@@ -1643,6 +1644,7 @@ const AR: typeof EN = {
   // ── Phone field ──
   phoneSelectCountry: "اختر الدولة",
   phoneSearchCountry: "ابحث عن دولة أو رمز",
+  phoneInvalidNumber: "يرجى إدخال رقم هاتف صحيح لهذا البلد",
 
   // ── Product card ──
   freeDelivery: "توصيل مجاني",
@@ -2429,6 +2431,7 @@ const FR: typeof EN = {
   // ── Phone field ──
   phoneSelectCountry: "Sélectionner un pays",
   phoneSearchCountry: "Rechercher un pays ou un indicatif",
+  phoneInvalidNumber: "Veuillez entrer un numéro de téléphone valide pour ce pays",
 
   // ── Product card ──
   freeDelivery: "LIVRAISON GRATUITE",

@@ -1,12 +1,39 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
-import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
+import {
+  AsYouType,
+  getExampleNumber,
+  isValidPhoneNumber,
+  type CountryCode,
+  type Examples,
+} from "libphonenumber-js";
+import phoneExamples from "libphonenumber-js/examples.mobile.json";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View } from "react-native";
+import PhoneInput from "react-native-phone-number-input";
 import { AppText } from "@/components/AppText";
 
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { useColors } from "@/hooks/useColors";
-import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
+
+function getCountryPlaceholder(code: string, fallback: string): string {
+  try {
+    const ex = getExampleNumber(code as CountryCode, phoneExamples as unknown as Examples);
+    return ex?.formatNational() ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function checkPhoneValid(text: string, code: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  try {
+    return isValidPhoneNumber(trimmed, code as CountryCode);
+  } catch {
+    return false;
+  }
+}
 
 type Props = {
   label: string;
@@ -16,6 +43,7 @@ type Props = {
   countryCode: string;
   onChangeCountry: (c: CountryDialCode) => void;
   placeholder?: string;
+  showError?: boolean;
 };
 
 export function PhoneField({
@@ -25,27 +53,53 @@ export function PhoneField({
   onChangeText,
   countryCode,
   onChangeCountry,
-  placeholder = "3000000",
+  placeholder,
+  showError,
 }: Props) {
   const colors = useColors();
-  const headingFontBold = useHeadingFont("700Bold");
   const t = useT();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [remountKey, setRemountKey] = useState(0);
+  const lastInternalValueRef = useRef(value);
+  const prevCountryCodeRef = useRef(countryCode);
 
-  const selected =
-    COUNTRY_DIAL_CODES.find((c) => c.code === countryCode) ?? COUNTRY_DIAL_CODES[0];
+  useEffect(() => {
+    const countryChanged = countryCode !== prevCountryCodeRef.current;
+    const externalValueChange = value !== lastInternalValueRef.current;
+    if (countryChanged || externalValueChange) {
+      prevCountryCodeRef.current = countryCode;
+      lastInternalValueRef.current = value;
+      setRemountKey((k) => k + 1);
+    }
+  }, [value, countryCode]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return COUNTRY_DIAL_CODES;
-    return COUNTRY_DIAL_CODES.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.dial.replace("+", "").includes(q.replace("+", "")) ||
-        c.code.toLowerCase().includes(q),
-    );
-  }, [query]);
+  const resolvedPlaceholder = useMemo(
+    () => placeholder ?? getCountryPlaceholder(countryCode, t.phoneNumberLabel),
+    [countryCode, placeholder, t.phoneNumberLabel],
+  );
+
+  const isValid = checkPhoneValid(value, countryCode);
+  const showInlineError = (touched || showError) && value.trim().length > 0 && !isValid;
+
+  const handleChangeText = (text: string) => {
+    try {
+      const formatted = new AsYouType(countryCode as CountryCode).input(text);
+      lastInternalValueRef.current = formatted;
+      onChangeText(formatted);
+    } catch {
+      lastInternalValueRef.current = text;
+      onChangeText(text);
+    }
+  };
+
+  const handleCountryChange = (country: { cca2: string }) => {
+    const matched = COUNTRY_DIAL_CODES.find((c) => c.code === country.cca2);
+    if (matched) onChangeCountry(matched);
+  };
+
+  const chevronIcon = (
+    <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+  );
 
   return (
     <View style={{ gap: 6 }}>
@@ -60,189 +114,70 @@ export function PhoneField({
         {label}
         {required ? <AppText style={{ color: colors.gold }}> *</AppText> : null}
       </AppText>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "stretch",
+
+      <PhoneInput
+        key={remountKey}
+        defaultValue={value}
+        defaultCode={countryCode as any}
+        layout="second"
+        onChangeText={handleChangeText}
+        onChangeCountry={handleCountryChange as any}
+        placeholder={resolvedPlaceholder}
+        renderDropdownImage={chevronIcon}
+        containerStyle={{
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: showInlineError ? "#d9534f" : colors.border,
           borderRadius: 10,
           backgroundColor: "#fff",
           overflow: "hidden",
+          width: "100%",
         }}
-      >
-        <Pressable
-          onPress={() => setOpen(true)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 13,
-            borderRightWidth: 1,
-            borderRightColor: colors.border,
-            backgroundColor: "#faf7f1",
-          }}
-        >
-          <AppText style={{ fontSize: 16 }}>{selected.flag}</AppText>
-          <AppText
-            style={{
-              fontFamily: "Inter_500Medium",
-              fontSize: 14,
-              color: colors.primary,
-            }}
-          >
-            {selected.dial}
-          </AppText>
-          <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
-        </Pressable>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.mutedForeground}
-          keyboardType="phone-pad"
-          style={{
-            flex: 1,
-            paddingHorizontal: 14,
-            fontFamily: "Inter_500Medium",
-            fontSize: 14,
-            color: colors.primary,
-          }}
-        />
-      </View>
+        flagButtonStyle={{
+          backgroundColor: "#faf7f1",
+          paddingHorizontal: 12,
+          paddingVertical: 13,
+          borderRightWidth: 1,
+          borderRightColor: colors.border,
+          gap: 6,
+        }}
+        codeTextStyle={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 14,
+          color: colors.primary,
+          marginLeft: 0,
+        }}
+        textContainerStyle={{
+          backgroundColor: "#fff",
+          paddingHorizontal: 14,
+          paddingVertical: 0,
+        }}
+        textInputStyle={{
+          fontFamily: "Inter_500Medium",
+          fontSize: 14,
+          color: colors.primary,
+          height: 48,
+        }}
+        textInputProps={{
+          placeholderTextColor: colors.mutedForeground,
+          onBlur: () => setTouched(true),
+          selectionColor: colors.primary,
+        }}
+        countryPickerProps={{
+          countryCodes: COUNTRY_DIAL_CODES.map((c) => c.code),
+        }}
+      />
 
-      <Modal
-        visible={open}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOpen(false)}
-      >
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}
-          onPress={() => setOpen(false)}
-        />
-        <View
+      {showInlineError ? (
+        <AppText
           style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: "#fff",
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            maxHeight: "80%",
-            paddingBottom: 32,
+            fontFamily: "Inter_400Regular",
+            fontSize: 12,
+            color: "#d9534f",
           }}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#f0ebe3",
-            }}
-          >
-            <AppText
-              style={{
-                fontFamily: headingFontBold,
-                fontSize: 17,
-                color: colors.primary,
-              }}
-            >
-              {t.phoneSelectCountry}
-            </AppText>
-            <Pressable onPress={() => setOpen(false)}>
-              <Feather name="x" size={20} color={colors.primary} />
-            </Pressable>
-          </View>
-          <View
-            style={{
-              paddingHorizontal: 16,
-              paddingTop: 12,
-              paddingBottom: 8,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 999,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-              }}
-            >
-              <Feather name="search" size={14} color={colors.mutedForeground} />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t.phoneSearchCountry}
-                placeholderTextColor={colors.mutedForeground}
-                style={{
-                  flex: 1,
-                  fontFamily: "Inter_400Regular",
-                  fontSize: 13,
-                  color: colors.primary,
-                }}
-              />
-            </View>
-          </View>
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.code}
-            renderItem={({ item }) => {
-              const active = item.code === selected.code;
-              return (
-                <Pressable
-                  onPress={() => {
-                    onChangeCountry(item);
-                    setOpen(false);
-                    setQuery("");
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#f7f4ef",
-                    backgroundColor: active ? "#f9f6f1" : "#fff",
-                  }}
-                >
-                  <AppText style={{ fontSize: 18 }}>{item.flag}</AppText>
-                  <View style={{ flex: 1 }}>
-                    <AppText
-                      style={{
-                        fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
-                        fontSize: 14,
-                        color: colors.primary,
-                      }}
-                    >
-                      {item.name}
-                    </AppText>
-                  </View>
-                  <AppText
-                    style={{
-                      fontFamily: "Inter_500Medium",
-                      fontSize: 13,
-                      color: colors.mutedForeground,
-                    }}
-                  >
-                    {item.dial}
-                  </AppText>
-                </Pressable>
-              );
-            }}
-          />
-        </View>
-      </Modal>
+          {t.phoneInvalidNumber}
+        </AppText>
+      ) : null}
     </View>
   );
 }

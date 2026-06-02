@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
+import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
 import { PhoneField } from "@/components/PhoneField";
@@ -82,6 +83,7 @@ export default function SavedAddressFormScreen() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [phoneShowError, setPhoneShowError] = useState(false);
 
   const districtList = useMemo(
     () => districtsForCountry(country.code),
@@ -152,6 +154,18 @@ export default function SavedAddressFormScreen() {
       return;
     }
     const trimmedPhone = recipientPhone.trim();
+    if (trimmedPhone) {
+      let phoneValid = true;
+      try {
+        phoneValid = isValidPhoneNumber(trimmedPhone, recipientPhoneCountry.code as CountryCode);
+      } catch {
+        phoneValid = false;
+      }
+      if (!phoneValid) {
+        setPhoneShowError(true);
+        return;
+      }
+    }
     const payload: CustomerAddressInput = {
       label,
       nickname: nickname.trim() ? nickname.trim() : null,
@@ -339,9 +353,10 @@ export default function SavedAddressFormScreen() {
           <PhoneField
             label={t.addressFormRecipientPhone}
             value={recipientPhone}
-            onChangeText={setRecipientPhone}
+            onChangeText={(v) => { setPhoneShowError(false); setRecipientPhone(v); }}
             countryCode={recipientPhoneCountry.code}
-            onChangeCountry={setRecipientPhoneCountry}
+            onChangeCountry={(c) => { setPhoneShowError(false); setRecipientPhoneCountry(c); }}
+            showError={phoneShowError}
           />
 
           <Pressable

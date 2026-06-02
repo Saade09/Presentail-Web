@@ -51,6 +51,7 @@ import {
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
 import { CardIcons, PayPalBadge, WalletIcons, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
@@ -270,6 +271,7 @@ function CheckoutScreen() {
   const [recipientLast, setRecipientLast] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientCountry, setRecipientCountry] = useState<CountryDialCode>(defaultDialCode);
+  const [recipientPhoneShowError, setRecipientPhoneShowError] = useState(false);
   const [cardTo, setCardTo] = useState(cartMessageFromCart?.to ?? "");
   const [cardMessage, setCardMessage] = useState(cartMessageFromCart?.body ?? "");
   const [cardFrom, setCardFrom] = useState(cartMessageFromCart?.from ?? "");
@@ -410,6 +412,7 @@ function CheckoutScreen() {
   }, []);
   const setRecipientPhoneTracked = React.useCallback((v: string) => {
     recipientManuallyEdited.current = true;
+    setRecipientPhoneShowError(false);
     setRecipientPhone(v);
   }, []);
 
@@ -618,13 +621,23 @@ function CheckoutScreen() {
   const senderEmailRequired = !isSignedIn;
   const senderPhoneRequired = !hasProfilePhone;
 
+  const isRecipientPhoneValid = () => {
+    const trimmed = recipientPhone.trim();
+    if (!trimmed) return false;
+    try {
+      return isValidPhoneNumber(trimmed, recipientCountry.code as CountryCode);
+    } catch {
+      return false;
+    }
+  };
+
   const stepValid = (s: Step) => {
     if (s === 0) return true;
     if (s === 1)
       return (
         recipientFirst.trim() &&
         recipientLast.trim() &&
-        recipientPhone.trim() &&
+        isRecipientPhoneValid() &&
         (noAddress || deliveryDetails.trim()) &&
         (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
@@ -640,6 +653,7 @@ function CheckoutScreen() {
     if (!recipientFirst.trim()) missing.push(t.checkoutMfRecipientFirst);
     if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
+    else if (!isRecipientPhoneValid()) missing.push(t.phoneInvalidNumber);
     if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
@@ -650,6 +664,9 @@ function CheckoutScreen() {
 
   const next = () => {
     if (!stepValid(step)) {
+      if (step === 1 && recipientPhone.trim() && !isRecipientPhoneValid()) {
+        setRecipientPhoneShowError(true);
+      }
       const missing = getMissingFields();
       if (missing.length > 0) {
         Alert.alert(
@@ -1109,7 +1126,8 @@ function CheckoutScreen() {
               recipientPhone={recipientPhone}
               setRecipientPhone={setRecipientPhoneTracked}
               recipientCountry={recipientCountry}
-              setRecipientCountry={setRecipientCountry}
+              setRecipientCountry={(c: CountryDialCode) => { setRecipientPhoneShowError(false); setRecipientCountry(c); }}
+              recipientPhoneShowError={recipientPhoneShowError}
               districts={districts}
               district={district}
               setDistrict={setDistrict}
@@ -1810,6 +1828,7 @@ function DeliveryDetailsStep(props: any) {
   const {
     colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
+    recipientPhoneShowError,
     districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     isSignedIn, savedAddresses, activeAddressId, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
@@ -1938,8 +1957,8 @@ function DeliveryDetailsStep(props: any) {
           onChangeText={setRecipientPhone}
           countryCode={recipientCountry.code}
           onChangeCountry={setRecipientCountry}
-          placeholder="3000000"
           required
+          showError={recipientPhoneShowError}
         />
         <View
           style={{
