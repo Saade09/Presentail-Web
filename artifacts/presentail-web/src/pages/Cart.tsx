@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye } from "lucide-react";
+import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,7 @@ import cardStationery from "@assets/Elegant-dark-teal-stationery-design_17787422
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
 export const CARD_FROM_KEY = "presentail_card_from_v1";
+export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
 
 function CartSkeleton() {
   return (
@@ -96,6 +97,37 @@ export default function Cart() {
     locationCity?.freeDeliveryThresholdUsd ??
     locationCountry?.freeDeliveryThresholdUsd ??
     (freeDeliveryThresholdUsd(countryCode) || undefined);
+
+  // Promo code — persisted to localStorage so Checkout picks it up automatically.
+  const [couponOpen, setCouponOpen] = useState(() => {
+    try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
+  });
+  const [couponInput, setCouponInput] = useState(() => {
+    try { return localStorage.getItem(COUPON_STORAGE_KEY) ?? ""; } catch { return ""; }
+  });
+  const [couponApplied, setCouponApplied] = useState(() => {
+    try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
+  });
+
+  const handleCouponToggle = () => {
+    const next = !couponOpen;
+    setCouponOpen(next);
+  };
+
+  const handleCouponApply = () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    try { localStorage.setItem(COUPON_STORAGE_KEY, code); } catch { /* best-effort */ }
+    setCouponInput(code);
+    setCouponApplied(true);
+  };
+
+  const handleCouponRemove = () => {
+    try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+    setCouponInput("");
+    setCouponApplied(false);
+    setCouponOpen(false);
+  };
 
   // Card message — persisted to localStorage so it pre-populates checkout.
   const [cardMessage, setCardMessage] = useState(() => {
@@ -361,7 +393,76 @@ export default function Cart() {
           {/* Order Summary */}
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
-              <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
+              {/* Promo Code Accordion */}
+              <div className="mb-6">
+                <button
+                  type="button"
+                  onClick={handleCouponToggle}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
+                  data-testid="button-promo-toggle"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Tag className="w-4 h-4 text-primary/60 shrink-0" />
+                    {couponApplied ? (
+                      <span className="font-medium text-primary">
+                        {couponInput}
+                        <span className="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600">
+                          <Check className="w-3 h-3" />
+                          {t("cart.promoCodeApplied")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{t("cart.promoCode")}</span>
+                    )}
+                  </div>
+                  {couponOpen ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+
+                {couponOpen && (
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value);
+                        if (couponApplied) setCouponApplied(false);
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                      placeholder={t("cart.promoCodePlaceholder")}
+                      className="rounded-lg text-sm uppercase"
+                      data-testid="input-promo-code"
+                    />
+                    {couponApplied ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCouponRemove}
+                        className="shrink-0 rounded-lg"
+                        data-testid="button-promo-remove"
+                      >
+                        {t("cart.promoCodeRemove")}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleCouponApply}
+                        disabled={!couponInput.trim()}
+                        className="shrink-0 rounded-lg"
+                        data-testid="button-promo-apply"
+                      >
+                        {t("cart.promoCodeApply")}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <h2 className="text-2xl font-serif mb-4">{t("cart.summary")}</h2>
 
               <div className="text-sm mb-6 pb-6 border-b border-primary/10">
                 <DeliveryDateRow />

@@ -92,6 +92,7 @@ import {
 } from "@workspace/pay-methods";
 import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
 import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
@@ -278,6 +279,17 @@ function CheckoutScreen() {
   const [qrLink, setQrLink] = useState("");
   const [coupon, setCoupon] = useState("");
   const [couponOpen, setCouponOpen] = useState(false);
+
+  // Seed coupon from the cart-page AsyncStorage key so a code entered on
+  // the cart screen survives navigation into checkout without re-entry.
+  useEffect(() => {
+    AsyncStorage.getItem("@presentail/coupon_v1").then((val) => {
+      if (val) {
+        setCoupon(val);
+        setCouponOpen(true);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Step 2 — Delivery Details
   // Derive the district picker list from OS-filtered active cities when
@@ -783,6 +795,8 @@ function CheckoutScreen() {
         // via the onClear listener registered in DeliverySelectionContext, so
         // we don't need to call deliverySelection.clear() explicitly here.
         clear();
+        // Clear the promo code so a future cart session starts fresh.
+        AsyncStorage.removeItem("@presentail/coupon_v1").catch(() => {});
         // Best-effort save of the delivery address to the customer's profile
         // when they opted in. Never blocks order completion.
         if (saveAddress && authUser && !noAddress) {

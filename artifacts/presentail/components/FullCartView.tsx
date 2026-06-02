@@ -3,12 +3,14 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
@@ -125,6 +127,8 @@ type FullCartViewProps = {
   bottomOffset?: number;
 };
 
+const CART_COUPON_KEY = "@presentail/coupon_v1";
+
 export function FullCartView({ showBackButton = true, bottomOffset }: FullCartViewProps) {
   const headingFontMedium = useHeadingFont("500Medium");
   // Funnel entry: shoppers landing on the cart tab/screen. Counted once
@@ -144,6 +148,36 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const [footerHeight, setFooterHeight] = React.useState(0);
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
+
+  // Promo code — persisted to AsyncStorage so checkout picks it up automatically.
+  const [promoOpen, setPromoOpen] = React.useState(false);
+  const [promoInput, setPromoInput] = React.useState("");
+  const [promoApplied, setPromoApplied] = React.useState(false);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem(CART_COUPON_KEY).then((val) => {
+      if (val) {
+        setPromoInput(val);
+        setPromoApplied(true);
+        setPromoOpen(true);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handlePromoApply = React.useCallback(async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    try { await AsyncStorage.setItem(CART_COUPON_KEY, code); } catch { /* best-effort */ }
+    setPromoInput(code);
+    setPromoApplied(true);
+  }, [promoInput]);
+
+  const handlePromoRemove = React.useCallback(async () => {
+    try { await AsyncStorage.removeItem(CART_COUPON_KEY); } catch { /* best-effort */ }
+    setPromoInput("");
+    setPromoApplied(false);
+    setPromoOpen(false);
+  }, []);
   const [rescheduleVisible, setRescheduleVisible] = React.useState(false);
   const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
   const { detailed, total, setQty, remove, clear, cartMessage, setCartMessage } = useCart();
@@ -519,6 +553,101 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               gap: 12,
             }}
           >
+            {/* Promo Code Accordion */}
+            <Pressable
+              onPress={() => setPromoOpen((o) => !o)}
+              accessibilityRole="button"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                borderWidth: 1,
+                borderColor: promoApplied ? colors.gold : colors.border,
+                borderRadius: 12,
+                paddingVertical: 11,
+                paddingHorizontal: 14,
+                backgroundColor: promoApplied ? "rgba(200,160,80,0.06)" : "#fff",
+              }}
+            >
+              <Feather name="tag" size={14} color={promoApplied ? colors.gold : colors.mutedForeground} />
+              <View style={{ flex: 1 }}>
+                {promoApplied ? (
+                  <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
+                    {promoInput}
+                    <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.gold }}> {t.cartPromoCodeApplied}</AppText>
+                  </AppText>
+                ) : (
+                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+                    {t.cartPromoCode}
+                  </AppText>
+                )}
+              </View>
+              <Feather name={promoOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
+            </Pressable>
+
+            {promoOpen && (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TextInput
+                  value={promoInput}
+                  onChangeText={(v) => {
+                    setPromoInput(v);
+                    if (promoApplied) setPromoApplied(false);
+                  }}
+                  placeholder={t.cartPromoCodePlaceholder}
+                  placeholderTextColor={colors.mutedForeground}
+                  autoCapitalize="characters"
+                  returnKeyType="done"
+                  onSubmitEditing={handlePromoApply}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 13,
+                    color: colors.primary,
+                    backgroundColor: "#fff",
+                  }}
+                />
+                {promoApplied ? (
+                  <Pressable
+                    onPress={handlePromoRemove}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      justifyContent: "center",
+                    }}
+                  >
+                    <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground }}>
+                      {t.cartPromoCodeRemove}
+                    </AppText>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={handlePromoApply}
+                    disabled={!promoInput.trim()}
+                    style={({ pressed }) => ({
+                      backgroundColor: colors.primary,
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      justifyContent: "center",
+                      opacity: !promoInput.trim() ? 0.4 : pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <AppText style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>
+                      {t.cartPromoCodeApply}
+                    </AppText>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
             <Pressable
               onPress={goPickDeliveryTime}
               accessibilityRole="button"

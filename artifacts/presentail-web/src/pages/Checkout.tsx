@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY } from "./Cart";
+import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, COUPON_STORAGE_KEY } from "./Cart";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -111,7 +111,6 @@ function todayIso(): string {
 }
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
-const COUPON_STORAGE_KEY = "presentail_coupon_v1";
 
 // Typed shape of the /api/woo/order response. The generated hook uses `any`,
 // so we narrow it here to avoid `as any` casts in the order-handling code.

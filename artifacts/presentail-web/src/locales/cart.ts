@@ -26,6 +26,11 @@ export const cartStrings: Dict = {
   "cart.upsells.modal.continueShopping": { en: "Continue Shopping", ar: "متابعة التسوق" },
   "cart.upsells.modal.close": { en: "Close", ar: "إغلاق" },
   "cart.cardMessage.placeholder": { en: "Write a note to go with your gift…", ar: "اكتب ملاحظة ترفق مع هديتك…" },
+  "cart.promoCode": { en: "Add a promo code", ar: "إضافة رمز ترويجي" },
+  "cart.promoCodePlaceholder": { en: "Enter promo code", ar: "أدخل الرمز الترويجي" },
+  "cart.promoCodeApply": { en: "Apply", ar: "تطبيق" },
+  "cart.promoCodeRemove": { en: "Remove", ar: "إزالة" },
+  "cart.promoCodeApplied": { en: "Applied", ar: "تم التطبيق" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -54,4 +59,9 @@ export const cartStringsFr: Record<string, string> = {
   "cart.upsells.modal.continueShopping": "Continuer mes achats",
   "cart.upsells.modal.close": "Fermer",
   "cart.cardMessage.placeholder": "Écrivez un mot à joindre à votre cadeau…",
+  "cart.promoCode": "Ajouter un code promo",
+  "cart.promoCodePlaceholder": "Entrez le code promo",
+  "cart.promoCodeApply": "Appliquer",
+  "cart.promoCodeRemove": "Supprimer",
+  "cart.promoCodeApplied": "Appliqué",
 };
