@@ -31,6 +31,8 @@ export const DEFAULT_AUTH: AuthContextValue = {
   token: null,
   isLoading: false,
   logout: async () => {},
+  getToken: async () => null,
+  userType: null,
 };
 
 // ---------------------------------------------------------------------------

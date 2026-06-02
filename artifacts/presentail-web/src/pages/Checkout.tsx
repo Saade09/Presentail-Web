@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, COUPON_STORAGE_KEY } from "./Cart";
 import {
   useCreateOrder,
@@ -872,7 +873,7 @@ export default function Checkout() {
             <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
             <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
           </Link>
-          <Logo height={32} inverse={true} />
+          <Logo height={64} inverse={true} />
           <div className="w-8 sm:w-24" />
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>

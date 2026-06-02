@@ -13,7 +13,6 @@ import {
   Pencil,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useAuth as useClerkAuth } from "@clerk/react";
 import { useMyOrders } from "@/lib/queries";
 import { useProducts } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -68,7 +67,7 @@ type MeUser = {
 
 export default function Account() {
   const { user, logout, isLoading } = useAuth();
-  const { isSignedIn } = useClerkAuth();
+  const isSignedIn = !!user;
   const { t } = useLocale();
   const search = useSearch();
   const [, setLocation] = useLocation();

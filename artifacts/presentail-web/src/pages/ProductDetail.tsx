@@ -12,7 +12,7 @@ import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useProducts, useCatalogMetadata } from "@/lib/queries";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { useAuth as useClerkAuth } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
 import {
@@ -40,7 +40,8 @@ export default function ProductDetail() {
   const { t, language } = useLocale();
   const { toast } = useToast();
   const { addItem } = useCart();
-  const { isSignedIn } = useClerkAuth();
+  const { user } = useAuth();
+  const isSignedIn = !!user;
   const { isFavorited, toggleFavorite } = useFavorites();
   const { countryCode: locationCountry } = useLocationSelection();
   const [,] = useLocation();

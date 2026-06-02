@@ -8,7 +8,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { useProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useAuth as useClerkAuth } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Favorites() {
@@ -21,7 +21,7 @@ export default function Favorites() {
 
   const { data, isLoading } = useProducts(queryParams, isLoaded && favorites.size > 0);
 
-  const { getToken } = useClerkAuth();
+  const { getToken } = useAuth();
   const { toast } = useToast();
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);

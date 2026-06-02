@@ -55,12 +55,31 @@ export type AuthContextValue = {
   token: string | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  // Returns a short-lived Clerk JWT for use in Authorization headers.
+  // Returns null when signed out or when Clerk is absent/failed.
+  getToken: () => Promise<string | null>;
+  // Clerk publicMetadata.userType — "customer" | "driver" | "team" | null.
+  // Exposed so routes like CustomerOnly can gate on user type without calling
+  // Clerk hooks directly (which would throw outside ClerkProvider).
+  userType: string | null;
 };
 
-// Allows tests to inject a static auth value without needing ClerkProvider.
-// Production code never sets this — it defaults to null, so useAuth falls
-// through to the real Clerk hooks.
-export const AuthOverrideContext = createContext<AuthContextValue | null>(null);
+// Guest-mode sentinel — returned by useAuth() when no ClerkProvider is
+// present or when it failed to initialise. Never blocking.
+const GUEST_AUTH_VALUE: AuthContextValue = {
+  user: null,
+  token: null,
+  isLoading: false,
+  logout: async () => {},
+  getToken: async () => null,
+  userType: null,
+};
+
+// Single context that carries the resolved auth state. Populated by
+// ClerkAuthBridge (inside ClerkProvider) or the ClerkErrorBoundary fallback
+// in App.tsx (guest mode). Tests inject a static value via this context so
+// they don't need ClerkProvider at all.
+export const AuthOverrideContext = createContext<AuthContextValue>(GUEST_AUTH_VALUE);
 
 // AuthProvider is intentionally pass-through: ClerkProvider (mounted in
 // App.tsx) is the real provider. We keep this component so callers don't
@@ -69,25 +88,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-export function useAuth(): AuthContextValue {
-  const override = useContext(AuthOverrideContext);
-
-  // Clerk hooks must be called unconditionally (rules of hooks).
+/**
+ * Reads Clerk session state and populates AuthOverrideContext for the subtree.
+ * Must be rendered *inside* ClerkProvider — Clerk hooks are only safe there.
+ * When ClerkProvider fails to initialise (wrong key, network error), the
+ * ClerkErrorBoundary in App.tsx catches the error before this component
+ * mounts and provides GUEST_AUTH_VALUE instead.
+ */
+export function ClerkAuthBridge({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
-  const { signOut } = useClerk();
+  const clerk = useClerk();
 
-  // Return the test override when present, bypassing Clerk result.
-  if (override) return override;
-
-  const mappedUser: ShimUser | null =
-    isSignedIn && user ? mapClerkUserToShimUser(user) : null;
-
-  return {
-    user: mappedUser,
-    token: isSignedIn ? "clerk" : null,
-    isLoading: !isLoaded,
+  const value: AuthContextValue = {
+    user: isLoaded && isSignedIn && user ? mapClerkUserToShimUser(user) : null,
+    token: isLoaded && isSignedIn ? "clerk" : null,
+    // Never return isLoading:true — shoppers are treated as guests immediately
+    // if Clerk hasn't resolved yet (wrong key, slow network, dev env).
+    // When Clerk does resolve the user state updates automatically.
+    isLoading: false,
     logout: async () => {
-      await signOut();
+      if (isLoaded) await clerk.signOut();
     },
+    getToken: async () => {
+      if (!isLoaded || !isSignedIn) return null;
+      try {
+        return (await clerk.session?.getToken()) ?? null;
+      } catch {
+        return null;
+      }
+    },
+    userType:
+      isLoaded && isSignedIn && user
+        ? ((user.publicMetadata?.userType as string | null) ?? null)
+        : null,
   };
+
+  return (
+    <AuthOverrideContext.Provider value={value}>
+      {children}
+    </AuthOverrideContext.Provider>
+  );
+}
+
+/**
+ * Returns current auth state. Never calls Clerk hooks directly — reads only
+ * from AuthOverrideContext, which is populated by ClerkAuthBridge (when
+ * Clerk is working) or GUEST_AUTH_VALUE (when Clerk is absent or failed).
+ * This makes every consumer (including Checkout) completely independent of
+ * Clerk's initialisation state.
+ */
+export function useAuth(): AuthContextValue {
+  return useContext(AuthOverrideContext);
 }

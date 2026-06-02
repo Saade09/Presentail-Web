@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useSignIn } from "@clerk/react/legacy";
 import { useLocation, useRouter } from "wouter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/analytics";
 
 const AppleLogo = () => (
@@ -73,10 +71,8 @@ export function CheckoutLoginDialog({
   surface,
 }: Props) {
   const { t, dir } = useLocale();
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const router = useRouter();
-  const { isLoaded, signIn } = useSignIn();
 
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -113,8 +109,6 @@ export function CheckoutLoginDialog({
   };
 
   const base = (router.base || "").replace(/\/+$/, "");
-  // Where to send the user after sign-in completes — straight to checkout.
-  const redirectAfterAuth = `${base}/checkout`;
 
   const onContinueEmail = () => {
     // Record intent up-front so the funnel reflects every Continue click,
@@ -128,11 +122,6 @@ export function CheckoutLoginDialog({
       return;
     }
     setEmailError(null);
-    // Clerk's hosted <SignIn> form owns the multi-step email flow. We
-    // forward the typed email as a hint via the URL (Clerk's hosted form
-    // doesn't currently consume `email_address`, so this is best-effort
-    // for future wiring; tracked as a follow-up) and set redirect_url so
-    // the user lands on /checkout after sign-in.
     const qs = new URLSearchParams({
       redirect_url: "/checkout",
       email_address: trimmed,
@@ -141,29 +130,18 @@ export function CheckoutLoginDialog({
     setLocation(`/sign-in?${qs}`);
   };
 
-  const onOAuth = async (provider: "google" | "apple") => {
-    if (!isLoaded || !signIn) return;
-    try {
-      setOauthBusy(provider);
-      recordAction(provider);
-      await signIn.authenticateWithRedirect({
-        strategy: provider === "google" ? "oauth_google" : "oauth_apple",
-        // Clerk needs absolute URLs here; same-origin is fine because the
-        // storefront and Clerk callback both live under the wouter base.
-        redirectUrl: `${window.location.origin}${base}/sign-in/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}${redirectAfterAuth}`,
-      });
-    } catch (err) {
-      setOauthBusy(null);
-      toast({
-        title: t("auth.toast.oauthFailed", {
-          provider: provider === "google" ? "Google" : "Apple",
-        }),
-        description:
-          err instanceof Error ? err.message : t("auth.toast.error"),
-        variant: "destructive",
-      });
-    }
+  // Navigate to the sign-in page with the OAuth strategy pre-selected so
+  // the Clerk-hosted form handles the redirect flow. This removes any direct
+  // Clerk hook dependency from the checkout dialog.
+  const onOAuth = (provider: "google" | "apple") => {
+    setOauthBusy(provider);
+    recordAction(provider);
+    const qs = new URLSearchParams({
+      strategy: provider === "google" ? "oauth_google" : "oauth_apple",
+      redirect_url: `${base}/checkout`,
+    }).toString();
+    onOpenChange(false);
+    setLocation(`/sign-in?${qs}`);
   };
 
   return (
@@ -183,143 +161,92 @@ export function CheckoutLoginDialog({
         </div>
 
         <div className="px-6 pb-6 space-y-4">
-          {!isLoaded ? (
-            <>
-              <p className="text-sm text-center text-muted-foreground" data-testid="text-clerk-unavailable">
-                {t("checkoutLogin.signInUnavailable")}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="checkout-login-email">
+              {t("auth.emailLabel")}
+            </label>
+            <Input
+              id="checkout-login-email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError(null);
+              }}
+              placeholder={t("auth.emailPlaceholder")}
+              data-testid="input-checkout-login-email"
+            />
+            {emailError ? (
+              <p
+                className="text-xs text-destructive"
+                data-testid="text-checkout-login-email-error"
+              >
+                {emailError}
               </p>
-              <Button
-                size="lg"
-                className="w-full h-12 rounded-xl"
-                onClick={() => {
-                  recordAction("guest");
-                  onOpenChange(false);
-                  onContinueAsGuest();
-                }}
-                data-testid="button-checkout-as-guest"
-              >
-                {t("checkoutLogin.guest")}
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  {t("auth.or")}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                  disabled
-                  data-testid="button-checkout-login-apple"
-                >
-                  <AppleLogo />
-                  {t("auth.continueApple")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                  disabled
-                  data-testid="button-checkout-login-google"
-                >
-                  <GoogleLogo />
-                  {t("auth.continueGoogle")}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="checkout-login-email">
-                  {t("auth.emailLabel")}
-                </label>
-                <Input
-                  id="checkout-login-email"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (emailError) setEmailError(null);
-                  }}
-                  placeholder={t("auth.emailPlaceholder")}
-                  data-testid="input-checkout-login-email"
-                />
-                {emailError ? (
-                  <p
-                    className="text-xs text-destructive"
-                    data-testid="text-checkout-login-email-error"
-                  >
-                    {emailError}
-                  </p>
-                ) : null}
-              </div>
+            ) : null}
+          </div>
 
-              <Button
-                size="lg"
-                className="w-full h-12 rounded-xl"
-                onClick={onContinueEmail}
-                data-testid="button-checkout-login-continue"
-              >
-                {t("auth.continue")}
-              </Button>
+          <Button
+            size="lg"
+            className="w-full h-12 rounded-xl"
+            onClick={onContinueEmail}
+            data-testid="button-checkout-login-continue"
+          >
+            {t("auth.continue")}
+          </Button>
 
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  {t("auth.or")}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
+              {t("auth.or")}
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                  onClick={() => onOAuth("apple")}
-                  disabled={oauthBusy !== null}
-                  data-testid="button-checkout-login-apple"
-                >
-                  <AppleLogo />
-                  {oauthBusy === "apple"
-                    ? t("checkout.processing")
-                    : t("auth.continueApple")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                  onClick={() => onOAuth("google")}
-                  disabled={oauthBusy !== null}
-                  data-testid="button-checkout-login-google"
-                >
-                  <GoogleLogo />
-                  {oauthBusy === "google"
-                    ? t("checkout.processing")
-                    : t("auth.continueGoogle")}
-                </Button>
-              </div>
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+              onClick={() => onOAuth("apple")}
+              disabled={oauthBusy !== null}
+              data-testid="button-checkout-login-apple"
+            >
+              <AppleLogo />
+              {oauthBusy === "apple"
+                ? t("checkout.processing")
+                : t("auth.continueApple")}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+              onClick={() => onOAuth("google")}
+              disabled={oauthBusy !== null}
+              data-testid="button-checkout-login-google"
+            >
+              <GoogleLogo />
+              {oauthBusy === "google"
+                ? t("checkout.processing")
+                : t("auth.continueGoogle")}
+            </Button>
+          </div>
 
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full h-12 rounded-xl border border-primary/30 text-primary hover:bg-primary/5"
-                onClick={() => {
-                  recordAction("guest");
-                  onOpenChange(false);
-                  onContinueAsGuest();
-                }}
-                data-testid="button-checkout-as-guest"
-              >
-                {t("checkoutLogin.guest")}
-              </Button>
-            </>
-          )}
+          <Button
+            variant="ghost"
+            size="lg"
+            className="w-full h-12 rounded-xl border border-primary/30 text-primary hover:bg-primary/5"
+            onClick={() => {
+              recordAction("guest");
+              onOpenChange(false);
+              onContinueAsGuest();
+            }}
+            data-testid="button-checkout-as-guest"
+          >
+            {t("checkoutLogin.guest")}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth as useClerkAuth } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 
 type FavoritesContextType = {
   favorites: Set<string>;
@@ -19,7 +19,8 @@ type FavoritesContextType = {
 const FavoritesContext = createContext<FavoritesContextType | null>(null);
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const { isSignedIn, getToken } = useClerkAuth();
+  const { user, getToken } = useAuth();
+  const isSignedIn = !!user;
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
 

@@ -21,15 +21,12 @@ import {
   loadBrands,
   loadBrandDetail,
 } from "@/lib/pageLoaders";
-import {
-  ClerkProvider,
-  useAuth as useClerkAuth,
-  useUser,
-} from "@clerk/react";
+import { ClerkProvider } from "@clerk/react";
+import { Component, type ErrorInfo } from "react";
 import { isUserType, canShop } from "@workspace/clerk-types";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, AuthOverrideContext, ClerkAuthBridge, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
@@ -148,8 +145,9 @@ const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
 if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error(
-    "VITE_CLERK_PUBLISHABLE_KEY is required. Add it to the project's environment variables.",
+  // Warn but do not throw — the app and checkout work without Clerk (guest mode).
+  console.warn(
+    "[auth] VITE_CLERK_PUBLISHABLE_KEY is not set. Sign-in features will be unavailable.",
   );
 }
 
@@ -176,17 +174,16 @@ const CLERK_PROXY_URL = import.meta.env.VITE_CLERK_PROXY_URL as
 // than "customer" land on `/unauthorized` — we never silently downgrade
 // a driver/team user to customer privileges on the storefront.
 function CustomerOnly({ children }: { children: React.ReactNode }) {
-  const { isLoaded: authLoaded, isSignedIn } = useClerkAuth();
-  const { isLoaded: userLoaded, user } = useUser();
+  const { user, userType } = useAuth();
   const [currentPath] = useLocation();
-  if (!authLoaded || (isSignedIn && !userLoaded)) {
-    return <div className="min-h-[60vh]" data-testid="account-loading" />;
-  }
-  if (!isSignedIn) {
+  // user is null while Clerk is loading OR when signed out. We never show
+  // a spinner here — isLoading is always false by design (see AuthContext).
+  // On first render with no user, redirect to sign-in; if Clerk later
+  // resolves a signed-in session, user becomes non-null and children render.
+  if (!user) {
     const target = `/sign-in?redirect_url=${encodeURIComponent(currentPath)}`;
     return <Redirect to={target} replace />;
   }
-  const userType = user?.publicMetadata?.userType;
   // Allow customers and team members to shop; drivers and unrecognised roles
   // are redirected — we never silently downgrade them to customer privileges.
   if (isUserType(userType) && !canShop(userType)) {
@@ -370,20 +367,78 @@ function stripBase(path: string): string {
   return path;
 }
 
+// Wraps ClerkProvider so that a Clerk initialisation failure (e.g. production
+// key used on a non-production domain) is caught at the React error-boundary
+// level instead of crashing the whole app.
+//
+// IMPORTANT: ClerkProvider + ClerkAuthBridge are rendered INSIDE this class's
+// render() method — not passed as children — so that when `failed === true`
+// we can return the app children WITHOUT any Clerk wrapper. If ClerkProvider
+// were passed as children, the error boundary would re-render the same
+// crashing tree on every recovery attempt.
+//
+// When failed: children render with the AuthOverrideContext default
+// (GUEST_AUTH_VALUE), meaning useAuth() returns guest state immediately
+// with no Clerk hooks anywhere in the tree.
+class ClerkErrorBoundary extends Component<
+  {
+    children: React.ReactNode;
+    publishableKey: string;
+    proxyUrl?: string;
+    navigate: (to: string, opts?: { replace?: boolean }) => void;
+  },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  componentDidCatch(err: Error, _info: ErrorInfo) {
+    console.warn("[auth] ClerkProvider failed — running in guest mode:", err.message);
+    this.setState({ failed: true });
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    const { children, publishableKey, proxyUrl, navigate } = this.props;
+    if (this.state.failed) {
+      // Clerk failed: render children directly with no Clerk wrapper.
+      // AuthOverrideContext defaults to GUEST_AUTH_VALUE so every
+      // useAuth() call returns guest state. No Clerk hooks are in the tree.
+      return children;
+    }
+    return (
+      <ClerkProvider
+        publishableKey={publishableKey}
+        proxyUrl={proxyUrl}
+        routerPush={(to) => navigate(stripBase(to))}
+        routerReplace={(to) => navigate(stripBase(to), { replace: true })}
+      >
+        <ClerkAuthBridge>
+          {children}
+        </ClerkAuthBridge>
+      </ClerkProvider>
+    );
+  }
+}
+
 // Plumbs wouter's `setLocation` into Clerk so its built-in navigations
 // (after sign-in / verification / OAuth callbacks) use SPA pushState
 // transitions instead of full page reloads.
+// When the publishable key is absent or Clerk fails, children render in guest
+// mode — AuthOverrideContext defaults to GUEST_AUTH_VALUE in AuthContext.tsx.
 function ClerkRouterBridge({ children }: { children: React.ReactNode }) {
   const [, navigate] = useLocation();
+  if (!CLERK_PUBLISHABLE_KEY) {
+    // No key — skip ClerkProvider entirely; children see the default guest context.
+    return <>{children}</>;
+  }
   return (
-    <ClerkProvider
-      publishableKey={CLERK_PUBLISHABLE_KEY!}
+    <ClerkErrorBoundary
+      publishableKey={CLERK_PUBLISHABLE_KEY}
       proxyUrl={CLERK_PROXY_URL}
-      routerPush={(to) => navigate(stripBase(to))}
-      routerReplace={(to) => navigate(stripBase(to), { replace: true })}
+      navigate={navigate}
     >
       {children}
-    </ClerkProvider>
+    </ClerkErrorBoundary>
   );
 }
 
