@@ -127,7 +127,9 @@ export default function PersonalInformation() {
         setBDay(bd ? bd.slice(8, 10) : "");
         setPhone((u.phone ?? "") as PhoneValue || undefined);
       } catch {
-        if (!cancelled) setHydrateFailed(true);
+        // /auth/me failed (e.g. Clerk domain mismatch on dev preview) but
+        // the form is already seeded from shimUser — don't lock the buttons.
+        if (!cancelled) setHydrateFailed(false);
       } finally {
         if (!cancelled) setHydrating(false);
       }
