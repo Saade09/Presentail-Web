@@ -36,7 +36,7 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message ?? t("loyalty.loadError"));
+        setError(t("loyalty.loadError"));
       });
     return () => {
       cancelled = true;
