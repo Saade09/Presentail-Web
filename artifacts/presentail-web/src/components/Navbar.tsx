@@ -80,7 +80,7 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => openPicker()}
-            className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors"
+            className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors cursor-pointer"
             data-testid="button-open-location-picker"
           >
             <MapPin className="w-4 h-4" />

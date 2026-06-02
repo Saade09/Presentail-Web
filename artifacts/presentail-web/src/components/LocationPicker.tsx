@@ -102,7 +102,7 @@ export function LocationPicker({
             type="button"
             onClick={handleBackToCountries}
             data-testid="button-country-header-change"
-            className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity shrink-0"
+            className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity shrink-0 cursor-pointer"
           >
             {t("locationPicker.change")}
           </button>
@@ -129,7 +129,7 @@ export function LocationPicker({
               key={country.id}
               type="button"
               onClick={() => handleCountrySelect(country)}
-              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 ${
+              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
                 idx > 0 ? "border-t border-border" : ""
               }`}
               data-testid={`button-country-${country.code.toLowerCase()}`}
@@ -151,7 +151,7 @@ export function LocationPicker({
               key={city.id}
               type="button"
               onClick={() => handleCitySelect(city.id)}
-              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 ${
+              className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
                 idx > 0 ? "border-t border-border" : ""
               }`}
               data-testid={`button-city-${city.id}`}

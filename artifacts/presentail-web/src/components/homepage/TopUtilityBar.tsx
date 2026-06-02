@@ -52,7 +52,7 @@ export function TopUtilityBar() {
           <button
             type="button"
             onClick={() => openPicker()}
-            className="flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors"
+            className="flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors cursor-pointer"
             data-testid="button-country-selector"
           >
             {country ? (
