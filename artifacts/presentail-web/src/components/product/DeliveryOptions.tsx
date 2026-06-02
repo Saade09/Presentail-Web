@@ -14,6 +14,7 @@ type Props = {
   expressAvailable?: boolean;
   expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
+  infoFee?: string;
 };
 
 export function DeliveryOptions({
@@ -24,6 +25,7 @@ export function DeliveryOptions({
   expressAvailable = true,
   expressUnavailableLabel,
   scheduledSubtitle,
+  infoFee,
 }: Props) {
   const { t } = useLocale();
   return (
@@ -46,6 +48,7 @@ export function DeliveryOptions({
         showInfo
         infoTitle={t("checkout.expressInfo.title")}
         infoBody={t("checkout.expressInfo.body")}
+        infoFee={infoFee}
         testId="delivery-option-express"
       />
 
@@ -76,6 +79,7 @@ function DeliveryRow({
   showInfo,
   infoTitle,
   infoBody,
+  infoFee,
   testId,
   disabled,
 }: {
@@ -87,6 +91,7 @@ function DeliveryRow({
   showInfo?: boolean;
   infoTitle?: string;
   infoBody?: string;
+  infoFee?: string;
   testId?: string;
   disabled?: boolean;
 }) {
@@ -150,6 +155,9 @@ function DeliveryRow({
           >
             <p className="font-semibold mb-1">{infoTitle}</p>
             <p className="text-muted-foreground leading-relaxed">{infoBody}</p>
+            {infoFee && (
+              <p className="font-semibold mt-2 text-foreground">{infoFee}</p>
+            )}
           </PopoverContent>
         </Popover>
       )}

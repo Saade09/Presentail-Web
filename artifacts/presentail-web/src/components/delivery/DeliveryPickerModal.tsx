@@ -6,6 +6,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Info } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -108,23 +110,31 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
         <div className="space-y-6 pt-2">
           <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => expressAvailable && setMode("express")}
-              disabled={!expressAvailable}
-              className={`px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
-                mode === "express"
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground hover:border-foreground/20"
-              } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <div className="font-semibold">{t("checkout.expressDelivery")}</div>
-              <div className="text-xs opacity-80 mt-0.5">
-                {expressAvailable
-                  ? `+${formatPrice(expressSurcharge)}`
-                  : t("checkout.expressUnavailable")}
-              </div>
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => expressAvailable && setMode("express")}
+                disabled={!expressAvailable}
+                className={`w-full px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                  mode === "express"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:border-foreground/20"
+                } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <div className="font-semibold pr-5">{t("checkout.expressDelivery")}</div>
+                <div className="text-xs opacity-80 mt-0.5">
+                  {expressAvailable
+                    ? `+${formatPrice(expressSurcharge)}`
+                    : t("checkout.expressUnavailable")}
+                </div>
+              </button>
+              <ExpressInfoPopover
+                infoTitle={t("checkout.expressInfo.title")}
+                infoBody={t("checkout.expressInfo.body")}
+                infoFee={expressAvailable ? `+ ${formatPrice(expressSurcharge)}` : undefined}
+                active={mode === "express"}
+              />
+            </div>
             <button
               type="button"
               onClick={() => setMode("schedule")}
@@ -221,5 +231,60 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ExpressInfoPopover({
+  infoTitle,
+  infoBody,
+  infoFee,
+  active,
+}: {
+  infoTitle: string;
+  infoBody: string;
+  infoFee?: string;
+  active: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <span
+          role="button"
+          aria-label={infoTitle}
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              e.preventDefault();
+              setOpen((prev) => !prev);
+            }
+          }}
+          className={`absolute top-2 right-2 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            active
+              ? "text-primary-foreground/70 hover:text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Info className="w-3.5 h-3.5" />
+        </span>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        className="w-64 text-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-semibold mb-1">{infoTitle}</p>
+        <p className="text-muted-foreground leading-relaxed">{infoBody}</p>
+        {infoFee && (
+          <p className="font-semibold mt-2 text-foreground">{infoFee}</p>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

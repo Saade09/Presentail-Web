@@ -281,7 +281,7 @@ export function RescheduleDeliverySheet({
               <Feather name="check" size={16} color="#fff" />
             )}
             <Pressable
-              onPress={(e) => { e.stopPropagation(); Alert.alert(t.expressInfoPopupTitle, t.expressInfoPopupBody); }}
+              onPress={(e) => { e.stopPropagation(); Alert.alert(t.expressInfoPopupTitle, expressSurchargeUsd > 0 ? `${t.expressInfoPopupBody}\n\n+${formatNative(convert(expressSurchargeUsd))}` : t.expressInfoPopupBody); }}
               hitSlop={8}
               style={{ position: "absolute", top: 8, right: 8 }}
             >

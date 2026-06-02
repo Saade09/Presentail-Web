@@ -28,6 +28,7 @@ import { buildProductViewModel } from "@/components/product/productViewModel";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import {
   dayLabels,
+  expressSurchargeForCountry,
   formatDeliveryRow,
   isExpressDeliveryAvailable,
 } from "@workspace/delivery";
@@ -285,6 +286,7 @@ export default function ProductDetail() {
               expressAvailable={expressAvailable}
               expressUnavailableLabel={t("checkout.expressUnavailable")}
               scheduledSubtitle={scheduledRowSubtitle}
+              infoFee={`+ ${formatDisplayPrice(expressSurchargeForCountry(countryCode))}`}
             />
 
             {deliveryChoice === "scheduled" && (

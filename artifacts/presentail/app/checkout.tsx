@@ -2326,7 +2326,7 @@ function DeliveryTimeCard({
           active={deliveryMode === "express"}
           disabled={!expressAvailable}
           onPress={() => setDeliveryMode("express")}
-          onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, t.expressInfoPopupBody)}
+          onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, `${t.expressInfoPopupBody}\n\n+${formatPrice(expressSurcharge)}`)}
         />
         <DeliveryTile
           colors={colors}
