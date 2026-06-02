@@ -304,29 +304,6 @@ export function PhoneVerificationStep({
         </AppText>
       </View>
 
-      <View
-        style={{
-          backgroundColor: "#fff",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-        }}
-      >
-        <AppText
-          style={{
-            fontFamily: "Inter_400Regular",
-            fontSize: 15,
-            color: colors.primary,
-            textAlign: align,
-          }}
-          numberOfLines={1}
-        >
-          {email}
-        </AppText>
-      </View>
-
       <PhoneField
         label={t.authPhoneLabel}
         value={phoneNumber}

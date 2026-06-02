@@ -88,8 +88,7 @@ export function CheckoutLoginSheet({
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
@@ -146,8 +145,7 @@ export function CheckoutLoginSheet({
     setPassword("");
     setLoginBusy(false);
     setLoginError(null);
-    setFirstName("");
-    setLastName("");
+    setFullName("");
     setSignupBusy(false);
     setSignupError(null);
     setSocialBusy(null);
@@ -327,6 +325,11 @@ export function CheckoutLoginSheet({
   const onSubmitSignup = async () => {
     setSignupError(null);
     setSignupBusy(true);
+    const spaceIndex = fullName.trim().indexOf(" ");
+    const firstName =
+      spaceIndex === -1 ? fullName.trim() : fullName.trim().slice(0, spaceIndex);
+    const lastName =
+      spaceIndex === -1 ? "" : fullName.trim().slice(spaceIndex + 1);
     const r = await createAccountWithEmail(register, {
       email,
       password,
@@ -647,16 +650,10 @@ export function CheckoutLoginSheet({
 
               {step === "signup" ? (
                 <SignupStep
-                  email={email}
-                  firstName={firstName}
-                  lastName={lastName}
+                  fullName={fullName}
                   password={password}
-                  onFirstNameChange={(v) => {
-                    setFirstName(v);
-                    if (signupError) setSignupError(null);
-                  }}
-                  onLastNameChange={(v) => {
-                    setLastName(v);
+                  onFullNameChange={(v) => {
+                    setFullName(v);
                     if (signupError) setSignupError(null);
                   }}
                   onPasswordChange={(v) => {

@@ -20,8 +20,8 @@ export const authStrings: Dict = {
   "auth.codeLabel": { en: "Verification code", ar: "رمز التحقق" },
   "auth.codePlaceholder": { en: "6-digit code", ar: "الرمز المكوّن من ٦ أرقام" },
   "auth.codeSentTo": {
-    en: "We sent a code to {email}. Enter it below to sign in.",
-    ar: "أرسلنا رمزًا إلى {email}. أدخله أدناه لتسجيل الدخول.",
+    en: "We sent a code to {email}. Enter it below to verify your account.",
+    ar: "أرسلنا رمزًا إلى {email}. أدخله أدناه للتحقق من حسابك.",
   },
   "auth.codeResent": { en: "Code resent", ar: "تم إعادة إرسال الرمز" },
   "auth.codeInvalid": { en: "That code didn't work. Please try again.", ar: "هذا الرمز غير صحيح. يرجى المحاولة مرة أخرى." },
@@ -37,7 +37,9 @@ export const authStrings: Dict = {
   "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
   "checkoutLogin.signInUnavailable": { en: "Sign-in is temporarily unavailable. You can still checkout as a guest.", ar: "تسجيل الدخول غير متاح مؤقتاً. يمكنك الإتمام كضيف." },
 
-  "auth.fullNamePlaceholder": { en: "Your full name", ar: "اسمك الكامل" },
+  "auth.fullNamePlaceholder": { en: "Please add your full name", ar: "يرجى إدخال اسمك الكامل" },
+  "auth.nameLabel": { en: "Name", ar: "الاسم الكامل" },
+  "auth.nameRequired": { en: "Name is required.", ar: "الاسم مطلوب." },
   "auth.selectGender": { en: "Select gender", ar: "اختر الجنس" },
   "auth.unauthorized.title": { en: "You're signed in elsewhere", ar: "أنت مسجّل الدخول في مكان آخر" },
   "auth.unauthorized.desc": {
@@ -45,6 +47,17 @@ export const authStrings: Dict = {
     ar: "هذا الحساب ليس حساب متسوّق في برزنتيل. انتقل إلى حساب عميل للوصول إلى طلباتك وملفك الشخصي.",
   },
   "auth.unauthorized.backToShop": { en: "Back to shop", ar: "العودة إلى المتجر" },
+
+  "auth.passwordLabel": { en: "Password", ar: "كلمة المرور" },
+  "auth.passwordPlaceholder": { en: "Choose a password", ar: "اختر كلمة مرور" },
+  "auth.passwordRequired": { en: "Password is required.", ar: "كلمة المرور مطلوبة." },
+  "auth.passwordTooShort": { en: "Password must be at least 8 characters.", ar: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل." },
+
+  "auth.phoneStep.title": { en: "Almost there!", ar: "اقتربت من النهاية!" },
+  "auth.phoneStep.desc": { en: "Add your phone number to receive order updates.", ar: "أضف رقم هاتفك لتلقّي تحديثات طلبك." },
+  "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
+  "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
+  "auth.skipPhone": { en: "Skip", ar: "تخطّ" },
 };
 
 export const authStringsFr: Record<string, string> = {
@@ -66,7 +79,7 @@ export const authStringsFr: Record<string, string> = {
   "auth.toast.oauthFailed": "Échec de la connexion avec {provider}",
   "auth.codeLabel": "Code de vérification",
   "auth.codePlaceholder": "Code à 6 chiffres",
-  "auth.codeSentTo": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour vous connecter.",
+  "auth.codeSentTo": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour vérifier votre compte.",
   "auth.codeResent": "Code renvoyé",
   "auth.codeInvalid": "Ce code n'a pas fonctionné. Veuillez réessayer.",
   "auth.incorrectPassword": "Mot de passe incorrect. Veuillez réessayer ou réinitialiser votre mot de passe.",
@@ -78,9 +91,22 @@ export const authStringsFr: Record<string, string> = {
   "checkoutLogin.guest": "Passer à la caisse en tant qu'invité",
   "checkoutLogin.signInUnavailable": "La connexion est temporairement indisponible. Vous pouvez toujours passer à la caisse en tant qu'invité.",
 
-  "auth.fullNamePlaceholder": "Votre nom complet",
+  "auth.fullNamePlaceholder": "Veuillez saisir votre nom complet",
+  "auth.nameLabel": "Nom",
+  "auth.nameRequired": "Le nom est obligatoire.",
   "auth.selectGender": "Sélectionner le genre",
   "auth.unauthorized.title": "Vous êtes connecté ailleurs",
   "auth.unauthorized.desc": "Ce compte n'est pas un compte acheteur Presentail. Passez à un compte client pour accéder à vos commandes et votre profil.",
   "auth.unauthorized.backToShop": "Retour à la boutique",
+
+  "auth.passwordLabel": "Mot de passe",
+  "auth.passwordPlaceholder": "Choisissez un mot de passe",
+  "auth.passwordRequired": "Le mot de passe est obligatoire.",
+  "auth.passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
+
+  "auth.phoneStep.title": "Presque terminé !",
+  "auth.phoneStep.desc": "Ajoutez votre numéro de téléphone pour recevoir des mises à jour sur vos commandes.",
+  "auth.phoneLabel": "Numéro de téléphone",
+  "auth.createAccount": "Créer un compte",
+  "auth.skipPhone": "Ignorer",
 };
