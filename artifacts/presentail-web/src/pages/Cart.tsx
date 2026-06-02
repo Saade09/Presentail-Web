@@ -50,12 +50,19 @@ function CartSkeleton() {
           </div>
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8">
-              <Skeleton className="h-8 w-36 mb-6" />
-              <div className="space-y-4 mb-6 pb-6 border-b border-primary/10">
+              <Skeleton className="h-8 w-44 mb-4" />
+              <div className="mb-6 pb-6 border-b border-primary/10">
+                <Skeleton className="h-4 w-full" />
+              </div>
+              <div className="mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-16" />
                 </div>
+              </div>
+              <div className="flex justify-between mb-8">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-7 w-24" />
               </div>
               <Skeleton className="h-14 w-full rounded-xl" />
             </div>
@@ -182,6 +189,9 @@ export default function Cart() {
             {freeDeliveryEnabled !== false && (
               <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
             )}
+            <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
+              {t("cart.summary")}
+            </p>
             <div className="space-y-6">
             {items.map((item, index) => (
               <motion.div
@@ -332,14 +342,17 @@ export default function Cart() {
           {/* Order Summary */}
           <div className="w-full lg:w-96 shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
-              <h2 className="text-2xl font-serif mb-6">{t("cart.summary")}</h2>
+              <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
+
+              <div className="text-sm mb-6 pb-6 border-b border-primary/10">
+                <DeliveryDateRow />
+              </div>
 
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>
                   <span className="font-medium">{fmt(subtotal)}</span>
                 </div>
-                <DeliveryDateRow />
               </div>
 
               <div className="flex justify-between items-center mb-8">
