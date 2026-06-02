@@ -102,7 +102,10 @@ export function formatPriceInCurrency(
 ): string {
   const cfg = configFor(currencyCode);
   const v = Number(amount) || 0;
-  const numStr = v.toFixed(cfg.decimals).replace(/\.0+$/, "");
+  const raw = v.toFixed(cfg.decimals).replace(/\.0+$/, "");
+  const [intStr, decStr] = raw.split(".");
+  const intWithSep = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const numStr = decStr != null ? `${intWithSep}.${decStr}` : intWithSep;
   const sep = cfg.space ? " " : "";
   return cfg.position === "left"
     ? `${cfg.symbol}${sep}${numStr}`

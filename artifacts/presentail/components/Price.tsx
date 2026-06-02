@@ -28,7 +28,7 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
   const fixed =
     currency.decimals > 0 ? v.toFixed(currency.decimals) : Math.round(v).toString();
   const [intPart, decPart] = fixed.split(".");
-  const withSep = Number(intPart).toLocaleString();
+  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const numStr = decPart != null ? `${withSep}.${decPart}` : withSep;
 
   if (currency.code === "AED") {

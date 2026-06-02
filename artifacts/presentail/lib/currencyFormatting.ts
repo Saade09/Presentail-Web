@@ -27,7 +27,7 @@ export function formatNativeAmount(currency: Currency, amount: number): string {
       ? v.toFixed(currency.decimals)
       : Math.round(v).toString();
   const [intPart, decPart] = fixed.split(".");
-  const withSep = Number(intPart).toLocaleString();
+  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const numStr = decPart != null ? `${withSep}.${decPart}` : withSep;
   const sep = currency.spaceBetween ? " " : "";
   if (currency.symbolPosition === "left") {
