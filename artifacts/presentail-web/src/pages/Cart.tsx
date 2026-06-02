@@ -31,10 +31,10 @@ function CartSkeleton() {
       <div className="container mx-auto px-4 max-w-5xl">
         <Skeleton className="h-10 w-48 mb-12" />
         <div className="flex flex-col lg:flex-row gap-12">
-          <div className="flex-1 space-y-8 min-w-0">
+          <div className="flex-1 space-y-6 min-w-0">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex gap-6 py-6 border-b">
-                <Skeleton className="w-24 md:w-32 aspect-square rounded-2xl shrink-0" />
+              <div key={i} className="flex gap-4 py-4 border-b">
+                <Skeleton className="w-20 md:w-24 aspect-square rounded-2xl shrink-0" />
                 <div className="flex flex-col justify-between flex-1 py-1">
                   <div className="space-y-2">
                     <Skeleton className="h-5 w-3/4" />
@@ -182,16 +182,16 @@ export default function Cart() {
             {freeDeliveryEnabled !== false && (
               <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
             )}
-            <div className="space-y-8">
+            <div className="space-y-6">
             {items.map((item, index) => (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 key={item.product.id}
-                className="flex gap-6 py-6 border-b"
+                className="flex gap-4 py-4 border-b"
               >
-                <div className="w-24 md:w-32 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
+                <div className="w-20 md:w-24 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
                   {item.product.image?.uri && (
                     <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
                   )}
@@ -199,7 +199,7 @@ export default function Cart() {
                 <div className="flex flex-col justify-between flex-1">
                   <div className="flex justify-between gap-4">
                     <div>
-                      <h3 className="font-serif text-lg leading-tight mb-1">{item.product.name}</h3>
+                      <h3 className="font-serif text-base leading-tight mb-1">{item.product.name}</h3>
                       <p className="text-sm text-muted-foreground">{fmt(item.product.priceValue)}</p>
                     </div>
                     <button
