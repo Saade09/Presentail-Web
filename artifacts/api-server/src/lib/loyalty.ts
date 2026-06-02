@@ -734,6 +734,17 @@ export type LoyaltySummary = {
   }[];
 };
 
+export function zeroPointsSummary(): LoyaltySummary {
+  const state = computeTierState(0);
+  return {
+    points: state.points,
+    tier: state.tier,
+    nextTier: state.nextTier,
+    pointsToNext: state.pointsToNext,
+    coupons: [],
+  };
+}
+
 export async function getLoyaltySummary(
   customerId: number,
   options: { syncCoupons?: boolean; log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void } } = {},
@@ -749,18 +760,40 @@ export async function getLoyaltySummary(
       );
     }
   }
-  const points = await getCustomerPoints(customerId);
+
+  let points: number;
+  try {
+    points = await getCustomerPoints(customerId);
+  } catch (err: any) {
+    logger.warn(
+      { err: err?.message, customerId },
+      "loyalty: getCustomerPoints failed, returning zero-points summary",
+    );
+    return zeroPointsSummary();
+  }
+
   const state = computeTierState(points);
-  const couponRows = await db
-    .select()
-    .from(loyaltyCouponsTable)
-    .where(
-      and(
-        eq(loyaltyCouponsTable.customerId, customerId),
-        eq(loyaltyCouponsTable.status, "active"),
-      ),
-    )
-    .orderBy(desc(loyaltyCouponsTable.createdAt));
+
+  let couponRows: (typeof loyaltyCouponsTable.$inferSelect)[];
+  try {
+    couponRows = await db
+      .select()
+      .from(loyaltyCouponsTable)
+      .where(
+        and(
+          eq(loyaltyCouponsTable.customerId, customerId),
+          eq(loyaltyCouponsTable.status, "active"),
+        ),
+      )
+      .orderBy(desc(loyaltyCouponsTable.createdAt));
+  } catch (err: any) {
+    logger.warn(
+      { err: err?.message, customerId },
+      "loyalty: coupon query failed, returning summary without coupons",
+    );
+    couponRows = [];
+  }
+
   return {
     points: state.points,
     tier: state.tier,

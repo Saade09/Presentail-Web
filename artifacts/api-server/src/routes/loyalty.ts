@@ -6,6 +6,7 @@ import {
   creditDeliveredOrder,
   getLoyaltyHistory,
   getLoyaltySummary,
+  zeroPointsSummary,
 } from "../lib/loyalty";
 
 const router: IRouter = Router();
@@ -33,7 +34,16 @@ router.get("/loyalty/me", requireUserType(["customer", "team"]), async (req, res
     return;
   }
 
-  const summary = await getLoyaltySummary(customer.id);
+  let summary;
+  try {
+    summary = await getLoyaltySummary(customer.id);
+  } catch (err: any) {
+    req.log.warn(
+      { err: err?.message, customerId: customer.id },
+      "loyalty: getLoyaltySummary failed, returning zero-points summary",
+    );
+    summary = zeroPointsSummary();
+  }
   res.json({ ok: true, loyalty: summary });
 });
 
