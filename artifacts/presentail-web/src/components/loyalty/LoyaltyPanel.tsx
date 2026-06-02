@@ -99,51 +99,63 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
         </p>
       </div>
 
-      <div className="rounded-2xl bg-background/60 border border-border/50 p-6">
-        <div className="flex items-baseline justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </span>
-            <div>
-              <div className="text-3xl font-serif" data-testid="loyalty-points">
-                {data.points}
-              </div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {t("loyalty.points")}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              {t("loyalty.currentTier")}
-            </div>
-            <div className="font-medium text-lg" data-testid="loyalty-tier">
-              {data.tier.label}
-            </div>
-          </div>
+      {data.points === 0 ? (
+        <div
+          className="rounded-2xl bg-background/60 border border-border/50 p-6 flex items-center gap-4"
+          data-testid="loyalty-no-points"
+        >
+          <span className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5 text-muted-foreground" />
+          </span>
+          <p className="text-sm text-muted-foreground">{t("loyalty.noPointsYet")}</p>
         </div>
-        {data.nextTier && data.pointsToNext != null ? (
-          <div className="mt-5">
-            <div className="h-2 rounded-full bg-secondary overflow-hidden">
-              <div
-                className="h-full bg-gold transition-all"
-                style={{ width: `${pct}%` }}
-                data-testid="loyalty-progress"
-              />
+      ) : (
+        <div className="rounded-2xl bg-background/60 border border-border/50 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </span>
+              <div>
+                <div className="text-3xl font-serif" data-testid="loyalty-points">
+                  {data.points}
+                </div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t("loyalty.points")}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {t("loyalty.pointsToNext").replace("{points}", String(data.pointsToNext)).replace("{tier}", data.nextTier.label).replace("{discount}", String(data.nextTier.discountPercent))}
-            </p>
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {t("loyalty.currentTier")}
+              </div>
+              <div className="font-medium text-lg" data-testid="loyalty-tier">
+                {data.tier.label}
+              </div>
+            </div>
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground mt-4">
-            {t("loyalty.vipMessage")}
-          </p>
-        )}
-      </div>
+          {data.nextTier && data.pointsToNext != null ? (
+            <div className="mt-5">
+              <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="h-full bg-gold transition-all"
+                  style={{ width: `${pct}%` }}
+                  data-testid="loyalty-progress"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {t("loyalty.pointsToNext").replace("{points}", String(data.pointsToNext)).replace("{tier}", data.nextTier.label).replace("{discount}", String(data.nextTier.discountPercent))}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-4">
+              {t("loyalty.vipMessage")}
+            </p>
+          )}
+        </div>
+      )}
 
-      {data.coupons.length > 0 ? (
+      {data.points > 0 && data.coupons.length > 0 ? (
         <div>
           <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-3">
             {t("loyalty.activeCoupons")}

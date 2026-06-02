@@ -184,6 +184,10 @@ export const accountStrings: Dict = {
     en: "Earn 1 point for every $1 you spend at Presentail. Points are credited once your order is delivered. Reach a tier and we'll mint a personal discount coupon you can use on your next purchase.",
     ar: "اكسب نقطة واحدة لكل دولار تنفقه في برزنتيل. تُضاف النقاط بعد تسليم طلبك. عند بلوغ مستوى معين، سنمنحك كوبون خصم شخصي يمكنك استخدامه في طلبك القادم.",
   },
+  "loyalty.noPointsYet": {
+    en: "You haven't earned any points yet. Place your first order to start earning!",
+    ar: "لم تكسب أي نقاط بعد. قدّم طلبك الأول لتبدأ في جمع النقاط!",
+  },
 
   "account.shortcut.total": { en: "total", ar: "إجمالاً" },
 
@@ -367,6 +371,7 @@ export const accountStringsFr: Record<string, string> = {
   "loyalty.activeCoupons": "Vos coupons actifs",
   "loyalty.howTiersWork": "Comment fonctionnent les niveaux",
   "loyalty.earnDescFull": "Gagnez 1 point pour chaque dollar dépensé chez Presentail. Les points sont crédités une fois votre commande livrée. Atteignez un niveau et nous créerons un coupon de réduction personnel utilisable sur votre prochain achat.",
+  "loyalty.noPointsYet": "Vous n'avez pas encore de points. Passez votre première commande pour commencer à en gagner !",
 
   "account.shortcut.total": "au total",
 
