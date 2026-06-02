@@ -24,6 +24,12 @@ async function resolveCustomerId(
 > {
   const auth = await authenticate(authHeader, req);
   if (!auth.ok) return auth;
+  // Clerk sessions already carry the local customer id — use it directly
+  // to avoid a getCustomerByWcId round-trip that fails when WC sync hasn't
+  // run yet (e.g. freshly signed-up Clerk users without a WC mirror).
+  if (auth.localCustomerId) {
+    return { ok: true, customerId: auth.localCustomerId };
+  }
   const local = await getCustomerByWcId(auth.customerId);
   if (!local) {
     return { ok: false, status: 404, message: "Customer profile not found" }; // i18n-ignore

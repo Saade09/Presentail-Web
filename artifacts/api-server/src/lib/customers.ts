@@ -247,6 +247,23 @@ export async function getCustomerByWcId(
   return row ?? null;
 }
 
+export async function getCustomerByAuthUserId(
+  authUserId: string,
+  authProvider: string,
+): Promise<Customer | null> {
+  const [row] = await db
+    .select()
+    .from(customersTable)
+    .where(
+      and(
+        eq(customersTable.authUserId, authUserId),
+        eq(customersTable.authProvider, authProvider),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 // ── WooCommerce sync (isolated) ─────────────────────────────────────────────
 // Keeping the WC sync layer in one module is what makes WooCommerce removable
 // later. The order route does not call WC customer endpoints directly.

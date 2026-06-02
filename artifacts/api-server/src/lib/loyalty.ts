@@ -584,6 +584,86 @@ export async function creditDeliveredOrder(
   };
 }
 
+// ── Referral redemption credit ─────────────────────────────────────────────
+//
+// Called fire-and-forget after a successful order that included a referral
+// coupon code. Awards a configurable point bonus (REFERRAL_POINTS_AWARD, default
+// 0 — inert until ops sets it) to the referrer. Uses the same ledger as the
+// order-delivery path so tier unlocks and coupon minting apply automatically.
+// source key: "referral:<referrerCustomerId>:<redeemingOrderSourceKey>"
+
+export type CreditReferralInput = {
+  referrerCustomerId: number;
+  redeemerSourceKey: string;
+  storeKey?: StoreKey | string | null;
+  log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
+};
+
+export async function creditReferralRedemption(
+  input: CreditReferralInput,
+): Promise<{ credited: boolean; pointsAwarded: number }> {
+  const { referrerCustomerId, redeemerSourceKey, storeKey, log } = input;
+  const rawAmount = process.env.REFERRAL_POINTS_AWARD;
+  const points = rawAmount ? Math.max(0, Math.floor(Number(rawAmount))) : 0;
+  if (points === 0) {
+    return { credited: false, pointsAwarded: 0 };
+  }
+  const source = `referral:${referrerCustomerId}:${redeemerSourceKey}`;
+  const inserted = await insertLedger({
+    customerId: referrerCustomerId,
+    points,
+    reason: "referral_redeemed",
+    source,
+    storeKey: storeKey ? String(storeKey).toLowerCase() : null,
+  });
+  if (!inserted) {
+    return { credited: false, pointsAwarded: 0 };
+  }
+  log?.info?.(
+    { referrerCustomerId, points, source },
+    "loyalty: awarded referral points",
+  );
+  // Check for newly unlocked tiers and mint coupons if applicable.
+  const totalPoints = await getCustomerPoints(referrerCustomerId);
+  const beforePoints = totalPoints - points;
+  const beforeUnlocked = unlockedCouponTiers(beforePoints).map((t) => t.key);
+  const newlyUnlocked = unlockedCouponTiers(totalPoints).filter(
+    (t) => !beforeUnlocked.includes(t.key),
+  );
+  if (newlyUnlocked.length > 0) {
+    const customer = await getCustomerById(referrerCustomerId);
+    if (customer?.email) {
+      const store = resolveStoreByKey(storeKey);
+      const ordered = [...newlyUnlocked].sort(
+        (a, b) => b.discountPercent - a.discountPercent,
+      );
+      for (const tier of ordered) {
+        await replaceActiveCouponsBelowTier(referrerCustomerId, tier.key);
+        const row = await ensureTierCoupon({
+          customerId: referrerCustomerId,
+          email: customer.email,
+          tier,
+          store,
+          log,
+        });
+        if (row) {
+          try {
+            await sendLoyaltyUnlockPush({
+              userId: referrerCustomerId,
+              tierLabel: tier.label,
+              discountPercent: tier.discountPercent,
+              code: row.code,
+            });
+          } catch {
+            /* push is best-effort */
+          }
+        }
+      }
+    }
+  }
+  return { credited: true, pointsAwarded: points };
+}
+
 export type ReverseOrderInput = {
   customerId: number;
   wcOrderId: number;

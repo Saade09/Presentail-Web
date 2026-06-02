@@ -13,7 +13,7 @@ const SERVER_JWT_ISSUER = "presentail-api";
 const SERVER_JWT_AUDIENCE = "presentail-app";
 
 export type AuthResult =
-  | { ok: true; customerId: number; token: string }
+  | { ok: true; customerId: number; localCustomerId?: number; token: string }
   | { ok: false; status: number; message: string };
 
 export function decodeJwtPayload(token: string): any | null {
@@ -288,7 +288,7 @@ async function resolveClerkSession(
     }
   }
 
-  return { ok: true, customerId: wcCustomerId, token: "" };
+  return { ok: true, customerId: wcCustomerId, localCustomerId, token: "" };
 }
 
 // Authenticate the request. Resolution order:

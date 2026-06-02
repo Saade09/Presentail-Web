@@ -22,6 +22,10 @@ import {
   getCustomerByWcId,
 } from "../lib/customers";
 import {
+  creditReferralRedemption,
+  orderSourceKey as loyaltyOrderSourceKey,
+} from "../lib/loyalty";
+import {
   readStoreContext,
   resolveStoreFromRequest,
   wooAuthHeader,
@@ -1423,6 +1427,59 @@ router.post("/woo/order", async (req, res) => {
   // whish / western: offline payments — paymentVerified stays false,
   // WC order will be created with set_paid: false (pending payment).
 
+  // ── Referral coupon auto-provisioning ────────────────────────────────────
+  // If the coupon code matches the PT[A-Z0-9]+ referral format, ensure a
+  // matching WC coupon exists before the order is submitted. If the coupon
+  // doesn't exist yet, create it with the REFERRAL_DISCOUNT_AMOUNT env var
+  // (defaults to 0, making the feature inert until ops enables it). Failures
+  // are non-blocking — a log warn is emitted but order creation still proceeds.
+  const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
+  const isReferralCoupon =
+    typeof body.couponCode === "string" &&
+    REFERRAL_CODE_RE.test(body.couponCode.trim().toUpperCase());
+  if (isReferralCoupon && store.consumerKey) {
+    const refCode = body.couponCode!.trim().toUpperCase();
+    try {
+      const checkRes = await wooFetch(
+        `/coupons?code=${encodeURIComponent(refCode)}&per_page=1`,
+        {},
+        "en",
+        store,
+      );
+      const existing = checkRes.ok ? ((await checkRes.json()) as { id?: number }[]) : [];
+      if (!existing.length) {
+        const discountAmount = Math.max(
+          0,
+          Number(process.env.REFERRAL_DISCOUNT_AMOUNT ?? "0"),
+        );
+        await wooFetch(
+          "/coupons",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              code: refCode,
+              discount_type: "percent",
+              amount: String(discountAmount),
+              individual_use: true,
+              description: `Presentail referral code ${refCode}`, // i18n-ignore
+            }),
+          },
+          "en",
+          store,
+        );
+        req.log?.info?.(
+          { code: refCode, discountAmount },
+          "woo.order: auto-created referral coupon",
+        );
+      }
+    } catch (refErr: any) {
+      req.log?.warn?.(
+        { err: refErr?.message, code: body.couponCode },
+        "woo.order: referral coupon provisioning failed (non-fatal)",
+      );
+    }
+  }
+
   const result = await attemptCreateWcOrder(body, {
     paymentVerified,
     wcCustomerId,
@@ -1543,6 +1600,32 @@ router.post("/woo/order", async (req, res) => {
     storeKey: store.storeKey,
     log: req.log,
   });
+
+  // ── Referral points (fire-and-forget) ────────────────────────────────────
+  // When the order included a referral coupon (PT[A-Z0-9]+), decode the
+  // referrer's local customer ID from the code and credit them points.
+  // REFERRAL_POINTS_AWARD controls the award (default 0 = inert until ops
+  // sets it). Never blocks or fails the checkout response.
+  if (isReferralCoupon && body.couponCode) {
+    const refCode = body.couponCode.trim().toUpperCase();
+    const referrerId = parseInt(refCode.slice(2), 36);
+    if (Number.isFinite(referrerId) && referrerId > 0) {
+      const redeemerSource = result.wcOrderId
+        ? loyaltyOrderSourceKey(store.storeKey, result.wcOrderId)
+        : `order:${body.orderId}`;
+      void creditReferralRedemption({
+        referrerCustomerId: referrerId,
+        redeemerSourceKey: redeemerSource,
+        storeKey: store.storeKey,
+        log: req.log,
+      }).catch((err: unknown) => {
+        req.log?.warn?.(
+          { err: (err as Error)?.message, referrerId, refCode },
+          "woo.order: creditReferralRedemption failed (non-fatal)",
+        );
+      });
+    }
+  }
 
   return res.json({
     ok: true,
