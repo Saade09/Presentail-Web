@@ -41,9 +41,11 @@ import type {
   GetDeliveryConfigParams,
   GetGeoCurrencyByCoordsParams,
   GetHomepageBannersParams,
+  GetHomepageBestSellersParams,
   GetHomepageCategoriesParams,
   HealthStatus,
   HomepageBannersResponse,
+  HomepageBestSellersResponse,
   HomepageCollectionResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
@@ -913,6 +915,116 @@ export function useGetHomepageOccasions<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHomepageOccasionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns up to 12 in-stock products from the Presentail OS cache,
+sorted descending by `totalSales`. The list is filtered by the
+visitor's `countryCode` and `cityId` so only products deliverable
+to that location are included. Products with no `totalSales` data
+(zero or absent) are ranked equally at the bottom. Returns 503
+when the OS product cache has not yet been populated.
+
+ * @summary Get best-selling products for the homepage carousel
+ */
+export const getGetHomepageBestSellersUrl = (
+  params?: GetHomepageBestSellersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/homepage/best-sellers?${stringifiedParams}`
+    : `/api/homepage/best-sellers`;
+};
+
+export const getHomepageBestSellers = async (
+  params?: GetHomepageBestSellersParams,
+  options?: RequestInit,
+): Promise<HomepageBestSellersResponse> => {
+  return customFetch<HomepageBestSellersResponse>(
+    getGetHomepageBestSellersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHomepageBestSellersQueryKey = (
+  params?: GetHomepageBestSellersParams,
+) => {
+  return [`/api/homepage/best-sellers`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetHomepageBestSellersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomepageBestSellers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetHomepageBestSellersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageBestSellers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHomepageBestSellersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomepageBestSellers>>
+  > = ({ signal }) =>
+    getHomepageBestSellers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomepageBestSellers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomepageBestSellersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomepageBestSellers>>
+>;
+export type GetHomepageBestSellersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get best-selling products for the homepage carousel
+ */
+
+export function useGetHomepageBestSellers<
+  TData = Awaited<ReturnType<typeof getHomepageBestSellers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetHomepageBestSellersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHomepageBestSellers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomepageBestSellersQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

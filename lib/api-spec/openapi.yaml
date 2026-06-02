@@ -302,6 +302,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HomepageCollectionResponse"
+  /homepage/best-sellers:
+    get:
+      operationId: getHomepageBestSellers
+      tags: [homepage]
+      summary: Get best-selling products for the homepage carousel
+      description: |
+        Returns up to 12 in-stock products from the Presentail OS cache,
+        sorted descending by `totalSales`. The list is filtered by the
+        visitor's `countryCode` and `cityId` so only products deliverable
+        to that location are included. Products with no `totalSales` data
+        (zero or absent) are ranked equally at the bottom. Returns 503
+        when the OS product cache has not yet been populated.
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          description: ISO 3166-1 alpha-2 country code (case-insensitive) used to filter products by deliverable country.
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          description: City identifier (e.g. "ae-dubai") used to filter products by deliverable city.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          required: false
+          description: Language code ("en", "ar", or "fr"). Reserved for future localisation.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Best-selling products for the location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomepageBestSellersResponse"
+        "503":
+          description: OS product cache not yet populated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /delivery-config:
     get:
       operationId: getDeliveryConfig
@@ -1922,6 +1966,67 @@ components:
             $ref: "#/components/schemas/HomepageCollectionItem"
       required:
         - items
+    HomepageBestSellerProduct:
+      type: object
+      description: A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).
+      properties:
+        id:
+          type: string
+          description: Product slug used as the stable identifier and URL segment.
+        name:
+          type: string
+          description: Display name of the product.
+        price:
+          type: string
+          description: Formatted price string, e.g. "$45" or "100 LBP".
+        priceValue:
+          type: number
+          description: Numeric price in the store's base currency (USD).
+        image:
+          type: object
+          nullable: true
+          description: Primary product image URI, or null when no image is available.
+          properties:
+            uri:
+              type: string
+          required:
+            - uri
+        images:
+          type: array
+          description: All product images in display order.
+          items:
+            type: object
+            properties:
+              uri:
+                type: string
+            required:
+              - uri
+        inStock:
+          type: boolean
+          description: Whether the product is currently in stock.
+        popularity:
+          type: integer
+          description: Total sales count used for ranking. Zero when not available.
+      required:
+        - id
+        - name
+        - price
+        - priceValue
+        - images
+        - inStock
+        - popularity
+    HomepageBestSellersResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/HomepageBestSellerProduct"
+      required:
+        - ok
+        - products
     DeliveryConfigResponse:
       type: object
       properties:

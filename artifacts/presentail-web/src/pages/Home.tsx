@@ -3,6 +3,7 @@ import { useHomepageBanners } from "@/lib/banners";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
+import { BestSellersRail } from "@/components/homepage/BestSellersRail";
 export default function Home() {
   const { country } = useLocationSelection();
   const countryCode = country?.code ?? "*";
@@ -11,6 +12,8 @@ export default function Home() {
   return (
     <div className="min-h-screen px-5" data-testid="page-country-homepage">
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
+
+      <BestSellersRail />
 
       {/* First themed product rail — mirrors the live site's "Summer Collection". */}
       <BestSellersPreview

@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
 import { getActiveBanners } from "../data/homepageBanners";
+import { hasOsProducts, getOsProducts } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -583,6 +584,62 @@ router.get("/homepage/occasions", async (req, res) => {
   );
   const data = GetHomepageOccasionsResponse.parse({ items });
   return res.json(data);
+});
+
+const BEST_SELLERS_LIMIT = 12;
+
+router.get("/homepage/best-sellers", (req, res) => {
+  const store = resolveStoreFromRequest(req);
+
+  if (!hasOsProducts(store.storeKey)) {
+    return res.status(503).json({ ok: false, message: "Product catalog not yet populated" }); // i18n-ignore
+  }
+
+  const osProducts = getOsProducts(store.storeKey)!;
+
+  const countryCode =
+    typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
+  const cityId = typeof req.query.cityId === "string" ? req.query.cityId || null : null;
+
+  const filtered = osProducts
+    .filter((p) => p.inStock)
+    .filter((p) => {
+      if (countryCode && p.deliverableCountries && p.deliverableCountries.length > 0) {
+        if (!p.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) return false;
+      }
+      if (cityId && p.deliverableCities && p.deliverableCities.length > 0) {
+        if (!p.deliverableCities.some((c) => c === cityId)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0))
+    .slice(0, BEST_SELLERS_LIMIT);
+
+  const currencySymbol = store.currencySymbol ?? "$";
+
+  const products = filtered.map((p) => {
+    const price = p.price;
+    const imageList = p.images
+      .map((img) => ({ uri: img.url }))
+      .filter((img) => img.uri.length > 0);
+    const image = imageList[0] ?? null;
+    const formattedPrice =
+      currencySymbol.length > 1
+        ? `${price.toLocaleString()} ${currencySymbol}`
+        : `${currencySymbol}${price.toLocaleString()}`;
+    return {
+      id: p.id,
+      name: p.name.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'"),
+      price: formattedPrice,
+      priceValue: price,
+      image,
+      images: imageList,
+      inStock: p.inStock,
+      popularity: p.totalSales ?? 0,
+    };
+  });
+
+  return res.json({ ok: true, products });
 });
 
 // Force-refresh the homepage Categories + Occasions caches for a given

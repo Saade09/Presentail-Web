@@ -613,6 +613,44 @@ export interface HomepageCollectionResponse {
   items: HomepageCollectionItem[];
 }
 
+/**
+ * Primary product image URI, or null when no image is available.
+ */
+export type HomepageBestSellerProductImage = {
+  uri: string;
+} | null;
+
+export type HomepageBestSellerProductImagesItem = {
+  uri: string;
+};
+
+/**
+ * A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).
+ */
+export interface HomepageBestSellerProduct {
+  /** Product slug used as the stable identifier and URL segment. */
+  id: string;
+  /** Display name of the product. */
+  name: string;
+  /** Formatted price string, e.g. "$45" or "100 LBP". */
+  price: string;
+  /** Numeric price in the store's base currency (USD). */
+  priceValue: number;
+  /** Primary product image URI, or null when no image is available. */
+  image?: HomepageBestSellerProductImage;
+  /** All product images in display order. */
+  images: HomepageBestSellerProductImagesItem[];
+  /** Whether the product is currently in stock. */
+  inStock: boolean;
+  /** Total sales count used for ranking. Zero when not available. */
+  popularity: number;
+}
+
+export interface HomepageBestSellersResponse {
+  ok: boolean;
+  products: HomepageBestSellerProduct[];
+}
+
 export interface DeliveryConfigResponse {
   /** Human-readable express delivery promise (e.g. "Arrives in 90 minutes"). */
   expressDeliveryTimeLabel: string;
@@ -1033,6 +1071,21 @@ alone is ambiguous.
 
  */
   cityId?: string;
+};
+
+export type GetHomepageBestSellersParams = {
+  /**
+   * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter products by deliverable country.
+   */
+  countryCode?: string;
+  /**
+   * City identifier (e.g. "ae-dubai") used to filter products by deliverable city.
+   */
+  cityId?: string;
+  /**
+   * Language code ("en", "ar", or "fr"). Reserved for future localisation.
+   */
+  lang?: string;
 };
 
 export type GetDeliveryConfigParams = {
