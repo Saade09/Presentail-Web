@@ -28,7 +28,7 @@ export function TopUtilityBar() {
 
   return (
     <div className="bg-[#efefef] text-xs text-muted-foreground border-b border-border/60">
-      <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-4">
+      <div className="container mx-auto max-w-content px-4 h-10 flex items-center justify-between gap-4">
 
         {/* Sliding ticker */}
         <div className="flex items-center gap-1.5 text-foreground/80 overflow-hidden h-full min-w-0">

@@ -31,7 +31,7 @@ export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
 function CartSkeleton() {
   return (
     <div className="min-h-screen bg-white pt-24 pb-24">
-      <div className="container mx-auto px-4 max-w-5xl">
+      <div className="container mx-auto px-4 max-w-content">
         <Skeleton className="h-10 w-48 mb-12" />
         <div className="flex flex-col lg:flex-row gap-12">
           <div className="flex-1 space-y-6 min-w-0">
@@ -227,7 +227,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-white pt-24 pb-24">
-      <div className="container mx-auto px-4 max-w-5xl">
+      <div className="container mx-auto px-4 max-w-content">
         <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
 
         <div className="flex flex-col lg:flex-row gap-12">

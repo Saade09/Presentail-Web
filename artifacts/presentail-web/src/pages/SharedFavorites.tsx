@@ -86,7 +86,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
         </Link>
       </header>
 
-      <div className="container mx-auto px-4 max-w-5xl pt-12">
+      <div className="container mx-auto px-4 max-w-content pt-12">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-10 pb-8 border-b">
           <div className="flex items-center gap-3 flex-1">
             <Heart className="w-6 h-6 text-rose-500 fill-rose-500 flex-shrink-0" />

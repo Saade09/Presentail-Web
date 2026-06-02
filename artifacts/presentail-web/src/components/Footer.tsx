@@ -131,7 +131,7 @@ export function Footer() {
       data-testid="footer"
       lang={language}
     >
-      <div className="container mx-auto px-4 py-12 md:py-16">
+      <div className="container mx-auto max-w-content px-4 py-12 md:py-16">
         <div className="grid gap-10 md:gap-8 md:grid-cols-12">
           {/* Brand + social + contact */}
           <div className="md:col-span-3">
@@ -275,7 +275,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/15">
-        <div className="container mx-auto px-4 py-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+        <div className="container mx-auto max-w-content px-4 py-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
           {/* Copyright + address */}
           <div className="text-xs text-white/70 leading-relaxed md:flex-1">
             <p data-testid="footer-copyright">

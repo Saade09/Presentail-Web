@@ -205,7 +205,7 @@ export default function Contact() {
       </section>
 
       {/* ── Channel cards ───────────────────────────────────────────────── */}
-      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-5xl">
+      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-content">
         <h2 className="text-2xl md:text-3xl font-serif mb-8">
           {c.channelsHeading}
         </h2>
@@ -288,7 +288,7 @@ export default function Contact() {
       </section>
 
       {/* ── Hours + Address ──────────────────────────────────────────────── */}
-      <section className="container mx-auto px-4 pb-16 md:pb-20 max-w-5xl">
+      <section className="container mx-auto px-4 pb-16 md:pb-20 max-w-content">
         <div className="grid gap-6 md:grid-cols-2">
           {/* Hours card with live open/closed pill */}
           <div className="rounded-xl border border-border p-6 bg-card">
@@ -347,7 +347,7 @@ export default function Contact() {
         }}
       >
         <div
-          className={`container mx-auto px-4 py-16 md:py-20 max-w-5xl flex flex-col items-center text-center gap-6 ${isRtl ? "rtl" : ""}`}
+          className={`container mx-auto px-4 py-16 md:py-20 max-w-content flex flex-col items-center text-center gap-6 ${isRtl ? "rtl" : ""}`}
         >
           <h2 className="text-3xl md:text-4xl font-serif">{c.ctaHeading}</h2>
           <p className="text-muted-foreground max-w-md leading-relaxed">{c.ctaBody}</p>

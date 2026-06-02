@@ -56,34 +56,36 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent hidden md:block" />
 
-      {/* Text */}
+      {/* Text — inner content capped to content-max-width and centered */}
       {hasText && (
         <div className="absolute inset-0 flex items-end">
-          <motion.div
-            className="p-7 md:p-14 max-w-2xl"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: active ? 1 : 0, y: active ? 0 : 16 }}
-            transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
-          >
-            {banner.title && (
-              <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
-                {banner.title}
-              </h2>
-            )}
-            {banner.subtitle && (
-              <p className="text-sm md:text-lg text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed">
-                {banner.subtitle}
-              </p>
-            )}
-            {banner.ctaText && (
-              <span
-                className="inline-flex items-center gap-2 bg-white text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:bg-white/90 transition-colors"
-              >
-                {banner.ctaText}
-                <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-              </span>
-            )}
-          </motion.div>
+          <div className="w-full max-w-content mx-auto">
+            <motion.div
+              className="px-7 py-7 md:px-14 md:py-14 max-w-2xl"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: active ? 1 : 0, y: active ? 0 : 16 }}
+              transition={{ duration: 0.6, delay: active ? 0.25 : 0, ease: "easeOut" }}
+            >
+              {banner.title && (
+                <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
+                  {banner.title}
+                </h2>
+              )}
+              {banner.subtitle && (
+                <p className="text-sm md:text-lg text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed">
+                  {banner.subtitle}
+                </p>
+              )}
+              {banner.ctaText && (
+                <span
+                  className="inline-flex items-center gap-2 bg-white text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:bg-white/90 transition-colors"
+                >
+                  {banner.ctaText}
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                </span>
+              )}
+            </motion.div>
+          </div>
         </div>
       )}
     </Link>

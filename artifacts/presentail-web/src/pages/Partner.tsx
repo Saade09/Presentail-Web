@@ -114,7 +114,7 @@ export default function Partner() {
         <p className="text-lg text-muted-foreground leading-relaxed">{c.intro}</p>
       </section>
 
-      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-5xl">
+      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-content">
         <h2 className="text-2xl md:text-3xl font-serif mb-8">{c.whyHeading}</h2>
         <div className="grid gap-6 md:grid-cols-3">
           {c.why.map((p) => (

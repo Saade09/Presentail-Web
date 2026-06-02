@@ -109,7 +109,7 @@ function MegaMenuPanel({
       onMouseLeave={onMouseLeave}
       className="absolute top-full left-0 right-0 z-[70] bg-[#fafaf9] border-t border-border shadow-2xl"
     >
-      <div className="container mx-auto px-4 pt-5 pb-6">
+      <div className="container mx-auto max-w-content px-4 pt-5 pb-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {def.items.map((item) => (
             <Link
@@ -217,7 +217,7 @@ export function MainNavbar() {
 
   return (
     <div ref={wrapperRef} className="bg-white relative border-b border-gray-200">
-      <div className="container mx-auto px-4 h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
+      <div className="container mx-auto max-w-content px-4 h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
 
         {/* ── Left: nav ────────────────────────────────────── */}
         <div className="flex items-center gap-2">

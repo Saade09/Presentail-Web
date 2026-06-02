@@ -10,37 +10,39 @@ export default function Home() {
   const { data: banners, isLoading } = useHomepageBanners(countryCode);
 
   return (
-    <div className="min-h-screen px-5" data-testid="page-country-homepage">
+    <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
+      {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
-      <BestSellersRail />
+      <div className="px-5">
+        <BestSellersRail />
 
-      {/* First themed product rail — mirrors the live site's "Summer Collection". */}
-      <BestSellersPreview
-        categorySlug="hand-bouquets"
-        titleKey="collections.summer.title"
-        railKey="rail-summer"
-        testId="section-collection-summer"
-      />
+        {/* First themed product rail — mirrors the live site's "Summer Collection". */}
+        <BestSellersPreview
+          categorySlug="hand-bouquets"
+          titleKey="collections.summer.title"
+          railKey="rail-summer"
+          testId="section-collection-summer"
+        />
 
-      <HomepageCollections />
+        <HomepageCollections />
 
-      {/* Second themed rail — Flower Boxes. Same component, different category. */}
-      <BestSellersPreview
-        categorySlug="flower-boxes"
-        titleKey="collections.boxes.title"
-        railKey="rail-boxes"
-        testId="section-collection-boxes"
-      />
+        {/* Second themed rail — Flower Boxes. Same component, different category. */}
+        <BestSellersPreview
+          categorySlug="flower-boxes"
+          titleKey="collections.boxes.title"
+          railKey="rail-boxes"
+          testId="section-collection-boxes"
+        />
 
-      {/* Third themed rail — Cakes. */}
-      <BestSellersPreview
-        categorySlug="cakes"
-        titleKey="collections.cakes.title"
-        railKey="rail-cakes"
-        testId="section-collection-cakes"
-      />
-
+        {/* Third themed rail — Cakes. */}
+        <BestSellersPreview
+          categorySlug="cakes"
+          titleKey="collections.cakes.title"
+          railKey="rail-cakes"
+          testId="section-collection-cakes"
+        />
+      </div>
     </div>
   );
 }

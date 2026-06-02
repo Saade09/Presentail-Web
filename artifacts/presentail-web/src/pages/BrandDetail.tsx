@@ -31,10 +31,10 @@ export default function BrandDetail() {
 
   return (
     <div className="min-h-screen pt-24 pb-24 bg-background">
-      <div className="container mx-auto">
+      <div className="container mx-auto max-w-content px-4">
         <PageBreadcrumb crumbs={breadcrumbCrumbs} />
       </div>
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto max-w-content px-4">
         <Link href="/brands" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
           <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("brand.backToBrands")}
         </Link>

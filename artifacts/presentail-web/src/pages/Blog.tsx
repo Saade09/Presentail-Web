@@ -140,7 +140,7 @@ export default function Blog() {
         </p>
       </section>
 
-      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-5xl">
+      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-content">
         <h2 className="text-2xl md:text-3xl font-serif mb-8">
           {c.storiesHeading}
         </h2>

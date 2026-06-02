@@ -47,9 +47,7 @@ export function HeroBannerCarousel({
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 mt-6">
-        <div className="w-full max-w-[1400px] mx-auto aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] bg-muted rounded-3xl animate-pulse" />
-      </div>
+      <div className="w-full aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] bg-muted animate-pulse" />
     );
   }
 
@@ -60,63 +58,61 @@ export function HeroBannerCarousel({
   const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
 
   return (
-    <div className="container mx-auto px-4 mt-6">
-      <div
-        className="relative w-full max-w-[1400px] mx-auto aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden bg-muted shadow-xl"
-        data-testid="hero-banner-carousel"
-      >
-        {banners.map((banner, i) => (
-          <div
-            key={banner.id}
-            className={`absolute inset-0 transition-opacity duration-700 ease-out ${
-              i === index ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-            }`}
-            aria-hidden={i !== index}
+    <div
+      className="relative w-full aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted"
+      data-testid="hero-banner-carousel"
+    >
+      {banners.map((banner, i) => (
+        <div
+          key={banner.id}
+          className={`absolute inset-0 transition-opacity duration-700 ease-out ${
+            i === index ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+          }`}
+          aria-hidden={i !== index}
+        >
+          <HeroBannerSlide banner={banner} isMobile={isMobile} active={i === index} />
+        </div>
+      ))}
+
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            aria-label={t("carousel.prev")}
+            data-testid="button-carousel-prev"
+            className="absolute z-20 top-1/2 -translate-y-1/2 start-3 md:start-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
           >
-            <HeroBannerSlide banner={banner} isMobile={isMobile} active={i === index} />
+            <PrevIcon className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            aria-label={t("carousel.next")}
+            data-testid="button-carousel-next"
+            className="absolute z-20 top-1/2 -translate-y-1/2 end-3 md:end-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
+          >
+            <NextIcon className="w-5 h-5" />
+          </button>
+
+          <div className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            {banners.map((b, i) => (
+              <button
+                key={b.id}
+                type="button"
+                aria-label={`Go to slide ${i + 1}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIndex(i);
+                }}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === index ? "bg-white w-6" : "bg-white/60 w-1.5"
+                }`}
+              />
+            ))}
           </div>
-        ))}
-
-        {count > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label={t("carousel.prev")}
-              data-testid="button-carousel-prev"
-              className="absolute z-20 top-1/2 -translate-y-1/2 start-3 md:start-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
-            >
-              <PrevIcon className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label={t("carousel.next")}
-              data-testid="button-carousel-next"
-              className="absolute z-20 top-1/2 -translate-y-1/2 end-3 md:end-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/85 hover:bg-white text-primary shadow-md flex items-center justify-center backdrop-blur transition"
-            >
-              <NextIcon className="w-5 h-5" />
-            </button>
-
-            <div className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-              {banners.map((b, i) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  aria-label={`Go to slide ${i + 1}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIndex(i);
-                  }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === index ? "bg-white w-6" : "bg-white/60 w-1.5"
-                  }`}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

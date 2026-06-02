@@ -862,7 +862,7 @@ export default function Checkout() {
     <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
       <header className="sticky top-0 z-40" style={{ backgroundColor: "#00414e" }}>
-        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
+        <div className="max-w-content mx-auto px-5 py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
           <Link
             href="/cart"
             className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
@@ -876,7 +876,7 @@ export default function Checkout() {
           <div className="w-8 sm:w-24" />
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-center">
+          <div className="max-w-content mx-auto px-5 py-3 flex items-center justify-center">
             {stepLabels.map((label, i) => {
               const n = i + 1;
               const done = step > n;
@@ -922,7 +922,7 @@ export default function Checkout() {
         </div>
       </header>
       {/* ── Page content ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-content mx-auto px-4 sm:px-6 py-8">
         <div className="flex flex-col lg:flex-row gap-8 items-start">
 
           {/* ── Main form ── */}

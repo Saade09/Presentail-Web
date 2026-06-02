@@ -227,7 +227,7 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-12 pb-24">
+      <div className="container mx-auto px-4 max-w-content pt-12 pb-24">
         <Skeleton className="h-4 w-64 mb-8" />
         <div className="grid lg:grid-cols-[3fr_2fr] gap-10 lg:gap-16">
           <Skeleton className="aspect-square rounded-3xl" />
@@ -244,7 +244,7 @@ export default function ProductDetail() {
 
   if (!product || !vm || product.inStock === false) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-32 pb-24 text-center">
+      <div className="container mx-auto px-4 max-w-content pt-32 pb-24 text-center">
         <h1 className="font-serif text-3xl mb-4">{t("product.notFound")}</h1>
         <Button asChild variant="outline">
           <Link href="/shop">{t("product.returnShop")}</Link>
@@ -255,10 +255,10 @@ export default function ProductDetail() {
 
   return (
     <div className="bg-white min-h-screen relative z-0">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-2">
+      <div className="container mx-auto px-4 max-w-content pt-2">
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
-      <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 max-w-6xl pt-4 sm:pt-6 pb-16 sm:pb-20">
+      <div className="container mx-auto px-4 max-w-content pt-4 sm:pt-6 pb-16 sm:pb-20">
         <div className="grid lg:grid-cols-[3fr_2fr] lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
           <div className="h-full">
             <ProductGallery

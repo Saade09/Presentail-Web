@@ -48,7 +48,7 @@ export function Navbar() {
         scrolled ? "bg-white border-b border-gray-200" : "bg-transparent"
       }`}
     >
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+      <div className="container mx-auto max-w-content px-4 h-20 flex items-center justify-between">
         <div className="flex items-center gap-4 md:gap-8">
           <Sheet>
             <SheetTrigger asChild>

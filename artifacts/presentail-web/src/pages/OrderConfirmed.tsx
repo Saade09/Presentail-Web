@@ -99,7 +99,7 @@ export default function OrderConfirmed() {
 
   if (state.kind === "finalizing") {
     return (
-      <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto px-4">
+      <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
         <div className="max-w-md w-full text-center space-y-6 animate-in fade-in">
           <div className="flex justify-center">
             <Loader2 className="w-16 h-16 text-primary animate-spin" />
@@ -115,7 +115,7 @@ export default function OrderConfirmed() {
   const ref = state.kind === "success" ? state.ref : "—";
 
   return (
-    <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto px-4">
+    <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
       <div className="max-w-md w-full text-center space-y-6 animate-in zoom-in-95 duration-500">
         <div className="flex justify-center">
           {isSuccess ? (
