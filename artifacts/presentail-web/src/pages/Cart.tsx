@@ -334,7 +334,8 @@ export default function Cart() {
       <CheckoutLoginDialog
         open={loginOpen}
         onOpenChange={setLoginOpen}
-        onGuestCheckout={goToCheckout}
+        onContinueAsGuest={goToCheckout}
+        surface="cart"
       />
     </div>
   );
