@@ -123,6 +123,10 @@ export const accountStrings: Dict = {
     en: "This phone number looks too long for the country you picked.",
     ar: "رقم الهاتف طويل جداً بالنسبة للدولة المختارة.",
   },
+  "pi.phone.errorInvalid": {
+    en: "Please enter a valid phone number.",
+    ar: "يرجى إدخال رقم هاتف صحيح.",
+  },
   "pi.password.title": { en: "Password", ar: "كلمة المرور" },
   "pi.password.help": {
     en: "Update your password to keep your account secure.",
@@ -334,6 +338,7 @@ export const accountStringsFr: Record<string, string> = {
   "pi.phone.updatedMsg": "Votre numéro de téléphone a été mis à jour.",
   "pi.phone.errorTooShort": "Ce numéro de téléphone semble trop court pour le pays sélectionné.",
   "pi.phone.errorTooLong": "Ce numéro de téléphone semble trop long pour le pays sélectionné.",
+  "pi.phone.errorInvalid": "Veuillez saisir un numéro de téléphone valide.",
   "pi.password.title": "Mot de passe",
   "pi.password.help": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
   "pi.password.change": "Modifier le mot de passe",

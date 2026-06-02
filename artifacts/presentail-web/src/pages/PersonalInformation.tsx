@@ -2,26 +2,18 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import type { Value as PhoneValue } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
-import {
-  COUNTRY_DIAL_CODES,
-  splitPhone,
-  validateNationalNumber,
-  type CountryDialCode,
-} from "@/data/countryCodes";
 
 type Gender = "female" | "male" | "unspecified";
 const GENDER_VALUES: Gender[] = ["female", "male", "unspecified"];
@@ -87,10 +79,7 @@ export default function PersonalInformation() {
   const [bYear, setBYear] = useState("");
   const [bdayError, setBdayError] = useState<string | null>(null);
 
-  const [phoneCountry, setPhoneCountry] = useState<CountryDialCode>(
-    COUNTRY_DIAL_CODES[0],
-  );
-  const [phoneLocal, setPhoneLocal] = useState("");
+  const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Redirect to sign-in if signed out (CustomerOnly upstream gates this too,
@@ -113,9 +102,7 @@ export default function PersonalInformation() {
     setFirstName(shimUser.firstName ?? "");
     setLastName(shimUser.lastName ?? "");
     setEmail(shimUser.email ?? "");
-    const seedSplit = splitPhone(shimUser.phone ?? "");
-    setPhoneCountry(seedSplit.country);
-    setPhoneLocal(seedSplit.local);
+    setPhone((shimUser.phone ?? "") as PhoneValue || undefined);
     (async () => {
       try {
         const data = await apiFetch<MeResponse>("/auth/me");
@@ -138,9 +125,12 @@ export default function PersonalInformation() {
         setBYear(bd ? bd.slice(0, 4) : "");
         setBMonth(bd ? bd.slice(5, 7) : "");
         setBDay(bd ? bd.slice(8, 10) : "");
-        const split = splitPhone(u.phone ?? "");
-        setPhoneCountry(split.country);
-        setPhoneLocal(split.local);
+        setShareBirthday(
+          typeof u.birthdayShareMonthDay === "boolean"
+            ? u.birthdayShareMonthDay
+            : true,
+        );
+        setPhone((u.phone ?? "") as PhoneValue || undefined);
       } catch {
         if (!cancelled) setHydrateFailed(true);
       } finally {
@@ -150,7 +140,7 @@ export default function PersonalInformation() {
     return () => {
       cancelled = true;
     };
-  }, [shimUser]);
+  }, [shimUser?.id]);
 
   const onSavePersonal = async () => {
     setBdayError(null);
@@ -206,24 +196,16 @@ export default function PersonalInformation() {
 
   const onSavePhone = async () => {
     setPhoneError(null);
-    // Normalise to strict E.164: dial code + digits-only national number,
-    // no spaces or punctuation. Empty national number clears the field.
-    const digits = phoneLocal.replace(/\D/g, "");
-    const validation = validateNationalNumber(phoneCountry, phoneLocal);
-    if (validation === "too_short") {
-      setPhoneError(t("pi.phone.errorTooShort"));
+    // phone is E.164 from react-phone-number-input, or undefined when cleared.
+    if (phone && !isValidPhoneNumber(phone)) {
+      setPhoneError(t("pi.phone.errorInvalid"));
       return;
     }
-    if (validation === "too_long") {
-      setPhoneError(t("pi.phone.errorTooLong"));
-      return;
-    }
-    const phoneValue = digits ? `${phoneCountry.dial}${digits}` : "";
     setPhoneBusy(true);
     try {
       await apiFetch<MeResponse>("/auth/me", {
         method: "PUT",
-        body: JSON.stringify({ phone: phoneValue }),
+        body: JSON.stringify({ phone: phone ?? "" }),
       });
       toast({
         title: t("pi.updated.title"),
@@ -252,7 +234,7 @@ export default function PersonalInformation() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-24 bg-background" dir={dir}>
+    <div className="min-h-screen pt-20 pb-24 bg-background" dir={dir}>
       <div className="container mx-auto px-4 max-w-3xl">
         <button
           type="button"
@@ -265,7 +247,7 @@ export default function PersonalInformation() {
         </button>
 
         <h1 className="text-4xl font-serif mb-2">{t("pi.title")}</h1>
-        <p className="text-sm text-muted-foreground mb-10">{t("pi.subtitle")}</p>
+        <p className="text-sm text-muted-foreground mb-6">{t("pi.subtitle")}</p>
 
         {hydrating ? (
           <div className="flex items-center justify-center py-6 text-muted-foreground">
@@ -275,12 +257,12 @@ export default function PersonalInformation() {
 
         {/* ── Personal information card ───────────────────────────── */}
         <section
-          className="bg-secondary/30 rounded-3xl p-8 border border-border/50 mb-6"
+          className="bg-secondary/30 rounded-3xl p-6 border border-border/50 mb-6"
           data-testid="pi-personal-card"
         >
-          <h2 className="text-xl font-serif mb-6">{t("pi.title")}</h2>
+          <h2 className="text-xl font-serif mb-4">{t("pi.title")}</h2>
 
-          <div className="grid sm:grid-cols-2 gap-4 mb-5">
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
             <Field label={t("pi.firstName")} required>
               <Input
                 value={firstName}
@@ -299,7 +281,7 @@ export default function PersonalInformation() {
             </Field>
           </div>
 
-          <div className="mb-5">
+          <div className="mb-4">
             <Field label={t("pi.email")}>
               <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
                 {email || "—"}
@@ -310,7 +292,7 @@ export default function PersonalInformation() {
             </Field>
           </div>
 
-          <div className="mb-5">
+          <div className="mb-4">
             <Field label={t("pi.gender")}>
               <div className="grid grid-cols-3 gap-2">
                 {GENDER_VALUES.map((g) => {
@@ -398,54 +380,21 @@ export default function PersonalInformation() {
 
         {/* ── Phone card ──────────────────────────────────────────── */}
         <section
-          className="bg-secondary/30 rounded-3xl p-8 border border-border/50 mb-6"
+          className="bg-secondary/30 rounded-3xl p-6 border border-border/50 mb-6"
           data-testid="pi-phone-card"
         >
           <h2 className="text-xl font-serif mb-1">{t("pi.phone.title")}</h2>
-          <p className="text-sm text-muted-foreground mb-5">
-            {phoneLocal
-              ? `${phoneCountry.dial} ${phoneLocal}`
-              : t("pi.phone.notSet")}
+          <p className="text-sm text-muted-foreground mb-4">
+            {phone ? phone : t("pi.phone.notSet")}
           </p>
 
-          <div className="grid grid-cols-[140px_1fr] gap-2" dir="ltr">
-            <Select
-              value={phoneCountry.code}
-              onValueChange={(v) => {
-                const next = COUNTRY_DIAL_CODES.find((c) => c.code === v);
-                if (next) {
-                  setPhoneCountry(next);
-                  setPhoneError(null);
-                }
-              }}
-            >
-              <SelectTrigger data-testid="pi-phone-country">
-                <SelectValue>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span>{phoneCountry.flag}</span>
-                    <span className="text-sm">{phoneCountry.dial}</span>
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {COUNTRY_DIAL_CODES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    <span className="inline-flex items-center gap-2">
-                      <span>{c.flag}</span>
-                      <span className="text-sm">{c.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {c.dial}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              inputMode="tel"
-              value={phoneLocal}
-              onChange={(e) => {
-                setPhoneLocal(e.target.value);
+          <div dir="ltr" className="pi-phone-wrap">
+            <PhoneInput
+              international
+              defaultCountry="LB"
+              value={phone}
+              onChange={(v) => {
+                setPhone(v);
                 if (phoneError) setPhoneError(null);
               }}
               placeholder={t("pi.phone.placeholder")}
@@ -579,7 +528,7 @@ function PasswordCard({
 
   return (
     <section
-      className="bg-secondary/30 rounded-3xl p-8 border border-border/50"
+      className="bg-secondary/30 rounded-3xl p-6 border border-border/50"
       data-testid="pi-password-card"
     >
       <h2 className="text-xl font-serif mb-1">{t("pi.password.title")}</h2>
