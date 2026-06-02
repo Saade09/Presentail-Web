@@ -194,7 +194,11 @@ router.get(
   async (req, res) => {
     const resolved = await resolveCustomerId(req, req.header("authorization"));
     if (!resolved.ok) {
-      res.status(resolved.status).json({ ok: false, message: resolved.message });
+      if (resolved.status === 404) {
+        res.status(404).json({ ok: false, code: "no_referral_code" });
+      } else {
+        res.status(resolved.status).json({ ok: false, message: resolved.message });
+      }
       return;
     }
     // Stable, deterministic referral code derived from local customer ID.

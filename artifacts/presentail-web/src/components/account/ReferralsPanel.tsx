@@ -12,6 +12,7 @@ type ReferralData = {
 export function ReferralsPanel({ t }: { t: (k: string) => string }) {
   const [data, setData] = useState<ReferralData | null>(null);
   const [error, setError] = useState(false);
+  const [noCode, setNoCode] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -21,8 +22,14 @@ export function ReferralsPanel({ t }: { t: (k: string) => string }) {
         if (cancelled) return;
         setData({ code: r.code, shareUrl: r.shareUrl });
       })
-      .catch(() => {
-        if (!cancelled) setError(true);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const apiErr = err as { status?: number; code?: string };
+        if (apiErr.status === 404 || apiErr.code === "no_referral_code") {
+          setNoCode(true);
+        } else {
+          setError(true);
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -81,6 +88,8 @@ export function ReferralsPanel({ t }: { t: (k: string) => string }) {
           </p>
           {error ? (
             <p className="text-sm text-destructive">{t("account.referrals.loadError")}</p>
+          ) : noCode ? (
+            <p className="text-sm text-muted-foreground">{t("account.referrals.noCode")}</p>
           ) : !data ? (
             <Skeleton className="h-16 rounded-xl" />
           ) : (
