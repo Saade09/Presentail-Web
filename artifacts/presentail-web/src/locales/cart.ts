@@ -24,13 +24,7 @@ export const cartStrings: Dict = {
   "cart.upsells.add": { en: "Add", ar: "إضافة" },
   "cart.upsells.modal.continueShopping": { en: "Continue Shopping", ar: "متابعة التسوق" },
   "cart.upsells.modal.close": { en: "Close", ar: "إغلاق" },
-  "cart.cardMessage.title": { en: "Gift Card & Message", ar: "بطاقة هدية ورسالة" },
-  "cart.cardMessage.free": { en: "Free", ar: "مجاني" },
-  "cart.cardMessage.addMessage": { en: "Add a Message", ar: "أضف رسالة" },
   "cart.cardMessage.placeholder": { en: "Write a note to go with your gift…", ar: "اكتب ملاحظة ترفق مع هديتك…" },
-  "cart.cardMessage.suggestions": { en: "Not sure what to say? Try our suggestions", ar: "لا تعرف ماذا تكتب؟ جرّب اقتراحاتنا" },
-  "cart.cardMessage.edit": { en: "Edit", ar: "تعديل" },
-  "cart.cardMessage.clear": { en: "Clear", ar: "مسح" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -57,11 +51,5 @@ export const cartStringsFr: Record<string, string> = {
   "cart.upsells.add": "Ajouter",
   "cart.upsells.modal.continueShopping": "Continuer mes achats",
   "cart.upsells.modal.close": "Fermer",
-  "cart.cardMessage.title": "Carte cadeau & message",
-  "cart.cardMessage.free": "Gratuit",
-  "cart.cardMessage.addMessage": "Ajouter un message",
   "cart.cardMessage.placeholder": "Écrivez un mot à joindre à votre cadeau…",
-  "cart.cardMessage.suggestions": "Vous ne savez pas quoi écrire ? Essayez nos suggestions",
-  "cart.cardMessage.edit": "Modifier",
-  "cart.cardMessage.clear": "Effacer",
 };

@@ -5,10 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Eye } from "lucide-react";
-import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
+import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY } from "./Cart";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -34,7 +31,6 @@ import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
-import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
 import { trackEvent } from "@/lib/analytics";
 import { useNow } from "@/lib/useNow";
 import {
@@ -151,7 +147,6 @@ export default function Checkout() {
 
   const [step, setStep] = useState(1);
   const [orderNote, setOrderNote] = useState("");
-  const [suggestedOpen, setSuggestedOpen] = useState(false);
 
   // Saved addresses for signed-in shoppers
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -165,7 +160,7 @@ export default function Checkout() {
   // for the mode/slot seeds.
   const seededDeliverySelection = useDeliverySelection();
   const [recipient, setRecipient] = useState({
-    firstName: "",
+    firstName: (() => { try { return localStorage.getItem(CARD_TO_KEY) ?? ""; } catch { return ""; } })(),
     lastName: "",
     phone: "",
     district: locationCity?.name ?? "",
@@ -174,11 +169,11 @@ export default function Checkout() {
       seededDeliverySelection.date && seededDeliverySelection.mode !== "express"
         ? seededDeliverySelection.date
         : "",
-    cardMessage: (() => { try { return localStorage.getItem("presentail_card_message_v1") ?? ""; } catch { return ""; } })(),
+    cardMessage: (() => { try { return localStorage.getItem(CARD_MESSAGE_KEY) ?? ""; } catch { return ""; } })(),
   });
 
   const [sender, setSender] = useState({
-    firstName: user?.firstName || "",
+    firstName: user?.firstName || (() => { try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; } })(),
     lastName: user?.lastName || "",
     email: user?.email || "",
     phone: user?.phone || "",
@@ -325,7 +320,6 @@ export default function Checkout() {
   const [noAddress, setNoAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
-  const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
 
   // Coupon / gift card — seeded from localStorage so a code entered on the
@@ -855,7 +849,6 @@ export default function Checkout() {
   }, [currencyCode, countryCode, paymentMethod]);
 
   const stepLabels = [
-    t("checkout.step.customize"),
     t("checkout.step.deliveryDetails"),
     t("checkout.step3.title"),
   ];
@@ -910,7 +903,7 @@ export default function Checkout() {
                       {label}
                     </span>
                   </button>
-                  {i < 2 && (
+                  {i < 1 && (
                     <div
                       className={`w-10 sm:w-20 h-px mx-3 mb-5 transition-colors ${
                         done ? "bg-emerald-400/50" : "bg-white/15"
@@ -930,76 +923,8 @@ export default function Checkout() {
           {/* ── Main form ── */}
           <div className="flex-1 min-w-0">
 
-            {/* ── STEP 1 · Customize ── */}
+            {/* ── STEP 1 · Delivery Details ── */}
             {step === 1 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.personalizeGift")}</h1>
-                  <p className="text-sm text-muted-foreground">{t("checkout.personalizeGiftDesc")}</p>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
-                    {t("checkout.cardMessageSection")}
-                  </p>
-
-                  {/* To */}
-                  <div className="mb-5">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">{t("checkout.previewCardTo")}</label>
-                    <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} data-testid="input-recipient-first-name" />
-                  </div>
-
-                  {/* Message */}
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-gray-700">{t("checkout.cardMessage")}</label>
-                      <span className="text-xs text-muted-foreground tabular-nums">{recipient.cardMessage.length}/400</span>
-                    </div>
-                    <textarea
-                      value={recipient.cardMessage}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setRecipient({ ...recipient, cardMessage: val });
-                        try { localStorage.setItem("presentail_card_message_v1", val); } catch { /* best-effort */ }
-                      }}
-                      placeholder={t("checkout.cardMessagePh")}
-                      maxLength={400}
-                      rows={4}
-                      data-testid="input-card-message"
-                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
-                    />
-                    <button type="button" onClick={() => setSuggestedOpen(true)} className="mt-2 text-xs text-primary underline underline-offset-2 hover:opacity-75 transition-opacity" data-testid="button-open-suggested-messages">
-                      {t("checkout.notSureWhatToSay")}
-                    </button>
-                  </div>
-
-                  {/* From */}
-                  <div className="mb-6">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">{t("checkout.previewCardFrom")}</label>
-                    {isSignedIn ? (
-                      <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
-                        <span className="text-sm text-foreground">{`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "—"}</span>
-                        <Link href="/account/personal-information" className="text-xs text-primary underline underline-offset-2 ms-auto">{t("checkout.editInAccount")}</Link>
-                      </div>
-                    ) : (
-                      <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
-                    )}
-                  </div>
-
-                  <button type="button" onClick={() => setCardPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90" style={{ borderColor: "rgba(0,65,78,0.35)", color: "#00414e", backgroundColor: "rgba(0,65,78,0.05)" }} data-testid="button-preview-card">
-                    <Eye className="h-4 w-4" />
-                    {t("checkout.previewCard")}
-                  </button>
-                </div>
-
-                <Button size="lg" className="w-full h-14 rounded-xl text-white font-semibold" style={{ backgroundColor: "#00414e" }} onClick={() => setStep(2)} data-testid="button-continue-to-delivery">
-                  {t("checkout.continueToDelivery")}
-                </Button>
-              </div>
-            )}
-
-            {/* ── STEP 2 · Delivery Details ── */}
-            {step === 2 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
                   <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step.deliveryDetails")}</h1>
@@ -1244,12 +1169,12 @@ export default function Checkout() {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-recipient">{t("checkout.back")}</Button>
+                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setLocation("/cart")} data-testid="button-back-to-cart-from-delivery">{t("checkout.back")}</Button>
                   <Button
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
                     style={{ backgroundColor: "#00414e" }}
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(2)}
                     disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
                   >
@@ -1259,8 +1184,8 @@ export default function Checkout() {
               </div>
             )}
 
-            {/* ── STEP 3 · Payment ── */}
-            {step === 3 && (
+            {/* ── STEP 2 · Payment ── */}
+            {step === 2 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
                   <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step3.title")}</h1>
@@ -1312,7 +1237,7 @@ export default function Checkout() {
                 </div>
 
                 <div className="flex gap-3 mb-4">
-                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(2)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
+                  <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
                   <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#00414e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
                     {isProcessing ? t("checkout.processing") : t("checkout.placeOrderNow", { amount: fmt(total) })}
                   </Button>
@@ -1445,21 +1370,6 @@ export default function Checkout() {
         </div>
       </div>
       {/* ── Dialogs ── */}
-      <SuggestedMessagesDialog
-        open={suggestedOpen}
-        onOpenChange={setSuggestedOpen}
-        onSelect={(msg) => setRecipient({ ...recipient, cardMessage: msg })}
-        maxLength={400}
-      />
-      <CardPreviewDialog
-        open={cardPreviewOpen}
-        onOpenChange={setCardPreviewOpen}
-        cardTo={`${recipient.firstName} ${recipient.lastName}`.trim()}
-        cardMessage={recipient.cardMessage}
-        cardFrom={`${sender.firstName} ${sender.lastName}`.trim()}
-        dir={dir}
-        t={t}
-      />
       <DeliveryPickerModal
         open={deliveryPickerOpen}
         onOpenChange={setDeliveryPickerOpen}
@@ -1470,181 +1380,3 @@ export default function Checkout() {
   );
 }
 
-function CardPreviewDialog({
-  open,
-  onOpenChange,
-  cardTo,
-  cardMessage,
-  cardFrom,
-  dir,
-  t,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  cardTo: string;
-  cardMessage: string;
-  cardFrom: string;
-  dir: "ltr" | "rtl";
-  t: (key: string, vars?: Record<string, string | number>) => string;
-}) {
-  const trimmed = (cardMessage ?? "").trim();
-  const len = trimmed.length;
-  const messageFontPx = len === 0 ? 18 : len > 280 ? 14 : len > 180 ? 16 : len > 100 ? 18 : 20;
-  const ink = "#F5E9D7";
-  const toLabel = t("checkout.previewCardTo");
-  const fromLabel = t("checkout.previewCardFrom");
-  const cardRef = useRef<HTMLDivElement>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
-  const headingFont = useHeadingFont();
-  const canSave = trimmed.length > 0;
-
-  const handleSave = async () => {
-    if (!exportRef.current || saving || !canSave) return;
-    setSaving(true);
-    try {
-      const { toPng } = await import("html-to-image");
-      // Snapshot the off-screen export node (always rendered with the
-      // watermark) so the on-screen preview is never altered. Compute
-      // pixelRatio against the export node's own width so the output is
-      // ~1080px wide regardless of viewport.
-      const exportRect = exportRef.current.getBoundingClientRect();
-      const targetW = 1080;
-      const pixelRatio = Math.max(1, targetW / Math.max(1, exportRect.width));
-      const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true,
-        pixelRatio,
-        backgroundColor: "#0d3b3a",
-      });
-      const link = document.createElement("a");
-      link.download = "presentail-card.png";
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch {
-      toast({
-        title: t("checkout.previewCardSaveError"),
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const renderCardBody = (includeWatermark: boolean) => (
-    <>
-      <img
-        src={cardStationery}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="relative flex h-full flex-col justify-between p-7 text-center">
-        <div
-          className="font-serif text-lg"
-          style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
-        >
-          {cardTo ? `${toLabel} ${cardTo}` : toLabel}
-        </div>
-        <div className="flex flex-1 items-center justify-center px-2 py-3">
-          <p
-            className="font-serif italic"
-            style={{
-              color: ink,
-              fontSize: `${messageFontPx}px`,
-              lineHeight: 1.5,
-              opacity: trimmed.length > 0 ? 1 : 0.55,
-              whiteSpace: "pre-wrap",
-              overflowWrap: "break-word",
-            }}
-          >
-            {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
-          </p>
-        </div>
-        <div
-          className="font-serif text-lg"
-          style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
-        >
-          {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
-        </div>
-      </div>
-      {includeWatermark ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute bottom-2"
-          style={{
-            // Bottom-end corner: right in LTR, left in RTL.
-            ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
-            fontFamily: headingFont,
-            fontWeight: 500,
-            fontSize: "11px",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "#c9a961",
-            opacity: 0.6,
-          }}
-        >
-          presentail.com
-        </div>
-      ) : null}
-    </>
-  );
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-md border-0 bg-transparent p-0 shadow-none sm:max-w-md"
-        dir={dir}
-      >
-        <DialogTitle className="sr-only">{t("checkout.previewCardTitle")}</DialogTitle>
-        <div className="flex flex-col items-center gap-4">
-          <div
-            ref={cardRef}
-            className="relative w-full overflow-hidden rounded-2xl shadow-2xl"
-            style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
-            data-testid="card-preview-stationery"
-          >
-            {renderCardBody(false)}
-          </div>
-          {/* Off-screen export-only clone (always rendered with the
-              watermark). html-to-image snapshots this node so the
-              on-screen preview is never altered. Mirrors the visible
-              card's width so the captured pixel ratio stays consistent. */}
-          <div
-            aria-hidden
-            ref={exportRef}
-            className="pointer-events-none relative overflow-hidden rounded-2xl"
-            style={{
-              position: "fixed",
-              left: "-10000px",
-              top: 0,
-              width: "540px",
-              aspectRatio: "1 / 1.35",
-              backgroundColor: "#0d3b3a",
-            }}
-            dir={dir}
-          >
-            {renderCardBody(true)}
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              onClick={handleSave}
-              disabled={!canSave || saving}
-              data-testid="button-preview-card-save"
-            >
-              {saving ? t("checkout.previewCardSaving") : t("checkout.previewCardSave")}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-preview-card-close"
-            >
-              {t("checkout.previewCardClose")}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}

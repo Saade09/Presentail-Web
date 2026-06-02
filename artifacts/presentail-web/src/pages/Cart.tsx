@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, X, ArrowRight, ShoppingCart, MessageSquare, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,8 +17,13 @@ import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
+import { useToast } from "@/hooks/use-toast";
+import { useHeadingFont } from "@/hooks/useHeadingFont";
+import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
+export const CARD_TO_KEY = "presentail_card_to_v1";
+export const CARD_FROM_KEY = "presentail_card_from_v1";
 
 function CartSkeleton() {
   return (
@@ -72,14 +79,18 @@ export default function Cart() {
   const [cardMessage, setCardMessage] = useState(() => {
     try { return localStorage.getItem(CARD_MESSAGE_KEY) ?? ""; } catch { return ""; }
   });
-  const [messageOpen, setMessageOpen] = useState(() => {
-    try { return (localStorage.getItem(CARD_MESSAGE_KEY) ?? "").length > 0; } catch { return false; }
+  const [cardTo, setCardTo] = useState(() => {
+    try { return localStorage.getItem(CARD_TO_KEY) ?? ""; } catch { return ""; }
+  });
+  const [cardFrom, setCardFrom] = useState(() => {
+    try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; }
   });
   const [suggestedOpen, setSuggestedOpen] = useState(false);
+  const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
 
   const handleMessageChange = (val: string) => {
     setCardMessage(val);
-    try { 
+    try {
       if (val.trim()) {
         localStorage.setItem(CARD_MESSAGE_KEY, val);
       } else {
@@ -88,9 +99,26 @@ export default function Cart() {
     } catch { /* best-effort */ }
   };
 
-  const handleClearMessage = () => {
-    handleMessageChange("");
-    setMessageOpen(false);
+  const handleCardToChange = (val: string) => {
+    setCardTo(val);
+    try {
+      if (val.trim()) {
+        localStorage.setItem(CARD_TO_KEY, val);
+      } else {
+        localStorage.removeItem(CARD_TO_KEY);
+      }
+    } catch { /* best-effort */ }
+  };
+
+  const handleCardFromChange = (val: string) => {
+    setCardFrom(val);
+    try {
+      if (val.trim()) {
+        localStorage.setItem(CARD_FROM_KEY, val);
+      } else {
+        localStorage.removeItem(CARD_FROM_KEY);
+      }
+    } catch { /* best-effort */ }
   };
 
   // Mirror the mobile checkout login sheet: when a logged-out shopper taps
@@ -115,6 +143,12 @@ export default function Cart() {
   useEffect(() => {
     trackEvent({ name: "cart_viewed", surface: "cart-screen" });
   }, []);
+
+  // Derive the effective "From" name for the card preview:
+  // signed-in → profile name; guest → cardFrom input.
+  const previewCardFrom = user
+    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || ""
+    : cardFrom;
 
   if (!isHydrated) {
     return <CartSkeleton />;
@@ -150,11 +184,11 @@ export default function Cart() {
             )}
             <div className="space-y-8">
             {items.map((item, index) => (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                key={item.product.id} 
+                key={item.product.id}
                 className="flex gap-6 py-6 border-b"
               >
                 <div className="w-24 md:w-32 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
@@ -168,7 +202,7 @@ export default function Cart() {
                       <h3 className="font-serif text-lg leading-tight mb-1">{item.product.name}</h3>
                       <p className="text-sm text-muted-foreground">{fmt(item.product.priceValue)}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => removeItem(item.product.id)}
                       className="text-muted-foreground hover:text-destructive transition-colors h-fit p-1"
                       aria-label={t("cart.removeAria")}
@@ -176,19 +210,19 @@ export default function Cart() {
                       <X className="w-5 h-5" />
                     </button>
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-4">
                     <div className="flex items-center border rounded-full overflow-hidden bg-background">
-                      <button 
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)} 
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                         className="px-3 py-1.5 hover:bg-secondary transition-colors"
                         aria-label={t("cart.decreaseAria")}
                       >
                         <Minus className="w-3 h-3" />
                       </button>
                       <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)} 
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                         className="px-3 py-1.5 hover:bg-secondary transition-colors"
                         aria-label={t("cart.increaseAria")}
                       >
@@ -201,90 +235,97 @@ export default function Cart() {
               </motion.div>
             ))}
 
-            {/* Gift Card & Message */}
+            {/* Card Message Panel */}
             <div className="pt-2 pb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-serif">{t("cart.cardMessage.title")}</h2>
-                <span className="text-xs font-medium text-primary bg-primary/10 rounded-full px-2.5 py-0.5">
-                  {t("cart.cardMessage.free")}
-                </span>
-              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+                <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
+                  {t("checkout.cardMessageSection")}
+                </p>
 
-              <div className="mb-3">
-                {/* Message panel — full width */}
-                {messageOpen ? (
-                  <div className="rounded-2xl border border-primary/30 bg-primary/5 flex flex-col overflow-hidden">
-                    <textarea
-                      value={cardMessage}
-                      onChange={(e) => handleMessageChange(e.target.value)}
-                      placeholder={t("cart.cardMessage.placeholder")}
-                      maxLength={400}
-                      rows={4}
-                      className="resize-none bg-transparent p-4 text-sm outline-none placeholder:text-muted-foreground/60 leading-relaxed"
-                      data-testid="input-cart-card-message"
-                      autoFocus
-                    />
-                    <div className={`flex gap-2 px-4 pb-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                      <button
-                        type="button"
-                        onClick={() => setSuggestedOpen(true)}
-                        className="text-[11px] text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
-                        data-testid="button-cart-message-suggestions"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        {t("cart.cardMessage.suggestions")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMessageOpen(true)}
-                    className="w-full rounded-2xl border-2 border-dashed border-primary/25 bg-secondary/20 py-8 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors group"
-                    data-testid="button-cart-add-message"
-                  >
-                    <MessageSquare className="w-7 h-7 text-primary/30 group-hover:text-primary/60 transition-colors" />
-                    <span className="text-sm font-medium text-muted-foreground group-hover:text-primary/80 transition-colors">
-                      {t("cart.cardMessage.addMessage")}
+                {/* To */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    {t("checkout.previewCardTo")}
+                  </label>
+                  <Input
+                    value={cardTo}
+                    onChange={(e) => handleCardToChange(e.target.value)}
+                    placeholder={t("checkout.firstNamePh")}
+                    data-testid="input-cart-card-to"
+                  />
+                </div>
+
+                {/* Message with character count */}
+                <div className="mb-4">
+                  <div className={`flex items-center justify-between mb-2 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                    <label className="text-sm font-medium text-gray-700">
+                      {t("checkout.cardMessage")}
+                    </label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {cardMessage.length}/400
                     </span>
-                  </button>
-                )}
-              </div>
-
-              {/* Actions row when message exists */}
-              {cardMessage.trim().length > 0 && (
-                <div className={`flex gap-3 items-center ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                  </div>
+                  <textarea
+                    value={cardMessage}
+                    onChange={(e) => handleMessageChange(e.target.value)}
+                    placeholder={t("cart.cardMessage.placeholder")}
+                    maxLength={400}
+                    rows={4}
+                    className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                    data-testid="input-cart-card-message"
+                  />
                   <button
                     type="button"
-                    onClick={() => setMessageOpen(true)}
-                    className="text-xs text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+                    onClick={() => setSuggestedOpen(true)}
+                    className="mt-2 text-xs text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+                    data-testid="button-cart-message-suggestions"
                   >
-                    {t("cart.cardMessage.edit")}
-                  </button>
-                  <span className="text-muted-foreground/40 text-xs">·</span>
-                  <button
-                    type="button"
-                    onClick={handleClearMessage}
-                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors"
-                  >
-                    {t("cart.cardMessage.clear")}
+                    {t("checkout.notSureWhatToSay")}
                   </button>
                 </div>
-              )}
 
-              {!messageOpen && !cardMessage.trim() && (
+                {/* From */}
+                <div className="mb-5">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    {t("checkout.previewCardFrom")}
+                  </label>
+                  {user ? (
+                    <div className={`flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2.5 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                      <span className="text-sm text-foreground">
+                        {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "—"}
+                      </span>
+                      <Link
+                        href="/account/personal-information"
+                        className="text-xs text-primary underline underline-offset-2 ms-auto"
+                        data-testid="link-edit-account-from"
+                      >
+                        {t("checkout.editInAccount")}
+                      </Link>
+                    </div>
+                  ) : (
+                    <Input
+                      value={cardFrom}
+                      onChange={(e) => handleCardFromChange(e.target.value)}
+                      data-testid="input-cart-card-from"
+                    />
+                  )}
+                </div>
+
+                {/* Preview Card */}
                 <button
                   type="button"
-                  onClick={() => setSuggestedOpen(true)}
-                  className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-                  data-testid="button-cart-message-suggestions-empty"
+                  onClick={() => setCardPreviewOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
+                  style={{ borderColor: "rgba(0,65,78,0.35)", color: "#00414e", backgroundColor: "rgba(0,65,78,0.05)" }}
+                  data-testid="button-preview-card"
                 >
-                  {t("cart.cardMessage.suggestions")}
+                  <Eye className="h-4 w-4" />
+                  {t("checkout.previewCard")}
                 </button>
-              )}
-            </div>
+              </div>
 
-            <CartUpsells />
+              <CartUpsells />
+            </div>
             </div>
           </div>
 
@@ -325,10 +366,19 @@ export default function Cart() {
         onOpenChange={setSuggestedOpen}
         onSelect={(msg) => {
           handleMessageChange(msg);
-          setMessageOpen(true);
           setSuggestedOpen(false);
         }}
         maxLength={400}
+      />
+
+      <CardPreviewDialog
+        open={cardPreviewOpen}
+        onOpenChange={setCardPreviewOpen}
+        cardTo={cardTo}
+        cardMessage={cardMessage}
+        cardFrom={previewCardFrom}
+        dir={dir}
+        t={t}
       />
 
       <CheckoutLoginDialog
@@ -338,5 +388,175 @@ export default function Cart() {
         surface="cart"
       />
     </div>
+  );
+}
+
+function CardPreviewDialog({
+  open,
+  onOpenChange,
+  cardTo,
+  cardMessage,
+  cardFrom,
+  dir,
+  t,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  cardTo: string;
+  cardMessage: string;
+  cardFrom: string;
+  dir: "ltr" | "rtl";
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const trimmed = (cardMessage ?? "").trim();
+  const len = trimmed.length;
+  const messageFontPx = len === 0 ? 18 : len > 280 ? 14 : len > 180 ? 16 : len > 100 ? 18 : 20;
+  const ink = "#F5E9D7";
+  const toLabel = t("checkout.previewCardTo");
+  const fromLabel = t("checkout.previewCardFrom");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const headingFont = useHeadingFont();
+  const canSave = trimmed.length > 0;
+
+  const handleSave = async () => {
+    if (!exportRef.current || saving || !canSave) return;
+    setSaving(true);
+    try {
+      const { toPng } = await import("html-to-image");
+      const exportRect = exportRef.current.getBoundingClientRect();
+      const targetW = 1080;
+      const pixelRatio = Math.max(1, targetW / Math.max(1, exportRect.width));
+      const dataUrl = await toPng(exportRef.current, {
+        cacheBust: true,
+        pixelRatio,
+        backgroundColor: "#0d3b3a",
+      });
+      const link = document.createElement("a");
+      link.download = "presentail-card.png";
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      toast({
+        title: t("checkout.previewCardSaveError"),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderCardBody = (includeWatermark: boolean) => (
+    <>
+      <img
+        src={cardStationery}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="relative flex h-full flex-col justify-between p-7 text-center">
+        <div
+          className="font-serif text-lg"
+          style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
+        >
+          {cardTo ? `${toLabel} ${cardTo}` : toLabel}
+        </div>
+        <div className="flex flex-1 items-center justify-center px-2 py-3">
+          <p
+            className="font-serif italic"
+            style={{
+              color: ink,
+              fontSize: `${messageFontPx}px`,
+              lineHeight: 1.5,
+              opacity: trimmed.length > 0 ? 1 : 0.55,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "break-word",
+            }}
+          >
+            {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
+          </p>
+        </div>
+        <div
+          className="font-serif text-lg"
+          style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
+        >
+          {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
+        </div>
+      </div>
+      {includeWatermark ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-2"
+          style={{
+            ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
+            fontFamily: headingFont,
+            fontWeight: 500,
+            fontSize: "11px",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#c9a961",
+            opacity: 0.6,
+          }}
+        >
+          presentail.com
+        </div>
+      ) : null}
+    </>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-md border-0 bg-transparent p-0 shadow-none sm:max-w-md"
+        dir={dir}
+      >
+        <DialogTitle className="sr-only">{t("checkout.previewCardTitle")}</DialogTitle>
+        <div className="flex flex-col items-center gap-4">
+          <div
+            ref={cardRef}
+            className="relative w-full overflow-hidden rounded-2xl shadow-2xl"
+            style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
+            data-testid="card-preview-stationery"
+          >
+            {renderCardBody(false)}
+          </div>
+          <div
+            aria-hidden
+            ref={exportRef}
+            className="pointer-events-none relative overflow-hidden rounded-2xl"
+            style={{
+              position: "fixed",
+              left: "-10000px",
+              top: 0,
+              width: "540px",
+              aspectRatio: "1 / 1.35",
+              backgroundColor: "#0d3b3a",
+            }}
+            dir={dir}
+          >
+            {renderCardBody(true)}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              onClick={handleSave}
+              disabled={!canSave || saving}
+              data-testid="button-preview-card-save"
+            >
+              {saving ? t("checkout.previewCardSaving") : t("checkout.previewCardSave")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-preview-card-close"
+            >
+              {t("checkout.previewCardClose")}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
