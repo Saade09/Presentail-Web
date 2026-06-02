@@ -21,6 +21,8 @@ import {
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
+import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 
 function tabLabelKey(id: UpsellTabId): string {
   switch (id) {
@@ -51,6 +53,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
   const { addItem, subtotal } = useCart();
   const { formatPrice } = useDisplayCurrency();
   const { countryCode, cityId } = useLocationSelection();
+  const { freeDeliveryEnabled } = useDeliveryConfig();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -109,7 +112,19 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
         data-testid="dialog-upsell-modal"
       >
         <div className="px-6 pt-6 pb-4 border-b border-primary/10 shrink-0">
-          <DialogTitle className="font-serif text-2xl text-primary">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+            {t("cart.upsells.modal.addedTitle")}
+          </p>
+          <p className="font-serif text-2xl text-primary mb-3">
+            {formatPrice(subtotal)}
+          </p>
+          {freeDeliveryEnabled && (
+            <FreeDeliveryBanner subtotal={subtotal} />
+          )}
+        </div>
+
+        <div className="px-6 pt-4 pb-2 shrink-0">
+          <DialogTitle className="font-serif text-xl text-primary">
             {t("cart.upsells.title")}
           </DialogTitle>
         </div>
