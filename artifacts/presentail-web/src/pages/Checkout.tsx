@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Eye } from "lucide-react";
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
@@ -1126,7 +1127,7 @@ export default function Checkout() {
 
                       <div className="space-y-2 mb-4">
                         <label className="text-sm font-medium">{t("checkout.address")}</label>
-                        <Input value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
+                        <Textarea rows={3} value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </div>
 
                       {isSignedIn && (

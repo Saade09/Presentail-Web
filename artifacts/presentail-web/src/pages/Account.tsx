@@ -31,6 +31,7 @@ import { CountryFlag } from "@/components/CountryFlag";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -729,7 +730,8 @@ function AddAddressModal({
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Street address <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <Textarea
+              rows={3}
               value={form.addressLine}
               onChange={(e) => set("addressLine", e.target.value)}
               placeholder={t("account.addresses.streetPlaceholder")}
