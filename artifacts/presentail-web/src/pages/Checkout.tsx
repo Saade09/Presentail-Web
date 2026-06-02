@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
+import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
@@ -873,9 +874,7 @@ export default function Checkout() {
             <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
             <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
           </Link>
-          <span className="font-serif text-xl tracking-[0.22em] uppercase select-none text-white">
-            Presentail
-          </span>
+          <Logo height={32} inverse={true} />
           <div className="w-8 sm:w-24" />
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
