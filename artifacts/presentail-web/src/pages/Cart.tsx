@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { CartUpsells } from "@/components/cart/CartUpsells";
+import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
@@ -65,6 +66,7 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
+  const { freeDeliveryEnabled } = useDeliveryConfig();
 
   // Card message — persisted to localStorage so it pre-populates checkout.
   const [cardMessage, setCardMessage] = useState(() => {
@@ -143,7 +145,9 @@ export default function Cart() {
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Cart Items */}
           <div className="flex-1 min-w-0">
-            <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
+            {freeDeliveryEnabled !== false && (
+              <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
+            )}
             <div className="space-y-8">
             {items.map((item, index) => (
               <motion.div 

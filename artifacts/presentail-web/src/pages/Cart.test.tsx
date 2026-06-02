@@ -41,9 +41,21 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
-// Replace heavy sub-components with no-ops so we only exercise Cart's logic.
+// Replace heavy sub-components with lightweight stubs so we only exercise Cart's logic.
+// FreeDeliveryBanner renders a testid element so presence/absence can be asserted.
 vi.mock("@/components/cart/FreeDeliveryBanner", () => ({
-  FreeDeliveryBanner: () => null,
+  FreeDeliveryBanner: () => <div data-testid="free-delivery-banner" />,
+}));
+
+// useDeliveryConfig — default returns freeDeliveryEnabled: true; individual tests
+// can override this via vi.mocked().mockReturnValue().
+vi.mock("@/components/product/useDeliveryConfig", () => ({
+  useDeliveryConfig: vi.fn(() => ({
+    freeDeliveryEnabled: true,
+    freeDeliveryThreshold: "$90",
+    expressDeliveryTimeLabel: "Arrives in 90 minutes",
+    currency: "USD",
+  })),
 }));
 
 vi.mock("@/components/cart/CartUpsells", () => ({
@@ -68,6 +80,7 @@ vi.mock("@/components/cart/CheckoutLoginDialog", () => ({
 // ---------------------------------------------------------------------------
 
 import Cart from "./Cart";
+import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 
 // ---------------------------------------------------------------------------
 // Shared fixture
@@ -157,5 +170,52 @@ describe("Cart — Proceed to Checkout button", () => {
     expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout");
     expect(mockDialogProps.open).toBe(false);
     expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: free-delivery banner visibility based on freeDeliveryEnabled flag
+// ---------------------------------------------------------------------------
+
+describe("Cart — FreeDeliveryBanner visibility", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      freeDeliveryEnabled: true,
+      freeDeliveryThreshold: "$90",
+      expressDeliveryTimeLabel: "Arrives in 90 minutes",
+      currency: "USD",
+    });
+  });
+
+  it("shows the banner when freeDeliveryEnabled is true (e.g. Beirut)", () => {
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      freeDeliveryEnabled: true,
+      freeDeliveryThreshold: "$90",
+      expressDeliveryTimeLabel: "Arrives in 90 minutes",
+      currency: "USD",
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByTestId("free-delivery-banner")).toBeTruthy();
+  });
+
+  it("hides the banner when freeDeliveryEnabled is false (e.g. Akkar)", () => {
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      freeDeliveryEnabled: false,
+      freeDeliveryThreshold: "$90",
+      expressDeliveryTimeLabel: "Arrives in 90 minutes",
+      currency: "USD",
+    });
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.queryByTestId("free-delivery-banner")).toBeNull();
   });
 });
