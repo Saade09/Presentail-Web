@@ -14,6 +14,8 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { freeDeliveryThresholdUsd } from "@workspace/delivery";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
@@ -81,6 +83,19 @@ export default function Cart() {
   const { formatPrice } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
   const { freeDeliveryEnabled } = useDeliveryConfig();
+  const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
+  // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
+  //   1. OS per-city value (most specific)
+  //   2. OS per-country value
+  //   3. Hardcoded lib fallback (freeDeliveryThresholdUsd returns 90 for unknown
+  //      countries, so this is always a finite positive number for LB/AE/CY).
+  // Passing a clean USD number lets FreeDeliveryBanner both (a) compare it
+  // correctly against the USD subtotal for the progress bar and (b) format it
+  // in the visitor's selected display currency via formatPrice.
+  const thresholdUsd =
+    locationCity?.freeDeliveryThresholdUsd ??
+    locationCountry?.freeDeliveryThresholdUsd ??
+    (freeDeliveryThresholdUsd(countryCode) || undefined);
 
   // Card message — persisted to localStorage so it pre-populates checkout.
   const [cardMessage, setCardMessage] = useState(() => {
@@ -187,7 +202,11 @@ export default function Cart() {
           {/* Cart Items */}
           <div className="flex-1 min-w-0">
             {freeDeliveryEnabled !== false && (
-              <FreeDeliveryBanner subtotal={subtotal} className="mb-6" />
+              <FreeDeliveryBanner
+                subtotal={subtotal}
+                overrideThresholdUsd={thresholdUsd}
+                className="mb-6"
+              />
             )}
             <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
               {t("cart.summary")}

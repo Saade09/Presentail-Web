@@ -1,7 +1,6 @@
 import { Truck } from "lucide-react";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
-import { useLocationSelection } from "@/contexts/LocationContext";
-import { formatStorePrice } from "@/lib/currency";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 type Props = {
   className?: string;
@@ -13,8 +12,8 @@ type Props = {
   subtotal?: number;
   /**
    * When provided, overrides the threshold amount from useDeliveryConfig with
-   * the per-city value. Pass the raw USD amount; the banner formats it using
-   * the store currency for the active country.
+   * the per-city value. Pass the raw USD amount; the banner converts it to the
+   * visitor's selected display currency via formatPrice.
    */
   overrideThresholdUsd?: number;
 };
@@ -28,7 +27,7 @@ function parseThresholdAmount(label: string): number {
 export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
   const { freeDeliveryThreshold, expressDeliveryTimeLabel } =
     useDeliveryConfig();
-  const { countryCode } = useLocationSelection();
+  const { formatPrice } = useDisplayCurrency();
 
   // When the caller provides an explicit city-level threshold (USD), use it;
   // otherwise fall back to the formatted string from useDeliveryConfig.
@@ -36,15 +35,19 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
     typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
       ? overrideThresholdUsd
       : parseThresholdAmount(freeDeliveryThreshold);
+  // For the display label: when we have a raw USD value, convert it to the
+  // visitor's display currency. Otherwise fall back to the pre-formatted string
+  // from useDeliveryConfig (no raw USD available to convert).
   const effectiveThresholdLabel =
     typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
-      ? formatStorePrice(overrideThresholdUsd, countryCode)
+      ? formatPrice(overrideThresholdUsd)
       : freeDeliveryThreshold;
 
   const showProgress = typeof subtotal === "number" && subtotal >= 0;
   const thresholdAmount = effectiveThresholdAmount;
   const hasThreshold = Number.isFinite(thresholdAmount) && thresholdAmount > 0;
 
+  // Progress math stays in USD — subtotal and thresholdAmount are both USD.
   const remaining = showProgress && hasThreshold
     ? Math.max(thresholdAmount - subtotal!, 0)
     : 0;
@@ -67,7 +70,7 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
             <p className="font-semibold text-foreground">
               {unlocked
                 ? "You've unlocked Free Standard Delivery"
-                : `Only ${formatStorePrice(remaining, countryCode)} left to unlock Free Standard Delivery`}
+                : `Only ${formatPrice(remaining)} left to unlock Free Standard Delivery`}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
@@ -77,7 +80,7 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
                 />
               </div>
               <span className="font-semibold text-foreground text-[11px] shrink-0">
-                {formatStorePrice(subtotal!, countryCode)}
+                {formatPrice(subtotal!)}
               </span>
             </div>
           </>
