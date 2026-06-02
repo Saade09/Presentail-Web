@@ -113,9 +113,9 @@ export default function Account() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-24 bg-background">
+    <div className="min-h-screen pt-12 pb-16 bg-background">
       <div className="container mx-auto px-4 max-w-6xl">
-        <h1 className="text-4xl font-serif mb-8 md:mb-10">{t("account.title")}</h1>
+        <h1 className="text-4xl font-serif mb-4 md:mb-6">{t("account.title")}</h1>
 
         <div className="flex gap-7 items-start">
           <AccountSidebar
