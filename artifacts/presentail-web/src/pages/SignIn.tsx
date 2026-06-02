@@ -340,7 +340,7 @@ export default function SignInPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center pt-12 pb-12 px-4 bg-[#F7F7F7]"
+      className="py-10 flex justify-center px-4 bg-[#F7F7F7]"
       dir={dir}
     >
       <div

@@ -150,7 +150,7 @@ export default function SignUpPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center pt-24 pb-24 px-4 bg-background"
+      className="py-10 flex justify-center px-4 bg-background"
       dir={dir}
     >
       <div
