@@ -120,7 +120,7 @@ type CreateOrderResponse =
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
 export default function Checkout() {
-  const { items, subtotal, clearCart, itemCount } = useCart();
+  const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   // Mirror the cart-button gate for direct visits to /checkout: signed-out
@@ -495,6 +495,36 @@ export default function Checkout() {
     }
   }, [countryCode]);
 
+  // These hooks must be called unconditionally — before any early return — to
+  // comply with React's Rules of Hooks. Moving them here prevents a hooks-count
+  // mismatch when showLoginGate flips or the cart hydrates from localStorage.
+  const summaryDays = useMemo(
+    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
+    [t],
+  );
+  const payCtxCountry = countryCode ?? undefined;
+  const paymentOptions = useMemo(() => {
+    const ids = webVisiblePayMethods({
+      activeCurrency: currencyCode,
+      countryCode: payCtxCountry,
+    });
+    return ids.map((id) => ({
+      id,
+      labelKey: webPaymentMethodLabelKey(id, currencyCode),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currencyCode, countryCode]);
+  // If the currently selected payment method is no longer available for
+  // the active currency / country, re-select a sensible default through
+  // the same shared helper the mobile checkout uses.
+  useEffect(() => {
+    const fallback = webNextPaymentMethod(paymentMethod, {
+      activeCurrency: currencyCode,
+      countryCode: payCtxCountry,
+    });
+    if (fallback !== paymentMethod) setPaymentMethodState(fallback);
+  }, [currencyCode, countryCode, paymentMethod]);
+
   if (showLoginGate) {
     return (
       <>
@@ -511,7 +541,7 @@ export default function Checkout() {
     );
   }
 
-  if (itemCount === 0) {
+  if (isHydrated && itemCount === 0) {
     return (
       <div className="min-h-screen pt-32 pb-24 text-center">
         <h1 className="text-3xl font-serif mb-4">{t("checkout.empty.title")}</h1>
@@ -552,10 +582,7 @@ export default function Checkout() {
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
   // glance before paying — mirrors the mobile checkout summary.
-  const summaryDays = useMemo(
-    () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
-    [t],
-  );
+  // NOTE: summaryDays is computed above (before early returns) to satisfy Rules of Hooks.
   const deliveryRowText = formatDeliveryRow({
     mode: deliveryMode,
     date: recipient.deliveryDate,
@@ -824,29 +851,8 @@ export default function Checkout() {
   // active currency + country are hidden entirely so shoppers only see real
   // choices — this mirrors mobile and replaces the previous bespoke
   // per-method `*Hidden` flags / disabled-row UI.
-  const payCtxCountry = countryCode ?? undefined;
-  const paymentOptions = useMemo(() => {
-    const ids = webVisiblePayMethods({
-      activeCurrency: currencyCode,
-      countryCode: payCtxCountry,
-    });
-    return ids.map((id) => ({
-      id,
-      labelKey: webPaymentMethodLabelKey(id, currencyCode),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode, countryCode]);
-
-  // If the currently selected payment method is no longer available for
-  // the active currency / country, re-select a sensible default through
-  // the same shared helper the mobile checkout uses.
-  useEffect(() => {
-    const fallback = webNextPaymentMethod(paymentMethod, {
-      activeCurrency: currencyCode,
-      countryCode: payCtxCountry,
-    });
-    if (fallback !== paymentMethod) setPaymentMethodState(fallback);
-  }, [currencyCode, countryCode, paymentMethod]);
+  // NOTE: payCtxCountry, paymentOptions, and the payment-method fallback
+  // useEffect are computed above (before early returns) to satisfy Rules of Hooks.
 
   const stepLabels = [
     t("checkout.step.deliveryDetails"),
