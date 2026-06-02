@@ -34,6 +34,21 @@ export const shopStrings: Dict = {
   "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
   "shop.productCount": { en: "{count} Products", ar: "{count} منتج" },
 
+  "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
+  "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
+  "shop.cat.plants": { en: "Plants", ar: "نباتات" },
+  "shop.cat.cakes": { en: "Cakes", ar: "كيك" },
+  "shop.cat.chocolate": { en: "Chocolate", ar: "شوكولاتة" },
+  "shop.cat.bundles": { en: "Bundles", ar: "باقات مجمّعة" },
+  "shop.cat.baskets": { en: "Baskets", ar: "سلال" },
+  "shop.cat.bearsBalloons": { en: "Bears & Balloons", ar: "دببة وبالونات" },
+
+  "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
+  "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
+  "shop.occ.congratulations": { en: "Congratulations", ar: "تهانٍ" },
+  "shop.occ.thankYou": { en: "Thank You", ar: "شكراً" },
+  "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
+
 };
 
 export const shopStringsFr: Record<string, string> = {
@@ -69,5 +84,20 @@ export const shopStringsFr: Record<string, string> = {
   "shop.browseAll": "Parcourir toutes les collections",
   "shop.removeBrandFilter": "Supprimer le filtre de marque",
   "shop.productCount": "{count} Produits",
+
+  "shop.cat.handBouquets": "Bouquets à la main",
+  "shop.cat.flowerBoxes": "Boîtes de fleurs",
+  "shop.cat.plants": "Plantes",
+  "shop.cat.cakes": "Gâteaux",
+  "shop.cat.chocolate": "Chocolat",
+  "shop.cat.bundles": "Coffrets",
+  "shop.cat.baskets": "Paniers",
+  "shop.cat.bearsBalloons": "Oursons & Ballons",
+
+  "shop.occ.birthday": "Anniversaire",
+  "shop.occ.loveRomance": "Amour & Romance",
+  "shop.occ.congratulations": "Félicitations",
+  "shop.occ.thankYou": "Merci",
+  "shop.occ.condolences": "Condoléances",
 
 };
