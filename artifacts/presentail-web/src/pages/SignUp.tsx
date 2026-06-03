@@ -53,7 +53,8 @@ export default function SignUpPage() {
   }, []);
 
   const [step, setStep] = useState<Step>("name-password");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
   const [code, setCode] = useState("");
@@ -66,7 +67,7 @@ export default function SignUpPage() {
 
   const onContinueToPhone = () => {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = t("auth.nameRequired");
+    if (!firstName.trim()) errs.firstName = t("auth.firstNameRequired");
     if (!password) errs.password = t("auth.passwordRequired");
     else if (password.length < 8) errs.password = t("auth.passwordTooShort");
     if (Object.keys(errs).length > 0) {
@@ -80,18 +81,14 @@ export default function SignUpPage() {
   const doRegister = async (phoneValue?: string) => {
     setBusy(true);
     try {
-      const nameParts = name.trim().split(/\s+/);
-      const firstName = nameParts[0] ?? name.trim();
-      const lastName = nameParts.slice(1).join(" ") || undefined;
-
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: initial.email.toLowerCase(),
           password,
-          firstName,
-          lastName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || undefined,
           phone: phoneValue ?? undefined,
         }),
       });
@@ -180,10 +177,6 @@ export default function SignUpPage() {
 
     setBusy(true);
     try {
-      const nameParts = name.trim().split(/\s+/);
-      const firstName = nameParts[0] ?? name.trim();
-      const lastName = nameParts.slice(1).join(" ") || undefined;
-
       const res = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,8 +185,8 @@ export default function SignUpPage() {
           code: trimmed,
           email: initial.email.toLowerCase(),
           password,
-          firstName,
-          lastName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || undefined,
         }),
       });
       const data = (await res.json()) as ApiAuthResponse;
@@ -317,27 +310,45 @@ export default function SignUpPage() {
             )}
 
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="signup-name">
-                  {t("auth.nameLabel")} <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  id="signup-name"
-                  type="text"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (errors.name) setErrors((p) => ({ ...p, name: "" }));
-                  }}
-                  placeholder={t("auth.fullNamePlaceholder")}
-                  disabled={busy}
-                  data-testid="input-signup-name"
-                  className="h-12 rounded-sm"
-                />
-                {errors.name && (
-                  <p className="text-xs text-destructive">{errors.name}</p>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium" htmlFor="signup-first-name">
+                    {t("auth.firstNameLabel")} <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    id="signup-first-name"
+                    type="text"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      if (errors.firstName) setErrors((p) => ({ ...p, firstName: "" }));
+                    }}
+                    placeholder={t("auth.firstNamePlaceholder")}
+                    disabled={busy}
+                    data-testid="input-signup-name"
+                    className="h-12 rounded-sm"
+                  />
+                  {errors.firstName && (
+                    <p className="text-xs text-destructive">{errors.firstName}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium" htmlFor="signup-last-name">
+                    {t("auth.lastNameLabel")}
+                  </label>
+                  <Input
+                    id="signup-last-name"
+                    type="text"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder={t("auth.lastNamePlaceholder")}
+                    disabled={busy}
+                    data-testid="input-signup-last-name"
+                    className="h-12 rounded-sm"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -380,7 +391,7 @@ export default function SignUpPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl mt-2"
                 onClick={onContinueToPhone}
-                disabled={busy || !name.trim() || !password}
+                disabled={busy || !firstName.trim() || !password}
                 data-testid="button-signup-continue"
               >
                 {t("auth.continue")}
