@@ -83,7 +83,12 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useDisplayCurrency();
   const fmt = (v: number) => formatPrice(v);
-  const { freeDeliveryEnabled } = useDeliveryConfig();
+  const {
+    freeDeliveryEnabled,
+    cityFeeUsd,
+    expressSurchargeUsd,
+    freeDeliveryThresholdUsd: configThresholdUsd,
+  } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
@@ -96,7 +101,21 @@ export default function Cart() {
   const thresholdUsd =
     locationCity?.freeDeliveryThresholdUsd ??
     locationCountry?.freeDeliveryThresholdUsd ??
+    configThresholdUsd ??
     (freeDeliveryThresholdUsd(countryCode) || undefined);
+
+  // Delivery fee for the Order Summary sidebar.
+  // null → no city selected yet (show "Calculated at checkout")
+  // 0    → above free-delivery threshold (show "Free")
+  // >0   → show the fee amount
+  const deliveryFeeUsd: number | null = (() => {
+    if (cityFeeUsd === null) return null;
+    const threshold = thresholdUsd ?? Infinity;
+    if (freeDeliveryEnabled !== false && subtotal >= threshold) return 0;
+    return cityFeeUsd;
+  })();
+
+  const cartTotal = deliveryFeeUsd !== null ? subtotal + deliveryFeeUsd : subtotal;
 
   // Promo code — persisted to localStorage so Checkout picks it up automatically.
   const [couponOpen, setCouponOpen] = useState(() => {
@@ -473,11 +492,27 @@ export default function Cart() {
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>
                   <span className="font-medium">{fmt(subtotal)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
+                  <span className="font-medium">
+                    {deliveryFeeUsd === null
+                      ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
+                      : deliveryFeeUsd === 0
+                        ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
+                        : fmt(deliveryFeeUsd)
+                    }
+                  </span>
+                </div>
+                {expressSurchargeUsd > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("cart.expressNote").replace("{{amount}}", fmt(expressSurchargeUsd))}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-between items-center mb-8">
                 <span className="font-medium">{t("cart.total")}</span>
-                <span className="text-2xl font-serif">{fmt(subtotal)}</span>
+                <span className="text-2xl font-serif">{fmt(cartTotal)}</span>
               </div>
 
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">

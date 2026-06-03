@@ -13,6 +13,7 @@ export const GLOBAL_DEFAULT: DeliveryConfigResponse = {
   currency: "AED",
   freeDeliveryThresholdUsd: 89.84,
   freeDeliveryEnabled: true,
+  expressSurchargeUsd: 0,
 };
 
 export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
@@ -23,6 +24,7 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       currency: "AED",
       freeDeliveryThresholdUsd: 89.84,
       freeDeliveryEnabled: true,
+      expressSurchargeUsd: 0,
     },
     cities: {
       "ae-dubai": { expressDeliveryTimeLabel: "Arrives in 60 minutes" },
@@ -43,6 +45,7 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       currency: "USD",
       freeDeliveryThresholdUsd: 90,
       freeDeliveryEnabled: false,
+      expressSurchargeUsd: 0,
     },
     cities: {
       // Greater Beirut area — free delivery above $90.
@@ -59,6 +62,7 @@ export const DELIVERY_CONFIG: Record<string, CountryEntry> = {
       currency: "EUR",
       freeDeliveryThresholdUsd: 120,
       freeDeliveryEnabled: true,
+      expressSurchargeUsd: 0,
     },
   },
 };

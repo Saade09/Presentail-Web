@@ -32,6 +32,10 @@ export const cartStrings: Dict = {
   "cart.promoCodeApply": { en: "Apply", ar: "تطبيق" },
   "cart.promoCodeRemove": { en: "Remove", ar: "إزالة" },
   "cart.promoCodeApplied": { en: "Applied", ar: "تم التطبيق" },
+  "cart.deliveryCharges": { en: "Delivery charges", ar: "رسوم التوصيل" },
+  "cart.deliveryFree": { en: "Free", ar: "مجاني" },
+  "cart.deliveryTbd": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
+  "cart.expressNote": { en: "Express delivery may incur an additional fee of {{amount}}", ar: "قد تستلزم التوصيل السريع رسوماً إضافية بقيمة {{amount}}" },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -66,4 +70,8 @@ export const cartStringsFr: Record<string, string> = {
   "cart.promoCodeApply": "Appliquer",
   "cart.promoCodeRemove": "Supprimer",
   "cart.promoCodeApplied": "Appliqué",
+  "cart.deliveryCharges": "Frais de livraison",
+  "cart.deliveryFree": "Gratuit",
+  "cart.deliveryTbd": "Calculé à la caisse",
+  "cart.expressNote": "La livraison express peut entraîner des frais supplémentaires de {{amount}}",
 };

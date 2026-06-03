@@ -643,6 +643,17 @@ export const GetDeliveryConfigResponse = zod.object({
     .describe(
       "Whether free delivery is offered for this country. When false, delivery fees are always applied regardless of cart total.",
     ),
+  cityFeeUsd: zod
+    .number()
+    .nullish()
+    .describe(
+      "Standard (scheduled) delivery fee for the selected city in USD. Null when no city is selected or the fee is unknown. Zero means free delivery regardless of threshold.",
+    ),
+  expressSurchargeUsd: zod
+    .number()
+    .describe(
+      "Additional express delivery surcharge for the country in USD. Zero when express is not available or has no surcharge.",
+    ),
 });
 
 /**

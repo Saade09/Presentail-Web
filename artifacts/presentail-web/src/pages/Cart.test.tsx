@@ -184,6 +184,8 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       freeDeliveryThreshold: "$90",
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
       currency: "USD",
+      cityFeeUsd: null,
+      expressSurchargeUsd: 15,
     });
   });
 
@@ -193,6 +195,8 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       freeDeliveryThreshold: "$90",
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
       currency: "USD",
+      cityFeeUsd: null,
+      expressSurchargeUsd: 15,
     });
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
@@ -209,6 +213,8 @@ describe("Cart — FreeDeliveryBanner visibility", () => {
       freeDeliveryThreshold: "$90",
       expressDeliveryTimeLabel: "Arrives in 90 minutes",
       currency: "USD",
+      cityFeeUsd: null,
+      expressSurchargeUsd: 15,
     });
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },

@@ -33,10 +33,17 @@ import {
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 import { logger } from "./logger";
 
-// Mirrors lib/delivery EXPRESS_CLOSE_HOUR. Using a local constant avoids
-// adding @workspace/delivery as a runtime dep of api-server; update both
-// together if the express window ever changes.
+// Mirrors lib/delivery EXPRESS_CLOSE_HOUR and express surcharge values. Using
+// local constants avoids adding @workspace/delivery as a runtime dep of
+// api-server; update both together if these values ever change.
 const EXPRESS_CLOSE_HOUR = 22;
+const AE_EXPRESS_SURCHARGE_USD = 4.9;
+const DEFAULT_EXPRESS_SURCHARGE_USD = 15; // LB and CY
+
+function expressSurchargeForCountry(code: string): number {
+  if (code === "AE") return AE_EXPRESS_SURCHARGE_USD;
+  return DEFAULT_EXPRESS_SURCHARGE_USD;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -459,6 +466,14 @@ export function resolveOsDeliveryConfig(
   if (typeof enabled === "boolean") {
     result = { ...result, freeDeliveryEnabled: enabled };
   }
+
+  // City delivery fee: available when a cityId is resolved in the cache.
+  const cityFeeUsd = osCity !== undefined ? (osCity.fee ?? null) : null;
+  result = { ...result, cityFeeUsd };
+
+  // Express surcharge for the country.
+  const code = (countryCode ?? "").toUpperCase();
+  result = { ...result, expressSurchargeUsd: expressSurchargeForCountry(code) };
 
   return result;
 }
