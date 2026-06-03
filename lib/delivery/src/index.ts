@@ -103,6 +103,39 @@ export function firstAvailableSlot(
 }
 
 /**
+ * Pick the slot whose window start (cutoffHour) is closest to `currentHour`.
+ *
+ * For today: delegates to `firstAvailableSlot` so past-cutoff slots are
+ * still excluded and the nearest *future* slot is returned (null when the
+ * day is already over).
+ *
+ * For future dates: scans all slots and returns the one with the smallest
+ * absolute difference between its `cutoffHour` and `currentHour`. When the
+ * current hour is past every window start the last slot is returned
+ * (nearest-from-behind), giving a sensible same-time-of-day default.
+ *
+ * Returns `null` only when `slots` is empty.
+ */
+export function nearestSlotForHour(
+  slots: TimeSlot[],
+  isToday: boolean,
+  currentHour: number,
+): TimeSlot | null {
+  if (slots.length === 0) return null;
+  if (isToday) return firstAvailableSlot(slots, true, currentHour);
+  let best = slots[0]!;
+  let bestDiff = Math.abs(best.cutoffHour - currentHour);
+  for (let i = 1; i < slots.length; i++) {
+    const diff = Math.abs(slots[i]!.cutoffHour - currentHour);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = slots[i]!;
+    }
+  }
+  return best;
+}
+
+/**
  * Return `slotLabel` as-is if it is still a valid choice for the given
  * date in the given slot list, otherwise return the next available slot's
  * label (or null if none).

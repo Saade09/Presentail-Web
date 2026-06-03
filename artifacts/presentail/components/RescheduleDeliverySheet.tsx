@@ -22,6 +22,7 @@ import {
   dayLabels,
   firstAvailableSlot,
   getCountryHour,
+  nearestSlotForHour,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -94,7 +95,7 @@ export function RescheduleDeliverySheet({
   React.useEffect(() => {
     if (!visible) return;
     setDate(todayIso);
-    const initial = firstAvailableSlot(timeSlots, true, localHour);
+    const initial = nearestSlotForHour(timeSlots, true, localHour);
     setSlotLabel(initial?.label ?? timeSlots[0]?.label ?? null);
   }, [visible, todayIso, timeSlots, localHour]);
 
@@ -102,18 +103,18 @@ export function RescheduleDeliverySheet({
     if (!visible) return;
     const isToday = date === todayIso;
     if (!slotLabel) {
-      const initial = firstAvailableSlot(timeSlots, isToday, localHour);
+      const initial = nearestSlotForHour(timeSlots, isToday, localHour);
       if (initial) setSlotLabel(initial.label);
       return;
     }
     const found = timeSlots.find((s) => s.label === slotLabel);
     if (!found) {
-      const initial = firstAvailableSlot(timeSlots, isToday, localHour);
+      const initial = nearestSlotForHour(timeSlots, isToday, localHour);
       setSlotLabel(initial?.label ?? null);
       return;
     }
     if (isToday && localHour >= found.cutoffHour) {
-      const initial = firstAvailableSlot(timeSlots, true, localHour);
+      const initial = nearestSlotForHour(timeSlots, true, localHour);
       setSlotLabel(initial?.label ?? null);
     }
   }, [date, todayIso, timeSlots, localHour, visible, slotLabel]);

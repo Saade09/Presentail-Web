@@ -39,6 +39,7 @@ import { trackScreenTTID } from "@/lib/analytics";
 import {
   getCountryHour,
   isExpressDeliveryAvailable,
+  nearestSlotForHour,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
@@ -550,15 +551,19 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // auto-fallback). The sheet overwrites these on Confirm.
   const PROD_SLOTS = timeSlotsForCountry(cc);
   const localH = getCountryHour(cc);
-  const nextSlot = PROD_SLOTS.find((s) => s.cutoffHour > localH);
+  const todaySlot = nearestSlotForHour(PROD_SLOTS, true, localH);
   const todayIso = new Date().toISOString().slice(0, 10);
   const tomorrowIso = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   })();
-  const defaultDate = nextSlot ? todayIso : tomorrowIso;
-  const defaultSlot = (nextSlot ?? PROD_SLOTS[0]).label;
+  const defaultDate = todaySlot ? todayIso : tomorrowIso;
+  const defaultSlot = (
+    todaySlot ??
+    nearestSlotForHour(PROD_SLOTS, false, localH) ??
+    PROD_SLOTS[0]
+  )!.label;
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
 
   const careTips: string[] = [
