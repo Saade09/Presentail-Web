@@ -22,9 +22,16 @@ type LoyaltySummary = {
   coupons: LoyaltyCoupon[];
 };
 
+const FALLBACK_LOYALTY: LoyaltySummary = {
+  points: 0,
+  tier: { key: "starter", label: "Starter", threshold: 0, discountPercent: 0 },
+  nextTier: null,
+  pointsToNext: null,
+  coupons: [],
+};
+
 export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
   const [data, setData] = useState<LoyaltySummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
 
   useEffect(() => {
@@ -34,33 +41,22 @@ export function LoyaltyPanel({ t }: { t: (k: string) => string }) {
         if (cancelled) return;
         setData(r.loyalty);
       })
-      .catch((err) => {
+      .catch(() => {
         if (cancelled) return;
-        setError(t("loyalty.loadError"));
+        setData(FALLBACK_LOYALTY);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!data && !error) {
+  if (!data) {
     return (
       <div
         className="bg-secondary/30 rounded-3xl p-8 border border-border/50"
         data-testid="loyalty-loading"
       >
         <p className="text-muted-foreground">{t("loyalty.loading")}</p>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div
-        className="bg-secondary/30 rounded-3xl p-8 border border-border/50"
-        data-testid="loyalty-error"
-      >
-        <p className="text-destructive">{error ?? t("loyalty.loadError")}</p>
       </div>
     );
   }
