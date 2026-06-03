@@ -15,7 +15,7 @@ export const checkoutStrings: Dict = {
   "checkout.phoneLB": { en: "Phone Number ({country})", ar: "رقم الهاتف ({country})" },
   "checkout.district": { en: "Delivery District", ar: "منطقة التوصيل" },
   "checkout.selectDistrict": { en: "Select a district", ar: "اختر منطقة" },
-  "checkout.address": { en: "Full Address Details", ar: "تفاصيل العنوان الكامل" },
+  "checkout.address": { en: "Delivery Details", ar: "تفاصيل التوصيل" },
   "checkout.addressPh": { en: "Street, Building, Floor...", ar: "الشارع، المبنى، الطابق..." },
   "checkout.askRecipientForAddressTitle": { en: "Ask the recipient for the address", ar: "اسأل المستقبِل عن العنوان" },
   "checkout.askRecipientForAddressNote": { en: "We'll collect the address from the recipient. Delivery time may be impacted if the recipient is unreachable.", ar: "سنحصل على العنوان من المستقبِل. قد يتأثر وقت التوصيل إذا تعذّر الوصول إليه." },
