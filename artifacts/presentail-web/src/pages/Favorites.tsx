@@ -66,7 +66,7 @@ export default function Favorites() {
   }, [data, favorites]);
 
   return (
-    <div className="min-h-screen pt-24 pb-24">
+    <div className="min-h-screen pt-12 pb-24">
       <div className="container mx-auto px-4 max-w-content">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-12 pb-8 border-b">
           <div className="flex items-center gap-3 flex-1">
