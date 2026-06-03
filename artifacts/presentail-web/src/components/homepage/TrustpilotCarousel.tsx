@@ -27,7 +27,7 @@ export function TrustpilotCarousel() {
       data-style-height="140px"
       data-style-width="100%"
       data-token="2e28fd98-db91-4197-8630-5fe45b26dbfb"
-      data-stars="1,2,3,4,5"
+      data-stars="4,5"
       data-review-languages="en"
     >
       <a
