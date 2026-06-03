@@ -233,6 +233,47 @@ function SummaryCard({ summary }: { summary: LoyaltySummary }) {
         ),
       )
     : 100;
+
+  if (summary.points === 0) {
+    return (
+      <View
+        style={{
+          backgroundColor: "#fff",
+          borderRadius: 18,
+          padding: 24,
+          borderWidth: 1,
+          borderColor: colors.border,
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: "#f5ede0",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Feather name="star" size={24} color="#c9a35a" />
+        </View>
+        <AppText
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 14,
+            color: colors.mutedForeground,
+            textAlign: "center",
+            lineHeight: 20,
+          }}
+        >
+          {t.loyaltyNoPointsYet}
+        </AppText>
+      </View>
+    );
+  }
+
   return (
     <View
       style={{
