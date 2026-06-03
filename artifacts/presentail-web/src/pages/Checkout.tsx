@@ -569,7 +569,7 @@ export default function Checkout() {
     selectedCity?.freeDeliveryEnabled ?? osCountryData?.freeDeliveryEnabled;
   const { districtFee, expressFee, slotFee, total } = calcCheckoutFees({
     subtotal,
-    countryCode,
+    countryCode: countryCode ?? "LB",
     noAddress,
     cityFee: selectedCity?.fee ?? 0,
     deliveryMode,
@@ -600,7 +600,7 @@ export default function Checkout() {
   // by the payment-method picker (to hide unavailable methods) and by
   // the submit handler (to route AED + wallet through Mamo's hosted page,
   // mirroring mobile checkout).
-  const activeCurrency = activeCurrencyForCountry(countryCode);
+  const activeCurrency = activeCurrencyForCountry(countryCode ?? "LB");
 
   // orderId is generated once per checkout attempt and threaded through the
   // payment session creation AND the WC order payload so the server can bind
