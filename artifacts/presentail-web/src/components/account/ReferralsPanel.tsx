@@ -86,9 +86,7 @@ export function ReferralsPanel({ t }: { t: (k: string) => string }) {
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             {t("account.referrals.yourCode")}
           </p>
-          {error ? (
-            <p className="text-sm text-destructive">{t("account.referrals.loadError")}</p>
-          ) : noCode ? (
+          {error || noCode ? (
             <p className="text-sm text-muted-foreground">{t("account.referrals.noCode")}</p>
           ) : !data ? (
             <Skeleton className="h-16 rounded-xl" />
