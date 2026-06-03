@@ -1,5 +1,5 @@
 import { useRef, useMemo, useState } from "react";
-import { useLocation, useRouter } from "wouter";
+import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,6 @@ function mapApiUser(u: NonNullable<ApiAuthResponse["user"]>): ShimUser {
 }
 
 export default function SignUpPage() {
-  const router = useRouter();
-  const base = (router.base || "").replace(/\/+$/, "");
   const [, setLocation] = useLocation();
   const { t, dir } = useLocale();
   const { toast } = useToast();
@@ -63,7 +61,7 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const codeRef = useRef<HTMLInputElement | null>(null);
 
-  const redirectAfterAuth = initial.redirectTo || `${base}/account`;
+  const redirectAfterAuth = initial.redirectTo || "/account";
 
   const onContinueToPhone = () => {
     const errs: Record<string, string> = {};
