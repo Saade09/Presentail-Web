@@ -147,6 +147,16 @@
 
 :root {
   --content-max-width: 1200px;
+  --page-gutter-x: 1rem; /* 16 px — px-4 */
+}
+
+@media (min-width: 640px) {
+  :root {
+    --page-gutter-x: 1.5rem; /* 24 px — px-6 */
+  }
+}
+
+:root {
 
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -345,6 +355,9 @@
 @layer utilities {
   .max-w-content {
     max-width: var(--content-max-width);
+  }
+  .px-page {
+    padding-inline: var(--page-gutter-x);
   }
 }
 

@@ -153,11 +153,11 @@ export default function Shop() {
   return (
     <div className="min-h-screen pt-24 pb-24">
       {breadcrumbCrumbs.length > 0 && (
-        <div className="container mx-auto max-w-content px-4">
+        <div className="container mx-auto max-w-content px-page">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
         </div>
       )}
-      <div className="container mx-auto max-w-content px-4">
+      <div className="container mx-auto max-w-content px-page">
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8 border-b">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">

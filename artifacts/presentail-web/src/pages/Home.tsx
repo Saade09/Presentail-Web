@@ -14,7 +14,7 @@ export default function Home() {
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
-      <div className="px-5">
+      <div className="px-page">
         <BestSellersRail />
 
         {/* First themed product rail — mirrors the live site's "Summer Collection". */}
