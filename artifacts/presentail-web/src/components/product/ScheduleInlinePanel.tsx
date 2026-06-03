@@ -56,7 +56,7 @@ export function ScheduleInlinePanel({
   };
 
   const [slotLabel, setSlotLabel] = useState<string | null>(() => {
-    if (initialSlotLabel) {
+    if (initialSlotLabel && initialDate && initialDate >= todayIso) {
       const known = timeSlots.find((s) => s.label === initialSlotLabel);
       const isToday = seedDate === todayIso;
       if (known && (!isToday || localHour < known.cutoffHour))
