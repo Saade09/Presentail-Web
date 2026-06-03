@@ -1,0 +1,120 @@
+1. GET /api/delivery-locations in camelCase shape
+✅ Done — GET /api/delivery-locations-ext returns a camelCase, country-grouped response:
+
+{
+  "countries": [
+    {
+      "id": "lb", "name": "Lebanon", "code": "lb", "currency": "USD", "isActive": true,
+      "cities": [
+        {
+          "id": 1, "name": "Beirut", "slug": "beirut",
+          "deliveryFee": 5.0,
+          "expressFeeTotal": 20.0,
+          "expressSurcharge": 15.0,
+          "expressAvailable": true,
+          "sameDayCutoffHour": 14,
+          "freeDeliveryEnabled": false,
+          "freeDeliveryThreshold": null,
+          "timeSlots": [
+            { "label": "Morning", "startHour": 9, "endHour": 13, "cutoffHour": 8, "extraFee": 0 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Auth: Bearer API key in Authorization header, or ?workspace=<slug> query param.
+
+2. express_delivery_fee: total fee or surcharge only
+✅ Clarified — the response returns both, separately:
+
+expressFeeTotal — the full express fee (base + surcharge), what you charge the customer
+expressSurcharge — the surcharge portion on top of the standard deliveryFee
+3. All monetary values in USD (or currency field per city)
+✅ All monetary values (deliveryFee, expressFeeTotal, expressSurcharge, freeDeliveryThreshold) are in whatever currency is configured per country. The country object includes a currency field (e.g. "USD", "AED") so you always know the unit.
+
+4. countryCode filter on GET /api/products
+✅ Done — GET /api/products?countryCode=lb filters to products deliverable in that country. Also supports cityId and city_slug filters.
+
+5. Product status field values
+✅ Three values: available, out_of_stock, not_available. The inStock boolean in the camelCase response is true only when status is available.
+
+6. featured field on products
+✅ Included — the product object includes "featured": false. (The DB column doesn't exist yet so it's hardcoded false for now; a future DB column can turn this on per product.)
+
+7. POST /api/orders accepts full checkout payload
+✅ Done. Both formats work:
+
+Simple (legacy):
+
+{ "line_items": [{ "name": "Roses", "quantity": 2 }], "external_order_id": "ext-001" }
+
+Rich (checkout):
+
+{
+  "appOrderId": "web-checkout-001",
+  "items": [{ "productId": "p1", "productName": "White Roses", "quantity": 1, "priceUsd": 79.99 }],
+  "feeItems": [{ "name": "Greeting Card", "quantity": 1, "priceUsd": 2.50 }],
+  "billing": { "firstName": "Sarah", "lastName": "Khalil", "email": "s@test.com", "phone": "+96170000001" },
+  "recipient": { "firstName": "Ahmad", "phone": "+96170000002" },
+  "delivery": { "cityId": "beirut", "date": "2026-06-10", "slot": "afternoon", "isExpress": false, "feeUsd": 5.0 },
+  "payment": { "method": "stripe", "ref": "pi_test_001", "verified": true, "totalUsd": 84.99 },
+  "cardMessage": "Happy Birthday!", "cardFrom": "The Team", "cardTo": "Ahmad",
+  "orderNotes": "Ring doorbell twice"
+}
+
+The entire order (rows + line items + contacts + payment + card note) is written in a single DB transaction — if anything fails it fully rolls back, so a retry with the same appOrderId always produces a complete order.
+
+8. Success + error response format for orders
+
+// 201 Created (new order)
+{ "success": true, "order_id": "550e8400-e29b-41d4-a716-446655440000" }
+// 200 OK (same appOrderId submitted again — idempotent)
+{ "success": true, "order_id": "550e8400-e29b-41d4-a716-446655440000" }
+// 400 Bad Request
+{ "success": false, "error": "Either line_items or items must be provided and non-empty" }
+// 500 Server Error
+{ "success": false, "error": "Failed to create order" }
+
+9. Webhook signature verification steps
+Every webhook delivery includes these headers:
+
+x-presentail-event: exchange_rate.updated
+x-presentail-delivery-id: <uuid>
+x-presentail-timestamp: <unix epoch seconds>
+x-presentail-signature: sha256=<hex>
+
+To verify:
+
+Concatenate: <timestamp>.<raw request body string>
+Compute HMAC-SHA256 of that string using your endpoint's signing secret
+Compare hex output to the value after sha256= in x-presentail-signature
+Reject if timestamp is more than 5 minutes old (replay protection)
+10. Webhook sends full updated data vs. ping
+✅ Full data — the payload always includes the complete current state. Example for exchange_rate.updated:
+
+{
+  "event": "exchange_rate.updated",
+  "timestamp": "2026-06-03T09:00:00.000Z",
+  "workspaceId": "user_abc123",
+  "data": {
+    "type": "exchange_rate",
+    "rates": { "AED": 3.6725, "EUR": 0.92, "GBP": 0.79, "SAR": 3.75 },
+    "baseCurrency": "USD",
+    "updatedAt": "2026-06-03T09:00:00.000Z"
+  }
+}
+
+For catalog attribute events (catalog_attribute.occasion.created, etc.) the full attribute object is in data.
+
+11. Webhook event type names and payload structure
+
+Event	When fired
+exchange_rate.updated	Daily auto-refresh or manual update
+catalog_attribute.occasion.created/updated/deleted	Occasion CRUD
+catalog_attribute.catalog_category.created/updated/deleted	Category CRUD
+catalog_attribute.catalog_brand.created/updated/deleted	Brand CRUD
+catalog_attribute.recipient.created/updated/deleted	Recipient CRUD
+catalog_attributes.changed	Fires after every attribute change (broad catch-all)
+You can subscribe to any specific event, or just catalog_attributes.changed to receive all. The data field always contains the full current object (or { id, deleted: true } for deletes).
