@@ -4,10 +4,17 @@ import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { BestSellersRail } from "@/components/homepage/BestSellersRail";
+import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
+
 export default function Home() {
   const { country } = useLocationSelection();
   const countryCode = country?.code ?? "*";
   const { data: banners, isLoading } = useHomepageBanners(countryCode);
+
+  const trustpilotTitle =
+    countryCode === "LB"
+      ? "The Modern Flower Delivery Company"
+      : "Made For Lebanese Expats, By Lebanese Expats";
 
   return (
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
@@ -42,6 +49,14 @@ export default function Home() {
           railKey="rail-cakes"
           testId="section-collection-cakes"
         />
+      </div>
+
+      {/* Trustpilot review carousel — sits above the footer */}
+      <div className="px-page py-10">
+        <h2 className="text-center font-serif text-2xl text-gray-800 mb-6">
+          {trustpilotTitle}
+        </h2>
+        <TrustpilotCarousel />
       </div>
     </div>
   );
