@@ -18,9 +18,9 @@ type Props = {
 /**
  * Renders a price in the visitor's active display currency.
  *
- * For AED: shows the dirham SVG glyph beside the number instead of the
+ * For AED: shows the dirham PNG logo beside the number instead of the
  * plain "AED" text suffix. The `symbolSize` prop (default "1em") lets the
- * glyph scale with the surrounding font — no manual size tuning needed.
+ * logo scale with the surrounding font — no manual size tuning needed.
  *
  * For all other currencies: falls back to the formatted string from
  * `useDisplayCurrency`, wrapped in a `<span>`.
@@ -45,7 +45,7 @@ export function FormattedPrice({ usdValue, className, symbolSize = "1em" }: Prop
           style={{ display: "inline-flex", alignItems: "center", gap: "0.15em" }}
           className={className}
         >
-          <DirhamSymbol size={symbolSize} color="currentColor" />
+          <DirhamSymbol size={symbolSize} />
           {aedNumStr(usdValue, rates)}
         </span>
       );
