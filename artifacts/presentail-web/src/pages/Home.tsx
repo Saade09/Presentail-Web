@@ -3,7 +3,6 @@ import { useHomepageBanners } from "@/lib/banners";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
-import { BestSellersRail } from "@/components/homepage/BestSellersRail";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 
 export default function Home() {
@@ -22,7 +21,11 @@ export default function Home() {
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
       <div className="px-page">
-        <BestSellersRail />
+        <BestSellersPreview
+          titleKey="bestSellers.title"
+          railKey="best-sellers"
+          viewAllHref="/shop"
+        />
 
         {/* First themed product rail — mirrors the live site's "Summer Collection". */}
         <BestSellersPreview
