@@ -1360,7 +1360,7 @@ export default function Checkout() {
                       <span data-testid="text-subtotal">{fmt(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{t("checkout.deliveryEstimated")}</span>
+                      <span>{t("checkout.deliveryLabel")}</span>
                       <span>{fmt(districtFee)}</span>
                     </div>
                     {expressFee > 0 && (
