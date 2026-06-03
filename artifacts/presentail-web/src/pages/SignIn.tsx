@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRouter } from "wouter";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -105,6 +106,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -483,21 +485,31 @@ export default function SignInPage() {
               <label className="text-sm font-medium" htmlFor="signin-password">
                 {t("auth.passwordLabel")}
               </label>
-              <Input
-                id="signin-password"
-                ref={passwordInputRef}
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("auth.passwordPlaceholder")}
-                data-testid="input-signin-password"
-                disabled={busy}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void onSignIn();
-                }}
-                className="h-12 rounded-sm"
-              />
+              <div className="relative">
+                <Input
+                  id="signin-password"
+                  ref={passwordInputRef}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("auth.passwordPlaceholder")}
+                  data-testid="input-signin-password"
+                  disabled={busy}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void onSignIn();
+                  }}
+                  className="h-12 rounded-sm pr-10"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
             </div>
             <Button
               size="lg"

@@ -1,6 +1,6 @@
 import { useRef, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -59,6 +59,7 @@ export default function SignUpPage() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
   const codeRef = useRef<HTMLInputElement | null>(null);
 
   const redirectAfterAuth = initial.redirectTo || "/account";
@@ -343,23 +344,33 @@ export default function SignUpPage() {
                 <label className="text-sm font-medium" htmlFor="signup-password">
                   {t("auth.passwordLabel")} <span className="text-destructive">*</span>
                 </label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) setErrors((p) => ({ ...p, password: "" }));
-                  }}
-                  placeholder={t("auth.passwordPlaceholder")}
-                  disabled={busy}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onContinueToPhone();
-                  }}
-                  data-testid="input-signup-password"
-                  className="h-12 rounded-sm"
-                />
+                <div className="relative">
+                  <Input
+                    id="signup-password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors((p) => ({ ...p, password: "" }));
+                    }}
+                    placeholder={t("auth.passwordPlaceholder")}
+                    disabled={busy}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") onContinueToPhone();
+                    }}
+                    data-testid="input-signup-password"
+                    className="h-12 rounded-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                  >
+                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="text-xs text-destructive">{errors.password}</p>
                 )}

@@ -51,6 +51,8 @@ export const authStrings: Dict = {
   "auth.passwordPlaceholder": { en: "Choose a password", ar: "اختر كلمة مرور" },
   "auth.passwordRequired": { en: "Password is required.", ar: "كلمة المرور مطلوبة." },
   "auth.passwordTooShort": { en: "Password must be at least 8 characters.", ar: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل." },
+  "auth.showPassword": { en: "Show password", ar: "إظهار كلمة المرور" },
+  "auth.hidePassword": { en: "Hide password", ar: "إخفاء كلمة المرور" },
 
   "auth.phoneStep.title": { en: "Almost there!", ar: "اقتربت من النهاية!" },
   "auth.phoneStep.desc": { en: "Add your phone number to receive order updates.", ar: "أضف رقم هاتفك لتلقّي تحديثات طلبك." },
@@ -108,6 +110,8 @@ export const authStringsFr: Record<string, string> = {
   "auth.passwordPlaceholder": "Choisissez un mot de passe",
   "auth.passwordRequired": "Le mot de passe est obligatoire.",
   "auth.passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
+  "auth.showPassword": "Afficher le mot de passe",
+  "auth.hidePassword": "Masquer le mot de passe",
 
   "auth.phoneStep.title": "Presque terminé !",
   "auth.phoneStep.desc": "Ajoutez votre numéro de téléphone pour recevoir des mises à jour sur vos commandes.",
