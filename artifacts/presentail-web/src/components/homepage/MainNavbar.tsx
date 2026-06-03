@@ -216,7 +216,7 @@ export function MainNavbar() {
   }, [activeMenu]);
 
   return (
-    <div ref={wrapperRef} className="bg-white relative border-b border-gray-200">
+    <div ref={wrapperRef} className="bg-white sticky top-0 z-[60] border-b border-gray-200">
       <div className="container mx-auto max-w-content px-page h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
 
         {/* ── Left: nav ────────────────────────────────────── */}

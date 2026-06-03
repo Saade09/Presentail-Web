@@ -3,7 +3,7 @@ import { MainNavbar } from "./MainNavbar";
 
 export function HomepageHeader() {
   return (
-    <header className="sticky top-0 z-[60] border-b-2 border-border">
+    <header>
       <TopUtilityBar />
       <MainNavbar />
     </header>
