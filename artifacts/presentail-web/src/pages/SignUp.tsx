@@ -369,7 +369,7 @@ export default function SignUpPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl mt-2"
                 onClick={onContinueToPhone}
-                disabled={busy}
+                disabled={busy || !name.trim() || !password}
                 data-testid="button-signup-continue"
               >
                 {t("auth.continue")}

@@ -434,7 +434,7 @@ export default function SignInPage() {
               size="lg"
               className="w-full h-12 rounded-xl"
               onClick={() => void onContinueEmail()}
-              disabled={busy}
+              disabled={busy || !email.trim()}
               data-testid="button-signin-continue"
             >
               {busy ? t("checkout.processing") : t("auth.continue")}
