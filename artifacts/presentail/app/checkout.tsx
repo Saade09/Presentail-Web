@@ -2260,6 +2260,11 @@ function DeliveryDetailsStep(props: any) {
             {t.keepIdentitySecretLabel}
           </AppText>
         </Pressable>
+        {identitySecret && (
+          <AppText style={{ fontSize: 12, color: "#6b7280", marginTop: 6, marginLeft: 28 }}>
+            {t.keepIdentitySecretHint}
+          </AppText>
+        )}
       </Card>
     </View>
   );

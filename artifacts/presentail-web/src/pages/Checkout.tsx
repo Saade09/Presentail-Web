@@ -1147,6 +1147,9 @@ export default function Checkout() {
                     <input type="checkbox" checked={identitySecret} onChange={(e) => setIdentitySecret(e.target.checked)} className="mt-1 h-4 w-4 accent-primary cursor-pointer" data-testid="check-identity-secret" />
                     <span className="text-sm">{t("checkout.keepIdentitySecret")}</span>
                   </label>
+                  {identitySecret && (
+                    <p className="text-xs text-gray-500 mt-1 ml-7" data-testid="identity-secret-hint">{t("checkout.keepIdentitySecretHint")}</p>
+                  )}
                 </div>
 
                 {/* Delivery Time */}
