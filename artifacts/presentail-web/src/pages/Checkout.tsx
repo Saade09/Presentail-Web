@@ -1288,7 +1288,7 @@ export default function Checkout() {
           </div>
 
           {/* ── Order Summary Sidebar ── */}
-          <div className="w-full lg:w-80 xl:w-[340px] shrink-0">
+          <div className="w-full lg:w-96 xl:w-[420px] shrink-0">
             <div className="sticky top-36">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "rgba(0,65,78,0.05)" }}>
