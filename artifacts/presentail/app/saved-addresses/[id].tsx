@@ -34,6 +34,11 @@ import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
 import { districtsForCountry, type District } from "@/data/districts";
 import { PhoneField } from "@/components/PhoneField";
 
+const DELIVERY_COUNTRIES = ["LB", "AE", "CY"] as const;
+const DELIVERY_DIAL_CODES = COUNTRY_DIAL_CODES.filter((c) =>
+  (DELIVERY_COUNTRIES as readonly string[]).includes(c.code),
+);
+
 const colors = {
   primary: "#1a1a1a",
   border: "#e5dfd4",
@@ -68,7 +73,7 @@ export default function SavedAddressFormScreen() {
   const [label, setLabel] = useState<LabelOpt>("home");
   const [nickname, setNickname] = useState("");
   const [country, setCountry] = useState<CountryDialCode>(
-    COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0],
+    DELIVERY_DIAL_CODES.find((c) => c.code === "LB") ?? DELIVERY_DIAL_CODES[0],
   );
   const [district, setDistrict] = useState<District | null>(null);
   const [addressLine, setAddressLine] = useState("");
@@ -95,7 +100,7 @@ export default function SavedAddressFormScreen() {
     if (existing) {
       setLabel((existing.label as LabelOpt) ?? "home");
       setNickname(existing.nickname ?? "");
-      const matched = COUNTRY_DIAL_CODES.find((c) => c.code === existing.countryCode);
+      const matched = DELIVERY_DIAL_CODES.find((c) => c.code === existing.countryCode);
       if (matched) setCountry(matched);
       const list = districtsForCountry(existing.countryCode);
       const matchedDistrict =
@@ -477,7 +482,7 @@ export default function SavedAddressFormScreen() {
             </Pressable>
           </View>
           <FlatList
-            data={COUNTRY_DIAL_CODES}
+            data={DELIVERY_DIAL_CODES}
             keyExtractor={(item) => item.code}
             renderItem={({ item }) => {
               const selected = item.code === country.code;
