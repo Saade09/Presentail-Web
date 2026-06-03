@@ -670,6 +670,29 @@ function AddAddressModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                {t("account.addresses.recipientFirst")}
+              </Label>
+              <Input
+                value={form.recipientFirstName}
+                onChange={(e) => set("recipientFirstName", e.target.value)}
+                placeholder={t("account.addresses.firstPlaceholder")}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                {t("account.addresses.recipientLast")}
+              </Label>
+              <Input
+                value={form.recipientLastName}
+                onChange={(e) => set("recipientLastName", e.target.value)}
+                placeholder={t("account.addresses.lastPlaceholder")}
+              />
+            </div>
+          </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Nickname
@@ -726,29 +749,6 @@ function AddAddressModal({
               onChange={(e) => set("addressLine", e.target.value)}
               placeholder={t("account.addresses.streetPlaceholder")}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                {t("account.addresses.recipientFirst")}
-              </Label>
-              <Input
-                value={form.recipientFirstName}
-                onChange={(e) => set("recipientFirstName", e.target.value)}
-                placeholder={t("account.addresses.firstPlaceholder")}
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                {t("account.addresses.recipientLast")}
-              </Label>
-              <Input
-                value={form.recipientLastName}
-                onChange={(e) => set("recipientLastName", e.target.value)}
-                placeholder={t("account.addresses.lastPlaceholder")}
-              />
-            </div>
           </div>
 
           <WebPhoneField
