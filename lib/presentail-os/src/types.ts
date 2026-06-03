@@ -151,3 +151,90 @@ export type OSBrandsResponse = {
 export type OSOccasionsResponse = {
   occasions: OSProductOccasion[];
 };
+
+// ── Order creation types ───────────────────────────────────────────────────
+
+export type OSOrderLineItem = {
+  /** OS product slug (the `id` field on OSProduct). */
+  productId: string;
+  productName: string;
+  quantity: number;
+  /** Server-verified price from the OS cache, in USD. */
+  priceUsd: number;
+};
+
+export type OSOrderFeeItem = {
+  name: string;
+  quantity: number;
+  /** Fee amount in USD. */
+  priceUsd: number;
+};
+
+export type OSCreateOrderPayload = {
+  /** Workspace slug, e.g. "presentail". */
+  workspace: string;
+  /** Presentail app-generated order id (UUID). */
+  appOrderId: string;
+  items: OSOrderLineItem[];
+  /** Non-catalog fee line items (e.g. card printing). */
+  feeItems?: OSOrderFeeItem[];
+  billing: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    countryCode?: string;
+  };
+  recipient: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  delivery: {
+    district: string;
+    cityId?: string;
+    countryCode?: string;
+    address: string;
+    date?: string;
+    slot?: string;
+    isExpress: boolean;
+    noAddress: boolean;
+    /** Computed server-side delivery fee in USD (0 when free). */
+    feeUsd: number;
+    /** Express surcharge in USD (0 when not express). */
+    expressSurchargeUsd: number;
+    /** Night-slot surcharge in USD (0 when standard slot). */
+    slotFeeUsd: number;
+  };
+  cardMessage?: string;
+  cardFrom?: string;
+  cardTo?: string;
+  qrLink?: string;
+  qrLabel?: string;
+  orderNotes?: string;
+  identitySecret?: boolean;
+  payment: {
+    /** Normalised payment method key, e.g. "card", "mamo", "paypal". */
+    method: string;
+    /** PSP reference (Stripe session id, Mamo link id, PayPal order id). */
+    ref?: string;
+    /** True when the server confirmed payment with the PSP before this call. */
+    verified: boolean;
+    /** ISO 4217 display currency code, e.g. "USD", "LBP". */
+    currencyCode?: string;
+    /** Authoritative total in USD (sum of product subtotal + all fees). */
+    totalUsd: number;
+  };
+  /** Normalised platform string: "ios" | "android" | "web" | null. */
+  platform?: string | null;
+  couponCode?: string;
+};
+
+export type OSCreateOrderResponse = {
+  /** OS-assigned order id. */
+  id?: string;
+  /** Echo of appOrderId. */
+  appOrderId?: string;
+  status?: string;
+  message?: string;
+};

@@ -23,6 +23,8 @@ import {
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 import { getDeliverySlots } from "./osLocationsCache";
+import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
+import { getOsProductByWcId } from "./osProductsCache";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -584,6 +586,225 @@ export async function recordSuccessfulWcOrder(input: {
       { err: err?.message, appOrderId: body.orderId },
       "woo.order: failed to send confirmed push",
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OS order submission
+// ---------------------------------------------------------------------------
+
+function getOsConfig(): PresentailOsConfig {
+  return {
+    apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
+    baseUrl: process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com",
+  };
+}
+
+export type OsOrderAttemptResult =
+  | {
+      ok: true;
+      osOrderId: string | null;
+      recipientName: string;
+      totalUsdCents: number;
+    }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      recipientName: string;
+    };
+
+/**
+ * Build the OS order payload from the validated `WooOrderPayload` and POST it
+ * to Presentail OS `POST /api/orders`.
+ *
+ * Price verification mirrors `attemptCreateWcOrder`: catalog prices are
+ * re-derived from the OS product cache by wcId; client-supplied prices are
+ * ignored. Delivery fees are computed server-side from trusted tables.
+ *
+ * Returns `{ ok: true, osOrderId, totalUsdCents }` on success or
+ * `{ ok: false, status, message }` on any failure so the caller can
+ * return a structured error without surfacing internal details.
+ */
+export async function attemptCreateOsOrder(
+  body: WooOrderPayload,
+  opts: { paymentVerified?: boolean; store?: WooStoreConfig; platform?: string | null } = {},
+): Promise<OsOrderAttemptResult> {
+  const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
+  const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
+
+  const osConfig = getOsConfig();
+  if (!osConfig.apiKey) {
+    return {
+      ok: false,
+      status: 503,
+      message: "PRESENTAIL_OS_API_KEY is not configured. Cannot submit order to Presentail OS.", // i18n-ignore
+      recipientName: recipientFullName,
+    };
+  }
+
+  const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
+
+  // Resolve catalog prices from the OS product cache (by wcId).
+  // If OS cache is not populated, fall back to WooCommerce (startup window).
+  // Client-supplied prices are never used for financial calculations.
+  const catalogItemInputs = body.items.filter((item) => !!item.wcId);
+  const nonCatalogFeeItems = body.items.filter((item) => !item.wcId);
+  const nonCatalogFeesUsd = nonCatalogFeeItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  let catalogSubtotalUsd = 0;
+  const lineItemData: { wcId: number | undefined; osProductId: string; name: string; quantity: number; priceUsd: number }[] = [];
+
+  for (const item of catalogItemInputs) {
+    const catalog = await fetchWcProductPrice(item.wcId!, opts.store);
+    if (!catalog) {
+      if (process.env.PRESENTAIL_OS_API_KEY || process.env.WC_CONSUMER_KEY) {
+        return {
+          ok: false,
+          status: 422,
+          message: `Catalog price unavailable for product ${item.wcId}. Cannot create order with unverified pricing.`, // i18n-ignore
+          recipientName: recipientFullName,
+        };
+      }
+      // Dev mode: OS and WC not configured — use client price with a warning.
+      logger.warn(
+        { wcId: item.wcId, appOrderId: body.orderId },
+        "osOrders: catalog not configured, using client price (dev mode only)",
+      );
+      lineItemData.push({
+        wcId: item.wcId,
+        osProductId: String(item.wcId),
+        name: item.name,
+        quantity: item.quantity,
+        priceUsd: item.price,
+      });
+      catalogSubtotalUsd += item.price * item.quantity;
+      continue;
+    }
+    // Resolve the OS product id (slug) from the wcId for the OS payload.
+    const osProduct = item.wcId ? getOsProductByWcId(item.wcId) : null;
+    const osProductId = osProduct?.id ?? String(item.wcId ?? item.name);
+    lineItemData.push({
+      wcId: item.wcId,
+      osProductId,
+      name: catalog.name,
+      quantity: item.quantity,
+      priceUsd: catalog.price,
+    });
+    catalogSubtotalUsd += catalog.price * item.quantity;
+  }
+
+  // Compute delivery fees server-side (same authoritative logic as WC path).
+  const isNoAddress = body.noAddress === true;
+  const serverDistrictFeeUsd = computeDistrictFeeUsd(
+    body.district,
+    catalogSubtotalUsd,
+    isNoAddress,
+  );
+
+  const clientSignalledExpress = body.expressFee > 0;
+  let expressSurchargeAppliedUsd = 0;
+  if (clientSignalledExpress) {
+    const districtCountry = countryForDistrict(body.district);
+    expressSurchargeAppliedUsd = expressSurchargeUsd(districtCountry);
+  }
+
+  let slotFeeAppliedUsd = 0;
+  if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
+    const citySlots = getDeliverySlots(body.cityId);
+    const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
+    if (bookedSlot?.extraFee && bookedSlot.extraFee > 0) {
+      slotFeeAppliedUsd = bookedSlot.extraFee;
+    }
+  }
+
+  const totalUsd =
+    catalogSubtotalUsd +
+    nonCatalogFeesUsd +
+    serverDistrictFeeUsd +
+    expressSurchargeAppliedUsd +
+    slotFeeAppliedUsd;
+  const totalUsdCents = Math.max(0, Math.round(totalUsd * 100));
+
+  const osPayload = {
+    workspace: osConfig.workspace ?? "presentail",
+    appOrderId: body.orderId,
+    items: lineItemData.map((d) => ({
+      productId: d.osProductId,
+      productName: d.name,
+      quantity: d.quantity,
+      priceUsd: d.priceUsd,
+    })),
+    feeItems: nonCatalogFeeItems.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      priceUsd: item.price,
+    })),
+    billing: {
+      firstName: body.billing.firstName,
+      lastName: body.billing.lastName,
+      email: body.billing.email,
+      phone: body.billing.phone,
+      countryCode: body.billingCountry ?? body.shippingCountry ?? undefined,
+    },
+    recipient: {
+      firstName: body.recipient.firstName,
+      lastName: body.recipient.lastName,
+      phone: body.recipient.phone,
+    },
+    delivery: {
+      district: body.district,
+      cityId: body.cityId ?? undefined,
+      countryCode: body.shippingCountry ?? undefined,
+      address: body.deliveryDetails,
+      date: body.deliveryDate || undefined,
+      slot: body.deliverySlot || undefined,
+      isExpress: clientSignalledExpress,
+      noAddress: isNoAddress,
+      feeUsd: serverDistrictFeeUsd,
+      expressSurchargeUsd: expressSurchargeAppliedUsd,
+      slotFeeUsd: slotFeeAppliedUsd,
+    },
+    cardMessage: body.cardMessage || undefined,
+    cardFrom: body.cardFrom || undefined,
+    cardTo: cardToValue || undefined,
+    qrLink: body.qrLink || undefined,
+    qrLabel: body.qrLabel || undefined,
+    orderNotes: body.orderNotes || undefined,
+    identitySecret: body.identitySecret,
+    payment: {
+      method:
+        body.paymentMethod === "card" || body.paymentMethod === "wallet"
+          ? "stripe"
+          : body.paymentMethod,
+      ref: body.paymentRef || undefined,
+      verified: opts.paymentVerified === true,
+      currencyCode: presentedCurrency,
+      totalUsd: Math.round(totalUsd * 100) / 100,
+    },
+    platform: opts.platform ?? null,
+    couponCode: body.couponCode || undefined,
+  };
+
+  try {
+    const response = await createOsOrder(osConfig, osPayload);
+    const osOrderId = typeof response.id === "string" ? response.id : null;
+    return {
+      ok: true,
+      osOrderId,
+      recipientName: recipientFullName,
+      totalUsdCents,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 502,
+      message: err?.message ?? "Failed to create order in Presentail OS", // i18n-ignore
+      recipientName: recipientFullName,
+    };
   }
 }
 

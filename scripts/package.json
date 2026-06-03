@@ -22,6 +22,7 @@
     "check-hardcoded-mobile-strings": "tsx ./src/checkHardcodedMobileStrings.ts",
     "check-hardcoded-api-strings": "tsx ./src/checkHardcodedApiStrings.ts",
     "check-translations": "tsx ./src/checkTranslations.ts",
+    "test-os-order": "tsx ./src/testOsOrder.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

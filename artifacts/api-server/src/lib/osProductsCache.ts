@@ -184,6 +184,7 @@ function getOsConfig(): PresentailOsConfig {
   return {
     apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
     baseUrl: process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com",
+    workspace: process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail",
   };
 }
 

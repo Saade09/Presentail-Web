@@ -3,9 +3,7 @@ import { z } from "zod";
 import { authenticate } from "../lib/auth";
 import {
   WooOrderSchema,
-  attemptCreateWcOrder,
-  enqueuePendingWcOrder,
-  isCouponErrorCode,
+  attemptCreateOsOrder,
   listPendingWooOrders,
   normalizePlatform,
   recordSuccessfulWcOrder,
@@ -21,12 +19,8 @@ import {
   syncCustomerToWoo,
   getCustomerByWcId,
 } from "../lib/customers";
+import { creditReferralRedemption } from "../lib/loyalty";
 import {
-  creditReferralRedemption,
-  orderSourceKey as loyaltyOrderSourceKey,
-} from "../lib/loyalty";
-import {
-  readStoreContext,
   resolveStoreFromRequest,
   wooAuthHeader,
   type WooStoreConfig,
@@ -1116,7 +1110,7 @@ router.get("/woo/occasion", async (req, res) => {
 //      - Replay attacks: using a paid session for a different/higher-value order.
 //      - Cross-order payment substitution.
 //
-// 3. Catalog prices: Product prices are re-derived from the WooCommerce catalog
+// 3. Catalog prices: Product prices are re-derived from the OS product cache
 //    by wcId. Client-supplied prices are ignored for all financial calculations.
 //
 // 4. Server-side fees: Delivery fees are computed from an authoritative
@@ -1124,9 +1118,6 @@ router.get("/woo/occasion", async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post("/woo/order", async (req, res) => {
   const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
-  }
   const parsed = WooOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     req.log?.warn?.(
@@ -1181,28 +1172,20 @@ router.post("/woo/order", async (req, res) => {
     });
     resolvedCustomerId = upserted.customer.id;
 
-    // Mirror to WooCommerce so the WC order is properly attached to a
-    // customer record (rather than being stored as billing text only).
+    // Best-effort: mirror to WooCommerce for legacy order linking.
+    // WC is no longer used for order submission, so a sync failure must
+    // not block the checkout — log a warning and proceed.
     try {
       wcCustomerId = await syncCustomerToWoo(resolvedCustomerId, store);
     } catch (syncErr: any) {
-      // While WooCommerce is still the order system, this is a hard
-      // failure. The local customer row is already saved, so when WC is
-      // phased out this branch can be relaxed to "best-effort".
-      req.log?.error?.(
+      req.log?.warn?.(
         {
           err: syncErr?.message,
           appOrderId: body.orderId,
           customerId: resolvedCustomerId,
         },
-        "woo.order: WooCommerce customer sync failed",
+        "woo.order: WooCommerce customer sync failed (non-fatal — OS order will still be created)",
       );
-      return res.status(502).json({
-        ok: false,
-        code: "customer_sync_failed",
-        message:
-          "We saved your details but couldn't link them to your order. Please try again or contact support.",
-      });
     }
   } catch (upsertErr: any) {
     req.log?.error?.(
@@ -1427,154 +1410,22 @@ router.post("/woo/order", async (req, res) => {
   // whish / western: offline payments — paymentVerified stays false,
   // WC order will be created with set_paid: false (pending payment).
 
-  // ── Referral coupon auto-provisioning ────────────────────────────────────
-  // If the coupon code matches the PT[A-Z0-9]+ referral format, ensure a
-  // matching WC coupon exists before the order is submitted. If the coupon
-  // doesn't exist yet, create it with the REFERRAL_DISCOUNT_AMOUNT env var
-  // (defaults to 0, making the feature inert until ops enables it). Failures
-  // are non-blocking — a log warn is emitted but order creation still proceeds.
+  // ── Referral coupon detection ────────────────────────────────────────────
+  // Track whether the order included a referral coupon so we can credit
+  // referral points after a successful OS order submission.
   const REFERRAL_CODE_RE = /^PT[A-Z0-9]+$/;
   const isReferralCoupon =
     typeof body.couponCode === "string" &&
     REFERRAL_CODE_RE.test(body.couponCode.trim().toUpperCase());
-  if (isReferralCoupon && store.consumerKey) {
-    const refCode = body.couponCode!.trim().toUpperCase();
-    try {
-      const checkRes = await wooFetch(
-        `/coupons?code=${encodeURIComponent(refCode)}&per_page=1`,
-        {},
-        "en",
-        store,
-      );
-      const existing = checkRes.ok ? ((await checkRes.json()) as { id?: number }[]) : [];
-      if (!existing.length) {
-        const discountAmount = Math.max(
-          0,
-          Number(process.env.REFERRAL_DISCOUNT_AMOUNT ?? "0"),
-        );
-        await wooFetch(
-          "/coupons",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              code: refCode,
-              discount_type: "percent",
-              amount: String(discountAmount),
-              individual_use: true,
-              description: `Presentail referral code ${refCode}`, // i18n-ignore
-            }),
-          },
-          "en",
-          store,
-        );
-        req.log?.info?.(
-          { code: refCode, discountAmount },
-          "woo.order: auto-created referral coupon",
-        );
-      }
-    } catch (refErr: any) {
-      req.log?.warn?.(
-        { err: refErr?.message, code: body.couponCode },
-        "woo.order: referral coupon provisioning failed (non-fatal)",
-      );
-    }
-  }
 
-  const result = await attemptCreateWcOrder(body, {
+  // ── Submit order to Presentail OS ────────────────────────────────────────
+  const result = await attemptCreateOsOrder(body, {
     paymentVerified,
-    wcCustomerId,
     store,
+    platform: requestPlatform,
   });
 
   if (!result.ok) {
-    // Coupon validation failures are deterministic — retrying with the same
-    // invalid/expired code will never succeed.
-    if (isCouponErrorCode(result.wcErrorCode)) {
-      if (!paymentVerified) {
-        // No payment has been captured yet. Return a structured inline error
-        // so the client can surface it under the coupon field without a toast.
-        // Skipping reconciliation is safe here — there is nothing to recover.
-        req.log?.warn?.(
-          {
-            appOrderId: body.orderId,
-            wcErrorCode: result.wcErrorCode,
-            message: result.message,
-          },
-          "woo.order: WC coupon error before payment capture — returning inline error",
-        );
-        return res
-          .status(200)
-          .json({ ok: false, message: result.message, code: "coupon_invalid" });
-      }
-
-      // Payment has already been captured (Stripe / Mamo / PayPal redirect
-      // flows). We cannot abandon the order — retry immediately without the
-      // coupon so fulfillment can proceed. If the retry succeeds the order
-      // is recorded; if it also fails we fall through to reconciliation.
-      req.log?.warn?.(
-        {
-          appOrderId: body.orderId,
-          wcErrorCode: result.wcErrorCode,
-          message: result.message,
-        },
-        "woo.order: WC coupon error after payment capture — retrying without coupon",
-      );
-      const { couponCode: _dropped, ...bodyWithoutCoupon } = body;
-      const retryResult = await attemptCreateWcOrder(bodyWithoutCoupon, {
-        paymentVerified,
-        wcCustomerId,
-        store,
-      });
-      if (retryResult.ok) {
-        void recordSuccessfulWcOrder({
-          body: bodyWithoutCoupon,
-          wcOrderId: retryResult.wcOrderId,
-          userId: resolvedUserId,
-          customerId: resolvedCustomerId,
-          recipientName: retryResult.recipientName,
-          totalUsdCents: retryResult.totalUsdCents,
-          platform: requestPlatform,
-          storeKey: store.storeKey,
-          log: req.log,
-        });
-        // Signal to the client that the order succeeded but the coupon was
-        // not applied (payment was already captured; we cannot inline-error).
-        // The client should display a non-blocking warning to the shopper.
-        return res.json({
-          ok: true,
-          wcOrderId: retryResult.wcOrderId,
-          orderKey: retryResult.orderKey,
-          couponDiscount: 0,
-          couponRejected: true,
-          couponMessage: result.message,
-        });
-      }
-      // Retry also failed — fall through to the reconciliation queue below.
-      req.log?.warn?.(
-        {
-          appOrderId: body.orderId,
-          retryMessage: retryResult.message,
-        },
-        "woo.order: retry without coupon also failed — queueing for reconciliation",
-      );
-    }
-
-    // Payment already succeeded but WC order creation failed. Persist the
-    // payload to the reconciliation queue so the worker can keep retrying.
-    const storeCtx = readStoreContext(req);
-    await enqueuePendingWcOrder({
-      body,
-      paymentRef: body.paymentRef ?? null,
-      userId: resolvedUserId,
-      customerId: resolvedCustomerId,
-      wcCustomerId,
-      errorMessage: result.message,
-      paymentVerified,
-      storeCountryCode: storeCtx.countryCode,
-      storeCityId: storeCtx.cityId,
-      platform: requestPlatform,
-      log: req.log,
-    });
     req.log?.warn?.(
       {
         appOrderId: body.orderId,
@@ -1582,16 +1433,16 @@ router.post("/woo/order", async (req, res) => {
         status: result.status,
         message: result.message,
       },
-      "woo.order: WC create failed, queued for reconciliation",
+      "woo.order: OS order creation failed",
     );
     return res
       .status(result.status)
-      .json({ ok: false, message: result.message, queued: true });
+      .json({ ok: false, message: result.message });
   }
 
   void recordSuccessfulWcOrder({
     body,
-    wcOrderId: result.wcOrderId,
+    wcOrderId: null,
     userId: resolvedUserId,
     customerId: resolvedCustomerId,
     recipientName: result.recipientName,
@@ -1610,8 +1461,8 @@ router.post("/woo/order", async (req, res) => {
     const refCode = body.couponCode.trim().toUpperCase();
     const referrerId = parseInt(refCode.slice(2), 36);
     if (Number.isFinite(referrerId) && referrerId > 0) {
-      const redeemerSource = result.wcOrderId
-        ? loyaltyOrderSourceKey(store.storeKey, result.wcOrderId)
+      const redeemerSource = result.osOrderId
+        ? `os-order:${result.osOrderId}`
         : `order:${body.orderId}`;
       void creditReferralRedemption({
         referrerCustomerId: referrerId,
@@ -1627,13 +1478,21 @@ router.post("/woo/order", async (req, res) => {
     }
   }
 
+  req.log?.info?.(
+    {
+      appOrderId: body.orderId,
+      osOrderId: result.osOrderId,
+      platform: requestPlatform,
+    },
+    "woo.order: OS order created successfully",
+  );
+
   return res.json({
     ok: true,
-    wcOrderId: result.wcOrderId,
-    orderKey: result.orderKey,
-    // Discount applied by coupon lines (display currency, from WC discount_total).
-    // Zero when no coupon was applied or WC didn't return the field.
-    couponDiscount: result.couponDiscount,
+    wcOrderId: null,
+    osOrderId: result.osOrderId,
+    // Coupon discount not yet supported by OS — always zero.
+    couponDiscount: 0,
   });
 });
 

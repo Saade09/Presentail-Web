@@ -4,6 +4,8 @@ import type {
   OSCategoriesResponse,
   OSBrandsResponse,
   OSOccasionsResponse,
+  OSCreateOrderPayload,
+  OSCreateOrderResponse,
 } from "./types";
 
 const DEFAULT_BASE_URL = "https://os.presentail.com";
@@ -227,4 +229,56 @@ export async function fetchOsOccasions(
     throw new Error(`Presentail OS occasions API returned HTTP ${res.status}`);
   }
   return res.json() as Promise<OSOccasionsResponse>;
+}
+
+/**
+ * Submit a new order to Presentail OS.
+ *
+ * The API key is sent in the `x-api-key` header. The workspace slug is sent
+ * as the `workspace` query parameter (and embedded in the payload body).
+ *
+ * Throws with a descriptive message if the API key is absent or the
+ * request fails with a non-2xx status. The caller is responsible for
+ * surfacing the error to the client.
+ */
+export async function createOsOrder(
+  config: PresentailOsConfig,
+  payload: OSCreateOrderPayload,
+): Promise<OSCreateOrderResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey) {
+    throw new Error(
+      "PRESENTAIL_OS_API_KEY is required but was not provided. " +
+        "Set this environment variable to enable order submission to Presentail OS.",
+    );
+  }
+
+  const url = new URL(`${baseUrl}/api/orders`);
+  url.searchParams.set("workspace", workspace);
+  // API key is sent only in the x-api-key header — never in the URL so it
+  // cannot be captured by proxy or server access logs.
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+    },
+    body: JSON.stringify({ ...payload, workspace }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  const body = (await res.json().catch(() => ({}))) as OSCreateOrderResponse;
+
+  if (!res.ok) {
+    const msg =
+      (typeof body.message === "string" && body.message) ||
+      `Presentail OS order API returned HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  return body;
 }
