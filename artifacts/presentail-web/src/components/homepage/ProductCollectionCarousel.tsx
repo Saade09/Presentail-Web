@@ -10,6 +10,7 @@ type Props = {
   viewAllHref?: string;
   products: Product[];
   isLoading?: boolean;
+  isError?: boolean;
   testId?: string;
 };
 
@@ -18,6 +19,7 @@ export function ProductCollectionCarousel({
   viewAllHref,
   products,
   isLoading,
+  isError,
   testId,
 }: Props) {
   const { t, dir } = useLocale();
@@ -59,7 +61,7 @@ export function ProductCollectionCarousel({
   const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
   const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
 
-  if (!isLoading && products.length === 0) return null;
+  if (!isLoading && !isError && products.length === 0) return null;
 
   return (
     <section className="py-10 md:py-14" data-testid={testId}>

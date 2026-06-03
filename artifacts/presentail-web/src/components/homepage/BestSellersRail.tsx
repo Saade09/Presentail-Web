@@ -44,21 +44,32 @@ export function BestSellersRail() {
     lang: language,
   };
 
-  const { data, isLoading } = useGetHomepageBestSellers<Product[]>(params, {
+  const { data, isPending, isError } = useGetHomepageBestSellers<Product[]>(params, {
     query: {
       queryKey: getGetHomepageBestSellersQueryKey(params),
       staleTime: 5 * 60 * 1000,
+      retry: 3,
+      refetchInterval: (query) => {
+        const raw = query.state.data;
+        if (raw && raw.products && raw.products.length > 0) return false;
+        if (query.state.status === "error") return false;
+        return 10_000;
+      },
       select: (raw) =>
         ((raw?.products ?? []) as BestSellerProduct[]).map(toProduct),
     },
   });
+
+  const hasProducts = data && data.length > 0;
+  const showSkeleton = isPending || (!isError && !hasProducts);
 
   return (
     <ProductCollectionCarousel
       title={t("bestSellers.title")}
       viewAllHref="/shop"
       products={data ?? []}
-      isLoading={isLoading}
+      isLoading={showSkeleton}
+      isError={isError}
       testId="section-best-sellers"
     />
   );

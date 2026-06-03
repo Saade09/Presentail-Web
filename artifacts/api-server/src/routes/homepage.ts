@@ -592,7 +592,7 @@ router.get("/homepage/best-sellers", (req, res) => {
   const store = resolveStoreFromRequest(req);
 
   if (!hasOsProducts(store.storeKey)) {
-    return res.status(503).json({ ok: false, message: "Product catalog not yet populated" }); // i18n-ignore
+    return res.json({ ok: true, products: [] });
   }
 
   const osProducts = getOsProducts(store.storeKey)!;
