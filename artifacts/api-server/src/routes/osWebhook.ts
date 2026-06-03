@@ -25,6 +25,7 @@
 
 import { Router, type IRouter } from "express";
 import type { OSLocationsResponse } from "@workspace/presentail-os";
+import { fetchOsLocations } from "@workspace/presentail-os";
 import {
   storeLocationsFromWebhook,
   invalidateOsLocationsCache,

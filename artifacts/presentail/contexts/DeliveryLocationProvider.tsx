@@ -214,9 +214,12 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
         findCountryById(deliveryLocations, persisted.selectedDeliveryCountryId) ??
         findCountryByCode(deliveryLocations, persisted.selectedDeliveryCountryCode);
       if (nextCountry && persisted.selectedDeliveryCityId) {
+        // Only restore the persisted city when it is still active.
+        // If it has since been deactivated fall through to firstActiveCity().
         nextCity =
-          nextCountry.cities.find((c) => c.id === persisted.selectedDeliveryCityId) ??
-          null;
+          nextCountry.cities.find(
+            (c) => c.id === persisted.selectedDeliveryCityId && c.isActive !== false,
+          ) ?? null;
       }
     }
 
@@ -270,6 +273,40 @@ export function DeliveryLocationProvider({ children }: { children: React.ReactNo
     selectedCity,
     persist,
   ]);
+
+  // Re-resolve selection whenever the locations list refreshes.
+  // If the current country or city has been deactivated in Presentail OS,
+  // switch to the first valid alternative automatically so the shopper is
+  // never stuck with a deactivated delivery area.
+  // This covers both the 10-minute background poll and any manual refresh.
+  // Guard: skip when we have no selection yet (initial load path handles that).
+  useEffect(() => {
+    if (!selectedCountry || deliveryLocations.length === 0) return;
+
+    const freshCountry =
+      findCountryById(deliveryLocations, selectedCountry.id) ??
+      findCountryByCode(deliveryLocations, selectedCountry.code);
+
+    if (!freshCountry || freshCountry.isActive === false) {
+      // Country deactivated — switch to the fallback country.
+      const fallback = pickFallbackCountry(deliveryLocations);
+      if (!fallback) return;
+      const fallbackCity = firstActiveCity(fallback);
+      setSelectedCountry(fallback);
+      setSelectedCity(fallbackCity);
+      updateCachedStoreLocation(fallback.code, fallbackCity?.id ?? null);
+      return;
+    }
+
+    if (!selectedCity) return;
+    const freshCity = freshCountry.cities.find((c) => c.id === selectedCity.id);
+    if (!freshCity || freshCity.isActive === false) {
+      // City deactivated — switch to first active city in the same country.
+      const fallbackCity = firstActiveCity(freshCountry);
+      setSelectedCity(fallbackCity);
+      updateCachedStoreLocation(freshCountry.code, fallbackCity?.id ?? null);
+    }
+  }, [deliveryLocations, selectedCountry, selectedCity]);
 
   const selectCountry = useCallback(
     (country: DeliveryCountry) => {
