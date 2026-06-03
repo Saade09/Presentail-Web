@@ -5,7 +5,7 @@ import {
   Redirect,
   useLocation,
 } from "wouter";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { prefetchOnIdle } from "@/lib/prefetch";
 import {
@@ -192,11 +192,35 @@ function CustomerOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ScrollToTop() {
+  const isPop = useRef(false);
+
+  useEffect(() => {
+    const handler = () => {
+      isPop.current = true;
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  const [pathname] = useLocation();
+  useEffect(() => {
+    if (isPop.current) {
+      isPop.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
+
+  return null;
+}
+
 function ShopShell() {
   const [path] = useLocation();
   const isCheckoutPage = path.endsWith("/checkout") || path.endsWith("/order-confirmed");
   return (
     <LocationPickerGate>
+      <ScrollToTop />
       <div className="min-h-screen flex flex-col">
         {!isCheckoutPage && <HomepageHeader />}
         <main className="flex-1">
