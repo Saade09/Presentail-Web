@@ -105,6 +105,29 @@ let cachedOccasions: OSProductOccasion[] | null = null;
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
+// ── OS-refresh listeners ────────────────────────────────────────────────────
+
+/**
+ * Callbacks registered via `registerOsProductsRefreshListener`.
+ * Each is invoked (fire-and-forget) after every successful `fetchAndStore`
+ * so dependent caches (e.g. the best-sellers ranking cache) can be
+ * invalidated in lock-step with the OS product cache refresh.
+ */
+const osRefreshListeners: Array<() => void> = [];
+
+/**
+ * Register a function to be called after every successful OS products
+ * refresh (i.e. every time `fetchAndStore` completes without throwing).
+ * Useful for dependent caches that must stay aligned with the OS data.
+ *
+ * Multiple listeners may be registered; they are called in registration
+ * order. Errors thrown by a listener are caught and logged so they cannot
+ * break the refresh pipeline.
+ */
+export function registerOsProductsRefreshListener(fn: () => void): void {
+  osRefreshListeners.push(fn);
+}
+
 // ── First-population callback ───────────────────────────────────────────────
 
 /**
@@ -590,6 +613,20 @@ async function fetchAndStore(): Promise<void> {
       const fn = onFirstPopulatedCallback;
       onFirstPopulatedCallback = null;
       fn();
+    }
+
+    // ── OS-refresh listeners ──────────────────────────────────────────────
+    // Notify dependent caches (e.g. best-sellers ranking) that the OS
+    // product data has been refreshed so they can invalidate in lock-step.
+    for (const fn of osRefreshListeners) {
+      try {
+        fn();
+      } catch (listenerErr: unknown) {
+        logger.warn(
+          { err: listenerErr instanceof Error ? listenerErr.message : String(listenerErr) },
+          "osProductsCache: refresh listener threw",
+        );
+      }
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

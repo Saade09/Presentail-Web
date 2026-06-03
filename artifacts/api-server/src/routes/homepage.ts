@@ -45,6 +45,7 @@ router.get("/homepage/banners", (req, res) => {
 // homepage never breaks.
 
 import { resolveStoreFromRequest, wooAuthHeader } from "../lib/wooStore";
+import { registerOsProductsRefreshListener } from "../lib/osProductsCache";
 
 type WcCategoryRaw = {
   id: number;
@@ -588,6 +589,32 @@ router.get("/homepage/occasions", async (req, res) => {
 
 const BEST_SELLERS_LIMIT = 12;
 
+// ── Best-sellers cache ────────────────────────────────────────────────────
+//
+// The filter+sort+map over the full OS product array is cheap but
+// proportional to catalog size. A short-TTL in-memory cache (matching the
+// `COLLECTION_TTL_MS` pattern used by `collectionCache` above) keeps the
+// endpoint O(1) under traffic spikes. The cache is also cleared immediately
+// whenever the OS product cache is refreshed so rankings never lag behind
+// a real catalog change by more than one polling interval.
+//
+// Cache key: `${storeKey}::${countryCode ?? ""}::${cityId ?? ""}`
+// The currencySymbol is part of the formatted price stored in the cache, so
+// it must be encoded in the key as well.
+
+type BestSellersEntry = {
+  fetchedAt: number;
+  body: { ok: boolean; products: unknown[] };
+};
+
+const bestSellersCache = new Map<string, BestSellersEntry>();
+
+// Invalidate the entire best-sellers cache on every OS products refresh so
+// the ranking stays aligned with updated totalSales / inStock / price data.
+registerOsProductsRefreshListener(() => {
+  bestSellersCache.clear();
+});
+
 router.get("/homepage/best-sellers", (req, res) => {
   const store = resolveStoreFromRequest(req);
 
@@ -595,11 +622,19 @@ router.get("/homepage/best-sellers", (req, res) => {
     return res.json({ ok: true, products: [] });
   }
 
-  const osProducts = getOsProducts(store.storeKey)!;
-
   const countryCode =
     typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
   const cityId = typeof req.query.cityId === "string" ? req.query.cityId || null : null;
+  const currencySymbol = store.currencySymbol ?? "$";
+
+  const cacheKey = `${store.storeKey}::${countryCode ?? ""}::${cityId ?? ""}::${currencySymbol}`;
+  const now = Date.now();
+  const cached = bestSellersCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
+    return res.json(cached.body);
+  }
+
+  const osProducts = getOsProducts(store.storeKey)!;
 
   const filtered = osProducts
     .filter((p) => p.inStock)
@@ -614,8 +649,6 @@ router.get("/homepage/best-sellers", (req, res) => {
     })
     .sort((a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0))
     .slice(0, BEST_SELLERS_LIMIT);
-
-  const currencySymbol = store.currencySymbol ?? "$";
 
   const products = filtered.map((p) => {
     const price = p.price;
@@ -639,7 +672,9 @@ router.get("/homepage/best-sellers", (req, res) => {
     };
   });
 
-  return res.json({ ok: true, products });
+  const body = { ok: true, products };
+  bestSellersCache.set(cacheKey, { fetchedAt: now, body });
+  return res.json(body);
 });
 
 // Force-refresh the homepage Categories + Occasions caches for a given
