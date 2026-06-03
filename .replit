@@ -28,6 +28,10 @@ args = "compression-check"
 task = "workflow.run"
 args = "check-hardcoded-mobile-strings"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-api-compression"
+
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
 author = "agent"
@@ -57,6 +61,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run check-hardcoded-mobile-strings"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "check-api-compression"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash -c 'set -e; HEADERS=$(curl -sf -D - --compressed -o /dev/null http://localhost:8080/api/woo/products 2>&1); ENCODING=$(echo \"$HEADERS\" | grep -i \"^content-encoding:\" || true); if [ -n \"$ENCODING\" ]; then echo \"PASS  /api/woo/products — $ENCODING\"; else echo \"FAIL  /api/woo/products — no Content-Encoding header; ensure API server is running with compression middleware\"; exit 1; fi'"
 
 [workflows.workflow.metadata]
 isValidation = true

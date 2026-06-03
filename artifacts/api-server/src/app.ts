@@ -1,6 +1,7 @@
 import path from "node:path";
 import express, { type Express } from "express";
 import cors from "cors";
+import compression from "compression";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
@@ -66,6 +67,24 @@ app.use(
   "/api/woo/webhook/order",
   express.raw({ type: "application/json", limit: "1mb" }),
   wooWebhookRouter,
+);
+
+// Compress all JSON/text API responses. Skips responses < 1 kB (threshold)
+// and content types that are already binary-compressed (images, audio, video,
+// zip archives) to avoid wasting CPU on incompressible data.
+app.use(
+  compression({
+    threshold: 1024,
+    filter(req, res) {
+      const contentType = res.getHeader("Content-Type");
+      if (typeof contentType === "string") {
+        if (/^image\/|^audio\/|^video\/|application\/(zip|gzip|x-brotli|octet-stream|pdf)/.test(contentType)) {
+          return false;
+        }
+      }
+      return compression.filter(req, res);
+    },
+  }),
 );
 
 app.use(cors());
