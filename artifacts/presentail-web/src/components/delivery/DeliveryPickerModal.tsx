@@ -11,8 +11,9 @@ import { Info } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import type { ReactNode } from "react";
 import { useNow } from "@/lib/useNow";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -45,7 +46,6 @@ function dayMonthShort(iso: string): string {
 export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
-  const { formatPrice } = useDisplayCurrency();
   const now = useNow();
   const deliverySelection = useDeliverySelection();
 
@@ -124,14 +124,14 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                 <div className="font-semibold pr-5">{t("checkout.expressDelivery")}</div>
                 <div className="text-xs opacity-80 mt-0.5">
                   {expressAvailable
-                    ? `+${formatPrice(expressSurcharge)}`
+                    ? <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></>
                     : t("checkout.expressUnavailable")}
                 </div>
               </button>
               <ExpressInfoPopover
                 infoTitle={t("checkout.expressInfo.title")}
                 infoBody={t("checkout.expressInfo.body")}
-                infoFee={expressAvailable ? `+ ${formatPrice(expressSurcharge)}` : undefined}
+                infoFee={expressAvailable ? <>+ <FormattedPrice usdValue={expressSurcharge} /></> : undefined}
                 active={mode === "express"}
               />
             </div>
@@ -242,7 +242,7 @@ function ExpressInfoPopover({
 }: {
   infoTitle: string;
   infoBody: string;
-  infoFee?: string;
+  infoFee?: ReactNode;
   active: boolean;
 }) {
   const [open, setOpen] = useState(false);

@@ -28,6 +28,7 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -139,8 +140,7 @@ export default function Checkout() {
   const { toast } = useToast();
   const { t, dir } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
-  const { formatPrice, currencyCode } = useDisplayCurrency();
-  const fmt = (v: number) => formatPrice(v);
+  const { currencyCode } = useDisplayCurrency();
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
   const mamoPayment = useMamoPayment();
@@ -1167,7 +1167,7 @@ export default function Checkout() {
                       style={deliveryMode === "express" ? { borderColor: "#00414e", backgroundColor: "#00414e" } : {}}
                     >
                       <div className="font-semibold">{t("checkout.expressDelivery")}</div>
-                      <div className="text-xs opacity-80 mt-1">{expressAvailable ? `+${fmt(expressSurcharge)}` : t("checkout.expressUnavailable")}</div>
+                      <div className="text-xs opacity-80 mt-1">{expressAvailable ? <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></> : t("checkout.expressUnavailable")}</div>
                     </button>
                     <button
                       type="button"
@@ -1273,7 +1273,7 @@ export default function Checkout() {
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
                   <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#00414e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
-                    {isProcessing ? t("checkout.processing") : t("checkout.placeOrderNow", { amount: fmt(total) })}
+                    {isProcessing ? t("checkout.processing") : <>{t("checkout.placeOrderNow_prefix")} <FormattedPrice usdValue={total} /></>}
                   </Button>
                 </div>
 
@@ -1305,7 +1305,7 @@ export default function Checkout() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#00414e" }}>{fmt(item.product.priceValue * item.quantity)}</p>
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#00414e" }}><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
                         </div>
                       </div>
                     ))}
@@ -1321,7 +1321,7 @@ export default function Checkout() {
                             <span className="font-medium">{couponInput}</span>
                             <span className="text-muted-foreground text-xs">· {t("checkout.coupon.applied")}</span>
                           </div>
-                          <span className="font-medium">{confirmedCouponDiscount > 0 ? `−${fmt(confirmedCouponDiscount)}` : "—"}</span>
+                          <span className="font-medium">{confirmedCouponDiscount > 0 ? <>−<FormattedPrice usdValue={confirmedCouponDiscount} /></> : "—"}</span>
                         </div>
                         <button type="button" onClick={handleCouponRemove} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive transition-colors">{t("checkout.coupon.remove")}</button>
                       </>
@@ -1357,22 +1357,22 @@ export default function Checkout() {
                   <div className="space-y-2.5 border-t border-gray-100 pt-4">
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{t("cart.subtotal")}</span>
-                      <span data-testid="text-subtotal">{fmt(subtotal)}</span>
+                      <span data-testid="text-subtotal"><FormattedPrice usdValue={subtotal} /></span>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{t("checkout.deliveryLabel")}</span>
-                      <span>{fmt(districtFee)}</span>
+                      <span><FormattedPrice usdValue={districtFee} /></span>
                     </div>
                     {expressFee > 0 && (
                       <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
                         <span>{t("checkout.expressDeliveryLabel")}</span>
-                        <span>{fmt(expressFee)}</span>
+                        <span><FormattedPrice usdValue={expressFee} /></span>
                       </div>
                     )}
                     {slotFee > 0 && (
                       <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-slot-fee">
                         <span>{t("checkout.nightDeliverySurcharge") || "Night Delivery"}</span>
-                        <span>{fmt(slotFee)}</span>
+                        <span><FormattedPrice usdValue={slotFee} /></span>
                       </div>
                     )}
                   </div>
@@ -1380,7 +1380,7 @@ export default function Checkout() {
                   {/* Total */}
                   <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
                     <span style={{ color: "#00414e" }}>{t("cart.total")}</span>
-                    <span style={{ color: "#00414e" }} data-testid="text-total">{fmt(Math.max(0, total - confirmedCouponDiscount))}</span>
+                    <span style={{ color: "#00414e" }} data-testid="text-total"><FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} /></span>
                   </div>
 
                   {effectiveFreeDeliveryEnabled !== false && (

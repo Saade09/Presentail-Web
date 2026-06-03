@@ -25,7 +25,7 @@ import { ProductTabs } from "@/components/product/ProductTabs";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -47,7 +47,6 @@ export default function ProductDetail() {
   const [,] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
   const delivery = useDeliveryConfig();
-  const { formatPrice: formatDisplayPrice } = useDisplayCurrency();
   const deliverySelection = useDeliverySelection();
 
   const { countryCode, cityId } = useLocationSelection();
@@ -274,7 +273,7 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-6 sm:gap-7 h-full">
             <ProductInfo
               name={product.name}
-              price={formatDisplayPrice(product.priceValue)}
+              price={<FormattedPrice usdValue={product.priceValue} />}
               taxLabel="TAX Inclusive"
               rewardPoints={vm.rewardPoints}
             />
@@ -287,7 +286,7 @@ export default function ProductDetail() {
               expressAvailable={expressAvailable}
               expressUnavailableLabel={t("checkout.expressUnavailable")}
               scheduledSubtitle={scheduledRowSubtitle}
-              infoFee={`+ ${formatDisplayPrice(expressSurchargeForCountry(countryCode))}`}
+              infoFee={<>+ <FormattedPrice usdValue={expressSurchargeForCountry(countryCode)} /></>}
             />
 
             {deliveryChoice === "scheduled" && (
@@ -315,7 +314,11 @@ export default function ProductDetail() {
             </div>
 
             <ProductBenefits
-              freeDeliveryThreshold={delivery.freeDeliveryThreshold}
+              freeDeliveryThresholdNode={
+                delivery.freeDeliveryThresholdUsd != null
+                  ? <FormattedPrice usdValue={delivery.freeDeliveryThresholdUsd} />
+                  : delivery.freeDeliveryThreshold
+              }
               freeDeliveryEnabled={delivery.freeDeliveryEnabled}
             />
 

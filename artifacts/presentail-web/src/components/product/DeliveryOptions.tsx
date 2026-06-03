@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Calendar, CircleCheck, Circle, Info, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -14,7 +15,7 @@ type Props = {
   expressAvailable?: boolean;
   expressUnavailableLabel?: string;
   scheduledSubtitle?: string;
-  infoFee?: string;
+  infoFee?: ReactNode;
 };
 
 export function DeliveryOptions({
@@ -91,7 +92,7 @@ function DeliveryRow({
   showInfo?: boolean;
   infoTitle?: string;
   infoBody?: string;
-  infoFee?: string;
+  infoFee?: ReactNode;
   testId?: string;
   disabled?: boolean;
 }) {

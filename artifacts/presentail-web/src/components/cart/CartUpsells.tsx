@@ -4,8 +4,8 @@ import { Link } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useProducts } from "@/lib/queries";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -65,7 +65,6 @@ function tabLabelKey(id: UpsellTabId): string {
 export function CartUpsells() {
   const { t, language } = useLocale();
   const { addItem } = useCart();
-  const { formatPrice } = useDisplayCurrency();
   const { countryCode, cityId } = useLocationSelection();
   const { toast } = useToast();
 
@@ -163,9 +162,7 @@ export function CartUpsells() {
               </Link>
               <div className="p-3 flex flex-col gap-2 flex-1">
                 <p className="font-serif text-base text-primary">
-                  {formatPrice(
-                    Number.isFinite(product.priceValue) ? product.priceValue : 0,
-                  )}
+                  <FormattedPrice usdValue={Number.isFinite(product.priceValue) ? product.priceValue : 0} />
                 </p>
                 <Link href={`/product/${product.id}`}>
                   <h3 className="text-xs leading-tight line-clamp-2 min-h-[32px] hover:text-primary transition-colors">

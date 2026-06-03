@@ -10,8 +10,8 @@ import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, Chevro
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -81,8 +81,6 @@ export default function Cart() {
   const { t, dir } = useLocale();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const { formatPrice } = useDisplayCurrency();
-  const fmt = (v: number) => formatPrice(v);
   const {
     freeDeliveryEnabled,
     cityFeeUsd,
@@ -280,7 +278,7 @@ export default function Cart() {
                   <div className="flex justify-between gap-4">
                     <div>
                       <h3 className="font-serif text-base leading-tight mb-1">{item.product.name}</h3>
-                      <p className="text-sm text-muted-foreground">{fmt(item.product.priceValue)}</p>
+                      <p className="text-sm text-muted-foreground"><FormattedPrice usdValue={item.product.priceValue} /></p>
                     </div>
                     <button
                       onClick={() => removeItem(item.product.id)}
@@ -309,7 +307,7 @@ export default function Cart() {
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
-                    <p className="font-medium">{fmt(item.product.priceValue * item.quantity)}</p>
+                    <p className="font-medium"><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
                   </div>
                 </div>
               </motion.div>
@@ -490,7 +488,7 @@ export default function Cart() {
               <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.subtotal")}</span>
-                  <span className="font-medium">{fmt(subtotal)}</span>
+                  <span className="font-medium"><FormattedPrice usdValue={subtotal} /></span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
@@ -499,20 +497,20 @@ export default function Cart() {
                       ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
                       : deliveryFeeUsd === 0
                         ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
-                        : fmt(deliveryFeeUsd)
+                        : <FormattedPrice usdValue={deliveryFeeUsd} />
                     }
                   </span>
                 </div>
                 {expressSurchargeUsd > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {t("cart.expressNote").replace("{{amount}}", fmt(expressSurchargeUsd))}
+                    {t("cart.expressNote").replace("{{amount}}", String(expressSurchargeUsd))}
                   </p>
                 )}
               </div>
 
               <div className="flex justify-between items-center mb-8">
                 <span className="font-medium">{t("cart.total")}</span>
-                <span className="text-2xl font-serif">{fmt(cartTotal)}</span>
+                <span className="text-2xl font-serif"><FormattedPrice usdValue={cartTotal} /></span>
               </div>
 
               <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">

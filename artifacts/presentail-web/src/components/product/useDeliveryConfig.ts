@@ -5,6 +5,8 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 export type DeliveryConfig = {
   expressDeliveryTimeLabel: string;
   freeDeliveryThreshold: string;
+  /** Raw USD equivalent of the free-delivery threshold (for FormattedPrice conversion). */
+  freeDeliveryThresholdUsd?: number;
   currency: string;
   freeDeliveryEnabled: boolean;
   /** Free-delivery threshold in USD for fee calculation. Undefined when not yet loaded. */
@@ -18,6 +20,7 @@ export type DeliveryConfig = {
 const FALLBACK: DeliveryConfig = {
   expressDeliveryTimeLabel: "Arrives in 90 minutes",
   freeDeliveryThreshold: "AED 330",
+  freeDeliveryThresholdUsd: 89.84,
   currency: "AED",
   freeDeliveryEnabled: true,
   cityFeeUsd: null,
@@ -28,6 +31,7 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   AE: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "AED 330",
+    freeDeliveryThresholdUsd: 89.84,
     currency: "AED",
     freeDeliveryEnabled: true,
     cityFeeUsd: null,
@@ -36,6 +40,7 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   LB: {
     expressDeliveryTimeLabel: "Arrives in 90 minutes",
     freeDeliveryThreshold: "$90",
+    freeDeliveryThresholdUsd: 90,
     currency: "USD",
     freeDeliveryEnabled: true,
     cityFeeUsd: null,
@@ -44,6 +49,7 @@ const COUNTRY_FALLBACK: Record<string, Partial<DeliveryConfig>> = {
   CY: {
     expressDeliveryTimeLabel: "Arrives same day",
     freeDeliveryThreshold: "€120",
+    freeDeliveryThresholdUsd: 130,
     currency: "EUR",
     freeDeliveryEnabled: true,
     cityFeeUsd: null,

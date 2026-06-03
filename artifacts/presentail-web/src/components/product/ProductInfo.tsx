@@ -1,11 +1,12 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import { LoyaltyInfoModal } from "@/components/loyalty/LoyaltyInfoModal";
 import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   name: string;
-  price: string;
+  price: ReactNode;
   taxLabel: string;
   rewardPoints: number;
 };

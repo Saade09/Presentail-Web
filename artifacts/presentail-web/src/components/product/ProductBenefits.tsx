@@ -1,18 +1,21 @@
+import type { ReactNode } from "react";
 import { MapPin, Navigation, Truck } from "lucide-react";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
-  freeDeliveryThreshold: string;
+  freeDeliveryThresholdNode: ReactNode;
   freeDeliveryEnabled?: boolean;
 };
 
-export function ProductBenefits({ freeDeliveryThreshold, freeDeliveryEnabled = true }: Props) {
-  const items = [
+export function ProductBenefits({ freeDeliveryThresholdNode, freeDeliveryEnabled = true }: Props) {
+  const { t } = useLocale();
+  const items: { icon: ReactNode; title: string; sub: ReactNode }[] = [
     ...(freeDeliveryEnabled
       ? [
           {
             icon: <Truck className="w-5 h-5" />,
             title: "Free Standard Delivery",
-            sub: `On orders above ${freeDeliveryThreshold}.`,
+            sub: <>{t("cart.banner.onOrdersAbove")} {freeDeliveryThresholdNode}.</>,
           },
         ]
       : []),

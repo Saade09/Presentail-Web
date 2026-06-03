@@ -12,8 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useProducts } from "@/lib/queries";
+import { FormattedPrice } from "@/components/FormattedPrice";
 import { useToast } from "@/hooks/use-toast";
 import {
   type ResolvedUpsellTab,
@@ -51,7 +51,6 @@ type Props = {
 export function AddToCartUpsellModal({ open, onClose }: Props) {
   const { t, language, dir } = useLocale();
   const { addItem, subtotal } = useCart();
-  const { formatPrice } = useDisplayCurrency();
   const { countryCode, cityId } = useLocationSelection();
   const { freeDeliveryEnabled } = useDeliveryConfig();
   const { toast } = useToast();
@@ -116,7 +115,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
             {t("cart.upsells.modal.addedTitle")}
           </p>
           <p className="font-serif text-2xl text-primary mb-3">
-            {formatPrice(subtotal)}
+            <FormattedPrice usdValue={subtotal} />
           </p>
           {freeDeliveryEnabled && (
             <FreeDeliveryBanner subtotal={subtotal} />
@@ -213,11 +212,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                     </Link>
                     <div className="p-2.5 flex flex-col gap-1.5 flex-1">
                       <p className="font-serif text-sm text-primary">
-                        {formatPrice(
-                          Number.isFinite(product.priceValue)
-                            ? product.priceValue
-                            : 0,
-                        )}
+                        <FormattedPrice usdValue={Number.isFinite(product.priceValue) ? product.priceValue : 0} />
                       </p>
                       <Link href={`/product/${product.id}`} onClick={onClose}>
                         <h3 className="text-[11px] leading-tight line-clamp-2 min-h-[28px] hover:text-primary transition-colors">
@@ -245,11 +240,11 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           <div className="flex-1 flex flex-col gap-0.5 text-sm">
             <div className="flex items-center justify-between sm:justify-start sm:gap-2 text-muted-foreground">
               <span>{t("cart.subtotal")}</span>
-              <span>{formatPrice(subtotal)}</span>
+              <span><FormattedPrice usdValue={subtotal} /></span>
             </div>
             <div className="flex items-center justify-between sm:justify-start sm:gap-2">
               <span className="font-medium text-primary">{t("cart.total")}</span>
-              <span className="font-serif text-base text-primary">{formatPrice(subtotal)}</span>
+              <span className="font-serif text-base text-primary"><FormattedPrice usdValue={subtotal} /></span>
             </div>
           </div>
           <div className="flex gap-2 sm:gap-3">

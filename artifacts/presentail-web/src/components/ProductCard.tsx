@@ -1,11 +1,10 @@
 import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { ShimmerImage } from "./ShimmerImage";
+import { FormattedPrice } from "./FormattedPrice";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
-  const { formatPrice } = useDisplayCurrency();
   const imageUrl = product.image?.uri;
   const tag = product.tag;
 
@@ -43,7 +42,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
         </div>
         <div className="space-y-1">
           <h3 className="font-serif text-lg line-clamp-1">{product.name}</h3>
-          <p className="text-muted-foreground text-sm font-medium">{formatPrice(product.priceValue)}</p>
+          <p className="text-muted-foreground text-sm font-medium"><FormattedPrice usdValue={product.priceValue} /></p>
         </div>
       </Link>
     </motion.div>

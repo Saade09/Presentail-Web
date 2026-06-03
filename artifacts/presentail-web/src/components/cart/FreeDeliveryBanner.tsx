@@ -1,6 +1,8 @@
+import React from "react";
 import { Truck } from "lucide-react";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { FormattedPrice } from "@/components/FormattedPrice";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   className?: string;
@@ -25,9 +27,9 @@ function parseThresholdAmount(label: string): number {
 }
 
 export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }: Props) {
+  const { t } = useLocale();
   const { freeDeliveryThreshold, expressDeliveryTimeLabel } =
     useDeliveryConfig();
-  const { formatPrice } = useDisplayCurrency();
 
   // When the caller provides an explicit city-level threshold (USD), use it;
   // otherwise fall back to the formatted string from useDeliveryConfig.
@@ -38,9 +40,9 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
   // For the display label: when we have a raw USD value, convert it to the
   // visitor's display currency. Otherwise fall back to the pre-formatted string
   // from useDeliveryConfig (no raw USD available to convert).
-  const effectiveThresholdLabel =
+  const effectiveThresholdLabel: React.ReactNode =
     typeof overrideThresholdUsd === "number" && overrideThresholdUsd > 0
-      ? formatPrice(overrideThresholdUsd)
+      ? <FormattedPrice usdValue={overrideThresholdUsd} />
       : freeDeliveryThreshold;
 
   const showProgress = typeof subtotal === "number" && subtotal >= 0;
@@ -69,8 +71,8 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
           <>
             <p className="font-semibold text-foreground">
               {unlocked
-                ? "You've unlocked Free Standard Delivery"
-                : `Only ${formatPrice(remaining)} left to unlock Free Standard Delivery`}
+                ? t("cart.banner.unlocked")
+                : <>{t("cart.banner.remaining.prefix")} <FormattedPrice usdValue={remaining} /> {t("cart.banner.remaining.suffix")}</>}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
@@ -80,17 +82,17 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
                 />
               </div>
               <span className="font-semibold text-foreground text-[11px] shrink-0">
-                {formatPrice(subtotal!)}
+                <FormattedPrice usdValue={subtotal!} />
               </span>
             </div>
           </>
         ) : (
           <>
             <p className="font-semibold text-foreground">
-              Free delivery on orders above {effectiveThresholdLabel}
+              {t("cart.banner.staticAbove")} {effectiveThresholdLabel}
             </p>
             <p className="text-muted-foreground mt-0.5">
-              {expressDeliveryTimeLabel} with express delivery.
+              {expressDeliveryTimeLabel} {t("cart.banner.withExpress")}
             </p>
           </>
         )}
