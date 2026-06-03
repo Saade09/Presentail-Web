@@ -433,7 +433,6 @@ function AddressCard({
   t: (k: string) => string;
 }) {
   const COUNTRY_NAMES: Record<string, string> = { LB: "Lebanon", AE: "United Arab Emirates", CY: "Cyprus" };
-  const labelChip: Record<string, string> = { home: "Home", work: "Work", other: "Other" };
   const line2 = [address.addressLine, address.building, address.apartment].filter(Boolean).join(" · ");
   const recipientName = [address.recipientFirstName, address.recipientLastName].filter(Boolean).join(" ");
   const recipientPhone = [address.recipientPhoneCountryCode, address.recipientPhone].filter(Boolean).join(" ");
@@ -449,11 +448,8 @@ function AddressCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium bg-secondary px-2 py-0.5 rounded-full">
-              {labelChip[address.label] ?? address.label}
-            </span>
             {address.nickname && (
-              <span className="text-sm text-muted-foreground">· {address.nickname}</span>
+              <span className="text-sm text-muted-foreground">{address.nickname}</span>
             )}
             {address.isDefault && (
               <span className="text-xs font-medium text-gold bg-gold/15 px-2 py-0.5 rounded-full">
@@ -662,23 +658,6 @@ function AddAddressModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-3 gap-2">
-            {["home", "work", "other"].map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => set("label", l)}
-                className={`py-2 rounded-xl text-sm font-medium border transition-colors capitalize ${
-                  form.label === l
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background border-border hover:bg-secondary/40"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Nickname
