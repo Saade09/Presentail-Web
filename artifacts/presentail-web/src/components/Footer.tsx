@@ -127,7 +127,7 @@ export function Footer() {
 
   return (
     <footer
-      className="bg-primary text-white mt-16"
+      className="bg-primary text-white"
       data-testid="footer"
       lang={language}
     >
