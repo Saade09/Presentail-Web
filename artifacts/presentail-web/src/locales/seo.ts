@@ -26,6 +26,14 @@ export const seoStrings: Dict = {
     en: "Order this gift for delivery in {city}, {country} with Presentail.",
     ar: "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail.",
   },
+  "seo.allOccasions.title": {
+    en: "Shop by Occasion in {city} | Presentail",
+    ar: "تسوّق حسب المناسبة في {city} | Presentail",
+  },
+  "seo.allOccasions.description": {
+    en: "Browse all occasions — birthdays, anniversaries, weddings and more — and find the perfect gift for delivery in {city}, {country}.",
+    ar: "تصفّح جميع المناسبات — أعياد الميلاد والذكرى السنوية وحفلات الزفاف والمزيد — وابحث عن الهدية المثالية للتوصيل في {city}، {country}.",
+  },
   "seo.brands.title": {
     en: "Partner Brands in {city} | Presentail",
     ar: "العلامات الشريكة في {city} | Presentail",
@@ -100,6 +108,8 @@ export const seoStringsFr: Record<string, string> = {
   "seo.shop.description": "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
   "seo.product.title": "Livraison de cadeaux à {city} | Presentail",
   "seo.product.description": "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
+  "seo.allOccasions.title": "Acheter par occasion à {city} | Presentail",
+  "seo.allOccasions.description": "Parcourez toutes les occasions — anniversaires, mariages et plus encore — et trouvez le cadeau idéal pour livraison à {city}, {country}.",
   "seo.brands.title": "Marques partenaires à {city} | Presentail",
   "seo.brands.description": "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
   "seo.brand.title": "Collection de la marque à {city} | Presentail",

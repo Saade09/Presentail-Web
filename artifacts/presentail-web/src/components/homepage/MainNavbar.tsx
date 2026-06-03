@@ -51,7 +51,7 @@ const MEGA_MENUS: MegaMenuDef[] = [
       { label: "Funeral",           href: "/shop?occasion=condolences",        img: "/catalog/occasions/condolences.webp" },
       { label: "Summer Collection", href: "/shop?occasion=summer-collection",  img: "/catalog/categories/lux-arrangements.avif" },
     ],
-    footer: { label: "View All Occasions", href: "/shop" },
+    footer: { label: "View All Occasions", href: "/occasions" },
   },
   {
     key: "flowers",

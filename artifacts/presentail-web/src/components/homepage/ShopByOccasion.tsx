@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Cake, Heart, Sparkles, Trophy, Baby, Smile, Flower2, Gift } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
+import { ArrowRight } from "lucide-react";
 
 export function ShopByOccasion() {
   const { t } = useLocale();
@@ -49,6 +50,17 @@ export function ShopByOccasion() {
               </Link>
             </motion.div>
           ))}
+        </div>
+
+        <div className="flex justify-center mt-8 md:mt-10">
+          <Link
+            href="/occasions"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-2"
+            data-testid="link-view-all-occasions"
+          >
+            {t("occasions.viewAll")}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </section>

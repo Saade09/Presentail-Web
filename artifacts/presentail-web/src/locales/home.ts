@@ -22,6 +22,8 @@ export const homeStrings: Dict = {
     en: "Find the perfect gesture for life's most meaningful days.",
     ar: "اعثر على اللمسة المثالية لأهمّ أيام الحياة.",
   },
+  "occasions.viewAll": { en: "View All Occasions", ar: "عرض كل المناسبات" },
+  "allOccasions.empty": { en: "No occasions available.", ar: "لا توجد مناسبات متاحة." },
   "brands.eyebrow": { en: "Maison Partners", ar: "شركاؤنا" },
   "brands.title": { en: "Brands We Love", ar: "علامات نحبّها" },
   "brands.subtitle": {
@@ -57,6 +59,8 @@ export const homeStringsFr: Record<string, string> = {
   "occasions.eyebrow": "Pour chaque moment",
   "occasions.title": "Acheter par occasion",
   "occasions.subtitle": "Trouvez le geste parfait pour les jours les plus précieux de la vie.",
+  "occasions.viewAll": "Voir toutes les occasions",
+  "allOccasions.empty": "Aucune occasion disponible.",
   "brands.eyebrow": "Maisons partenaires",
   "brands.title": "Marques que nous aimons",
   "brands.subtitle": "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",

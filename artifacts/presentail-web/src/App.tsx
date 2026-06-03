@@ -20,6 +20,7 @@ import {
   loadFavorites,
   loadBrands,
   loadBrandDetail,
+  loadAllOccasions,
 } from "@/lib/pageLoaders";
 import { ClerkProvider } from "@clerk/react";
 import { Component, type ErrorInfo } from "react";
@@ -83,6 +84,7 @@ const Shop = lazy(loadShop);
 const ProductDetail = lazy(loadProductDetail);
 const Brands = lazy(loadBrands);
 const BrandDetail = lazy(loadBrandDetail);
+const AllOccasions = lazy(loadAllOccasions);
 const Cart = lazy(loadCart);
 const Checkout = lazy(loadCheckout);
 const OrderConfirmed = lazy(() => import("@/pages/OrderConfirmed"));
@@ -116,6 +118,7 @@ const FavoritesRoute = withSuspense(Favorites, AccountSkeleton);
 // Minor routes share the generic spinner — they're tiny chunks, rarely cold-loaded.
 const BrandsRoute = withSuspense(Brands, PageLoader);
 const BrandDetailRoute = withSuspense(BrandDetail, ShopPageSkeleton);
+const AllOccasionsRoute = withSuspense(AllOccasions, ShopPageSkeleton);
 const CartRoute = withSuspense(Cart, PageLoader);
 const OrderConfirmedRoute = withSuspense(OrderConfirmed, PageLoader);
 const SignInRoute = withSuspense(SignInPage, PageLoader);
@@ -230,6 +233,7 @@ function ShopShell() {
             <Route path="/product/:slug" component={ProductDetailRoute} />
             <Route path="/brands" component={BrandsRoute} />
             <Route path="/brand/:slug" component={BrandDetailRoute} />
+            <Route path="/occasions" component={AllOccasionsRoute} />
             <Route path="/cart" component={CartRoute} />
             <Route path="/checkout" component={CheckoutRoute} />
             <Route path="/order-confirmed" component={OrderConfirmedRoute} />

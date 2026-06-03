@@ -14,6 +14,7 @@ const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
   { test: (r) => r.startsWith("/product"), key: "product" },
+  { test: (r) => r === "/occasions", key: "allOccasions" },
   { test: (r) => r === "/brands", key: "brands" },
   { test: (r) => r.startsWith("/brand/"), key: "brand" },
   { test: (r) => r === "/cart", key: "cart" },

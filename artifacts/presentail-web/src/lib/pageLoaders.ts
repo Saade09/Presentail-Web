@@ -9,3 +9,4 @@ export const loadAccount = () => import("@/pages/Account");
 export const loadFavorites = () => import("@/pages/Favorites");
 export const loadBrands = () => import("@/pages/Brands");
 export const loadBrandDetail = () => import("@/pages/BrandDetail");
+export const loadAllOccasions = () => import("@/pages/AllOccasions");
