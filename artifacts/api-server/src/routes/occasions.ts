@@ -9,6 +9,7 @@ import { getCustomerByWcId } from "../lib/customers";
 const router: IRouter = Router();
 
 const occasionInputSchema = z.object({
+  personName: z.string().trim().max(100).nullish(),
   label: z.string().trim().min(1).max(100),
   month: z.number().int().min(1).max(12),
   day: z.number().int().min(1).max(31),
@@ -56,6 +57,7 @@ router.get(
       ok: true,
       occasions: rows.map((r) => ({
         id: r.id,
+        personName: r.personName ?? null,
         label: r.label,
         month: r.month,
         day: r.day,
@@ -81,11 +83,12 @@ router.post(
       res.status(400).json({ ok: false, message: "Invalid occasion data" }); // i18n-ignore
       return;
     }
-    const { label, month, day, note } = parsed.data;
+    const { personName, label, month, day, note } = parsed.data;
     const [row] = await db
       .insert(customerOccasionsTable)
       .values({
         customerId: resolved.customerId,
+        personName: personName ?? null,
         label,
         month,
         day,
@@ -96,6 +99,7 @@ router.post(
       ok: true,
       occasion: {
         id: row.id,
+        personName: row.personName ?? null,
         label: row.label,
         month: row.month,
         day: row.day,
@@ -126,10 +130,10 @@ router.put(
       res.status(400).json({ ok: false, message: "Invalid occasion data" }); // i18n-ignore
       return;
     }
-    const { label, month, day, note } = parsed.data;
+    const { personName, label, month, day, note } = parsed.data;
     const [row] = await db
       .update(customerOccasionsTable)
-      .set({ label, month, day, note: note ?? null, updatedAt: new Date() })
+      .set({ personName: personName ?? null, label, month, day, note: note ?? null, updatedAt: new Date() })
       .where(
         and(
           eq(customerOccasionsTable.id, id),
@@ -145,6 +149,7 @@ router.put(
       ok: true,
       occasion: {
         id: row.id,
+        personName: row.personName ?? null,
         label: row.label,
         month: row.month,
         day: row.day,

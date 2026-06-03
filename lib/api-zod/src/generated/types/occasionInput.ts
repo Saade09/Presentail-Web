@@ -7,6 +7,8 @@
  */
 
 export interface OccasionInput {
+  /** @maxLength 100 */
+  personName?: string | null;
   /**
    * @minLength 1
    * @maxLength 100

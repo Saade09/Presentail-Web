@@ -8,6 +8,7 @@
 
 export interface OccasionItem {
   id: number;
+  personName?: string | null;
   label: string;
   /**
    * @minimum 1

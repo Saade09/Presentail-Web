@@ -953,6 +953,7 @@ export interface SharedFavoritesResponse {
 
 export interface OccasionItem {
   id: number;
+  personName?: string | null;
   label: string;
   /**
    * @minimum 1
@@ -969,6 +970,8 @@ export interface OccasionItem {
 }
 
 export interface OccasionInput {
+  /** @maxLength 100 */
+  personName?: string | null;
   /**
    * @minLength 1
    * @maxLength 100

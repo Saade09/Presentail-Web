@@ -1601,6 +1601,7 @@ export const ListMyOccasionsResponse = zod.object({
   occasions: zod.array(
     zod.object({
       id: zod.number(),
+      personName: zod.string().nullish(),
       label: zod.string(),
       month: zod
         .number()
@@ -1616,6 +1617,8 @@ export const ListMyOccasionsResponse = zod.object({
 /**
  * @summary Save a new occasion to the customer's profile
  */
+export const createMyOccasionBodyPersonNameMax = 100;
+
 export const createMyOccasionBodyLabelMax = 100;
 
 export const createMyOccasionBodyMonthMax = 12;
@@ -1625,6 +1628,7 @@ export const createMyOccasionBodyDayMax = 31;
 export const createMyOccasionBodyNoteMax = 500;
 
 export const CreateMyOccasionBody = zod.object({
+  personName: zod.string().max(createMyOccasionBodyPersonNameMax).nullish(),
   label: zod.string().min(1).max(createMyOccasionBodyLabelMax),
   month: zod.number().min(1).max(createMyOccasionBodyMonthMax),
   day: zod.number().min(1).max(createMyOccasionBodyDayMax),
@@ -1639,6 +1643,7 @@ export const CreateMyOccasionResponse = zod.object({
   ok: zod.boolean(),
   occasion: zod.object({
     id: zod.number(),
+    personName: zod.string().nullish(),
     label: zod.string(),
     month: zod.number().min(1).max(createMyOccasionResponseOccasionMonthMax),
     day: zod.number().min(1).max(createMyOccasionResponseOccasionDayMax),
@@ -1654,6 +1659,8 @@ export const UpdateMyOccasionParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateMyOccasionBodyPersonNameMax = 100;
+
 export const updateMyOccasionBodyLabelMax = 100;
 
 export const updateMyOccasionBodyMonthMax = 12;
@@ -1663,6 +1670,7 @@ export const updateMyOccasionBodyDayMax = 31;
 export const updateMyOccasionBodyNoteMax = 500;
 
 export const UpdateMyOccasionBody = zod.object({
+  personName: zod.string().max(updateMyOccasionBodyPersonNameMax).nullish(),
   label: zod.string().min(1).max(updateMyOccasionBodyLabelMax),
   month: zod.number().min(1).max(updateMyOccasionBodyMonthMax),
   day: zod.number().min(1).max(updateMyOccasionBodyDayMax),
@@ -1677,6 +1685,7 @@ export const UpdateMyOccasionResponse = zod.object({
   ok: zod.boolean(),
   occasion: zod.object({
     id: zod.number(),
+    personName: zod.string().nullish(),
     label: zod.string(),
     month: zod.number().min(1).max(updateMyOccasionResponseOccasionMonthMax),
     day: zod.number().min(1).max(updateMyOccasionResponseOccasionDayMax),

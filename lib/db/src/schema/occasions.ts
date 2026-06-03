@@ -19,6 +19,7 @@ export const customerOccasionsTable = pgTable(
     customerId: integer("customer_id")
       .notNull()
       .references(() => customersTable.id, { onDelete: "cascade" }),
+    personName: text("person_name"),
     label: text("label").notNull(),
     month: smallint("month").notNull(),
     day: smallint("day").notNull(),

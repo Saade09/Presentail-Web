@@ -2619,6 +2619,9 @@ components:
       properties:
         id:
           type: integer
+        personName:
+          type: string
+          nullable: true
         label:
           type: string
         month:
@@ -2644,6 +2647,10 @@ components:
     OccasionInput:
       type: object
       properties:
+        personName:
+          type: string
+          maxLength: 100
+          nullable: true
         label:
           type: string
           minLength: 1

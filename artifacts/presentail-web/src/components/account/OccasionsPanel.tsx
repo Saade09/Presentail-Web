@@ -24,6 +24,7 @@ import { EmptyState } from "./EmptyState";
 
 type Occasion = {
   id: number;
+  personName: string | null;
   label: string;
   month: number;
   day: number;
@@ -35,6 +36,17 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+const OCCASION_TYPE_KEYS = [
+  "account.occasions.type.happyBirthday",
+  "account.occasions.type.happyAnniversary",
+  "account.occasions.type.ramadan",
+  "account.occasions.type.newBabyBorn",
+  "account.occasions.type.iLoveYou",
+  "account.occasions.type.congratulations",
+  "account.occasions.type.getWellSoon",
+  "account.occasions.type.somethingElse",
+] as const;
 
 function daysInMonth(month: number) {
   return new Date(2000, month, 0).getDate();
@@ -51,11 +63,19 @@ function OccasionForm({
   t,
 }: {
   initial?: Partial<Occasion>;
-  onSave: (data: { label: string; month: number; day: number; note: string | null }) => Promise<void>;
+  onSave: (data: { personName: string | null; label: string; month: number; day: number; note: string | null }) => Promise<void>;
   onCancel: () => void;
   t: (k: string) => string;
 }) {
-  const [label, setLabel] = useState(initial?.label ?? "");
+  const [personName, setPersonName] = useState(initial?.personName ?? "");
+
+  const resolveInitialLabel = () => {
+    if (!initial?.label) return "";
+    const matchingKey = OCCASION_TYPE_KEYS.find((k) => t(k) === initial.label);
+    return matchingKey ?? initial.label;
+  };
+
+  const [label, setLabel] = useState(resolveInitialLabel);
   const [month, setMonth] = useState(String(initial?.month ?? ""));
   const [day, setDay] = useState(String(initial?.day ?? ""));
   const [note, setNote] = useState(initial?.note ?? "");
@@ -64,21 +84,32 @@ function OccasionForm({
   const monthNum = Number(month);
   const maxDays = monthNum >= 1 && monthNum <= 12 ? daysInMonth(monthNum) : 31;
 
+  const resolvedLabel = OCCASION_TYPE_KEYS.includes(label as (typeof OCCASION_TYPE_KEYS)[number])
+    ? t(label)
+    : label;
+
   const handleSubmit = async () => {
-    if (!label.trim()) return;
+    if (!personName.trim() || !resolvedLabel.trim()) return;
     const m = parseInt(month, 10);
     const d = parseInt(day, 10);
     if (isNaN(m) || m < 1 || m > 12 || isNaN(d) || d < 1 || d > maxDays) return;
     setBusy(true);
     try {
-      await onSave({ label: label.trim(), month: m, day: d, note: note.trim() || null });
+      await onSave({
+        personName: personName.trim(),
+        label: resolvedLabel,
+        month: m,
+        day: d,
+        note: note.trim() || null,
+      });
     } finally {
       setBusy(false);
     }
   };
 
   const valid =
-    label.trim().length > 0 &&
+    personName.trim().length > 0 &&
+    resolvedLabel.trim().length > 0 &&
     parseInt(month, 10) >= 1 &&
     parseInt(month, 10) <= 12 &&
     parseInt(day, 10) >= 1 &&
@@ -88,14 +119,32 @@ function OccasionForm({
     <div className="space-y-4 py-2">
       <div>
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-          {t("account.occasions.labelField")} <span className="text-destructive">*</span>
+          {t("account.occasions.personField")} <span className="text-destructive">*</span>
         </Label>
         <Input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder={t("account.occasions.labelPlaceholder")}
-          data-testid="occasion-label"
+          value={personName}
+          onChange={(e) => setPersonName(e.target.value)}
+          placeholder={t("account.occasions.personPlaceholder")}
+          data-testid="occasion-person-name"
         />
+      </div>
+
+      <div>
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          {t("account.occasions.occasionType")} <span className="text-destructive">*</span>
+        </Label>
+        <Select value={label} onValueChange={setLabel}>
+          <SelectTrigger data-testid="occasion-label">
+            <SelectValue placeholder={t("account.occasions.occasionTypePlaceholder")} />
+          </SelectTrigger>
+          <SelectContent>
+            {OCCASION_TYPE_KEYS.map((key) => (
+              <SelectItem key={key} value={key}>
+                {t(key)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -180,7 +229,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
     load();
   }, []);
 
-  const handleCreate = async (data: { label: string; month: number; day: number; note: string | null }) => {
+  const handleCreate = async (data: { personName: string | null; label: string; month: number; day: number; note: string | null }) => {
     const r = await apiFetch<{ ok: boolean; occasion: Occasion }>("/me/occasions", {
       method: "POST",
       body: JSON.stringify(data),
@@ -190,7 +239,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
     toast({ title: t("account.occasions.saved") });
   };
 
-  const handleUpdate = async (data: { label: string; month: number; day: number; note: string | null }) => {
+  const handleUpdate = async (data: { personName: string | null; label: string; month: number; day: number; note: string | null }) => {
     if (!editTarget) return;
     const r = await apiFetch<{ ok: boolean; occasion: Occasion }>(`/me/occasions/${editTarget.id}`, {
       method: "PUT",
@@ -263,7 +312,9 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                       <CalendarDays className="w-4 h-4 text-primary" />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">{occ.label}</div>
+                      <div className="font-medium text-sm truncate">
+                        {occ.personName ? `${occ.personName} — ` : ""}{occ.label}
+                      </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {formatOccasionDate(occ.month, occ.day)}
                       </div>
@@ -332,7 +383,9 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">{t("account.occasions.deleteTitle")}</DialogTitle>
             <DialogDescription>
-              {deleteTarget ? `"${deleteTarget.label}" ${t("account.occasions.deleteDesc")}` : ""}
+              {deleteTarget
+                ? `"${deleteTarget.personName ? `${deleteTarget.personName} — ` : ""}${deleteTarget.label}" ${t("account.occasions.deleteDesc")}`
+                : ""}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
