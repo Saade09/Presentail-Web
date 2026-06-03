@@ -977,6 +977,157 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     return;
   }
 
+  // Clerk customer path: fires for non-team Clerk sessions (i.e., regular web
+  // shoppers using cookie-based auth). Mirrors the team block above but also
+  // performs a best-effort WC mirror so the WooCommerce billing record stays
+  // in sync — same as the legacy JWT path below.
+  if (clerkPutUserId) {
+    const body = (req.body ?? {}) as {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      gender?: string | null;
+      birthday?: string | null;
+    };
+    let validatedCustomerPhone: string | undefined;
+    if (body.phone !== undefined) {
+      const phoneCheck = validateStoredPhone(
+        typeof body.phone === "string" ? body.phone : "",
+      );
+      if (!phoneCheck.ok) {
+        const message =
+          phoneCheck.reason === "too_short"
+            ? "Phone number is too short for the selected country"
+            : phoneCheck.reason === "too_long"
+              ? "Phone number is too long for the selected country"
+              : "Invalid phone number";
+        res.status(400).json({ ok: false, message, code: phoneCheck.reason });
+        return;
+      }
+      validatedCustomerPhone = phoneCheck.normalized;
+    }
+    let normalizedCustomerGender: string | null | undefined;
+    if (body.gender !== undefined) {
+      if (body.gender === null || body.gender === "") {
+        normalizedCustomerGender = null;
+      } else if (
+        typeof body.gender === "string" &&
+        (CUSTOMER_GENDERS as readonly string[]).includes(body.gender)
+      ) {
+        normalizedCustomerGender = body.gender;
+      }
+    }
+    let normalizedCustomerBirthday: string | null | undefined;
+    if (body.birthday !== undefined) {
+      const parsed = parseBirthday(body.birthday);
+      if (!parsed.ok) {
+        res.status(400).json({ ok: false, message: "Invalid birthday" }); // i18n-ignore
+        return;
+      }
+      normalizedCustomerBirthday = parsed.value;
+    }
+    try {
+      const customerClaims = clerkSession?.sessionClaims as any;
+      let customerEmail: string | null = customerClaims?.email ?? null;
+
+      if (!customerEmail) {
+        const secretKey = process.env.CLERK_SECRET_KEY;
+        if (!secretKey) {
+          res.status(503).json({ ok: false, message: "Clerk is not configured" }); // i18n-ignore
+          return;
+        }
+        const clerk = createClerkClient({ secretKey });
+        const clerkUser = await clerk.users.getUser(clerkPutUserId);
+        customerEmail =
+          clerkUser.emailAddresses.find(
+            (e) => e.id === clerkUser.primaryEmailAddressId,
+          )?.emailAddress ??
+          clerkUser.emailAddresses[0]?.emailAddress ??
+          null;
+      }
+
+      if (!customerEmail) {
+        res.status(401).json({ ok: false, message: "Clerk user has no email" }); // i18n-ignore
+        return;
+      }
+
+      const { customer: existingCustomer } = await upsertCustomer({
+        email: customerEmail,
+        authProvider: "clerk",
+        authUserId: clerkPutUserId,
+      });
+
+      const customerPatch: Partial<typeof customersTable.$inferInsert> = {};
+      if (typeof body.firstName === "string") customerPatch.firstName = body.firstName.trim();
+      if (typeof body.lastName === "string") customerPatch.lastName = body.lastName.trim();
+      if (validatedCustomerPhone !== undefined) {
+        customerPatch.phoneE164 = validatedCustomerPhone
+          ? normalizePhoneE164(validatedCustomerPhone)
+          : null;
+      }
+      if (normalizedCustomerGender !== undefined) customerPatch.gender = normalizedCustomerGender;
+      if (normalizedCustomerBirthday !== undefined) customerPatch.birthday = normalizedCustomerBirthday;
+
+      let localCustomer = existingCustomer;
+      if (Object.keys(customerPatch).length > 0) {
+        const [updated] = await db
+          .update(customersTable)
+          .set({ ...customerPatch, updatedAt: new Date() })
+          .where(eq(customersTable.id, existingCustomer.id))
+          .returning();
+        localCustomer = updated;
+      }
+
+      // Best-effort WC mirror (fire-and-forget). Only attempted when the local
+      // row has a known WC customer ID so we don't create stray WC records.
+      if (existingCustomer.wcCustomerId) {
+        const wcMirrorPayload: Record<string, unknown> = {};
+        if (typeof body.firstName === "string") wcMirrorPayload.first_name = body.firstName;
+        if (typeof body.lastName === "string") wcMirrorPayload.last_name = body.lastName;
+        if (validatedCustomerPhone !== undefined) {
+          wcMirrorPayload.billing = { phone: validatedCustomerPhone };
+        }
+        const wcMeta: { key: string; value: string }[] = [];
+        if (normalizedCustomerGender !== undefined) {
+          wcMeta.push({ key: "presentail_gender", value: normalizedCustomerGender ?? "" });
+        }
+        if (normalizedCustomerBirthday !== undefined) {
+          wcMeta.push({ key: "presentail_birthday", value: normalizedCustomerBirthday ?? "" });
+        }
+        if (wcMeta.length > 0) wcMirrorPayload.meta_data = wcMeta;
+        if (Object.keys(wcMirrorPayload).length > 0) {
+          wcFetch(
+            `/customers/${existingCustomer.wcCustomerId}`,
+            { method: "PUT", body: JSON.stringify(wcMirrorPayload) },
+            req,
+          ).catch((err: any) => {
+            req.log?.warn?.(
+              { err: err?.message, wcCustomerId: existingCustomer.wcCustomerId },
+              "auth.me.put (clerk-customer): WC mirror threw (non-fatal)",
+            );
+          });
+        }
+      }
+
+      res.json({
+        ok: true,
+        user: {
+          id: localCustomer.id,
+          email: localCustomer.email,
+          firstName: localCustomer.firstName ?? "",
+          lastName: localCustomer.lastName ?? "",
+          username: "",
+          phone: localCustomer.phoneE164 ?? "",
+          gender: localCustomer.gender ?? null,
+          birthday: localCustomer.birthday ?? null,
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, message: e?.message ?? "Failed" });
+    }
+    return;
+  }
+
   const auth = await authenticate(req.header("authorization"), req);
   if (!auth.ok) {
     res.status(auth.status).json({ ok: false, message: auth.message });
