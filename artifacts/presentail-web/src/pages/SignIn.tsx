@@ -1,41 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSignIn } from "@clerk/react/legacy";
-import { AuthenticateWithRedirectCallback } from "@clerk/react";
-import { useLocation, useRouter, useRoute } from "wouter";
+import { useLocation, useRouter } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/analytics";
-
-// Mounted at `/{lang}-{country}/{city}/sign-in` (relative to wouter's
-// nested router base). This page implements a CUSTOM email-first flow
-// instead of Clerk's hosted `<SignIn>` form because we need to bridge
-// existing WordPress shoppers (who have no Clerk account yet) into Clerk
-// transparently:
-//
-//   1. Shopper enters email.
-//   2. We POST to `/api/auth/web-bridge` — the server checks the email
-//      against WP/WC and, if the shopper exists there but not in Clerk,
-//      JIT-creates a Clerk user with the same external_id mapping the
-//      one-shot import script uses (`importCustomersToClerk`). This is
-//      idempotent and treats `form_identifier_exists` as success.
-//   3. We start a Clerk sign-in with `strategy: "email_code"` so the
-//      shopper just needs to enter the 6-digit code Clerk emails them —
-//      no password is involved (we never had access to WP password
-//      hashes anyway).
-//   4. New emails (no WP/WC match) are routed to the existing `/sign-up`
-//      page so Clerk's normal sign-up form handles them.
-//
-// Hard-error contract: when the bridge returns `code: lookup_failed` or
-// `lookup_unavailable`, we MUST NOT silently route the shopper to
-// sign-up — that would create a duplicate account divorced from their
-// order history. We surface a toast and keep them on the email step so
-// they can retry.
-//
-// The locale-prefixed mount also catches Clerk's OAuth callback URL
-// (`/sign-in/sso-callback`) — we render Clerk's redirect handler in
-// that case so OAuth flows can complete.
+import { useAuth } from "@/contexts/AuthContext";
+import type { ShimUser } from "@/contexts/AuthContext";
 
 const AppleLogo = () => (
   <svg
@@ -77,45 +48,70 @@ const GoogleLogo = () => (
   </svg>
 );
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as
+  | string
+  | undefined;
+const APPLE_SERVICE_ID = import.meta.env.VITE_APPLE_SERVICE_ID as
+  | string
+  | undefined;
+
+type ApiAuthResponse = {
+  ok: boolean;
+  token?: string;
+  user?: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  };
+  message?: string;
+};
+
+function mapApiUser(
+  u: NonNullable<ApiAuthResponse["user"]>
+): ShimUser {
+  return {
+    id: String(u.id),
+    email: u.email ?? "",
+    firstName: u.firstName ?? "",
+    lastName: u.lastName ?? "",
+    phone: u.phone || undefined,
+  };
+}
+
 export default function SignInPage() {
+  const { login } = useAuth();
+  const [, setLocation] = useLocation();
   const router = useRouter();
   const base = (router.base || "").replace(/\/+$/, "");
-  const [, setLocation] = useLocation();
-  const [isSsoCallback] = useRoute("/sign-in/sso-callback");
   const { t, dir } = useLocale();
   const { toast } = useToast();
-  const { isLoaded, signIn, setActive } = useSignIn();
   const [oauthBusy, setOauthBusy] = useState<"apple" | "google" | null>(null);
 
-  // SSO callback sub-route: hand control to Clerk so the OAuth handshake
-  // finishes the sign-in started by `<CheckoutLoginDialog>`.
-  if (isSsoCallback) {
-    return <AuthenticateWithRedirectCallback />;
-  }
-
-  // Pre-fill with the email the cart's CheckoutLoginDialog forwards via
-  // `?email_address=`, and respect Clerk's `?redirect_url=` so we land
-  // back on /checkout after a completed sign-in.
   const initial = useMemo(() => {
-    if (typeof window === "undefined") return { email: "", redirectTo: "" };
+    if (typeof window === "undefined") return { email: "", redirectTo: "", strategy: "" };
     const sp = new URLSearchParams(window.location.search);
     return {
       email: sp.get("email_address")?.trim() ?? "",
       redirectTo: sp.get("redirect_url") ?? "",
+      strategy: sp.get("strategy") ?? "",
     };
   }, []);
 
-  type Step = "email" | "code";
+  type Step = "email" | "password";
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState(initial.email);
-  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (step === "code") codeInputRef.current?.focus();
+    if (step === "password") passwordInputRef.current?.focus();
   }, [step]);
+
+  const redirectAfterAuth = initial.redirectTo || "/account";
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
@@ -127,27 +123,144 @@ export default function SignInPage() {
     setLocation(`/sign-up?${qs.toString()}`);
   };
 
-  const onOAuth = async (provider: "apple" | "google") => {
-    if (!isLoaded || !signIn) return;
-    trackEvent({ name: "signin_page_action", action: provider });
-    try {
-      setOauthBusy(provider);
-      await signIn.authenticateWithRedirect({
-        strategy: provider === "google" ? "oauth_google" : "oauth_apple",
-        redirectUrl: `${window.location.origin}${base}/sign-in/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}${initial.redirectTo || `${base}/account`}`,
-      });
-    } catch (err) {
-      setOauthBusy(null);
+  const handleAuthSuccess = (
+    token: string,
+    user: ShimUser,
+    provider: string
+  ) => {
+    login(token, user, provider);
+    setLocation(redirectAfterAuth);
+  };
+
+  const onOAuthGoogle = async () => {
+    if (!GOOGLE_CLIENT_ID) {
       toast({
-        title: t("auth.toast.oauthFailed", {
-          provider: provider === "google" ? "Google" : "Apple",
-        }),
+        title: t("auth.toast.error"),
+        description: "Google sign-in is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!window.google?.accounts?.id) {
+      toast({
+        title: t("auth.toast.error"),
+        description: t("auth.toast.oauthFailed", { provider: "Google" }),
+        variant: "destructive",
+      });
+      return;
+    }
+    trackEvent({ name: "signin_page_action", action: "google" });
+    setOauthBusy("google");
+    try {
+      await new Promise<void>((resolve, reject) => {
+        window.google!.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID!,
+          callback: async (response) => {
+            try {
+              const res = await fetch("/api/auth/oauth/google", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ credential: response.credential }),
+              });
+              const data = (await res.json()) as ApiAuthResponse;
+              if (!res.ok || !data.ok || !data.token || !data.user) {
+                reject(new Error(data.message ?? t("auth.toast.error")));
+                return;
+              }
+              handleAuthSuccess(data.token, mapApiUser(data.user), "google");
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          cancel_on_tap_outside: false,
+          auto_select: false,
+        });
+        window.google!.accounts.id.prompt((notification) => {
+          if (
+            notification.isNotDisplayed() ||
+            notification.isSkippedMoment()
+          ) {
+            reject(new Error("Google sign-in was not displayed or was skipped"));
+          }
+        });
+      });
+    } catch (err: any) {
+      toast({
+        title: t("auth.toast.oauthFailed", { provider: "Google" }),
         description: err instanceof Error ? err.message : t("auth.toast.error"),
         variant: "destructive",
       });
+    } finally {
+      setOauthBusy(null);
     }
   };
+
+  const onOAuthApple = async () => {
+    if (!APPLE_SERVICE_ID) {
+      toast({
+        title: t("auth.toast.error"),
+        description: "Apple sign-in is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!window.AppleID?.auth) {
+      toast({
+        title: t("auth.toast.error"),
+        description: t("auth.toast.oauthFailed", { provider: "Apple" }),
+        variant: "destructive",
+      });
+      return;
+    }
+    trackEvent({ name: "signin_page_action", action: "apple" });
+    setOauthBusy("apple");
+    try {
+      window.AppleID.auth.init({
+        clientId: APPLE_SERVICE_ID,
+        scope: "name email",
+        redirectURI: `${window.location.origin}${base}/sign-in`,
+        usePopup: true,
+      });
+      const appleRes = await window.AppleID.auth.signIn();
+      const idToken =
+        appleRes?.authorization?.id_token;
+      if (!idToken) throw new Error("Apple did not return an identity token");
+
+      const res = await fetch("/api/auth/oauth/apple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_token: idToken,
+          user: appleRes.user ?? null,
+        }),
+      });
+      const data = (await res.json()) as ApiAuthResponse;
+      if (!res.ok || !data.ok || !data.token || !data.user) {
+        throw new Error(data.message ?? t("auth.toast.error"));
+      }
+      handleAuthSuccess(data.token, mapApiUser(data.user), "apple");
+    } catch (err: any) {
+      toast({
+        title: t("auth.toast.oauthFailed", { provider: "Apple" }),
+        description: err instanceof Error ? err.message : t("auth.toast.error"),
+        variant: "destructive",
+      });
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  // Auto-trigger OAuth when navigated here from CheckoutLoginDialog with ?strategy=
+  useEffect(() => {
+    if (initial.strategy === "oauth_google") {
+      void onOAuthGoogle();
+    } else if (initial.strategy === "oauth_apple") {
+      void onOAuthApple();
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onContinueEmail = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -159,19 +272,11 @@ export default function SignInPage() {
     trackEvent({ name: "signin_page_action", action: "continue" });
     setBusy(true);
     try {
-      // Step 1: server-side bridge — check WP/WC before touching Clerk.
-      // We intentionally do this BEFORE checking Clerk's `isLoaded` so
-      // that new emails (exists: false) always route to sign-up even
-      // when Clerk hasn't finished initialising (e.g. prod keys on a
-      // non-production domain).
       const bridgeRes = await fetch("/api/auth/web-bridge", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: trimmed }),
       });
-      // Treat any non-2xx HTTP response as a hard error — silently
-      // routing to sign-up here would create a duplicate Clerk account
-      // divorced from the WP order history.
       if (!bridgeRes.ok) {
         toast({
           title: t("auth.toast.error"),
@@ -183,13 +288,13 @@ export default function SignInPage() {
       const bridgeJson = (await bridgeRes.json().catch(() => null)) as {
         ok?: boolean;
         exists?: boolean;
-        clerkReady?: boolean;
         code?: "lookup_failed" | "lookup_unavailable";
       } | null;
-      // Malformed body or missing required `exists` field → hard error.
-      // The contract is `{ok:true, exists:boolean, ...}`; anything else
-      // means we cannot trust the response.
-      if (!bridgeJson || bridgeJson.ok !== true || typeof bridgeJson.exists !== "boolean") {
+      if (
+        !bridgeJson ||
+        bridgeJson.ok !== true ||
+        typeof bridgeJson.exists !== "boolean"
+      ) {
         toast({
           title: t("auth.toast.error"),
           description: t("auth.checkFailed"),
@@ -197,8 +302,19 @@ export default function SignInPage() {
         });
         return;
       }
-      // Hard-error codes from a well-formed body.
-      if (bridgeJson.code === "lookup_failed" || bridgeJson.code === "lookup_unavailable") {
+      // When the server found (or is confident about) an existing account,
+      // proceed to password regardless of whether Clerk/WC lookup had issues.
+      if (bridgeJson.exists) {
+        setStep("password");
+        return;
+      }
+      // When the lookup itself failed we cannot reliably classify the email —
+      // block here rather than silently routing to sign-up and creating a
+      // duplicate account for a returning shopper.
+      if (
+        bridgeJson.code === "lookup_failed" ||
+        bridgeJson.code === "lookup_unavailable"
+      ) {
         toast({
           title: t("auth.toast.error"),
           description: t("auth.checkFailed"),
@@ -206,69 +322,12 @@ export default function SignInPage() {
         });
         return;
       }
-      if (!bridgeJson.exists) {
-        // No WP/WC match → let the normal sign-up flow handle them.
-        goToSignUp(trimmed);
-        return;
-      }
-      if (bridgeJson.clerkReady !== true) {
-        // Existed in WP but Clerk provisioning failed (or field missing
-        // from a partial response) — hard error, never advance silently.
-        toast({
-          title: t("auth.toast.error"),
-          description: t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Step 2: now we know the user exists and Clerk is ready — check
-      // that the Clerk SDK has finished loading before proceeding.
-      if (!isLoaded || !signIn) {
-        toast({
-          title: t("auth.toast.error"),
-          description: t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Step 3: ask Clerk to send an email-code first factor. Clerk's
-      // sign-in `create({identifier})` returns supported first factors;
-      // we only need the email-code path.
-      const created = await signIn.create({ identifier: trimmed });
-      const emailFactor = created.supportedFirstFactors?.find(
-        (f: any) => f.strategy === "email_code",
-      ) as { emailAddressId: string } | undefined;
-      if (!emailFactor) {
-        toast({
-          title: t("auth.toast.error"),
-          description: t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-      await signIn.prepareFirstFactor({
-        strategy: "email_code",
-        emailAddressId: emailFactor.emailAddressId,
-      });
-      setStep("code");
+      // Confirmed new email → go to sign-up
+      goToSignUp(trimmed);
     } catch (err: any) {
-      // Clerk reports unknown identifiers via form_identifier_not_found.
-      // That theoretically can't happen here (we just JIT-created the
-      // Clerk user) but be defensive: if it does, route to sign-up
-      // rather than dead-ending the shopper.
-      const code = String(err?.errors?.[0]?.code ?? "");
-      if (/form_identifier_not_found/.test(code)) {
-        goToSignUp(trimmed);
-        return;
-      }
-      const msg = /incorrect_password/i.test(code)
-        ? t("auth.incorrectPassword")
-        : (err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.checkFailed"));
       toast({
         title: t("auth.toast.error"),
-        description: msg,
+        description: err?.message ?? t("auth.checkFailed"),
         variant: "destructive",
       });
     } finally {
@@ -276,57 +335,30 @@ export default function SignInPage() {
     }
   };
 
-  const onVerifyCode = async () => {
-    const trimmed = code.trim();
-    if (!trimmed || !isLoaded || !signIn) return;
+  const onSignIn = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!password) return;
     setBusy(true);
     try {
-      const attempt = await signIn.attemptFirstFactor({
-        strategy: "email_code",
-        code: trimmed,
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, password }),
       });
-      if (attempt.status === "complete" && attempt.createdSessionId) {
-        await setActive({ session: attempt.createdSessionId });
-        // Send the user back to where they came from (/checkout in the
-        // cart-prompt flow) or to /account by default.
-        setLocation(initial.redirectTo || "/account");
+      const data = (await res.json()) as ApiAuthResponse;
+      if (!res.ok || !data.ok || !data.token || !data.user) {
+        const wpCode = (data as any).code as string | undefined;
+        const msg = /incorrect_password/i.test(wpCode ?? "")
+          ? t("auth.incorrectPassword")
+          : (data.message ?? t("auth.checkFailed"));
+        toast({
+          title: t("auth.toast.error"),
+          description: msg,
+          variant: "destructive",
+        });
         return;
       }
-      // Any other status (e.g. needs_second_factor — not enabled in our
-      // tenant) means we can't progress here.
-      toast({
-        title: t("auth.toast.error"),
-        description: t("auth.checkFailed"),
-        variant: "destructive",
-      });
-    } catch (err: any) {
-      const code = String(err?.errors?.[0]?.code ?? "");
-      const msg = /incorrect_password/i.test(code)
-        ? t("auth.incorrectPassword")
-        : (err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.codeInvalid"));
-      toast({
-        title: t("auth.toast.error"),
-        description: msg,
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onResendCode = async () => {
-    if (!isLoaded || !signIn) return;
-    setBusy(true);
-    try {
-      const factor = signIn.supportedFirstFactors?.find(
-        (f: any) => f.strategy === "email_code",
-      ) as { emailAddressId: string } | undefined;
-      if (!factor) return;
-      await signIn.prepareFirstFactor({
-        strategy: "email_code",
-        emailAddressId: factor.emailAddressId,
-      });
-      toast({ title: t("auth.codeResent") });
+      handleAuthSuccess(data.token, mapApiUser(data.user), "password");
     } catch (err: any) {
       toast({
         title: t("auth.toast.error"),
@@ -350,11 +382,13 @@ export default function SignInPage() {
         <div className="text-center mb-6">
           <h1 className="text-2xl font-serif">{t("auth.cardHeading")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {step === "email" ? t("auth.cardSubheading") : t("auth.codeSentTo", { email })}
+            {step === "email"
+              ? t("auth.cardSubheading")
+              : t("auth.enterPassword", { email })}
           </p>
         </div>
 
-        {step === "code" ? (
+        {step === "password" ? (
           <div
             className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground"
             data-testid="text-signin-account-found"
@@ -419,47 +453,48 @@ export default function SignInPage() {
                 variant="outline"
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                onClick={() => void onOAuth("apple")}
+                onClick={() => void onOAuthApple()}
                 disabled={busy || oauthBusy !== null}
                 data-testid="button-signin-apple"
               >
                 <AppleLogo />
-                {oauthBusy === "apple" ? t("checkout.processing") : t("auth.continueApple")}
+                {oauthBusy === "apple"
+                  ? t("checkout.processing")
+                  : t("auth.continueApple")}
               </Button>
               <Button
                 variant="outline"
                 size="lg"
                 className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
-                onClick={() => void onOAuth("google")}
+                onClick={() => void onOAuthGoogle()}
                 disabled={busy || oauthBusy !== null}
                 data-testid="button-signin-google"
               >
                 <GoogleLogo />
-                {oauthBusy === "google" ? t("checkout.processing") : t("auth.continueGoogle")}
+                {oauthBusy === "google"
+                  ? t("checkout.processing")
+                  : t("auth.continueGoogle")}
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="signin-code">
-                {t("auth.codeLabel")}
+              <label className="text-sm font-medium" htmlFor="signin-password">
+                {t("auth.passwordLabel")}
               </label>
               <Input
-                id="signin-code"
-                ref={codeInputRef}
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 8))
-                }
-                placeholder={t("auth.codePlaceholder")}
-                data-testid="input-signin-code"
+                id="signin-password"
+                ref={passwordInputRef}
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t("auth.passwordPlaceholder")}
+                data-testid="input-signin-password"
                 disabled={busy}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void onVerifyCode();
+                  if (e.key === "Enter") void onSignIn();
                 }}
                 className="h-12 rounded-sm"
               />
@@ -467,11 +502,11 @@ export default function SignInPage() {
             <Button
               size="lg"
               className="w-full h-12 rounded-xl"
-              onClick={() => void onVerifyCode()}
-              disabled={busy || !isLoaded || code.length < 4}
-              data-testid="button-signin-verify"
+              onClick={() => void onSignIn()}
+              disabled={busy || !password}
+              data-testid="button-signin-submit"
             >
-              {busy ? t("checkout.processing") : t("auth.verifyCode")}
+              {busy ? t("checkout.processing") : t("auth.signIn")}
             </Button>
             <div className="flex items-center justify-between text-sm">
               <button
@@ -479,7 +514,7 @@ export default function SignInPage() {
                 className="text-primary hover:underline"
                 onClick={() => {
                   setStep("email");
-                  setCode("");
+                  setPassword("");
                 }}
                 data-testid="button-signin-change-email"
               >
@@ -487,12 +522,17 @@ export default function SignInPage() {
               </button>
               <button
                 type="button"
-                className="text-primary hover:underline disabled:opacity-50"
-                onClick={() => void onResendCode()}
-                disabled={busy}
-                data-testid="button-signin-resend"
+                className="text-muted-foreground hover:underline"
+                onClick={() =>
+                  setLocation(
+                    `/reset-password?email_address=${encodeURIComponent(
+                      email.trim().toLowerCase()
+                    )}`
+                  )
+                }
+                data-testid="button-signin-forgot"
               >
-                {t("auth.resendCode")}
+                {t("auth.forgotPassword")}
               </button>
             </div>
           </div>

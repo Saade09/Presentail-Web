@@ -1,4 +1,5 @@
 const LOCATION_STORAGE_KEY = "presentail_delivery_location_v1";
+const TOKEN_KEY = "presentail_web_token";
 
 function getStoredLocation(): { countryCode?: string; cityId?: string } {
   try {
@@ -14,19 +15,11 @@ function getStoredLocation(): { countryCode?: string; cityId?: string } {
   }
 }
 
-// Cookie-first auth. The web app and API are served from the same origin
-// (Replit's shared proxy) so the Clerk session cookie is automatically
-// sent with every same-origin request as long as `credentials: "include"`
-// is set below. We intentionally do NOT inject an `Authorization: Bearer`
-// header — the server's `clerkMiddleware()` reads the session cookie and
-// populates `req.auth` from it.
-//
-// `setAuthTokenGetter` is kept as a no-op stub so any external caller
-// that imported it during the migration doesn't break the build. It can
-// be removed once no consumers reference it.
+// `setAuthTokenGetter` is kept as a no-op stub for backwards compatibility
+// with any external callers that imported it during prior migrations.
 type TokenGetter = () => Promise<string | null>;
 export function setAuthTokenGetter(_getter: TokenGetter): void {
-  // intentional no-op; see comment above.
+  // intentional no-op
 }
 
 export async function apiFetch<T>(
@@ -40,6 +33,11 @@ export async function apiFetch<T>(
   if (loc.countryCode) headers.set("x-store-country", loc.countryCode);
   if (loc.cityId) headers.set("x-store-city", loc.cityId);
 
+  const storedToken = localStorage.getItem(TOKEN_KEY);
+  if (storedToken) {
+    headers.set("Authorization", `Bearer ${storedToken}`);
+  }
+
   const res = await fetch(`/api${path}`, {
     ...options,
     headers,
@@ -48,7 +46,9 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    const err = new Error(errorData.message || `API error ${res.status}`) as Error & { status: number; code?: string };
+    const err = new Error(
+      errorData.message || `API error ${res.status}`
+    ) as Error & { status: number; code?: string };
     err.status = res.status;
     err.code = errorData.code;
     throw err;

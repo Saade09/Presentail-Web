@@ -22,12 +22,10 @@ import {
   loadBrandDetail,
   loadAllOccasions,
 } from "@/lib/pageLoaders";
-import { ClerkProvider } from "@clerk/react";
-import { Component, type ErrorInfo } from "react";
 import { isUserType, canShop } from "@workspace/clerk-types";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, AuthOverrideContext, ClerkAuthBridge, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { DeliverySelectionProvider } from "@/contexts/DeliverySelectionContext";
@@ -59,10 +57,6 @@ import { ProductDetailSkeleton } from "@/components/skeletons/ProductDetailSkele
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
 
-/**
- * Wraps a lazy component with its own Suspense boundary so each route
- * can show a layout-matched skeleton instead of the generic spinner.
- */
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
   Fallback: React.ComponentType,
@@ -105,9 +99,8 @@ const Privacy = lazy(() => import("@/pages/Privacy"));
 const Favorites = lazy(loadFavorites);
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 
-// Per-route components with layout-matched Suspense skeletons.
-// Defined at module scope so React never unmounts them on re-render.
 const HomeRoute = withSuspense(Home, HomePageSkeleton);
 const ShopRoute = withSuspense(Shop, ShopPageSkeleton);
 const ProductDetailRoute = withSuspense(ProductDetail, ProductDetailSkeleton);
@@ -115,7 +108,6 @@ const CheckoutRoute = withSuspense(Checkout, CheckoutSkeleton);
 const AccountRoute = withSuspense(Account, AccountSkeleton);
 const PersonalInformationRoute = withSuspense(PersonalInformation, AccountSkeleton);
 const FavoritesRoute = withSuspense(Favorites, AccountSkeleton);
-// Minor routes share the generic spinner — they're tiny chunks, rarely cold-loaded.
 const BrandsRoute = withSuspense(Brands, PageLoader);
 const BrandDetailRoute = withSuspense(BrandDetail, ShopPageSkeleton);
 const AllOccasionsRoute = withSuspense(AllOccasions, ShopPageSkeleton);
@@ -123,6 +115,7 @@ const CartRoute = withSuspense(Cart, PageLoader);
 const OrderConfirmedRoute = withSuspense(OrderConfirmed, PageLoader);
 const SignInRoute = withSuspense(SignInPage, PageLoader);
 const SignUpRoute = withSuspense(SignUpPage, PageLoader);
+const ResetPasswordRoute = withSuspense(ResetPassword, PageLoader);
 const UnauthorizedRoute = withSuspense(Unauthorized, PageLoader);
 const CareersRoute = withSuspense(Careers, PageLoader);
 const BlogRoute = withSuspense(Blog, PageLoader);
@@ -144,51 +137,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
-  | string
-  | undefined;
-if (!CLERK_PUBLISHABLE_KEY) {
-  // Warn but do not throw — the app and checkout work without Clerk (guest mode).
-  console.warn(
-    "[auth] VITE_CLERK_PUBLISHABLE_KEY is not set. Sign-in features will be unavailable.",
-  );
-}
-
-// Optional same-origin Clerk Frontend API proxy. The API server mounts
-// `/api/__clerk` (production-only when CLERK_SECRET_KEY is set). When
-// `VITE_CLERK_PROXY_URL` is provided we tell ClerkProvider to use that
-// URL instead of Clerk's hosted FAPI, which avoids third-party-cookie
-// restrictions on the storefront's custom domains. In dev (and when the
-// env var isn't set) we leave it undefined so Clerk talks to its own
-// hosted FAPI directly.
-const CLERK_PROXY_URL = import.meta.env.VITE_CLERK_PROXY_URL as
-  | string
-  | undefined;
-
-// Customer-only gate. Signed-out users are bounced to the LOCALE-PREFIXED
-// `/sign-in` route via wouter's `<Redirect>` (which prepends the active
-// router base, so the URL becomes e.g. `/en-lb/beirut/sign-in`). Clerk's
-// own `<RedirectToSignIn>` always sends to a root-level `/sign-in`, which
-// isn't a valid route in this storefront's locale-prefixed router and
-// would lose the auth intent. We carry the originally-requested path in
-// `redirect_url` so Clerk returns the user to it after sign-in.
-//
-// Signed-in users whose Clerk `publicMetadata.userType` is anything other
-// than "customer" land on `/unauthorized` — we never silently downgrade
-// a driver/team user to customer privileges on the storefront.
 function CustomerOnly({ children }: { children: React.ReactNode }) {
-  const { user, userType } = useAuth();
+  const { user, userType, isLoading } = useAuth();
   const [currentPath] = useLocation();
-  // user is null while Clerk is loading OR when signed out. We never show
-  // a spinner here — isLoading is always false by design (see AuthContext).
-  // On first render with no user, redirect to sign-in; if Clerk later
-  // resolves a signed-in session, user becomes non-null and children render.
+  if (isLoading) return null;
   if (!user) {
     const target = `/sign-in?redirect_url=${encodeURIComponent(currentPath)}`;
     return <Redirect to={target} replace />;
   }
-  // Allow customers and team members to shop; drivers and unrecognised roles
-  // are redirected — we never silently downgrade them to customer privileges.
   if (isUserType(userType) && !canShop(userType)) {
     return <Redirect to="/unauthorized" replace />;
   }
@@ -246,12 +202,11 @@ function ShopShell() {
             <Route path="/faqs" component={FaqsRoute} />
             <Route path="/terms" component={TermsRoute} />
             <Route path="/privacy" component={PrivacyRoute} />
-            {/* Clerk's hosted forms own a sub-tree of URLs (verify-email,
-                factor-one, ...) so their routes need wildcard suffixes. */}
             <Route path="/sign-in/:rest*" component={SignInRoute} />
             <Route path="/sign-in" component={SignInRoute} />
             <Route path="/sign-up/:rest*" component={SignUpRoute} />
             <Route path="/sign-up" component={SignUpRoute} />
+            <Route path="/reset-password" component={ResetPasswordRoute} />
             <Route path="/unauthorized" component={UnauthorizedRoute} />
             <Route path="/account/personal-information">
               <CustomerOnly>
@@ -275,7 +230,6 @@ function ShopShell() {
   );
 }
 
-/** Resolve a city slug for a country: prefer saved city, else first city. */
 function CityFallbackRedirect({
   lang,
   country,
@@ -305,8 +259,6 @@ function CityFallbackRedirect({
   return <Redirect to={target} replace />;
 }
 
-/** Path doesn't have a locale prefix and isn't `/`. Try to redirect to the
- *  current/saved locale, falling back to landing. */
 function UnprefixedRedirect() {
   const { countryCode, cityId, countries, isLoadingCountries } =
     useLocationSelection();
@@ -345,7 +297,6 @@ function RootRouter() {
     return <RootRedirectFromLanding />;
   }
 
-  // Public shared-favorites page — accessible without locale prefix or sign-in.
   if (path.startsWith("/favorites/share/")) {
     const token = path.split("/")[3] ?? "";
     return (
@@ -372,7 +323,6 @@ function RootRouter() {
   return <UnprefixedRedirect />;
 }
 
-/** Keeps `<title>` and document language attributes in sync. */
 function DocumentMeta() {
   const { language, dir } = useLocale();
   useEffect(() => {
@@ -380,94 +330,6 @@ function DocumentMeta() {
     document.documentElement.dir = dir;
   }, [language, dir]);
   return null;
-}
-
-// Clerk passes absolute paths (incl. the wouter router base) to
-// routerPush/routerReplace, but wouter's `setLocation` re-prepends the
-// active router base — strip the outer base to avoid the doubled prefix
-// that would otherwise produce URLs like `/en-lb/beirut/en-lb/beirut/...`
-// after sign-in / verification / OAuth callbacks.
-const OUTER_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-function stripBase(path: string): string {
-  if (OUTER_BASE && path.startsWith(OUTER_BASE)) {
-    return path.slice(OUTER_BASE.length) || "/";
-  }
-  return path;
-}
-
-// Wraps ClerkProvider so that a Clerk initialisation failure (e.g. production
-// key used on a non-production domain) is caught at the React error-boundary
-// level instead of crashing the whole app.
-//
-// IMPORTANT: ClerkProvider + ClerkAuthBridge are rendered INSIDE this class's
-// render() method — not passed as children — so that when `failed === true`
-// we can return the app children WITHOUT any Clerk wrapper. If ClerkProvider
-// were passed as children, the error boundary would re-render the same
-// crashing tree on every recovery attempt.
-//
-// When failed: children render with the AuthOverrideContext default
-// (GUEST_AUTH_VALUE), meaning useAuth() returns guest state immediately
-// with no Clerk hooks anywhere in the tree.
-class ClerkErrorBoundary extends Component<
-  {
-    children: React.ReactNode;
-    publishableKey: string;
-    proxyUrl?: string;
-    navigate: (to: string, opts?: { replace?: boolean }) => void;
-  },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  componentDidCatch(err: Error, _info: ErrorInfo) {
-    console.warn("[auth] ClerkProvider failed — running in guest mode:", err.message);
-    this.setState({ failed: true });
-  }
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    const { children, publishableKey, proxyUrl, navigate } = this.props;
-    if (this.state.failed) {
-      // Clerk failed: render children directly with no Clerk wrapper.
-      // AuthOverrideContext defaults to GUEST_AUTH_VALUE so every
-      // useAuth() call returns guest state. No Clerk hooks are in the tree.
-      return children;
-    }
-    return (
-      <ClerkProvider
-        publishableKey={publishableKey}
-        proxyUrl={proxyUrl}
-        routerPush={(to) => navigate(stripBase(to))}
-        routerReplace={(to) => navigate(stripBase(to), { replace: true })}
-      >
-        <ClerkAuthBridge>
-          {children}
-        </ClerkAuthBridge>
-      </ClerkProvider>
-    );
-  }
-}
-
-// Plumbs wouter's `setLocation` into Clerk so its built-in navigations
-// (after sign-in / verification / OAuth callbacks) use SPA pushState
-// transitions instead of full page reloads.
-// When the publishable key is absent or Clerk fails, children render in guest
-// mode — AuthOverrideContext defaults to GUEST_AUTH_VALUE in AuthContext.tsx.
-function ClerkRouterBridge({ children }: { children: React.ReactNode }) {
-  const [, navigate] = useLocation();
-  if (!CLERK_PUBLISHABLE_KEY) {
-    // No key — skip ClerkProvider entirely; children see the default guest context.
-    return <>{children}</>;
-  }
-  return (
-    <ClerkErrorBoundary
-      publishableKey={CLERK_PUBLISHABLE_KEY}
-      proxyUrl={CLERK_PROXY_URL}
-      navigate={navigate}
-    >
-      {children}
-    </ClerkErrorBoundary>
-  );
 }
 
 function CurrencyDataLoader() {
@@ -479,8 +341,6 @@ function CurrencyDataLoader() {
   return null;
 }
 
-// Routes prefetched on browser idle after the app first mounts, ordered by
-// expected traffic volume so the highest-value chunks load first.
 const IDLE_PREFETCH = [
   loadHome,
   loadShop,
@@ -504,12 +364,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <ClerkRouterBridge>
-            <LocaleProvider>
-              <LocationProvider>
-                <AuthProvider>
-                  <CartProvider>
-                    <FavoritesProvider>
+          <LocaleProvider>
+            <LocationProvider>
+              <AuthProvider>
+                <CartProvider>
+                  <FavoritesProvider>
                     <DeliverySelectionProvider>
                       <CurrencyDataLoader />
                       <DocumentMeta />
@@ -517,12 +376,11 @@ function App() {
                       <RootRouter />
                       <Toaster />
                     </DeliverySelectionProvider>
-                    </FavoritesProvider>
-                  </CartProvider>
-                </AuthProvider>
-              </LocationProvider>
-            </LocaleProvider>
-          </ClerkRouterBridge>
+                  </FavoritesProvider>
+                </CartProvider>
+              </AuthProvider>
+            </LocationProvider>
+          </LocaleProvider>
         </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>

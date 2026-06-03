@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useUser } from "@clerk/react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
@@ -8,8 +7,6 @@ import "react-phone-number-input/style.css";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -58,8 +55,7 @@ function isValidBirthday(y: string, m: string, d: string): boolean {
 }
 
 export default function PersonalInformation() {
-  const { user: shimUser, isLoading } = useAuth();
-  const { user: clerkUser } = useUser();
+  const { user: shimUser, isLoading, provider } = useAuth();
   const [, setLocation] = useLocation();
   const { t, dir } = useLocale();
   const { toast } = useToast();
@@ -82,23 +78,17 @@ export default function PersonalInformation() {
   const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  // Redirect to sign-in if signed out (CustomerOnly upstream gates this too,
-  // but the inner shim hook briefly reports null while Clerk hydrates).
   useEffect(() => {
     if (!isLoading && !shimUser) {
       setLocation("/sign-in");
     }
   }, [isLoading, shimUser, setLocation]);
 
-  // Pull the canonical profile from /auth/me on mount. If the call fails
-  // we fall back to whatever the auth shim already knows (so the form
-  // doesn't render empty and silently overwrite real data on save).
   useEffect(() => {
     if (!shimUser) return;
     let cancelled = false;
     setHydrating(true);
     setHydrateFailed(false);
-    // Seed from the auth shim first so the form is never blank.
     setFirstName(shimUser.firstName ?? "");
     setLastName(shimUser.lastName ?? "");
     setEmail(shimUser.email ?? "");
@@ -127,8 +117,6 @@ export default function PersonalInformation() {
         setBDay(bd ? bd.slice(8, 10) : "");
         setPhone((u.phone ?? "") as PhoneValue || undefined);
       } catch {
-        // /auth/me failed (e.g. Clerk domain mismatch on dev preview) but
-        // the form is already seeded from shimUser — don't lock the buttons.
         if (!cancelled) setHydrateFailed(false);
       } finally {
         if (!cancelled) setHydrating(false);
@@ -166,16 +154,6 @@ export default function PersonalInformation() {
           birthday,
         }),
       });
-      // Best-effort sync of Clerk's first/last name so the navbar greeting
-      // and Clerk-rendered surfaces stay consistent.
-      try {
-        await clerkUser?.update({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-        });
-      } catch {
-        // non-fatal — the API call already succeeded.
-      }
       toast({
         title: t("pi.updated.title"),
         description: t("pi.updated.msg"),
@@ -193,7 +171,6 @@ export default function PersonalInformation() {
 
   const onSavePhone = async () => {
     setPhoneError(null);
-    // phone is E.164 from react-phone-number-input, or undefined when cleared.
     if (phone && !isValidPhoneNumber(phone)) {
       setPhoneError(t("pi.phone.errorInvalid"));
       return;
@@ -354,7 +331,6 @@ export default function PersonalInformation() {
                   {bdayError}
                 </p>
               ) : null}
-
             </Field>
           </div>
 
@@ -425,8 +401,10 @@ export default function PersonalInformation() {
           </div>
         </section>
 
-        {/* ── Password card ───────────────────────────────────────── */}
-        <PasswordCard t={t} />
+        {/* ── Password card — only visible for email (password) sign-in ── */}
+        {provider === "password" && (
+          <PasswordCard t={t} email={email} />
+        )}
       </div>
     </div>
   );
@@ -454,68 +432,45 @@ function Field({
 
 function PasswordCard({
   t,
+  email,
 }: {
   t: (k: string, p?: Record<string, string | number>) => string;
+  email: string;
 }) {
-  const { user: clerkUser } = useUser();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  // `passwordEnabled` is false for shoppers who signed in via email-code
-  // or social login and never set a password. Clerk allows
-  // `updatePassword` without `currentPassword` in that case.
-  const passwordEnabled = clerkUser?.passwordEnabled ?? false;
-
-  const reset = () => {
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-  };
-
-  const onSubmit = async () => {
-    if (!clerkUser) return;
-    if (newPassword.length < 8) {
-      toast({
-        title: t("pi.error.title"),
-        description: t("pi.password.tooShort"),
-        variant: "destructive",
-      });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: t("pi.error.title"),
-        description: t("pi.password.mismatch"),
-        variant: "destructive",
-      });
-      return;
-    }
+  const onRequestReset = async () => {
+    if (!email || busy) return;
     setBusy(true);
     try {
-      await clerkUser.updatePassword({
-        newPassword,
-        ...(passwordEnabled ? { currentPassword } : {}),
-        signOutOfOtherSessions: true,
+      const res = await fetch("/api/auth/reset/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
-      toast({
-        title: t("pi.updated.title"),
-        description: t("pi.password.updatedMsg"),
-      });
-      reset();
-      setOpen(false);
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        message?: string;
+      } | null;
+      if (res.ok && data?.ok) {
+        setSent(true);
+        toast({
+          title: t("pi.updated.title"),
+          description: t("pi.password.resetSent"),
+        });
+      } else {
+        toast({
+          title: t("pi.error.title"),
+          description: data?.message ?? t("pi.error.generic"),
+          variant: "destructive",
+        });
+      }
     } catch (err: any) {
-      const msg =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        t("pi.error.generic");
       toast({
         title: t("pi.error.title"),
-        description: msg,
+        description: err?.message ?? t("pi.error.generic"),
         variant: "destructive",
       });
     } finally {
@@ -530,76 +485,23 @@ function PasswordCard({
     >
       <h2 className="text-xl font-serif mb-1">{t("pi.password.title")}</h2>
       <p className="text-sm text-muted-foreground mb-5">
-        {t("pi.password.help")}
+        {sent ? t("pi.password.resetSentDesc") : t("pi.password.help")}
       </p>
 
-      {!open ? (
+      {!sent && (
         <Button
           type="button"
           variant="outline"
-          onClick={() => setOpen(true)}
+          onClick={() => void onRequestReset()}
+          disabled={busy || !email}
           data-testid="pi-password-change"
-          disabled={!clerkUser}
         >
-          {t("pi.password.change")}
+          {busy ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            t("pi.password.change")
+          )}
         </Button>
-      ) : (
-        <div className="space-y-4">
-          {passwordEnabled ? (
-            <Field label={t("pi.password.current")}>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-                data-testid="pi-password-current"
-              />
-            </Field>
-          ) : null}
-          <Field label={t("pi.password.new")}>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-              data-testid="pi-password-new"
-            />
-          </Field>
-          <Field label={t("pi.password.confirm")}>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-              data-testid="pi-password-confirm"
-            />
-          </Field>
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              onClick={onSubmit}
-              disabled={busy}
-              data-testid="pi-password-save"
-            >
-              {busy ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                t("pi.update")
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                reset();
-                setOpen(false);
-              }}
-              disabled={busy}
-            >
-              {t("pi.cancel")}
-            </Button>
-          </div>
-        </div>
       )}
     </section>
   );

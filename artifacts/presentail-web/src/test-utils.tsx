@@ -9,10 +9,6 @@ import {
   type DisplayCurrencyOverrideValue,
 } from "@/lib/displayCurrencyOverride";
 
-// ---------------------------------------------------------------------------
-// Default locale
-// ---------------------------------------------------------------------------
-
 export const DEFAULT_LOCALE = {
   language: "en" as const,
   setLanguage: () => {},
@@ -22,10 +18,6 @@ export const DEFAULT_LOCALE = {
   cityName: (_id: string, fallback: string) => fallback,
 };
 
-// ---------------------------------------------------------------------------
-// Default auth — signed-out, not loading
-// ---------------------------------------------------------------------------
-
 export const DEFAULT_AUTH: AuthContextValue = {
   user: null,
   token: null,
@@ -33,11 +25,9 @@ export const DEFAULT_AUTH: AuthContextValue = {
   logout: async () => {},
   getToken: async () => null,
   userType: null,
+  provider: null,
+  login: () => {},
 };
-
-// ---------------------------------------------------------------------------
-// Default cart — empty basket
-// ---------------------------------------------------------------------------
 
 export const DEFAULT_CART: CartContextType = {
   items: [],
@@ -49,10 +39,6 @@ export const DEFAULT_CART: CartContextType = {
   itemCount: 0,
   isHydrated: true,
 };
-
-// ---------------------------------------------------------------------------
-// Default currency — USD, simple formatter
-// ---------------------------------------------------------------------------
 
 export const DEFAULT_CURRENCY: DisplayCurrencyOverrideValue = {
   currencyCode: "USD",
@@ -66,10 +52,6 @@ export const DEFAULT_CURRENCY: DisplayCurrencyOverrideValue = {
   formatPrice: (v: number) => `$${v}`,
 };
 
-// ---------------------------------------------------------------------------
-// Provider option types
-// ---------------------------------------------------------------------------
-
 type LocaleOverride = Partial<typeof DEFAULT_LOCALE>;
 type AuthOverride = Partial<AuthContextValue>;
 type CartOverride = Partial<CartContextType>;
@@ -82,10 +64,6 @@ export type ProviderOptions = {
   currency?: CurrencyOverride;
 };
 
-// ---------------------------------------------------------------------------
-// Wrapper factory
-// ---------------------------------------------------------------------------
-
 function createWrapper({ locale, auth, cart, currency }: ProviderOptions = {}) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -93,9 +71,6 @@ function createWrapper({ locale, auth, cart, currency }: ProviderOptions = {}) {
   const localeValue = { ...DEFAULT_LOCALE, ...locale };
   const authValue = { ...DEFAULT_AUTH, ...auth };
   const cartValue = { ...DEFAULT_CART, ...cart };
-  // Only inject the currency override context when explicitly requested.
-  // When undefined, the real useDisplayCurrency hook runs (hook returns its
-  // own fallback if no DisplayCurrencyOverrideContext is present).
   const currencyValue: DisplayCurrencyOverrideValue | null =
     currency !== undefined ? { ...DEFAULT_CURRENCY, ...currency } : DEFAULT_CURRENCY;
 
@@ -115,10 +90,6 @@ function createWrapper({ locale, auth, cart, currency }: ProviderOptions = {}) {
     );
   };
 }
-
-// ---------------------------------------------------------------------------
-// Public helper
-// ---------------------------------------------------------------------------
 
 export function renderWithProviders(
   ui: React.ReactElement,

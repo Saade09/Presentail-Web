@@ -30,7 +30,7 @@ A luxury flower and gift delivery app for Lebanon, UAE, and Cyprus, with an acco
 - Mobile: `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_DOMAIN`.
 - Google Sign-In (mobile, EAS-secret only — see Gotchas): `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_REVERSED_IOS_CLIENT_ID` (auto-derived from the iOS id).
 - API server auth: `GOOGLE_CLIENT_IDS` (comma-separated, must include iOS + Android + Web client ids), `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET` (svix `whsec_…`, separate value per Clerk instance).
-- Web (Vite): `VITE_CLERK_PUBLISHABLE_KEY`, optional `VITE_CLERK_PROXY_URL`.
+- Web (Vite): `VITE_GOOGLE_WEB_CLIENT_ID` (Google GIS OAuth client ID for web sign-in), `VITE_APPLE_SERVICE_ID` (Apple Sign In web Service ID). Both optional — buttons are visible but will show a toast if clicked when unset. `VITE_CLERK_PUBLISHABLE_KEY` and `VITE_CLERK_PROXY_URL` are no longer used by the web app.
 
 ## Stack
 

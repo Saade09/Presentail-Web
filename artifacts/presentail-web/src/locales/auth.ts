@@ -19,9 +19,9 @@ export const authStrings: Dict = {
   "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
   "auth.codeLabel": { en: "Verification code", ar: "رمز التحقق" },
   "auth.codePlaceholder": { en: "6-digit code", ar: "الرمز المكوّن من ٦ أرقام" },
-  "auth.codeSentTo": {
-    en: "We sent a code to {email}. Enter it below to verify your account.",
-    ar: "أرسلنا رمزًا إلى {email}. أدخله أدناه للتحقق من حسابك.",
+  "auth.codeSentToPhone": {
+    en: "We sent a code to {phone}. Enter it below to verify your phone number.",
+    ar: "أرسلنا رمزًا إلى {phone}. أدخله أدناه للتحقق من رقم هاتفك.",
   },
   "auth.codeResent": { en: "Code resent", ar: "تم إعادة إرسال الرمز" },
   "auth.codeInvalid": { en: "That code didn't work. Please try again.", ar: "هذا الرمز غير صحيح. يرجى المحاولة مرة أخرى." },
@@ -40,7 +40,6 @@ export const authStrings: Dict = {
   "auth.fullNamePlaceholder": { en: "Please add your full name", ar: "يرجى إدخال اسمك الكامل" },
   "auth.nameLabel": { en: "Name", ar: "الاسم الكامل" },
   "auth.nameRequired": { en: "Name is required.", ar: "الاسم مطلوب." },
-  "auth.selectGender": { en: "Select gender", ar: "اختر الجنس" },
   "auth.unauthorized.title": { en: "You're signed in elsewhere", ar: "أنت مسجّل الدخول في مكان آخر" },
   "auth.unauthorized.desc": {
     en: "This account isn't a Presentail shopper. Switch to a customer account to access your orders and profile.",
@@ -58,6 +57,13 @@ export const authStrings: Dict = {
   "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
   "auth.skipPhone": { en: "Skip", ar: "تخطّ" },
+
+  "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
+  "auth.enterPassword": { en: "Enter your password for {email}", ar: "أدخل كلمة المرور لحساب {email}" },
+  "auth.forgotPassword": { en: "Forgot password?", ar: "نسيت كلمة المرور؟" },
+  "auth.resetPasswordDesc": { en: "Enter your email and we'll send you a link to reset your password.", ar: "أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور." },
+  "auth.resetEmailSent": { en: "Check your inbox — if an account exists for that email, a reset link is on its way.", ar: "تحقق من صندوق الوارد — إذا كان هناك حساب بهذا البريد الإلكتروني، فسيصلك رابط إعادة التعيين." },
+  "auth.sendResetLink": { en: "Send reset link", ar: "إرسال رابط إعادة التعيين" },
 };
 
 export const authStringsFr: Record<string, string> = {
@@ -79,7 +85,7 @@ export const authStringsFr: Record<string, string> = {
   "auth.toast.oauthFailed": "Échec de la connexion avec {provider}",
   "auth.codeLabel": "Code de vérification",
   "auth.codePlaceholder": "Code à 6 chiffres",
-  "auth.codeSentTo": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour vérifier votre compte.",
+  "auth.codeSentToPhone": "Nous avons envoyé un code au {phone}. Saisissez-le ci-dessous pour vérifier votre numéro de téléphone.",
   "auth.codeResent": "Code renvoyé",
   "auth.codeInvalid": "Ce code n'a pas fonctionné. Veuillez réessayer.",
   "auth.incorrectPassword": "Mot de passe incorrect. Veuillez réessayer ou réinitialiser votre mot de passe.",
@@ -94,7 +100,6 @@ export const authStringsFr: Record<string, string> = {
   "auth.fullNamePlaceholder": "Veuillez saisir votre nom complet",
   "auth.nameLabel": "Nom",
   "auth.nameRequired": "Le nom est obligatoire.",
-  "auth.selectGender": "Sélectionner le genre",
   "auth.unauthorized.title": "Vous êtes connecté ailleurs",
   "auth.unauthorized.desc": "Ce compte n'est pas un compte acheteur Presentail. Passez à un compte client pour accéder à vos commandes et votre profil.",
   "auth.unauthorized.backToShop": "Retour à la boutique",
@@ -109,4 +114,11 @@ export const authStringsFr: Record<string, string> = {
   "auth.phoneLabel": "Numéro de téléphone",
   "auth.createAccount": "Créer un compte",
   "auth.skipPhone": "Ignorer",
+
+  "auth.signIn": "Se connecter",
+  "auth.enterPassword": "Saisissez votre mot de passe pour {email}",
+  "auth.forgotPassword": "Mot de passe oublié ?",
+  "auth.resetPasswordDesc": "Saisissez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+  "auth.resetEmailSent": "Vérifiez votre boîte de réception — si un compte existe pour cet email, un lien de réinitialisation est en route.",
+  "auth.sendResetLink": "Envoyer le lien de réinitialisation",
 };

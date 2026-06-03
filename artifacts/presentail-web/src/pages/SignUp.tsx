@@ -1,16 +1,41 @@
 import { useRef, useMemo, useState } from "react";
-import { useSignUp } from "@clerk/react/legacy";
 import { useLocation, useRouter } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import type { ShimUser } from "@/contexts/AuthContext";
 import PhoneInput from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 type Step = "name-password" | "phone" | "code";
+
+type ApiAuthResponse = {
+  ok: boolean;
+  token?: string;
+  user?: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  };
+  message?: string;
+  code?: string;
+};
+
+function mapApiUser(u: NonNullable<ApiAuthResponse["user"]>): ShimUser {
+  return {
+    id: String(u.id),
+    email: u.email ?? "",
+    firstName: u.firstName ?? "",
+    lastName: u.lastName ?? "",
+    phone: u.phone || undefined,
+  };
+}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -18,7 +43,7 @@ export default function SignUpPage() {
   const [, setLocation] = useLocation();
   const { t, dir } = useLocale();
   const { toast } = useToast();
-  const { signUp, setActive } = useSignUp();
+  const { login } = useAuth();
 
   const initial = useMemo(() => {
     if (typeof window === "undefined") return { email: "", redirectTo: "" };
@@ -38,57 +63,112 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const codeRef = useRef<HTMLInputElement | null>(null);
 
+  const redirectAfterAuth = initial.redirectTo || `${base}/account`;
+
   const onContinueToPhone = () => {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = t("auth.nameRequired");
     if (!password) errs.password = t("auth.passwordRequired");
     else if (password.length < 8) errs.password = t("auth.passwordTooShort");
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
     setErrors({});
     setStep("phone");
   };
 
-  const onCreateAccount = async () => {
-    setErrors({});
+  const doRegister = async (phoneValue?: string) => {
     setBusy(true);
     try {
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0] ?? name.trim();
       const lastName = nameParts.slice(1).join(" ") || undefined;
 
-      if (signUp) {
-        const createParams: Parameters<typeof signUp.create>[0] = {
-          emailAddress: initial.email.toLowerCase(),
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: initial.email.toLowerCase(),
           password,
           firstName,
           lastName,
-        };
-        await signUp.create(createParams);
-        if (signUp.status === "complete" && signUp.createdSessionId) {
-          await setActive!({ session: signUp.createdSessionId });
-          setLocation(initial.redirectTo || `${base}/account`);
+          phone: phoneValue ?? undefined,
+        }),
+      });
+      const data = (await res.json()) as ApiAuthResponse;
+      if (!res.ok || !data.ok) {
+        const errCode = data.code ?? "";
+        if (/form_identifier_exists|registration_failed/.test(errCode)) {
+          toast({
+            title: t("auth.toast.error"),
+            description:
+              "An account with this email already exists. Please sign in instead.",
+          });
+          setLocation(
+            `/sign-in?email_address=${encodeURIComponent(initial.email)}`,
+          );
           return;
         }
-        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        toast({
+          title: t("auth.toast.error"),
+          description: data.message ?? t("auth.checkFailed"),
+          variant: "destructive",
+        });
+        return;
+      }
+      if (data.token && data.user) {
+        login(data.token, mapApiUser(data.user), "password");
+        setLocation(redirectAfterAuth);
+      } else {
+        // Registered but no JWT returned (WP JWT plugin not installed) — go to sign-in
+        setLocation(
+          `/sign-in?email_address=${encodeURIComponent(initial.email)}`,
+        );
+      }
+    } catch (err: any) {
+      toast({
+        title: t("auth.toast.error"),
+        description: err?.message ?? t("auth.checkFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onSkipPhone = () => void doRegister(undefined);
+
+  const onCreateAccountWithPhone = async () => {
+    if (!phone) {
+      void doRegister(undefined);
+      return;
+    }
+    // Phone provided — send OTP first for verification
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        toast({
+          title: t("auth.toast.error"),
+          description: data.message ?? t("auth.checkFailed"),
+          variant: "destructive",
+        });
+        return;
       }
       setStep("code");
       setTimeout(() => codeRef.current?.focus(), 100);
     } catch (err: any) {
-      const msg =
-        err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.checkFailed");
-      const errCode = String(err?.errors?.[0]?.code ?? "");
-      if (/form_identifier_exists/.test(errCode)) {
-        toast({
-          title: t("auth.toast.error"),
-          description:
-            "An account with this email already exists. Please sign in instead.",
-        });
-        setLocation(
-          `/sign-in?email_address=${encodeURIComponent(initial.email)}`,
-        );
-        return;
-      }
-      toast({ title: t("auth.toast.error"), description: msg, variant: "destructive" });
+      toast({
+        title: t("auth.toast.error"),
+        description: err?.message ?? t("auth.checkFailed"),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -97,42 +177,92 @@ export default function SignUpPage() {
   const onVerifyCode = async () => {
     const trimmed = code.trim();
     if (!trimmed) return;
-    if (!signUp || !setActive) {
-      toast({
-        title: t("auth.toast.error"),
-        description: t("auth.checkFailed"),
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!phone) return;
+
     setBusy(true);
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code: trimmed });
-      if (result.status === "complete" && result.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
-        setLocation(initial.redirectTo || `${base}/account`);
+      const nameParts = name.trim().split(/\s+/);
+      const firstName = nameParts[0] ?? name.trim();
+      const lastName = nameParts.slice(1).join(" ") || undefined;
+
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          code: trimmed,
+          email: initial.email.toLowerCase(),
+          password,
+          firstName,
+          lastName,
+        }),
+      });
+      const data = (await res.json()) as ApiAuthResponse;
+      if (!res.ok || !data.ok) {
+        const errCode = data.code ?? "";
+        if (/invalid_otp/.test(errCode)) {
+          toast({
+            title: t("auth.toast.error"),
+            description: t("auth.codeInvalid"),
+            variant: "destructive",
+          });
+          return;
+        }
+        if (/too_many_attempts/.test(errCode)) {
+          toast({
+            title: t("auth.toast.error"),
+            description: data.message ?? t("auth.checkFailed"),
+            variant: "destructive",
+          });
+          setStep("phone");
+          setCode("");
+          return;
+        }
+        toast({
+          title: t("auth.toast.error"),
+          description: data.message ?? t("auth.checkFailed"),
+          variant: "destructive",
+        });
         return;
       }
+      if (data.token && data.user) {
+        login(data.token, mapApiUser(data.user), "password");
+        setLocation(redirectAfterAuth);
+      } else {
+        setLocation(
+          `/sign-in?email_address=${encodeURIComponent(initial.email)}`,
+        );
+      }
+    } catch (err: any) {
       toast({
         title: t("auth.toast.error"),
-        description: t("auth.codeInvalid"),
+        description: err?.message ?? t("auth.codeInvalid"),
         variant: "destructive",
       });
-    } catch (err: any) {
-      const msg =
-        err?.errors?.[0]?.longMessage ?? err?.message ?? t("auth.codeInvalid");
-      toast({ title: t("auth.toast.error"), description: msg, variant: "destructive" });
     } finally {
       setBusy(false);
     }
   };
 
   const onResendCode = async () => {
-    if (!signUp) return;
+    if (!phone) return;
     setBusy(true);
     try {
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      toast({ title: t("auth.codeResent") });
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (res.ok && data.ok) {
+        toast({ title: t("auth.codeResent") });
+      } else {
+        toast({
+          title: t("auth.toast.error"),
+          description: data.message ?? t("auth.checkFailed"),
+          variant: "destructive",
+        });
+      }
     } catch (err: any) {
       toast({
         title: t("auth.toast.error"),
@@ -150,12 +280,17 @@ export default function SignUpPage() {
         className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm"
         data-testid="signup-card"
       >
-        {/* Back button */}
         <button
           type="button"
           onClick={() => {
-            if (step === "phone") { setStep("name-password"); return; }
-            if (step === "code") { setStep("phone"); return; }
+            if (step === "phone") {
+              setStep("name-password");
+              return;
+            }
+            if (step === "code") {
+              setStep("phone");
+              return;
+            }
             if (window.history.length > 1) window.history.back();
             else setLocation("/sign-in");
           }}
@@ -166,7 +301,6 @@ export default function SignUpPage() {
           {t("checkout.back")}
         </button>
 
-        {/* Step 1: Name + Password */}
         {step === "name-password" && (
           <>
             <div className="text-center mb-6">
@@ -176,7 +310,6 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            {/* Email badge */}
             {initial.email && (
               <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm">
                 <span className="text-muted-foreground">{t("auth.emailLabel")}:</span>
@@ -185,7 +318,6 @@ export default function SignUpPage() {
             )}
 
             <div className="space-y-4">
-              {/* Name */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" htmlFor="signup-name">
                   {t("auth.nameLabel")} <span className="text-destructive">*</span>
@@ -208,7 +340,6 @@ export default function SignUpPage() {
                 )}
               </div>
 
-              {/* Password */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" htmlFor="signup-password">
                   {t("auth.passwordLabel")} <span className="text-destructive">*</span>
@@ -224,7 +355,9 @@ export default function SignUpPage() {
                   }}
                   placeholder={t("auth.passwordPlaceholder")}
                   disabled={busy}
-                  onKeyDown={(e) => { if (e.key === "Enter") onContinueToPhone(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onContinueToPhone();
+                  }}
                   data-testid="input-signup-password"
                 />
                 {errors.password && (
@@ -245,7 +378,6 @@ export default function SignUpPage() {
           </>
         )}
 
-        {/* Step 2: Phone */}
         {step === "phone" && (
           <>
             <div className="text-center mb-6">
@@ -275,7 +407,7 @@ export default function SignUpPage() {
               <Button
                 size="lg"
                 className="w-full h-12 rounded-xl mt-2"
-                onClick={() => void onCreateAccount()}
+                onClick={() => void onCreateAccountWithPhone()}
                 disabled={busy}
                 data-testid="button-signup-create"
               >
@@ -286,7 +418,7 @@ export default function SignUpPage() {
                 <button
                   type="button"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => void onCreateAccount()}
+                  onClick={onSkipPhone}
                   disabled={busy}
                   data-testid="button-signup-skip-phone"
                 >
@@ -297,13 +429,12 @@ export default function SignUpPage() {
           </>
         )}
 
-        {/* Step 3: Email verification code */}
         {step === "code" && (
           <>
             <div className="text-center mb-6">
               <h1 className="text-2xl font-serif">{t("auth.signup")}</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {t("auth.codeSentTo", { email: initial.email })}
+                {t("auth.codeSentToPhone", { phone: phone ?? "" })}
               </p>
             </div>
 
@@ -325,7 +456,9 @@ export default function SignUpPage() {
                   placeholder={t("auth.codePlaceholder")}
                   className="text-center text-xl tracking-[0.35em] font-mono h-14"
                   disabled={busy}
-                  onKeyDown={(e) => { if (e.key === "Enter") void onVerifyCode(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void onVerifyCode();
+                  }}
                   data-testid="input-signup-code"
                 />
               </div>
@@ -342,7 +475,10 @@ export default function SignUpPage() {
                 <button
                   type="button"
                   className="text-primary hover:underline"
-                  onClick={() => { setStep("phone"); setCode(""); }}
+                  onClick={() => {
+                    setStep("phone");
+                    setCode("");
+                  }}
                   data-testid="button-signup-back"
                 >
                   {t("checkout.back")}

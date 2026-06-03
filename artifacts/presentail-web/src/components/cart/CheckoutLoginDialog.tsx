@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useRouter } from "wouter";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +72,6 @@ export function CheckoutLoginDialog({
 }: Props) {
   const { t, dir } = useLocale();
   const [, setLocation] = useLocation();
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState<"google" | "apple" | null>(null);
@@ -108,8 +106,6 @@ export function CheckoutLoginDialog({
     });
   };
 
-  const base = (router.base || "").replace(/\/+$/, "");
-
   const onContinueEmail = () => {
     // Record intent up-front so the funnel reflects every Continue click,
     // even ones that fail email validation. Otherwise shoppers who fat-
@@ -138,7 +134,7 @@ export function CheckoutLoginDialog({
     recordAction(provider);
     const qs = new URLSearchParams({
       strategy: provider === "google" ? "oauth_google" : "oauth_apple",
-      redirect_url: `${base}/checkout`,
+      redirect_url: "/checkout",
     }).toString();
     onOpenChange(false);
     setLocation(`/sign-in?${qs}`);
