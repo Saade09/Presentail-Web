@@ -29,7 +29,7 @@ type Copy = {
   ctaButton: string;
 };
 
-const SUPPORT_EMAIL = "concierge@presentail.com";
+const SUPPORT_EMAIL = "hello@presentail.com";
 const PHONE_DISPLAY = "+961 81 392 194";
 const PHONE_E164 = "+96181392194";
 const WHATSAPP_URL = "https://wa.me/96181392194";
@@ -57,7 +57,7 @@ const COPY: Record<Language, Copy> = {
     emailResponse: "Within 24 hours",
     hoursHeading: "Hours",
     hoursBody:
-      "Monday – Sunday, 8:00 AM – 10:00 PM (Beirut time). We respond to messages outside hours first thing the next morning.",
+      "Monday – Sunday, 8:00 AM – 12:00 AM (Beirut time). We respond to messages outside hours first thing the next morning.",
     openNow: "Open now",
     closedNow: "Closed",
     addressHeading: "Our office",
@@ -85,7 +85,7 @@ const COPY: Record<Language, Copy> = {
     emailResponse: "خلال 24 ساعة",
     hoursHeading: "ساعات العمل",
     hoursBody:
-      "الإثنين – الأحد، 8:00 ص – 10:00 م (بتوقيت بيروت). نردّ على الرسائل خارج الدوام أوّل صباح اليوم التالي.",
+      "الإثنين – الأحد، 8:00 ص – 12:00 ص (منتصف الليل، بتوقيت بيروت). نردّ على الرسائل خارج الدوام أوّل صباح اليوم التالي.",
     openNow: "مفتوح الآن",
     closedNow: "مغلق",
     addressHeading: "مكتبنا",
@@ -114,7 +114,7 @@ const COPY: Record<Language, Copy> = {
     emailResponse: "Sous 24 heures",
     hoursHeading: "Horaires",
     hoursBody:
-      "Lundi – dimanche, 8h00 – 22h00 (heure de Beyrouth). Les messages reçus en dehors des horaires sont traités dès le lendemain matin.",
+      "Lundi – dimanche, 8h00 – 00h00 (minuit, heure de Beyrouth). Les messages reçus en dehors des horaires sont traités dès le lendemain matin.",
     openNow: "Ouvert maintenant",
     closedNow: "Fermé",
     addressHeading: "Notre bureau",
@@ -139,7 +139,7 @@ function useBeirutOpen() {
       const hour = beirutTime.getHours();
       const minute = beirutTime.getMinutes();
       const totalMinutes = hour * 60 + minute;
-      setIsOpen(totalMinutes >= 8 * 60 && totalMinutes < 22 * 60);
+      setIsOpen(totalMinutes >= 8 * 60 && totalMinutes < 24 * 60);
     }
     check();
     const id = setInterval(check, 60_000);
