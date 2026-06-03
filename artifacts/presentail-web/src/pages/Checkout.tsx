@@ -5,6 +5,8 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isValidPhoneNumber } from "react-phone-number-input";
+import { WebPhoneField } from "@/components/WebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, COUPON_STORAGE_KEY } from "./Cart";
 import {
@@ -86,7 +88,7 @@ function applyAddressToRecipient(
   setRecipient: React.Dispatch<React.SetStateAction<{ firstName: string; lastName: string; phone: string; district: string; address: string; deliveryDate: string; cardMessage: string }>>,
   opts: { onlyEmpty?: boolean } = {},
 ) {
-  const phone = [a.recipientPhoneCountryCode, a.recipientPhone].filter(Boolean).join(" ");
+  const phone = [a.recipientPhoneCountryCode, a.recipientPhone].filter(Boolean).join("");
   const addressLine = [a.addressLine, a.building ? `Bldg: ${a.building}` : null, a.apartment ? `Apt: ${a.apartment}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -320,6 +322,7 @@ export default function Checkout() {
   const [noAddress, setNoAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
+  const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
 
   // Coupon / gift card — seeded from localStorage so a code entered on the
@@ -998,9 +1001,17 @@ export default function Checkout() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 mb-4">
-                    <label className="text-sm font-medium">{t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}</label>
-                    <Input value={recipient.phone} onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })} placeholder={t("checkout.phonePh")} data-testid="input-recipient-phone" />
+                  <div className="mb-4">
+                    <WebPhoneField
+                      label={t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}
+                      value={recipient.phone}
+                      onChange={(v) => setRecipient({ ...recipient, phone: v })}
+                      defaultCountry={(countryCode ?? "LB").toUpperCase()}
+                      required
+                      showError={phoneSubmitAttempted}
+                      errorMessage={t("checkout.phoneInvalidNumber")}
+                      data-testid="input-recipient-phone"
+                    />
                   </div>
 
                   <div
@@ -1118,9 +1129,17 @@ export default function Checkout() {
                   )}
 
                   {!hasProfilePhone && (
-                    <div className="space-y-1.5 mb-4">
-                      <label className="text-sm font-medium">{t("checkout.phoneNumber")}</label>
-                      <Input value={sender.phone} onChange={(e) => setSender({ ...sender, phone: e.target.value })} data-testid="input-sender-phone" />
+                    <div className="mb-4">
+                      <WebPhoneField
+                        label={t("checkout.phoneNumber")}
+                        value={sender.phone}
+                        onChange={(v) => setSender({ ...sender, phone: v })}
+                        defaultCountry="LB"
+                        required
+                        showError={phoneSubmitAttempted}
+                        errorMessage={t("checkout.phoneInvalidNumber")}
+                        data-testid="input-sender-phone"
+                      />
                     </div>
                   )}
 
@@ -1180,7 +1199,13 @@ export default function Checkout() {
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
                     style={{ backgroundColor: "#00414e" }}
-                    onClick={() => setStep(2)}
+                    onClick={() => {
+                      setPhoneSubmitAttempted(true);
+                      const recipientPhoneOk = !!recipient.phone && isValidPhoneNumber(recipient.phone);
+                      const senderPhoneOk = hasProfilePhone || (!!sender.phone && isValidPhoneNumber(sender.phone));
+                      if (!recipientPhoneOk || !senderPhoneOk) return;
+                      setStep(2);
+                    }}
                     disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
                   >

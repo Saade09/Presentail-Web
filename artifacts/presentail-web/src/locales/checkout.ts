@@ -13,7 +13,6 @@ export const checkoutStrings: Dict = {
   "checkout.firstNamePh": { en: "Jane", ar: "جين" },
   "checkout.lastNamePh": { en: "Doe", ar: "دو" },
   "checkout.phoneLB": { en: "Phone Number ({country})", ar: "رقم الهاتف ({country})" },
-  "checkout.phonePh": { en: "+961 70 123 456", ar: "+961 70 123 456" },
   "checkout.district": { en: "Delivery District", ar: "منطقة التوصيل" },
   "checkout.selectDistrict": { en: "Select a district", ar: "اختر منطقة" },
   "checkout.address": { en: "Full Address Details", ar: "تفاصيل العنوان الكامل" },
@@ -126,6 +125,7 @@ export const checkoutStrings: Dict = {
   "checkout.section.payment": { en: "Payment Method", ar: "طريقة الدفع" },
   "checkout.saveAddress": { en: "Save this address to my profile", ar: "حفظ هذا العنوان في ملفي" },
   "checkout.saveAddressHint": { en: "Prefilled automatically next time you shop", ar: "يُملأ تلقائياً في مرة القادمة" },
+  "checkout.phoneInvalidNumber": { en: "Please enter a valid phone number for this country", ar: "يرجى إدخال رقم هاتف صحيح لهذا البلد" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -141,7 +141,6 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.firstNamePh": "Jeanne",
   "checkout.lastNamePh": "Dupont",
   "checkout.phoneLB": "Numéro de téléphone ({country})",
-  "checkout.phonePh": "+961 70 123 456",
   "checkout.district": "District de livraison",
   "checkout.selectDistrict": "Sélectionner un district",
   "checkout.address": "Adresse complète",
@@ -241,4 +240,5 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.section.payment": "Mode de paiement",
   "checkout.saveAddress": "Enregistrer cette adresse dans mon profil",
   "checkout.saveAddressHint": "Préremplie automatiquement lors de votre prochaine commande",
+  "checkout.phoneInvalidNumber": "Veuillez entrer un numéro de téléphone valide pour ce pays",
 };
