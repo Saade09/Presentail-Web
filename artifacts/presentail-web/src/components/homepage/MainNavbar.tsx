@@ -308,7 +308,7 @@ export function MainNavbar() {
             data-testid="button-search"
             onClick={() => setSearchOpen(true)}
           >
-            <Search className="w-5 h-5" />
+            <Search className="!w-[22px] !h-[22px]" />
           </Button>
           <SearchOverlay
             open={searchOpen}
@@ -322,14 +322,14 @@ export function MainNavbar() {
           ) : (
             <Link href="/sign-in" aria-label={t("nav.accountAria")} {...prefetchProps(loadSignIn)}>
               <Button variant="ghost" size="icon" data-testid="button-account">
-                <User className="w-5 h-5" />
+                <User className="!w-[22px] !h-[22px]" />
               </Button>
             </Link>
           )}
 
           <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
             <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="!w-[22px] !h-[22px]" />
               <AnimatePresence>
                 {itemCount > 0 && (
                   <motion.span
