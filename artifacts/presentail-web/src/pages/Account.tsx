@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { WebPhoneField } from "@/components/WebPhoneField";
 import { Link } from "wouter";
 
 const SUPPORTED_COUNTRIES = [
@@ -536,7 +537,6 @@ function buildEmptyForm(defaultCountryCode?: string) {
     recipientFirstName: "",
     recipientLastName: "",
     recipientPhone: "",
-    recipientPhoneCountryCode: defaultPhoneCode(cc),
     isDefault: false,
   };
 }
@@ -566,8 +566,14 @@ function AddAddressModal({
     if (open) {
       if (editAddress) {
         const cc = (editAddress.countryCode ?? defaultCountryCode ?? "LB").toUpperCase().slice(0, 2);
-        const recipientPhone = editAddress.recipientPhone ?? "";
-        const recipientPhoneCountryCode = editAddress.recipientPhoneCountryCode ?? defaultPhoneCode(cc);
+        const rawPhone = editAddress.recipientPhone ?? "";
+        // Normalise to E.164: if already starts with "+", use as-is; otherwise
+        // prepend the stored country code (or derive it from the delivery country).
+        const recipientPhone = rawPhone.startsWith("+")
+          ? rawPhone
+          : rawPhone
+          ? (editAddress.recipientPhoneCountryCode ?? defaultPhoneCode(cc)) + rawPhone
+          : "";
         setForm({
           label: editAddress.label || "home",
           nickname: editAddress.nickname ?? "",
@@ -582,7 +588,6 @@ function AddAddressModal({
           recipientFirstName: editAddress.recipientFirstName ?? "",
           recipientLastName: editAddress.recipientLastName ?? "",
           recipientPhone,
-          recipientPhoneCountryCode,
           isDefault: editAddress.isDefault,
         });
       } else {
@@ -624,7 +629,7 @@ function AddAddressModal({
         recipientFirstName: form.recipientFirstName.trim() || null,
         recipientLastName: form.recipientLastName.trim() || null,
         recipientPhone: trimmedPhone || null,
-        recipientPhoneCountryCode: trimmedPhone ? form.recipientPhoneCountryCode || null : null,
+        recipientPhoneCountryCode: null,
         isDefault: form.isDefault,
       });
 
@@ -746,17 +751,12 @@ function AddAddressModal({
             </div>
           </div>
 
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              {t("account.addresses.recipientPhone")}
-            </Label>
-            <Input
-              value={form.recipientPhone}
-              onChange={(e) => set("recipientPhone", e.target.value)}
-              placeholder="+961 70 000 000"
-              inputMode="tel"
-            />
-          </div>
+          <WebPhoneField
+            label={t("account.addresses.recipientPhone")}
+            value={form.recipientPhone}
+            onChange={(v) => set("recipientPhone", v)}
+            defaultCountry={form.countryCode}
+          />
 
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
