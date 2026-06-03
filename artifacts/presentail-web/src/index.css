@@ -296,7 +296,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0 0.5rem;
-  height: 2.5rem;
+  height: 3rem;
   border: 1px solid hsl(var(--input));
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--background));
@@ -331,7 +331,7 @@
 
 .pi-phone-wrap .PhoneInputInput {
   flex: 1;
-  height: 2.5rem;
+  height: 3rem;
   padding: 0 0.75rem;
   border: 1px solid hsl(var(--input));
   border-radius: calc(var(--radius) - 2px);

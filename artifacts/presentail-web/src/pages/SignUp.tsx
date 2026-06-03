@@ -332,6 +332,7 @@ export default function SignUpPage() {
                   placeholder={t("auth.fullNamePlaceholder")}
                   disabled={busy}
                   data-testid="input-signup-name"
+                  className="h-12 rounded-sm"
                 />
                 {errors.name && (
                   <p className="text-xs text-destructive">{errors.name}</p>
@@ -357,6 +358,7 @@ export default function SignUpPage() {
                     if (e.key === "Enter") onContinueToPhone();
                   }}
                   data-testid="input-signup-password"
+                  className="h-12 rounded-sm"
                 />
                 {errors.password && (
                   <p className="text-xs text-destructive">{errors.password}</p>
@@ -452,7 +454,7 @@ export default function SignUpPage() {
                     setCode(e.target.value.replace(/\D/g, "").slice(0, 8))
                   }
                   placeholder={t("auth.codePlaceholder")}
-                  className="text-center text-xl tracking-[0.35em] font-mono h-14"
+                  className="text-center text-xl tracking-[0.35em] font-mono h-12"
                   disabled={busy}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void onVerifyCode();
