@@ -263,6 +263,21 @@ export const accountStrings: Dict = {
   "account.referrals.step3": { en: "You both earn Presentail Points — redeemable for discounts.", ar: "تكسبان معاً نقاط برزنتيل القابلة للاسترداد كخصومات." },
 
   "account.dropdown.greeting": { en: "Hi, {name}", ar: "مرحباً، {name}" },
+
+  "account.deleteAccount": { en: "Delete Account", ar: "حذف الحساب" },
+  "account.deleteAccount.title": { en: "Delete your account?", ar: "حذف حسابك؟" },
+  "account.deleteAccount.desc": {
+    en: "This action is permanent and cannot be undone. Your account and all associated data will be permanently removed within 15 days.",
+    ar: "هذا الإجراء دائم ولا يمكن التراجع عنه. ستُحذف بياناتك نهائياً خلال 15 يوماً.",
+  },
+  "account.deleteAccount.confirm": { en: "Yes, delete my account", ar: "نعم، احذف حسابي" },
+  "account.deleteAccount.deleting": { en: "Deleting…", ar: "جارٍ الحذف…" },
+  "account.deleteAccount.successTitle": { en: "Account deleted", ar: "تم حذف الحساب" },
+  "account.deleteAccount.successDesc": {
+    en: "Your account has been successfully deleted.",
+    ar: "تم حذف حسابك بنجاح.",
+  },
+  "account.deleteAccount.errorTitle": { en: "Couldn't delete account", ar: "تعذّر حذف الحساب" },
 };
 
 export const accountStringsFr: Record<string, string> = {
@@ -447,4 +462,13 @@ export const accountStringsFr: Record<string, string> = {
   "account.referrals.step3": "Vous gagnez tous les deux des Points Presentail — échangeables contre des réductions.",
 
   "account.dropdown.greeting": "Bonjour, {name}",
+
+  "account.deleteAccount": "Supprimer le compte",
+  "account.deleteAccount.title": "Supprimer votre compte ?",
+  "account.deleteAccount.desc": "Cette action est définitive et irréversible. Votre compte et toutes les données associées seront supprimés définitivement sous 15 jours.",
+  "account.deleteAccount.confirm": "Oui, supprimer mon compte",
+  "account.deleteAccount.deleting": "Suppression en cours…",
+  "account.deleteAccount.successTitle": "Compte supprimé",
+  "account.deleteAccount.successDesc": "Votre compte a été supprimé avec succès.",
+  "account.deleteAccount.errorTitle": "Impossible de supprimer le compte",
 };

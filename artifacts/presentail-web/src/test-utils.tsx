@@ -23,6 +23,7 @@ export const DEFAULT_AUTH: AuthContextValue = {
   token: null,
   isLoading: false,
   logout: async () => {},
+  deleteAccount: async () => ({ ok: false, message: "Not signed in" }),
   getToken: async () => null,
   userType: null,
   provider: null,

@@ -5,6 +5,7 @@ import {
   Heart,
   MapPin,
   LogOut,
+  Trash2,
   Bell,
   CalendarDays,
   Share2,
@@ -42,6 +43,7 @@ interface AccountSidebarProps {
   activeTab: AccountTab;
   onSelect: (tab: AccountTab) => void;
   onLogout: () => void;
+  onDeleteAccount: () => void;
   t: (key: string) => string;
   user?: { firstName?: string; lastName?: string; email: string };
   points?: number | null;
@@ -56,7 +58,7 @@ function buildInitials(firstName?: string, lastName?: string, email?: string): s
   return "?";
 }
 
-export function AccountSidebar({ activeTab, onSelect, onLogout, t, user, points }: AccountSidebarProps) {
+export function AccountSidebar({ activeTab, onSelect, onLogout, onDeleteAccount, t, user, points }: AccountSidebarProps) {
   const initials = buildInitials(user?.firstName, user?.lastName, user?.email);
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "";
 
@@ -100,7 +102,7 @@ export function AccountSidebar({ activeTab, onSelect, onLogout, t, user, points 
         );
       })}
 
-      <div className="mt-4 pt-4 border-t border-border/50">
+      <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-0.5">
         <button
           type="button"
           onClick={onLogout}
@@ -109,6 +111,15 @@ export function AccountSidebar({ activeTab, onSelect, onLogout, t, user, points 
         >
           <LogOut className="w-4 h-4 shrink-0" />
           <span>{t("account.signOut")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onDeleteAccount}
+          className="w-full text-left px-3.5 py-3 rounded-xl flex items-center gap-3 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all"
+          data-testid="account-sidebar-delete-account"
+        >
+          <Trash2 className="w-4 h-4 shrink-0" />
+          <span>{t("account.deleteAccount")}</span>
         </button>
       </div>
     </aside>

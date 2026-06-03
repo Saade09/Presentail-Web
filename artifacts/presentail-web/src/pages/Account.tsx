@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AccountOrderCard, AccountOrderCardSkeleton } from "@/components/account/AccountOrderCard";
 import { AccountShortcutCards } from "@/components/account/AccountShortcutCards";
 import { AccountSidebar, MobileTabStrip, type AccountTab } from "@/components/account/AccountSidebar";
+import { DeleteAccountDialog } from "@/components/account/DeleteAccountDialog";
 import { EmptyState } from "@/components/account/EmptyState";
 import { OccasionsPanel } from "@/components/account/OccasionsPanel";
 import { ReferralsPanel } from "@/components/account/ReferralsPanel";
@@ -73,6 +74,7 @@ export default function Account() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<AccountTab>(() => parseTabParam(search));
   const [points, setPoints] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Keep tab in sync with URL query param (e.g. from AccountDropdown links)
   useEffect(() => {
@@ -122,9 +124,14 @@ export default function Account() {
             activeTab={tab}
             onSelect={handleSelectTab}
             onLogout={handleLogout}
+            onDeleteAccount={() => setDeleteDialogOpen(true)}
             t={t}
             user={user}
             points={points}
+          />
+          <DeleteAccountDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
           />
 
           <div className="flex-1 min-w-0">

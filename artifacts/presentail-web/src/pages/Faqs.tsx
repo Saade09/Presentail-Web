@@ -85,7 +85,7 @@ const COPY: Record<Language, Copy> = {
           },
           {
             q: "How do I delete my account?",
-            a: "From your profile in the app, tap Account → Delete account. Your data is removed within 15 days.",
+            a: "On the website, go to My Account \u2192 Personal Information and click \u201cDelete Account\u201d at the bottom of the page. In the mobile app, tap Account \u2192 Delete account. Your data is removed within 15 days.",
           },
         ],
       },
@@ -161,7 +161,7 @@ const COPY: Record<Language, Copy> = {
           },
           {
             q: "كيف أحذف حسابي؟",
-            a: "من ملفك في التطبيق، اضغط الحساب → حذف الحساب. تُزال بياناتك خلال 15 يوماً.",
+            a: "على الموقع، اذهب إلى حسابي ← المعلومات الشخصية وانقر على «حذف الحساب» في أسفل الصفحة. في التطبيق، اضغط الحساب ← حذف الحساب. تُزال بياناتك خلال 15 يوماً.",
           },
         ],
       },
@@ -237,7 +237,7 @@ const COPY: Record<Language, Copy> = {
           },
           {
             q: "Comment supprimer mon compte ?",
-            a: "Depuis votre profil dans l'application : Compte → Supprimer le compte. Vos données sont effacées sous 15 jours.",
+            a: "Sur le site, allez dans Mon compte → Informations personnelles et cliquez sur « Supprimer le compte » en bas de la page. Dans l'application, appuyez sur Compte → Supprimer le compte. Vos données sont effacées sous 15 jours.",
           },
         ],
       },

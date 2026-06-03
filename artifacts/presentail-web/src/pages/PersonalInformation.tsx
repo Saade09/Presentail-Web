@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
+import { DeleteAccountDialog } from "@/components/account/DeleteAccountDialog";
 
 type Gender = "female" | "male" | "unspecified";
 const GENDER_VALUES: Gender[] = ["female", "male", "unspecified"];
@@ -60,6 +61,7 @@ export default function PersonalInformation() {
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const isRTL = dir === "rtl";
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [hydrating, setHydrating] = useState(true);
   const [hydrateFailed, setHydrateFailed] = useState(false);
@@ -405,6 +407,39 @@ export default function PersonalInformation() {
         {provider === "password" && (
           <PasswordCard t={t} email={email} />
         )}
+
+        {/* ── Delete account ──────────────────────────────────────── */}
+        <section
+          className="bg-destructive/5 rounded-3xl p-6 border border-destructive/20 mt-2"
+          data-testid="pi-delete-account-card"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Trash2 className="w-5 h-5 text-destructive" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-serif mb-1 text-destructive">
+                {t("account.deleteAccount")}
+              </h2>
+              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                {t("account.deleteAccount.desc")}
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+                data-testid="pi-delete-account-btn"
+              >
+                {t("account.deleteAccount")}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <DeleteAccountDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+        />
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ export type AuthContextValue = {
   token: string | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<{ ok: true } | { ok: false; message: string }>;
   getToken: () => Promise<string | null>;
   userType: string | null;
   provider: string | null;
@@ -33,6 +34,7 @@ const GUEST_AUTH_VALUE: AuthContextValue = {
   token: null,
   isLoading: false,
   logout: async () => {},
+  deleteAccount: async () => ({ ok: false, message: "Not signed in" }),
   getToken: async () => null,
   userType: null,
   provider: null,
@@ -124,6 +126,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProvider(null);
   };
 
+  const deleteAccount = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+    const currentToken = localStorage.getItem(TOKEN_KEY);
+    if (!currentToken) return { ok: false, message: "Not signed in" };
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; message?: string };
+      if (!res.ok || !data?.ok) {
+        return { ok: false, message: data?.message ?? `Error ${res.status}` };
+      }
+      await logout();
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
+    }
+  };
+
   const getToken = async (): Promise<string | null> => {
     return localStorage.getItem(TOKEN_KEY);
   };
@@ -133,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     isLoading,
     logout,
+    deleteAccount,
     getToken,
     userType: user ? "customer" : null,
     provider,
