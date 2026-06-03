@@ -990,30 +990,6 @@ export default function Checkout() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{t("checkout.firstName")}</label>
-                      <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{t("checkout.lastName")}</label>
-                      <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <WebPhoneField
-                      label={t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}
-                      value={recipient.phone}
-                      onChange={(v) => setRecipient({ ...recipient, phone: v })}
-                      defaultCountry={(countryCode ?? "LB").toUpperCase()}
-                      required
-                      showError={phoneSubmitAttempted}
-                      errorMessage={t("checkout.phoneInvalidNumber")}
-                      data-testid="input-recipient-phone"
-                    />
-                  </div>
-
                   <div
                     className={`flex items-center gap-3 mb-4 rounded-xl border px-3.5 py-3 bg-card transition-colors ${
                       noAddress ? "border-primary" : "border-border"
@@ -1046,6 +1022,30 @@ export default function Checkout() {
                       onCheckedChange={setNoAddress}
                       data-testid="check-no-address"
                       aria-label={t("checkout.askRecipientForAddressTitle")}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{t("checkout.firstName")}</label>
+                      <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{t("checkout.lastName")}</label>
+                      <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <WebPhoneField
+                      label={t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}
+                      value={recipient.phone}
+                      onChange={(v) => setRecipient({ ...recipient, phone: v })}
+                      defaultCountry={(countryCode ?? "LB").toUpperCase()}
+                      required
+                      showError={phoneSubmitAttempted}
+                      errorMessage={t("checkout.phoneInvalidNumber")}
+                      data-testid="input-recipient-phone"
                     />
                   </div>
 
