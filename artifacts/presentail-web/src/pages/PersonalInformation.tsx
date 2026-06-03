@@ -327,7 +327,7 @@ export default function PersonalInformation() {
                   value={bDay}
                   onChange={(e) => setBDay(e.target.value.replace(/\D/g, ""))}
                   placeholder={t("pi.birthday.dd")}
-                  className="text-center"
+                  className="text-center flex-1"
                   data-testid="pi-bday-day"
                 />
                 <Input
@@ -336,7 +336,7 @@ export default function PersonalInformation() {
                   value={bMonth}
                   onChange={(e) => setBMonth(e.target.value.replace(/\D/g, ""))}
                   placeholder={t("pi.birthday.mm")}
-                  className="text-center"
+                  className="text-center flex-1"
                   data-testid="pi-bday-month"
                 />
                 <Input
@@ -345,7 +345,7 @@ export default function PersonalInformation() {
                   value={bYear}
                   onChange={(e) => setBYear(e.target.value.replace(/\D/g, ""))}
                   placeholder={t("pi.birthday.yyyy")}
-                  className="text-center flex-[1.4]"
+                  className="text-center flex-1"
                   data-testid="pi-bday-year"
                 />
               </div>
