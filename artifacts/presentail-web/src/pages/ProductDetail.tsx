@@ -33,6 +33,7 @@ import {
   isExpressDeliveryAvailable,
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -49,6 +50,7 @@ export default function ProductDetail() {
   const delivery = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
 
+  const { currencyCode } = useDisplayCurrency();
   const { countryCode, cityId } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
     lang: language,
@@ -326,6 +328,7 @@ export default function ProductDetail() {
               <PaymentMethods
                 label={t("payments.waysToPay")}
                 countryCode={countryCode}
+                currencyCode={currencyCode}
               />
             </div>
           </div>
