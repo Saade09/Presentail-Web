@@ -57,10 +57,10 @@ export const authStrings: Dict = {
   "auth.hidePassword": { en: "Hide password", ar: "إخفاء كلمة المرور" },
 
   "auth.phoneStep.title": { en: "Almost there!", ar: "اقتربت من النهاية!" },
-  "auth.phoneStep.desc": { en: "Add your phone number to receive order updates.", ar: "أضف رقم هاتفك لتلقّي تحديثات طلبك." },
+  "auth.phoneStep.desc": { en: "Your phone number is required to receive order updates.", ar: "رقم هاتفك مطلوب لتلقّي تحديثات طلبك." },
   "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
+  "auth.phoneRequired": { en: "Phone number is required.", ar: "رقم الهاتف مطلوب." },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
-  "auth.skipPhone": { en: "Skip", ar: "تخطّ" },
 
   "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
   "auth.enterPassword": { en: "Enter your password for {email}", ar: "أدخل كلمة المرور لحساب {email}" },
@@ -118,10 +118,10 @@ export const authStringsFr: Record<string, string> = {
   "auth.hidePassword": "Masquer le mot de passe",
 
   "auth.phoneStep.title": "Presque terminé !",
-  "auth.phoneStep.desc": "Ajoutez votre numéro de téléphone pour recevoir des mises à jour sur vos commandes.",
+  "auth.phoneStep.desc": "Votre numéro de téléphone est requis pour recevoir des mises à jour sur vos commandes.",
   "auth.phoneLabel": "Numéro de téléphone",
+  "auth.phoneRequired": "Le numéro de téléphone est obligatoire.",
   "auth.createAccount": "Créer un compte",
-  "auth.skipPhone": "Ignorer",
 
   "auth.signIn": "Se connecter",
   "auth.enterPassword": "Saisissez votre mot de passe pour {email}",
