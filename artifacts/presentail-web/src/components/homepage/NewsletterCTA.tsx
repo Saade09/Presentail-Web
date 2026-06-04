@@ -27,7 +27,7 @@ export function NewsletterCTA() {
         >
           <div
             aria-hidden="true"
-            className="absolute -top-20 -end-20 w-72 h-72 rounded-full bg-gold/20 blur-3xl"
+            className="absolute -top-20 -end-20 w-72 h-72 rounded-full bg-accent/20 blur-3xl"
           />
           <div
             aria-hidden="true"
@@ -35,7 +35,7 @@ export function NewsletterCTA() {
           />
 
           <div className="relative max-w-2xl mx-auto">
-            <p className="text-xs md:text-sm font-medium tracking-[0.25em] uppercase text-gold mb-4">
+            <p className="text-xs md:text-sm font-medium tracking-[0.25em] uppercase text-accent mb-4">
               {t("newsletter.eyebrow")}
             </p>
             <h2 className="font-serif text-3xl md:text-5xl mb-4">{t("newsletter.title")}</h2>
@@ -45,7 +45,7 @@ export function NewsletterCTA() {
 
             {submitted ? (
               <p
-                className="text-gold font-medium text-base md:text-lg"
+                className="text-accent font-medium text-base md:text-lg"
                 data-testid="text-newsletter-thanks"
               >
                 {t("newsletter.thanks")}
@@ -62,13 +62,13 @@ export function NewsletterCTA() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t("newsletter.placeholder")}
-                  className="h-12 rounded-full bg-white/10 border-white/20 text-primary-foreground placeholder:text-primary-foreground/60 px-5 focus-visible:ring-gold"
+                  className="h-12 rounded-full bg-white/10 border-white/20 text-primary-foreground placeholder:text-primary-foreground/60 px-5 focus-visible:ring-accent"
                   data-testid="input-newsletter-email"
                 />
                 <Button
                   type="submit"
                   size="lg"
-                  className="h-12 rounded-full bg-gold hover:bg-gold-soft text-primary px-8 whitespace-nowrap"
+                  className="h-12 rounded-full bg-accent hover:bg-accent/90 text-accent-foreground px-8 whitespace-nowrap"
                   data-testid="button-newsletter-submit"
                 >
                   {t("newsletter.button")}

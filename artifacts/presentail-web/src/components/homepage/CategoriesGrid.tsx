@@ -64,7 +64,7 @@ export function CategoriesGrid() {
                 <div className="absolute inset-0 flex items-end p-4 md:p-6">
                   <div className="text-white">
                     <h3 className="font-serif text-lg md:text-2xl">{t(it.key)}</h3>
-                    <span className="text-xs md:text-sm tracking-wide text-white/85 group-hover:text-gold transition-colors">
+                    <span className="text-xs md:text-sm tracking-wide text-white/85 group-hover:text-accent transition-colors">
                       {t("bestSellers.viewAll")} →
                     </span>
                   </div>

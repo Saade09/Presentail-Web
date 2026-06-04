@@ -214,10 +214,10 @@
   --input: 40 46% 95%;
   --ring: 190 100% 15%;
 
-  /* gold */
-  --gold: 45 54% 54%;
-  /* goldSoft */
-  --gold-soft: 45 68% 69%;
+  /* gold — remapped to dark teal for WCAG AA contrast on light backgrounds */
+  --gold: 190 100% 15%;
+  /* goldSoft — lighter teal tint */
+  --gold-soft: 190 35% 70%;
   /* blush */
   --blush: 19 66% 89%;
 
