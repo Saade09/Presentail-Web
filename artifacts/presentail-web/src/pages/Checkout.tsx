@@ -36,7 +36,14 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
-import { PaymentMethods } from "@/components/product/PaymentMethods";
+import applePayLogo from "@/assets/payment-logos/applepay.svg";
+import googlePayLogo from "@/assets/payment-logos/googlepay.svg";
+import visaLogo from "@/assets/payment-logos/visa.svg";
+import mastercardLogo from "@/assets/payment-logos/mastercard.svg";
+import amexLogo from "@/assets/payment-logos/amex.svg";
+import whishLogo from "@/assets/payment-logos/whish.svg";
+import paypalLogo from "@/assets/payment-logos/paypal.svg";
+import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { trackEvent } from "@/lib/analytics";
@@ -1314,12 +1321,27 @@ function CheckoutForm() {
                 {/* Payment methods */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
                   <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
-                  <div className="mb-5">
-                    <PaymentMethods label={t("payments.waysToPay")} countryCode={countryCode} currencyCode={currencyCode} className="flex flex-wrap items-center gap-2" />
-                  </div>
                   <div className="space-y-3">
                     {paymentOptions.map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
+                      type LogoSpec = { name: string; src: string; fill?: boolean; maxH?: string };
+                      const cardLogos: LogoSpec[] = [
+                        { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
+                        { name: "Visa", src: visaLogo, maxH: "max-h-[14px]" },
+                        { name: "American Express", src: amexLogo, fill: true },
+                      ];
+                      const methodLogos: Record<string, LogoSpec[]> = {
+                        card: cardLogos,
+                        mamo: cardLogos,
+                        paypal: [{ name: "PayPal", src: paypalLogo, fill: true }],
+                        wallet: [
+                          { name: "Apple Pay", src: applePayLogo, maxH: "max-h-[14px]" },
+                          { name: "Google Pay", src: googlePayLogo, maxH: "max-h-[14px]" },
+                        ],
+                        whish: [{ name: "Whish Money", src: whishLogo, fill: true }],
+                        western: [{ name: "Western Union", src: westernUnionLogo, fill: true }],
+                      };
+                      const logos = methodLogos[m.id] ?? [];
                       return (
                         <div
                           key={m.id}
@@ -1333,6 +1355,27 @@ function CheckoutForm() {
                               {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-white" />}
                             </div>
                             <span className="font-medium text-sm">{t(m.labelKey)}</span>
+                            {logos.length > 0 && (
+                              <div className="ml-auto flex items-center gap-1">
+                                {logos.map((logo) => (
+                                  <span
+                                    key={logo.name}
+                                    title={logo.name}
+                                    className={logo.fill ? "inline-flex overflow-hidden rounded-[4px] shadow-sm" : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[4px]"}
+                                    style={{ width: 48, height: 34 }}
+                                  >
+                                    <img
+                                      src={logo.src}
+                                      alt={logo.name}
+                                      className={logo.fill ? "block w-full h-full object-fill" : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`}
+                                      loading="lazy"
+                                      decoding="async"
+                                      draggable={false}
+                                    />
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {paymentMethod === m.id && offlineDesc && (
                             <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{offlineDesc}</p>
