@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -17,6 +19,8 @@ import {
   usePaypalPayment,
   type CreateWcOrderResponse,
 } from "@/lib/queries";
+import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
+import { StripeCardFields } from "@/components/StripeCardFields";
 import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -52,6 +56,13 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+
+// Stripe publishable key — loaded once at module level so the Stripe.js
+// script is only fetched once per page. `VITE_STRIPE_PUBLISHABLE_KEY` must
+// be set as a Vite env variable for real card payments to work.
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null,
+);
 
 // The web checkout supports a subset of the shared payment-method catalog
 // (no Western Union). All availability / label / fallback decisions go
@@ -122,7 +133,9 @@ type CreateOrderResponse =
   | { ok: true; wcOrderId: number | null; orderKey?: string; couponDiscount: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
-export default function Checkout() {
+function CheckoutForm() {
+  const stripe = useStripe();
+  const elements = useElements();
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -143,9 +156,11 @@ export default function Checkout() {
   const { currencyCode } = useDisplayCurrency();
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
+  const createPaymentIntent = useCreateCheckoutPaymentIntent();
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
   const { data: locations } = useDeliveryLocations();
+  const [stripeCardError, setStripeCardError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
   const [orderNote, setOrderNote] = useState("");
@@ -596,6 +611,7 @@ export default function Checkout() {
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
+    createPaymentIntent.isPending ||
     mamoPayment.isPending ||
     paypalPayment.isPending;
 
@@ -739,32 +755,89 @@ export default function Checkout() {
       const orderId = `web-${Date.now()}`;
 
       if (paymentMethod === "card") {
-        const res = await stripeSession.mutateAsync({
-          // Send wcId + quantity; the server resolves prices from the
-          // WooCommerce catalog so the client cannot manipulate the charge.
-          items: items.map((i) => ({
-            wcId: i.product.wcId,
-            quantity: i.quantity,
-            name: i.product.name,
-            image: i.product.image?.uri,
-          })),
-          // orderId sent to the server so it can bind the Stripe session to
-          // this specific order (prevents replay for a different order).
-          orderId,
-          currency: "USD",
-          email: sender.email,
-          successUrl,
-          cancelUrl,
-        });
-        if (!res.ok || !res.url) {
+        // Inline Stripe Elements flow — no redirect.
+        if (!stripe || !elements) {
           toast({
             title: t("checkout.toast.cardUnavailable"),
-            description: res.message || t("checkout.toast.cardUnavailableDesc"),
+            description: "Card payment is not available yet. Please refresh the page and try again.",
             variant: "destructive",
           });
           return;
         }
-        stashAndRedirect(res.url, orderId);
+        setStripeCardError(null);
+
+        // Step 1: Create a PaymentIntent server-side (prices resolved from
+        // the Presentail OS catalog — client-supplied amounts are never used).
+        const intentRes = await createPaymentIntent.mutateAsync({
+          data: {
+            items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+            orderId,
+            currency: "USD",
+            email: sender.email || undefined,
+          },
+        });
+
+        if (!intentRes.ok || !intentRes.clientSecret) {
+          toast({
+            title: t("checkout.toast.cardUnavailable"),
+            description: (intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Step 2: Confirm the card payment on the client. Stripe validates
+        // the card details from Elements and charges the PaymentIntent.
+        const cardElement = elements.getElement(CardNumberElement);
+        if (!cardElement) {
+          setStripeCardError("Card fields could not be found. Please refresh and try again.");
+          return;
+        }
+
+        const senderName = `${sender.firstName} ${sender.lastName}`.trim();
+        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+          intentRes.clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                ...(sender.email ? { email: sender.email } : {}),
+                ...(senderName ? { name: senderName } : {}),
+              },
+            },
+          },
+        );
+
+        if (stripeError) {
+          setStripeCardError(stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
+          return;
+        }
+        if (paymentIntent?.status !== "succeeded") {
+          setStripeCardError(t("checkout.toast.cardPaymentFailed"));
+          return;
+        }
+
+        // Step 3: Finalize the WC order with the PaymentIntent ID as the
+        // paymentRef. The server verifies the PI was paid before marking
+        // the order as paid — mirrors the hosted-session flow.
+        void maybeSaveNewAddress();
+        const payload = buildOrderPayload({ paymentRef: paymentIntent.id, orderId });
+        const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
+        if (res.ok) {
+          if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
+          clearCart();
+          try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+          void maybeSaveProfilePhone();
+          trackEvent({ name: "order_placed", surface: "checkout", action: "card" });
+          setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+        } else if (res.code === "coupon_invalid") {
+          setCouponError(res.message || t("checkout.coupon.invalidError"));
+          setCouponApplied(false);
+          setCouponOpen(true);
+          setTimeout(() => couponInputRef.current?.focus(), 80);
+        } else {
+          toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
+        }
         return;
       }
 
@@ -1252,7 +1325,7 @@ export default function Checkout() {
                           key={m.id}
                           className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-[#00414e]/25 hover:bg-secondary/30"}`}
                           style={paymentMethod === m.id ? { borderColor: "#00414e", backgroundColor: "rgba(0,65,78,0.04)", outlineColor: "rgba(0,65,78,0.15)" } : {}}
-                          onClick={() => setPaymentMethod(m.id)}
+                          onClick={() => { setPaymentMethod(m.id); setStripeCardError(null); }}
                           data-testid={`option-payment-${m.id}`}
                         >
                           <div className="flex items-center gap-3">
@@ -1263,6 +1336,12 @@ export default function Checkout() {
                           </div>
                           {paymentMethod === m.id && offlineDesc && (
                             <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{offlineDesc}</p>
+                          )}
+                          {paymentMethod === m.id && m.id === "card" && (
+                            <StripeCardFields
+                              error={stripeCardError}
+                              disabled={isProcessing}
+                            />
                           )}
                         </div>
                       );
@@ -1411,6 +1490,14 @@ export default function Checkout() {
         timeSlots={timeSlots}
       />
     </div>
+  );
+}
+
+export default function Checkout() {
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm />
+    </Elements>
   );
 }
 

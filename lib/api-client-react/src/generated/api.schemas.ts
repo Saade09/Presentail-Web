@@ -5,6 +5,46 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface CheckoutPaymentIntentCartItem {
+  /** WooCommerce product ID. The server resolves the price from the catalog. */
+  wcId: number;
+  /** @minimum 1 */
+  quantity: number;
+}
+
+/**
+ * Extra key-value pairs forwarded to Stripe PaymentIntent metadata.
+ */
+export type CheckoutPaymentIntentRequestMetadata = { [key: string]: string };
+
+export interface CheckoutPaymentIntentRequest {
+  /**
+   * Cart items. Prices are resolved server-side and never read from the client.
+   * @minItems 1
+   */
+  items: CheckoutPaymentIntentCartItem[];
+  /** App-generated order ID that binds this PaymentIntent to the WooCommerce order. */
+  orderId: string;
+  /** ISO 4217 currency code (default USD). The PaymentIntent is charged in this currency. */
+  currency?: string;
+  /** Shopper email for Stripe receipt. Optional. */
+  email?: string;
+  /** Extra key-value pairs forwarded to Stripe PaymentIntent metadata. */
+  metadata?: CheckoutPaymentIntentRequestMetadata;
+}
+
+export interface CheckoutPaymentIntentResponse {
+  ok: boolean;
+  /** Stripe PaymentIntent client_secret. Pass to stripe.confirmCardPayment(). */
+  clientSecret: string;
+  /** The orderId that was bound to this PaymentIntent. Use as-is in /woo/order. */
+  orderId: string;
+  /** Charge amount in Stripe minor units (e.g. cents for USD). */
+  amount: number;
+  /** ISO 4217 currency code used for the charge. */
+  currency: string;
+}
+
 export interface PartnerApplicationInput {
   country: string;
   city: string;

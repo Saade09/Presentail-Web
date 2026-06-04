@@ -248,6 +248,32 @@ export async function verifyStripePayment(
   }
 }
 
+// Verify a Stripe PaymentIntent was successfully paid AND that it was created
+// for the expected orderId (stored in metadata). Used by the inline Elements
+// card flow (paymentRef starts with "pi_") in contrast to verifyStripePayment
+// which checks hosted Checkout sessions (paymentRef starts with "cs_").
+export async function verifyStripePaymentIntentPaid(
+  paymentIntentId: string,
+  expectedOrderId: string,
+): Promise<boolean> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || !paymentIntentId) return false;
+  try {
+    const encoded = Buffer.from(`${key}:`).toString("base64");
+    const r = await fetch(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
+      { headers: { Authorization: `Basic ${encoded}` } },
+    );
+    if (!r.ok) return false;
+    const data = (await r.json()) as { status?: string; metadata?: Record<string, string> };
+    if (data.status !== "succeeded") return false;
+    const piOrderId = data.metadata?.orderId ?? "";
+    return piOrderId === expectedOrderId;
+  } catch {
+    return false;
+  }
+}
+
 // Verify a Mamo payment link was paid. Returns true only if Mamo confirms
 // the link is in a paid/completed state.
 export async function verifyMamoPayment(linkId: string): Promise<boolean> {

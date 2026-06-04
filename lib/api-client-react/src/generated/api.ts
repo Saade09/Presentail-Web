@@ -23,6 +23,8 @@ import type {
   AuthMeResponse,
   AuthMeUpdateRequest,
   CatalogMetadataResponse,
+  CheckoutPaymentIntentRequest,
+  CheckoutPaymentIntentResponse,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
   CurrenciesResponse,
@@ -3488,6 +3490,103 @@ export const useDeleteMyOccasion = <
   TContext
 > => {
   return useMutation(getDeleteMyOccasionMutationOptions(options));
+};
+
+/**
+ * Creates a Stripe PaymentIntent for the supplied cart. Cart prices are
+resolved server-side from the Presentail OS catalog (never from
+client-supplied values) so the client cannot manipulate the charge.
+Returns a `clientSecret` that the web client passes to Stripe Elements'
+`confirmCardPayment`. The `orderId` returned must be used as-is when
+submitting the WooCommerce order after payment is confirmed.
+
+ * @summary Create a Stripe PaymentIntent for inline card payment
+ */
+export const getCreateCheckoutPaymentIntentUrl = () => {
+  return `/api/checkout/payment-intent`;
+};
+
+export const createCheckoutPaymentIntent = async (
+  checkoutPaymentIntentRequest: CheckoutPaymentIntentRequest,
+  options?: RequestInit,
+): Promise<CheckoutPaymentIntentResponse> => {
+  return customFetch<CheckoutPaymentIntentResponse>(
+    getCreateCheckoutPaymentIntentUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(checkoutPaymentIntentRequest),
+    },
+  );
+};
+
+export const getCreateCheckoutPaymentIntentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutPaymentIntent>>,
+    TError,
+    { data: BodyType<CheckoutPaymentIntentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCheckoutPaymentIntent>>,
+  TError,
+  { data: BodyType<CheckoutPaymentIntentRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCheckoutPaymentIntent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCheckoutPaymentIntent>>,
+    { data: BodyType<CheckoutPaymentIntentRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCheckoutPaymentIntent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCheckoutPaymentIntentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCheckoutPaymentIntent>>
+>;
+export type CreateCheckoutPaymentIntentMutationBody =
+  BodyType<CheckoutPaymentIntentRequest>;
+export type CreateCheckoutPaymentIntentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a Stripe PaymentIntent for inline card payment
+ */
+export const useCreateCheckoutPaymentIntent = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutPaymentIntent>>,
+    TError,
+    { data: BodyType<CheckoutPaymentIntentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCheckoutPaymentIntent>>,
+  TError,
+  { data: BodyType<CheckoutPaymentIntentRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCheckoutPaymentIntentMutationOptions(options));
 };
 
 /**

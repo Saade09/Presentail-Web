@@ -8,6 +8,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: checkout
+    description: Checkout payment operations
   - name: health
     description: Health operations
   - name: push
@@ -1156,6 +1158,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /checkout/payment-intent:
+    post:
+      operationId: createCheckoutPaymentIntent
+      tags: [checkout]
+      summary: Create a Stripe PaymentIntent for inline card payment
+      description: |
+        Creates a Stripe PaymentIntent for the supplied cart. Cart prices are
+        resolved server-side from the Presentail OS catalog (never from
+        client-supplied values) so the client cannot manipulate the charge.
+        Returns a `clientSecret` that the web client passes to Stripe Elements'
+        `confirmCardPayment`. The `orderId` returned must be used as-is when
+        submitting the WooCommerce order after payment is confirmed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutPaymentIntentRequest"
+      responses:
+        "200":
+          description: PaymentIntent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutPaymentIntentResponse"
+        "400":
+          description: Invalid request (missing orderId, empty cart, invalid quantities)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: One or more cart products not found in the catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Stripe not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /me/referral-code:
     get:
       operationId: getMyReferralCode
@@ -1181,6 +1226,67 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    CheckoutPaymentIntentCartItem:
+      type: object
+      properties:
+        wcId:
+          type: integer
+          description: WooCommerce product ID. The server resolves the price from the catalog.
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - wcId
+        - quantity
+    CheckoutPaymentIntentRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckoutPaymentIntentCartItem"
+          minItems: 1
+          description: Cart items. Prices are resolved server-side and never read from the client.
+        orderId:
+          type: string
+          description: App-generated order ID that binds this PaymentIntent to the WooCommerce order.
+        currency:
+          type: string
+          description: ISO 4217 currency code (default USD). The PaymentIntent is charged in this currency.
+        email:
+          type: string
+          description: Shopper email for Stripe receipt. Optional.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Extra key-value pairs forwarded to Stripe PaymentIntent metadata.
+      required:
+        - items
+        - orderId
+    CheckoutPaymentIntentResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        clientSecret:
+          type: string
+          description: Stripe PaymentIntent client_secret. Pass to stripe.confirmCardPayment().
+        orderId:
+          type: string
+          description: The orderId that was bound to this PaymentIntent. Use as-is in /woo/order.
+        amount:
+          type: integer
+          description: Charge amount in Stripe minor units (e.g. cents for USD).
+        currency:
+          type: string
+          description: ISO 4217 currency code used for the charge.
+      required:
+        - ok
+        - clientSecret
+        - orderId
+        - amount
+        - currency
     PartnerApplicationInput:
       type: object
       properties:

@@ -1706,6 +1706,76 @@ export const DeleteMyOccasionResponse = zod.object({
 });
 
 /**
+ * Creates a Stripe PaymentIntent for the supplied cart. Cart prices are
+resolved server-side from the Presentail OS catalog (never from
+client-supplied values) so the client cannot manipulate the charge.
+Returns a `clientSecret` that the web client passes to Stripe Elements'
+`confirmCardPayment`. The `orderId` returned must be used as-is when
+submitting the WooCommerce order after payment is confirmed.
+
+ * @summary Create a Stripe PaymentIntent for inline card payment
+ */
+
+export const CreateCheckoutPaymentIntentBody = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        wcId: zod
+          .number()
+          .describe(
+            "WooCommerce product ID. The server resolves the price from the catalog.",
+          ),
+        quantity: zod.number().min(1),
+      }),
+    )
+    .min(1)
+    .describe(
+      "Cart items. Prices are resolved server-side and never read from the client.",
+    ),
+  orderId: zod
+    .string()
+    .describe(
+      "App-generated order ID that binds this PaymentIntent to the WooCommerce order.",
+    ),
+  currency: zod
+    .string()
+    .optional()
+    .describe(
+      "ISO 4217 currency code (default USD). The PaymentIntent is charged in this currency.",
+    ),
+  email: zod
+    .string()
+    .optional()
+    .describe("Shopper email for Stripe receipt. Optional."),
+  metadata: zod
+    .record(zod.string(), zod.string())
+    .optional()
+    .describe(
+      "Extra key-value pairs forwarded to Stripe PaymentIntent metadata.",
+    ),
+});
+
+export const CreateCheckoutPaymentIntentResponse = zod.object({
+  ok: zod.boolean(),
+  clientSecret: zod
+    .string()
+    .describe(
+      "Stripe PaymentIntent client_secret. Pass to stripe.confirmCardPayment().",
+    ),
+  orderId: zod
+    .string()
+    .describe(
+      "The orderId that was bound to this PaymentIntent. Use as-is in \/woo\/order.",
+    ),
+  amount: zod
+    .number()
+    .describe("Charge amount in Stripe minor units (e.g. cents for USD)."),
+  currency: zod
+    .string()
+    .describe("ISO 4217 currency code used for the charge."),
+});
+
+/**
  * Returns a stable referral code derived from the customer's local ID
 (base-36 encoded, uppercased, prefixed with PT). No database storage
 required — the code is fully deterministic. Requires a Bearer token or

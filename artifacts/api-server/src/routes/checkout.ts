@@ -149,4 +149,99 @@ router.post("/checkout/session", async (req, res) => {
   }
 });
 
+type PaymentIntentBody = {
+  items: { wcId: number; quantity: number }[];
+  orderId: string;
+  currency?: string;
+  email?: string;
+  metadata?: Record<string, string>;
+};
+
+router.post("/checkout/payment-intent", async (req, res) => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    return res.status(503).json({
+      ok: false,
+      code: "stripe_not_configured",
+      message:
+        "Stripe isn't configured yet. Add STRIPE_SECRET_KEY to enable real card payments.",
+    });
+  }
+
+  const { items, orderId, currency: rawCurrency, email, metadata } =
+    req.body as PaymentIntentBody;
+
+  if (!orderId) {
+    return res.status(400).json({ ok: false, message: "orderId is required" }); // i18n-ignore
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "No items in cart" }); // i18n-ignore
+  }
+  if (items.some((i) => !i.wcId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
+    return res.status(400).json({
+      ok: false,
+      message: "Each item must have a valid wcId and a positive integer quantity", // i18n-ignore
+    });
+  }
+
+  const store = resolveStoreFromRequest(req);
+  const catalogResult = await resolveCartItems(items, store);
+  if (!catalogResult.ok) {
+    return res.status(422).json({ ok: false, message: catalogResult.message });
+  }
+
+  const currency = normalizeCurrency(rawCurrency ?? "USD");
+  const stripeCurrency = currency.toLowerCase();
+
+  try {
+    const convertedItems = await Promise.all(
+      catalogResult.items.map(async (i) => {
+        const convertedUnit = await convertFromUsd(i.priceUsd, currency);
+        return { ...i, minorUnit: toStripeMinorUnits(convertedUnit, currency) };
+      }),
+    );
+
+    const totalMinorUnits = convertedItems.reduce(
+      (sum, i) => sum + i.minorUnit * i.quantity,
+      0,
+    );
+
+    const stripe = new Stripe(key);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalMinorUnits,
+      currency: stripeCurrency,
+      metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
+      ...(email ? { receipt_email: email } : {}),
+    });
+
+    storePaymentIntent({
+      orderId,
+      paymentRef: paymentIntent.id,
+      provider: "stripe",
+      totalUsd: catalogResult.subtotalUsd,
+      snapshot: {
+        items: catalogResult.items.map((i) => ({
+          wcId: i.wcId,
+          quantity: i.quantity,
+          priceUsd: i.priceUsd,
+        })),
+        district: "",
+        expressDelivery: false,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      clientSecret: paymentIntent.client_secret,
+      orderId,
+      amount: totalMinorUnits,
+      currency,
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ ok: false, code: "stripe_error", message: err?.message ?? "Stripe error" }); // i18n-ignore
+  }
+});
+
 export default router;

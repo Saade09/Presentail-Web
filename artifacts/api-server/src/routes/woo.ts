@@ -10,6 +10,7 @@ import {
 } from "../lib/wooOrders";
 import {
   verifyStripePayment,
+  verifyStripePaymentIntentPaid,
   verifyMamoPayment,
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
@@ -1284,10 +1285,14 @@ router.post("/woo/order", async (req, res) => {
         "woo.order: STRIPE_SECRET_KEY not configured, recording order without set_paid",
       );
     } else {
-      // Layer 2: Verify with Stripe that payment_status is "paid" AND that
-      // the session's metadata.orderId matches (guards against Stripe-side
-      // tampering and confirms the session was created for this order).
-      paymentVerified = await verifyStripePayment(paymentRef, body.orderId);
+      // Layer 2: Verify with Stripe. PaymentIntent IDs start with "pi_"
+      // (inline Elements flow); Checkout Session IDs start with "cs_"
+      // (hosted redirect flow). Route to the correct verification function.
+      if (paymentRef.startsWith("pi_")) {
+        paymentVerified = await verifyStripePaymentIntentPaid(paymentRef, body.orderId);
+      } else {
+        paymentVerified = await verifyStripePayment(paymentRef, body.orderId);
+      }
       if (!paymentVerified) {
         req.log?.warn?.(
           { appOrderId: body.orderId, paymentRef },
