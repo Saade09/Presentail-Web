@@ -121,7 +121,7 @@ export default function Shop() {
         ? (brandProducts.data?.brandName ?? brand)
         : t("shop.allCollection");
 
-  const occasionDescription = catalogOccasion?.description;
+
 
   const brandDisplayName = brandProducts.data?.brandName ?? brand;
   const clearBrandHref = occasion
@@ -168,11 +168,7 @@ export default function Shop() {
                 </span>
               )}
             </h1>
-            <p className="text-muted-foreground text-lg max-w-xl">
-              {occasion && occasionDescription
-                ? occasionDescription
-                : t("shop.subtitle", { country: country?.name ?? "Lebanon" })}
-            </p>
+
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
