@@ -18,6 +18,7 @@ import {
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
+import { OCCASION_OPTIONS } from "@/data/occasions";
 
 type MegaItem = {
   label: string;
@@ -37,20 +38,12 @@ const MEGA_MENUS: MegaMenuDef[] = [
   {
     key: "occasions",
     labelKey: "nav.occasions",
-    items: [
-      { label: "Birthday Gifts",    href: "/shop?occasion=birthday",          img: "/catalog/occasions/birthday.webp" },
-      { label: "Love & Romance",    href: "/shop?occasion=love-romance",       img: "/catalog/occasions/love-romance.webp" },
-      { label: "Anniversary",       href: "/shop?occasion=anniversary",        emoji: "💍" },
-      { label: "Wedding",           href: "/shop?occasion=wedding",            emoji: "💒" },
-      { label: "Get Well Soon",     href: "/shop?occasion=get-well-soon",      emoji: "🌸" },
-      { label: "Thank You",         href: "/shop?occasion=thank-you",          img: "/catalog/occasions/thank-you.webp" },
-      { label: "I'm Sorry",         href: "/shop?occasion=im-sorry",           emoji: "🕊️" },
-      { label: "Newborn",           href: "/shop?occasion=newborn",            emoji: "👶" },
-      { label: "Congratulations",   href: "/shop?occasion=congratulations",    emoji: "🎊" },
-      { label: "Graduation",        href: "/shop?occasion=graduation",         emoji: "🎓" },
-      { label: "Funeral",           href: "/shop?occasion=condolences",        img: "/catalog/occasions/condolences.webp" },
-      { label: "Summer Collection", href: "/shop?occasion=summer-collection",  img: "/catalog/categories/lux-arrangements.avif" },
-    ],
+    items: OCCASION_OPTIONS.map((o) => ({
+      label: o.label,
+      href: `/shop?occasion=${o.value}`,
+      ...("img" in o ? { img: o.img } : {}),
+      ...("emoji" in o ? { emoji: o.emoji } : {}),
+    })),
     footer: { label: "View All Occasions", href: "/occasions" },
   },
   {

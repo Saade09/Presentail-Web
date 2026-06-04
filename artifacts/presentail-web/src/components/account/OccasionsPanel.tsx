@@ -21,6 +21,11 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
+import { OCCASION_OPTIONS } from "@/data/occasions";
+
+function displayOccasionLabel(slug: string): string {
+  return OCCASION_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
+}
 
 type Occasion = {
   id: number;
@@ -36,17 +41,6 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-const OCCASION_TYPE_KEYS = [
-  "account.occasions.type.happyBirthday",
-  "account.occasions.type.happyAnniversary",
-  "account.occasions.type.ramadan",
-  "account.occasions.type.newBabyBorn",
-  "account.occasions.type.iLoveYou",
-  "account.occasions.type.congratulations",
-  "account.occasions.type.getWellSoon",
-  "account.occasions.type.somethingElse",
-] as const;
 
 function daysInMonth(month: number) {
   return new Date(2000, month, 0).getDate();
@@ -71,8 +65,10 @@ function OccasionForm({
 
   const resolveInitialLabel = () => {
     if (!initial?.label) return "";
-    const matchingKey = OCCASION_TYPE_KEYS.find((k) => t(k) === initial.label);
-    return matchingKey ?? initial.label;
+    if (OCCASION_OPTIONS.some((o) => o.value === initial.label)) return initial.label;
+    const byLabel = OCCASION_OPTIONS.find((o) => o.label === initial.label);
+    if (byLabel) return byLabel.value;
+    return "";
   };
 
   const [label, setLabel] = useState(resolveInitialLabel);
@@ -84,12 +80,8 @@ function OccasionForm({
   const monthNum = Number(month);
   const maxDays = monthNum >= 1 && monthNum <= 12 ? daysInMonth(monthNum) : 31;
 
-  const resolvedLabel = OCCASION_TYPE_KEYS.includes(label as (typeof OCCASION_TYPE_KEYS)[number])
-    ? t(label)
-    : label;
-
   const handleSubmit = async () => {
-    if (!personName.trim() || !resolvedLabel.trim()) return;
+    if (!personName.trim() || !label.trim()) return;
     const m = parseInt(month, 10);
     const d = parseInt(day, 10);
     if (isNaN(m) || m < 1 || m > 12 || isNaN(d) || d < 1 || d > maxDays) return;
@@ -97,7 +89,7 @@ function OccasionForm({
     try {
       await onSave({
         personName: personName.trim(),
-        label: resolvedLabel,
+        label,
         month: m,
         day: d,
         note: note.trim() || null,
@@ -109,7 +101,7 @@ function OccasionForm({
 
   const valid =
     personName.trim().length > 0 &&
-    resolvedLabel.trim().length > 0 &&
+    label.trim().length > 0 &&
     parseInt(month, 10) >= 1 &&
     parseInt(month, 10) <= 12 &&
     parseInt(day, 10) >= 1 &&
@@ -138,9 +130,9 @@ function OccasionForm({
             <SelectValue placeholder={t("account.occasions.occasionTypePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            {OCCASION_TYPE_KEYS.map((key) => (
-              <SelectItem key={key} value={key}>
-                {t(key)}
+            {OCCASION_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -313,7 +305,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium text-sm truncate">
-                        {occ.personName ? `${occ.personName} — ` : ""}{occ.label}
+                        {occ.personName ? `${occ.personName} — ` : ""}{displayOccasionLabel(occ.label)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {formatOccasionDate(occ.month, occ.day)}
