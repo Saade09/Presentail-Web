@@ -18,6 +18,14 @@ let injectSeoTagsAsync, initImageDimsDb, collectSidecars;
 const brotliCompress = promisify(zlib.brotliCompress);
 const gzipCompress = promisify(zlib.gzip);
 
+/**
+ * Returns an RFC 7231-formatted absolute date string suitable for the
+ * `Expires` header, computed as now + maxAgeSeconds.
+ */
+function makeExpires(maxAgeSeconds) {
+  return new Date(Date.now() + maxAgeSeconds * 1000).toUTCString();
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, "dist/public");
 const PORT = Number(process.env.PORT ?? 24188);
@@ -657,6 +665,8 @@ const server = http.createServer(async (req, res) => {
           // `.replit.app` preview domains) so Lighthouse / Googlebot don't
           // see "noindex" on a production deployment.
           "x-robots-tag": "index, follow",
+          "cache-control": "no-cache",
+          "expires": "0",
           "vary": "Accept-Encoding",
         };
         if (encoding) headers["content-encoding"] = encoding;
@@ -674,6 +684,7 @@ const server = http.createServer(async (req, res) => {
       // .well-known files (AASA, assetlinks) must be re-fetched regularly so
       // OS verifiers pick up updates; don't cache them for more than an hour.
       const isWellKnown = filePath.includes(`${path.sep}.well-known${path.sep}`);
+      const maxAgeSeconds = isWellKnown ? 3600 : isIconAsset ? 86400 : 31536000;
       const cacheControl = isWellKnown
         ? "public, max-age=3600, must-revalidate"
         : isIconAsset
@@ -689,6 +700,7 @@ const server = http.createServer(async (req, res) => {
       const headers = {
         "content-type": contentType,
         "cache-control": cacheControl,
+        "expires": makeExpires(maxAgeSeconds),
         "vary": "Accept-Encoding",
       };
 
@@ -744,6 +756,8 @@ const server = http.createServer(async (req, res) => {
     const headers = {
       "content-type": MIME[".html"],
       "x-robots-tag": "index, follow",
+      "cache-control": "no-cache",
+      "expires": "0",
       "vary": "Accept-Encoding",
     };
     if (encoding) headers["content-encoding"] = encoding;
