@@ -44,6 +44,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
             alt={banner.title ?? "Banner"}
             className="w-full h-full object-cover"
             loading={active ? "eager" : "lazy"}
+            {...(active ? { fetchPriority: "high" } : {})}
             style={{ willChange: "transform" }}
             initial={{ scale: 1.07 }}
             animate={{ scale: active ? 1.0 : 1.07 }}

@@ -8,6 +8,7 @@ interface ShimmerImageProps {
   className?: string;
   containerClassName?: string;
   fallback?: ReactNode;
+  priority?: boolean;
 }
 
 /**
@@ -15,6 +16,10 @@ interface ShimmerImageProps {
  * Mirrors the mobile ShimmerPlaceholder approach — shimmer is layered
  * beneath the image and removed once the image has fully loaded.
  * Already-visited URLs skip the shimmer entirely (cached in module scope).
+ *
+ * Pass `priority={true}` for above-the-fold images: sets loading="eager" and
+ * fetchpriority="high" so the browser fetches them immediately, and skips the
+ * opacity fade so there is no render delay on top of the eager fetch.
  */
 export function ShimmerImage({
   src,
@@ -22,8 +27,9 @@ export function ShimmerImage({
   className = "",
   containerClassName = "",
   fallback,
+  priority = false,
 }: ShimmerImageProps) {
-  const [loaded, setLoaded] = useState(() => loadedUrls.has(src));
+  const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
 
   if (failed) {
@@ -39,11 +45,13 @@ export function ShimmerImage({
         src={src}
         alt={alt}
         className={[
-          "w-full h-full transition-opacity duration-500",
+          "w-full h-full",
+          priority ? "" : "transition-opacity duration-500",
           loaded ? "opacity-100" : "opacity-0",
           className,
         ].join(" ")}
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        {...(priority ? { fetchPriority: "high" } : {})}
         onLoad={() => {
           loadedUrls.add(src);
           setLoaded(true);

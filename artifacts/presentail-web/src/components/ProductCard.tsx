@@ -23,6 +23,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
               src={imageUrl}
               alt={product.name}
               className="object-cover group-hover:scale-105 transition-transform duration-500"
+              priority={index < 4}
               fallback={
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-serif text-2xl">
                   P

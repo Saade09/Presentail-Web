@@ -42,7 +42,7 @@ export default function BrandDetail() {
         <div className="flex flex-col md:flex-row items-center gap-8 mb-16 pb-8 border-b">
           <div className="w-32 h-32 bg-secondary/50 rounded-2xl flex items-center justify-center p-4 shrink-0">
             {brand?.image ? (
-              <img src={brand.image} alt={brand.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+              <img src={brand.image} alt={brand.name} className="max-w-full max-h-full object-contain mix-blend-multiply" loading="eager" fetchPriority="high" />
             ) : (
               <span className="font-serif text-4xl text-muted-foreground">{brand?.name?.charAt(0) || slug?.charAt(0)}</span>
             )}

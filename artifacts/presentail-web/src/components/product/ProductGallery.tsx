@@ -61,6 +61,8 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
               src={current.uri}
               alt={productName}
               className="w-full h-full object-cover cursor-zoom-in"
+              loading="eager"
+              fetchPriority="high"
               onClick={handleExpand}
             />
           ) : (
