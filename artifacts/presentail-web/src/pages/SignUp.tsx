@@ -68,6 +68,7 @@ export default function SignUpPage() {
   const onContinueToPhone = () => {
     const errs: Record<string, string> = {};
     if (!firstName.trim()) errs.firstName = t("auth.firstNameRequired");
+    if (!lastName.trim()) errs.lastName = t("auth.lastNameRequired");
     if (!password) errs.password = t("auth.passwordRequired");
     else if (password.length < 8) errs.password = t("auth.passwordTooShort");
     if (Object.keys(errs).length > 0) {
@@ -341,12 +342,18 @@ export default function SignUpPage() {
                     type="text"
                     autoComplete="family-name"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    onChange={(e) => {
+                      setLastName(e.target.value);
+                      if (errors.lastName) setErrors((p) => ({ ...p, lastName: "" }));
+                    }}
                     placeholder={t("auth.lastNamePlaceholder")}
                     disabled={busy}
                     data-testid="input-signup-last-name"
                     className="h-12 rounded-sm"
                   />
+                  {errors.lastName && (
+                    <p className="text-xs text-destructive">{errors.lastName}</p>
+                  )}
                 </div>
               </div>
 
@@ -390,7 +397,7 @@ export default function SignUpPage() {
                 size="lg"
                 className="w-full h-12 rounded-xl mt-2"
                 onClick={onContinueToPhone}
-                disabled={busy || !firstName.trim() || !password}
+                disabled={busy || !firstName.trim() || !lastName.trim() || !password}
                 data-testid="button-signup-continue"
               >
                 {t("auth.continue")}
