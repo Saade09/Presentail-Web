@@ -37,21 +37,25 @@ export default function Home() {
 
         <HomepageCollections />
 
-        {/* Second themed rail — Flower Boxes. Same component, different category. */}
-        <BestSellersPreview
-          categorySlug="flower-boxes"
-          titleKey="collections.boxes.title"
-          railKey="rail-boxes"
-          testId="section-collection-boxes"
-        />
+        {/* Second themed rail — Flower Boxes. Not shown in Cyprus (category doesn't exist there). */}
+        {countryCode !== "CY" && (
+          <BestSellersPreview
+            categorySlug="flower-boxes"
+            titleKey="collections.boxes.title"
+            railKey="rail-boxes"
+            testId="section-collection-boxes"
+          />
+        )}
 
-        {/* Third themed rail — Cakes. */}
-        <BestSellersPreview
-          categorySlug="cakes"
-          titleKey="collections.cakes.title"
-          railKey="rail-cakes"
-          testId="section-collection-cakes"
-        />
+        {/* Third themed rail — Cakes. Not shown in Cyprus (category doesn't exist there). */}
+        {countryCode !== "CY" && (
+          <BestSellersPreview
+            categorySlug="cakes"
+            titleKey="collections.cakes.title"
+            railKey="rail-cakes"
+            testId="section-collection-cakes"
+          />
+        )}
       </div>
 
       {/* Trustpilot review carousel — sits above the footer */}
