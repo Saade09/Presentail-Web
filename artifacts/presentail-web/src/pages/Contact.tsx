@@ -13,7 +13,6 @@ type Copy = {
   whatsappBadge: string;
   phone: string;
   phoneDesc: string;
-  phoneResponse: string;
   email: string;
   emailDesc: string;
   emailResponse: string;
@@ -51,7 +50,6 @@ const COPY: Record<Language, Copy> = {
     whatsappBadge: "Fastest response",
     phone: "Phone",
     phoneDesc: "Call us directly during business hours.",
-    phoneResponse: "Business hours",
     email: "Email",
     emailDesc: "Best for detailed requests or attachments.",
     emailResponse: "Within 24 hours",
@@ -79,7 +77,6 @@ const COPY: Record<Language, Copy> = {
     whatsappBadge: "أسرع رد",
     phone: "الهاتف",
     phoneDesc: "اتصل بنا مباشرة خلال ساعات العمل.",
-    phoneResponse: "خلال ساعات العمل",
     email: "البريد الإلكتروني",
     emailDesc: "الأفضل للطلبات التفصيلية أو المرفقات.",
     emailResponse: "خلال 24 ساعة",
@@ -108,7 +105,6 @@ const COPY: Record<Language, Copy> = {
     whatsappBadge: "Réponse la plus rapide",
     phone: "Téléphone",
     phoneDesc: "Appelez-nous pendant les heures d'ouverture.",
-    phoneResponse: "Heures d'ouverture",
     email: "E-mail",
     emailDesc: "Idéal pour les demandes détaillées ou les pièces jointes.",
     emailResponse: "Sous 24 heures",
@@ -256,10 +252,7 @@ export default function Contact() {
                 className={`h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 ${isRtl ? "rotate-180 -translate-x-1 group-hover:translate-x-0" : "translate-x-0 group-hover:translate-x-1"}`}
               />
             </div>
-            <p className="text-sm text-muted-foreground mt-1 mb-2">{c.phoneDesc}</p>
-            <p className="text-xs text-muted-foreground font-medium mb-3">
-              {c.phoneResponse}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1 mb-3">{c.phoneDesc}</p>
             <p className="text-sm font-medium">{PHONE_DISPLAY}</p>
           </a>
 
