@@ -35,7 +35,7 @@ const SOCIAL = {
 type ColumnHeadingProps = { children: React.ReactNode };
 function ColumnHeading({ children }: ColumnHeadingProps) {
   return (
-    <h3 className="font-serif text-base text-white mb-4">{children}</h3>
+    <h2 className="font-serif text-base text-white mb-4">{children}</h2>
   );
 }
 
