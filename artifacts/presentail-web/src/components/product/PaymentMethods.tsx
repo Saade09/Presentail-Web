@@ -83,7 +83,7 @@ export function PaymentMethods({
         </p>
       ) : null}
 
-      <div className="flex flex-nowrap items-center gap-[14px] overflow-x-auto">
+      <div className="flex flex-nowrap items-center gap-[8px] overflow-x-auto">
         {logos.map((logo) => (
           <span
             key={logo.name}
@@ -91,9 +91,9 @@ export function PaymentMethods({
             className={
               logo.fill
                 ? "inline-flex overflow-hidden rounded-[4px] shadow-sm"
-                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm"
+                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[4px]"
             }
-            style={{ width: 40, height: 28 }}
+            style={{ width: 48, height: 34 }}
           >
             <img
               src={logo.src}

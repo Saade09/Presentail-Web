@@ -22,12 +22,12 @@ export function ProductBenefits({ freeDeliveryThresholdNode, freeDeliveryEnabled
     {
       icon: <MapPin className="w-5 h-5" />,
       title: "No Address Hassle",
-      sub: "We collect the recipient's address for you.",
+      sub: "We will collect the address for you.",
     },
     {
       icon: <Navigation className="w-5 h-5" />,
       title: "Live Order Tracking",
-      sub: "Real-time updates from atelier to door.",
+      sub: "You will receive real-time updates.",
     },
   ];
 

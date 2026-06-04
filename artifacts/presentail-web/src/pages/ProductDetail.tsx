@@ -322,10 +322,12 @@ export default function ProductDetail() {
               freeDeliveryEnabled={delivery.freeDeliveryEnabled}
             />
 
-            <PaymentMethods
-              label={t("payments.waysToPay")}
-              countryCode={countryCode}
-            />
+            <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+              <PaymentMethods
+                label={t("payments.waysToPay")}
+                countryCode={countryCode}
+              />
+            </div>
           </div>
         </div>
 
