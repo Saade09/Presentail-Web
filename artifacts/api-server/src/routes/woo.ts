@@ -97,6 +97,28 @@ type Lang = (typeof SUPPORTED_LANGS)[number];
 // isVisibleProduct / isDeliverable / transformProduct pipeline works
 // without modification. This is the Phase 2 adapter; Phase 3 will clean
 // up the WcProduct type entirely.
+/**
+ * Decode HTML entities that WooCommerce (and Presentail OS, which is WC-powered)
+ * HTML-encodes in API text fields. Applied to product names, brand names,
+ * category names, and occasion names — never to HTML description fields.
+ */
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#8216;/g, "\u2018")
+    .replace(/&#8217;/g, "\u2019")
+    .replace(/&#8220;/g, "\u201C")
+    .replace(/&#8221;/g, "\u201D")
+    .replace(/&#8211;/g, "\u2013")
+    .replace(/&#8212;/g, "\u2014")
+    .replace(/&#8230;/g, "\u2026")
+    .replace(/&nbsp;/g, "\u00A0");
+}
+
 function mapOsProductToWcShape(p: OSProduct): WcProduct {
   const meta: WcMeta[] = [];
   if (p.deliverableCountries && p.deliverableCountries.length > 0) {
@@ -116,14 +138,14 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
   // existing occasion-products and category-products filtering still works
   // (both read from p.categories[].slug in the WcProduct shape).
   const categories: WcProductCategory[] = [
-    ...p.categories.map((c: { name: string; slug: string }, i: number) => ({ id: i + 1, name: c.name, slug: c.slug })),
-    ...p.occasions.map((o: { name: string; slug: string }, i: number) => ({ id: 10000 + i, name: o.name, slug: o.slug })),
+    ...p.categories.map((c: { name: string; slug: string }, i: number) => ({ id: i + 1, name: decodeHtmlEntities(c.name), slug: c.slug })),
+    ...p.occasions.map((o: { name: string; slug: string }, i: number) => ({ id: 10000 + i, name: decodeHtmlEntities(o.name), slug: o.slug })),
   ];
 
   return {
     id: p.wcId ?? 0,
     slug: p.id,
-    name: p.name,
+    name: decodeHtmlEntities(p.name),
     price: String(p.price),
     short_description: p.description,
     stock_status: p.inStock ? "instock" : "outofstock",
@@ -313,7 +335,7 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
   return {
     id: p.slug,
     wcId: p.id,
-    name: p.name?.replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/&#8217;/g, "'") ?? "",
+    name: p.name ? decodeHtmlEntities(p.name) : "",
     price: formattedPrice,
     priceValue: price,
     image,
@@ -337,7 +359,7 @@ router.get("/woo/brands", async (req, res) => {
       ok: true,
       brands: osBrands.map((b) => ({
         id: b.slug,
-        name: b.name,
+        name: decodeHtmlEntities(b.name),
         slug: b.slug,
         count: undefined,
         image: b.image ?? null,
@@ -361,7 +383,7 @@ router.get("/woo/brands", async (req, res) => {
       ok: true,
       brands: brands.map((b) => ({
         id: b.id,
-        name: b.name,
+        name: decodeHtmlEntities(b.name),
         slug: b.slug,
         count: b.count,
         image: b.image?.src ?? null,
@@ -383,7 +405,7 @@ router.get("/woo/brand-products", async (req, res) => {
     const filter = readDeliveryFilter(req);
     const osBrands = getOsBrands();
     const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
-    const brandName = brandEntry?.name ?? brandSlug;
+    const brandName = brandEntry ? decodeHtmlEntities(brandEntry.name) : brandSlug;
     const brandImage = brandEntry?.image ?? null;
 
     const products = osProducts
@@ -415,7 +437,7 @@ router.get("/woo/brand-products", async (req, res) => {
       return res.json({ ok: true, products: [], count: 0 });
     }
     const brandId = brandList[0].id;
-    const brandName = brandList[0].name;
+    const brandName = decodeHtmlEntities(brandList[0].name);
     const brandImage = brandList[0].image?.src ?? null;
 
     const r = await wooFetch(
@@ -899,7 +921,7 @@ router.get("/woo/brand", async (req, res) => {
       ok: true,
       brand: {
         id: b.slug,
-        name: b.name,
+        name: decodeHtmlEntities(b.name),
         slug: b.slug,
         description: b.description ?? "",
         image: b.image ?? null,
@@ -931,7 +953,7 @@ router.get("/woo/brand", async (req, res) => {
       ok: true,
       brand: {
         id: b.id,
-        name: b.name,
+        name: decodeHtmlEntities(b.name),
         slug: b.slug,
         description: typeof b.description === "string" ? b.description : "",
         image: b.image?.src ?? null,
@@ -1551,9 +1573,9 @@ router.get("/woo/search", async (req, res) => {
 
     const osBrands = getOsBrands() ?? [];
     const matchingBrands = osBrands
-      .filter((b) => b.name.toLowerCase().includes(lower))
+      .filter((b) => decodeHtmlEntities(b.name).toLowerCase().includes(lower))
       .slice(0, 5)
-      .map((b) => ({ slug: b.slug, name: b.name, image: b.image ?? null }));
+      .map((b) => ({ slug: b.slug, name: decodeHtmlEntities(b.name), image: b.image ?? null }));
 
     return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
   } catch (err: any) {
