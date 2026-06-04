@@ -334,7 +334,7 @@ export default function SignUpPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium" htmlFor="signup-last-name">
-                    {t("auth.lastNameLabel")}
+                    {t("auth.lastNameLabel")} <span className="text-destructive">*</span>
                   </label>
                   <Input
                     id="signup-last-name"
