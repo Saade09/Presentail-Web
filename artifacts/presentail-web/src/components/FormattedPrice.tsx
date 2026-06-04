@@ -32,7 +32,7 @@ type Props = {
  * for non-display contexts (aria-label, document.title, analytics payloads,
  * i18n string params) where a plain string is required.
  */
-export function FormattedPrice({ usdValue, className, symbolSize = "1em" }: Props) {
+export function FormattedPrice({ usdValue, className, symbolSize = "0.75em" }: Props) {
   const { currencyCode, formatPrice } = useDisplayCurrency();
   const { data: fxData } = useFxRates();
   const rates = (fxData?.rates ?? {}) as Record<string, number>;
@@ -41,10 +41,7 @@ export function FormattedPrice({ usdValue, className, symbolSize = "1em" }: Prop
     const rate = Number((rates as Record<string, number>)["AED"] ?? 0);
     if (rate > 0) {
       return (
-        <span
-          style={{ display: "inline-flex", alignItems: "center", gap: "0.15em" }}
-          className={className}
-        >
+        <span style={{ whiteSpace: "nowrap" }} className={className}>
           <DirhamSymbol size={symbolSize} />
           {aedNumStr(usdValue, rates)}
         </span>

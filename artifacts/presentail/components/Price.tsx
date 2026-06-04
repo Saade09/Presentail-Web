@@ -33,7 +33,7 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
 
   if (currency.code === "AED") {
     const fontSize = (style?.fontSize as number) ?? 14;
-    const glyph = symbolSize ?? Math.round(fontSize * 0.95);
+    const glyph = symbolSize ?? Math.round(fontSize * 0.75);
     const tint = symbolColor ?? (style?.color as string) ?? "#00414E";
     return (
       <View

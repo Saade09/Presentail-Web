@@ -583,7 +583,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Price
             value={priceValue}
-            style={{ fontFamily: headingFontMedium, fontSize: 24, color: colors.primary }}
+            style={{ fontFamily: headingFontMedium, fontSize: 26, color: colors.text }}
           />
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
             {t.taxInclusive}
