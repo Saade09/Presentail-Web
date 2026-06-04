@@ -493,7 +493,7 @@ export default function SignInPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("auth.passwordPlaceholder")}
+                  placeholder={t("auth.passwordPlaceholderLogin")}
                   data-testid="input-signin-password"
                   disabled={busy}
                   onKeyDown={(e) => {

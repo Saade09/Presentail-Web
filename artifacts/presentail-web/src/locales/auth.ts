@@ -51,6 +51,7 @@ export const authStrings: Dict = {
 
   "auth.passwordLabel": { en: "Password", ar: "كلمة المرور" },
   "auth.passwordPlaceholder": { en: "Choose a password", ar: "اختر كلمة مرور" },
+  "auth.passwordPlaceholderLogin": { en: "Enter your password", ar: "أدخل كلمة المرور" },
   "auth.passwordRequired": { en: "Password is required.", ar: "كلمة المرور مطلوبة." },
   "auth.passwordTooShort": { en: "Password must be at least 8 characters.", ar: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل." },
   "auth.showPassword": { en: "Show password", ar: "إظهار كلمة المرور" },
@@ -112,6 +113,7 @@ export const authStringsFr: Record<string, string> = {
 
   "auth.passwordLabel": "Mot de passe",
   "auth.passwordPlaceholder": "Choisissez un mot de passe",
+  "auth.passwordPlaceholderLogin": "Entrez votre mot de passe",
   "auth.passwordRequired": "Le mot de passe est obligatoire.",
   "auth.passwordTooShort": "Le mot de passe doit comporter au moins 8 caractères.",
   "auth.showPassword": "Afficher le mot de passe",
