@@ -84,7 +84,6 @@ export default function SavedAddressFormScreen() {
     useState<CountryDialCode>(
       COUNTRY_DIAL_CODES.find((c) => c.code === "LB") ?? COUNTRY_DIAL_CODES[0],
     );
-  const [isDefault, setIsDefault] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -134,7 +133,6 @@ export default function SavedAddressFormScreen() {
       } else if (matched) {
         setRecipientPhoneCountry(matched);
       }
-      setIsDefault(existing.isDefault);
       setHydrated(true);
     } else if (isNew) {
       setHydrated(true);
@@ -184,7 +182,7 @@ export default function SavedAddressFormScreen() {
       recipientLastName: recipientLast.trim() ? recipientLast.trim() : null,
       recipientPhoneCountryCode: trimmedPhone ? recipientPhoneCountry.dial : null,
       recipientPhone: trimmedPhone ? trimmedPhone : null,
-      isDefault,
+      isDefault: false,
     };
     const onDone = () => {
       qc.invalidateQueries({ queryKey: getListMyAddressesQueryKey() });
@@ -364,28 +362,6 @@ export default function SavedAddressFormScreen() {
             showError={phoneShowError}
           />
 
-          <Pressable
-            onPress={() => setIsDefault((v) => !v)}
-            style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 }}
-          >
-            <View
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                borderWidth: 1.5,
-                borderColor: isDefault ? colors.gold : colors.border,
-                backgroundColor: isDefault ? colors.gold : "#fff",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {isDefault ? <Feather name="check" size={13} color="#fff" /> : null}
-            </View>
-            <AppText style={{ color: colors.primary, fontFamily: "Inter_500Medium", fontSize: 14 }}>
-              {t.addressFormSetDefault}
-            </AppText>
-          </Pressable>
         </ScrollView>
 
         <View style={{ position: "absolute", left: 16, right: 16, bottom: 24 }}>

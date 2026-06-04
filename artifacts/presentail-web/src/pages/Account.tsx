@@ -430,13 +430,11 @@ type AddressData = {
 function AddressCard({
   address,
   onDelete,
-  onSetDefault,
   onEdit,
   t,
 }: {
   address: AddressData;
   onDelete: () => void;
-  onSetDefault: () => void;
   onEdit: () => void;
   t: (k: string) => string;
 }) {
@@ -448,21 +446,12 @@ function AddressCard({
   const countryDisplayName = countryCode ? (COUNTRY_NAMES[countryCode] ?? countryCode) : null;
 
   return (
-    <div
-      className={`rounded-2xl p-5 border transition-colors ${
-        address.isDefault ? "border-gold/50 bg-gold/5" : "border-border/60 bg-card"
-      }`}
-    >
+    <div className="rounded-2xl p-5 border border-border/60 bg-card transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {address.nickname && (
               <span className="text-sm text-muted-foreground">{address.nickname}</span>
-            )}
-            {address.isDefault && (
-              <span className="text-xs font-medium text-gold bg-gold/15 px-2 py-0.5 rounded-full">
-                Default
-              </span>
             )}
           </div>
           {countryCode && countryDisplayName && (
@@ -508,15 +497,6 @@ function AddressCard({
           </button>
         </div>
       </div>
-      {!address.isDefault && (
-        <button
-          type="button"
-          onClick={onSetDefault}
-          className="mt-3 text-xs font-medium text-primary hover:underline"
-        >
-          {t("account.addresses.setDefault")}
-        </button>
-      )}
     </div>
   );
 }
@@ -588,7 +568,7 @@ function AddAddressModal({
           recipientFirstName: editAddress.recipientFirstName ?? "",
           recipientLastName: editAddress.recipientLastName ?? "",
           recipientPhone,
-          isDefault: editAddress.isDefault,
+          isDefault: false,
         });
       } else {
         setForm(buildEmptyForm(defaultCountryCode));
@@ -630,7 +610,7 @@ function AddAddressModal({
         recipientLastName: form.recipientLastName.trim() || null,
         recipientPhone: trimmedPhone || null,
         recipientPhoneCountryCode: null,
-        isDefault: form.isDefault,
+        isDefault: false,
       });
 
       if (isEdit && editAddress) {
@@ -769,17 +749,6 @@ function AddAddressModal({
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-            <div>
-              <div className="text-sm font-medium">{t("account.addresses.setAsDefault")}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{t("account.addresses.setAsDefaultHint")}</div>
-            </div>
-            <Switch
-              checked={form.isDefault}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, isDefault: v }))}
-              aria-label={t("account.addresses.setAsDefault")}
-            />
-          </div>
         </div>
 
         <DialogFooter className="gap-2">
@@ -831,15 +800,6 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
     }
   };
 
-  const handleSetDefault = async (id: number) => {
-    try {
-      await apiFetch(`/me/addresses/${id}/default`, { method: "POST" });
-      setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
-    } catch {
-      toast({ title: "Couldn't update address", variant: "destructive" });
-    }
-  };
-
   return (
     <>
       <SectionCard
@@ -880,7 +840,6 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
                 address={addr}
                 onEdit={() => setEditAddress(addr)}
                 onDelete={() => setDeleteTarget(addr)}
-                onSetDefault={() => handleSetDefault(addr.id)}
                 t={t}
               />
             ))}

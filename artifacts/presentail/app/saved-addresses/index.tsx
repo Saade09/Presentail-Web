@@ -18,7 +18,6 @@ import {
   getListMyAddressesQueryKey,
   useDeleteMyAddress,
   useListMyAddresses,
-  useSetMyDefaultAddress,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -60,7 +59,6 @@ export default function SavedAddressesScreen() {
       staleTime: 30_000,
     },
   });
-  const setDefault = useSetMyDefaultAddress();
   const remove = useDeleteMyAddress();
 
   const errStatus = (error as { status?: number } | null)?.status;
@@ -94,19 +92,6 @@ export default function SavedAddressesScreen() {
           },
         },
       ],
-    );
-  };
-
-  const onSetDefault = (addr: CustomerAddress) => {
-    if (addr.isDefault) return;
-    setDefault.mutate(
-      { id: addr.id },
-      {
-        onSuccess: invalidate,
-        onError: () => {
-          Alert.alert(t.savedAddressesError, t.savedAddressesErrorBody);
-        },
-      },
     );
   };
 
@@ -247,7 +232,6 @@ export default function SavedAddressesScreen() {
               address={item}
               onEdit={() => router.push(`/saved-addresses/${item.id}` as never)}
               onDelete={() => onDelete(item)}
-              onSetDefault={() => onSetDefault(item)}
               t={t}
               colors={colors}
               isRTL={isRTL}
@@ -340,7 +324,6 @@ function AddressCard({
   address,
   onEdit,
   onDelete,
-  onSetDefault,
   t,
   colors,
   isRTL,
@@ -348,7 +331,6 @@ function AddressCard({
   address: CustomerAddress;
   onEdit: () => void;
   onDelete: () => void;
-  onSetDefault: () => void;
   t: ReturnType<typeof useT>;
   colors: ReturnType<typeof useColors>;
   isRTL: boolean;
@@ -373,7 +355,7 @@ function AddressCard({
         backgroundColor: "#fff",
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: address.isDefault ? colors.gold : colors.border,
+        borderColor: colors.border,
         padding: 18,
         gap: 10,
         shadowColor: "#000",
@@ -425,29 +407,6 @@ function AddressCard({
           </AppText>
         ) : null}
 
-        {address.isDefault ? (
-          <View
-            style={{
-              marginLeft: isRTL ? 0 : "auto",
-              marginRight: isRTL ? "auto" : 0,
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: 999,
-              backgroundColor: `${colors.gold}22`,
-            }}
-          >
-            <AppText
-              style={{
-                color: colors.gold,
-                fontFamily: "Inter_600SemiBold",
-                fontSize: 10,
-                letterSpacing: 0.8,
-              }}
-            >
-              {t.savedAddressesDefaultBadge.toUpperCase()}
-            </AppText>
-          </View>
-        ) : null}
       </View>
 
       {/* Address lines */}
@@ -581,29 +540,6 @@ function AddressCard({
           </AppText>
         </Pressable>
 
-        {!address.isDefault ? (
-          <Pressable
-            onPress={onSetDefault}
-            hitSlop={6}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 5,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Feather name="star" size={14} color={colors.gold} />
-            <AppText
-              style={{
-                color: colors.gold,
-                fontFamily: "Inter_500Medium",
-                fontSize: 13,
-              }}
-            >
-              {t.savedAddressesSetDefault}
-            </AppText>
-          </Pressable>
-        ) : null}
 
         <Pressable
           onPress={onDelete}
