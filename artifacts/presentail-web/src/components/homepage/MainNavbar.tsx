@@ -224,7 +224,7 @@ export function MainNavbar() {
           {/* Mobile sheet */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-mobile-menu">
+              <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("nav.menuAria")} data-testid="button-mobile-menu">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
@@ -321,14 +321,14 @@ export function MainNavbar() {
             <AccountDropdown />
           ) : (
             <Link href="/sign-in" aria-label={t("nav.accountAria")} {...prefetchProps(loadSignIn)}>
-              <Button variant="ghost" size="icon" data-testid="button-account">
+              <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
               </Button>
             </Link>
           )}
 
           <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
-            <Button variant="ghost" size="icon" className="relative" data-testid="button-cart">
+            <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")} data-testid="button-cart">
               <ShoppingCart className="!w-[22px] !h-[22px]" />
               <AnimatePresence>
                 {itemCount > 0 && (
