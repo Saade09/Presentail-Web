@@ -47,8 +47,8 @@ export default function Home() {
           />
         )}
 
-        {/* Third themed rail — Cakes. Not shown in Cyprus (category doesn't exist there). */}
-        {countryCode !== "CY" && (
+        {/* Third themed rail — Cakes. Only shown in Lebanon (category doesn't exist in UAE or Cyprus). */}
+        {countryCode === "LB" && (
           <BestSellersPreview
             categorySlug="cakes"
             titleKey="collections.cakes.title"
