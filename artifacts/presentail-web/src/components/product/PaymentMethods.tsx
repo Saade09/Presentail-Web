@@ -8,7 +8,7 @@ import amexLogo from "@/assets/payment-logos/amex.svg";
 import whishLogo from "@/assets/payment-logos/whish.svg";
 import paypalLogo from "@/assets/payment-logos/paypal.svg";
 
-type Logo = { name: string; src: string; maxH: string };
+type Logo = { name: string; src: string; maxH?: string; fill?: boolean };
 
 type PaymentMethodsProps = {
   label?: string | null;
@@ -48,7 +48,7 @@ export function PaymentMethods({
   const logos: Logo[] = [
     ...(showCards
       ? [
-          { name: "American Express", src: amexLogo, maxH: "max-h-[18px]" },
+          { name: "American Express", src: amexLogo, fill: true },
         ]
       : []),
     ...(showWallet
@@ -63,8 +63,8 @@ export function PaymentMethods({
           { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
         ]
       : []),
-    ...(showWhish ? [{ name: "Whish Money", src: whishLogo, maxH: "max-h-[14px]" }] : []),
-    ...(showPayPal ? [{ name: "PayPal", src: paypalLogo, maxH: "max-h-[16px]" }] : []),
+    ...(showWhish ? [{ name: "Whish Money", src: whishLogo, fill: true }] : []),
+    ...(showPayPal ? [{ name: "PayPal", src: paypalLogo, fill: true }] : []),
   ];
 
   return (
@@ -88,13 +88,21 @@ export function PaymentMethods({
           <span
             key={logo.name}
             title={logo.name}
-            className="inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm"
+            className={
+              logo.fill
+                ? "inline-flex overflow-hidden rounded-[4px] shadow-sm"
+                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm"
+            }
             style={{ width: 40, height: 28 }}
           >
             <img
               src={logo.src}
               alt={logo.name}
-              className={`block max-w-[30px] object-contain ${logo.maxH}`}
+              className={
+                logo.fill
+                  ? "block w-full h-full object-fill"
+                  : `block max-w-[30px] object-contain ${logo.maxH ?? ""}`
+              }
               loading="lazy"
               decoding="async"
               draggable={false}
