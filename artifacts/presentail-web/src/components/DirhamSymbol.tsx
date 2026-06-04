@@ -16,9 +16,11 @@ export function DirhamSymbol({ size = "1em" }: Props) {
         width: "auto",
         aspectRatio: "1000 / 870",
         display: "inline-block",
-        verticalAlign: "baseline",
+        verticalAlign: "middle",
         fill: "currentColor",
         marginRight: "0.15em",
+        position: "relative",
+        top: "-0.05em",
       }}
     >
       <path d={DIRHAM_PATH} />
