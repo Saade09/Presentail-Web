@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import PhoneInput from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
-type Step = "name-password" | "phone" | "code";
+type Step = "name-password" | "phone";
 
 type ApiAuthResponse = {
   ok: boolean;
@@ -57,11 +57,9 @@ export default function SignUpPage() {
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
-  const codeRef = useRef<HTMLInputElement | null>(null);
 
   const redirectAfterAuth = initial.redirectTo || "/account";
 
@@ -140,130 +138,7 @@ export default function SignUpPage() {
       return;
     }
     setErrors((p) => ({ ...p, phone: "" }));
-    // Phone provided — send OTP first for verification
-    setBusy(true);
-    try {
-      const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = (await res.json()) as { ok: boolean; message?: string };
-      if (!res.ok || !data.ok) {
-        toast({
-          title: t("auth.toast.error"),
-          description: data.message ?? t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-      setStep("code");
-      setTimeout(() => codeRef.current?.focus(), 100);
-    } catch (err: any) {
-      toast({
-        title: t("auth.toast.error"),
-        description: err?.message ?? t("auth.checkFailed"),
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onVerifyCode = async () => {
-    const trimmed = code.trim();
-    if (!trimmed) return;
-    if (!phone) return;
-
-    setBusy(true);
-    try {
-      const res = await fetch("/api/auth/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          code: trimmed,
-          email: initial.email.toLowerCase(),
-          password,
-          firstName: firstName.trim(),
-          lastName: lastName.trim() || undefined,
-        }),
-      });
-      const data = (await res.json()) as ApiAuthResponse;
-      if (!res.ok || !data.ok) {
-        const errCode = data.code ?? "";
-        if (/invalid_otp/.test(errCode)) {
-          toast({
-            title: t("auth.toast.error"),
-            description: t("auth.codeInvalid"),
-            variant: "destructive",
-          });
-          return;
-        }
-        if (/too_many_attempts/.test(errCode)) {
-          toast({
-            title: t("auth.toast.error"),
-            description: data.message ?? t("auth.checkFailed"),
-            variant: "destructive",
-          });
-          setStep("phone");
-          setCode("");
-          return;
-        }
-        toast({
-          title: t("auth.toast.error"),
-          description: data.message ?? t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-      if (data.token && data.user) {
-        login(data.token, mapApiUser(data.user), "password");
-        setLocation(redirectAfterAuth);
-      } else {
-        setLocation(
-          `/sign-in?email_address=${encodeURIComponent(initial.email)}`,
-        );
-      }
-    } catch (err: any) {
-      toast({
-        title: t("auth.toast.error"),
-        description: err?.message ?? t("auth.codeInvalid"),
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onResendCode = async () => {
-    if (!phone) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = (await res.json()) as { ok: boolean; message?: string };
-      if (res.ok && data.ok) {
-        toast({ title: t("auth.codeResent") });
-      } else {
-        toast({
-          title: t("auth.toast.error"),
-          description: data.message ?? t("auth.checkFailed"),
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
-      toast({
-        title: t("auth.toast.error"),
-        description: err?.message ?? t("auth.checkFailed"),
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await doRegister(phone);
   };
 
   return (
@@ -277,10 +152,6 @@ export default function SignUpPage() {
           onClick={() => {
             if (step === "phone") {
               setStep("name-password");
-              return;
-            }
-            if (step === "code") {
-              setStep("phone");
               return;
             }
             if (window.history.length > 1) window.history.back();
@@ -447,74 +318,17 @@ export default function SignUpPage() {
               >
                 {busy ? t("checkout.processing") : t("auth.createAccount")}
               </Button>
-            </div>
-          </>
-        )}
 
-        {step === "code" && (
-          <>
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-serif">{t("auth.signup")}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("auth.codeSentToPhone", { phone: phone ?? "" })}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="signup-code">
-                  {t("auth.codeLabel")}
-                </label>
-                <Input
-                  id="signup-code"
-                  ref={codeRef}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={(e) =>
-                    setCode(e.target.value.replace(/\D/g, "").slice(0, 8))
-                  }
-                  placeholder={t("auth.codePlaceholder")}
-                  className="text-center text-xl tracking-[0.35em] font-mono h-12"
-                  disabled={busy}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void onVerifyCode();
-                  }}
-                  data-testid="input-signup-code"
-                />
-              </div>
               <Button
+                variant="ghost"
                 size="lg"
                 className="w-full h-12 rounded-xl"
-                onClick={() => void onVerifyCode()}
-                disabled={busy || code.length < 4}
-                data-testid="button-signup-verify"
+                onClick={() => void doRegister(undefined)}
+                disabled={busy}
+                data-testid="button-signup-skip-phone"
               >
-                {busy ? t("checkout.processing") : t("auth.verifyCode")}
+                {t("auth.skipPhone")}
               </Button>
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  className="text-primary hover:underline"
-                  onClick={() => {
-                    setStep("phone");
-                    setCode("");
-                  }}
-                  data-testid="button-signup-back"
-                >
-                  {t("checkout.back")}
-                </button>
-                <button
-                  type="button"
-                  className="text-primary hover:underline disabled:opacity-50"
-                  onClick={() => void onResendCode()}
-                  disabled={busy}
-                  data-testid="button-signup-resend"
-                >
-                  {t("auth.resendCode")}
-                </button>
-              </div>
             </div>
           </>
         )}

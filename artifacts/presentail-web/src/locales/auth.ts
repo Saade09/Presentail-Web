@@ -17,20 +17,10 @@ export const authStrings: Dict = {
   "auth.continueApple": { en: "Continue with Apple", ar: "المتابعة باستخدام Apple" },
   "auth.continueGoogle": { en: "Continue with Google", ar: "المتابعة باستخدام Google" },
   "auth.toast.oauthFailed": { en: "{provider} sign-in failed", ar: "فشل تسجيل الدخول عبر {provider}" },
-  "auth.codeLabel": { en: "Verification code", ar: "رمز التحقق" },
-  "auth.codePlaceholder": { en: "6-digit code", ar: "الرمز المكوّن من ٦ أرقام" },
-  "auth.codeSentToPhone": {
-    en: "We sent a code to {phone}. Enter it below to verify your phone number.",
-    ar: "أرسلنا رمزًا إلى {phone}. أدخله أدناه للتحقق من رقم هاتفك.",
-  },
-  "auth.codeResent": { en: "Code resent", ar: "تم إعادة إرسال الرمز" },
-  "auth.codeInvalid": { en: "That code didn't work. Please try again.", ar: "هذا الرمز غير صحيح. يرجى المحاولة مرة أخرى." },
   "auth.incorrectPassword": {
     en: "Incorrect password. Please try again or reset your password.",
     ar: "كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى أو إعادة تعيين كلمة المرور.",
   },
-  "auth.verifyCode": { en: "Verify code", ar: "تحقق من الرمز" },
-  "auth.resendCode": { en: "Resend code", ar: "إعادة إرسال الرمز" },
 
   "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
   "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
@@ -61,6 +51,7 @@ export const authStrings: Dict = {
   "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
   "auth.phoneRequired": { en: "Phone number is required.", ar: "رقم الهاتف مطلوب." },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
+  "auth.skipPhone": { en: "Skip — create account without phone", ar: "تخطّ — إنشاء الحساب بدون هاتف" },
 
   "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
   "auth.enterPassword": { en: "Enter your password for {email}", ar: "أدخل كلمة المرور لحساب {email}" },
@@ -87,14 +78,7 @@ export const authStringsFr: Record<string, string> = {
   "auth.continueApple": "Continuer avec Apple",
   "auth.continueGoogle": "Continuer avec Google",
   "auth.toast.oauthFailed": "Échec de la connexion avec {provider}",
-  "auth.codeLabel": "Code de vérification",
-  "auth.codePlaceholder": "Code à 6 chiffres",
-  "auth.codeSentToPhone": "Nous avons envoyé un code au {phone}. Saisissez-le ci-dessous pour vérifier votre numéro de téléphone.",
-  "auth.codeResent": "Code renvoyé",
-  "auth.codeInvalid": "Ce code n'a pas fonctionné. Veuillez réessayer.",
   "auth.incorrectPassword": "Mot de passe incorrect. Veuillez réessayer ou réinitialiser votre mot de passe.",
-  "auth.verifyCode": "Vérifier le code",
-  "auth.resendCode": "Renvoyer le code",
 
   "checkoutLogin.title": "Connectez-vous pour un paiement plus rapide",
   "checkoutLogin.desc": "Enregistrez vos informations pour la prochaine fois, ou continuez en tant qu'invité.",
@@ -123,6 +107,7 @@ export const authStringsFr: Record<string, string> = {
   "auth.phoneLabel": "Numéro de téléphone",
   "auth.phoneRequired": "Le numéro de téléphone est obligatoire.",
   "auth.createAccount": "Créer un compte",
+  "auth.skipPhone": "Ignorer — créer un compte sans téléphone",
 
   "auth.signIn": "Se connecter",
   "auth.enterPassword": "Saisissez votre mot de passe pour {email}",
