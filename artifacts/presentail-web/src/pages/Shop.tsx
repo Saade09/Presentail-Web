@@ -9,6 +9,15 @@ import { Filter, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
+import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
+import { extractColor } from "@/lib/colorExtractor";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from "@/components/ui/sheet";
 
 const CATEGORIES = [
   { slug: "hand-bouquets", labelKey: "shop.cat.handBouquets" },
@@ -28,6 +37,18 @@ const OCCASIONS = [
   { slug: "thank-you", labelKey: "shop.occ.thankYou" },
   { slug: "condolences", labelKey: "shop.occ.condolences" },
 ];
+
+const PRICE_BUCKET_DEFS: { key: PriceBucket; labelKey: string; test: (v: number) => boolean }[] = [
+  { key: "under50", labelKey: "shop.filter.priceUnder50", test: (v) => v < 50 },
+  { key: "50to100", labelKey: "shop.filter.price50to100", test: (v) => v >= 50 && v < 100 },
+  { key: "100to200", labelKey: "shop.filter.price100to200", test: (v) => v >= 100 && v < 200 },
+  { key: "over200", labelKey: "shop.filter.priceOver200", test: (v) => v >= 200 },
+];
+
+function matchesPriceBucket(product: Product, bucket: PriceBucket): boolean {
+  const def = PRICE_BUCKET_DEFS.find((d) => d.key === bucket);
+  return def ? def.test(product.priceValue) : true;
+}
 
 export default function Shop() {
   const searchString = useSearch();
@@ -79,10 +100,6 @@ export default function Shop() {
     return allProducts.data?.products ?? [];
   }, [category, occasion, brand, categoryProducts.data, occasionProducts.data, allProducts.data, brandProducts.data]);
 
-  // Always-on store catalog used to suggest popular picks when the user lands
-  // on a sold-out category/occasion (so the page doesn't render an empty grid).
-  // We keep this enabled even when a filter is active because it has its own
-  // cache key and we only render its result inside the empty state.
   const fallbackPool = useProducts(queryParams, true);
   const popularPicks: Product[] = useMemo(() => {
     const all = fallbackPool.data?.products ?? [];
@@ -93,13 +110,59 @@ export default function Shop() {
   }, [fallbackPool.data, category]);
 
   const [sort, setSort] = useState("featured");
+  const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const priceBuckets: PriceBucketDef[] = useMemo(() => {
+    return PRICE_BUCKET_DEFS.map((def) => ({
+      key: def.key,
+      labelKey: def.labelKey,
+      count: sourceProducts.filter((p) => def.test(p.priceValue)).length,
+    })).filter((b) => b.count > 0);
+  }, [sourceProducts]);
+
+  const colorFacets: ColorFacet[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of sourceProducts) {
+      const c = extractColor(p.name);
+      if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([color, count]) => ({ color: color as ColorFacet["color"], count }));
+  }, [sourceProducts]);
+
+  const filteredProducts: Product[] = useMemo(() => {
+    return sourceProducts.filter((p) => {
+      if (selectedPriceBucket && !matchesPriceBucket(p, selectedPriceBucket)) return false;
+      if (selectedColors.length > 0) {
+        const c = extractColor(p.name);
+        if (!c || !selectedColors.includes(c)) return false;
+      }
+      return true;
+    });
+  }, [sourceProducts, selectedPriceBucket, selectedColors]);
 
   const products = useMemo(() => {
-    const p = [...sourceProducts];
+    const p = [...filteredProducts];
     if (sort === "price-asc") p.sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "price-desc") p.sort((a, b) => b.priceValue - a.priceValue);
     return p;
-  }, [sourceProducts, sort]);
+  }, [filteredProducts, sort]);
+
+  const hasActiveFilters = selectedPriceBucket !== null || selectedColors.length > 0;
+
+  function handleClearFilters() {
+    setSelectedPriceBucket(null);
+    setSelectedColors([]);
+  }
+
+  function handleColorToggle(color: string) {
+    setSelectedColors((prev) =>
+      prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color],
+    );
+  }
 
   const { data: catalogMetadata } = useCatalogMetadata();
   const catalogCategory = category
@@ -120,8 +183,6 @@ export default function Shop() {
       : brand
         ? (brandProducts.data?.brandName ?? brand)
         : t("shop.allCollection");
-
-
 
   const brandDisplayName = brandProducts.data?.brandName ?? brand;
   const clearBrandHref = occasion
@@ -150,6 +211,17 @@ export default function Shop() {
     return [home, { label: brandDisplayName }];
   }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName]);
 
+  const shopFiltersProps = {
+    priceBuckets,
+    colorFacets,
+    selectedPriceBucket,
+    selectedColors,
+    onPriceBucketChange: setSelectedPriceBucket,
+    onColorToggle: handleColorToggle,
+    onClear: handleClearFilters,
+    hasActiveFilters,
+  };
+
   return (
     <div className="min-h-screen pt-12 pb-24 bg-white">
       {breadcrumbCrumbs.length > 0 && (
@@ -168,7 +240,6 @@ export default function Shop() {
                 </span>
               )}
             </h1>
-
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
@@ -182,8 +253,19 @@ export default function Shop() {
                 <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="md:hidden" data-testid="button-mobile-filters">
-              <Filter className="w-4 h-4 mr-2" /> {t("shop.filters")}
+            <Button
+              variant="outline"
+              className="md:hidden relative"
+              onClick={() => setMobileFiltersOpen(true)}
+              data-testid="button-mobile-filters"
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              {t("shop.filters")}
+              {hasActiveFilters && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
+                  {(selectedPriceBucket ? 1 : 0) + selectedColors.length}
+                </span>
+              )}
             </Button>
           </div>
         </div>
@@ -222,24 +304,53 @@ export default function Shop() {
                 ))}
               </ul>
             </div>
+
+            <ShopFilters {...shopFiltersProps} />
+
             {(category || occasion || brand) && (
               <Link href="/shop" className="text-sm font-medium text-primary hover:underline" data-testid="link-clear-filters">
                 {t("shop.clearAll")}
               </Link>
             )}
           </div>
+
           <div className="flex-1">
-            {brand && (
-              <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="active-brand-filter">
-                <Link
-                  href={clearBrandHref}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
-                  aria-label={t("shop.removeBrandFilter")}
-                  data-testid="chip-brand-filter"
-                >
-                  {brandDisplayName}
-                  <X className="w-3 h-3" />
-                </Link>
+            {(brand || hasActiveFilters) && (
+              <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="active-filter-chips">
+                {brand && (
+                  <Link
+                    href={clearBrandHref}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                    aria-label={t("shop.removeBrandFilter")}
+                    data-testid="chip-brand-filter"
+                  >
+                    {brandDisplayName}
+                    <X className="w-3 h-3" />
+                  </Link>
+                )}
+                {selectedPriceBucket && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPriceBucket(null)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                    data-testid="chip-price-filter"
+                  >
+                    {t(PRICE_BUCKET_DEFS.find((d) => d.key === selectedPriceBucket)?.labelKey ?? "")}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                {selectedColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => handleColorToggle(color)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                    data-testid={`chip-color-${color}`}
+                  >
+                    {t(`shop.color.${color}`)}
+                    <X className="w-3 h-3" />
+                  </button>
+                ))}
               </div>
             )}
             {isLoading ? (
@@ -253,18 +364,25 @@ export default function Shop() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              (category || occasion || brand) ? (
+              (category || occasion || brand || hasActiveFilters) ? (
                 <div data-testid="empty-state-sold-out">
                   <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed">
                     <h3 className="font-serif text-2xl mb-3">{t("shop.empty.titleSoldOut")}</h3>
                     <p className="text-muted-foreground mb-6 max-w-xl mx-auto px-4">
                       {t("shop.empty.descSoldOut")}
                     </p>
-                    <Button asChild variant="outline" data-testid="button-browse-all">
-                      <Link href="/shop">{t("shop.browseAll")}</Link>
-                    </Button>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      {hasActiveFilters && (
+                        <Button variant="outline" onClick={handleClearFilters} data-testid="button-clear-price-color">
+                          {t("shop.filter.clearFilters")}
+                        </Button>
+                      )}
+                      <Button asChild variant={hasActiveFilters ? "ghost" : "outline"} data-testid="button-browse-all">
+                        <Link href="/shop">{t("shop.browseAll")}</Link>
+                      </Button>
+                    </div>
                   </div>
-                  {popularPicks.length > 0 ? (
+                  {!hasActiveFilters && popularPicks.length > 0 ? (
                     <div className="mt-12">
                       <p className="text-xs tracking-[0.25em] uppercase text-primary text-center mb-6">
                         {t("shop.popularPicks")}
@@ -318,6 +436,37 @@ export default function Shop() {
           </div>
         </div>
       </div>
+
+      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0 rounded-t-2xl">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="font-serif text-xl">{t("shop.filters")}</SheetTitle>
+              <SheetClose asChild>
+                <button
+                  type="button"
+                  className="rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+                  aria-label="Close" // i18n-ignore
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </SheetClose>
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <ShopFilters {...shopFiltersProps} />
+          </div>
+          <div className="shrink-0 px-6 py-4 border-t bg-background">
+            <Button
+              className="w-full"
+              onClick={() => setMobileFiltersOpen(false)}
+              data-testid="button-mobile-filters-apply"
+            >
+              {t("shop.filter.showResults", { count: String(products.length) })}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
