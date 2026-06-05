@@ -1078,6 +1078,25 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
         localCustomer = updated;
       }
 
+      // Best-effort Clerk name sync (fire-and-forget). Phone is intentionally
+      // excluded — Clerk requires OTP verification for phone number changes.
+      const clerkNamePatch: { firstName?: string; lastName?: string } = {};
+      if (typeof body.firstName === "string") clerkNamePatch.firstName = body.firstName.trim();
+      if (typeof body.lastName === "string") clerkNamePatch.lastName = body.lastName.trim();
+      if (Object.keys(clerkNamePatch).length > 0) {
+        const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+        if (clerkSecretKey) {
+          createClerkClient({ secretKey: clerkSecretKey })
+            .users.updateUser(clerkPutUserId, clerkNamePatch)
+            .catch((err: any) => {
+              req.log?.warn?.(
+                { err: err?.message, clerkUserId: clerkPutUserId },
+                "auth.me.put (clerk-customer): Clerk name sync threw (non-fatal)",
+              );
+            });
+        }
+      }
+
       // Best-effort WC mirror (fire-and-forget). Only attempted when the local
       // row has a known WC customer ID so we don't create stray WC records.
       if (existingCustomer.wcCustomerId) {
