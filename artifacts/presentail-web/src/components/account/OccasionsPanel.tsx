@@ -40,17 +40,27 @@ type Occasion = {
   createdAt: string;
 };
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+const MONTH_KEYS = [
+  "occasion.month.january",
+  "occasion.month.february",
+  "occasion.month.march",
+  "occasion.month.april",
+  "occasion.month.may",
+  "occasion.month.june",
+  "occasion.month.july",
+  "occasion.month.august",
+  "occasion.month.september",
+  "occasion.month.october",
+  "occasion.month.november",
+  "occasion.month.december",
 ];
 
 function daysInMonth(month: number) {
   return new Date(2000, month, 0).getDate();
 }
 
-function formatOccasionDate(month: number, day: number) {
-  return `${MONTHS[month - 1]} ${day}`;
+function formatOccasionDate(month: number, day: number, t: (k: string) => string) {
+  return `${t(MONTH_KEYS[month - 1])} ${day}`;
 }
 
 function OccasionForm({
@@ -152,9 +162,9 @@ function OccasionForm({
               <SelectValue placeholder={t("account.occasions.monthPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
-              {MONTHS.map((name, i) => (
+              {MONTH_KEYS.map((key, i) => (
                 <SelectItem key={i + 1} value={String(i + 1)}>
-                  {name}
+                  {t(key)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -311,7 +321,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                         {occ.personName ? `${occ.personName} — ` : ""}{displayOccasionLabel(occ.label, t)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {formatOccasionDate(occ.month, occ.day)}
+                        {formatOccasionDate(occ.month, occ.day, t)}
                       </div>
                       {occ.note && (
                         <div className="text-xs text-muted-foreground/70 mt-1 italic truncate">
