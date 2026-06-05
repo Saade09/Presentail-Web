@@ -221,7 +221,7 @@ export default function SignInPage() {
       window.AppleID.auth.init({
         clientId: APPLE_SERVICE_ID,
         scope: "name email",
-        redirectURI: `${window.location.origin}${base}/sign-in`,
+        redirectURI: `${window.location.origin}/sign-in`,
         usePopup: true,
       });
       const appleRes = await window.AppleID.auth.signIn();
