@@ -143,7 +143,7 @@ function DeliveryRow({
                   setOpen((prev) => !prev);
                 }
               }}
-              className="shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              className="shrink-0 rounded-full p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             >
               <Info className="w-4 h-4" />
             </span>
