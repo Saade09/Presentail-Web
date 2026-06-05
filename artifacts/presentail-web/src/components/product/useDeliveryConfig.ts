@@ -9,8 +9,6 @@ export type DeliveryConfig = {
   freeDeliveryThresholdUsd?: number;
   currency: string;
   freeDeliveryEnabled: boolean;
-  /** Free-delivery threshold in USD for fee calculation. Undefined when not yet loaded. */
-  freeDeliveryThresholdUsd?: number;
   /** Standard delivery fee for the selected city in USD. Null when no city selected or fee unknown. */
   cityFeeUsd: number | null;
   /** Express surcharge for the country in USD. 0 when not applicable. */
