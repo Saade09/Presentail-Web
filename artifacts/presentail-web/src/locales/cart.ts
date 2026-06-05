@@ -41,6 +41,12 @@ export const cartStrings: Dict = {
   "cart.banner.staticAbove": { en: "Free delivery on orders above", ar: "توصيل مجاني على الطلبات فوق" },
   "cart.banner.withExpress": { en: "with express delivery.", ar: "مع التوصيل السريع." },
   "cart.banner.onOrdersAbove": { en: "On orders above", ar: "على الطلبات فوق" },
+  "cart.qrLink.label": { en: "Add a link (optional)", ar: "أضف رابطاً (اختياري)" },
+  "cart.qrLink.placeholder": { en: "https://...", ar: "https://..." }, // no-translate — URL placeholder
+  "cart.qrLink.error": {
+    en: "Please enter a valid URL starting with http:// or https://",
+    ar: "يرجى إدخال رابط صحيح يبدأ بـ http:// أو https://",
+  },
 };
 
 export const cartStringsFr: Record<string, string> = {
@@ -84,4 +90,7 @@ export const cartStringsFr: Record<string, string> = {
   "cart.banner.staticAbove": "Livraison gratuite pour les commandes au-dessus de",
   "cart.banner.withExpress": "avec la livraison express.",
   "cart.banner.onOrdersAbove": "Pour les commandes au-dessus de",
+  "cart.qrLink.label": "Ajouter un lien (facultatif)",
+  "cart.qrLink.placeholder": "https://...",
+  "cart.qrLink.error": "Veuillez saisir une URL valide commençant par http:// ou https://",
 };

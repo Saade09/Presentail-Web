@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import { WebPhoneField } from "@/components/WebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
-import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, COUPON_STORAGE_KEY } from "./Cart";
+import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY } from "./Cart";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -183,6 +183,10 @@ function CheckoutForm() {
   // single source of truth — `useDeliverySelection()` is called below
   // for the mode/slot seeds.
   const seededDeliverySelection = useDeliverySelection();
+  const [qrLink] = useState(() => {
+    try { return localStorage.getItem(CARD_QR_LINK_KEY) ?? ""; } catch { return ""; }
+  });
+
   const [recipient, setRecipient] = useState({
     firstName: (() => { try { return localStorage.getItem(CARD_TO_KEY) ?? ""; } catch { return ""; } })(),
     lastName: "",
@@ -668,6 +672,7 @@ function CheckoutForm() {
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
     cardMessage: recipient.cardMessage,
+    ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     currencyCode: "USD",

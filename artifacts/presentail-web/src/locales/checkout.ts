@@ -133,6 +133,7 @@ export const checkoutStrings: Dict = {
   "checkout.saveAddress": { en: "Save this address to my profile", ar: "حفظ هذا العنوان في ملفي" },
   "checkout.saveAddressHint": { en: "Prefilled automatically next time you shop", ar: "يُملأ تلقائياً في مرة القادمة" },
   "checkout.phoneInvalidNumber": { en: "Please enter a valid phone number for this country", ar: "يرجى إدخال رقم هاتف صحيح لهذا البلد" },
+  "checkout.qrPrintedOnCard": { en: "This QR code will be printed on your gift card", ar: "سيُطبع رمز QR هذا على بطاقة الهدية" },
 };
 
 export const checkoutStringsFr: Record<string, string> = {
@@ -255,4 +256,5 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.saveAddress": "Enregistrer cette adresse dans mon profil",
   "checkout.saveAddressHint": "Préremplie automatiquement lors de votre prochaine commande",
   "checkout.phoneInvalidNumber": "Veuillez entrer un numéro de téléphone valide pour ce pays",
+  "checkout.qrPrintedOnCard": "Ce QR code sera imprimé sur votre carte cadeau",
 };

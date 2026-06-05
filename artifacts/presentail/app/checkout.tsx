@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
 import {
   createMyAddress,
   getListMyAddressesQueryKey,
@@ -736,7 +737,7 @@ function CheckoutScreen() {
     cardMessage,
     cardFrom,
     cardTo,
-    qrLink,
+    ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,
     paymentMethod: payMethod,
     identitySecret,
@@ -1494,7 +1495,7 @@ function Label({ children, colors, required }: any) {
   );
 }
 
-function Field({ colors, label, value, onChangeText, placeholder, keyboardType, multiline, required, prefix, helper, maxLength, characterCount }: any) {
+function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount }: any) {
   return (
     <View style={{ gap: 4 }}>
       {label ? <Label colors={colors} required={required}>{label}</Label> : null}
@@ -1513,9 +1514,12 @@ function Field({ colors, label, value, onChangeText, placeholder, keyboardType, 
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={colors.mutedForeground}
           keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
           multiline={multiline}
           maxLength={maxLength}
           style={{
@@ -1605,6 +1609,7 @@ function CardPreviewModal({
   cardTo,
   cardMessage,
   cardFrom,
+  qrLink,
   colors,
 }: {
   visible: boolean;
@@ -1612,6 +1617,7 @@ function CardPreviewModal({
   cardTo: string;
   cardMessage: string;
   cardFrom: string;
+  qrLink: string;
   colors: any;
 }) {
   const t = useT();
@@ -1751,6 +1757,18 @@ function CardPreviewModal({
           {cardFrom ? `${t.fromLabel} ${cardFrom}` : t.fromLabel}
         </AppText>
       </View>
+      {qrLink ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 40,
+            ...(isRtl ? { left: 10 } : { right: 10 }),
+          }}
+        >
+          <QRCode value={qrLink} size={56} color="#00414e" backgroundColor="transparent" />
+        </View>
+      ) : null}
       {includeWatermark ? (
         <View
           pointerEvents="none"
@@ -1850,6 +1868,44 @@ function CardPreviewModal({
   );
 }
 
+function QrLinkField({ colors, value, onChangeText }: { colors: any; value: string; onChangeText: (v: string) => void }) {
+  const t = useT();
+  const [error, setError] = useState<string | null>(null);
+  const isValid = (url: string) => {
+    const trimmed = url.trim();
+    return !trimmed || /^https?:\/\/.+/.test(trimmed);
+  };
+  return (
+    <View style={{ gap: 4 }}>
+      <Field
+        colors={colors}
+        label={t.qrLinkLabel}
+        value={value}
+        onChangeText={(v: string) => {
+          onChangeText(v);
+          if (error && isValid(v)) setError(null);
+        }}
+        onBlur={() => {
+          if (!isValid(value)) {
+            setError(t.qrLinkError);
+          } else {
+            setError(null);
+          }
+        }}
+        placeholder={t.qrLinkPlaceholder}
+        keyboardType="url"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {error ? (
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#dc2626", paddingHorizontal: 2 }}>
+          {error}
+        </AppText>
+      ) : null}
+    </View>
+  );
+}
+
 function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage, cardFrom, setCardFrom, qrLink, setQrLink }: any) {
   const t = useT();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -1899,6 +1955,7 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
               cardTo={cardTo}
               cardMessage={cardMessage}
               cardFrom={cardFrom}
+              qrLink={qrLink && /^https?:\/\/.+/.test(qrLink.trim()) ? qrLink.trim() : ""}
               colors={colors}
             />
           ) : null}
@@ -1933,15 +1990,11 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
       <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
         {t.qrLinkHint}
       </AppText>
-      <Field colors={colors} value={qrLink} onChangeText={setQrLink} placeholder="https://..." />
+      <QrLinkField colors={colors} value={qrLink} onChangeText={setQrLink} />
 
-      {qrLink && qrLink.trim().length > 4 ? (
+      {qrLink && /^https?:\/\/.+/.test(qrLink.trim()) ? (
         <View style={{ alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
-          <Image
-            source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=${encodeURIComponent(qrLink.trim())}` }}
-            style={{ width: 140, height: 140, borderRadius: 6 }}
-            contentFit="contain"
-          />
+          <QRCode value={qrLink.trim()} size={140} color="#00414e" backgroundColor="#ffffff" />
           <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.gold, letterSpacing: 1.5, textTransform: "uppercase" }}>
             {t.qrPreview}
           </AppText>

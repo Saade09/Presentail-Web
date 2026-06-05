@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +27,14 @@ import cardStationery from "@assets/Elegant-dark-teal-stationery-design_17787422
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
 export const CARD_FROM_KEY = "presentail_card_from_v1";
+export const CARD_QR_LINK_KEY = "presentail_card_qr_link_v1";
 export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
+
+function isValidQrUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  return /^https?:\/\/.+/.test(trimmed);
+}
 
 function CartSkeleton() {
   return (
@@ -156,6 +164,10 @@ export default function Cart() {
   const [cardFrom, setCardFrom] = useState(() => {
     try { return localStorage.getItem(CARD_FROM_KEY) ?? ""; } catch { return ""; }
   });
+  const [qrLink, setQrLink] = useState(() => {
+    try { return localStorage.getItem(CARD_QR_LINK_KEY) ?? ""; } catch { return ""; }
+  });
+  const [qrLinkError, setQrLinkError] = useState<string | null>(null);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
 
@@ -190,6 +202,26 @@ export default function Cart() {
         localStorage.removeItem(CARD_FROM_KEY);
       }
     } catch { /* best-effort */ }
+  };
+
+  const handleQrLinkChange = (val: string) => {
+    setQrLink(val);
+    if (qrLinkError && isValidQrUrl(val)) setQrLinkError(null);
+    try {
+      if (val.trim()) {
+        localStorage.setItem(CARD_QR_LINK_KEY, val);
+      } else {
+        localStorage.removeItem(CARD_QR_LINK_KEY);
+      }
+    } catch { /* best-effort */ }
+  };
+
+  const handleQrLinkBlur = () => {
+    if (!isValidQrUrl(qrLink)) {
+      setQrLinkError(t("cart.qrLink.error"));
+    } else {
+      setQrLinkError(null);
+    }
   };
 
   // Mirror the mobile checkout login sheet: when a logged-out shopper taps
@@ -389,6 +421,35 @@ export default function Cart() {
                   )}
                 </div>
 
+                {/* QR Link */}
+                <div className="mb-5">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    {t("cart.qrLink.label")}
+                  </label>
+                  <Input
+                    type="url"
+                    value={qrLink}
+                    onChange={(e) => handleQrLinkChange(e.target.value)}
+                    onBlur={handleQrLinkBlur}
+                    placeholder={t("cart.qrLink.placeholder")}
+                    className={qrLinkError ? "border-destructive focus-visible:ring-destructive" : ""}
+                    data-testid="input-cart-qr-link"
+                  />
+                  {qrLinkError && (
+                    <p className="mt-1.5 text-xs text-destructive" data-testid="error-cart-qr-link">
+                      {qrLinkError}
+                    </p>
+                  )}
+                  {qrLink.trim() && isValidQrUrl(qrLink) && (
+                    <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-secondary/20 px-3 py-3">
+                      <QRCodeSVG value={qrLink.trim()} size={60} />
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {t("checkout.qrPrintedOnCard")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Preview Card */}
                 <button
                   type="button"
@@ -543,6 +604,7 @@ export default function Cart() {
         cardTo={cardTo}
         cardMessage={cardMessage}
         cardFrom={previewCardFrom}
+        qrLink={isValidQrUrl(qrLink) ? qrLink.trim() : ""}
         dir={dir}
         t={t}
       />
@@ -563,6 +625,7 @@ function CardPreviewDialog({
   cardTo,
   cardMessage,
   cardFrom,
+  qrLink,
   dir,
   t,
 }: {
@@ -571,6 +634,7 @@ function CardPreviewDialog({
   cardTo: string;
   cardMessage: string;
   cardFrom: string;
+  qrLink: string;
   dir: "ltr" | "rtl";
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
@@ -652,6 +716,18 @@ function CardPreviewDialog({
           {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
         </div>
       </div>
+      {qrLink ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute"
+          style={{
+            bottom: "40px",
+            ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
+          }}
+        >
+          <QRCodeSVG value={qrLink} size={60} bgColor="transparent" fgColor="#00414e" />
+        </div>
+      ) : null}
       {includeWatermark ? (
         <div
           aria-hidden

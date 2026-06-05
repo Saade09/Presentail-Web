@@ -241,6 +241,9 @@ const EN = {
   previewCardShareUnavailableMessage: "Sharing isn't available on this device.",
   previewCardShareErrorTitle: "Couldn't share",
   previewCardShareErrorMessage: "We couldn't prepare the image. Please try again.",
+  qrLinkLabel: "Add a link (optional)",
+  qrLinkPlaceholder: "https://...", // no-translate — URL placeholder, identical across all locales
+  qrLinkError: "Please enter a valid URL starting with http:// or https://",
   qrLinkHint: "Paste a link to a video or photo from the internet. A QR code will be automatically added to your card message. No extra cost!",
   qrPreview: "Preview",
   qrPrintedOnCard: "This QR code will be printed on your gift card",
@@ -1066,6 +1069,9 @@ const AR: typeof EN = {
   previewCardShareUnavailableMessage: "المشاركة غير متاحة على هذا الجهاز.",
   previewCardShareErrorTitle: "تعذّرت المشاركة",
   previewCardShareErrorMessage: "تعذّر تحضير الصورة. يرجى المحاولة مرة أخرى.",
+  qrLinkLabel: "أضف رابطاً (اختياري)",
+  qrLinkPlaceholder: "https://...", // no-translate — URL placeholder, identical across all locales
+  qrLinkError: "يرجى إدخال رابط صحيح يبدأ بـ http:// أو https://",
   qrLinkHint: "الصق رابط مقطع فيديو أو صورة من الإنترنت. سيُضاف رمز QR تلقائياً إلى بطاقة رسالتك. مجاناً!",
   qrPreview: "معاينة",
   qrPrintedOnCard: "سيُطبع رمز QR هذا على بطاقة الهدية",
@@ -1885,6 +1891,9 @@ const FR: typeof EN = {
   previewCardShareUnavailableMessage: "Le partage n'est pas disponible sur cet appareil.",
   previewCardShareErrorTitle: "Échec du partage",
   previewCardShareErrorMessage: "Impossible de préparer l'image. Veuillez réessayer.",
+  qrLinkLabel: "Ajouter un lien (facultatif)",
+  qrLinkPlaceholder: "https://...", // no-translate — URL placeholder, identical across all locales
+  qrLinkError: "Veuillez saisir une URL valide commençant par http:// ou https://",
   qrLinkHint: "Collez un lien vers une vidéo ou une photo. Un QR code sera ajouté automatiquement à votre carte. Sans frais !",
   qrPreview: "Aperçu",
   qrPrintedOnCard: "Ce QR code sera imprimé sur votre carte cadeau",
