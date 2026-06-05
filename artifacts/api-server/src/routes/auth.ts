@@ -1956,6 +1956,12 @@ router.post("/auth/social/google", socialIpLimiter, async (req, res) => {
 // `user` (web shape) or `fullName` (mobile shape) for the name fields.
 
 router.post("/auth/oauth/apple", socialIpLimiter, async (req, res) => {
+  if (!envList("APPLE_SERVICE_IDS").length) {
+    return res.status(503).json({
+      ok: false,
+      message: "Apple sign-in is not configured on the server.", // i18n-ignore
+    });
+  }
   const body = req.body as {
     idToken?: string;
     id_token?: string;
