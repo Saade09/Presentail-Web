@@ -28,11 +28,29 @@ function useStripe() {
     createPaymentMethod: async () => ({
       error: { message: "Stripe is not available on web" }, // i18n-ignore
     }),
+    // Native wallet (Apple Pay / Google Pay) — always unavailable on web.
+    isPlatformPaySupported: async () => false,
+    confirmPlatformPayPayment: async () => ({
+      error: { code: "Failed", message: "Stripe native wallet is not available on web" }, // i18n-ignore
+    }),
   };
 }
+
+/**
+ * PlatformPay namespace shim — mirrors the enum values used in checkout.tsx
+ * so that `PlatformPay.PaymentType.Immediate` resolves without crashing on web.
+ */
+const PlatformPay = {
+  PaymentType: {
+    Immediate: "Immediate",
+    Deferred: "Deferred",
+    Recurring: "Recurring",
+  },
+};
 
 module.exports = {
   StripeProvider,
   CardField,
   useStripe,
+  PlatformPay,
 };

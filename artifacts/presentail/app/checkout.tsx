@@ -90,8 +90,8 @@ import {
   nextPayMethodForCurrency,
   type PayMethodId,
 } from "@workspace/pay-methods";
-import { CardField, useStripe } from "@stripe/stripe-react-native";
-import { API_BASE, createPaymentIntent, createStripeCheckoutSession } from "@/lib/stripe";
+import { CardField, useStripe, PlatformPay } from "@stripe/stripe-react-native";
+import { API_BASE, createPaymentIntent, createStripeCheckoutSession, STRIPE_PUBLISHABLE_KEY } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
@@ -619,7 +619,7 @@ function CheckoutScreen() {
   }, [currencyCode, payMethod, effectiveCountry]);
 
   const [paying, setPaying] = useState(false);
-  const { confirmPayment, handleNextAction } = useStripe();
+  const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
   const fees = useMemo(() => {
     const subtotal = total;
@@ -951,16 +951,19 @@ function CheckoutScreen() {
       return;
     }
 
-    // Non-AED wallet (Apple Pay / Google Pay) via Stripe hosted checkout.
+    // Non-AED wallet (Apple Pay / Google Pay) via @stripe/stripe-react-native native sheet.
+    // We create a PaymentIntent first (same flow as inline card) so the server sets the
+    // authoritative amount and currency, then present the native wallet sheet to confirm it.
+    // If the device doesn't support the native wallet (no wallet app configured, simulator,
+    // etc.) we fall back to the Stripe hosted checkout redirect so the shopper is never
+    // silently blocked.
     if (payMethod === "wallet" && !walletViaMamo) {
-      const session = await createStripeCheckoutSession({
+      const intentResult = await createPaymentIntent({
         items: detailed
           .filter(({ product }) => product.wcId != null)
           .map(({ product, qty }) => ({
             wcId: product.wcId!,
             quantity: qty,
-            name: product.name,
-            description: product.description ?? undefined,
           })),
         orderId,
         currency: currencyCode,
@@ -971,25 +974,124 @@ function CheckoutScreen() {
           date,
           slot: slotLabel,
         },
-        successUrl,
-        cancelUrl,
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
-      if (session.ok) {
-        const outcome = await runHostedCheckout(session.url, deeplinkBase);
-        if (outcome === "success") {
-          await finishAfterPayment(session.id);
+      if (!intentResult.ok) {
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        if (intentResult.code === "stripe_not_configured") {
+          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
         } else {
-          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
+          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
         }
         setPaying(false);
         return;
       }
-      trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-      if (session.code === "stripe_not_configured") {
-        Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
+
+      // Determine merchant country code for the wallet sheet.
+      const walletMerchantCountry =
+        resolveCountryCode(selectedCountry?.code, currencyCode) ?? "LB";
+      // Use test environment when the publishable key is not a live key.
+      const isTestEnv = !STRIPE_PUBLISHABLE_KEY.startsWith("pk_live_");
+
+      // Check whether the native wallet (Apple Pay on iOS, Google Pay on Android)
+      // is available on this device before attempting to present the sheet.
+      const nativeWalletAvailable = await isPlatformPaySupported(
+        Platform.OS === "android"
+          ? { googlePay: { testEnv: isTestEnv } }
+          : undefined,
+      );
+
+      if (!nativeWalletAvailable) {
+        // Native wallet not available on this device (e.g. no Apple Pay card set up,
+        // or Google Pay not configured). Fall back to the Stripe hosted checkout so
+        // the shopper can still pay via a browser-based wallet flow.
+        const session = await createStripeCheckoutSession({
+          items: detailed
+            .filter(({ product }) => product.wcId != null)
+            .map(({ product, qty }) => ({
+              wcId: product.wcId!,
+              quantity: qty,
+              name: product.name,
+              description: product.description ?? undefined,
+            })),
+          orderId,
+          currency: currencyCode,
+          email: senderEmail,
+          metadata: {
+            orderId,
+            recipient: `${recipientFirst} ${recipientLast}`,
+            date,
+            slot: slotLabel,
+          },
+          successUrl,
+          cancelUrl,
+          storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        });
+        if (session.ok) {
+          const outcome = await runHostedCheckout(session.url, deeplinkBase);
+          if (outcome === "success") {
+            await finishAfterPayment(session.id);
+          } else {
+            Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
+          }
+          setPaying(false);
+          return;
+        }
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        if (session.code === "stripe_not_configured") {
+          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
+        } else {
+          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        }
+        setPaying(false);
+        return;
+      }
+
+      // Build the cart summary shown inside the native Apple Pay / Google Pay sheet.
+      // The server-returned amount is authoritative — use it for the total line item
+      // so the wallet sheet always reflects exactly what the PaymentIntent will charge.
+      const walletTotalStr = (intentResult.amount / 100).toFixed(2);
+      const walletCartItems: PlatformPay.CartSummaryItem[] = [
+        { paymentType: PlatformPay.PaymentType.Immediate, label: "Presentail", amount: walletTotalStr }, // i18n-ignore
+      ];
+
+      const walletParams: PlatformPay.ConfirmParams = {
+        applePay: {
+          merchantCountryCode: walletMerchantCountry,
+          currencyCode,
+          cartItems: walletCartItems,
+        },
+        googlePay: {
+          testEnv: isTestEnv,
+          merchantCountryCode: walletMerchantCountry,
+          currencyCode,
+          merchantName: "Presentail", // i18n-ignore
+        },
+      };
+
+      const { paymentIntent: walletIntent, error: walletError } =
+        await confirmPlatformPayPayment(intentResult.clientSecret, walletParams);
+
+      if (walletError) {
+        if (walletError.code === "Canceled") {
+          // Shopper dismissed the native wallet sheet — not an analytics error.
+          Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
+        } else {
+          trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+          Alert.alert(
+            t.checkoutPaymentErrorTitle,
+            walletError.localizedMessage ?? walletError.message ?? t.checkoutPaymentNetworkError,
+          );
+        }
+        setPaying(false);
+        return;
+      }
+
+      if (walletIntent?.status === "Succeeded") {
+        await finishAfterPayment(walletIntent.id);
       } else {
-        Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
       }
       setPaying(false);
       return;

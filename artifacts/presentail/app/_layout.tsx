@@ -409,7 +409,11 @@ export default function RootLayout() {
   if (!fontsReady) return null;
 
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProvider
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
+      merchantIdentifier="merchant.presentail"
+      urlScheme="presentail"
+    >
     <SafeAreaProvider>
       <ErrorBoundary
         onError={(error, stackTrace) => {
