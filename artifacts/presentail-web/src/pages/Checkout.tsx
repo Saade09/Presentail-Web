@@ -363,6 +363,7 @@ function CheckoutForm() {
   // Zero until WC responds; populated in finalizeOrderNow so the summary can
   // show the actual deduction before the success-page redirect.
   const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(0);
+  const [cardProcessing, setCardProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
 
   const handleCouponApply = () => {
@@ -620,7 +621,8 @@ function CheckoutForm() {
     stripeSession.isPending ||
     createPaymentIntent.isPending ||
     mamoPayment.isPending ||
-    paypalPayment.isPending;
+    paypalPayment.isPending ||
+    cardProcessing;
 
   // Active display currency derived from the active country. Used both
   // by the payment-method picker (to hide unavailable methods) and by
@@ -802,24 +804,58 @@ function CheckoutForm() {
         }
 
         const senderName = `${sender.firstName} ${sender.lastName}`.trim();
-        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-          intentRes.clientSecret,
-          {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                ...(sender.email ? { email: sender.email } : {}),
-                ...(senderName ? { name: senderName } : {}),
+
+        // Pass handleActions: false so that if the card issuer requires 3DS
+        // we get requires_action back immediately and handle it explicitly
+        // below (rather than relying on Stripe's automatic popup which can
+        // race with our loading state). The try/finally guarantees the
+        // processing flag is cleared even on unexpected runtime throws.
+        setCardProcessing(true);
+        let finalIntent: import("@stripe/stripe-js").PaymentIntent | undefined;
+        try {
+          const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
+            intentRes.clientSecret,
+            {
+              payment_method: {
+                card: cardElement,
+                billing_details: {
+                  ...(sender.email ? { email: sender.email } : {}),
+                  ...(senderName ? { name: senderName } : {}),
+                },
               },
             },
-          },
-        );
+            { handleActions: false },
+          );
 
-        if (stripeError) {
-          setStripeCardError(stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
-          return;
+          if (stripeError) {
+            setStripeCardError(stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
+            return;
+          }
+
+          // 3DS / SCA: the card issuer requires authentication. Surface
+          // Stripe's built-in authentication modal and wait for the result
+          // before proceeding. This covers EU/UK PSD2-mandated SCA flows.
+          if (confirmedIntent?.status === "requires_action") {
+            const { error: actionError, paymentIntent: actionIntent } = await stripe.handleNextAction({
+              clientSecret: intentRes.clientSecret,
+            });
+            if (actionError) {
+              setStripeCardError(actionError.message ?? t("checkout.toast.cardPaymentFailed"));
+              return;
+            }
+            if (!actionIntent) {
+              setStripeCardError(t("checkout.toast.cardPaymentFailed"));
+              return;
+            }
+            finalIntent = actionIntent;
+          } else {
+            finalIntent = confirmedIntent;
+          }
+        } finally {
+          setCardProcessing(false);
         }
-        if (paymentIntent?.status !== "succeeded") {
+
+        if (finalIntent?.status !== "succeeded") {
           setStripeCardError(t("checkout.toast.cardPaymentFailed"));
           return;
         }
@@ -828,7 +864,7 @@ function CheckoutForm() {
         // paymentRef. The server verifies the PI was paid before marking
         // the order as paid — mirrors the hosted-session flow.
         void maybeSaveNewAddress();
-        const payload = buildOrderPayload({ paymentRef: paymentIntent.id, orderId });
+        const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
         const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
         if (res.ok) {
           if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
