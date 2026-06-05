@@ -5,6 +5,13 @@ import Constants from "expo-constants";
 // EXPO_PUBLIC_API_BASE_URL isn't passed during `eas update` bundling.
 const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
 
+// Stripe publishable key for inline card payments via @stripe/stripe-react-native.
+// Set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in EAS build secrets / Replit env.
+// Falls back to an empty string so the StripeProvider renders without crashing
+// (card payments will fail at confirmPayment time with a clear Stripe error).
+export const STRIPE_PUBLISHABLE_KEY =
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
 const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -44,6 +51,31 @@ function storeHeadersFromCtx(ctx?: StoreContext): Record<string, string> {
   if (ctx?.countryCode) h["x-store-country"] = ctx.countryCode;
   if (ctx?.cityId) h["x-store-city"] = ctx.cityId;
   return h;
+}
+
+export async function createPaymentIntent(payload: {
+  items: CheckoutLineItem[];
+  orderId: string;
+  currency?: string;
+  email?: string;
+  metadata?: Record<string, string>;
+  storeContext?: StoreContext;
+}): Promise<
+  | { ok: true; clientSecret: string; orderId: string; amount: number; currency: string }
+  | { ok: false; code?: string; message: string }
+> {
+  try {
+    const { storeContext, ...body } = payload;
+    const res = await fetch(`${API_BASE}/api/checkout/payment-intent`, {
+      method: "POST",
+      headers: storeHeadersFromCtx(storeContext),
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    return json;
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
+  }
 }
 
 export async function createStripeCheckoutSession(payload: {

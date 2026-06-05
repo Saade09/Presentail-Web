@@ -44,7 +44,8 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
-import { API_BASE } from "@/lib/stripe";
+import { API_BASE, STRIPE_PUBLISHABLE_KEY } from "@/lib/stripe";
+import { StripeProvider } from "@stripe/stripe-react-native";
 import { trackEvent } from "@/lib/analytics";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
@@ -408,6 +409,7 @@ export default function RootLayout() {
   if (!fontsReady) return null;
 
   return (
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
     <SafeAreaProvider>
       <ErrorBoundary
         onError={(error, stackTrace) => {
@@ -450,5 +452,6 @@ export default function RootLayout() {
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
+    </StripeProvider>
   );
 }

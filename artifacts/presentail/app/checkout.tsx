@@ -90,7 +90,8 @@ import {
   nextPayMethodForCurrency,
   type PayMethodId,
 } from "@workspace/pay-methods";
-import { API_BASE, createStripeCheckoutSession } from "@/lib/stripe";
+import { CardField, useStripe } from "@stripe/stripe-react-native";
+import { API_BASE, createPaymentIntent, createStripeCheckoutSession } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
@@ -618,6 +619,7 @@ function CheckoutScreen() {
   }, [currencyCode, payMethod, effectiveCountry]);
 
   const [paying, setPaying] = useState(false);
+  const { confirmPayment } = useStripe();
 
   const fees = useMemo(() => {
     const subtotal = total;
@@ -862,7 +864,59 @@ function CheckoutScreen() {
     // a separate native wallet integration just for UAE.
     const walletViaMamo = payMethod === "wallet" && currencyCode === "AED";
 
-    if ((payMethod === "card" || payMethod === "wallet") && !walletViaMamo) {
+    // Inline card payment via @stripe/stripe-react-native — no redirect.
+    if (payMethod === "card") {
+      const intentResult = await createPaymentIntent({
+        items: detailed
+          .filter(({ product }) => product.wcId != null)
+          .map(({ product, qty }) => ({
+            wcId: product.wcId!,
+            quantity: qty,
+          })),
+        orderId,
+        currency: currencyCode,
+        email: senderEmail,
+        metadata: {
+          orderId,
+          recipient: `${recipientFirst} ${recipientLast}`,
+          date,
+          slot: slotLabel,
+        },
+        storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+      });
+      if (!intentResult.ok) {
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        if (intentResult.code === "stripe_not_configured") {
+          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
+        } else {
+          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        }
+        setPaying(false);
+        return;
+      }
+      const { paymentIntent, error } = await confirmPayment(intentResult.clientSecret, {
+        paymentMethodType: "Card",
+      });
+      if (error) {
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        Alert.alert(
+          t.checkoutPaymentErrorTitle,
+          error.localizedMessage ?? error.message ?? t.checkoutPaymentNetworkError,
+        );
+        setPaying(false);
+        return;
+      }
+      if (paymentIntent?.status === "Succeeded") {
+        await finishAfterPayment(paymentIntent.id);
+      } else {
+        Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
+      }
+      setPaying(false);
+      return;
+    }
+
+    // Non-AED wallet (Apple Pay / Google Pay) via Stripe hosted checkout.
+    if (payMethod === "wallet" && !walletViaMamo) {
       const session = await createStripeCheckoutSession({
         items: detailed
           .filter(({ product }) => product.wcId != null)
@@ -897,11 +951,7 @@ function CheckoutScreen() {
       }
       trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
       if (session.code === "stripe_not_configured") {
-        Alert.alert(
-          t.checkoutCardSoonTitle,
-          t.checkoutCardSoonMsg,
-          [{ text: "OK" }]
-        );
+        Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
       } else {
         Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
       }
@@ -2438,10 +2488,6 @@ function SecurityNote({ colors }: { colors: any }) {
 }
 
 function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country }: any) {
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCVC, setCardCVC] = useState("");
-  const [cardName, setCardName] = useState("");
   const { currencyCode } = useCurrency();
   const t = useT();
 
@@ -2452,18 +2498,6 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const supports = (m: PayMethodId) =>
     isPayMethodSupported(m, currencyCode, { country });
   const tap = (m: PayMethodId) => setPayMethod(m);
-
-  const fmtCardNumber = (v: string) => {
-    const d = v.replace(/\D/g, "").slice(0, 16);
-    const parts: string[] = [];
-    for (let i = 0; i < d.length; i += 4) parts.push(d.slice(i, i + 4));
-    return parts.join(" ");
-  };
-
-  const fmtExpiry = (v: string) => {
-    const d = v.replace(/\D/g, "").slice(0, 4);
-    return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
-  };
 
   return (
     <View style={{ gap: 18 }}>
@@ -2512,41 +2546,21 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
-                  <Field colors={colors} label={t.cardholderNameLabel} value={cardName} onChangeText={setCardName} placeholder={t.nameOnCard} />
-                  <Field
-                    colors={colors}
-                    label={t.cardNumberLabel}
-                    value={cardNumber}
-                    onChangeText={(v: string) => setCardNumber(fmtCardNumber(v))}
-                    placeholder="1234 5678 9012 3456"
-                    keyboardType="number-pad"
-                    maxLength={19}
+                  {/* Stripe CardField — collects card number, expiry, and CVC
+                      internally. confirmPayment reads the entered details
+                      directly; no local state needed. */}
+                  <CardField
+                    postalCodeEnabled={false}
+                    style={{ height: 50, width: "100%" }}
+                    cardStyle={{
+                      backgroundColor: "#ffffff",
+                      textColor: colors.primary,
+                      placeholderColor: colors.mutedForeground,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                      borderRadius: 10,
+                    }}
                   />
-                  <View style={{ flexDirection: "row", gap: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Field
-                        colors={colors}
-                        label={t.expiryLabel}
-                        value={cardExpiry}
-                        onChangeText={(v: string) => setCardExpiry(fmtExpiry(v))}
-                        placeholder="MM/YY" // i18n-ignore
-                        keyboardType="number-pad"
-                        maxLength={5}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field
-                        colors={colors}
-                        label={t.cvcLabel}
-                        value={cardCVC}
-                        onChangeText={(v: string) => setCardCVC(v.replace(/\D/g, "").slice(0, 4))}
-                        placeholder="123"
-                        keyboardType="number-pad"
-                        secureTextEntry
-                        maxLength={4}
-                      />
-                    </View>
-                  </View>
                   <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
                   <SecurityNote colors={colors} />
                 </View>

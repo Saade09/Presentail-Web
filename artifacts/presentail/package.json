@@ -85,6 +85,7 @@
     "@expo-google-fonts/noto-naskh-arabic": "^0.4.5",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/bottom-tabs": "7.15.9",
+    "@stripe/stripe-react-native": "^0.66.0",
     "babel-preset-expo": "^54.0.10",
     "expo-apple-authentication": "~8.0.8",
     "expo-clipboard": "~8.0.8",
