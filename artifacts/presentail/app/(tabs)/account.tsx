@@ -785,6 +785,8 @@ function AccountTab() {
           <Divider colors={colors} />
           <Row colors={colors} icon="map-pin" label={t.savedAddressesTitle} onPress={() => router.push("/saved-addresses" as never)} />
           <Divider colors={colors} />
+          <Row colors={colors} icon="calendar" label={t.accountOccasions} onPress={() => router.push("/occasions-manager" as never)} />
+          <Divider colors={colors} />
           <Row colors={colors} icon="heart" label={t.favorites} onPress={() => router.push("/(tabs)/favorites" as never)} />
         </Section>
 
