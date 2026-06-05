@@ -23,7 +23,10 @@ import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
 import { OCCASION_OPTIONS } from "@/data/occasions";
 
-function displayOccasionLabel(slug: string): string {
+function displayOccasionLabel(slug: string, t: (k: string) => string): string {
+  const key = `occasion.${slug}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
   return OCCASION_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
@@ -132,7 +135,7 @@ function OccasionForm({
           <SelectContent>
             {OCCASION_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>
-                {o.label}
+                {t(`occasion.${o.value}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -305,7 +308,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium text-sm truncate">
-                        {occ.personName ? `${occ.personName} — ` : ""}{displayOccasionLabel(occ.label)}
+                        {occ.personName ? `${occ.personName} — ` : ""}{displayOccasionLabel(occ.label, t)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {formatOccasionDate(occ.month, occ.day)}
