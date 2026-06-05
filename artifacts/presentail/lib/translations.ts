@@ -278,11 +278,6 @@ const EN = {
   payLabel: "Pay",
   secureRedirectNote: "Your card details are encrypted and processed securely.",
   opensAt8AM: "Opens 8 AM",
-  cardholderNameLabel: "Cardholder Name",
-  nameOnCard: "Name on card",
-  cardNumberLabel: "Card Number",
-  expiryLabel: "Expiry (MM/YY)",
-  cvcLabel: "CVC", // no-translate — universal payment abbreviation, identical across all locales
   emailForReceipt: "Email for receipt",
 
   // ── Account / Profile screen ──
@@ -1107,11 +1102,6 @@ const AR: typeof EN = {
   payLabel: "ادفع",
   secureRedirectNote: "تفاصيل بطاقتك مشفرة ومعالجة بشكل آمن.",
   opensAt8AM: "يبدأ الساعة 8 ص",
-  cardholderNameLabel: "اسم حامل البطاقة",
-  nameOnCard: "الاسم على البطاقة",
-  cardNumberLabel: "رقم البطاقة",
-  expiryLabel: "تاريخ الانتهاء (MM/YY)",
-  cvcLabel: "رمز الأمان",
   emailForReceipt: "البريد الإلكتروني للإيصال",
 
   // ── Account / Profile screen ──
@@ -1930,11 +1920,6 @@ const FR: typeof EN = {
   payLabel: "Payer",
   secureRedirectNote: "Vos coordonnées bancaires sont chiffrées et traitées en toute sécurité.",
   opensAt8AM: "Ouvre à 8 h",
-  cardholderNameLabel: "Nom du titulaire",
-  nameOnCard: "Nom sur la carte",
-  cardNumberLabel: "Numéro de carte",
-  expiryLabel: "Expiration (MM/AA)",
-  cvcLabel: "CVC",
   emailForReceipt: "E-mail pour le reçu",
 
   // ── Account / Profile screen ──
