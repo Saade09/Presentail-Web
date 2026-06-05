@@ -771,6 +771,7 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           phone: local.phoneE164 ?? "",
           gender: local.gender ?? null,
           birthday: local.birthday ?? null,
+          birthdayShareMonthDay: local.birthdayShareMonthDay ?? true,
         },
       });
     } catch (e: any) {

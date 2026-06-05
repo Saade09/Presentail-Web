@@ -33,6 +33,13 @@ const ORIGINAL_CLERK_SECRET = process.env.CLERK_SECRET_KEY;
 const noopHandler = (_req: any, _res: any, next: any) => next();
 vi.mock("../src/routes", () => ({ default: noopHandler }));
 vi.mock("../src/routes/clerkWebhook", () => ({ default: noopHandler }));
+vi.mock("../src/routes/wooWebhook", () => ({ default: noopHandler }));
+// Mock pino-http to avoid spawning pino-pretty worker threads per
+// vi.resetModules() cycle. pinoHttp inspects pino logger internals
+// (logger.values, logger.levels) that a plain object mock can't satisfy.
+vi.mock("pino-http", () => ({
+  default: () => (_req: any, _res: any, next: any) => next(),
+}));
 vi.mock("../src/middlewares/clerkProxyMiddleware", () => ({
   CLERK_PROXY_PATH: "/__clerk_proxy_test__",
   clerkProxyMiddleware: () => noopHandler,

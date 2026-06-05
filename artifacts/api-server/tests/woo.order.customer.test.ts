@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import wooRouter from "../src/routes/woo";
+import { attemptCreateOsOrder } from "../src/lib/wooOrders";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 //
@@ -59,6 +60,23 @@ vi.mock("../src/lib/fx", () => ({
   convertFromUsd: async (usd: number) => usd,
   normalizeCurrency: () => "USD",
   roundForCurrency: (v: number) => Math.round(v * 100) / 100,
+}));
+
+vi.mock("../src/lib/wooOrders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/lib/wooOrders")>();
+  return {
+    ...actual,
+    attemptCreateOsOrder: vi.fn().mockResolvedValue({
+      ok: true,
+      osOrderId: "os-test-456",
+      recipientName: "John Smith",
+      totalUsdCents: 5800,
+    }),
+  };
+});
+
+vi.mock("../src/lib/loyalty", () => ({
+  creditReferralRedemption: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── Harness ────────────────────────────────────────────────────────────────
@@ -138,7 +156,7 @@ function basePayload(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/woo/order — customer linking", () => {
-  it("forwards customer_id to WooCommerce and persists customerId locally", async () => {
+  it("submits order to OS and persists customerId locally", async () => {
     const res = await request(app)
       .post("/api/woo/order")
       .send(basePayload());
@@ -146,11 +164,9 @@ describe("POST /api/woo/order — customer linking", () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
-    // ── Contract 1: WC body carries `customer_id` from the synced mirror.
-    const orderReq = wcRequests.find((r) => r.url.endsWith("/orders"));
-    expect(orderReq).toBeDefined();
-    const sent = JSON.parse(String(orderReq!.init.body));
-    expect(sent.customer_id).toBe(777);
+    // ── Contract 1: OS order was created (WC is no longer used for orders).
+    const osMock = vi.mocked(attemptCreateOsOrder);
+    expect(osMock).toHaveBeenCalledOnce();
 
     // ── Contract 2: appOrders row persists the canonical local customerId.
     // recordSuccessfulWcOrder is fire-and-forget; flush microtasks first.
@@ -169,19 +185,17 @@ describe("POST /api/woo/order — customer linking", () => {
     expect(syncCustomerToWooMock).toHaveBeenCalledWith(7, expect.any(Object));
   });
 
-  it("returns 502 customer_sync_failed when the WC mirror sync throws", async () => {
+  it("proceeds with OS order even when WC mirror sync throws (non-fatal)", async () => {
     syncCustomerToWooMock.mockRejectedValueOnce(new Error("WC down"));
 
     const res = await request(app)
       .post("/api/woo/order")
       .send(basePayload({ orderId: "PR-CUST-2" }));
 
-    expect(res.status).toBe(502);
-    expect(res.body).toMatchObject({
-      ok: false,
-      code: "customer_sync_failed",
-    });
-    // We must not have proceeded to create a WC order without a mirror id.
-    expect(wcRequests.find((r) => r.url.endsWith("/orders"))).toBeUndefined();
+    // syncCustomerToWoo failure is non-fatal — the OS order still proceeds.
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    // OS order was still submitted despite the WC sync failure.
+    expect(vi.mocked(attemptCreateOsOrder)).toHaveBeenCalledOnce();
   });
 });

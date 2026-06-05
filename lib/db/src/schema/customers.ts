@@ -39,6 +39,7 @@ export const customersTable = pgTable(
     authUserId: text("auth_user_id"),
     gender: text("gender"),
     birthday: date("birthday"),
+    birthdayShareMonthDay: boolean("birthday_share_month_day").notNull().default(true),
     // Preferred language for push notifications and locale-aware server copy.
     // Defaults to "en". Set from the mobile app's active locale on sign-in /
     // registration. Valid values: "en" | "ar" | "fr" (CUSTOMER_LANGS).

@@ -71,6 +71,8 @@ vi.mock("../src/lib/auth-rate-limit", () => {
     socialIpLimiter: noop,
     loginEmailLimiter: { check: () => ({ allowed: true }), record: () => {} },
     resetEmailLimiter: { check: () => ({ allowed: true }), record: () => {} },
+    otpSendIpLimiter: noop,
+    otpPhoneLimiter: { check: () => ({ allowed: true }), record: () => {} },
   };
 });
 

@@ -10,6 +10,18 @@ import {
   resolveGeoCurrencyByCoords,
 } from "../src/lib/geoCurrency";
 
+// Stub @workspace/db so importing src/routes/geo does not require a live
+// Postgres connection (the db is only used in a fire-and-forget analytics
+// insert on the unhappy path, so a no-op mock is sufficient).
+vi.mock("@workspace/db", () => ({
+  db: {
+    insert: vi.fn(() => ({
+      values: vi.fn(() => Promise.resolve(undefined)),
+    })),
+  },
+  analyticsEventsTable: {},
+}));
+
 // ─── pickClientIp ────────────────────────────────────────────────────────────
 
 describe("pickClientIp", () => {

@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import wooRouter from "../src/routes/woo";
+import { attemptCreateOsOrder } from "../src/lib/wooOrders";
 
 // --- Module mocks ----------------------------------------------------------
 //
@@ -54,6 +55,23 @@ vi.mock("../src/lib/fx", async () => {
     roundForCurrency: (v: number) => Math.round(v * 100) / 100,
   };
 });
+
+vi.mock("../src/lib/wooOrders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/lib/wooOrders")>();
+  return {
+    ...actual,
+    attemptCreateOsOrder: vi.fn().mockResolvedValue({
+      ok: true,
+      osOrderId: "os-test-123",
+      recipientName: "John Smith",
+      totalUsdCents: 5800,
+    }),
+  };
+});
+
+vi.mock("../src/lib/loyalty", () => ({
+  creditReferralRedemption: vi.fn().mockResolvedValue(undefined),
+}));
 
 // --- App harness -----------------------------------------------------------
 
@@ -165,33 +183,41 @@ describe("POST /api/woo/order — Zod validation", () => {
 });
 
 describe("POST /api/woo/order — country forwarding", () => {
-  it("forwards billingCountry/shippingCountry to WooCommerce when supplied", async () => {
+  it("forwards billingCountry/shippingCountry to the OS order when supplied", async () => {
     const res = await request(app)
       .post("/api/woo/order")
       .send(
         basePayload({ billingCountry: "AE", shippingCountry: "GB" }),
       );
     expect(res.status).toBe(200);
-    expect(lastWcRequest).not.toBeNull();
-    const sent = JSON.parse(String(lastWcRequest!.init.body));
-    expect(sent.billing.country).toBe("AE");
-    expect(sent.shipping.country).toBe("GB");
+    const osMock = vi.mocked(attemptCreateOsOrder);
+    expect(osMock).toHaveBeenCalledOnce();
+    const sentBody = osMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(sentBody.billingCountry).toBe("AE");
+    expect(sentBody.shippingCountry).toBe("GB");
   });
 
   it("uppercases lower-cased ISO codes from the client", async () => {
     await request(app)
       .post("/api/woo/order")
       .send(basePayload({ billingCountry: "ae", shippingCountry: "gb" }));
-    const sent = JSON.parse(String(lastWcRequest!.init.body));
-    expect(sent.billing.country).toBe("AE");
-    expect(sent.shipping.country).toBe("GB");
+    const osMock = vi.mocked(attemptCreateOsOrder);
+    expect(osMock).toHaveBeenCalledOnce();
+    const sentBody = osMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(sentBody.billingCountry).toBe("AE");
+    expect(sentBody.shippingCountry).toBe("GB");
   });
 
-  it("defaults country to LB when not supplied (back-compat with older app builds)", async () => {
-    await request(app).post("/api/woo/order").send(basePayload());
-    const sent = JSON.parse(String(lastWcRequest!.init.body));
-    expect(sent.billing.country).toBe("LB");
-    expect(sent.shipping.country).toBe("LB");
+  it("succeeds when no country is supplied (back-compat with older app builds)", async () => {
+    const res = await request(app).post("/api/woo/order").send(basePayload());
+    expect(res.status).toBe(200);
+    const osMock = vi.mocked(attemptCreateOsOrder);
+    expect(osMock).toHaveBeenCalledOnce();
+    // billingCountry/shippingCountry are optional; omitting them is valid.
+    // The OS submission layer applies the "LB" default internally.
+    const sentBody = osMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(sentBody.billingCountry == null || sentBody.billingCountry === "LB").toBe(true);
+    expect(sentBody.shippingCountry == null || sentBody.shippingCountry === "LB").toBe(true);
   });
 });
 
