@@ -151,7 +151,7 @@ export default function Shop() {
   }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName]);
 
   return (
-    <div className="min-h-screen pt-12 pb-24">
+    <div className="min-h-screen pt-12 pb-24 bg-white">
       {breadcrumbCrumbs.length > 0 && (
         <div className="container mx-auto max-w-content px-page">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
