@@ -53,7 +53,7 @@ export function BestSellersPreview({
     return seededShuffle(pool, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
   }, [catProducts, allQuery.data?.products, countryCode, cityId, railKey, limit]);
 
-  const href = viewAllHref ?? `/shop?category=${encodeURIComponent(categorySlug)}`;
+  const href = viewAllHref ?? `/category/${encodeURIComponent(categorySlug)}`;
 
   return (
     <ProductCollectionCarousel

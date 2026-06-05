@@ -96,12 +96,12 @@ export function Footer() {
 
 
   const popularCategories: { label: string; href: string; external?: boolean; testId: string }[] = [
-    { label: t("footer.popular.flowers"), href: "/shop?category=hand-bouquets", testId: "footer-link-flowers" },
-    { label: t("footer.popular.plants"), href: "/shop?category=plants", testId: "footer-link-plants" },
-    { label: t("footer.popular.giftBundles"), href: "/shop?category=bundles", testId: "footer-link-bundles" },
-    { label: t("footer.popular.cakesSweets"), href: "/shop?category=cakes", testId: "footer-link-cakes" },
-    { label: t("footer.popular.baskets"), href: "/shop?category=baskets", testId: "footer-link-baskets" },
-    { label: t("footer.popular.bearsBalloons"), href: "/shop?category=bears-balloons", testId: "footer-link-bears" },
+    { label: t("footer.popular.flowers"), href: "/category/hand-bouquets", testId: "footer-link-flowers" },
+    { label: t("footer.popular.plants"), href: "/category/plants", testId: "footer-link-plants" },
+    { label: t("footer.popular.giftBundles"), href: "/category/bundles", testId: "footer-link-bundles" },
+    { label: t("footer.popular.cakesSweets"), href: "/category/cakes", testId: "footer-link-cakes" },
+    { label: t("footer.popular.baskets"), href: "/category/baskets", testId: "footer-link-baskets" },
+    { label: t("footer.popular.bearsBalloons"), href: "/category/bears-balloons", testId: "footer-link-bears" },
   ];
   if (!isAE) {
     popularCategories.push({
@@ -112,7 +112,7 @@ export function Footer() {
   }
   popularCategories.push({
     label: t("footer.popular.occasions"),
-    href: "/shop?occasion=birthday",
+    href: "/occasion/birthday",
     testId: "footer-link-occasions",
   });
 

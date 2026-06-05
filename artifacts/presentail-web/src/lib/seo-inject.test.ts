@@ -177,7 +177,7 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       '<meta property="og:image" content="https://cdn.test/cakes.jpg"',
     );
     expect(out).toContain(
-      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/shop?n=birthday-cakes"',
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/category/birthday-cakes"',
     );
   });
 
@@ -246,7 +246,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       '<meta property="og:image" content="https://cdn.test/birthday.jpg"',
     );
     expect(out).toContain(
-      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/shop?occasion=birthday"',
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday"',
     );
   });
 
@@ -355,6 +355,120 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
 
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+});
+
+describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
+  const CLEAN_PATH_OPTS = { ...OPTS, apiBaseUrl: "https://api.clean-path-test" };
+
+  it("fetches occasion and emits rich SEO tags for /occasion/birthday path", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      occasion: {
+        name: "Birthday Gifts",
+        description: "<p>Make every birthday memorable.</p>",
+        image: "https://cdn.test/birthday-clean.jpg",
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/occasion/birthday-path-unique",
+      CLEAN_PATH_OPTS,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
+    expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-path-unique");
+    expect(out).toContain("<title>Birthday Gifts | Presentail</title>");
+    expect(out).toContain('content="Make every birthday memorable."');
+    expect(out).toContain(
+      '<meta property="og:image" content="https://cdn.test/birthday-clean.jpg"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-ae/dubai/occasion/birthday-path-unique"',
+    );
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-ae/dubai/occasion/birthday-path-unique"',
+    );
+  });
+
+  it("falls back to the generic locale preview when the occasion 404s on the clean path", async () => {
+    mockFetchOnce({ ok: false }, false);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/occasion/nope-clean",
+      CLEAN_PATH_OPTS,
+    );
+    // The clean /occasion/<slug> path falls back to the city-level generic page title.
+    expect(out).toContain("Dubai | Presentail");
+  });
+});
+
+describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
+  const CLEAN_PATH_OPTS = { ...OPTS, apiBaseUrl: "https://api.clean-cat-test" };
+
+  it("fetches category and emits rich SEO tags for /category/hand-bouquets path", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      category: {
+        name: "Hand Bouquets",
+        description: "<p>Beautiful hand-tied bouquets.</p>",
+        image: "https://cdn.test/bouquets-clean.jpg",
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/category/hand-bouquets-path-unique",
+      CLEAN_PATH_OPTS,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
+    expect(fetchMock.mock.calls[0][0]).toContain("slug=hand-bouquets-path-unique");
+    expect(fetchMock.mock.calls[0][0]).toContain("countryCode=LB");
+    expect(fetchMock.mock.calls[0][0]).toContain("cityId=lb-beirut");
+    expect(out).toContain("<title>Hand Bouquets | Presentail</title>");
+    expect(out).toContain('content="Beautiful hand-tied bouquets."');
+    expect(out).toContain(
+      '<meta property="og:image" content="https://cdn.test/bouquets-clean.jpg"',
+    );
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-lb/beirut/category/hand-bouquets-path-unique"',
+    );
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut/category/hand-bouquets-path-unique"',
+    );
+  });
+
+  it("falls back to the generic locale preview when the category 404s on the clean path", async () => {
+    mockFetchOnce({ ok: false }, false);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/category/nope-clean",
+      CLEAN_PATH_OPTS,
+    );
+    // The clean /category/<slug> path falls back to the city-level generic page title.
+    expect(out).toContain("Beirut | Presentail");
+  });
+
+  it("legacy /shop?category=<slug> canonical redirects to clean path in og:url", async () => {
+    mockFetchOnce({
+      ok: true,
+      category: {
+        name: "Hand Bouquets",
+        description: "Beautiful bouquets.",
+        image: null,
+      },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/shop", {
+      ...CLEAN_PATH_OPTS,
+      search: "?category=hand-bouquets-legacy-unique",
+    });
+    expect(out).toContain("<title>Hand Bouquets | Presentail</title>");
+    expect(out).toContain(
+      '<meta property="og:url" content="https://presentail.test/en-lb/beirut/category/hand-bouquets-legacy-unique"',
+    );
+    expect(out).toContain(
+      'rel="canonical" href="https://presentail.test/en-lb/beirut/category/hand-bouquets-legacy-unique"',
+    );
   });
 });
 

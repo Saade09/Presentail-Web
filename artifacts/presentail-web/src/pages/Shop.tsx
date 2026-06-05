@@ -1,6 +1,7 @@
 import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, type Product } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
-import { useSearch, Link } from "wouter";
+import { useSearch, useLocation, useParams, Link } from "wouter";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -54,10 +55,33 @@ export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   const { t, language } = useLocale();
+  const [location, navigate] = useLocation();
+  const params = useParams<{ slug?: string }>();
 
-  const category = searchParams.get("category") || "";
-  const occasion = searchParams.get("occasion") || "";
+  // Detect whether we're on a /occasion/:slug or /category/:slug path
+  const isOccasionRoute = location.match(/^\/occasion\//) !== null;
+  const isCategoryRoute = location.match(/^\/category\//) !== null;
+
+  // Legacy query-param values (only present on old /shop?occasion= / /shop?category= URLs)
+  const categoryFromSearch = !isCategoryRoute && !isOccasionRoute ? (searchParams.get("category") || "") : "";
+  const occasionFromSearch = !isCategoryRoute && !isOccasionRoute ? (searchParams.get("occasion") || "") : "";
   const brand = searchParams.get("brand") || "";
+
+  // Redirect legacy query-param URLs to the new clean paths (client-side, replace history)
+  useEffect(() => {
+    if (occasionFromSearch) {
+      const target = brand
+        ? `/occasion/${occasionFromSearch}?brand=${encodeURIComponent(brand)}`
+        : `/occasion/${occasionFromSearch}`;
+      navigate(target, { replace: true });
+    } else if (categoryFromSearch) {
+      navigate(`/category/${categoryFromSearch}`, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const category = isCategoryRoute ? (params.slug ?? "") : categoryFromSearch;
+  const occasion = isOccasionRoute ? (params.slug ?? "") : occasionFromSearch;
 
   const { countryCode, cityId, country, openPicker } = useLocationSelection();
   const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
@@ -186,9 +210,9 @@ export default function Shop() {
 
   const brandDisplayName = brandProducts.data?.brandName ?? brand;
   const clearBrandHref = occasion
-    ? `/shop?occasion=${occasion}`
+    ? `/occasion/${occasion}`
     : category
-      ? `/shop?category=${category}`
+      ? `/category/${category}`
       : "/shop";
 
   const breadcrumbCrumbs = useMemo((): Crumb[] => {
@@ -278,7 +302,7 @@ export default function Shop() {
                 {CATEGORIES.map((c) => (
                   <li key={c.slug}>
                     <Link
-                      href={`/shop?category=${c.slug}`}
+                      href={`/category/${c.slug}`}
                       className={`text-sm hover:text-primary transition-colors ${category === c.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
                       data-testid={`link-category-${c.slug}`}
                     >
@@ -294,7 +318,7 @@ export default function Shop() {
                 {OCCASIONS.map((o) => (
                   <li key={o.slug}>
                     <Link
-                      href={`/shop?occasion=${o.slug}`}
+                      href={`/occasion/${o.slug}`}
                       className={`text-sm hover:text-primary transition-colors ${occasion === o.slug ? "font-medium text-primary" : "text-muted-foreground"}`}
                       data-testid={`link-occasion-${o.slug}`}
                     >

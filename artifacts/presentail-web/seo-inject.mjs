@@ -1736,14 +1736,28 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
 
   const productSlug = extractProductSlug(parsed.rest);
   const brandSlug = extractBrandSlug(parsed.rest);
-  const categorySlug =
-    parsed.rest === "/shop" ? extractCategorySlugFromSearch(search) : null;
-  const occasionSlug =
-    parsed.rest === "/shop" && !categorySlug
+  // Path-based slugs (new clean URLs)
+  const categorySlugFromPath = extractSlugFor("/category", parsed.rest);
+  const occasionSlugFromPath = extractSlugFor("/occasion", parsed.rest);
+  // Query-param slugs (legacy URLs — kept for backward compatibility)
+  const categorySlugFromSearch = parsed.rest === "/shop" ? extractCategorySlugFromSearch(search) : null;
+  const occasionSlugFromSearch =
+    parsed.rest === "/shop" && !categorySlugFromSearch
       ? extractOccasionSlugFromSearch(search)
       : null;
+  const categorySlug = categorySlugFromPath ?? categorySlugFromSearch;
+  const occasionSlug = occasionSlugFromPath ?? occasionSlugFromSearch;
   const brandsFilter =
     parsed.rest === "/brands" ? extractBrandsFilterFromSearch(search) : null;
+  // For legacy query-param paths, compute the canonical clean path so search
+  // engines are guided to the new URLs even before they follow the client-side redirect.
+  const seoPathname =
+    categorySlugFromSearch
+      ? pathname.replace(/\/shop$/, `/category/${encodeURIComponent(categorySlugFromSearch)}`)
+      : occasionSlugFromSearch
+        ? pathname.replace(/\/shop$/, `/occasion/${encodeURIComponent(occasionSlugFromSearch)}`)
+        : pathname;
+  const seoSearch = categorySlugFromSearch || occasionSlugFromSearch ? "" : search;
 
   if (
     !productSlug &&
@@ -1771,7 +1785,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     lang: generic.lang,
     basePath: rest.basePath ?? "",
     origin: rest.origin ?? "",
-    pathname,
+    pathname: seoPathname,
   };
 
   let result = null;
@@ -1808,7 +1822,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     if (category) {
       const catImageUrl = typeof category.image === "string" && category.image ? category.image : null;
       const catImageDims = await fetchImageDimensions(catImageUrl);
-      result = buildCategoryHead({ category, imageDimensions: catImageDims, search, ...headOpts });
+      result = buildCategoryHead({ category, imageDimensions: catImageDims, search: seoSearch, ...headOpts });
     }
   } else if (occasionSlug) {
     const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
@@ -1818,7 +1832,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     if (occasion) {
       const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
       const occImageDims = await fetchImageDimensions(occImageUrl);
-      result = buildOccasionHead({ occasion, imageDimensions: occImageDims, search, ...headOpts });
+      result = buildOccasionHead({ occasion, imageDimensions: occImageDims, search: seoSearch, ...headOpts });
     }
   } else if (brandsFilter) {
     const fetcher =

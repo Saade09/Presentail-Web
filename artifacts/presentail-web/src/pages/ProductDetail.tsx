@@ -113,7 +113,7 @@ export default function ProductDetail() {
     if (catEntry) {
       return [
         home,
-        { label: catEntry.name, href: `/shop?category=${catSlug}` },
+        { label: catEntry.name, href: `/category/${catSlug}` },
         { label: product.name },
       ];
     }

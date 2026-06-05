@@ -197,7 +197,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                     <Command.Item
                       key={cat.slug}
                       value={`category-${cat.slug}-${cat.name}`}
-                      onSelect={() => handleSelect(`/shop?category=${cat.slug}`)}
+                      onSelect={() => handleSelect(`/category/${cat.slug}`)}
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm cursor-pointer select-none outline-none
                                  aria-selected:bg-[#EDE9E3] hover:bg-[#EDE9E3]
@@ -238,8 +238,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       onSelect={() =>
                         handleSelect(
                           brandSlug
-                            ? `/shop?occasion=${occasion.slug}&brand=${brandSlug}`
-                            : `/shop?occasion=${occasion.slug}`,
+                            ? `/occasion/${occasion.slug}?brand=${brandSlug}`
+                            : `/occasion/${occasion.slug}`,
                         )
                       }
                       className="mx-2 flex items-center gap-3 px-3 py-2.5 rounded-xl

@@ -35,7 +35,7 @@ function CategoriesRow({ title }: { title: string }) {
         label: i.name,
         slug: i.slug,
         imageUrl: i.imageUrl,
-        href: `/shop?category=${encodeURIComponent(i.slug)}`,
+        href: `/category/${encodeURIComponent(i.slug)}`,
       })) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
@@ -58,7 +58,7 @@ function OccasionsRow({ title }: { title: string }) {
         label: i.name,
         slug: i.slug,
         imageUrl: i.imageUrl,
-        href: `/shop?occasion=${encodeURIComponent(i.slug)}`,
+        href: `/occasion/${encodeURIComponent(i.slug)}`,
       })) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (

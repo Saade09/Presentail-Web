@@ -39,7 +39,7 @@ export function ShopByOccasion() {
               transition={{ duration: 0.4, delay: i * 0.04 }}
             >
               <Link
-                href={`/shop?occasion=${it.slug}`}
+                href={`/occasion/${it.slug}`}
                 className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
                 data-testid={`link-occasion-${it.slug}`}
               >

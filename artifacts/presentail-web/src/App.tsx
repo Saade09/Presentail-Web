@@ -186,6 +186,8 @@ function ShopShell() {
           <Switch>
             <Route path="/" component={HomeRoute} />
             <Route path="/shop" component={ShopRoute} />
+            <Route path="/occasion/:slug" component={ShopRoute} />
+            <Route path="/category/:slug" component={ShopRoute} />
             <Route path="/product/:slug" component={ProductDetailRoute} />
             <Route path="/brands" component={BrandsRoute} />
             <Route path="/brand/:slug" component={BrandDetailRoute} />

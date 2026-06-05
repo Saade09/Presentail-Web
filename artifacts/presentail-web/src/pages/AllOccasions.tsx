@@ -127,7 +127,7 @@ export default function AllOccasions() {
                   transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3) }}
                 >
                   <Link
-                    href={`/shop?occasion=${occasion.id}`}
+                    href={`/occasion/${occasion.id}`}
                     className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
                     data-testid={`link-occasion-${occasion.id}`}
                   >

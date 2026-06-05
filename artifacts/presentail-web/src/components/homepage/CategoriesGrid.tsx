@@ -17,11 +17,11 @@ export function CategoriesGrid() {
   const populatedSlugs = new Set((data?.products ?? []).map((p) => p.category));
 
   const allItems = [
-    { key: "categories.bouquets" as const, slug: "hand-bouquets", href: "/shop?category=hand-bouquets", img: bouquets, span: "md:col-span-2 md:row-span-2" },
-    { key: "categories.boxes" as const, slug: "flower-boxes", href: "/shop?category=flower-boxes", img: boxes, span: "" },
-    { key: "categories.plants" as const, slug: "plants", href: "/shop?category=plants", img: plants, span: "" },
-    { key: "categories.cakes" as const, slug: "cakes", href: "/shop?category=cakes", img: cakes, span: "" },
-    { key: "categories.chocolate" as const, slug: "chocolate", href: "/shop?category=chocolate", img: chocolate, span: "" },
+    { key: "categories.bouquets" as const, slug: "hand-bouquets", href: "/category/hand-bouquets", img: bouquets, span: "md:col-span-2 md:row-span-2" },
+    { key: "categories.boxes" as const, slug: "flower-boxes", href: "/category/flower-boxes", img: boxes, span: "" },
+    { key: "categories.plants" as const, slug: "plants", href: "/category/plants", img: plants, span: "" },
+    { key: "categories.cakes" as const, slug: "cakes", href: "/category/cakes", img: cakes, span: "" },
+    { key: "categories.chocolate" as const, slug: "chocolate", href: "/category/chocolate", img: chocolate, span: "" },
   ];
 
   const items = data ? allItems.filter((it) => populatedSlugs.has(it.slug)) : allItems;
