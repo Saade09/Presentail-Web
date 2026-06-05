@@ -619,6 +619,7 @@ function CheckoutScreen() {
   }, [currencyCode, payMethod, effectiveCountry]);
 
   const [paying, setPaying] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
   const fees = useMemo(() => {
@@ -769,6 +770,7 @@ function CheckoutScreen() {
 
   const placeOrder = async () => {
     if (paying) return;
+    setCardError(null);
     setPaying(true);
     try {
     const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
@@ -909,10 +911,7 @@ function CheckoutScreen() {
         });
       if (confirmError) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        Alert.alert(
-          t.checkoutPaymentErrorTitle,
-          confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError,
-        );
+        setCardError(confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError);
         setPaying(false);
         return;
       }
@@ -929,10 +928,7 @@ function CheckoutScreen() {
           await handleNextAction(intentResult.clientSecret, deeplinkBase);
         if (actionError) {
           trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-          Alert.alert(
-            t.checkoutPaymentErrorTitle,
-            actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError,
-          );
+          setCardError(actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError);
           setPaying(false);
           return;
         }
@@ -945,7 +941,7 @@ function CheckoutScreen() {
         // Any non-Succeeded status at this point means the shopper cancelled
         // or authentication was abandoned.
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
+        setCardError(t.checkoutPaymentCancelledStripe);
       }
       setPaying(false);
       return;
@@ -1401,12 +1397,15 @@ function CheckoutScreen() {
                     surface: "checkout",
                     action: m,
                   });
+                  setCardError(null);
                 }
                 setPayMethod(m);
               }}
               email={senderEmail}
               setEmail={setSenderEmail}
               country={effectiveCountry}
+              cardError={cardError}
+              setCardError={setCardError}
             />
             <CardMessageReviewCard
               colors={colors}
@@ -2625,7 +2624,7 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
 
@@ -2686,7 +2685,8 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                 <View style={{ gap: 12 }}>
                   {/* Stripe CardField — collects card number, expiry, and CVC
                       internally. confirmPayment reads the entered details
-                      directly; no local state needed. */}
+                      directly; no local state needed. The field stays mounted
+                      after a decline so shoppers can correct details in place. */}
                   <CardField
                     postalCodeEnabled={false}
                     style={{ height: 50, width: "100%" }}
@@ -2694,11 +2694,22 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                       backgroundColor: "#ffffff",
                       textColor: colors.primary,
                       placeholderColor: colors.mutedForeground,
-                      borderColor: colors.border,
-                      borderWidth: 1,
+                      borderColor: cardError ? "#ef4444" : colors.border,
+                      borderWidth: cardError ? 1.5 : 1,
                       borderRadius: 10,
                     }}
+                    onFocus={() => { if (cardError) setCardError(null); }}
                   />
+                  {cardError ? (
+                    <View style={{ gap: 4 }}>
+                      <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: "#ef4444" }}>
+                        {cardError}
+                      </AppText>
+                      <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                        {t.checkoutCardDeclineHint}
+                      </AppText>
+                    </View>
+                  ) : null}
                   <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
                   <SecurityNote colors={colors} />
                 </View>
