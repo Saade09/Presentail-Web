@@ -101,7 +101,8 @@ type Lang = (typeof SUPPORTED_LANGS)[number];
 /**
  * Decode HTML entities that WooCommerce (and Presentail OS, which is WC-powered)
  * HTML-encodes in API text fields. Applied to product names, brand names,
- * category names, and occasion names — never to HTML description fields.
+ * category names, occasion names, and short descriptions (after HTML tags have
+ * already been stripped).
  */
 function decodeHtmlEntities(str: string): string {
   return str
@@ -344,7 +345,7 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
     category: mapCategory(p.categories ?? []),
     inStock: p.stock_status === "instock",
     description: p.short_description
-      ? p.short_description.replace(/<[^>]*>/g, "").trim()
+      ? decodeHtmlEntities(p.short_description.replace(/<[^>]*>/g, "").trim())
       : undefined,
     tag: p.featured ? "Featured" : undefined,
     occasions: [],
