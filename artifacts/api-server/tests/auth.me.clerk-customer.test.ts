@@ -16,6 +16,7 @@ vi.mock("@clerk/express", () => ({
   createClerkClient: () => ({
     users: {
       getUser: (...args: any[]) => getUserMock(...args),
+      updateUser: vi.fn().mockResolvedValue({}),
       updateUserMetadata: vi.fn(),
     },
   }),
@@ -292,6 +293,62 @@ describe("PUT /api/auth/me — Clerk customer path: no-op (empty body)", () => {
       ([, init]) => (init as RequestInit)?.method === "PUT",
     );
     expect(wcPut).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /auth/me — Clerk customer path: db.update throws → 500
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("PUT /api/auth/me — Clerk customer path: db.update throws → 500", () => {
+  it("returns 500 and {ok:false} when the db.update call rejects", async () => {
+    getAuthMock.mockReturnValue(CUSTOMER_SESSION);
+    upsertCustomerMock.mockResolvedValue({ customer: baseLocalCustomer });
+    dbReturningMock.mockRejectedValueOnce(new Error("DB write failed"));
+
+    const res = await request(app)
+      .put("/api/auth/me")
+      .send({ firstName: "Crash" });
+
+    expect(res.status).toBe(500);
+    expect(res.body.ok).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /auth/me — Clerk customer path: WC mirror non-2xx → local save still 200
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("PUT /api/auth/me — Clerk customer path: WC mirror non-2xx → still 200", () => {
+  it("returns 200 even when the WooCommerce mirror responds with a non-2xx status", async () => {
+    const customerWithWc = { ...baseLocalCustomer, wcCustomerId: 999 };
+    getAuthMock.mockReturnValue(CUSTOMER_SESSION);
+    upsertCustomerMock.mockResolvedValue({ customer: customerWithWc });
+    dbReturningMock.mockResolvedValueOnce([
+      { ...customerWithWc, firstName: "Updated" },
+    ]);
+
+    // Make the WC mirror PUT return a server error.
+    fetchSpy.mockImplementation(async (_url, init) => {
+      if ((init as RequestInit)?.method === "PUT") {
+        return new Response(JSON.stringify({ code: "wc_error" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    const res = await request(app)
+      .put("/api/auth/me")
+      .send({ firstName: "Updated" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.user).toMatchObject({ firstName: "Updated" });
   });
 });
 

@@ -318,17 +318,6 @@ export default function SignUpPage() {
               >
                 {busy ? t("checkout.processing") : t("auth.createAccount")}
               </Button>
-
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full h-12 rounded-xl"
-                onClick={() => void doRegister(undefined)}
-                disabled={busy}
-                data-testid="button-signup-skip-phone"
-              >
-                {t("auth.skipPhone")}
-              </Button>
             </div>
           </>
         )}

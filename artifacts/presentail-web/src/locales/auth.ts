@@ -51,8 +51,6 @@ export const authStrings: Dict = {
   "auth.phoneLabel": { en: "Phone Number", ar: "رقم الهاتف" },
   "auth.phoneRequired": { en: "Phone number is required.", ar: "رقم الهاتف مطلوب." },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
-  "auth.skipPhone": { en: "Skip — create account without phone", ar: "تخطّ — إنشاء الحساب بدون هاتف" },
-
   "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
   "auth.enterPassword": { en: "Enter your password for {email}", ar: "أدخل كلمة المرور لحساب {email}" },
   "auth.forgotPassword": { en: "Forgot password?", ar: "نسيت كلمة المرور؟" },
@@ -107,7 +105,6 @@ export const authStringsFr: Record<string, string> = {
   "auth.phoneLabel": "Numéro de téléphone",
   "auth.phoneRequired": "Le numéro de téléphone est obligatoire.",
   "auth.createAccount": "Créer un compte",
-  "auth.skipPhone": "Ignorer — créer un compte sans téléphone",
 
   "auth.signIn": "Se connecter",
   "auth.enterPassword": "Saisissez votre mot de passe pour {email}",
