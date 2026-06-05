@@ -22,6 +22,9 @@ function useStripe() {
     confirmPayment: async () => ({
       error: { message: "Stripe is not available on web" }, // i18n-ignore
     }),
+    handleNextAction: async () => ({
+      error: { message: "Stripe is not available on web" }, // i18n-ignore
+    }),
     createPaymentMethod: async () => ({
       error: { message: "Stripe is not available on web" }, // i18n-ignore
     }),

@@ -619,7 +619,7 @@ function CheckoutScreen() {
   }, [currencyCode, payMethod, effectiveCountry]);
 
   const [paying, setPaying] = useState(false);
-  const { confirmPayment } = useStripe();
+  const { confirmPayment, handleNextAction } = useStripe();
 
   const fees = useMemo(() => {
     const subtotal = total;
@@ -864,7 +864,12 @@ function CheckoutScreen() {
     // a separate native wallet integration just for UAE.
     const walletViaMamo = payMethod === "wallet" && currencyCode === "AED";
 
-    // Inline card payment via @stripe/stripe-react-native — no redirect.
+    // Inline card payment via @stripe/stripe-react-native.
+    // returnURL is required for redirect-based 3DS / SCA flows: after the
+    // shopper authenticates in the Stripe WebView, the browser navigates to
+    // this deep-link so the SDK can hand control back to the app.  Without it,
+    // EU / UK cards that require PSD2 Strong Customer Authentication silently
+    // fail because the auth flow has nowhere to return to.
     if (payMethod === "card") {
       const intentResult = await createPaymentIntent({
         items: detailed
@@ -894,21 +899,52 @@ function CheckoutScreen() {
         setPaying(false);
         return;
       }
-      const { paymentIntent, error } = await confirmPayment(intentResult.clientSecret, {
-        paymentMethodType: "Card",
-      });
-      if (error) {
+      // Step 1: confirm the PaymentIntent using the card details collected by
+      // CardField.  For cards that don't need 3DS this returns "Succeeded"
+      // immediately.  For 3DS / SCA cards the SDK may return "RequiresAction"
+      // indicating that the shopper must complete an authentication challenge.
+      const { paymentIntent: confirmedIntent, error: confirmError } =
+        await confirmPayment(intentResult.clientSecret, {
+          paymentMethodType: "Card",
+        });
+      if (confirmError) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(
           t.checkoutPaymentErrorTitle,
-          error.localizedMessage ?? error.message ?? t.checkoutPaymentNetworkError,
+          confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError,
         );
         setPaying(false);
         return;
       }
-      if (paymentIntent?.status === "Succeeded") {
-        await finishAfterPayment(paymentIntent.id);
+
+      // Step 2: when the card issuer requires 3DS / SCA, surface the Stripe
+      // authentication WebView so the shopper can complete the challenge.
+      // handleNextAction presents the challenge and returns the final intent
+      // status once the shopper authenticates (or cancels).  The returnURL
+      // tells the SDK where to redirect back after the WebView closes so the
+      // deep-link can hand control back to the app.
+      let finalIntent = confirmedIntent;
+      if (confirmedIntent?.status === "RequiresAction") {
+        const { paymentIntent: actionIntent, error: actionError } =
+          await handleNextAction(intentResult.clientSecret, deeplinkBase);
+        if (actionError) {
+          trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+          Alert.alert(
+            t.checkoutPaymentErrorTitle,
+            actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError,
+          );
+          setPaying(false);
+          return;
+        }
+        finalIntent = actionIntent;
+      }
+
+      if (finalIntent?.status === "Succeeded") {
+        await finishAfterPayment(finalIntent.id);
       } else {
+        // Any non-Succeeded status at this point means the shopper cancelled
+        // or authentication was abandoned.
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
         Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
       }
       setPaying(false);
