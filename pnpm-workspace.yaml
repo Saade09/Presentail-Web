@@ -132,6 +132,20 @@ overrides:
   rollup>@rollup/rollup-win32-x64-msvc: '-'
   uuid: '>=14.0.0'
   yaml: '>=2.8.3'
+  # Security vulnerability fixes
+  '@xmldom/xmldom': '>=0.8.0'
+  ajv@8: '>=8.17.1'
+  brace-expansion@5: '>=5.0.6'
+  'minimatch@9>brace-expansion': '>=5.0.6'
+  diff: '>=8.0.3'
+  fast-uri@3: '>=3.1.2'
+  ip-address@10: '>=10.2.0'
+  js-cookie@3: '>=3.0.6'
+  minimatch@5: '>=5.1.6'
+  node-forge: '>=1.4.0'
+  qs: '>=6.15.2'
+  tar@7: '>=7.5.8'
+  ws@8: '>=8.20.1'
 
 patchedDependencies:
   react-native-country-picker-modal@2.0.0: patches/react-native-country-picker-modal@2.0.0.patch
