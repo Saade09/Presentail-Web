@@ -1288,6 +1288,35 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     );
   }
 
+  // Best-effort Clerk name sync (fire-and-forget). Legacy JWT sessions
+  // don't carry a Clerk user id, so we look the user up by email.
+  // Phone is intentionally excluded — Clerk requires OTP verification.
+  const jwtClerkNamePatch: { firstName?: string; lastName?: string } = {};
+  if (typeof body.firstName === "string") jwtClerkNamePatch.firstName = body.firstName.trim();
+  if (typeof body.lastName === "string") jwtClerkNamePatch.lastName = body.lastName.trim();
+  if (Object.keys(jwtClerkNamePatch).length > 0) {
+    const jwtClerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (jwtClerkSecretKey) {
+      (async () => {
+        try {
+          const localForClerk = await getCustomerByWcId(auth.customerId);
+          if (!localForClerk?.email) return;
+          const clerkClientJwt = createClerkClient({ secretKey: jwtClerkSecretKey });
+          const { data: clerkUsers } = await clerkClientJwt.users.getUserList({
+            emailAddress: [localForClerk.email],
+          });
+          if (clerkUsers.length === 0) return;
+          await clerkClientJwt.users.updateUser(clerkUsers[0].id, jwtClerkNamePatch);
+        } catch (err: any) {
+          req.log?.warn?.(
+            { err: err?.message, wcCustomerId: auth.customerId },
+            "auth.me.put (legacy-jwt): Clerk name sync threw (non-fatal)",
+          );
+        }
+      })();
+    }
+  }
+
   // If the WC call succeeded use its mapped values, but always overlay
   // the locally-persisted gender/birthday/share so the response reflects
   // what we actually saved (the WC mirror may not echo our meta_data
