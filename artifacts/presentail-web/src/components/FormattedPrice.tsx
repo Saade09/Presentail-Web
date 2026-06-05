@@ -18,9 +18,9 @@ type Props = {
 /**
  * Renders a price in the visitor's active display currency.
  *
- * For AED: shows the dirham PNG logo beside the number instead of the
+ * For AED: shows the dirham SVG symbol beside the number instead of the
  * plain "AED" text suffix. The `symbolSize` prop (default "1em") lets the
- * logo scale with the surrounding font — no manual size tuning needed.
+ * symbol scale with the surrounding font — no manual size tuning needed.
  *
  * For all other currencies: falls back to the formatted string from
  * `useDisplayCurrency`, wrapped in a `<span>`.
