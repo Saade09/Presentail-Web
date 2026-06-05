@@ -17,7 +17,9 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
+  getCountryHour,
   isExpressDeliveryAvailable,
+  nearestSlotForHour,
   timeSlotsForCountry,
   type TimeSlot,
 } from "@workspace/delivery";
@@ -62,6 +64,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     [countryCode, now],
   );
   const expressSurcharge = expressSurchargeForCountry(countryCode);
+  const currentHour = useMemo(() => getCountryHour(countryCode, now), [countryCode, now]);
+  const todayIso = useMemo(() => now.toISOString().slice(0, 10), [now]);
 
   const initialMode: "express" | "schedule" =
     deliverySelection.mode === "express" ? "express" : "schedule";
@@ -69,8 +73,11 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     deliverySelection.mode !== "express" && deliverySelection.date
       ? deliverySelection.date
       : "";
+  const initialIsToday = !initialDate || initialDate === todayIso;
   const initialSlot =
-    deliverySelection.slotLabel ?? timeSlots[0]?.label ?? "";
+    deliverySelection.slotLabel ??
+    nearestSlotForHour(timeSlots, initialIsToday, currentHour)?.label ??
+    "";
 
   const [mode, setMode] = useState<"express" | "schedule">(initialMode);
   const [date, setDate] = useState(initialDate);
@@ -79,13 +86,18 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   useEffect(() => {
     if (!open) return;
     setMode(deliverySelection.mode === "express" ? "express" : "schedule");
-    setDate(
+    const newDate =
       deliverySelection.mode !== "express" && deliverySelection.date
         ? deliverySelection.date
-        : "",
+        : "";
+    setDate(newDate);
+    const isToday = !newDate || newDate === todayIso;
+    setSlot(
+      deliverySelection.slotLabel ??
+        nearestSlotForHour(timeSlots, isToday, currentHour)?.label ??
+        "",
     );
-    setSlot(deliverySelection.slotLabel ?? timeSlots[0]?.label ?? "");
-  }, [open]);
+  }, [open]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConfirm = () => {
     const today = new Date().toISOString().slice(0, 10);
