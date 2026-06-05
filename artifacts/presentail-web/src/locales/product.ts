@@ -28,6 +28,11 @@ export const productStrings: Dict = {
   "product.pointsAria": { en: "Learn about Presentail Points", ar: "تعرّف على نقاط برزنتيل" },
   "product.earnPoints": { en: "Earn {points} Points", ar: "اكسب {points} نقطة" },
   "product.waysToPayLabel": { en: "Ways to Pay", ar: "طرق الدفع" },
+  "product.benefit.freeDelivery.title": { en: "Free Standard Delivery", ar: "توصيل مجاني" },
+  "product.benefit.noAddress.title": { en: "No Address Hassle", ar: "لا قلق على العنوان" },
+  "product.benefit.noAddress.sub": { en: "We will collect the address for you.", ar: "سنتولى جمع العنوان نيابةً عنك." },
+  "product.benefit.tracking.title": { en: "Live Order Tracking", ar: "تتبع الطلب مباشرةً" },
+  "product.benefit.tracking.sub": { en: "You will receive real-time updates.", ar: "ستتلقى تحديثات فورية." },
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -58,4 +63,9 @@ export const productStringsFr: Record<string, string> = {
   "product.pointsAria": "En savoir plus sur les Points Presentail",
   "product.earnPoints": "Gagnez {points} points",
   "product.waysToPayLabel": "Modes de paiement",
+  "product.benefit.freeDelivery.title": "Livraison standard gratuite",
+  "product.benefit.noAddress.title": "Sans tracas d'adresse",
+  "product.benefit.noAddress.sub": "Nous collecterons l'adresse pour vous.",
+  "product.benefit.tracking.title": "Suivi de commande en direct",
+  "product.benefit.tracking.sub": "Vous recevrez des mises à jour en temps réel.",
 };

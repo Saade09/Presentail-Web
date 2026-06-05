@@ -14,20 +14,20 @@ export function ProductBenefits({ freeDeliveryThresholdNode, freeDeliveryEnabled
       ? [
           {
             icon: <Truck className="w-5 h-5" />,
-            title: "Free Standard Delivery",
+            title: t("product.benefit.freeDelivery.title"),
             sub: <>{t("cart.banner.onOrdersAbove")} {freeDeliveryThresholdNode}.</>,
           },
         ]
       : []),
     {
       icon: <MapPin className="w-5 h-5" />,
-      title: "No Address Hassle",
-      sub: "We will collect the address for you.",
+      title: t("product.benefit.noAddress.title"),
+      sub: t("product.benefit.noAddress.sub"),
     },
     {
       icon: <Navigation className="w-5 h-5" />,
-      title: "Live Order Tracking",
-      sub: "You will receive real-time updates.",
+      title: t("product.benefit.tracking.title"),
+      sub: t("product.benefit.tracking.sub"),
     },
   ];
 
