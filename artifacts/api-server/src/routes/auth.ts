@@ -2011,9 +2011,101 @@ router.post("/auth/oauth/google", socialIpLimiter, async (req, res) => {
     idToken?: string;
     id_token?: string;
     credential?: string;
+    accessToken?: string;
   };
-  // Google Identity Services callbacks deliver the JWT as `credential`; we
-  // accept idToken/id_token too so other clients can use the same endpoint.
+
+  // OAuth2 popup flow: web client sends an access token.
+  // Step 1: call Google tokeninfo to validate the token and verify its audience
+  //         matches one of our configured OAuth client IDs.
+  // Step 2: call userinfo to retrieve profile claims (name, email).
+  // This two-step approach prevents cross-client token replay attacks — a
+  // valid Google access token minted for a different OAuth app is rejected.
+  if (body.accessToken) {
+    const audiences = googleWebAudiences();
+    if (!audiences.length) {
+      return res.status(503).json({
+        ok: false,
+        message: "Google sign-in is not configured on the server.",
+      });
+    }
+
+    // Step 1 — validate token and check audience binding.
+    let tokenInfo: any;
+    try {
+      const tiRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(body.accessToken)}`
+      );
+      if (!tiRes.ok) {
+        req.log?.warn?.({ status: tiRes.status }, "auth.oauth.google: tokeninfo rejected");
+        return res
+          .status(401)
+          .json({ ok: false, message: "Google sign-in could not be verified" });
+      }
+      tokenInfo = await tiRes.json();
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.oauth.google: tokeninfo fetch error");
+      return res
+        .status(401)
+        .json({ ok: false, message: "Google sign-in could not be verified" });
+    }
+
+    // `aud` is the client ID the token was issued for; `azp` is the authorized
+    // party (present when aud ≠ azp, e.g. service accounts). We accept either.
+    const tokenAud = String(tokenInfo.aud ?? "").trim();
+    const tokenAzp = String(tokenInfo.azp ?? "").trim();
+    const audienceSet = new Set(audiences);
+    if (!audienceSet.has(tokenAud) && !audienceSet.has(tokenAzp)) {
+      req.log?.warn?.(
+        { aud: tokenAud, azp: tokenAzp },
+        "auth.oauth.google: token audience mismatch"
+      );
+      return res
+        .status(401)
+        .json({ ok: false, message: "Google sign-in could not be verified" });
+    }
+
+    // Step 2 — fetch profile claims.
+    let userInfo: any;
+    try {
+      const uiRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${body.accessToken}` },
+      });
+      if (!uiRes.ok) {
+        req.log?.warn?.({ status: uiRes.status }, "auth.oauth.google: userinfo failed");
+        return res
+          .status(401)
+          .json({ ok: false, message: "Google sign-in could not be verified" });
+      }
+      userInfo = await uiRes.json();
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message }, "auth.oauth.google: userinfo fetch error");
+      return res
+        .status(401)
+        .json({ ok: false, message: "Google sign-in could not be verified" });
+    }
+
+    if (userInfo.email_verified === false) {
+      return res
+        .status(401)
+        .json({ ok: false, message: "Your Google email is not verified." });
+    }
+    const email = String(userInfo.email ?? "").trim().toLowerCase();
+    if (!email || !EMAIL_RE.test(email)) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Google didn't share an email address." });
+    }
+    const givenName = String(userInfo.given_name ?? "").trim();
+    const familyName = String(userInfo.family_name ?? "").trim();
+    return issueSocialSession(res, req, "google", {
+      email,
+      firstName: givenName,
+      lastName: familyName,
+    });
+  }
+
+  // Legacy path: Google Identity Services One Tap / mobile sends an ID token
+  // as `credential`, `idToken`, or `id_token`.
   const idToken = body.idToken ?? body.id_token ?? body.credential;
   if (!idToken) {
     return res.status(400).json({ ok: false, message: "Missing Google ID token" });

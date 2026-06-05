@@ -143,7 +143,7 @@ export default function SignInPage() {
       });
       return;
     }
-    if (!window.google?.accounts?.id) {
+    if (!window.google?.accounts?.oauth2) {
       toast({
         title: t("auth.toast.error"),
         description: t("auth.toast.oauthFailed", { provider: "Google" }),
@@ -155,14 +155,26 @@ export default function SignInPage() {
     setOauthBusy("google");
     try {
       await new Promise<void>((resolve, reject) => {
-        window.google!.accounts.id.initialize({
+        const client = window.google!.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID!,
+          scope: "openid email profile",
+          ux_mode: "popup",
           callback: async (response) => {
+            if (response.error || !response.access_token) {
+              reject(
+                new Error(
+                  response.error_description ??
+                    response.error ??
+                    t("auth.toast.error")
+                )
+              );
+              return;
+            }
             try {
               const res = await fetch("/api/auth/oauth/google", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ credential: response.credential }),
+                body: JSON.stringify({ accessToken: response.access_token }),
               });
               const data = (await res.json()) as ApiAuthResponse;
               if (!res.ok || !data.ok || !data.token || !data.user) {
@@ -175,17 +187,8 @@ export default function SignInPage() {
               reject(err);
             }
           },
-          cancel_on_tap_outside: false,
-          auto_select: false,
         });
-        window.google!.accounts.id.prompt((notification) => {
-          if (
-            notification.isNotDisplayed() ||
-            notification.isSkippedMoment()
-          ) {
-            reject(new Error("Google sign-in was not displayed or was skipped"));
-          }
-        });
+        client.requestAccessToken();
       });
     } catch (err: any) {
       toast({

@@ -26,6 +26,20 @@ declare global {
           ) => void;
           cancel: () => void;
         };
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            ux_mode?: "popup" | "redirect";
+            callback: (response: {
+              access_token?: string;
+              error?: string;
+              error_description?: string;
+            }) => void;
+          }) => {
+            requestAccessToken: () => void;
+          };
+        };
       };
     };
     AppleID?: {
