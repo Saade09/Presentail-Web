@@ -576,8 +576,6 @@ const EN = {
   savedAddressesAdd: "Add a new address",
   savedAddressesEdit: "Edit",
   savedAddressesDelete: "Delete",
-  savedAddressesSetDefault: "Set as default",
-  savedAddressesDefaultBadge: "Default",
   savedAddressesEmptyTitle: "No saved addresses yet",
   savedAddressesEmptyBody: "Save the addresses you send gifts to so checkout takes seconds.",
   savedAddressesSignInRequired: "Sign in to manage your saved addresses.",
@@ -604,7 +602,6 @@ const EN = {
     "Street, building, floor, landmarks…",
   addressFormAddressLineHint:
     "Include the building, floor, apartment and any landmarks that help the courier find you.",
-  addressFormSetDefault: "Set as my default address",
   addressFormRecipientFirst: "Recipient first name",
   addressFormRecipientFirstPlaceholder: "e.g. Layla",
   addressFormRecipientLast: "Recipient last name",
@@ -862,8 +859,6 @@ const EN = {
   cartUpsellsAddedToast: "Added to your cart",
 
   // ── Phone field ──
-  phoneSelectCountry: "Select country",
-  phoneSearchCountry: "Search country or code",
   phoneInvalidNumber: "Please enter a valid phone number for this country",
 
   // ── Product card ──
@@ -1367,8 +1362,6 @@ const AR: typeof EN = {
   savedAddressesAdd: "إضافة عنوان جديد",
   savedAddressesEdit: "تعديل",
   savedAddressesDelete: "حذف",
-  savedAddressesSetDefault: "تعيين كافتراضي",
-  savedAddressesDefaultBadge: "افتراضي",
   savedAddressesEmptyTitle: "لا توجد عناوين محفوظة بعد",
   savedAddressesEmptyBody: "احفظ العناوين التي ترسل إليها الهدايا لتسريع الدفع.",
   savedAddressesSignInRequired: "سجّل الدخول لإدارة عناوينك المحفوظة.",
@@ -1394,7 +1387,6 @@ const AR: typeof EN = {
     "الشارع، المبنى، الطابق، المعالم…",
   addressFormAddressLineHint:
     "أدرج المبنى والطابق والشقة وأي معالم تساعد عامل التوصيل في الوصول إليك.",
-  addressFormSetDefault: "تعيينه كعنواني الافتراضي",
   addressFormRecipientFirst: "الاسم الأول للمستلم",
   addressFormRecipientFirstPlaceholder: "مثلاً: ليلى",
   addressFormRecipientLast: "اسم العائلة للمستلم",
@@ -1651,8 +1643,6 @@ const AR: typeof EN = {
   cartUpsellsAddedToast: "تمت الإضافة إلى العربة",
 
   // ── Phone field ──
-  phoneSelectCountry: "اختر الدولة",
-  phoneSearchCountry: "ابحث عن دولة أو رمز",
   phoneInvalidNumber: "يرجى إدخال رقم هاتف صحيح لهذا البلد",
 
   // ── Product card ──
@@ -2159,8 +2149,6 @@ const FR: typeof EN = {
   savedAddressesAdd: "Ajouter une nouvelle adresse",
   savedAddressesEdit: "Modifier",
   savedAddressesDelete: "Supprimer",
-  savedAddressesSetDefault: "Définir par défaut",
-  savedAddressesDefaultBadge: "Par défaut",
   savedAddressesEmptyTitle: "Aucune adresse enregistrée",
   savedAddressesEmptyBody: "Enregistrez les adresses où vous envoyez des cadeaux pour gagner du temps au paiement.",
   savedAddressesSignInRequired: "Connectez-vous pour gérer vos adresses enregistrées.",
@@ -2186,7 +2174,6 @@ const FR: typeof EN = {
     "Rue, immeuble, étage, repères…",
   addressFormAddressLineHint:
     "Indiquez l'immeuble, l'étage, l'appartement et tout repère qui aide le coursier à vous trouver.",
-  addressFormSetDefault: "Définir comme adresse par défaut",
   addressFormRecipientFirst: "Prénom du destinataire",
   addressFormRecipientFirstPlaceholder: "ex. Layla",
   addressFormRecipientLast: "Nom du destinataire",
@@ -2443,8 +2430,6 @@ const FR: typeof EN = {
   cartUpsellsAddedToast: "Ajouté à votre panier",
 
   // ── Phone field ──
-  phoneSelectCountry: "Sélectionner un pays",
-  phoneSearchCountry: "Rechercher un pays ou un indicatif",
   phoneInvalidNumber: "Veuillez entrer un numéro de téléphone valide pour ce pays",
 
   // ── Product card ──

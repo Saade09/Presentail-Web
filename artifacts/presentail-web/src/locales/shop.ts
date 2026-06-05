@@ -10,7 +10,6 @@ export const shopStrings: Dict = {
   "locationPickerGate.dialogTitle": { en: "Choose delivery location", ar: "اختر موقع التوصيل" },
   "locationPickerGate.dialogDesc": { en: "Select the country and city you want your gift delivered to.", ar: "اختر البلد والمدينة التي تريد توصيل هديتك إليها." },
 
-  "shop.subtitle": { en: "Browse our curated selection of luxury floral designs and premium gifts, thoughtfully crafted for delivery in {country}.", ar: "تصفّح مجموعتنا المنتقاة من تصاميم الزهور الفاخرة والهدايا المميزة، المُعدّة بعناية للتوصيل في {country}." },
   "shop.sortPlaceholder": { en: "Sort by", ar: "ترتيب حسب" },
   "shop.sort.featured": { en: "Featured", ar: "المميزة" },
   "shop.sort.priceAsc": { en: "Price: Low to High", ar: "السعر: من الأقل إلى الأعلى" },
@@ -61,7 +60,6 @@ export const shopStringsFr: Record<string, string> = {
   "locationPickerGate.dialogTitle": "Choisir le lieu de livraison",
   "locationPickerGate.dialogDesc": "Sélectionnez le pays et la ville où vous souhaitez livrer votre cadeau.",
 
-  "shop.subtitle": "Parcourez notre sélection de compositions florales de luxe et de cadeaux premium, conçus avec soin pour la livraison en {country}.",
   "shop.sortPlaceholder": "Trier par",
   "shop.sort.featured": "À la une",
   "shop.sort.priceAsc": "Prix : croissant",

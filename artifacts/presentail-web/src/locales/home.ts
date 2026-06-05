@@ -32,6 +32,25 @@ export const homeStrings: Dict = {
   },
   "brands.viewAll": { en: "Discover All Brands", ar: "اكتشف كل العلامات" },
 
+  "editorial.imageAlt": { en: "Presentail luxury floral arrangement", ar: "تنسيق زهور فاخر من برزنتيل" },
+  "editorial.eyebrow": { en: "Our Story", ar: "قصّتنا" },
+  "editorial.title": { en: "Crafted with intention,\ndelivered with care", ar: "مصنوعة بعناية،\nمُوصَّلة باهتمام" },
+  "editorial.body": {
+    en: "We believe every gift should feel personal. From hand-picked blooms to artisanal chocolates, each order is assembled and delivered by our team — never outsourced.",
+    ar: "نؤمن بأن كل هدية يجب أن تحمل طابعاً شخصياً. من الزهور المنتقاة يدوياً إلى الشوكولاتة الحرفية، كل طلب يُجهّز ويُوصَّل بواسطة فريقنا — دون توكيل لأطراف خارجية.",
+  },
+  "editorial.feature1.title": { en: "Same-day delivery", ar: "توصيل في نفس اليوم" },
+  "editorial.feature1.desc": {
+    en: "Order by 6 PM for delivery the same evening, across Lebanon, UAE, and Cyprus.",
+    ar: "اطلب قبل السادسة مساءً للتوصيل في نفس المساء، في لبنان والإمارات وقبرص.",
+  },
+  "editorial.feature2.title": { en: "Handpicked quality", ar: "جودة منتقاة" },
+  "editorial.feature2.desc": {
+    en: "Every product is curated by our in-house team and sourced from trusted local and international partners.",
+    ar: "كل منتج يُختار بعناية من قِبل فريقنا الداخلي، ويُستورد من شركاء محليين ودوليين موثوقين.",
+  },
+  "editorial.cta": { en: "Shop the collection", ar: "تسوّق المجموعة" },
+
   "newsletter.eyebrow": { en: "Stay in Bloom", ar: "ابقَ مع الورد" },
   "newsletter.title": { en: "Join the Presentail List", ar: "انضم إلى قائمة بريزانتيل" },
   "newsletter.subtitle": {
@@ -66,6 +85,15 @@ export const homeStringsFr: Record<string, string> = {
   "brands.subtitle": "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",
   "brands.viewAll": "Découvrir toutes les marques",
 
+  "editorial.imageAlt": "Composition florale de luxe Presentail",
+  "editorial.eyebrow": "Notre histoire",
+  "editorial.title": "Conçu avec intention,\nlivré avec soin",
+  "editorial.body": "Nous croyons que chaque cadeau doit être personnel. Des fleurs sélectionnées à la main aux chocolats artisanaux, chaque commande est préparée et livrée par notre équipe — jamais sous-traitée.",
+  "editorial.feature1.title": "Livraison le jour même",
+  "editorial.feature1.desc": "Commandez avant 18 h pour une livraison le soir même, au Liban, aux Émirats arabes unis et à Chypre.",
+  "editorial.feature2.title": "Qualité sélectionnée",
+  "editorial.feature2.desc": "Chaque produit est sélectionné par notre équipe interne et sourcé auprès de partenaires locaux et internationaux de confiance.",
+  "editorial.cta": "Découvrir la collection",
   "newsletter.eyebrow": "Restez en fleur",
   "newsletter.title": "Rejoignez la liste Presentail",
   "newsletter.subtitle": "Accès anticipé aux collections saisonnières, événements privés et offre de bienvenue de 10%.",

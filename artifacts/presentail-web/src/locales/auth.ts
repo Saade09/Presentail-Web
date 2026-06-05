@@ -35,8 +35,6 @@ export const authStrings: Dict = {
   "checkoutLogin.title": { en: "Sign in for a faster checkout", ar: "سجّل الدخول لإتمام الدفع بسرعة" },
   "checkoutLogin.desc": { en: "Save your details for next time, or continue as a guest.", ar: "احفظ بياناتك للمرة القادمة، أو تابع كضيف." },
   "checkoutLogin.guest": { en: "Checkout as Guest", ar: "إتمام الدفع كضيف" },
-  "checkoutLogin.signInUnavailable": { en: "Sign-in is temporarily unavailable. You can still checkout as a guest.", ar: "تسجيل الدخول غير متاح مؤقتاً. يمكنك الإتمام كضيف." },
-
   "auth.firstNameLabel": { en: "First Name", ar: "الاسم الأول" },
   "auth.firstNamePlaceholder": { en: "First name", ar: "الاسم الأول" },
   "auth.firstNameRequired": { en: "First name is required.", ar: "الاسم الأول مطلوب." },
@@ -101,7 +99,6 @@ export const authStringsFr: Record<string, string> = {
   "checkoutLogin.title": "Connectez-vous pour un paiement plus rapide",
   "checkoutLogin.desc": "Enregistrez vos informations pour la prochaine fois, ou continuez en tant qu'invité.",
   "checkoutLogin.guest": "Passer à la caisse en tant qu'invité",
-  "checkoutLogin.signInUnavailable": "La connexion est temporairement indisponible. Vous pouvez toujours passer à la caisse en tant qu'invité.",
 
   "auth.firstNameLabel": "Prénom",
   "auth.firstNamePlaceholder": "Prénom",
