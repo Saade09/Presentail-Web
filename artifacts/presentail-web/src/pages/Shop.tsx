@@ -254,7 +254,7 @@ export default function Shop() {
         </div>
       )}
       <div className="container mx-auto max-w-content px-page">
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8 border-b">
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">
               {pageTitle}

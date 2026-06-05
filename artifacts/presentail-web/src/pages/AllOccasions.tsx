@@ -96,7 +96,7 @@ export default function AllOccasions() {
   return (
     <div className="min-h-screen pt-12 pb-24">
       <div className="container mx-auto max-w-content px-page">
-        <div className="mb-12 pb-8 border-b">
+        <div className="mb-12 pb-8">
           <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-occasions-title">
             {t("occasions.title")}
           </h1>
