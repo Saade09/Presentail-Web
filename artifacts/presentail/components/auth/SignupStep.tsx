@@ -16,9 +16,11 @@ import { useT } from "@/hooks/useT";
 import { passwordRequirements, passwordMeetsAll } from "@/utils/validation";
 
 type Props = {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   password: string;
-  onFullNameChange: (v: string) => void;
+  onFirstNameChange: (v: string) => void;
+  onLastNameChange: (v: string) => void;
   onPasswordChange: (v: string) => void;
   busy: boolean;
   errorMessage: string | null;
@@ -34,9 +36,11 @@ type Props = {
 };
 
 export function SignupStep({
-  fullName,
+  firstName,
+  lastName,
   password,
-  onFullNameChange,
+  onFirstNameChange,
+  onLastNameChange,
   onPasswordChange,
   busy,
   errorMessage,
@@ -53,10 +57,31 @@ export function SignupStep({
   const reqs = passwordRequirements(password);
   const canSubmit =
     !busy &&
-    fullName.trim().length > 0 &&
+    firstName.trim().length > 0 &&
     passwordMeetsAll(password);
 
   const submitLabel = t.authContinue;
+
+  const inputStyle = {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: colors.primary,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    textAlign: align,
+    writingDirection: isRTL ? "rtl" : "ltr",
+  } as const;
+
+  const labelStyle = {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: colors.mutedForeground,
+    textAlign: align,
+  } as const;
 
   return (
     <View style={{ gap: 22 }}>
@@ -85,53 +110,39 @@ export function SignupStep({
       </View>
 
       <View style={{ gap: 8 }}>
-        <AppText
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 12,
-            color: colors.mutedForeground,
-            textAlign: align,
-          }}
-        >
-          {t.authFullNameLabel}
-        </AppText>
+        <AppText style={labelStyle}>{t.authFirstNameLabel}</AppText>
         <TextInput
-          value={fullName}
-          onChangeText={onFullNameChange}
-          placeholder={t.authFullNamePlaceholder}
+          value={firstName}
+          onChangeText={onFirstNameChange}
+          placeholder={t.authFirstNamePlaceholder}
           placeholderTextColor={colors.mutedForeground}
           autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
+          autoComplete="given-name"
+          textContentType="givenName"
           editable={!busy}
           returnKeyType="next"
-          style={{
-            fontFamily: "Inter_400Regular",
-            fontSize: 15,
-            color: colors.primary,
-            backgroundColor: "#fff",
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            textAlign: align,
-            writingDirection: isRTL ? "rtl" : "ltr",
-          }}
+          style={inputStyle}
         />
       </View>
 
       <View style={{ gap: 8 }}>
-        <AppText
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 12,
-            color: colors.mutedForeground,
-            textAlign: align,
-          }}
-        >
-          {t.authCreatePasswordLabel}
-        </AppText>
+        <AppText style={labelStyle}>{t.authLastNameLabel}</AppText>
+        <TextInput
+          value={lastName}
+          onChangeText={onLastNameChange}
+          placeholder={t.authLastNamePlaceholder}
+          placeholderTextColor={colors.mutedForeground}
+          autoCapitalize="words"
+          autoComplete="family-name"
+          textContentType="familyName"
+          editable={!busy}
+          returnKeyType="next"
+          style={inputStyle}
+        />
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <AppText style={labelStyle}>{t.authCreatePasswordLabel}</AppText>
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",
@@ -180,16 +191,7 @@ export function SignupStep({
       </View>
 
       <View style={{ gap: 8, marginTop: -4 }}>
-        <AppText
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 12,
-            color: colors.mutedForeground,
-            textAlign: align,
-          }}
-        >
-          {t.authPasswordMustContain}
-        </AppText>
+        <AppText style={labelStyle}>{t.authPasswordMustContain}</AppText>
         <Requirement isRTL={isRTL} met={reqs.lower} label={t.authReqLower} />
         <Requirement isRTL={isRTL} met={reqs.upper} label={t.authReqUpper} />
         <Requirement isRTL={isRTL} met={reqs.lengthAndNumber} label={t.authReqLengthNumber} />

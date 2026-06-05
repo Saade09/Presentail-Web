@@ -61,7 +61,8 @@ function AuthScreen() {
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
@@ -286,18 +287,13 @@ function AuthScreen() {
     phone: string,
     code: string,
   ): Promise<{ ok: true } | { ok: false; code: string }> => {
-    const spaceIndex = fullName.trim().indexOf(" ");
-    const firstName =
-      spaceIndex === -1 ? fullName.trim() : fullName.trim().slice(0, spaceIndex);
-    const lastName =
-      spaceIndex === -1 ? "" : fullName.trim().slice(spaceIndex + 1);
     const r = await verifyOtpAndRegister(applySession, {
       phone,
       code,
       email,
       password,
-      firstName,
-      lastName,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
     });
     if (r.ok) {
       trackEvent({ name: "signup_step_completed", action: "otp" });
@@ -428,10 +424,15 @@ function AuthScreen() {
 
           {step === "signup" ? (
             <SignupStep
-              fullName={fullName}
+              firstName={firstName}
+              lastName={lastName}
               password={password}
-              onFullNameChange={(v) => {
-                setFullName(v);
+              onFirstNameChange={(v) => {
+                setFirstName(v);
+                if (signupError) setSignupError(null);
+              }}
+              onLastNameChange={(v) => {
+                setLastName(v);
                 if (signupError) setSignupError(null);
               }}
               onPasswordChange={(v) => {

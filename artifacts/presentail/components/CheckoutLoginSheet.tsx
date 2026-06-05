@@ -88,7 +88,8 @@ export function CheckoutLoginSheet({
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
@@ -145,7 +146,8 @@ export function CheckoutLoginSheet({
     setPassword("");
     setLoginBusy(false);
     setLoginError(null);
-    setFullName("");
+    setFirstName("");
+    setLastName("");
     setSignupBusy(false);
     setSignupError(null);
     setSocialBusy(null);
@@ -325,16 +327,11 @@ export function CheckoutLoginSheet({
   const onSubmitSignup = async () => {
     setSignupError(null);
     setSignupBusy(true);
-    const spaceIndex = fullName.trim().indexOf(" ");
-    const firstName =
-      spaceIndex === -1 ? fullName.trim() : fullName.trim().slice(0, spaceIndex);
-    const lastName =
-      spaceIndex === -1 ? "" : fullName.trim().slice(spaceIndex + 1);
     const r = await createAccountWithEmail(register, {
       email,
       password,
-      firstName,
-      lastName,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
     });
     setSignupBusy(false);
     if (!r.ok) {
@@ -650,10 +647,15 @@ export function CheckoutLoginSheet({
 
               {step === "signup" ? (
                 <SignupStep
-                  fullName={fullName}
+                  firstName={firstName}
+                  lastName={lastName}
                   password={password}
-                  onFullNameChange={(v) => {
-                    setFullName(v);
+                  onFirstNameChange={(v) => {
+                    setFirstName(v);
+                    if (signupError) setSignupError(null);
+                  }}
+                  onLastNameChange={(v) => {
+                    setLastName(v);
                     if (signupError) setSignupError(null);
                   }}
                   onPasswordChange={(v) => {
