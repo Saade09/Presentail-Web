@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
 import { OCCASION_OPTIONS } from "@/data/occasions";
+import { useLocale } from "@/contexts/LocaleContext";
 
 function displayOccasionLabel(slug: string, t: (k: string) => string): string {
   const key = `occasion.${slug}`;
@@ -59,8 +60,9 @@ function daysInMonth(month: number) {
   return new Date(2000, month, 0).getDate();
 }
 
-function formatOccasionDate(month: number, day: number, t: (k: string) => string) {
-  return `${t(MONTH_KEYS[month - 1])} ${day}`;
+function formatOccasionDate(month: number, day: number, t: (k: string) => string, language: string) {
+  const monthName = t(MONTH_KEYS[month - 1]);
+  return language === "ar" || language === "fr" ? `${day} ${monthName}` : `${monthName} ${day}`;
 }
 
 function OccasionForm({
@@ -214,6 +216,7 @@ function OccasionForm({
 }
 
 export function OccasionsPanel({ t }: { t: (k: string) => string }) {
+  const { language } = useLocale();
   const [occasions, setOccasions] = useState<Occasion[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -321,7 +324,7 @@ export function OccasionsPanel({ t }: { t: (k: string) => string }) {
                         {occ.personName ? `${occ.personName} — ` : ""}{displayOccasionLabel(occ.label, t)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {formatOccasionDate(occ.month, occ.day, t)}
+                        {formatOccasionDate(occ.month, occ.day, t, language)}
                       </div>
                       {occ.note && (
                         <div className="text-xs text-muted-foreground/70 mt-1 italic truncate">
