@@ -1,0 +1,117 @@
+name: Web – Submit sitemap after deploy
+
+# Notifies search engines (Bing + IndexNow) that the sitemap has been updated
+# so new web-only content (brand, occasion, category, and product pages) is
+# indexed promptly after every Replit publish — not just after iOS releases.
+#
+# The iOS "Promote TestFlight build to App Store" workflow already runs
+# submit-sitemap when a build is promoted.  This workflow covers the parallel
+# path where web content changes (new occasion pages, brand pages, etc.) ship
+# via Replit publish without any corresponding iOS release.
+#
+# Triggers
+# ────────
+# 1. push to main (paths that affect web content or the sitemap itself) — the
+#    primary automatic path for git-pushed changes.  Skipped on non-main
+#    branches via the `if:` guard on the job.
+#
+# 2. repository_dispatch (type: "production-deployed") — fired by
+#    scripts/post-deploy-seo-trigger.sh at the end of the API server's
+#    artifact.toml production build step.  This covers every Replit publish —
+#    including re-deploys that Replit triggers without a git push (e.g. manual
+#    re-publish, infra-only config changes) and pushes outside the path filter.
+#    A settle wait lets the new revision start serving before we fetch the
+#    sitemap XML to submit to IndexNow.
+#
+# 3. workflow_dispatch — manual "Run workflow" button in GitHub Actions.
+#    Useful for a one-off ping after a bulk content import or to re-submit
+#    after a transient Bing / IndexNow error.
+#
+# Required secrets (GitHub → Settings → Secrets and variables → Actions):
+#   SITEMAP_URL    — override the sitemap URL (optional; default:
+#                   https://new.presentail.com/sitemap.xml).  Set this secret
+#                   only if the production URL ever changes.
+#   INDEXNOW_KEY   — IndexNow API key.  Defaults to the committed key in
+#                   scripts/src/submitSitemap.ts when the secret is absent;
+#                   set the secret to rotate the key without a code change.
+#
+# Concurrency: only one submission runs at a time; a second run queues rather
+# than cancels so we never lose a ping.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Web storefront changes — new pages land here.
+      - "artifacts/presentail-web/**"
+      # API server changes that may generate new sitemap entries.
+      - "artifacts/api-server/src/**"
+      # Shared libs that could affect page content.
+      - "lib/**"
+      # The sitemap submission script itself.
+      - "scripts/src/submitSitemap.ts"
+      # This workflow.
+      - ".github/workflows/web-sitemap-submit.yml"
+
+  # Fired by scripts/post-deploy-seo-trigger.sh after every successful Replit
+  # production build — covers deploys that happen without a git push.
+  repository_dispatch:
+    types: [production-deployed]
+
+  workflow_dispatch:
+    inputs:
+      settle_seconds:
+        description: "Seconds to wait before submitting (give the deploy time to finish)"
+        required: false
+        type: number
+        default: 0
+
+concurrency:
+  group: web-sitemap-submit
+  cancel-in-progress: false
+
+jobs:
+  submit-sitemap:
+    name: Submit sitemap to search engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # For push events only run on main (the production branch).
+    # repository_dispatch and workflow_dispatch are always allowed.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Wait for deploy to settle
+        # For repository_dispatch the build step has already finished, so we
+        # only need time for the new server process to start (default 90 s).
+        # For push events the deploy hasn't started yet — use 180 s.
+        # For workflow_dispatch the caller can set an explicit override.
+        env:
+          SETTLE_SECONDS: ${{ github.event.client_payload.settle_seconds || inputs.settle_seconds || (github.event_name == 'push' && '180' || '90') }}
+        run: |
+          if [ "${SETTLE_SECONDS}" -gt 0 ]; then
+            echo "Waiting ${SETTLE_SECONDS}s for the production deploy to settle…"
+            sleep "${SETTLE_SECONDS}"
+          else
+            echo "No settle wait requested — submitting immediately."
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Submit sitemap to search engines
+        run: pnpm --filter @workspace/scripts run submit-sitemap
+        env:
+          SITEMAP_URL: ${{ secrets.SITEMAP_URL }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
