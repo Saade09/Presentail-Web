@@ -109,6 +109,24 @@ module.exports = ({ config: _config }) => {
     );
   }
 
+  // Cross-platform guard: Stripe publishable key must be present or every
+  // payment attempt in the shipped binary will fail immediately with an
+  // invalid-key error. EAS silently inlines an empty string when the secret
+  // is missing, so we must check explicitly rather than relying on Stripe's
+  // client-side validation. Stripe key format: "pk_live_…" or "pk_test_…".
+  if (isNonDevEasBuild && !process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+    throw new Error(
+      "Stripe is misconfigured for this EAS build: " +
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set as an EAS secret. " +
+        "Without it, all in-app card payments will fail at runtime with an " +
+        "invalid-key error. Register it via:\n" +
+        "  eas secret:create --scope project \\\n" +
+        "    --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY \\\n" +
+        "    --value pk_live_…\n" +
+        "Then trigger a fresh build.",
+    );
+  }
+
   expo.plugins = [
     ...(expo.plugins ?? []),
     [

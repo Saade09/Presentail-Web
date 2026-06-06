@@ -94,6 +94,48 @@ jobs:
       - name: Write App Store Connect API key
         run: echo '${{ secrets.ASC_API_KEY_P8 }}' > ./asc-api-key.p8
 
+      - name: Verify required EAS project secrets
+        # Checks that every secret whose absence silently breaks the shipped
+        # binary is registered in the EAS project BEFORE the build starts.
+        # EAS inlines missing secrets as empty strings, so the binary would
+        # build successfully but fail at runtime (e.g. Stripe "invalid key",
+        # Google sign-in refusing to open). Failing here saves build minutes
+        # and surfaces a clear error instead of a broken TestFlight build.
+        #
+        # Secrets checked (all platforms):
+        #   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY – required for card payments
+        #   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID   – required for Google sign-in
+        # iOS-only:
+        #   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID   – required for native iOS sheet
+        #
+        # Note: app.config.js guards run the same checks server-side during the
+        # EAS build as a backstop; this step fails faster (before the build
+        # queue is consumed) and prints a single consolidated error message.
+        run: |
+          set -euo pipefail
+          SECRETS_JSON=$(eas secret:list --json 2>/dev/null)
+          MISSING=""
+          for KEY in \
+            EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY \
+            EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID \
+            EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID; do
+            FOUND=$(echo "$SECRETS_JSON" | jq -r --arg k "$KEY" \
+              'map(select(.name == $k)) | length')
+            if [ "$FOUND" = "0" ]; then
+              MISSING="$MISSING\n  - $KEY"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            printf "ERROR: The following required EAS project secrets are missing:%b\n" \
+              "$MISSING" >&2
+            printf "EAS will inline an empty string for each missing secret, producing\n" >&2
+            printf "a binary that appears to build successfully but fails at runtime.\n" >&2
+            printf "Register each missing secret with:\n" >&2
+            printf "  eas secret:create --scope project --name <KEY> --value <VALUE>\n" >&2
+            exit 1
+          fi
+          echo "All required EAS secrets are present."
+
       - name: Build iOS and submit to TestFlight
         run: eas build --platform ios --profile production --auto-submit --non-interactive
         env:
