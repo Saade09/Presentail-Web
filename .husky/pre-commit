@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Pre-commit hook: fail fast on hardcoded user-visible strings in mobile, web, and API code.
+# To install: cp .husky/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+pnpm run check-hardcoded-strings
