@@ -114,6 +114,15 @@ jobs:
           PROMOTE_RELEASE_NOTES: ${{ inputs.release_notes }}
           PROMOTE_MODE: ${{ inputs.mode }}
 
+      # Ping search engines so new content is indexed promptly. Only runs
+      # in submit mode — dry-run does not actually publish anything.
+      - name: Submit sitemap to search engines
+        if: inputs.mode == 'submit'
+        run: pnpm --filter @workspace/scripts run submit-sitemap
+        env:
+          SITEMAP_URL: ${{ secrets.SITEMAP_URL }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+
       # Once promotion succeeds, the marketing version we just submitted is
       # locked into App Review / Ready For Sale. The next TestFlight build
       # must therefore ship under a NEW marketing version, otherwise the

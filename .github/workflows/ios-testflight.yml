@@ -103,6 +103,15 @@ jobs:
           EXPO_APPLE_TEAM_ID: 4DR9CS3387
           EXPO_APPLE_TEAM_TYPE: COMPANY_OR_ORGANIZATION
 
+      # Ping search engines after a successful build so any new web content
+      # that shipped alongside this release is indexed promptly.
+      - name: Submit sitemap to search engines
+        run: pnpm --filter @workspace/scripts run submit-sitemap
+        working-directory: .
+        env:
+          SITEMAP_URL: ${{ secrets.SITEMAP_URL }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+
       # The TestFlight binary that was just submitted contains the native
       # modules currently resolved in node_modules. Refresh the baseline
       # JSON the safety check reads so the next PR can re-baseline against
