@@ -894,7 +894,12 @@ function CheckoutScreen() {
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        Alert.alert(
+          t.checkoutPaymentErrorTitle,
+          intentResult.code === "stripe_not_configured"
+            ? t.checkoutStripeUnavailableMsg
+            : t.checkoutPaymentNetworkError,
+        );
         setPaying(false);
         return;
       }
@@ -971,7 +976,12 @@ function CheckoutScreen() {
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        Alert.alert(
+          t.checkoutPaymentErrorTitle,
+          intentResult.code === "stripe_not_configured"
+            ? t.checkoutStripeUnavailableMsg
+            : t.checkoutPaymentNetworkError,
+        );
         setPaying(false);
         return;
       }
@@ -1027,7 +1037,12 @@ function CheckoutScreen() {
           return;
         }
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
+        Alert.alert(
+          t.checkoutPaymentErrorTitle,
+          session.code === "stripe_not_configured"
+            ? t.checkoutStripeUnavailableMsg
+            : t.checkoutPaymentNetworkError,
+        );
         setPaying(false);
         return;
       }

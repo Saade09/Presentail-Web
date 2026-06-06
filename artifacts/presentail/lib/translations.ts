@@ -492,6 +492,7 @@ const EN = {
   checkoutMamoNotConfigured: "Mamo payments are being set up. Please choose another payment method.",
   checkoutPaypalErrorTitle: "PayPal error",
   checkoutPaypalNotConfigured: "PayPal payments are being set up. Please choose another payment method.",
+  checkoutStripeUnavailableMsg: "Card payments are temporarily unavailable — please use another payment method.",
   checkoutPaymentNetworkError: "Something went wrong with the payment provider. Please try again.",
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via err instanceof TypeError in checkout.tsx
   checkoutPaymentNetworkTimeout: "Couldn't reach the payment provider. Please check your connection and try again.",
@@ -1318,6 +1319,7 @@ const AR: typeof EN = {
   checkoutMamoNotConfigured: "يتم إعداد مدفوعات Mamo. يرجى اختيار طريقة دفع أخرى.",
   checkoutPaypalErrorTitle: "خطأ في PayPal",
   checkoutPaypalNotConfigured: "يتم إعداد مدفوعات PayPal. يرجى اختيار طريقة دفع أخرى.",
+  checkoutStripeUnavailableMsg: "الدفع بالبطاقة غير متاح مؤقتاً — يرجى استخدام طريقة دفع أخرى.",
   checkoutPaymentNetworkError: "حدث خطأ لدى مزوّد الدفع. يرجى المحاولة مرة أخرى.",
   checkoutPaymentNetworkTimeout: "تعذّر الوصول إلى مزوّد الدفع. يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
   checkoutStorageErrorTitle: "تعذّر حفظ طلبك",
@@ -2138,6 +2140,7 @@ const FR: typeof EN = {
   checkoutMamoNotConfigured: "Les paiements Mamo sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
   checkoutPaypalErrorTitle: "Erreur PayPal",
   checkoutPaypalNotConfigured: "Les paiements PayPal sont en cours de configuration. Veuillez choisir un autre moyen de paiement.",
+  checkoutStripeUnavailableMsg: "Le paiement par carte est temporairement indisponible — veuillez utiliser un autre moyen de paiement.",
   checkoutPaymentNetworkError: "Une erreur s'est produite du côté du prestataire de paiement. Veuillez réessayer.",
   checkoutPaymentNetworkTimeout: "Impossible de joindre le prestataire de paiement. Vérifiez votre connexion et réessayez.",
   checkoutStorageErrorTitle: "Impossible d'enregistrer votre commande",
