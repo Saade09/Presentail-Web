@@ -8,6 +8,11 @@ name: Android – Build & Submit to Google Play
 #                                ./google-service-account.json at build time,
 #                                matching the path configured in eas.json's
 #                                submit.production.android.serviceAccountKeyPath.
+#
+# Optional secrets (sitemap ping — script falls back to built-in defaults):
+#   SITEMAP_URL  – full URL of the sitemap; defaults to
+#                  https://new.presentail.com/sitemap.xml when unset.
+#   INDEXNOW_KEY – IndexNow API key; defaults to the built-in key when unset.
 
 on:
   push:
@@ -165,6 +170,20 @@ jobs:
         # not just the most-recent build, to prevent a stale artifact from
         # being submitted when this build failed to produce an AAB.
         run: eas submit --platform android --profile production --non-interactive --id ${{ steps.assert_artifact.outputs.build_id }}
+
+      # Ping search engines after a successful Play Store submission so any new
+      # web content that shipped alongside this release is indexed promptly.
+      # Secrets used here (optional — script falls back to built-in defaults):
+      #   SITEMAP_URL  – full URL of the sitemap; defaults to
+      #                  https://new.presentail.com/sitemap.xml when unset.
+      #   INDEXNOW_KEY – IndexNow API key; defaults to the built-in key
+      #                  when unset.
+      - name: Submit sitemap to search engines
+        run: pnpm --filter @workspace/scripts run submit-sitemap
+        working-directory: .
+        env:
+          SITEMAP_URL: ${{ secrets.SITEMAP_URL }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
 
       # The Android binary that was just submitted contains the native modules
       # currently resolved in node_modules. Refresh the baseline JSON so the
