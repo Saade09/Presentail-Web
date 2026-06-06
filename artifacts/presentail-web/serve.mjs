@@ -500,7 +500,10 @@ const SITEMAP_LANGS = ["en", "ar", "fr"];
 // Representative city per country for product / brand canonical URLs.
 const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
 // Static sub-paths included for every lang / country / city combination.
-const SITEMAP_STATIC_PATHS = ["/", "/shop", "/brands", "/contact", "/faqs"];
+// /shop is intentionally omitted — category and occasion clean paths
+// (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
+// crawlers discover the canonical destinations without following a redirect.
+const SITEMAP_STATIC_PATHS = ["/", "/brands", "/contact", "/faqs"];
 
 let sitemapCache = null;
 let sitemapCacheTsMs = 0;
