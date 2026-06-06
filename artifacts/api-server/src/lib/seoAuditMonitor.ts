@@ -64,6 +64,16 @@ const TICK_MS = 60 * 60 * 1000; // 1 h
  * Occasion) so a deploy that breaks OG injection for a specific locale+page-type
  * combination is caught the same day.
  *
+ * Category and occasion pages use their dedicated clean path URLs
+ * (`/{lang}-{country}/{city}/category/<slug>` and `…/occasion/<slug>`) rather
+ * than query-param shop URLs, matching the canonical indexed URLs the SEO
+ * inject middleware generates. Up to 3 slugs are sampled from each entity type
+ * so slug-specific regressions (e.g. a category whose image is broken) are
+ * caught even when the first slug in the catalog happens to be fine.
+ *   • slug[0]: audited in EN, AR, and FR (full locale coverage).
+ *   • slug[1] and slug[2]: audited in EN only (adds slug variety without
+ *     tripling the page count).
+ *
  * Returns null when the OS catalog is not populated or any entity type has no
  * entries.
  */
@@ -72,61 +82,74 @@ export function buildKeyPages(): Array<{ label: string; url: string; locale: str
 
   const productSlug = (getOsProducts() ?? [])[0]?.id;
   const brandSlug = (getOsBrands() ?? [])[0]?.slug;
-  const categorySlug = (getOsCategories() ?? [])[0]?.slug;
-  const occasionSlug = (getOsOccasions() ?? [])[0]?.slug;
 
-  if (!productSlug || !brandSlug || !categorySlug || !occasionSlug) return null;
+  const allCategories = getOsCategories() ?? [];
+  const allOccasions = getOsOccasions() ?? [];
 
-  return [
-    // ── Lebanon ───────────────────────────────────────────────────────────────
-    { locale: "LB", label: "Homepage (EN)",  url: "https://new.presentail.com/en-lb/beirut" },
-    { locale: "LB", label: "Product (EN)",   url: `https://new.presentail.com/en-lb/beirut/product/${productSlug}` },
-    { locale: "LB", label: "Brand (EN)",     url: `https://new.presentail.com/en-lb/beirut/brand/${brandSlug}` },
-    { locale: "LB", label: "Category (EN)",  url: `https://new.presentail.com/en-lb/beirut/shop?category=${categorySlug}` },
-    { locale: "LB", label: "Occasion (EN)",  url: `https://new.presentail.com/en-lb/beirut/shop?occasion=${occasionSlug}` },
-    { locale: "LB", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-lb/beirut" },
-    { locale: "LB", label: "Product (AR)",   url: `https://new.presentail.com/ar-lb/beirut/product/${productSlug}` },
-    { locale: "LB", label: "Brand (AR)",     url: `https://new.presentail.com/ar-lb/beirut/brand/${brandSlug}` },
-    { locale: "LB", label: "Category (AR)",  url: `https://new.presentail.com/ar-lb/beirut/shop?category=${categorySlug}` },
-    { locale: "LB", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-lb/beirut/shop?occasion=${occasionSlug}` },
-    { locale: "LB", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-lb/beirut" },
-    { locale: "LB", label: "Product (FR)",   url: `https://new.presentail.com/fr-lb/beirut/product/${productSlug}` },
-    { locale: "LB", label: "Brand (FR)",     url: `https://new.presentail.com/fr-lb/beirut/brand/${brandSlug}` },
-    { locale: "LB", label: "Category (FR)",  url: `https://new.presentail.com/fr-lb/beirut/shop?category=${categorySlug}` },
-    { locale: "LB", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-lb/beirut/shop?occasion=${occasionSlug}` },
-    // ── UAE ───────────────────────────────────────────────────────────────────
-    { locale: "AE", label: "Homepage (EN)",  url: "https://new.presentail.com/en-ae/dubai" },
-    { locale: "AE", label: "Product (EN)",   url: `https://new.presentail.com/en-ae/dubai/product/${productSlug}` },
-    { locale: "AE", label: "Brand (EN)",     url: `https://new.presentail.com/en-ae/dubai/brand/${brandSlug}` },
-    { locale: "AE", label: "Category (EN)",  url: `https://new.presentail.com/en-ae/dubai/shop?category=${categorySlug}` },
-    { locale: "AE", label: "Occasion (EN)",  url: `https://new.presentail.com/en-ae/dubai/shop?occasion=${occasionSlug}` },
-    { locale: "AE", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-ae/dubai" },
-    { locale: "AE", label: "Product (AR)",   url: `https://new.presentail.com/ar-ae/dubai/product/${productSlug}` },
-    { locale: "AE", label: "Brand (AR)",     url: `https://new.presentail.com/ar-ae/dubai/brand/${brandSlug}` },
-    { locale: "AE", label: "Category (AR)",  url: `https://new.presentail.com/ar-ae/dubai/shop?category=${categorySlug}` },
-    { locale: "AE", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-ae/dubai/shop?occasion=${occasionSlug}` },
-    { locale: "AE", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-ae/dubai" },
-    { locale: "AE", label: "Product (FR)",   url: `https://new.presentail.com/fr-ae/dubai/product/${productSlug}` },
-    { locale: "AE", label: "Brand (FR)",     url: `https://new.presentail.com/fr-ae/dubai/brand/${brandSlug}` },
-    { locale: "AE", label: "Category (FR)",  url: `https://new.presentail.com/fr-ae/dubai/shop?category=${categorySlug}` },
-    { locale: "AE", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-ae/dubai/shop?occasion=${occasionSlug}` },
-    // ── Cyprus ────────────────────────────────────────────────────────────────
-    { locale: "CY", label: "Homepage (EN)",  url: "https://new.presentail.com/en-cy/nicosia" },
-    { locale: "CY", label: "Product (EN)",   url: `https://new.presentail.com/en-cy/nicosia/product/${productSlug}` },
-    { locale: "CY", label: "Brand (EN)",     url: `https://new.presentail.com/en-cy/nicosia/brand/${brandSlug}` },
-    { locale: "CY", label: "Category (EN)",  url: `https://new.presentail.com/en-cy/nicosia/shop?category=${categorySlug}` },
-    { locale: "CY", label: "Occasion (EN)",  url: `https://new.presentail.com/en-cy/nicosia/shop?occasion=${occasionSlug}` },
-    { locale: "CY", label: "Homepage (AR)",  url: "https://new.presentail.com/ar-cy/nicosia" },
-    { locale: "CY", label: "Product (AR)",   url: `https://new.presentail.com/ar-cy/nicosia/product/${productSlug}` },
-    { locale: "CY", label: "Brand (AR)",     url: `https://new.presentail.com/ar-cy/nicosia/brand/${brandSlug}` },
-    { locale: "CY", label: "Category (AR)",  url: `https://new.presentail.com/ar-cy/nicosia/shop?category=${categorySlug}` },
-    { locale: "CY", label: "Occasion (AR)",  url: `https://new.presentail.com/ar-cy/nicosia/shop?occasion=${occasionSlug}` },
-    { locale: "CY", label: "Homepage (FR)",  url: "https://new.presentail.com/fr-cy/nicosia" },
-    { locale: "CY", label: "Product (FR)",   url: `https://new.presentail.com/fr-cy/nicosia/product/${productSlug}` },
-    { locale: "CY", label: "Brand (FR)",     url: `https://new.presentail.com/fr-cy/nicosia/brand/${brandSlug}` },
-    { locale: "CY", label: "Category (FR)",  url: `https://new.presentail.com/fr-cy/nicosia/shop?category=${categorySlug}` },
-    { locale: "CY", label: "Occasion (FR)",  url: `https://new.presentail.com/fr-cy/nicosia/shop?occasion=${occasionSlug}` },
-  ];
+  const categorySlugs = allCategories.slice(0, 3).map((c) => c.slug).filter(Boolean);
+  const occasionSlugs = allOccasions.slice(0, 3).map((o) => o.slug).filter(Boolean);
+
+  if (!productSlug || !brandSlug || categorySlugs.length === 0 || occasionSlugs.length === 0) return null;
+
+  type PageEntry = { locale: string; label: string; url: string };
+  const pages: PageEntry[] = [];
+
+  const COUNTRIES = [
+    { locale: "LB", enLang: "en", arLang: "ar", frLang: "fr", city: "beirut", countrySlug: "lb" },
+    { locale: "AE", enLang: "en", arLang: "ar", frLang: "fr", city: "dubai",  countrySlug: "ae" },
+    { locale: "CY", enLang: "en", arLang: "ar", frLang: "fr", city: "nicosia", countrySlug: "cy" },
+  ] as const;
+
+  const BASE = "https://new.presentail.com";
+
+  for (const { locale, city, countrySlug } of COUNTRIES) {
+    const enBase = `${BASE}/en-${countrySlug}/${city}`;
+    const arBase = `${BASE}/ar-${countrySlug}/${city}`;
+    const frBase = `${BASE}/fr-${countrySlug}/${city}`;
+
+    // ── Homepages ────────────────────────────────────────────────────────────
+    pages.push({ locale, label: "Homepage (EN)", url: `${enBase}` });
+    pages.push({ locale, label: "Homepage (AR)", url: `${arBase}` });
+    pages.push({ locale, label: "Homepage (FR)", url: `${frBase}` });
+
+    // ── Product ──────────────────────────────────────────────────────────────
+    pages.push({ locale, label: "Product (EN)", url: `${enBase}/product/${productSlug}` });
+    pages.push({ locale, label: "Product (AR)", url: `${arBase}/product/${productSlug}` });
+    pages.push({ locale, label: "Product (FR)", url: `${frBase}/product/${productSlug}` });
+
+    // ── Brand ────────────────────────────────────────────────────────────────
+    pages.push({ locale, label: "Brand (EN)", url: `${enBase}/brand/${brandSlug}` });
+    pages.push({ locale, label: "Brand (AR)", url: `${arBase}/brand/${brandSlug}` });
+    pages.push({ locale, label: "Brand (FR)", url: `${frBase}/brand/${brandSlug}` });
+
+    // ── Categories — slug[0]: all locales; slug[1..2]: EN only ───────────────
+    for (let i = 0; i < categorySlugs.length; i++) {
+      const slug = categorySlugs[i];
+      const suffix = i > 0 ? ` #${i + 1}` : "";
+      if (i === 0) {
+        pages.push({ locale, label: `Category${suffix} (EN)`, url: `${enBase}/category/${slug}` });
+        pages.push({ locale, label: `Category${suffix} (AR)`, url: `${arBase}/category/${slug}` });
+        pages.push({ locale, label: `Category${suffix} (FR)`, url: `${frBase}/category/${slug}` });
+      } else {
+        pages.push({ locale, label: `Category${suffix} (EN)`, url: `${enBase}/category/${slug}` });
+      }
+    }
+
+    // ── Occasions — slug[0]: all locales; slug[1..2]: EN only ────────────────
+    for (let i = 0; i < occasionSlugs.length; i++) {
+      const slug = occasionSlugs[i];
+      const suffix = i > 0 ? ` #${i + 1}` : "";
+      if (i === 0) {
+        pages.push({ locale, label: `Occasion${suffix} (EN)`, url: `${enBase}/occasion/${slug}` });
+        pages.push({ locale, label: `Occasion${suffix} (AR)`, url: `${arBase}/occasion/${slug}` });
+        pages.push({ locale, label: `Occasion${suffix} (FR)`, url: `${frBase}/occasion/${slug}` });
+      } else {
+        pages.push({ locale, label: `Occasion${suffix} (EN)`, url: `${enBase}/occasion/${slug}` });
+      }
+    }
+  }
+
+  return pages;
 }
 
 // ── Catalog-coverage tracking ─────────────────────────────────────────────────

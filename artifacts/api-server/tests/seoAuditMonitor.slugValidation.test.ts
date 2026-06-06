@@ -237,7 +237,7 @@ describe("buildKeyPages", () => {
     expect(buildKeyPages()).toBeNull();
   });
 
-  it("builds pages using the first slug from each entity type", () => {
+  it("builds pages using up to 3 slugs per entity type", () => {
     hasOsProductsMock.mockReturnValue(true);
     getOsProductsMock.mockReturnValue([{ id: "red-roses" }, { id: "white-tulips" }]);
     getOsBrandsMock.mockReturnValue([{ slug: "bloom-studio" }, { slug: "other-brand" }]);
@@ -247,23 +247,34 @@ describe("buildKeyPages", () => {
     const pages = buildKeyPages();
 
     expect(pages).not.toBeNull();
-    expect(pages!.length).toBe(45); // 3 countries × 3 langs × 5 page types (1 homepage + 4 entity pages)
+    // 3 countries × (3 homepages + 3 products + 3 brands
+    //   + 4 category pages [slug[0]×3 locales + slug[1]×EN only]
+    //   + 4 occasion pages [slug[0]×3 locales + slug[1]×EN only])
+    // = 3 × 17 = 51
+    expect(pages!.length).toBe(51);
 
-    // Product slug is the id of the first product
+    // Product slug is the id of the first product only (brands keep 1 slug)
     const productPages = pages!.filter((p) => p.url.includes("/product/"));
     expect(productPages.every((p) => p.url.includes("/product/red-roses"))).toBe(true);
 
-    // Brand slug
+    // Brand slug — only the first brand slug is used
     const brandPages = pages!.filter((p) => p.url.includes("/brand/"));
     expect(brandPages.every((p) => p.url.includes("/brand/bloom-studio"))).toBe(true);
 
-    // Category slug
-    const categoryPages = pages!.filter((p) => p.url.includes("category="));
-    expect(categoryPages.every((p) => p.url.includes("category=flowers"))).toBe(true);
+    // Category slugs — clean path URLs (not query params); slug[0] + slug[1] both present
+    const categoryPages = pages!.filter((p) => p.url.includes("/category/"));
+    expect(categoryPages.some((p) => p.url.includes("/category/flowers"))).toBe(true);
+    expect(categoryPages.some((p) => p.url.includes("/category/plants"))).toBe(true);
+    // slug[0] has all 3 locales × 3 countries = 9; slug[1] has EN only × 3 countries = 3
+    expect(categoryPages.filter((p) => p.url.includes("/category/flowers")).length).toBe(9);
+    expect(categoryPages.filter((p) => p.url.includes("/category/plants")).length).toBe(3);
 
-    // Occasion slug
-    const occasionPages = pages!.filter((p) => p.url.includes("occasion="));
-    expect(occasionPages.every((p) => p.url.includes("occasion=birthday"))).toBe(true);
+    // Occasion slugs — clean path URLs; slug[0] + slug[1] both present
+    const occasionPages = pages!.filter((p) => p.url.includes("/occasion/"));
+    expect(occasionPages.some((p) => p.url.includes("/occasion/birthday"))).toBe(true);
+    expect(occasionPages.some((p) => p.url.includes("/occasion/anniversary"))).toBe(true);
+    expect(occasionPages.filter((p) => p.url.includes("/occasion/birthday")).length).toBe(9);
+    expect(occasionPages.filter((p) => p.url.includes("/occasion/anniversary")).length).toBe(3);
   });
 
   it("covers all three countries (LB, AE, CY) with all three language variants", () => {
