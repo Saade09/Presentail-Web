@@ -20,7 +20,8 @@ type AnalyticsEventName =
   | "order_push_tapped"
   | "fx_rates_fallback"
   | "mobile_ttid"
-  | "payment_error";
+  | "payment_error"
+  | "signup_step_completed";
 
 type AnalyticsSurface =
   | "cart"
@@ -62,7 +63,9 @@ type AnalyticsAction =
   | "category"
   | "occasion"
   | "network"
-  | "provider";
+  | "provider"
+  | "namePassword"
+  | "otp";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

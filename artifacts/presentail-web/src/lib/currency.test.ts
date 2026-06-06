@@ -252,7 +252,7 @@ describe("setCurrencySnapshot / getCurrencySnapshot", () => {
       ],
     };
     setCurrencySnapshot(snapWithJPY);
-    expect(formatPriceInCurrency(1000, "JPY")).toBe("¥1000");
+    expect(formatPriceInCurrency(1000, "JPY")).toBe("¥1,000");
   });
 });
 

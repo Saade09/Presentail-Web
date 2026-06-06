@@ -275,7 +275,7 @@ function Field({
   children,
 }: {
   label: React.ReactNode;
-  children: React.ReactElement;
+  children: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
 }) {
   return (
     <div>
@@ -288,7 +288,7 @@ function Field({
           'focus:outline-none focus:ring-2 focus:border-transparent',
           children.props.className ?? '',
         ].join(' '),
-        style: { '--tw-ring-color': BRAND, ...children.props.style },
+        style: { '--tw-ring-color': BRAND, ...children.props.style } as React.CSSProperties,
       })}
     </div>
   );

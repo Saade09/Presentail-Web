@@ -113,6 +113,8 @@ function AuthScreen() {
         return t.authEmailAlreadyExists;
       case "server":
         return t.authGenericError;
+      default:
+        return t.authGenericError;
     }
   };
 

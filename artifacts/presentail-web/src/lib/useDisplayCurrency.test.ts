@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   readManualCurrency,
   writeManualCurrency,
+  syncManualCurrencyFromStorage,
   MANUAL_CURRENCY_KEY,
   MANUAL_CURRENCY_PERSISTENT_KEY,
 } from "./displayCurrencyStorage";
@@ -28,6 +29,7 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
     ls = makeStorage();
     ss = makeStorage();
     vi.stubGlobal("window", { localStorage: ls, sessionStorage: ss });
+    syncManualCurrencyFromStorage();
   });
 
   afterEach(() => {
@@ -95,12 +97,14 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
   describe("readManualCurrency", () => {
     it("returns persistent state when localStorage has a supported code", () => {
       ls.setItem(PERSISTENT_KEY, "AED");
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toEqual({ code: "AED", persistent: true });
     });
 
     it("returns session state when only sessionStorage has a code", () => {
       ss.setItem(SESSION_KEY, "EUR");
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toEqual({ code: "EUR", persistent: false });
     });
@@ -108,6 +112,7 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
     it("localStorage beats sessionStorage when both are set", () => {
       ls.setItem(PERSISTENT_KEY, "AED");
       ss.setItem(SESSION_KEY, "EUR");
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toEqual({ code: "AED", persistent: true });
     });
@@ -119,18 +124,21 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
     it("ignores an unsupported code in localStorage and falls back to sessionStorage", () => {
       ls.setItem(PERSISTENT_KEY, "XYZ");
       ss.setItem(SESSION_KEY, "GBP");
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toEqual({ code: "GBP", persistent: false });
     });
 
     it("ignores an unsupported code in sessionStorage", () => {
       ss.setItem(SESSION_KEY, "BOGUS");
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toBeNull();
     });
 
     it("returns null when window is undefined (SSR guard)", () => {
       vi.stubGlobal("window", undefined);
+      syncManualCurrencyFromStorage();
 
       expect(readManualCurrency()).toBeNull();
     });
@@ -143,6 +151,7 @@ describe("readManualCurrency / writeManualCurrency — storage behaviour", () =>
         sessionStorage: ss,
       });
       ss.setItem(SESSION_KEY, "CAD");
+      syncManualCurrencyFromStorage();
 
       expect(() => readManualCurrency()).not.toThrow();
       expect(readManualCurrency()).toEqual({ code: "CAD", persistent: false });

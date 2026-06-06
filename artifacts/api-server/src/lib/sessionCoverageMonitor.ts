@@ -369,7 +369,7 @@ async function loadCoverageRows(
     .select({
       day: perDay
         ? dayExpr
-        : sql<string>`to_char(${start}, 'YYYY-MM-DD')`,
+        : sql<string>`${start.toISOString().slice(0, 10)}`,
       platform: analyticsEventsTable.platform,
       total: sql<number>`count(*)::int`,
       withSessionId: sql<number>`count(${analyticsEventsTable.sessionId})::int`,

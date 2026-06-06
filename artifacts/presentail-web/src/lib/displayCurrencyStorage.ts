@@ -89,6 +89,20 @@ export function readManualCurrency(): ManualCurrencyState {
 }
 
 /**
+ * Force a re-read from the current window.localStorage / window.sessionStorage
+ * into the module-level cache without notifying listeners.
+ *
+ * Use this in tests after stubbing window storage so that readManualCurrency()
+ * reflects the mocked storage state rather than the value cached at module-load
+ * time or set by a previous writeManualCurrency() call.
+ *
+ * @internal — not part of the public API; exported for testing only.
+ */
+export function syncManualCurrencyFromStorage(): void {
+  _state = readFromStorage();
+}
+
+/**
  * Persist (or clear) the visitor's manual currency override, update the
  * module-level cache, then notify all useSyncExternalStore subscribers.
  *

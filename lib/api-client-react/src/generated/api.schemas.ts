@@ -296,6 +296,8 @@ export const AnalyticsEventRequestAction = {
   brand: "brand",
   category: "category",
   occasion: "occasion",
+  namePassword: "namePassword",
+  otp: "otp",
 } as const;
 
 /**

@@ -1572,6 +1572,8 @@ components:
             - brand
             - category
             - occasion
+            - namePassword
+            - otp
         platform:
           type: string
           enum: [ios, android, web, mobile_web, desktop_web]

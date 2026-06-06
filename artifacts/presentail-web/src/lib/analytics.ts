@@ -13,7 +13,8 @@ type AnalyticsEventName =
   | "signin_page_action"
   | "seo_entity_fetch_failed"
   | "web_vital"
-  | "payment_error";
+  | "payment_error"
+  | "signup_step_completed";
 
 type AnalyticsSurface =
   | "cart"
@@ -55,7 +56,9 @@ type AnalyticsAction =
   | "TTFB"
   | "FCP"
   | "network"
-  | "provider";
+  | "provider"
+  | "namePassword"
+  | "otp";
 
 export type AnalyticsEvent = {
   name: AnalyticsEventName;

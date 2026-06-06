@@ -26,7 +26,6 @@ export const WEB_PAY_METHODS: readonly WebPaymentMethodId[] = [
   "mamo",
   "wallet",
   "whish",
-  "western",
 ] as const;
 
 export type WebPayMethodCtx = {

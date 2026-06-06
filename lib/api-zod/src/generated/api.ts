@@ -295,6 +295,8 @@ export const RecordAnalyticsEventBody = zod.object({
       "brand",
       "category",
       "occasion",
+      "namePassword",
+      "otp",
     ])
     .optional()
     .describe(

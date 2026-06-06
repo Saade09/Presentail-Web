@@ -58,6 +58,24 @@ vi.mock("@/components/product/useDeliveryConfig", () => ({
   })),
 }));
 
+vi.mock("@/contexts/LocationContext", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/contexts/LocationContext")>();
+  return {
+    ...actual,
+    useLocationSelection: vi.fn(() => ({
+      countryCode: "LB",
+      city: null,
+      country: null,
+      cityId: null,
+      isLoading: false,
+      isPickerOpen: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+    })),
+  };
+});
+
 vi.mock("@/components/cart/CartUpsells", () => ({
   CartUpsells: () => null,
 }));
