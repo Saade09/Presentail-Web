@@ -39,7 +39,7 @@ export default function BrandDetail() {
           <ArrowLeft className={`w-4 h-4 mr-2 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("brand.backToBrands")}
         </Link>
 
-        <div className="flex flex-col md:flex-row items-center gap-8 mb-16 pb-8 border-b">
+        <div className="flex flex-col md:flex-row items-center gap-8 mb-16">
           <div className="w-32 h-32 bg-secondary/50 rounded-2xl flex items-center justify-center p-4 shrink-0">
             {brand?.image ? (
               <img src={brand.image} alt={brand.name} className="max-w-full max-h-full object-contain mix-blend-multiply" loading="eager" fetchPriority="high" />

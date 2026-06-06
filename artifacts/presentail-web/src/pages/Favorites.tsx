@@ -68,7 +68,7 @@ export default function Favorites() {
   return (
     <div className="min-h-screen pt-12 pb-24">
       <div className="container mx-auto px-4 max-w-content">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-12 pb-8 border-b">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-12">
           <div className="flex items-center gap-3 flex-1">
             <Heart className="w-6 h-6 text-rose-500 fill-rose-500 flex-shrink-0" />
             <h1 className="text-4xl md:text-5xl font-serif">{t("account.favorites")}</h1>
