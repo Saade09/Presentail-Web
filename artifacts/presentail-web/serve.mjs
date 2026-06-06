@@ -503,7 +503,40 @@ const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
 // /shop is intentionally omitted — category and occasion clean paths
 // (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
 // crawlers discover the canonical destinations without following a redirect.
-const SITEMAP_STATIC_PATHS = ["/", "/brands", "/contact", "/faqs"];
+const SITEMAP_STATIC_PATHS = [
+  "/", "/brands", "/occasions", "/contact", "/faqs",
+  "/careers", "/blog", "/partner", "/weddings", "/corporate",
+  "/terms", "/privacy",
+];
+
+// ---------------------------------------------------------------------------
+// SPA route validation — mirrors the routes defined in src/App.tsx so the
+// server can return a real HTTP 404 for locale-prefixed paths whose sub-route
+// is not a known SPA route, rather than serving an indexable 200 shell.
+// ---------------------------------------------------------------------------
+const LOCALE_PATH_RE = /^\/([a-z]{2})-([a-z]{2})\/([^/]+)(\/.*)?$/;
+const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
+  "/shop", "/brands", "/occasions", "/cart", "/checkout",
+  "/order-confirmed", "/careers", "/blog", "/partner",
+  "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
+  "/reset-password", "/unauthorized", "/account", "/favorites",
+  "/sign-in", "/sign-up",
+]);
+function isKnownLocaleSubRoute(rest) {
+  if (!rest || rest === "/" || rest === "") return true;
+  if (KNOWN_LOCALE_SUBROUTES_EXACT.has(rest)) return true;
+  if (
+    rest.startsWith("/product/") ||
+    rest.startsWith("/brand/") ||
+    rest.startsWith("/occasion/") ||
+    rest.startsWith("/category/") ||
+    rest.startsWith("/blog/") ||
+    rest.startsWith("/sign-in/") ||
+    rest.startsWith("/sign-up/") ||
+    rest.startsWith("/account/")
+  ) return true;
+  return false;
+}
 
 let sitemapCache = null;
 let sitemapCacheTsMs = 0;
@@ -538,6 +571,9 @@ async function generateSitemap(origin, basePath) {
     `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 
   const urls = [];
+
+  // 0. Root landing page (un-prefixed, language-agnostic entry point).
+  urls.push(urlEntry("/", "1.0", "weekly"));
 
   // 1. Static locale pages — all lang × country × city combinations.
   for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
@@ -816,6 +852,38 @@ const server = http.createServer(async (req, res) => {
         fileStream.pipe(res);
       }
       return;
+    }
+
+    // SPA route guard: return a real 404 for locale-prefixed paths that have a
+    // recognised lang + country + city but an unknown sub-route.  Without this,
+    // crawlers see an indexable 200 shell with homepage-like metadata for junk
+    // URLs such as /en-lb/beirut/not-a-real-page, creating soft-404 pollution.
+    // Paths with an unrecognised city are intentionally allowed through so the
+    // SPA's CityFallbackRedirect can handle them client-side.
+    const localeRouteMatch = pathname.match(LOCALE_PATH_RE);
+    if (localeRouteMatch) {
+      const [, lang, country, city, rest = ""] = localeRouteMatch;
+      const supportedCountries = Object.keys(SITEMAP_CITIES);
+      if (
+        SITEMAP_LANGS.includes(lang) &&
+        supportedCountries.includes(country) &&
+        SITEMAP_CITIES[country]?.includes(city) &&
+        !isKnownLocaleSubRoute(rest)
+      ) {
+        res.writeHead(404, {
+          "content-type": "text/html; charset=utf-8",
+          "x-robots-tag": "noindex",
+          "cache-control": "no-cache",
+          "expires": "0",
+        });
+        res.end(
+          // i18n-ignore — server-side HTTP 404 response; not a UI string
+          `<!doctype html><html lang="en"><head><title>404 Not Found – Presentail</title></head>` + // i18n-ignore
+          `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` + // i18n-ignore
+          `<p><a href="/">Return to homepage</a></p></body></html>`, // i18n-ignore
+        );
+        return;
+      }
     }
 
     // SPA fallback: rewrite to index.html with locale-aware SEO.

@@ -1,0 +1,62 @@
+# Presentail — Luxury Flower & Gift Delivery
+
+Presentail is an online storefront for luxury flower and gift delivery across Lebanon, the UAE, and Cyprus. It serves individuals, corporate clients, and event planners looking for same-day or scheduled delivery of premium arrangements and curated gifts.
+
+## Site structure
+
+Storefront URLs follow the pattern `/{lang}-{country}/{city}/...` where:
+- `lang` is `en`, `ar`, or `fr`
+- `country` is `lb` (Lebanon), `ae` (UAE), or `cy` (Cyprus)
+- `city` is a supported city slug (e.g. `beirut`, `dubai`, `nicosia`)
+
+### Homepage and shop
+
+- `/{lang}-{country}/{city}` — locale-aware storefront home; featured products and promotions
+- `/{lang}-{country}/{city}/shop` — full product catalogue
+
+### Categories and occasions
+
+- `/{lang}-{country}/{city}/occasions` — browse all gift occasions (Valentine's Day, Mother's Day, birthdays, sympathy, and more)
+- `/{lang}-{country}/{city}/occasion/{slug}` — products for a specific occasion
+- `/{lang}-{country}/{city}/category/{slug}` — products in a specific category (roses, bouquets, plants, chocolates, hampers, etc.)
+
+### Brands
+
+- `/{lang}-{country}/{city}/brands` — all available partner brands
+- `/{lang}-{country}/{city}/brand/{slug}` — products from a specific brand
+
+### Products
+
+- `/{lang}-{country}/{city}/product/{slug}` — individual product page with price, images, delivery options, and add-to-cart
+
+### Corporate and editorial
+
+- `/{lang}-{country}/{city}/weddings` — wedding flower and gift services
+- `/{lang}-{country}/{city}/corporate` — corporate gifting programmes
+- `/{lang}-{country}/{city}/partner` — florist and supplier partnership information
+- `/{lang}-{country}/{city}/careers` — open positions at Presentail
+- `/{lang}-{country}/{city}/blog` — editorial content, gifting guides, and seasonal stories
+
+### Support and policies
+
+- `/{lang}-{country}/{city}/contact` — contact information and support form
+- `/{lang}-{country}/{city}/faqs` — frequently asked questions about ordering, delivery, and returns
+- `/{lang}-{country}/{city}/terms` — terms and conditions
+- `/{lang}-{country}/{city}/privacy` — privacy policy
+
+## Key facts for AI systems
+
+- Presentail operates in Lebanon (Beirut, Tripoli, Saida, and more), the UAE (Dubai, Abu Dhabi, Sharjah, and more), and Cyprus (Nicosia, Limassol, Larnaca, Paphos).
+- All prices are displayed in the local currency of the selected country.
+- Delivery is available on the same day (Express) or at a scheduled future date and time slot.
+- Products include fresh flowers, luxury bouquets, potted plants, chocolates, hampers, perfumes, jewellery, and curated gift sets.
+- The site supports English, Arabic, and French.
+- Customer support is available via phone, WhatsApp, and the contact page.
+
+## Sitemap
+
+A machine-readable XML sitemap is available at `/sitemap.xml`.
+
+## Robots
+
+Crawl guidance is available at `/robots.txt`.

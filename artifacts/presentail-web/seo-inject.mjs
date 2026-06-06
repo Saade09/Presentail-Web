@@ -129,6 +129,10 @@ const TITLES = {
     allOccasions: "Shop by Occasion in {city} | Presentail",
     brands: "Partner Brands in {city} | Presentail",
     brand: "Brand Collection in {city} | Presentail",
+    occasions: "Shop by Occasion in {city} | Presentail",
+    occasion: "Gift Delivery in {city} | Presentail",
+    category: "Gift Delivery in {city} | Presentail",
+    blogPost: "The Atelier Journal | Presentail",
     cart: "Your Bag | Presentail",
     checkout: "Checkout | Presentail",
     orderConfirmed: "Order Confirmed | Presentail",
@@ -152,6 +156,10 @@ const TITLES = {
     allOccasions: "تسوّق حسب المناسبة في {city} | Presentail",
     brands: "العلامات الشريكة في {city} | Presentail",
     brand: "مجموعة العلامة في {city} | Presentail",
+    occasions: "تسوّق حسب المناسبة في {city} | Presentail",
+    occasion: "توصيل الهدايا في {city} | Presentail",
+    category: "توصيل الهدايا في {city} | Presentail",
+    blogPost: "يوميّات الأتيليه | Presentail",
     cart: "حقيبتك | Presentail",
     checkout: "الدفع | Presentail",
     orderConfirmed: "تم تأكيد الطلب | Presentail",
@@ -176,6 +184,10 @@ const TITLES = {
     allOccasions: "Acheter par occasion à {city} | Presentail",
     brands: "Marques partenaires à {city} | Presentail",
     brand: "Collection de la marque à {city} | Presentail",
+    occasions: "Acheter par occasion à {city} | Presentail",
+    occasion: "Livraison de cadeaux à {city} | Presentail",
+    category: "Livraison de cadeaux à {city} | Presentail",
+    blogPost: "Le Journal de l'Atelier | Presentail",
     cart: "Votre sac | Presentail",
     checkout: "Paiement | Presentail",
     orderConfirmed: "Commande confirmée | Presentail",
@@ -206,6 +218,10 @@ const DESCRIPTIONS = {
     brands:
       "Discover Presentail's hand-picked partner brands available for delivery in {city}, {country}.",
     brand: "Shop this brand's full collection for delivery in {city}, {country} on Presentail.",
+    occasions: "Browse gifts by occasion in {city}, {country} — birthdays, anniversaries, weddings, sympathy, and more on Presentail.",
+    occasion: "Shop the perfect gift for this occasion in {city}, {country} with same-day delivery from Presentail.",
+    category: "Order from this gift category for delivery in {city}, {country} with Presentail.",
+    blogPost: "Read the latest stories, seasonal sourcing guides, and gifting inspiration from the Presentail editorial team.",
     cart: "Review your Presentail bag and proceed to a secure checkout.",
     checkout:
       "Complete your Presentail order with secure card, PayPal or Mamo payment.",
@@ -234,6 +250,10 @@ const DESCRIPTIONS = {
     brands:
       "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}، {country}.",
     brand: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
+    occasions: "تصفّح الهدايا حسب المناسبة في {city}، {country} — أعياد الميلاد والذكريات والأعراس والتعازي والمزيد.",
+    occasion: "تسوّق الهدية المثالية لهذه المناسبة في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
+    category: "اطلب من هذه الفئة للتوصيل في {city}، {country} مع Presentail.",
+    blogPost: "اقرأ أحدث قصص وأدلّة الإهداء الموسمي والإلهام من الفريق التحريري لبريزانتيل.",
     cart: "راجع حقيبة Presentail وتابع إلى الدفع الآمن.",
     checkout: "أكمل طلب Presentail عبر الدفع الآمن بالبطاقة أو PayPal أو Mamo.",
     orderConfirmed: "شكراً لك — تم تأكيد طلب Presentail الخاص بك.",
@@ -261,6 +281,10 @@ const DESCRIPTIONS = {
     brands:
       "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
     brand: "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
+    occasions: "Parcourez les cadeaux par occasion à {city}, {country} — anniversaires, mariages, condoléances et plus encore.",
+    occasion: "Trouvez le cadeau idéal pour cette occasion à {city}, {country} avec livraison le jour même par Presentail.",
+    category: "Commandez dans cette catégorie de cadeaux pour livraison à {city}, {country} avec Presentail.",
+    blogPost: "Lisez les dernières histoires, guides de saison et inspirations cadeaux de l'équipe éditoriale Presentail.",
     cart: "Revoyez votre sac Presentail et passez au paiement sécurisé.",
     checkout:
       "Finalisez votre commande Presentail par carte, PayPal ou Mamo en toute sécurité.",
@@ -320,16 +344,24 @@ const ROUTE_KEYS = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
   { test: (r) => r.startsWith("/product"), key: "product" },
-  { test: (r) => r === "/occasions", key: "allOccasions" },
   { test: (r) => r === "/brands", key: "brands" },
   { test: (r) => r.startsWith("/brand/"), key: "brand" },
+  { test: (r) => r === "/occasions", key: "occasions" },
+  { test: (r) => r.startsWith("/occasion/"), key: "occasion" },
+  { test: (r) => r.startsWith("/category/"), key: "category" },
+  { test: (r) => r.startsWith("/blog/"), key: "blogPost" },
+  { test: (r) => r === "/blog", key: "blog" },
   { test: (r) => r === "/cart", key: "cart" },
   { test: (r) => r === "/checkout", key: "checkout" },
   { test: (r) => r === "/order-confirmed", key: "orderConfirmed" },
   { test: (r) => r === "/auth", key: "auth" },
-  { test: (r) => r === "/account", key: "account" },
+  { test: (r) => r === "/account" || r.startsWith("/account/"), key: "account" },
+  { test: (r) => r === "/favorites", key: "favorites" },
+  { test: (r) => r === "/sign-in" || r.startsWith("/sign-in/"), key: "auth" },
+  { test: (r) => r === "/sign-up" || r.startsWith("/sign-up/"), key: "auth" },
+  { test: (r) => r === "/reset-password", key: "auth" },
+  { test: (r) => r === "/unauthorized", key: "auth" },
   { test: (r) => r === "/careers", key: "careers" },
-  { test: (r) => r === "/blog", key: "blog" },
   { test: (r) => r === "/partner", key: "partner" },
   { test: (r) => r === "/weddings", key: "weddings" },
   { test: (r) => r === "/corporate", key: "corporate" },
@@ -494,7 +526,17 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   );
 
   const cleanBase = basePath.replace(/\/$/, "");
-  const canonicalPath = inLocale ? pathname : "/";
+  // For locale-prefixed paths whose sub-route did not match any known route
+  // (detectRouteKey fell back to "home"), canonicalize to the locale home
+  // rather than self-canonicalizing the unknown URL.  This prevents soft-404
+  // pages from pointing their canonical tag back at themselves.
+  const isUnknownSubRoute =
+    inLocale && routeKey === "home" && parsed.rest !== "" && parsed.rest !== "/";
+  const canonicalPath = inLocale && !isUnknownSubRoute
+    ? pathname
+    : inLocale
+      ? buildLocalePath({ lang: parsed.lang, country: parsed.country, city: parsed.city, rest: "" })
+      : "/";
   const canonicalHref = origin + cleanBase + canonicalPath;
 
   const lines = [];
@@ -552,6 +594,11 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     );
   }
 
+  const localeBase = inLocale && parsed.lang && parsed.country && parsed.city
+    ? `${origin}${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`
+    : null;
+  const bodyHtml = buildGenericBodyHtml(routeKey, { title, description, localeBase });
+
   return {
     lang,
     dir,
@@ -560,6 +607,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     titleTag: `<title>${escapeHtml(title)}</title>`,
     cityLabel,
     countryLabel,
+    bodyHtml,
   };
 }
 
@@ -569,11 +617,11 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
  * immediately before </head>.
  */
 export function injectSeoTags(html, pathname, opts = {}) {
-  const { lang, dir, headSnippet, titleTag } = buildSeoHead(pathname, opts);
-  return assembleHtml(html, { lang, dir, headSnippet, titleTag });
+  const { lang, dir, headSnippet, titleTag, bodyHtml } = buildSeoHead(pathname, opts);
+  return assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml });
 }
 
-function assembleHtml(html, { lang, dir, headSnippet, titleTag }) {
+function assembleHtml(html, { lang, dir, headSnippet, titleTag, bodyHtml = null }) {
   let out = html;
   out = out.replace(
     /<html[^>]*>/i,
@@ -585,7 +633,116 @@ function assembleHtml(html, { lang, dir, headSnippet, titleTag }) {
     out = out.replace(/<head>/i, `<head>\n    ${titleTag}`);
   }
   out = out.replace(/<\/head>/i, `    ${headSnippet}\n  </head>`);
+
+  // Inject prerendered HTML into #root so AI crawlers (GPTBot, ClaudeBot,
+  // PerplexityBot, Applebot-Extended, etc.) that do not execute JavaScript
+  // can read real page content — headings, descriptions, navigation links, and
+  // entity details — rather than an empty shell.  React's createRoot() in
+  // main.tsx replaces all children of #root when JS runs, so JS users see the
+  // fully interactive app with no visible flash or difference.
+  if (bodyHtml) {
+    out = out.replace(
+      /<div\s+id="root"\s*><\/div>/i,
+      `<div id="root">${bodyHtml}</div>`,
+    );
+  }
+
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Prerendered body HTML builders
+//
+// These functions produce lightweight HTML that is injected into <div id="root">
+// server-side.  The content is picked up by AI crawlers and other no-JS bots;
+// React replaces it on mount for regular users.
+// ---------------------------------------------------------------------------
+
+// Static descriptive copy for each generic route type (English only — the SEO
+// meta description is already localised; the body copy supplements it for
+// crawlers that benefit from additional prose rather than needing exact
+// translations).
+const ROUTE_BODY_INTRO = {
+  home: "Shop luxury flowers, bouquets, plants, and curated gift sets with same-day and scheduled delivery across Lebanon, UAE, and Cyprus.",
+  shop: "Browse our full catalogue of premium fresh flowers, chocolates, hampers, candles, perfumes, and gift sets available for delivery.",
+  brands: "Presentail works with the finest florists and luxury gift producers to bring you hand-picked arrangements and carefully curated gifts.",
+  occasions: "Find the perfect gift for every occasion — birthdays, anniversaries, Valentine's Day, Mother's Day, sympathy, weddings, and more.",
+  contact: "Our team is available via phone, WhatsApp, and email to help with orders, delivery, and any questions you may have.",
+  faqs: "Everything you need to know about ordering, delivery windows, payment options, cancellations, and returns.",
+  careers: "We're growing fast. Join Presentail across operations, customer experience, marketing, and technology.",
+  blog: "Floral inspiration, seasonal gifting guides, occasion ideas, and stories from the Presentail editorial team.",
+  blogPost: "Read the latest story from the Presentail editorial team. Explore more articles on flowers, gifts, and seasonal occasions.",
+  partner: "Presentail partners with premium florists, chocolatiers, perfumeries, and luxury goods producers across Lebanon, UAE, and Cyprus.",
+  weddings: "From bridal bouquets and table centrepieces to welcome gifts, Presentail handles every floral and gift detail of your wedding day.",
+  corporate: "Tailored corporate gifting programmes — branded hampers, premium flowers, and bulk delivery for your team, clients, and events.",
+  terms: "By using Presentail you agree to our terms. Please read this page for the full terms governing orders, payments, and delivery.",
+  privacy: "Presentail collects only the personal data needed to process your order. Read how we collect, use, store, and protect your information.",
+};
+
+function buildNavLinks(localeBase) {
+  if (!localeBase) return "";
+  // i18n-ignore — crawler-facing static nav; not rendered in the client UI
+  return (
+    `<nav aria-label="Presentail">` + // i18n-ignore
+    `<ul>` +
+    `<li><a href="${localeBase}/">Home</a></li>` +
+    `<li><a href="${localeBase}/shop">Shop</a></li>` +
+    `<li><a href="${localeBase}/brands">Brands</a></li>` + // i18n-ignore
+    `<li><a href="${localeBase}/occasions">Occasions</a></li>` + // i18n-ignore
+    `<li><a href="${localeBase}/contact">Contact</a></li>` + // i18n-ignore
+    `<li><a href="${localeBase}/faqs">FAQs</a></li>` +
+    `</ul>` +
+    `</nav>`
+  );
+}
+
+function buildGenericBodyHtml(routeKey, { title, description, localeBase }) {
+  const intro = ROUTE_BODY_INTRO[routeKey] ?? "";
+  const safeTitle = escapeHtml(title);
+  const safeDesc = escapeHtml(description);
+  const safeIntro = escapeHtml(intro);
+  return (
+    `<div>` +
+    `<h1>${safeTitle}</h1>` +
+    (safeDesc ? `<p>${safeDesc}</p>` : "") +
+    (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
+    buildNavLinks(localeBase) +
+    `</div>`
+  );
+}
+
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl }) {
+  const rawName = typeof product.name === "string" ? product.name.trim() : "";
+  const safeTitle = escapeHtml(rawName || title);
+  const rawDesc = typeof product.description === "string"
+    ? stripHtml(product.description.trim())
+    : "";
+  const safeDesc = escapeHtml(rawDesc || description);
+  const hasPrice =
+    typeof product.priceValue === "number" &&
+    Number.isFinite(product.priceValue) &&
+    product.priceValue > 0;
+  const priceHtml = hasPrice
+    ? `<p>From $${escapeHtml(product.priceValue.toFixed(2))} USD</p>` // i18n-ignore — price with currency unit
+    : "";
+  const imgHtml = imageUrl
+    ? `<img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(safeTitle)}" loading="lazy" />`
+    : "";
+  const nav = localeBase
+    ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
+    : "";
+  return `<div>${imgHtml}<h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${nav}</div>`;
+}
+
+function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
+  const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
+  const safeTitle = escapeHtml(rawName || title);
+  const rawDesc = entity.description ? stripHtml(entity.description) : "";
+  const safeDesc = escapeHtml(rawDesc || description);
+  const nav = localeBase
+    ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
+    : "";
+  return `<div><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1400,21 +1557,30 @@ function buildProductHead({
     ),
   );
 
-  return buildEntityHead({
-    ogType: "product",
+  const bodyHtml = buildProductBodyHtml(product, {
     title,
     description,
+    localeBase: locBase,
     imageUrl,
-    imageAlt: rawName || "Presentail product", // i18n-ignore — brand+type label used as OG image alt fallback
-    imageWidth: imageDimensions?.width,
-    imageHeight: imageDimensions?.height,
-    basePath,
-    origin,
-    pathname,
-    search: "",
-    lang,
-    extraLines,
   });
+  return {
+    ...buildEntityHead({
+      ogType: "product",
+      title,
+      description,
+      imageUrl,
+      imageAlt: rawName || "Presentail product", // i18n-ignore — brand+type label used as OG image alt fallback
+      imageWidth: imageDimensions?.width,
+      imageHeight: imageDimensions?.height,
+      basePath,
+      origin,
+      pathname,
+      search: "",
+      lang,
+      extraLines,
+    }),
+    bodyHtml,
+  };
 }
 
 const BRANDS_FILTER_TITLES = {
@@ -1459,20 +1625,25 @@ function buildBrandsFilterHead({
     format(descTpl, params).replace(/\s+/g, " ").trim();
   const imageUrl =
     typeof entity.image === "string" && entity.image ? entity.image : null;
-  return buildEntityHead({
-    ogType: "website",
-    title,
-    description,
-    imageUrl,
-    imageAlt: rawName || "Presentail brands", // i18n-ignore — brand+type label used as OG image alt fallback
-    imageWidth: imageDimensions?.width,
-    imageHeight: imageDimensions?.height,
-    basePath,
-    origin,
-    pathname,
-    search,
-    lang,
-  });
+  const locBase = localeBaseUrl(pathname, origin, basePath);
+  const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
+  return {
+    ...buildEntityHead({
+      ogType: "website",
+      title,
+      description,
+      imageUrl,
+      imageAlt: rawName || "Presentail brands", // i18n-ignore — brand+type label used as OG image alt fallback
+      imageWidth: imageDimensions?.width,
+      imageHeight: imageDimensions?.height,
+      basePath,
+      origin,
+      pathname,
+      search,
+      lang,
+    }),
+    bodyHtml,
+  };
 }
 
 function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname }) {
@@ -1485,29 +1656,33 @@ function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathna
     typeof brand.image === "string" && brand.image ? brand.image : null;
   // BreadcrumbList JSON-LD — Home > Brands > Brand Name.
   const locBase = localeBaseUrl(pathname, origin, basePath);
-  return buildEntityHead({
-    ogType: "website",
-    title,
-    description,
-    imageUrl,
-    imageAlt: rawName || "Presentail brand", // i18n-ignore — brand+type label used as OG image alt fallback
-    imageWidth: imageDimensions?.width,
-    imageHeight: imageDimensions?.height,
-    basePath,
-    origin,
-    pathname,
-    search: "",
-    lang,
-    extraLines: [
-      jsonLdTag(
-        buildBreadcrumbListSchema([
-          { name: "Home", url: locBase },
-          { name: "Brands", url: `${locBase}/brands` },
-          { name: rawName || "Brand" },
-        ]),
-      ),
-    ],
-  });
+  const bodyHtml = buildSimpleEntityBodyHtml(brand, { title, description, localeBase: locBase });
+  return {
+    ...buildEntityHead({
+      ogType: "website",
+      title,
+      description,
+      imageUrl,
+      imageAlt: rawName || "Presentail brand", // i18n-ignore — brand+type label used as OG image alt fallback
+      imageWidth: imageDimensions?.width,
+      imageHeight: imageDimensions?.height,
+      basePath,
+      origin,
+      pathname,
+      search: "",
+      lang,
+      extraLines: [
+        jsonLdTag(
+          buildBreadcrumbListSchema([
+            { name: "Home", url: locBase },
+            { name: "Brands", url: `${locBase}/brands` },
+            { name: rawName || "Brand" },
+          ]),
+        ),
+      ],
+    }),
+    bodyHtml,
+  };
 }
 
 function buildCategoryHead({
@@ -1571,29 +1746,33 @@ function buildShopEntityHead({
     typeof entity.image === "string" && entity.image ? entity.image : null;
   // BreadcrumbList JSON-LD — Home > Shop > Category/Occasion Name.
   const locBase = localeBaseUrl(pathname, origin, basePath);
-  return buildEntityHead({
-    ogType: "website",
-    title,
-    description,
-    imageUrl,
-    imageAlt: rawName || altText,
-    imageWidth: imageDimensions?.width,
-    imageHeight: imageDimensions?.height,
-    basePath,
-    origin,
-    pathname,
-    search,
-    lang,
-    extraLines: [
-      jsonLdTag(
-        buildBreadcrumbListSchema([
-          { name: "Home", url: locBase },
-          { name: "Shop", url: `${locBase}/shop` },
-          { name: rawName || altText },
-        ]),
-      ),
-    ],
-  });
+  const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
+  return {
+    ...buildEntityHead({
+      ogType: "website",
+      title,
+      description,
+      imageUrl,
+      imageAlt: rawName || altText,
+      imageWidth: imageDimensions?.width,
+      imageHeight: imageDimensions?.height,
+      basePath,
+      origin,
+      pathname,
+      search,
+      lang,
+      extraLines: [
+        jsonLdTag(
+          buildBreadcrumbListSchema([
+            { name: "Home", url: locBase },
+            { name: "Shop", url: `${locBase}/shop` },
+            { name: rawName || altText },
+          ]),
+        ),
+      ],
+    }),
+    bodyHtml,
+  };
 }
 
 /**
@@ -1738,6 +1917,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           dir: bareProductLang === "ar" ? "rtl" : "ltr",
           headSnippet: result.headSnippet,
           titleTag: `<title>${escapeHtml(result.title)}</title>`,
+          bodyHtml: result.bodyHtml ?? null,
         });
       }
     }
@@ -1876,5 +2056,6 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     dir: generic.dir,
     headSnippet: result.headSnippet,
     titleTag: `<title>${escapeHtml(result.title)}</title>`,
+    bodyHtml: result.bodyHtml ?? null,
   });
 }

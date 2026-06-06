@@ -2,3 +2,6 @@ User-agent: *
 Allow: /
 
 Sitemap: https://new.presentail.com/sitemap.xml
+
+# AI crawler guidance
+# https://new.presentail.com/llms.txt
