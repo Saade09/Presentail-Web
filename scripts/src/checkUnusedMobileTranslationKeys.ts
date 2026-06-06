@@ -90,6 +90,16 @@ const SKIP_DIRS = new Set([
 
 const verbose = process.argv.includes("--verbose");
 
+// --assert-unused <key1,key2,...>
+// When provided, exits non-zero if the listed keys are NOT found to be unused.
+// Useful for confirming a problem still exists before writing a fix.
+const assertUnusedKeys: string[] = (() => {
+  const idx = process.argv.indexOf("--assert-unused");
+  if (idx === -1) return [];
+  const raw = process.argv[idx + 1] ?? "";
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+})();
+
 // ── types ─────────────────────────────────────────────────────────────────────
 
 type CallSite = { file: string; line: number };
@@ -537,6 +547,29 @@ if (unusedKeys.length > 0) {
   );
 }
 
+// ── Assert-unused check ───────────────────────────────────────────────────────
+// When --assert-unused <keys> is passed, verify that every listed key is
+// actually found to be unused.  Exit non-zero if any are not — it means the
+// key is still referenced in source (or never existed in EN), so the assumed
+// problem does not exist and the task may already be done.
+
+if (assertUnusedKeys.length > 0) {
+  const unusedSet = new Set(unusedKeys);
+  const notUnused = assertUnusedKeys.filter((k) => !unusedSet.has(k));
+  if (notUnused.length > 0) {
+    failed = true;
+    console.error(
+      `\n✗ --assert-unused failed: ${notUnused.length} mobile key${notUnused.length === 1 ? "" : "s"} expected to be unused but ${notUnused.length === 1 ? "was" : "were"} not found as unused:\n`,
+    );
+    for (const key of notUnused) {
+      console.error(`  - ${key}  (still referenced in source, not present in EN, or already removed)`);
+    }
+    console.error(
+      "\nEither the key is still used somewhere in the mobile source, it was never in EN, or the issue was already resolved.\n",
+    );
+  }
+}
+
 if (verbose) {
   console.log("\n  Scanned files:");
   for (const f of files) {
@@ -784,6 +817,17 @@ if (crossLocaleGaps.length > 0) {
   console.error(
     "\nEnsure AR and FR locale blocks contain exactly the same set of keys in artifacts/presentail/lib/translations.ts.\n",
   );
+}
+
+// ── Assertion result file (for orchestrator union check) ──────────────────────
+// When the orchestrator runs this checker with --assert-unused, it sets
+// ASSERT_UNUSED_RESULT to a temp file path.  Write the found unused-key set
+// there so the orchestrator can evaluate the union assertion across platforms.
+// The per-checker --assert-unused CLI flag is still supported for standalone
+// invocation (see the assertion block above this section).
+const ASSERT_UNUSED_RESULT = process.env["ASSERT_UNUSED_RESULT"];
+if (ASSERT_UNUSED_RESULT) {
+  fs.writeFileSync(ASSERT_UNUSED_RESULT, JSON.stringify({ unusedKeys }));
 }
 
 // ── JSON output (for structured PR comment) ───────────────────────────────────
