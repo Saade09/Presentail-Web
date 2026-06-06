@@ -36,6 +36,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
+import { buildProductShareUrl } from "@/lib/productShareUrl";
 import {
   getCountryHour,
   isExpressDeliveryAvailable,
@@ -48,13 +49,6 @@ import { useNow } from "@/lib/useNow";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
-// Public web storefront origin used to build shareable product links.
-// Share URLs always point to the production web storefront so iOS/Android
-// can resolve OG tags (product name, logo) for the share sheet preview.
-// EXPO_PUBLIC_DOMAIN is the API server domain — do NOT use it here.
-// presentail.com does not yet have locale-prefixed routes; new.presentail.com
-// is the deployed Replit storefront that serves them correctly.
-const WEB_BASE_URL = "https://new.presentail.com";
 
 type ImageSource = number | { uri: string };
 
@@ -208,12 +202,6 @@ function ProductDetail() {
     }
   };
 
-  // Read delivery location so we can build a locale-prefixed share URL.
-  // `selectedCountry.code` is e.g. "LB"; `selectedCity.id` is e.g. "lb-beirut".
-  // Both are used only inside handleShareProduct (not during render) so there
-  // is no risk of a synchronous throw on the critical product-detail path.
-  const { selectedCountry, selectedCity } = useDeliveryLocation();
-
   const handleShareProduct = async (productSlug: string, productName: string) => {
     // Use React Native's built-in Share API (native iOS/Android share sheet).
     // It is part of react-native core, so no extra native module is required —
@@ -221,15 +209,10 @@ function ProductDetail() {
     // added after TestFlight build 13 was compiled and previously crashed
     // the app at the native layer when invoked.
     try {
-      // Build a locale-prefixed URL so the web server's injectSeoTagsAsync
-      // fires the per-product OG tag injection and iMessage / WhatsApp / iOS
-      // share sheet shows the product name instead of the bare domain.
-      // countryCode "LB" → country slug "lb"; city id "lb-beirut" → "beirut".
-      const countrySlug = selectedCountry?.code?.toLowerCase() ?? "lb";
-      const citySlug =
-        selectedCity?.id?.replace(/^[a-z]{2}-/, "") ?? "beirut";
-      const encodedSlug = encodeURIComponent(String(productSlug ?? ""));
-      const url = `${WEB_BASE_URL}/en-${countrySlug}/${citySlug}/product/${encodedSlug}`;
+      // Build the canonical share URL. The bare /product/<slug> path is
+      // redirected server-side to the correct locale-prefixed route, which
+      // triggers per-product OG tag injection for share sheet previews.
+      const url = buildProductShareUrl(productSlug);
       // On iOS: pass `message` (product name only, no URL) and `url` as
       // separate fields. iOS renders them as two distinct items — the name
       // appears as visible text above the link card. Putting the URL inside
