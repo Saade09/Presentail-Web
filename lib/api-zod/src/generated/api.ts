@@ -317,7 +317,7 @@ export const RecordAnalyticsEventBody = zod.object({
     .max(recordAnalyticsEventBodyErrorCodeMax)
     .optional()
     .describe(
-      "For `auth_social_failed` events: the native SDK error code\n(e.g. iOS `-61440` = errSecMissingEntitlement, Android\n`DEVELOPER_ERROR`). Bounded length so we can never log\nunbounded user-controlled strings — the value is sourced\nfrom the native SDK, not the shopper.\n",
+      "For `auth_social_failed` events: the native SDK error code\n(e.g. iOS `-61440` = errSecMissingEntitlement, Android\n`DEVELOPER_ERROR`). For `payment_error` events that originate\nfrom a Stripe card confirmation: the Stripe error code returned\nby the SDK (e.g. `card_declined`, `insufficient_funds`,\n`incorrect_cvc`, `do_not_honor`). Bounded length so we can\nnever log unbounded user-controlled strings — the value is\nsourced from the native\/web SDK, not the shopper.\n",
     ),
   productId: zod
     .string()

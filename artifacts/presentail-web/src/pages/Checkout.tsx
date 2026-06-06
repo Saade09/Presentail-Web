@@ -829,6 +829,7 @@ function CheckoutForm() {
           );
 
           if (stripeError) {
+            trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
             setStripeCardError(stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
             return;
           }
@@ -841,6 +842,7 @@ function CheckoutForm() {
               clientSecret: intentRes.clientSecret,
             });
             if (actionError) {
+              trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
               setStripeCardError(actionError.message ?? t("checkout.toast.cardPaymentFailed"));
               return;
             }

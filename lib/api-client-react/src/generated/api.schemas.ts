@@ -353,9 +353,12 @@ web events use `web`.
   /**
    * For `auth_social_failed` events: the native SDK error code
 (e.g. iOS `-61440` = errSecMissingEntitlement, Android
-`DEVELOPER_ERROR`). Bounded length so we can never log
-unbounded user-controlled strings — the value is sourced
-from the native SDK, not the shopper.
+`DEVELOPER_ERROR`). For `payment_error` events that originate
+from a Stripe card confirmation: the Stripe error code returned
+by the SDK (e.g. `card_declined`, `insufficient_funds`,
+`incorrect_cvc`, `do_not_honor`). Bounded length so we can
+never log unbounded user-controlled strings — the value is
+sourced from the native/web SDK, not the shopper.
 
    * @maxLength 64
    */

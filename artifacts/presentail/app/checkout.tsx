@@ -911,7 +911,7 @@ function CheckoutScreen() {
           paymentMethodType: "Card",
         });
       if (confirmError) {
-        trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+        trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: confirmError.code ?? undefined });
         setCardError(confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError);
         setPaying(false);
         return;
@@ -928,7 +928,7 @@ function CheckoutScreen() {
         const { paymentIntent: actionIntent, error: actionError } =
           await handleNextAction(intentResult.clientSecret, deeplinkBase);
         if (actionError) {
-          trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+          trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
           setCardError(actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError);
           setPaying(false);
           return;
@@ -1074,7 +1074,7 @@ function CheckoutScreen() {
           // Shopper dismissed the native wallet sheet — not an analytics error.
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
         } else {
-          trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
+          trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: walletError.code ?? undefined });
           Alert.alert(
             t.checkoutPaymentErrorTitle,
             walletError.localizedMessage ?? walletError.message ?? t.checkoutPaymentNetworkError,
