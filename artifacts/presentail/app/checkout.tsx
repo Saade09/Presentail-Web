@@ -35,6 +35,7 @@ function loadShareModules() {
 }
 import {
   Alert,
+  findNodeHandle,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -621,6 +622,7 @@ function CheckoutScreen() {
 
   const [paying, setPaying] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
@@ -1296,6 +1298,7 @@ function CheckoutScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 220, gap: 18 }}
         keyboardShouldPersistTaps="handled"
       >
@@ -1419,6 +1422,7 @@ function CheckoutScreen() {
               country={effectiveCountry}
               cardError={cardError}
               setCardError={setCardError}
+              scrollViewRef={scrollViewRef}
             />
             <CardMessageReviewCard
               colors={colors}
@@ -2689,9 +2693,26 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
+  const cardErrorViewRef = useRef<View>(null);
+
+  useEffect(() => {
+    if (!cardError || !cardErrorViewRef.current || !scrollViewRef?.current) return;
+    const timer = setTimeout(() => {
+      const node = findNodeHandle(scrollViewRef.current);
+      if (!node) return;
+      cardErrorViewRef.current?.measureLayout(
+        node,
+        (_x: number, y: number) => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+        },
+        () => {},
+      );
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [cardError, scrollViewRef]);
 
   // Only methods that are actually selectable for the active
   // currency + country are rendered — incompatible methods are simply
@@ -2766,7 +2787,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                     onFocus={() => { if (cardError) setCardError(null); }}
                   />
                   {cardError ? (
-                    <View style={{ gap: 4 }}>
+                    <View ref={cardErrorViewRef} style={{ gap: 4 }}>
                       <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: "#ef4444" }}>
                         {cardError}
                       </AppText>
