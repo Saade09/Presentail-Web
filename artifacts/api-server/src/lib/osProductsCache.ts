@@ -120,6 +120,7 @@ let fetching = false;
  */
 const knownCategorySlugs = new Set<string>();
 const knownOccasionSlugs = new Set<string>();
+const knownBrandSlugs = new Set<string>();
 /**
  * Product slugs seen in prior fetches. Populated the first time any store's
  * product list is successfully fetched; new slugs arriving on subsequent
@@ -140,6 +141,7 @@ let taxonomySeeded = false;
 export function __resetIndexNowSlugTrackingForTest(): void {
   knownCategorySlugs.clear();
   knownOccasionSlugs.clear();
+  knownBrandSlugs.clear();
   knownProductSlugs.clear();
   taxonomySeeded = false;
 }
@@ -147,10 +149,11 @@ export function __resetIndexNowSlugTrackingForTest(): void {
 /** Call detectAndSubmitNewTaxonomySlugs directly. Only call from tests. */
 export function __detectAndSubmitNewTaxonomySlugsForTest(
   categories: OSProductCategory[],
+  brands: OSProductBrand[],
   occasions: OSProductOccasion[],
   productSlugs: string[],
 ): void {
-  detectAndSubmitNewTaxonomySlugs(categories, occasions, productSlugs);
+  detectAndSubmitNewTaxonomySlugs(categories, brands, occasions, productSlugs);
 }
 
 /**
@@ -160,16 +163,19 @@ export function __detectAndSubmitNewTaxonomySlugsForTest(
  * IndexNow and added to the known sets.
  *
  * @param categories   Fresh category list from the latest OS fetch.
+ * @param brands       Fresh brand list from the latest OS fetch.
  * @param occasions    Fresh occasion list from the latest OS fetch.
  * @param productSlugs De-duplicated product slugs collected from all stores
  *                     in the latest fetch cycle.
  */
 function detectAndSubmitNewTaxonomySlugs(
   categories: OSProductCategory[],
+  brands: OSProductBrand[],
   occasions: OSProductOccasion[],
   productSlugs: string[],
 ): void {
   const newCategorySlugs: string[] = [];
+  const newBrandSlugs: string[] = [];
   const newOccasionSlugs: string[] = [];
   const newProductSlugs: string[] = [];
 
@@ -177,6 +183,12 @@ function detectAndSubmitNewTaxonomySlugs(
     if (cat.id && !knownCategorySlugs.has(cat.id)) {
       newCategorySlugs.push(cat.id);
       knownCategorySlugs.add(cat.id);
+    }
+  }
+  for (const brand of brands) {
+    if (brand.id && !knownBrandSlugs.has(brand.id)) {
+      newBrandSlugs.push(brand.id);
+      knownBrandSlugs.add(brand.id);
     }
   }
   for (const occ of occasions) {
@@ -196,7 +208,7 @@ function detectAndSubmitNewTaxonomySlugs(
     // First fetch — record all slugs as baseline; nothing to submit yet.
     taxonomySeeded = true;
     logger.info(
-      { categories: knownCategorySlugs.size, occasions: knownOccasionSlugs.size, products: knownProductSlugs.size },
+      { categories: knownCategorySlugs.size, brands: knownBrandSlugs.size, occasions: knownOccasionSlugs.size, products: knownProductSlugs.size },
       "osProductsCache: IndexNow slug baseline established",
     );
     return;
@@ -204,6 +216,7 @@ function detectAndSubmitNewTaxonomySlugs(
 
   const newUrls = [
     ...buildCanonicalUrls("category", newCategorySlugs),
+    ...buildCanonicalUrls("brand", newBrandSlugs),
     ...buildCanonicalUrls("occasion", newOccasionSlugs),
     ...buildCanonicalUrls("product", newProductSlugs),
   ];
@@ -213,6 +226,7 @@ function detectAndSubmitNewTaxonomySlugs(
   logger.info(
     {
       newCategories: newCategorySlugs.length,
+      newBrands: newBrandSlugs.length,
       newOccasions: newOccasionSlugs.length,
       newProducts: newProductSlugs.length,
       urls: newUrls.length,
@@ -721,6 +735,7 @@ async function fetchAndStore(): Promise<void> {
 
     // ── Global taxonomy ───────────────────────────────────────────────────
     let freshCategories: OSProductCategory[] = [];
+    let freshBrands: OSProductBrand[] = [];
     let freshOccasions: OSProductOccasion[] = [];
 
     if (categoriesResp.status === "fulfilled") {
@@ -732,7 +747,10 @@ async function fetchAndStore(): Promise<void> {
     }
     if (brandsResp.status === "fulfilled") {
       const brands = brandsResp.value.brands ?? [];
-      if (brands.length > 0) cachedBrands = brands;
+      if (brands.length > 0) {
+        cachedBrands = brands;
+        freshBrands = brands;
+      }
     }
     if (occasionsResp.status === "fulfilled") {
       const occasions = occasionsResp.value.occasions ?? [];
@@ -743,13 +761,13 @@ async function fetchAndStore(): Promise<void> {
     }
 
     // ── IndexNow: ping for new taxonomy and product slugs ─────────────────
-    // Fires when any of categories, occasions, or products were successfully
-    // fetched this cycle. On the first fetch all current slugs are recorded
-    // as the baseline and nothing is submitted; subsequent fetches submit
-    // only slugs that are newly seen since the baseline.
+    // Fires when any of categories, brands, occasions, or products were
+    // successfully fetched this cycle. On the first fetch all current slugs
+    // are recorded as the baseline and nothing is submitted; subsequent
+    // fetches submit only slugs that are newly seen since the baseline.
     const freshProductSlugs = [...freshProductSlugSet];
-    if (freshCategories.length > 0 || freshOccasions.length > 0 || freshProductSlugs.length > 0) {
-      detectAndSubmitNewTaxonomySlugs(freshCategories, freshOccasions, freshProductSlugs);
+    if (freshCategories.length > 0 || freshBrands.length > 0 || freshOccasions.length > 0 || freshProductSlugs.length > 0) {
+      detectAndSubmitNewTaxonomySlugs(freshCategories, freshBrands, freshOccasions, freshProductSlugs);
     }
 
     // ── First-population callback ─────────────────────────────────────────

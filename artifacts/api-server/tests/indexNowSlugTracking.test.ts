@@ -51,6 +51,10 @@ function makeCategory(id: string) {
   return { id, slug: id, name: id };
 }
 
+function makeBrand(id: string) {
+  return { id, slug: id, name: id };
+}
+
 function makeOccasion(id: string) {
   return { id, slug: id, name: id };
 }
@@ -71,6 +75,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
   it("first fetch seeds the baseline without calling submitIndexNowUrls", () => {
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers"), makeCategory("plants")],
+      [makeBrand("roses-co")],
       [makeOccasion("birthday"), makeOccasion("anniversary")],
       ["red-roses", "white-tulips"],
     );
@@ -80,13 +85,14 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
 
   it("second fetch with the same slugs does not submit anything", () => {
     const categories = [makeCategory("flowers"), makeCategory("plants")];
+    const brands = [makeBrand("roses-co")];
     const occasions = [makeOccasion("birthday")];
     const products = ["red-roses"];
 
-    __detectAndSubmitNewTaxonomySlugsForTest(categories, occasions, products);
+    __detectAndSubmitNewTaxonomySlugsForTest(categories, brands, occasions, products);
     submitIndexNowUrlsMock.mockClear();
 
-    __detectAndSubmitNewTaxonomySlugsForTest(categories, occasions, products);
+    __detectAndSubmitNewTaxonomySlugsForTest(categories, brands, occasions, products);
 
     expect(submitIndexNowUrlsMock).not.toHaveBeenCalled();
   });
@@ -94,12 +100,14 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
   it("second fetch with new product slugs submits canonical URLs for en/ar/fr × lb/ae/cy", async () => {
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
+      [],
       [makeOccasion("birthday")],
       ["red-roses"],
     );
 
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
+      [],
       [makeOccasion("birthday")],
       ["red-roses", "white-lilies"],
     );
@@ -131,12 +139,14 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
   it("second fetch with new category and occasion slugs submits their canonical URLs", async () => {
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
+      [],
       [makeOccasion("birthday")],
       [],
     );
 
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers"), makeCategory("plants")],
+      [],
       [makeOccasion("birthday"), makeOccasion("wedding")],
       [],
     );
@@ -155,15 +165,58 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     );
   });
 
+  it("second fetch with new brand slugs submits canonical brand URLs for en/ar/fr × lb/ae/cy", async () => {
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-co")],
+      [],
+      [],
+    );
+
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-co"), makeBrand("lily-garden")],
+      [],
+      [],
+    );
+
+    await vi.waitFor(() => expect(submitIndexNowUrlsMock).toHaveBeenCalledOnce());
+
+    const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
+
+    // 1 new brand slug × 3 langs × 3 countries = 9 URLs
+    expect(submittedUrls).toHaveLength(9);
+
+    const langs = ["en", "ar", "fr"];
+    const countryCity = [
+      ["lb", "beirut"],
+      ["ae", "dubai"],
+      ["cy", "nicosia"],
+    ];
+
+    for (const lang of langs) {
+      for (const [country, city] of countryCity) {
+        expect(submittedUrls).toContain(
+          `https://new.presentail.com/${lang}-${country}/${city}/brand/lily-garden`,
+        );
+      }
+    }
+
+    // The already-known brand must not appear
+    expect(submittedUrls.some((u) => u.includes("/brand/roses-co"))).toBe(false);
+  });
+
   it("does not re-submit slugs that were already seen in a previous fetch", async () => {
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
+      [],
       [],
       ["red-roses"],
     );
 
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers"), makeCategory("plants")],
+      [],
       [],
       ["red-roses", "white-lilies"],
     );
@@ -188,6 +241,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
       [],
+      [],
       ["red-roses"],
     );
 
@@ -197,6 +251,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     // This is now the "first" fetch again after reset
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers")],
+      [],
       [],
       ["red-roses"],
     );
@@ -209,6 +264,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     // but a genuinely new slug should be submitted
     __detectAndSubmitNewTaxonomySlugsForTest(
       [makeCategory("flowers"), makeCategory("cacti")],
+      [],
       [],
       ["red-roses"],
     );
