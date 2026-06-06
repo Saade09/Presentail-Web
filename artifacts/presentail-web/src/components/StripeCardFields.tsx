@@ -5,6 +5,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { StripeCardNumberElementOptions } from "@stripe/stripe-js";
+import { useEffect, useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 
 const ELEMENT_STYLE: StripeCardNumberElementOptions["style"] = {
@@ -32,6 +33,13 @@ type Props = {
 export function StripeCardFields({ error, disabled }: Props) {
   const { t } = useLocale();
   const stripe = useStripe();
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [error]);
 
   if (!stripe) {
     return (
@@ -81,7 +89,7 @@ export function StripeCardFields({ error, disabled }: Props) {
       </label>
 
       {error && (
-        <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5" role="alert" data-testid="stripe-card-error">
+        <div ref={errorRef} className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5" role="alert" data-testid="stripe-card-error">
           <p className="text-sm font-medium text-destructive">{error}</p>
           <p className="text-xs text-destructive/80 mt-0.5">{t("checkout.stripe.cardDeclineHint")}</p>
         </div>
