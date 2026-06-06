@@ -6,9 +6,22 @@ import Constants from "expo-constants";
 const PRODUCTION_API_BASE = "https://lebanon-luxury-showcase.replit.app";
 
 // Stripe publishable key for inline card payments via @stripe/stripe-react-native.
-// Set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in EAS build secrets / Replit env.
-// Falls back to an empty string so the StripeProvider renders without crashing
-// (card payments will fail at confirmPayment time with a clear Stripe error).
+//
+// For development / Expo Go: set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY (pk_test_…)
+// as a Replit secret. It is inlined into the JS bundle at Metro bundling time.
+//
+// For TestFlight / App Store binaries: register the live key (pk_live_…) as an
+// EAS project-level secret so it is inlined at EAS build time, not OTA update
+// time. Run once per Expo project:
+//
+//   eas secret:create \
+//     --scope project \
+//     --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY \
+//     --value pk_live_... \
+//     --type string
+//
+// Falls back to an empty string so StripeProvider renders without crashing;
+// confirmPayment will fail with a clear Stripe error if the key is absent.
 export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
@@ -29,6 +42,29 @@ const inferred = (() => {
 })();
 
 export const API_BASE = inferred;
+
+// Emit a loud warning at startup so a missing or mismatched key is caught
+// immediately in the Expo logs — before a shopper reaches the payment screen.
+// Uses the resolved API_BASE (not just the raw env var) so the check is
+// accurate even when EXPO_PUBLIC_API_BASE_URL is unset in a production build.
+if (!STRIPE_PUBLISHABLE_KEY) {
+  console.warn(
+    "[Stripe] EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set. " +
+      "Card payments will fail. " +
+      "Set pk_test_… as a Replit secret for dev builds, " +
+      "and register pk_live_… via `eas secret:create` for production builds.", // i18n-ignore
+  );
+} else if (
+  STRIPE_PUBLISHABLE_KEY.startsWith("pk_test_") &&
+  !API_BASE.includes("replit.app")
+) {
+  console.warn(
+    "[Stripe] EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY looks like a test key (pk_test_…) " +
+      "but this build is targeting a non-Replit API (" + API_BASE + "). " + // i18n-ignore
+      "Register the live key (pk_live_…) via `eas secret:create` " +
+      "so TestFlight and App Store binaries accept real card payments.", // i18n-ignore
+  );
+}
 
 // Item passed to the Stripe checkout endpoint. Prices are resolved server-side
 // from the WooCommerce catalog using wcId — never trust a client-supplied amount.
