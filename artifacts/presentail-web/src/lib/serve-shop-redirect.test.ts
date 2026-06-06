@@ -1,12 +1,17 @@
 /**
- * Integration tests for the shop query-param → clean-path 301 redirect logic
- * in serve.mjs.
+ * Integration tests for the 301 redirect rules in serve.mjs:
  *
- * Covered cases:
- *  1. ?category=<slug>  → 301 /:lang-:country/:city/category/<slug>
- *  2. ?occasion=<slug>  → 301 /:lang-:country/:city/occasion/<slug>
- *  3. /shop with no recognised query param → falls through to SPA (no redirect)
- *  4. Slugs with special characters are percent-encoded in the Location header
+ *  A. Shop query-param → clean-path redirects
+ *     1. ?category=<slug>  → 301 /:lang-:country/:city/category/<slug>
+ *     2. ?occasion=<slug>  → 301 /:lang-:country/:city/occasion/<slug>
+ *     3. /shop with no recognised query param → falls through to SPA (no redirect)
+ *     4. Slugs with special characters are percent-encoded in the Location header
+ *
+ *  B. Bare /product/<slug> mobile share-link → locale-prefixed canonical URL
+ *     1. /product/<slug>            → 301 /en-lb/beirut/product/<slug>
+ *     2. /product/<slug>/ (trailing slash) → 301 /en-lb/beirut/product/<slug>
+ *     3. Already-locale-prefixed URL → falls through to SPA (no redirect)
+ *     4. Percent-encoded slug chars are preserved in the Location header
  *
  * The test spawns serve.mjs as a real child process using the same dist folder
  * that the other serve.mjs integration tests rely on.  Node.js's `http.request`
@@ -224,5 +229,57 @@ describe("serve.mjs — shop query-param redirects", () => {
     );
     expect(status).toBe(301);
     expect(location).toBe("/en-lb/beirut/category/orchids");
+  });
+});
+
+describe("serve.mjs — bare /product/<slug> mobile share-link redirects", () => {
+  it("redirects /product/<slug> to /en-lb/beirut/product/<slug> with 301", async () => {
+    const { status, location } = await get(serverPort, "/product/red-roses");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/product/red-roses");
+  });
+
+  it("redirects /product/<slug>/ (trailing slash) to canonical URL with 301", async () => {
+    const { status, location } = await get(serverPort, "/product/red-roses/");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/product/red-roses");
+  });
+
+  it("does NOT redirect /product/ with no slug (falls through to SPA)", async () => {
+    // The regex requires [^/]+ so a bare /product/ with no slug won't match.
+    const { status, location } = await get(serverPort, "/product/");
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("does NOT redirect an already locale-prefixed product URL (falls through to SPA)", async () => {
+    // /en-lb/beirut/product/<slug> does not start with /product/ so the rule
+    // must not fire and the SPA shell should be served instead.
+    const { status, location } = await get(
+      serverPort,
+      "/en-lb/beirut/product/red-roses",
+    );
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+
+  it("preserves percent-encoded characters in the slug", async () => {
+    // URL.pathname keeps percent-encoding intact; the slug captured from the
+    // regex is placed verbatim into the Location header.
+    const { status, location } = await get(
+      serverPort,
+      "/product/red%20roses",
+    );
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/product/red%20roses");
+  });
+
+  it("preserves other percent-encoded characters (apostrophe)", async () => {
+    const { status, location } = await get(
+      serverPort,
+      "/product/mother%27s-day-bouquet",
+    );
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut/product/mother%27s-day-bouquet");
   });
 });
