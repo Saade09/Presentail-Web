@@ -120,6 +120,13 @@ let fetching = false;
  */
 const knownCategorySlugs = new Set<string>();
 const knownOccasionSlugs = new Set<string>();
+/**
+ * Product slugs seen in prior fetches. Populated the first time any store's
+ * product list is successfully fetched; new slugs arriving on subsequent
+ * fetches are submitted to IndexNow. Never cleared so a temporarily-absent
+ * product that returns later is NOT re-submitted.
+ */
+const knownProductSlugs = new Set<string>();
 
 /**
  * Whether the taxonomy slug sets have been seeded from the first successful
@@ -133,21 +140,29 @@ let taxonomySeeded = false;
 export function __resetIndexNowSlugTrackingForTest(): void {
   knownCategorySlugs.clear();
   knownOccasionSlugs.clear();
+  knownProductSlugs.clear();
   taxonomySeeded = false;
 }
 
 /**
- * Diff the fresh taxonomy lists against the known-slug sets.
- * On the first call (taxonomySeeded = false) all slugs are recorded and
+ * Diff the fresh taxonomy lists and product slug set against the known-slug
+ * sets. On the first call (taxonomySeeded = false) all slugs are recorded and
  * nothing is submitted. On subsequent calls, new slugs are submitted to
  * IndexNow and added to the known sets.
+ *
+ * @param categories   Fresh category list from the latest OS fetch.
+ * @param occasions    Fresh occasion list from the latest OS fetch.
+ * @param productSlugs De-duplicated product slugs collected from all stores
+ *                     in the latest fetch cycle.
  */
 function detectAndSubmitNewTaxonomySlugs(
   categories: OSProductCategory[],
   occasions: OSProductOccasion[],
+  productSlugs: string[],
 ): void {
   const newCategorySlugs: string[] = [];
   const newOccasionSlugs: string[] = [];
+  const newProductSlugs: string[] = [];
 
   for (const cat of categories) {
     if (cat.id && !knownCategorySlugs.has(cat.id)) {
@@ -161,12 +176,18 @@ function detectAndSubmitNewTaxonomySlugs(
       knownOccasionSlugs.add(occ.id);
     }
   }
+  for (const slug of productSlugs) {
+    if (slug && !knownProductSlugs.has(slug)) {
+      newProductSlugs.push(slug);
+      knownProductSlugs.add(slug);
+    }
+  }
 
   if (!taxonomySeeded) {
     // First fetch — record all slugs as baseline; nothing to submit yet.
     taxonomySeeded = true;
     logger.info(
-      { categories: knownCategorySlugs.size, occasions: knownOccasionSlugs.size },
+      { categories: knownCategorySlugs.size, occasions: knownOccasionSlugs.size, products: knownProductSlugs.size },
       "osProductsCache: IndexNow slug baseline established",
     );
     return;
@@ -175,12 +196,18 @@ function detectAndSubmitNewTaxonomySlugs(
   const newUrls = [
     ...buildCanonicalUrls("category", newCategorySlugs),
     ...buildCanonicalUrls("occasion", newOccasionSlugs),
+    ...buildCanonicalUrls("product", newProductSlugs),
   ];
 
   if (newUrls.length === 0) return;
 
   logger.info(
-    { newCategories: newCategorySlugs.length, newOccasions: newOccasionSlugs.length, urls: newUrls.length },
+    {
+      newCategories: newCategorySlugs.length,
+      newOccasions: newOccasionSlugs.length,
+      newProducts: newProductSlugs.length,
+      urls: newUrls.length,
+    },
     "osProductsCache: new taxonomy slugs detected — submitting to IndexNow",
   );
 
@@ -633,6 +660,10 @@ async function fetchAndStore(): Promise<void> {
       ]);
 
     // ── Per-store products ────────────────────────────────────────────────
+    // Collect the union of all product slugs across successfully-fetched
+    // stores for IndexNow change detection below.
+    const freshProductSlugSet = new Set<string>();
+
     for (const result of storeResults as PromiseSettledResult<{
       spec: StoreOsFetchSpec;
       products: OSProduct[] | null;
@@ -668,6 +699,9 @@ async function fetchAndStore(): Promise<void> {
           { storeKey: spec.storeKey, productCount: products.length },
           "osProductsCache: products refreshed from Presentail OS",
         );
+        for (const p of products) {
+          if (p.id) freshProductSlugSet.add(p.id);
+        }
       } else if (!storeCache.has(spec.storeKey)) {
         logger.warn(
           { storeKey: spec.storeKey },
@@ -699,11 +733,14 @@ async function fetchAndStore(): Promise<void> {
       }
     }
 
-    // ── IndexNow: ping for new taxonomy slugs ─────────────────────────────
-    // Only fires when INDEXNOW_KEY is configured (or the default key is set)
-    // and a new category or occasion slug appears after the baseline fetch.
-    if (freshCategories.length > 0 || freshOccasions.length > 0) {
-      detectAndSubmitNewTaxonomySlugs(freshCategories, freshOccasions);
+    // ── IndexNow: ping for new taxonomy and product slugs ─────────────────
+    // Fires when any of categories, occasions, or products were successfully
+    // fetched this cycle. On the first fetch all current slugs are recorded
+    // as the baseline and nothing is submitted; subsequent fetches submit
+    // only slugs that are newly seen since the baseline.
+    const freshProductSlugs = [...freshProductSlugSet];
+    if (freshCategories.length > 0 || freshOccasions.length > 0 || freshProductSlugs.length > 0) {
+      detectAndSubmitNewTaxonomySlugs(freshCategories, freshOccasions, freshProductSlugs);
     }
 
     // ── First-population callback ─────────────────────────────────────────
