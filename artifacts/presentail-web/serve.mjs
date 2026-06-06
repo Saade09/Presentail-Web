@@ -624,6 +624,32 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
+    // Apple Sign In domain verification file.
+    // Apple requires this file to be served at
+    // /.well-known/apple-developer-domain-association before it will let you
+    // verify a domain under a Services ID in Apple Developer Console.
+    // Set the APPLE_DOMAIN_VERIFICATION_TOKEN env var to the exact content of
+    // the file Apple provides when you click "Download" next to the domain in
+    // Apple Developer → Certificates, Identifiers & Profiles → Services IDs →
+    // <your-services-id> → Sign In with Apple → Configure.
+    if (pathname === "/.well-known/apple-developer-domain-association") {
+      const token = process.env.APPLE_DOMAIN_VERIFICATION_TOKEN;
+      if (!token) {
+        res.writeHead(404, { "content-type": "text/plain" });
+        res.end("Not Found");
+        return;
+      }
+      res.writeHead(200, {
+        // Serve as text/plain — Apple's domain verifier fetches this as an
+        // opaque blob and does not require a JSON content-type.
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "expires": makeExpires(3600),
+      });
+      res.end(token);
+      return;
+    }
+
     // Dynamic sitemap — intercept before file lookup so a missing
     // dist/public/sitemap.xml doesn't fall through to the SPA shell.
     if (pathname === "/sitemap.xml") {
