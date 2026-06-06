@@ -144,6 +144,15 @@ export function __resetIndexNowSlugTrackingForTest(): void {
   taxonomySeeded = false;
 }
 
+/** Call detectAndSubmitNewTaxonomySlugs directly. Only call from tests. */
+export function __detectAndSubmitNewTaxonomySlugsForTest(
+  categories: OSProductCategory[],
+  occasions: OSProductOccasion[],
+  productSlugs: string[],
+): void {
+  detectAndSubmitNewTaxonomySlugs(categories, occasions, productSlugs);
+}
+
 /**
  * Diff the fresh taxonomy lists and product slug set against the known-slug
  * sets. On the first call (taxonomySeeded = false) all slugs are recorded and
