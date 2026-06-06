@@ -792,11 +792,7 @@ function CheckoutForm() {
         });
 
         if (!intentRes.ok || !intentRes.clientSecret) {
-          toast({
-            title: t("checkout.toast.cardUnavailable"),
-            description: (intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"),
-            variant: "destructive",
-          });
+          setStripeCardError((intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"));
           return;
         }
 

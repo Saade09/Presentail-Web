@@ -81,9 +81,10 @@ export function StripeCardFields({ error, disabled }: Props) {
       </label>
 
       {error && (
-        <p className="text-sm text-destructive mt-1" role="alert" data-testid="stripe-card-error">
-          {error}
-        </p>
+        <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5" role="alert" data-testid="stripe-card-error">
+          <p className="text-sm font-medium text-destructive">{error}</p>
+          <p className="text-xs text-destructive/80 mt-0.5">{t("checkout.stripe.cardDeclineHint")}</p>
+        </div>
       )}
     </div>
   );

@@ -531,7 +531,7 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
 
   // ── 3d. Failure path: PaymentIntent creation fails (server error) ───────
 
-  it("failure path (server cannot create PI): shows a toast and does NOT call stripe", async () => {
+  it("failure path (server cannot create PI): shows an inline card error and does NOT call stripe", async () => {
     mockCreatePaymentIntentMutate.mockResolvedValue({
       ok: false,
       message: "Stripe is not configured.",
@@ -544,11 +544,13 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     await user.click(submitBtn);
 
     await waitFor(() => {
-      // A toast is shown to the shopper.
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({ variant: "destructive" }),
-      );
+      // The error must appear inline in the card fields area, not as a toast.
+      const el = screen.getByTestId("stripe-card-error");
+      expect(el.textContent).toContain("Stripe is not configured.");
     });
+
+    // No toast should be shown for card-path errors.
+    expect(mockToast).not.toHaveBeenCalled();
 
     // Neither Stripe nor the order route should be called.
     expect(mockConfirmCardPayment).not.toHaveBeenCalled();
