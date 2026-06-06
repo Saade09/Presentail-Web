@@ -361,6 +361,35 @@ for (const [file, fileHits] of byFile) {
   console.error("");
 }
 
+// ── GitHub Actions annotations ──────────────────────────────────────────────
+// Emit inline PR annotations so reviewers can click straight to the offending
+// line without digging through CI logs.  The summary table above is still
+// printed regardless.
+
+/**
+ * Escape a string for use inside a GitHub Actions workflow command data field.
+ * https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#using-workflow-commands-to-access-toolkit-functions
+ */
+function escapeGhaData(s: string): string {
+  return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+if (process.env.GITHUB_ACTIONS === "true") {
+  for (const h of hits) {
+    const kindLabel =
+      h.kind === "msg-prop"
+        ? `prop: ${h.attr}`
+        : h.kind === "template-literal"
+          ? "template literal"
+          : "?? fallback";
+    process.stdout.write(
+      `::error file=${h.file},line=${h.line},col=1::` +
+      `Hardcoded string [${kindLabel}]: "${escapeGhaData(h.text)}" — ` +
+      `use a locale-aware helper or add // i18n-ignore\n`,
+    );
+  }
+}
+
 console.error(
   "To fix:\n" +
   "  • For push notification strings (title, body): move copy to a locale-aware\n" +

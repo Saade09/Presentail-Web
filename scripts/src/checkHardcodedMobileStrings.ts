@@ -456,6 +456,39 @@ for (const [file, fileHits] of byFile) {
   console.error("");
 }
 
+// ── GitHub Actions annotations ──────────────────────────────────────────────
+// Emit inline PR annotations so reviewers can click straight to the offending
+// line without digging through CI logs.  The summary table above is still
+// printed regardless.
+
+/**
+ * Escape a string for use inside a GitHub Actions workflow command data field.
+ * https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#using-workflow-commands-to-access-toolkit-functions
+ */
+function escapeGhaData(s: string): string {
+  return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+if (process.env.GITHUB_ACTIONS === "true") {
+  for (const h of hits) {
+    const kindLabel =
+      h.kind === "jsx-text"
+        ? "JSX text"
+        : h.kind === "jsx-prop"
+          ? `prop: ${h.attr}`
+          : h.kind === "fallback-string"
+            ? "?? fallback"
+            : h.kind === "nav-option"
+              ? `nav: ${h.attr}`
+              : "standalone text";
+    process.stdout.write(
+      `::error file=${h.file},line=${h.line},col=1::` +
+      `Hardcoded string [${kindLabel}]: "${escapeGhaData(h.text)}" — ` +
+      `wrap in useT() or add // i18n-ignore\n`,
+    );
+  }
+}
+
 console.error(
   "To fix: add the string as a key in all three locale blocks (EN, AR, FR) in\n" +
   "`artifacts/presentail/lib/translations.ts`, then replace the literal with\n" +

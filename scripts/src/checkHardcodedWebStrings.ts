@@ -548,6 +548,41 @@ for (const [file, fileHits] of byFile) {
   console.error("");
 }
 
+// ── GitHub Actions annotations ──────────────────────────────────────────────
+// Emit inline PR annotations so reviewers can click straight to the offending
+// line without digging through CI logs.  The summary table above is still
+// printed regardless.
+
+/**
+ * Escape a string for use inside a GitHub Actions workflow command data field.
+ * https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#using-workflow-commands-to-access-toolkit-functions
+ */
+function escapeGhaData(s: string): string {
+  return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+if (process.env.GITHUB_ACTIONS === "true") {
+  for (const h of hits) {
+    const kindLabel =
+      h.kind === "jsx-text"
+        ? "JSX text"
+        : h.kind === "jsx-prop"
+          ? `prop: ${h.attr}`
+          : h.kind === "fallback-string"
+            ? "?? fallback"
+            : h.kind === "doc-title"
+              ? "document.title"
+              : h.kind === "meta-title"
+                ? "meta title"
+                : "standalone text";
+    process.stdout.write(
+      `::error file=${h.file},line=${h.line},col=1::` +
+      `Hardcoded string [${kindLabel}]: "${escapeGhaData(h.text)}" — ` +
+      `wrap in t() or add // i18n-ignore\n`,
+    );
+  }
+}
+
 console.error(
   "To fix: wrap each string in a t() call (add the key to src/locales/)\n" +
   "or include the text in a  const COPY: Record<Language, Copy> = { en, ar, fr }  object.\n" +
