@@ -44,6 +44,7 @@ import { gt, lt, sql } from "drizzle-orm";
 import type { StoreKey } from "./wooStore";
 import { logger } from "./logger";
 import { sendAlert } from "./alerts";
+import { submitIndexNowUrls, buildCanonicalUrls } from "./indexNow";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,92 @@ let cachedOccasions: OSProductOccasion[] | null = null;
 
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
+
+// ── IndexNow slug-change detection ─────────────────────────────────────────
+
+/**
+ * Slugs seen in prior taxonomy fetches. Used to detect new category /
+ * occasion slugs and submit only the newly-added canonical URLs to IndexNow
+ * instead of re-submitting the entire sitemap on every refresh cycle.
+ *
+ * Populated on the first successful taxonomy fetch; subsequent fetches
+ * diff against these sets. Both sets are intentionally never cleared so
+ * a slug that temporarily disappears from OS and returns later is NOT
+ * re-submitted (it was already indexed).
+ */
+const knownCategorySlugs = new Set<string>();
+const knownOccasionSlugs = new Set<string>();
+
+/**
+ * Whether the taxonomy slug sets have been seeded from the first successful
+ * fetch. On the very first fetch we record all slugs as "known" and do NOT
+ * submit anything — IndexNow submissions only fire for slugs that arrive
+ * after the first warm cache.
+ */
+let taxonomySeeded = false;
+
+/** Reset slug tracking state. Only call from tests. */
+export function __resetIndexNowSlugTrackingForTest(): void {
+  knownCategorySlugs.clear();
+  knownOccasionSlugs.clear();
+  taxonomySeeded = false;
+}
+
+/**
+ * Diff the fresh taxonomy lists against the known-slug sets.
+ * On the first call (taxonomySeeded = false) all slugs are recorded and
+ * nothing is submitted. On subsequent calls, new slugs are submitted to
+ * IndexNow and added to the known sets.
+ */
+function detectAndSubmitNewTaxonomySlugs(
+  categories: OSProductCategory[],
+  occasions: OSProductOccasion[],
+): void {
+  const newCategorySlugs: string[] = [];
+  const newOccasionSlugs: string[] = [];
+
+  for (const cat of categories) {
+    if (cat.id && !knownCategorySlugs.has(cat.id)) {
+      newCategorySlugs.push(cat.id);
+      knownCategorySlugs.add(cat.id);
+    }
+  }
+  for (const occ of occasions) {
+    if (occ.id && !knownOccasionSlugs.has(occ.id)) {
+      newOccasionSlugs.push(occ.id);
+      knownOccasionSlugs.add(occ.id);
+    }
+  }
+
+  if (!taxonomySeeded) {
+    // First fetch — record all slugs as baseline; nothing to submit yet.
+    taxonomySeeded = true;
+    logger.info(
+      { categories: knownCategorySlugs.size, occasions: knownOccasionSlugs.size },
+      "osProductsCache: IndexNow slug baseline established",
+    );
+    return;
+  }
+
+  const newUrls = [
+    ...buildCanonicalUrls("category", newCategorySlugs),
+    ...buildCanonicalUrls("occasion", newOccasionSlugs),
+  ];
+
+  if (newUrls.length === 0) return;
+
+  logger.info(
+    { newCategories: newCategorySlugs.length, newOccasions: newOccasionSlugs.length, urls: newUrls.length },
+    "osProductsCache: new taxonomy slugs detected — submitting to IndexNow",
+  );
+
+  submitIndexNowUrls(newUrls).catch((err: unknown) => {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "osProductsCache: IndexNow submission for new taxonomy slugs failed",
+    );
+  });
+}
 
 // ── OS-refresh listeners ────────────────────────────────────────────────────
 
@@ -590,9 +677,15 @@ async function fetchAndStore(): Promise<void> {
     }
 
     // ── Global taxonomy ───────────────────────────────────────────────────
+    let freshCategories: OSProductCategory[] = [];
+    let freshOccasions: OSProductOccasion[] = [];
+
     if (categoriesResp.status === "fulfilled") {
       const cats = categoriesResp.value.categories ?? [];
-      if (cats.length > 0) cachedCategories = cats;
+      if (cats.length > 0) {
+        cachedCategories = cats;
+        freshCategories = cats;
+      }
     }
     if (brandsResp.status === "fulfilled") {
       const brands = brandsResp.value.brands ?? [];
@@ -600,7 +693,17 @@ async function fetchAndStore(): Promise<void> {
     }
     if (occasionsResp.status === "fulfilled") {
       const occasions = occasionsResp.value.occasions ?? [];
-      if (occasions.length > 0) cachedOccasions = occasions;
+      if (occasions.length > 0) {
+        cachedOccasions = occasions;
+        freshOccasions = occasions;
+      }
+    }
+
+    // ── IndexNow: ping for new taxonomy slugs ─────────────────────────────
+    // Only fires when INDEXNOW_KEY is configured (or the default key is set)
+    // and a new category or occasion slug appears after the baseline fetch.
+    if (freshCategories.length > 0 || freshOccasions.length > 0) {
+      detectAndSubmitNewTaxonomySlugs(freshCategories, freshOccasions);
     }
 
     // ── First-population callback ─────────────────────────────────────────
