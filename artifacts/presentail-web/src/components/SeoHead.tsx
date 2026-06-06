@@ -13,19 +13,30 @@ import {
 const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
-  { test: (r) => r.startsWith("/product"), key: "product" },
+  // Entity pages: server injects entity-specific title/image; skip client rewrite.
+  { test: (r) => r.startsWith("/product/"), key: "entityPage" },
+  { test: (r) => r.startsWith("/brand/"), key: "entityPage" },
+  { test: (r) => r.startsWith("/category/"), key: "entityPage" },
+  { test: (r) => r.startsWith("/occasion/"), key: "entityPage" },
   { test: (r) => r === "/occasions", key: "allOccasions" },
   { test: (r) => r === "/brands", key: "brands" },
-  { test: (r) => r.startsWith("/brand/"), key: "brand" },
   { test: (r) => r === "/cart", key: "cart" },
   { test: (r) => r === "/checkout", key: "checkout" },
   { test: (r) => r === "/order-confirmed", key: "orderConfirmed" },
   { test: (r) => r === "/auth", key: "auth" },
   { test: (r) => r === "/account", key: "account" },
+  { test: (r) => r === "/careers", key: "careers" },
   { test: (r) => r === "/blog", key: "blog" },
   // Blog post detail pages manage their own metadata via useEffect in BlogPost.tsx.
   // Return a sentinel so SeoHead skips the write entirely for those routes.
   { test: (r) => r.startsWith("/blog/"), key: "blogPost" },
+  { test: (r) => r === "/partner", key: "partner" },
+  { test: (r) => r === "/weddings", key: "weddings" },
+  { test: (r) => r === "/corporate", key: "corporate" },
+  { test: (r) => r === "/contact", key: "contact" },
+  { test: (r) => r === "/faqs", key: "faqs" },
+  { test: (r) => r === "/terms", key: "terms" },
+  { test: (r) => r === "/privacy", key: "privacy" },
 ];
 
 function detectRouteKey(rest: string): string {
@@ -74,7 +85,11 @@ export function SeoHead() {
     const routeKey = inLocale ? detectRouteKey(parsed.rest) : "landing";
 
     // Blog post pages manage their own metadata in BlogPost.tsx — do not overwrite.
-    if (routeKey === "blogPost") return;
+    // Entity pages (product/:slug, brand/:slug, category/:slug, occasion/:slug) and
+    // wishlist share pages receive entity-specific server-injected metadata. Skipping
+    // here prevents the client from clobbering entity names/images with generic copy.
+    if (routeKey === "blogPost" || routeKey === "entityPage") return;
+    if (path.startsWith("/favorites/share/")) return;
 
     const cityLabel = city
       ? cityName(city.id, city.name)
@@ -175,12 +190,12 @@ export function SeoHead() {
     );
     setMeta(
       'meta[property="og:image:width"]',
-      { property: "og:image:width", content: "1200" },
+      { property: "og:image:width", content: "1280" },
       head,
     );
     setMeta(
       'meta[property="og:image:height"]',
-      { property: "og:image:height", content: "630" },
+      { property: "og:image:height", content: "720" },
       head,
     );
     setMeta(

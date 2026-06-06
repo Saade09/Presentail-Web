@@ -126,6 +126,7 @@ const TITLES = {
     home: "Flower & Gift Delivery in {city} | Presentail",
     shop: "Shop Flowers & Gifts in {city} | Presentail",
     product: "Gift Delivery in {city} | Presentail",
+    allOccasions: "Shop by Occasion in {city} | Presentail",
     brands: "Partner Brands in {city} | Presentail",
     brand: "Brand Collection in {city} | Presentail",
     cart: "Your Bag | Presentail",
@@ -148,6 +149,7 @@ const TITLES = {
     home: "توصيل الأزهار والهدايا في {city} | Presentail",
     shop: "تسوّق الأزهار والهدايا في {city} | Presentail",
     product: "توصيل الهدايا في {city} | Presentail",
+    allOccasions: "تسوّق حسب المناسبة في {city} | Presentail",
     brands: "العلامات الشريكة في {city} | Presentail",
     brand: "مجموعة العلامة في {city} | Presentail",
     cart: "حقيبتك | Presentail",
@@ -171,6 +173,7 @@ const TITLES = {
     home: "Livraison de fleurs et cadeaux à {city} | Presentail",
     shop: "Boutique fleurs et cadeaux à {city} | Presentail",
     product: "Livraison de cadeaux à {city} | Presentail",
+    allOccasions: "Acheter par occasion à {city} | Presentail",
     brands: "Marques partenaires à {city} | Presentail",
     brand: "Collection de la marque à {city} | Presentail",
     cart: "Votre sac | Presentail",
@@ -198,6 +201,8 @@ const DESCRIPTIONS = {
     home: "Send luxury flowers, cakes and gifts in {city}, {country} with same-day delivery from Presentail.",
     shop: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
     product: "Order this gift for delivery in {city}, {country} with Presentail.",
+    allOccasions:
+      "Browse all occasions — birthdays, anniversaries, weddings and more — and find the perfect gift for delivery in {city}, {country}.",
     brands:
       "Discover Presentail's hand-picked partner brands available for delivery in {city}, {country}.",
     brand: "Shop this brand's full collection for delivery in {city}, {country} on Presentail.",
@@ -224,6 +229,8 @@ const DESCRIPTIONS = {
     home: "أرسل الأزهار الفاخرة والكعك والهدايا في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
     shop: "تصفّح باقات Presentail المنتقاة والكعك والهدايا الفاخرة للتوصيل في {city}، {country}.",
     product: "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail.",
+    allOccasions:
+      "تصفّح جميع المناسبات — أعياد الميلاد والذكرى السنوية وحفلات الزفاف والمزيد — وابحث عن الهدية المثالية للتوصيل في {city}، {country}.",
     brands:
       "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}، {country}.",
     brand: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
@@ -249,6 +256,8 @@ const DESCRIPTIONS = {
     home: "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
     shop: "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
     product: "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
+    allOccasions:
+      "Parcourez toutes les occasions — anniversaires, mariages et plus encore — et trouvez le cadeau idéal pour livraison à {city}, {country}.",
     brands:
       "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
     brand: "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
@@ -311,6 +320,7 @@ const ROUTE_KEYS = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
   { test: (r) => r.startsWith("/product"), key: "product" },
+  { test: (r) => r === "/occasions", key: "allOccasions" },
   { test: (r) => r === "/brands", key: "brands" },
   { test: (r) => r.startsWith("/brand/"), key: "brand" },
   { test: (r) => r === "/cart", key: "cart" },
@@ -509,8 +519,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
   const defaultImageAlt = "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(defaultImage)}" />`);
-  lines.push(`<meta property="og:image:width" content="1200" />`);
-  lines.push(`<meta property="og:image:height" content="630" />`);
+  lines.push(`<meta property="og:image:width" content="1280" />`);
+  lines.push(`<meta property="og:image:height" content="720" />`);
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
@@ -1298,8 +1308,8 @@ function buildEntityHead({
   const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(effectiveImageUrl)}" />`);
   if (!imageUrl) {
-    lines.push(`<meta property="og:image:width" content="1200" />`);
-    lines.push(`<meta property="og:image:height" content="630" />`);
+    lines.push(`<meta property="og:image:width" content="1280" />`);
+    lines.push(`<meta property="og:image:height" content="720" />`);
   } else if (imageWidth && imageHeight) {
     lines.push(`<meta property="og:image:width" content="${escapeAttr(String(imageWidth))}" />`);
     lines.push(`<meta property="og:image:height" content="${escapeAttr(String(imageHeight))}" />`);

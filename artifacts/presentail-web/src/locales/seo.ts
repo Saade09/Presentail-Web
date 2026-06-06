@@ -106,6 +106,70 @@ export const seoStrings: Dict = {
     en: "Stories on seasonal flowers, the makers behind our gift boxes, and thoughtful gifting — from the Presentail studio.",
     ar: "حكايات عن أزهار الموسم، وصنّاع علب هدايانا، والإهداء المدروس — من استوديو Presentail.",
   },
+  "seo.careers.title": {
+    en: "Careers at Presentail",
+    ar: "الوظائف في بريزانتيل",
+  },
+  "seo.careers.description": {
+    en: "Join Presentail — we're hiring florists, designers, and engineers to build the most thoughtful gifting experience in the region.",
+    ar: "انضم إلى بريزانتيل — نوظّف منسّقي أزهار ومصمّمين ومهندسين لبناء أكثر تجارب الإهداء عناية في المنطقة.",
+  },
+  "seo.partner.title": {
+    en: "Partner With Presentail | Brand Collaborations",
+    ar: "كن شريكاً مع Presentail | تعاون العلامات",
+  },
+  "seo.partner.description": {
+    en: "Partner with Presentail to bring your brand to luxury gifting customers across Lebanon, the UAE and Cyprus.",
+    ar: "كن شريكاً مع بريزانتيل لتقديم علامتك إلى عملاء الإهداء الفاخر في لبنان والإمارات وقبرص.",
+  },
+  "seo.weddings.title": {
+    en: "Weddings & Florals by Presentail",
+    ar: "الأعراس والتنسيقات الزهرية | Presentail",
+  },
+  "seo.weddings.description": {
+    en: "Bespoke floral design and styling for weddings and private events by the Presentail atelier.",
+    ar: "تصميم وتنسيق زهور بريزانتيل المخصّص للأعراس والمناسبات الخاصّة.",
+  },
+  "seo.corporate.title": {
+    en: "Corporate Gifting | Presentail",
+    ar: "الإهداء للشركات | Presentail",
+  },
+  "seo.corporate.description": {
+    en: "Corporate gifting programs from Presentail — curated client and team gifts at scale, delivered region-wide.",
+    ar: "برامج الإهداء للشركات من بريزانتيل — هدايا منتقاة للعملاء والفِرَق على نطاق واسع.",
+  },
+  "seo.contact.title": {
+    en: "Contact Presentail | Concierge",
+    ar: "تواصل مع Presentail | الكونسيرج",
+  },
+  "seo.contact.description": {
+    en: "Get in touch with the Presentail concierge for orders, partnerships and support.",
+    ar: "تواصل مع كونسيرج بريزانتيل للطلبات والشراكات والدعم.",
+  },
+  "seo.faqs.title": {
+    en: "FAQs | Presentail",
+    ar: "الأسئلة الشائعة | Presentail",
+  },
+  "seo.faqs.description": {
+    en: "Answers to the most common questions about Presentail orders, delivery, payment and accounts.",
+    ar: "إجابات على أكثر الأسئلة شيوعاً حول طلبات بريزانتيل والتوصيل والدفع والحسابات.",
+  },
+  "seo.terms.title": {
+    en: "Terms of Use | Presentail",
+    ar: "شروط الاستخدام | Presentail",
+  },
+  "seo.terms.description": {
+    en: "The Terms of Use that govern your purchase and use of the Presentail website, mobile apps and services.",
+    ar: "شروط الاستخدام التي تحكم شراءك واستخدامك لموقع بريزانتيل وتطبيقاته وخدماته.",
+  },
+  "seo.privacy.title": {
+    en: "Privacy Policy | Presentail",
+    ar: "سياسة الخصوصية | Presentail",
+  },
+  "seo.privacy.description": {
+    en: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
+    ar: "كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر الموقع والتطبيقات والقنوات الاجتماعية.",
+  },
 };
 
 export const seoStringsFr: Record<string, string> = {
@@ -136,4 +200,20 @@ export const seoStringsFr: Record<string, string> = {
   "seo.landing.description": "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
   "seo.blog.title": "Le Journal de l'Atelier | Presentail",
   "seo.blog.description": "Histoires sur les fleurs de saison, les artisans derrière nos coffrets cadeaux, et l'art d'offrir avec soin — depuis l'atelier Presentail.",
+  "seo.careers.title": "Carrières chez Presentail",
+  "seo.careers.description": "Rejoignez Presentail — nous recrutons fleuristes, designers et ingénieurs pour bâtir la plus belle expérience cadeau de la région.",
+  "seo.partner.title": "Devenir partenaire de Presentail | Collaborations de marques",
+  "seo.partner.description": "Devenez partenaire de Presentail pour présenter votre marque aux clients du cadeau de luxe au Liban, aux Émirats arabes unis et à Chypre.",
+  "seo.weddings.title": "Mariages et compositions florales | Presentail",
+  "seo.weddings.description": "Design et stylisme floraux sur mesure pour mariages et événements privés par l'atelier Presentail.",
+  "seo.corporate.title": "Cadeaux d'entreprise | Presentail",
+  "seo.corporate.description": "Programmes de cadeaux d'entreprise Presentail — sélections raffinées pour clients et équipes, livrées dans toute la région.",
+  "seo.contact.title": "Contacter Presentail | Conciergerie",
+  "seo.contact.description": "Contactez la conciergerie Presentail pour vos commandes, partenariats et questions.",
+  "seo.faqs.title": "FAQ | Presentail",
+  "seo.faqs.description": "Réponses aux questions les plus fréquentes sur les commandes, la livraison, le paiement et les comptes Presentail.",
+  "seo.terms.title": "Conditions d'utilisation | Presentail",
+  "seo.terms.description": "Les Conditions d'utilisation qui régissent vos achats et votre utilisation du site, des applications et des services Presentail.",
+  "seo.privacy.title": "Politique de confidentialité | Presentail",
+  "seo.privacy.description": "Comment Presentail collecte, utilise et protège vos informations personnelles sur le site, les applications et les canaux sociaux.",
 };
