@@ -894,11 +894,7 @@ function CheckoutScreen() {
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        if (intentResult.code === "stripe_not_configured") {
-          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
-        } else {
           Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
-        }
         setPaying(false);
         return;
       }
@@ -975,11 +971,7 @@ function CheckoutScreen() {
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        if (intentResult.code === "stripe_not_configured") {
-          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
-        } else {
           Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
-        }
         setPaying(false);
         return;
       }
@@ -1035,11 +1027,7 @@ function CheckoutScreen() {
           return;
         }
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
-        if (session.code === "stripe_not_configured") {
-          Alert.alert(t.checkoutCardSoonTitle, t.checkoutCardSoonMsg, [{ text: "OK" }]);
-        } else {
-          Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
-        }
+        Alert.alert(t.checkoutPaymentErrorTitle, t.checkoutPaymentNetworkError);
         setPaying(false);
         return;
       }
