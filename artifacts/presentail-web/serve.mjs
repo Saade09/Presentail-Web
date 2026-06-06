@@ -631,6 +631,30 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Redirect old shop query-param URLs to clean SEO paths so external links
+    // already indexed under the old format pass their ranking signals forward.
+    //   /:lang-:country/:city/shop?category=<slug>  →  /:lang-:country/:city/category/<slug>
+    //   /:lang-:country/:city/shop?occasion=<slug>  →  /:lang-:country/:city/occasion/<slug>
+    // Uses 301 (permanent) so search engines update their indexes.
+    const shopRedirectMatch = pathname.match(
+      /^(\/[a-z]{2}-[a-z]{2}\/[^/]+)\/shop\/?$/,
+    );
+    if (shopRedirectMatch) {
+      const localeCity = shopRedirectMatch[1];
+      const categorySlug = url.searchParams.get("category");
+      const occasionSlug = url.searchParams.get("occasion");
+      if (categorySlug) {
+        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/category/${encodeURIComponent(categorySlug)}` });
+        res.end();
+        return;
+      }
+      if (occasionSlug) {
+        res.writeHead(301, { location: `${BASE_PATH}${localeCity}/occasion/${encodeURIComponent(occasionSlug)}` });
+        res.end();
+        return;
+      }
+    }
+
     let assetPath = pathname;
     if (assetPath === "/") assetPath = "/index.html";
 
