@@ -64,6 +64,19 @@ import {
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
 
+// Maps known Stripe decline codes to plain-language, actionable messages.
+// Returns null for unrecognised codes so the caller falls back to the
+// generic message or the raw Stripe message.
+function stripeDeclineMsg(
+  error: { decline_code?: string | null; code?: string | null },
+  t: (key: string) => string,
+): string | null {
+  const code = error.decline_code ?? error.code;
+  if (code === "insufficient_funds") return t("checkout.stripe.declineInsufficientFunds");
+  if (code === "card_velocity_exceeded") return t("checkout.stripe.declineVelocityExceeded");
+  return null;
+}
+
 // Stripe publishable key — loaded once at module level so the Stripe.js
 // script is only fetched once per page. `VITE_STRIPE_PUBLISHABLE_KEY` must
 // be set as a Vite env variable for real card payments to work.
@@ -830,7 +843,7 @@ function CheckoutForm() {
 
           if (stripeError) {
             trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
-            setStripeCardError(stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
+            setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
             return;
           }
 
@@ -843,7 +856,7 @@ function CheckoutForm() {
             });
             if (actionError) {
               trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
-              setStripeCardError(actionError.message ?? t("checkout.toast.cardPaymentFailed"));
+              setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
               return;
             }
             if (!actionIntent) {

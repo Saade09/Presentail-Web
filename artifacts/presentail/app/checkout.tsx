@@ -623,6 +623,15 @@ function CheckoutScreen() {
   const [cardError, setCardError] = useState<string | null>(null);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
+  // Maps known Stripe decline codes to plain-language, actionable messages.
+  // stripe-react-native exposes the decline code in error.code for card declines.
+  // Returns null for unrecognised codes so the caller falls back to the generic message.
+  function stripeDeclineMsg(error: { code?: string | null }): string | null {
+    if (error.code === "insufficient_funds") return t.checkoutDeclineInsufficientFunds;
+    if (error.code === "card_velocity_exceeded") return t.checkoutDeclineVelocityExceeded;
+    return null;
+  }
+
   const fees = useMemo(() => {
     const subtotal = total;
     const baseDeliveryFee = noAddress ? 35 : district.fee;
@@ -913,7 +922,7 @@ function CheckoutScreen() {
         });
       if (confirmError) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: confirmError.code ?? undefined });
-        setCardError(confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError);
+        setCardError(stripeDeclineMsg(confirmError) ?? confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError);
         setPaying(false);
         return;
       }
@@ -930,7 +939,7 @@ function CheckoutScreen() {
           await handleNextAction(intentResult.clientSecret, deeplinkBase);
         if (actionError) {
           trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
-          setCardError(actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError);
+          setCardError(stripeDeclineMsg(actionError) ?? actionError.localizedMessage ?? actionError.message ?? t.checkoutPaymentNetworkError);
           setPaying(false);
           return;
         }
@@ -1080,7 +1089,7 @@ function CheckoutScreen() {
           trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: walletError.code ?? undefined });
           Alert.alert(
             t.checkoutPaymentErrorTitle,
-            walletError.localizedMessage ?? walletError.message ?? t.checkoutPaymentNetworkError,
+            stripeDeclineMsg(walletError) ?? walletError.localizedMessage ?? walletError.message ?? t.checkoutPaymentNetworkError,
           );
         }
         setPaying(false);
