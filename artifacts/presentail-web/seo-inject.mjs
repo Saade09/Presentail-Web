@@ -3,6 +3,8 @@
 // <title>, <meta description>, OG/Twitter tags, canonical and hreflang
 // alternates already present in the initial document (no JS required).
 
+import { FAQ_COPY } from "./src/data/faqsCopy.js";
+
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
 
@@ -568,6 +570,26 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   // Organization JSON-LD on every generic page.
   lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
+
+  // FAQPage JSON-LD: emit structured Q&A markup for the /faqs route so search
+  // engines and AI crawlers can reliably understand the page as a Q&A resource.
+  if (routeKey === "faqs") {
+    const faqLangData = FAQ_COPY[lang] ?? FAQ_COPY.en;
+    const mainEntity = (faqLangData.groups ?? []).flatMap((g) => g.items).map(({ q, a }) => ({
+      "@type": "Question",
+      name: q,
+      acceptedAnswer: { "@type": "Answer", text: a },
+    }));
+    if (mainEntity.length > 0) {
+      lines.push(
+        jsonLdTag({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity,
+        }),
+      );
+    }
+  }
 
   if (inLocale) {
     for (const altLang of SUPPORTED_LANGS) {
@@ -1510,8 +1532,11 @@ function buildProductHead({
       product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
     null;
 
+  const inStock = product.inStock !== false;
+
   const extraLines = [];
   if (
+    inStock &&
     typeof product.priceValue === "number" &&
     Number.isFinite(product.priceValue) &&
     product.priceValue > 0
@@ -1523,6 +1548,8 @@ function buildProductHead({
   }
 
   // Schema.org Product JSON-LD for Google rich results.
+  // availability mirrors the page: out-of-stock products show a dead-end view,
+  // so we never emit InStock for them.
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -1538,7 +1565,9 @@ function buildProductHead({
             "@type": "Offer",
             price: product.priceValue.toFixed(2),
             priceCurrency: "USD",
-            availability: "https://schema.org/InStock",
+            availability: inStock
+              ? "https://schema.org/InStock"
+              : "https://schema.org/OutOfStock",
           },
         }
       : {}),
@@ -1898,6 +1927,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         },
       );
       if (product) {
+        // Out-of-stock products render a dead-end view in the SPA; return the
+        // generic head so the HTML head matches the page body consistently.
+        if (product.inStock === false) {
+          return assembleHtml(html, generic);
+        }
         const bareImageUrl =
           (product.image && typeof product.image.uri === "string" && product.image.uri) ||
           (Array.isArray(product.images) &&
@@ -1985,6 +2019,11 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       ...fetchOpts,
     });
     if (product) {
+      // Out-of-stock products render a dead-end view in the SPA; return the
+      // generic head so the HTML head matches the page body consistently.
+      if (product.inStock === false) {
+        return assembleHtml(html, generic);
+      }
       const productImageUrl =
         (product.image && typeof product.image.uri === "string" && product.image.uri) ||
         (Array.isArray(product.images) &&
