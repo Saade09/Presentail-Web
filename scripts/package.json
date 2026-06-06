@@ -23,6 +23,7 @@
     "check-hardcoded-api-strings": "tsx ./src/checkHardcodedApiStrings.ts",
     "check-translations": "tsx ./src/checkTranslations.ts",
     "test-os-order": "tsx ./src/testOsOrder.ts",
+    "submit-sitemap": "tsx ./src/submitSitemap.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

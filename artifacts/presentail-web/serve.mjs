@@ -551,9 +551,10 @@ async function generateSitemap(origin, basePath) {
   }
 
   // 2. Products — fetch once (LB store) then emit canonical-city URLs per language × country.
-  const [productsData, brandsData] = await Promise.all([
+  const [productsData, brandsData, catalogData] = await Promise.all([
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/catalog/metadata`),
   ]);
 
   for (const product of (productsData?.products ?? [])) {
@@ -573,6 +574,28 @@ async function generateSitemap(origin, basePath) {
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
       for (const lang of SITEMAP_LANGS) {
         urls.push(urlEntry(`/${lang}-${country}/${city}/brand/${encoded}`, "0.6", "monthly"));
+      }
+    }
+  }
+
+  // 4. Occasion pages — canonical city per country × all languages.
+  for (const occasion of (catalogData?.occasions ?? [])) {
+    if (!occasion?.id) continue;
+    const encoded = encodeURIComponent(occasion.id);
+    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      for (const lang of SITEMAP_LANGS) {
+        urls.push(urlEntry(`/${lang}-${country}/${city}/occasion/${encoded}`, "0.7", "weekly"));
+      }
+    }
+  }
+
+  // 5. Category pages — canonical city per country × all languages.
+  for (const category of (catalogData?.categories ?? [])) {
+    if (!category?.id) continue;
+    const encoded = encodeURIComponent(category.id);
+    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+      for (const lang of SITEMAP_LANGS) {
+        urls.push(urlEntry(`/${lang}-${country}/${city}/category/${encoded}`, "0.7", "weekly"));
       }
     }
   }
