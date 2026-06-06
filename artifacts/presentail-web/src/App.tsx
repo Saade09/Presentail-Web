@@ -89,6 +89,7 @@ const SignUpPage = lazy(loadSignUp);
 const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
 const Careers = lazy(() => import("@/pages/Careers"));
 const Blog = lazy(() => import("@/pages/Blog"));
+const BlogPost = lazy(() => import("@/pages/BlogPost"));
 const Partner = lazy(() => import("@/pages/Partner"));
 const Weddings = lazy(() => import("@/pages/Weddings"));
 const Corporate = lazy(() => import("@/pages/Corporate"));
@@ -119,6 +120,7 @@ const ResetPasswordRoute = withSuspense(ResetPassword, PageLoader);
 const UnauthorizedRoute = withSuspense(Unauthorized, PageLoader);
 const CareersRoute = withSuspense(Careers, PageLoader);
 const BlogRoute = withSuspense(Blog, PageLoader);
+const BlogPostRoute = withSuspense(BlogPost, PageLoader);
 const PartnerRoute = withSuspense(Partner, PageLoader);
 const WeddingsRoute = withSuspense(Weddings, PageLoader);
 const CorporateRoute = withSuspense(Corporate, PageLoader);
@@ -196,6 +198,7 @@ function ShopShell() {
             <Route path="/checkout" component={CheckoutRoute} />
             <Route path="/order-confirmed" component={OrderConfirmedRoute} />
             <Route path="/careers" component={CareersRoute} />
+            <Route path="/blog/:slug" component={BlogPostRoute} />
             <Route path="/blog" component={BlogRoute} />
             <Route path="/partner" component={PartnerRoute} />
             <Route path="/weddings" component={WeddingsRoute} />

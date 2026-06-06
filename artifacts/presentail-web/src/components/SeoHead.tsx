@@ -22,6 +22,10 @@ const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "/order-confirmed", key: "orderConfirmed" },
   { test: (r) => r === "/auth", key: "auth" },
   { test: (r) => r === "/account", key: "account" },
+  { test: (r) => r === "/blog", key: "blog" },
+  // Blog post detail pages manage their own metadata via useEffect in BlogPost.tsx.
+  // Return a sentinel so SeoHead skips the write entirely for those routes.
+  { test: (r) => r.startsWith("/blog/"), key: "blogPost" },
 ];
 
 function detectRouteKey(rest: string): string {
@@ -68,6 +72,9 @@ export function SeoHead() {
       isSupportedCity(parsed.country, parsed.city);
     const inLocale = parsed.hasLocalePrefix && parsed.country && (!parsed.city || hasValidCity);
     const routeKey = inLocale ? detectRouteKey(parsed.rest) : "landing";
+
+    // Blog post pages manage their own metadata in BlogPost.tsx — do not overwrite.
+    if (routeKey === "blogPost") return;
 
     const cityLabel = city
       ? cityName(city.id, city.name)

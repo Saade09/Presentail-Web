@@ -60,6 +60,11 @@ export const homeStrings: Dict = {
   "newsletter.placeholder": { en: "Your email address", ar: "بريدك الإلكتروني" },
   "newsletter.button": { en: "Subscribe", ar: "اشترك" },
   "newsletter.thanks": { en: "Welcome — check your inbox shortly.", ar: "أهلاً بك — تحقّق من بريدك قريباً." },
+
+  "home.h1": {
+    en: "Flower & Gift Delivery in {city}",
+    ar: "توصيل الأزهار والهدايا في {city}",
+  },
 };
 
 export const homeStringsFr: Record<string, string> = {
@@ -100,4 +105,6 @@ export const homeStringsFr: Record<string, string> = {
   "newsletter.placeholder": "Votre adresse email",
   "newsletter.button": "S'abonner",
   "newsletter.thanks": "Bienvenue — vérifiez votre boîte de réception sous peu.",
+
+  "home.h1": "Livraison de fleurs et cadeaux à {city}",
 };

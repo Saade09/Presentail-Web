@@ -1,4 +1,5 @@
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useLocale } from "@/contexts/LocaleContext";
 import { useHomepageBanners } from "@/lib/banners";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
@@ -6,9 +7,21 @@ import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 
 export default function Home() {
-  const { country } = useLocationSelection();
+  const { country, city, cityId } = useLocationSelection();
+  const { t, cityName } = useLocale();
   const countryCode = country?.code ?? "*";
   const { data: banners, isLoading } = useHomepageBanners(countryCode);
+
+  const cityLabel = city
+    ? cityName(city.id, city.name)
+    : cityId
+      ? cityId
+          .split("-")
+          .slice(1)
+          .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+          .join(" ")
+      : "";
+  const h1Text = cityLabel ? t("home.h1", { city: cityLabel }) : "";
 
   const trustpilotTitle =
     countryCode === "LB"
@@ -17,6 +30,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
+      {h1Text && (
+        <h1 className="sr-only">{h1Text}</h1>
+      )}
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 

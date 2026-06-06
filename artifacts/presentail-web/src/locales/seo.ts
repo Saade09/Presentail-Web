@@ -98,6 +98,14 @@ export const seoStrings: Dict = {
     en: "Send luxury flowers, gifts, cakes, and curated arrangements across the GCC with Presentail. Same-day delivery available in selected cities.",
     ar: "أرسل أزهاراً وهدايا وكعكاً وتشكيلات منتقاة في دول الخليج مع Presentail. توصيل في اليوم ذاته متاح في مدن مختارة.",
   },
+  "seo.blog.title": {
+    en: "The Atelier Journal | Presentail",
+    ar: "يوميّات الأتيليه | Presentail",
+  },
+  "seo.blog.description": {
+    en: "Stories on seasonal flowers, the makers behind our gift boxes, and thoughtful gifting — from the Presentail studio.",
+    ar: "حكايات عن أزهار الموسم، وصنّاع علب هدايانا، والإهداء المدروس — من استوديو Presentail.",
+  },
 };
 
 export const seoStringsFr: Record<string, string> = {
@@ -126,4 +134,6 @@ export const seoStringsFr: Record<string, string> = {
   "seo.account.description": "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
   "seo.landing.title": "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
   "seo.landing.description": "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
+  "seo.blog.title": "Le Journal de l'Atelier | Presentail",
+  "seo.blog.description": "Histoires sur les fleurs de saison, les artisans derrière nos coffrets cadeaux, et l'art d'offrir avec soin — depuis l'atelier Presentail.",
 };
