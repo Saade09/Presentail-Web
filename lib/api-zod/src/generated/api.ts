@@ -962,8 +962,9 @@ export const GetDeliveryLocationsResponse = zod.object({
                   ),
                 cutoffHour: zod
                   .number()
+                  .nullish()
                   .describe(
-                    "Hour of day (0–23) after which this slot can no longer be booked for same-day delivery.",
+                    "Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. Null when the OS has not configured a cutoff for this slot.",
                   ),
                 extraFee: zod
                   .number()

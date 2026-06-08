@@ -16,25 +16,26 @@ type Props = {
 export function CityList({ cities, onSelect, selectedId }: Props) {
   const colors = useColors();
   const { isRTL } = useLanguage();
-  const visible = cities.filter((c) => c.isActive);
 
   return (
     <View>
-      {visible.map((city, idx) => {
+      {cities.map((city, idx) => {
         const isSelected = city.id === selectedId;
+        const inactive = city.isActive === false;
         return (
           <Pressable
             key={city.id}
-            onPress={() => onSelect(city)}
-            android_ripple={{ color: "rgba(0,0,0,0.05)" }}
+            onPress={inactive ? undefined : () => onSelect(city)}
+            android_ripple={inactive ? undefined : { color: "rgba(0,0,0,0.05)" }}
             style={({ pressed }) => ({
               flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               paddingVertical: 14,
               paddingHorizontal: 20,
-              borderBottomWidth: idx === visible.length - 1 ? 0 : 1,
+              borderBottomWidth: idx === cities.length - 1 ? 0 : 1,
               borderBottomColor: "rgba(0,0,0,0.05)",
-              backgroundColor: pressed ? "rgba(0,0,0,0.03)" : "transparent",
+              backgroundColor: !inactive && pressed ? "rgba(0,0,0,0.03)" : "transparent",
+              opacity: inactive ? 0.4 : 1,
               gap: 12,
             })}
           >
@@ -43,13 +44,13 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
                 flex: 1,
                 fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium",
                 fontSize: 16,
-                color: isSelected ? colors.teal600 : colors.text,
+                color: inactive ? colors.mutedForeground : isSelected ? colors.teal600 : colors.text,
                 textAlign: isRTL ? "right" : "left",
               }}
             >
               {city.name}
             </AppText>
-            {isSelected ? (
+            {isSelected && !inactive ? (
               <Feather name="check" size={20} color={colors.teal600} />
             ) : null}
           </Pressable>

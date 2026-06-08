@@ -76,7 +76,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
   };
 
   const visibleCountries = deliveryLocations.filter((c) => c.isActive);
-  const cityList = draftCountry?.cities.filter((c) => c.isActive) ?? [];
+  const cityList = draftCountry?.cities ?? [];
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>

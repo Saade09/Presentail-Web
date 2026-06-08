@@ -554,8 +554,8 @@ export interface DeliveryTimeSlot {
   startHour?: number;
   /** Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). Optional; absent when the OS has not configured window boundaries. */
   endHour?: number;
-  /** Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. */
-  cutoffHour: number;
+  /** Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. Null when the OS has not configured a cutoff for this slot. */
+  cutoffHour?: number | null;
   /** Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee. */
   extraFee?: number;
 }
