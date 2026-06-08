@@ -74,6 +74,10 @@ function stripeDeclineMsg(
   const code = error.decline_code ?? error.code;
   if (code === "insufficient_funds") return t("checkout.stripe.declineInsufficientFunds");
   if (code === "card_velocity_exceeded") return t("checkout.stripe.declineVelocityExceeded");
+  if (code === "do_not_honor") return t("checkout.stripe.declineDoNotHonor");
+  if (code === "lost_card" || code === "stolen_card") return t("checkout.stripe.declineLostStolen");
+  if (code === "expired_card") return t("checkout.stripe.declineExpiredCard");
+  if (code === "incorrect_cvc") return t("checkout.stripe.declineIncorrectCvc");
   return null;
 }
 

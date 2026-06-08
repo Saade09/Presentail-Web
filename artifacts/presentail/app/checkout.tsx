@@ -634,6 +634,10 @@ function CheckoutScreen() {
   function stripeDeclineMsg(error: { code?: string | null }): string | null {
     if (error.code === "insufficient_funds") return t.checkoutDeclineInsufficientFunds;
     if (error.code === "card_velocity_exceeded") return t.checkoutDeclineVelocityExceeded;
+    if (error.code === "do_not_honor") return t.checkoutDeclineDoNotHonor;
+    if (error.code === "lost_card" || error.code === "stolen_card") return t.checkoutDeclineLostStolen;
+    if (error.code === "expired_card") return t.checkoutDeclineExpiredCard;
+    if (error.code === "incorrect_cvc") return t.checkoutDeclineIncorrectCvc;
     return null;
   }
 
