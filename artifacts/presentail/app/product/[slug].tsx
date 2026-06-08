@@ -450,7 +450,10 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const now = useNow();
   // OS can disable express per-city (e.g. Akkar has expressAvailable: false).
   // AND with the time-of-day check so both gates must pass.
-  const expressAvailable = selectedCity?.expressAvailable !== false && isExpressDeliveryAvailable(cc, now);
+  // Use `=== true` (not `!== false`) so a null selectedCity (data not yet
+  // loaded) evaluates to false — avoids flashing Express for cities that
+  // have it disabled before the delivery-locations query resolves.
+  const expressAvailable = selectedCity?.expressAvailable === true && isExpressDeliveryAvailable(cc, now);
   const initialDelivery: "express" | "scheduled" =
     deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
       ? "scheduled"
@@ -458,21 +461,19 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         ? "express"
         : "scheduled";
   const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
-  // Persist the implicit default ("express") into the shared delivery
-  // selection on first visit, so adding to cart without ever toggling
-  // the option still results in the cart correctly showing
-  // "Express Delivery" + applying the surcharge. Only fires when no
-  // selection has been made yet — never overwrites a real choice.
+  // Upgrade to express once city data loads and confirms express is available
+  // — only when the shopper has not made an explicit scheduled choice.
   useEffect(() => {
     if (
-      deliverySelection.mode == null &&
-      initialDelivery === "express" &&
-      expressAvailable
+      expressAvailable &&
+      delivery === "scheduled" &&
+      (!deliverySelection.mode || deliverySelection.mode === "express")
     ) {
+      setDeliveryLocal("express");
       deliverySelection.setMode("express");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [expressAvailable]);
   // Auto-fall back to scheduled if Express is currently selected but
   // unavailable for the recipient country (e.g. shopper sat across the
   // 10 PM cutoff). Mirrors the web checkout behaviour and keeps the

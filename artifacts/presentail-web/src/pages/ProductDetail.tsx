@@ -74,21 +74,38 @@ export default function ProductDetail() {
     [city, countryCode, now],
   );
 
-  // Local UI choice for the radio. We default to "express" when no shared
-  // delivery selection exists AND express is currently available; once the
-  // 10 PM cutoff hits, we default to "scheduled" so the row reflects what
-  // the shopper can actually pick. A persisted "today_slot"/"schedule"
-  // reflects back as the scheduled row.
+  // Local UI choice for the radio.
+  // We intentionally default to "scheduled" when city data hasn't loaded yet
+  // (city === null) so we never flash Express for a city where OS has it
+  // turned off (e.g. Akkar). The upgrade effect below switches to "express"
+  // once we confirm the city supports it. A persisted "today_slot"/"schedule"
+  // always reflects back as the scheduled row.
   const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() => {
     if (deliverySelection.mode && deliverySelection.mode !== "express") {
       return "scheduled";
     }
+    // city === null means the delivery-locations query hasn't resolved yet —
+    // safe default is "scheduled"; the upgrade effect corrects it once loaded.
+    if (city === null) return "scheduled";
     return expressAvailable ? "express" : "scheduled";
   });
 
-  // If the recipient-country clock crosses 10 PM while the shopper is on
-  // the page, fall back to scheduled and persist a sane default into the
-  // shared selection store so checkout doesn't reopen with Express.
+  // Upgrade to express once city data loads and confirms express is available
+  // — only when the shopper has not made an explicit scheduled choice.
+  useEffect(() => {
+    if (
+      expressAvailable &&
+      deliveryChoice === "scheduled" &&
+      (!deliverySelection.mode || deliverySelection.mode === "express")
+    ) {
+      setDeliveryChoice("express");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expressAvailable]);
+
+  // If the recipient-country clock crosses 10 PM (or express is disabled by
+  // OS for this city) while the shopper is on the page, fall back to scheduled
+  // and persist a sane default so checkout doesn't reopen with Express.
   useEffect(() => {
     if (deliveryChoice === "express" && !expressAvailable) {
       setDeliveryChoice("scheduled");
