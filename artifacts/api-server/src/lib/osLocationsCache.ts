@@ -158,11 +158,23 @@ function buildCityIndex(countries: CachedCountry[]): Map<string, CachedCity> {
 }
 
 /**
+ * Explicit OS slug → canonical internal city ID overrides.
+ *
+ * Add an entry here when OS uses a different spelling or transliteration
+ * than the one in our hardcoded city list and none of the three automatic
+ * resolution strategies below can match them (e.g. "dennaye" vs "dennaya").
+ */
+const OS_SLUG_TO_CANONICAL_ID: Record<string, string> = {
+  "minnieh-dennaye": "lb-minnieh-dennaya",
+};
+
+/**
  * Resolve the canonical internal city ID from what OS returns.
  *
  * OS may store the slug as just the city name (e.g. "beirut") rather than
- * the full prefixed form we use internally ("lb-beirut"). We try three
+ * the full prefixed form we use internally ("lb-beirut"). We try four
  * strategies in order:
+ *   0. Explicit override map for known OS spelling mismatches.
  *   1. Direct match against the hardcoded city id (e.g. "lb-beirut").
  *   2. Country-prefixed form: `{countryCode.lower()}-{osSlug}` (e.g. "lb-beirut").
  *   3. Case-insensitive name match against hardcoded cities.
@@ -174,6 +186,9 @@ function resolveOsCityId(
   countryCode: string,
   hardcodedCities: ReadonlyArray<{ id: string; name: string }>,
 ): string {
+  // 0. Explicit override for known spelling mismatches between OS and our IDs
+  if (osId in OS_SLUG_TO_CANONICAL_ID) return OS_SLUG_TO_CANONICAL_ID[osId]!;
+
   // 1. Direct id match
   if (hardcodedCities.some((hc) => hc.id === osId)) return osId;
 
