@@ -1798,6 +1798,7 @@ function CheckoutForm() {
         onOpenChange={setDeliveryPickerOpen}
         onConfirm={handleDeliveryPickerConfirm}
         timeSlots={timeSlots}
+        cityExpressAvailable={selectedCityData?.expressAvailable === true}
       />
     </div>
   );

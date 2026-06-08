@@ -39,6 +39,14 @@ interface Props {
   onConfirm?: (selection: DeliveryPickerSelection) => void;
   /** OS-sourced slots for the selected city. When provided, overrides the hardcoded per-country defaults. */
   timeSlots?: TimeSlot[];
+  /**
+   * Whether the OS has enabled express delivery for this specific city.
+   * Defaults to true when omitted (backwards-compatible) so callers that
+   * don't have city data yet don't accidentally hide express globally.
+   * Pass `city?.expressAvailable === true` from the parent to honour the
+   * per-city OS flag — the modal ANDs this with the time-window check.
+   */
+  cityExpressAvailable?: boolean;
 }
 
 function dayMonthShort(iso: string): string {
@@ -47,7 +55,7 @@ function dayMonthShort(iso: string): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
   const now = useNow();
@@ -62,8 +70,8 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     [t],
   );
   const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode, now),
-    [countryCode, now],
+    () => cityExpressAvailable && isExpressDeliveryAvailable(countryCode, now),
+    [cityExpressAvailable, countryCode, now],
   );
   const expressSurcharge = expressSurchargeForCountry(countryCode);
   const currentHour = useMemo(() => getCountryHour(countryCode, now), [countryCode, now]);

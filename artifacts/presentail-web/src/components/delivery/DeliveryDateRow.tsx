@@ -76,6 +76,7 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
           open={pickerOpen}
           onOpenChange={setPickerOpen}
           timeSlots={city?.timeSlots}
+          cityExpressAvailable={city?.expressAvailable === true}
         />
       )}
     </>
