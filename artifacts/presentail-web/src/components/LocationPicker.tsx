@@ -146,23 +146,32 @@ export function LocationPicker({
             </button>
           ))
         ) : (
-          selectedCountry!.cities.filter((city) => city.isActive !== false).map((city, idx) => {
+          selectedCountry!.cities.map((city, idx) => {
+            const inactive = city.isActive === false;
             return (
               <button
                 key={city.id}
                 type="button"
-                onClick={() => handleCitySelect(city.id)}
-                className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
+                onClick={inactive ? undefined : () => handleCitySelect(city.id)}
+                disabled={inactive}
+                className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors ${
                   idx > 0 ? "border-t border-border" : ""
-                }`}
+                } ${inactive ? "cursor-not-allowed bg-muted/30" : "active:bg-secondary/40 cursor-pointer"}`}
                 data-testid={`button-city-${city.id}`}
               >
-                <span className="text-base font-medium text-foreground">
+                <span className={`text-base font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
                   {cityName(city.id, city.name)}
+                  {inactive && (
+                    <span className="ml-1.5 text-sm font-normal text-foreground/35">
+                      (not available at the moment)
+                    </span>
+                  )}
                 </span>
-                <ChevronRight
-                  className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
-                />
+                {!inactive && (
+                  <ChevronRight
+                    className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
+                  />
+                )}
               </button>
             );
           })
