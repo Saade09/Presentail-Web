@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { AppText } from "@/components/AppText";
 
 import type { DeliveryCity } from "@/constants/deliveryLocations";
@@ -16,26 +16,25 @@ type Props = {
 export function CityList({ cities, onSelect, selectedId }: Props) {
   const colors = useColors();
   const { isRTL } = useLanguage();
+  const activeCities = cities.filter((c) => c.isActive !== false);
 
   return (
     <View>
-      {cities.map((city, idx) => {
+      {activeCities.map((city, idx) => {
         const isSelected = city.id === selectedId;
-        const inactive = city.isActive === false;
         return (
           <Pressable
             key={city.id}
-            onPress={inactive ? undefined : () => onSelect(city)}
-            android_ripple={inactive ? undefined : { color: "rgba(0,0,0,0.05)" }}
+            onPress={() => onSelect(city)}
+            android_ripple={{ color: "rgba(0,0,0,0.05)" }}
             style={({ pressed }) => ({
               flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               paddingVertical: 14,
               paddingHorizontal: 20,
-              borderBottomWidth: idx === cities.length - 1 ? 0 : 1,
+              borderBottomWidth: idx === activeCities.length - 1 ? 0 : 1,
               borderBottomColor: "rgba(0,0,0,0.05)",
-              backgroundColor: !inactive && pressed ? "rgba(0,0,0,0.03)" : "transparent",
-              opacity: inactive ? 0.4 : 1,
+              backgroundColor: pressed ? "rgba(0,0,0,0.03)" : "transparent",
               gap: 12,
             })}
           >
@@ -44,13 +43,13 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
                 flex: 1,
                 fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_500Medium",
                 fontSize: 16,
-                color: inactive ? colors.mutedForeground : isSelected ? colors.teal600 : colors.text,
+                color: isSelected ? colors.teal600 : colors.text,
                 textAlign: isRTL ? "right" : "left",
               }}
             >
               {city.name}
             </AppText>
-            {isSelected && !inactive ? (
+            {isSelected ? (
               <Feather name="check" size={20} color={colors.teal600} />
             ) : null}
           </Pressable>

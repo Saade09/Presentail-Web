@@ -146,24 +146,22 @@ export function LocationPicker({
             </button>
           ))
         ) : (
-          selectedCountry!.cities.map((city, idx) => {
-            const inactive = city.isActive === false;
+          selectedCountry!.cities.filter((city) => city.isActive !== false).map((city, idx) => {
             return (
               <button
                 key={city.id}
                 type="button"
-                onClick={inactive ? undefined : () => handleCitySelect(city.id)}
-                disabled={inactive}
-                className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors ${
+                onClick={() => handleCitySelect(city.id)}
+                className={`w-full flex items-center justify-between px-5 min-h-[56px] py-3 text-start transition-colors active:bg-secondary/40 cursor-pointer ${
                   idx > 0 ? "border-t border-border" : ""
-                } ${inactive ? "opacity-40 cursor-not-allowed" : "active:bg-secondary/40 cursor-pointer"}`}
+                }`}
                 data-testid={`button-city-${city.id}`}
               >
-                <span className={`text-base font-medium ${inactive ? "text-muted-foreground" : "text-foreground"}`}>
+                <span className="text-base font-medium text-foreground">
                   {cityName(city.id, city.name)}
                 </span>
                 <ChevronRight
-                  className={`w-4 h-4 shrink-0 ${isRtl ? "rotate-180" : ""} ${inactive ? "text-muted-foreground/50" : "text-primary/70"}`}
+                  className={`w-4 h-4 shrink-0 text-primary/70 ${isRtl ? "rotate-180" : ""}`}
                 />
               </button>
             );
