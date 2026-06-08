@@ -9,7 +9,7 @@ import {
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 // react-native-view-shot and expo-sharing are NATIVE modules. They were
 // added in the build that ships as iOS build 25, but build 22 (currently
 // on TestFlight) doesn't include them. A static `import` triggers the
@@ -37,6 +37,7 @@ import {
   Alert,
   findNodeHandle,
   FlatList,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -622,7 +623,9 @@ function CheckoutScreen() {
 
   const [paying, setPaying] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const deliveryStepRef = useRef<{ scrollToFirstError: () => void } | null>(null);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
@@ -689,10 +692,20 @@ function CheckoutScreen() {
     return missing;
   };
 
+  useEffect(() => {
+    setShowFieldErrors(false);
+  }, [step]);
+
   const next = () => {
     if (!stepValid(step)) {
       if (step === 1 && recipientPhone.trim() && !isRecipientPhoneValid()) {
         setRecipientPhoneShowError(true);
+      }
+      if (step === 1) {
+        setShowFieldErrors(true);
+        InteractionManager.runAfterInteractions(() => {
+          deliveryStepRef.current?.scrollToFirstError();
+        });
       }
       const missing = getMissingFields();
       if (missing.length > 0) {
@@ -1332,7 +1345,10 @@ function CheckoutScreen() {
         {step === 1 && (
           <>
             <DeliveryDetailsStep
+              ref={deliveryStepRef}
               colors={colors}
+              scrollViewRef={scrollViewRef}
+              showFieldErrors={showFieldErrors}
               recipientFirst={recipientFirst}
               setRecipientFirst={setRecipientFirstTracked}
               recipientLast={recipientLast}
@@ -1511,17 +1527,17 @@ function Label({ children, colors, required }: any) {
   );
 }
 
-function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount }: any) {
+function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount, error, fieldRef }: any) {
   return (
-    <View style={{ gap: 4 }}>
+    <View ref={fieldRef} style={{ gap: 4 }}>
       {label ? <Label colors={colors} required={required}>{label}</Label> : null}
       <View
         style={{
           flexDirection: "row",
           alignItems: multiline ? "flex-start" : "center",
           backgroundColor: "#fff",
-          borderWidth: 1,
-          borderColor: colors.border,
+          borderWidth: error ? 1.5 : 1,
+          borderColor: error ? "#ef4444" : colors.border,
           borderRadius: 10,
           paddingHorizontal: 12,
         }}
@@ -2092,11 +2108,12 @@ function CardMessageReviewCard({
 
 // =============== Step 2: Delivery Details ===============
 
-function DeliveryDetailsStep(props: any) {
+const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props: any, ref: any) {
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontBold = useHeadingFont("700Bold");
   const {
-    colors, recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
+    colors, scrollViewRef, showFieldErrors,
+    recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
     recipientPhoneShowError,
     districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
@@ -2108,6 +2125,46 @@ function DeliveryDetailsStep(props: any) {
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
   } = props;
+
+  const recipientNamesRef = useRef<View>(null);
+  const recipientPhoneRef = useRef<View>(null);
+  const deliveryDetailsRef = useRef<View>(null);
+  const senderNamesRef = useRef<View>(null);
+  const senderPhoneRef = useRef<View>(null);
+  const senderEmailRef = useRef<View>(null);
+
+  const scrollToRef = (fieldRef: React.RefObject<View | null>) => {
+    if (!fieldRef.current || !scrollViewRef?.current) return;
+    fieldRef.current.measureLayout(
+      findNodeHandle(scrollViewRef.current) as number,
+      (_x: number, y: number) => {
+        scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+      },
+      () => {},
+    );
+  };
+
+  useImperativeHandle(ref, () => ({
+    scrollToFirstError: () => {
+      const phoneEmpty = !recipientPhone.trim();
+      const phoneInvalid = !phoneEmpty && (() => {
+        try { return !isValidPhoneNumber(recipientPhone.trim(), recipientCountry.code as CountryCode); } catch { return true; }
+      })();
+      if (!recipientFirst.trim() || !recipientLast.trim()) {
+        scrollToRef(recipientNamesRef);
+      } else if (phoneEmpty || phoneInvalid) {
+        scrollToRef(recipientPhoneRef);
+      } else if (!noAddress && !deliveryDetails.trim()) {
+        scrollToRef(deliveryDetailsRef);
+      } else if (!hideSenderName && (!senderFirst.trim() || !senderLast.trim())) {
+        scrollToRef(senderNamesRef);
+      } else if (!hideSenderPhone && !senderWhatsapp.trim()) {
+        scrollToRef(senderPhoneRef);
+      } else if (!hideSenderEmail && !senderEmail.trim()) {
+        scrollToRef(senderEmailRef);
+      }
+    },
+  }));
   const { formatPrice } = useCurrency();
   const t = useT();
   const { isRTL } = useLanguage();
@@ -2213,23 +2270,25 @@ function DeliveryDetailsStep(props: any) {
             />
           </View>
         </Modal>
-        <View style={{ flexDirection: "row", gap: 10 }}>
+        <View ref={recipientNamesRef} style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required />
+            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required error={showFieldErrors && !recipientFirst.trim()} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required />
+            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()} />
           </View>
         </View>
-        <PhoneField
-          label={t.phoneNumberLabel}
-          value={recipientPhone}
-          onChangeText={setRecipientPhone}
-          countryCode={recipientCountry.code}
-          onChangeCountry={setRecipientCountry}
-          required
-          showError={recipientPhoneShowError}
-        />
+        <View ref={recipientPhoneRef}>
+          <PhoneField
+            label={t.phoneNumberLabel}
+            value={recipientPhone}
+            onChangeText={setRecipientPhone}
+            countryCode={recipientCountry.code}
+            onChangeCountry={setRecipientCountry}
+            required
+            showError={recipientPhoneShowError || (showFieldErrors && !recipientPhone.trim())}
+          />
+        </View>
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",
@@ -2395,6 +2454,8 @@ function DeliveryDetailsStep(props: any) {
           helper={t.addressFormAddressLineHint}
           required
           multiline
+          error={showFieldErrors && !deliveryDetails.trim()}
+          fieldRef={deliveryDetailsRef}
         />
         ) : null}
 
@@ -2463,28 +2524,31 @@ function DeliveryDetailsStep(props: any) {
           </View>
         ) : null}
         {!hideSenderName ? (
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View ref={senderNamesRef} style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required />
+              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required error={showFieldErrors && !senderFirst.trim()} />
             </View>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required />
+              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()} />
             </View>
           </View>
         ) : null}
         {!hideSenderPhone ? (
-          <PhoneField
-            label={t.whatsappNumberLabel}
-            value={senderWhatsapp}
-            onChangeText={setSenderWhatsapp}
-            countryCode={senderCountry.code}
-            onChangeCountry={setSenderCountry}
-            placeholder="3000000"
-            required
-          />
+          <View ref={senderPhoneRef}>
+            <PhoneField
+              label={t.whatsappNumberLabel}
+              value={senderWhatsapp}
+              onChangeText={setSenderWhatsapp}
+              countryCode={senderCountry.code}
+              onChangeCountry={setSenderCountry}
+              placeholder="3000000"
+              required
+              showError={showFieldErrors && !senderWhatsapp.trim()}
+            />
+          </View>
         ) : null}
         {!hideSenderEmail ? (
-          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" />
+          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" error={showFieldErrors && !senderEmail.trim()} fieldRef={senderEmailRef} />
         ) : null}
 
         <Pressable
@@ -2524,7 +2588,7 @@ function DeliveryDetailsStep(props: any) {
       </Card>
     </View>
   );
-}
+});
 
 function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled, onPress, onInfoPress }: any) {
   return (
