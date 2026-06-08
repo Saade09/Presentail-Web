@@ -49,6 +49,11 @@ interface Props {
   cityExpressAvailable?: boolean;
 }
 
+/** Format an hour integer as a zero-padded HH:00 string, e.g. 9 → "09:00". */
+function fmtHour(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
 function dayMonthShort(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return "";
@@ -252,7 +257,14 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                             : "border-border bg-card text-foreground hover:border-foreground/20"
                         } ${isPastCutoff ? "opacity-40 cursor-not-allowed" : ""}`}
                       >
-                        <div>{s.label}</div>
+                        {s.startHour !== undefined && s.endHour !== undefined ? (
+                          <>
+                            <div>{fmtHour(s.startHour)} – {fmtHour(s.endHour)}</div>
+                            <div className="text-xs opacity-70 mt-0.5">{s.label}</div>
+                          </>
+                        ) : (
+                          <div>{s.label}</div>
+                        )}
                         {s.extraFee && s.extraFee > 0 ? (
                           <div className="text-xs opacity-75 mt-0.5">+${s.extraFee}</div>
                         ) : null}

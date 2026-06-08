@@ -63,7 +63,15 @@ export function expressSurchargeForCountry(code?: string | null): number {
 // Time slots
 // ---------------------------------------------------------------------------
 
-export type TimeSlot = { label: string; cutoffHour: number; extraFee?: number };
+export type TimeSlot = {
+  label: string;
+  cutoffHour: number;
+  extraFee?: number;
+  /** Hour of day (0–23) the slot window opens. Provided by OS; absent for hardcoded fallback slots. */
+  startHour?: number;
+  /** Hour of day (0–23) the slot window closes. Provided by OS; absent for hardcoded fallback slots. */
+  endHour?: number;
+};
 
 const LB_TIME_SLOTS: TimeSlot[] = [
   { label: "9:00 AM – 2:00 PM", cutoffHour: 9 },
