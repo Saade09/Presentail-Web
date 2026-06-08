@@ -154,6 +154,25 @@ export function stopWooSyncWorker(): void {
   }
 }
 
+/**
+ * Send a silent `data_refresh` Expo push to every registered device across
+ * all stores.  Called immediately when OS pushes a delivery_config.updated
+ * webhook so mobile apps pick up city changes in real time without waiting
+ * for the next scheduled wooSync tick.
+ */
+export async function sendAllStoresDataRefreshPush(): Promise<void> {
+  await Promise.all(
+    STORES.map((spec) =>
+      sendDataRefreshPush(spec).catch((err: unknown) => {
+        logger.warn(
+          { err: (err as Error)?.message, storeKey: spec.key },
+          "wooSync: immediate locations-refresh push failed",
+        );
+      }),
+    ),
+  );
+}
+
 // ── Per-store sync ─────────────────────────────────────────────────────────
 
 async function syncOneStore(

@@ -25,6 +25,7 @@ import favoritesRouter from "./favorites";
 import occasionsRouter from "./occasions";
 import osWebhookRouter from "./osWebhook";
 import wooWebhookRouter from "./wooWebhook";
+import eventsRouter from "./events";
 import seoRouter from "./seo";
 import partnerApplicationRouter from "./partnerApplication";
 
@@ -56,6 +57,7 @@ router.use(favoritesRouter);
 router.use(occasionsRouter);
 router.use(osWebhookRouter);
 router.use(wooWebhookRouter);
+router.use(eventsRouter);
 router.use(seoRouter);
 router.use(partnerApplicationRouter);
 

@@ -41,6 +41,8 @@ import {
   storeLocationsFromWebhook,
   invalidateOsLocationsCache,
 } from "../lib/osLocationsCache";
+import { broadcastLocationsUpdated, getSseClientCount } from "../lib/sseBroadcast";
+import { sendAllStoresDataRefreshPush } from "../lib/wooSync";
 import { invalidateOsProductsCache, removeOsProductById } from "../lib/osProductsCache";
 import { setFxRates } from "../lib/fxRateCache";
 import { setActiveBannersFromWebhook } from "../data/homepageBanners";
@@ -396,6 +398,20 @@ router.post("/os/webhook", async (req, res) => {
         { countryCount: locations.countries.length },
         "osWebhook: delivery config updated from webhook",
       );
+
+      // Notify all connected web clients immediately so open browser tabs
+      // refetch delivery-locations without waiting for the 10-minute poll.
+      broadcastLocationsUpdated();
+      req.log.info(
+        { sseClients: getSseClientCount() },
+        "osWebhook: SSE locations-updated broadcast sent",
+      );
+
+      // Send a silent data_refresh push to all mobile devices so the app
+      // picks up city changes immediately rather than on the next sync tick.
+      void sendAllStoresDataRefreshPush().then(() => {
+        req.log.info("osWebhook: mobile data_refresh push sent for locations update");
+      });
     } catch (err: any) {
       req.log.warn(
         { err: err?.message },

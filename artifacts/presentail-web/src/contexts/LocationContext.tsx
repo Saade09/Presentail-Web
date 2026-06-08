@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useLocation } from "wouter";
 import { useDeliveryLocations, type DeliveryLocationsResponse } from "@/lib/queries";
+import { useServerEvents } from "@/hooks/useServerEvents";
 import {
   parseLocalePath,
   buildLocalePath,
@@ -91,6 +92,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerForceCountryStep, setPickerForceCountryStep] = useState(false);
   const { data, isLoading } = useDeliveryLocations();
+
+  // Subscribe to server-sent events so any change made in OS (city active
+  // state, express flag, time slots, fees) propagates to this tab immediately
+  // when the API server receives the delivery_config.updated webhook — without
+  // waiting for the 10-minute React Query poll interval.
+  useServerEvents();
 
   const countries = useMemo<DeliveryCountry[]>(() => {
     const all = data?.countries ?? [];
