@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { dayLabels, formatDeliveryRow } from "@workspace/delivery";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
 
@@ -16,6 +17,7 @@ interface Props {
 export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChangeClick }: Props) {
   const { t } = useLocale();
   const { mode, date, slotLabel } = useDeliverySelection();
+  const { city } = useLocationSelection();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const summaryDays = useMemo(
@@ -70,7 +72,11 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
       </button>
 
       {!onChangeClick && (
-        <DeliveryPickerModal open={pickerOpen} onOpenChange={setPickerOpen} />
+        <DeliveryPickerModal
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          timeSlots={city?.timeSlots}
+        />
       )}
     </>
   );

@@ -296,6 +296,7 @@ export default function ProductDetail() {
             {deliveryChoice === "scheduled" && (
               <ScheduleInlinePanel
                 countryCode={countryCode}
+                timeSlots={city?.timeSlots}
                 initialDate={deliverySelection.date}
                 initialSlotLabel={deliverySelection.slotLabel}
                 onChange={({ mode, date, slotLabel }) => {
