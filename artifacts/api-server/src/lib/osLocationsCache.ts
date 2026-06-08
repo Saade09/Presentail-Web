@@ -221,7 +221,8 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
                 isActive: city.isActive,
                 fee: feeForDistrict(code, city.name),
                 // OS returned 0 cities for this country — use hardcoded defaults.
-                expressAvailable: true,
+                // Default false: never falsely promise express when OS hasn't confirmed it.
+                expressAvailable: false,
                 expressDeliveryLabel: "",
                 sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
                 timeSlots: [] as OSTimeSlot[],
@@ -257,9 +258,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
                 c.deliveryFee != null
                   ? getUsdAmount(c.deliveryFee, currency)
                   : feeForDistrict(code, c.name),
-              // When OS omits a field fall back to hardcoded defaults so the
+              // When OS omits a field fall back to safe defaults so the
               // shape is always complete and required schema fields are present.
-              expressAvailable: c.expressAvailable ?? true,
+              // Use false (not true) so we never falsely promise express when
+              // OS hasn't confirmed availability.
+              expressAvailable: c.expressAvailable ?? false,
               expressDeliveryLabel: c.expressDeliveryLabel ?? "",
               sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
               // Normalise to an array even when OS omits the field.
@@ -324,7 +327,8 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
       isActive: city.isActive,
       fee: feeForDistrict(c.code, city.name),
       // Country not yet in OS — use hardcoded defaults.
-      expressAvailable: true,
+      // Default false: never falsely promise express when OS hasn't confirmed it.
+      expressAvailable: false,
       expressDeliveryLabel: "",
       sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
       timeSlots: [] as OSTimeSlot[],
@@ -353,7 +357,8 @@ function hardcodedFallback(): CachedCountry[] {
         isActive: city.isActive,
         fee: feeForDistrict(c.code, city.name),
         // OS unreachable — use hardcoded defaults.
-        expressAvailable: true,
+        // Default false: never falsely promise express when OS hasn't confirmed it.
+        expressAvailable: false,
         expressDeliveryLabel: "",
         sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
         timeSlots: [] as OSTimeSlot[],
