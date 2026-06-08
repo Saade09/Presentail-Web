@@ -51,7 +51,7 @@ export default function ProductDetail() {
   const deliverySelection = useDeliverySelection();
 
   const { currencyCode } = useDisplayCurrency();
-  const { countryCode, cityId } = useLocationSelection();
+  const { countryCode, cityId, city } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
     lang: language,
   };
@@ -67,9 +67,11 @@ export default function ProductDetail() {
   // `useNow` ticks every minute so the computed availability flips
   // automatically when the cutoff passes mid-session.
   const now = useNow();
+  // OS can disable express per-city (e.g. Akkar has expressAvailable: false).
+  // AND with the time-of-day check so both gates must pass.
   const expressAvailable = useMemo(
-    () => isExpressDeliveryAvailable(countryCode, now),
-    [countryCode, now],
+    () => city?.expressAvailable !== false && isExpressDeliveryAvailable(countryCode, now),
+    [city, countryCode, now],
   );
 
   // Local UI choice for the radio. We default to "express" when no shared

@@ -433,7 +433,7 @@ function ProductDetail() {
 function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _router }: any) {
   const deliverySelection = useDeliverySelection();
   const { formatNative, currencyCode } = useCurrency();
-  const { selectedCountry } = useDeliveryLocation();
+  const { selectedCountry, selectedCity } = useDeliveryLocation();
   // Coerce to a string before `.toUpperCase()` / fallback comparisons so
   // a malformed delivery payload (e.g. `code: null`) can't synchronously
   // throw during render on the product detail screen.
@@ -448,7 +448,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     ? rawCc
     : currencyCode === "AED" ? "AE" : currencyCode === "EUR" ? "CY" : "").toUpperCase();
   const now = useNow();
-  const expressAvailable = isExpressDeliveryAvailable(cc, now);
+  // OS can disable express per-city (e.g. Akkar has expressAvailable: false).
+  // AND with the time-of-day check so both gates must pass.
+  const expressAvailable = selectedCity?.expressAvailable !== false && isExpressDeliveryAvailable(cc, now);
   const initialDelivery: "express" | "scheduled" =
     deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
       ? "scheduled"
