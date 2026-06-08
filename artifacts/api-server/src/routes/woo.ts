@@ -1477,6 +1477,7 @@ router.post("/woo/order", async (req, res) => {
     totalUsdCents: result.totalUsdCents,
     platform: requestPlatform,
     storeKey: store.storeKey,
+    osOrderId: result.osOrderId ?? null,
     log: req.log,
   });
 

@@ -24,6 +24,7 @@ import {
   type OSExpressConfig,
   type OSTimeSlot,
 } from "@workspace/presentail-os";
+import { getUsdAmount } from "./fxRateCache";
 import {
   DELIVERY_COUNTRIES as HARDCODED_COUNTRIES,
   feeForDistrict,
@@ -33,17 +34,9 @@ import {
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 import { logger } from "./logger";
 
-// Mirrors lib/delivery EXPRESS_CLOSE_HOUR and express surcharge values. Using
-// local constants avoids adding @workspace/delivery as a runtime dep of
-// api-server; update both together if these values ever change.
+// Mirrors lib/delivery EXPRESS_CLOSE_HOUR. Using a local constant avoids
+// adding @workspace/delivery as a runtime dep of api-server.
 const EXPRESS_CLOSE_HOUR = 22;
-const AE_EXPRESS_SURCHARGE_USD = 4.9;
-const DEFAULT_EXPRESS_SURCHARGE_USD = 15; // LB and CY
-
-function expressSurchargeForCountry(code: string): number {
-  if (code === "AE") return AE_EXPRESS_SURCHARGE_USD;
-  return DEFAULT_EXPRESS_SURCHARGE_USD;
-}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +65,12 @@ type CachedCity = {
    * Undefined means the city inherits the country's setting.
    */
   freeDeliveryEnabled?: boolean;
+  /**
+   * Express surcharge in USD for this city. Derived from OSCity.expressSurcharge
+   * converted via getUsdAmount(amount, country.currency). When absent (legacy
+   * OS response without the ext endpoint), resolveOsDeliveryConfig returns 0.
+   */
+  expressSurchargeUsd?: number;
 };
 
 type CachedCountry = {
@@ -233,16 +232,19 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
             });
           })()
         : osCountry.cities.map((c) => {
+            // Prefer slug (URL-safe string key from the ext endpoint) as the
+            // OS identifier; fall back to String(id) for legacy responses.
+            const osSlug = c.slug ?? String(c.id);
             // Resolve the canonical city id regardless of what slug OS uses.
             const canonicalId = resolveOsCityId(
-              c.id,
+              osSlug,
               c.name,
               code,
               hardcoded?.cities ?? [],
             );
-            if (canonicalId !== c.id) {
+            if (canonicalId !== osSlug) {
               logger.debug(
-                { osId: c.id, canonicalId, cityName: c.name, countryCode: code },
+                { osSlug, canonicalId, cityName: c.name, countryCode: code },
                 "osLocationsCache: mapped OS city slug to canonical id",
               );
             }
@@ -250,7 +252,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               id: canonicalId,
               name: c.name,
               isActive: c.isActive ?? true,
-              fee: c.deliveryFee ?? feeForDistrict(code, c.name),
+              // deliveryFee is in country display currency — convert to USD.
+              fee:
+                c.deliveryFee != null
+                  ? getUsdAmount(c.deliveryFee, currency)
+                  : feeForDistrict(code, c.name),
               // When OS omits a field fall back to hardcoded defaults so the
               // shape is always complete and required schema fields are present.
               expressAvailable: c.expressAvailable ?? true,
@@ -263,12 +269,20 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               // back to the hardcoded deliveryConfig entry so callers always get
               // a defined value (and freeDeliveryEnabled is never silently true
               // for cities that don't offer free delivery).
+              // freeDeliveryThreshold is in country display currency — convert to USD.
               freeDeliveryThresholdUsd:
-                c.freeDeliveryThresholdUsd ??
-                resolveDeliveryConfig(code, canonicalId).freeDeliveryThresholdUsd,
+                c.freeDeliveryThreshold != null
+                  ? getUsdAmount(c.freeDeliveryThreshold, currency)
+                  : resolveDeliveryConfig(code, canonicalId).freeDeliveryThresholdUsd,
               freeDeliveryEnabled:
                 c.freeDeliveryEnabled ??
                 resolveDeliveryConfig(code, canonicalId).freeDeliveryEnabled,
+              // Express surcharge in USD from the ext endpoint (expressSurcharge
+              // is in country display currency; pipe through getUsdAmount).
+              expressSurchargeUsd:
+                c.expressSurcharge != null
+                  ? getUsdAmount(c.expressSurcharge, currency)
+                  : undefined,
             };
           });
 
@@ -282,7 +296,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
       preferredDefaultCityId:
         osCountry.preferredDefaultCityId ?? hardcoded?.preferredDefaultCityId,
       localizedNames: localizedNamesForCountry(code),
-      freeDeliveryThresholdUsd: osCountry.freeDeliveryThresholdUsd,
+      // freeDeliveryThreshold is in country display currency — convert to USD.
+      freeDeliveryThresholdUsd:
+        osCountry.freeDeliveryThreshold != null
+          ? getUsdAmount(osCountry.freeDeliveryThreshold, currency)
+          : undefined,
       freeDeliveryEnabled: osCountry.freeDeliveryEnabled,
       cities,
     };
@@ -471,9 +489,11 @@ export function resolveOsDeliveryConfig(
   const cityFeeUsd = osCity !== undefined ? (osCity.fee ?? null) : null;
   result = { ...result, cityFeeUsd };
 
-  // Express surcharge for the country.
-  const code = (countryCode ?? "").toUpperCase();
-  result = { ...result, expressSurchargeUsd: expressSurchargeForCountry(code) };
+  // Express surcharge from the OS cache. When the city isn't in the cache
+  // (e.g. hardcoded fallback country) or the ext endpoint hasn't sent
+  // expressSurcharge yet, default to 0 — the checkout route re-verifies
+  // against the OS delivery_config.updated webhook data when available.
+  result = { ...result, expressSurchargeUsd: osCity?.expressSurchargeUsd ?? 0 };
 
   return result;
 }

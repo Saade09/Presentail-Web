@@ -69,6 +69,12 @@ app.use(
   wooWebhookRouter,
 );
 
+// Presentail OS webhook: HMAC-SHA256 is computed over the raw request bytes.
+// Install raw body parsing specifically for this path BEFORE express.json()
+// so the route handler receives a Buffer in req.body. body-parser sets
+// req._body = true after parsing, which causes express.json() to skip it.
+app.use("/api/os/webhook", express.raw({ type: "application/json", limit: "1mb" }));
+
 // Compress all JSON/text API responses. Skips responses < 1 kB (threshold)
 // and content types that are already binary-compressed (images, audio, video,
 // zip archives) to avoid wasting CPU on incompressible data.

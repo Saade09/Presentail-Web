@@ -97,6 +97,21 @@ function bannerSignature(list: HomepageBanner[]): string {
     .join("\n");
 }
 
+/**
+ * Replace the active banner feed with banners parsed from the OS
+ * `banner.updated` webhook. Returns true when the feed actually changed.
+ * Should only be called by the OS webhook handler.
+ */
+export function setActiveBannersFromWebhook(banners: HomepageBanner[]): boolean {
+  if (!Array.isArray(banners)) return false;
+  // An empty array is a valid "clear all banners" instruction — accept it.
+  const sig = banners.length === 0 ? "__empty__" : bannerSignature(banners);
+  const changed = sig !== lastRemoteHash;
+  activeBanners = banners;
+  lastRemoteHash = sig;
+  return changed;
+}
+
 // Refresh the active banner feed from `BANNERS_REMOTE_URL` (a JSON array of
 // HomepageBanner objects). Falls back silently to the static
 // `HOMEPAGE_BANNERS` list when the env var is unset, the request fails, or

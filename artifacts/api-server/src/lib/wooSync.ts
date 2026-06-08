@@ -4,7 +4,6 @@ import { logger } from "./logger";
 import { resolveStore, type StoreKey, type WooStoreConfig } from "./wooStore";
 import { sendExpoPush, type ExpoPushMessage } from "./expoPush";
 import { reconcileCustomersForStore } from "./customerSync";
-import { refreshHomepageBanners } from "../data/homepageBanners";
 import {
   invalidateOsProductsCache,
   getOsProductHash,
@@ -79,14 +78,11 @@ export async function runWooSyncOnce(
   const pushOnChange = opts.pushOnChange ?? PUSH_ON_CHANGE;
 
   try {
-    // Banners are global; refresh once per tick. A change here triggers a
-    // silent push to every store (LB + UAE).
-    let bannersChanged = false;
-    try {
-      bannersChanged = await refreshHomepageBanners();
-    } catch (err: any) {
-      logger.warn({ err: err?.message }, "wooSync: banners refresh crashed");
-    }
+    // Banners are now updated exclusively via the OS `banner.updated` webhook
+    // event (setActiveBannersFromWebhook). BANNERS_REMOTE_URL polling is retired.
+    // Change detection for banner-triggered pushes is handled by the webhook
+    // handler; wooSync no longer drives banner updates.
+    const bannersChanged = false;
 
     // Delivery-location changes (fees, thresholds, city enable/disable) are
     // global — check once per tick and notify all stores so every device

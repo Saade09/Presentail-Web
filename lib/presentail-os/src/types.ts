@@ -18,7 +18,10 @@ export type OSTimeSlot = {
 };
 
 export type OSCity = {
-  id: string;
+  /** Integer city identifier (used for DB/OS references). */
+  id: number;
+  /** URL-safe slug used as string key (e.g. "beirut", "dubai"). */
+  slug: string;
   name: string;
   isActive?: boolean;
   deliveryFee?: number;
@@ -27,10 +30,21 @@ export type OSCity = {
   sameDayCutoffHour?: number;
   timeSlots?: OSTimeSlot[];
   /**
-   * Free delivery threshold in USD for this specific city.
-   * When present, overrides the country-level freeDeliveryThresholdUsd.
+   * Total express delivery fee in the country's display currency (not USD).
+   * Use getUsdAmount(expressFeeTotal, country.currency) to get USD amount.
    */
-  freeDeliveryThresholdUsd?: number;
+  expressFeeTotal?: number;
+  /**
+   * Express surcharge portion of expressFeeTotal (expressFeeTotal - deliveryFee).
+   * In the country's display currency.
+   */
+  expressSurcharge?: number;
+  /**
+   * Free delivery threshold in the country's display currency for this city.
+   * Use getUsdAmount to convert to USD before comparison with cart total.
+   * When present, overrides the country-level freeDeliveryThreshold.
+   */
+  freeDeliveryThreshold?: number;
   /**
    * Whether free delivery is enabled for this specific city.
    * When present, overrides the country-level freeDeliveryEnabled.
@@ -53,10 +67,11 @@ export type OSCountry = {
   isActive?: boolean;
   preferredDefaultCityId?: string;
   /**
-   * Free delivery threshold in USD (the cart's internal currency).
+   * Free delivery threshold in the country's display currency.
+   * Use getUsdAmount to convert to USD before comparison with cart total.
    * When absent the hardcoded per-country default applies.
    */
-  freeDeliveryThresholdUsd?: number;
+  freeDeliveryThreshold?: number;
   /**
    * When false, free delivery is not offered for this country
    * and delivery fees are always applied regardless of cart total.
@@ -231,7 +246,9 @@ export type OSCreateOrderPayload = {
 };
 
 export type OSCreateOrderResponse = {
-  /** OS-assigned order id. */
+  /** OS-assigned order UUID (preferred field name). */
+  order_id?: string;
+  /** OS-assigned order id (legacy alias for order_id). */
   id?: string;
   /** Echo of appOrderId. */
   appOrderId?: string;

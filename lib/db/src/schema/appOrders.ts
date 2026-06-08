@@ -43,6 +43,10 @@ export const appOrdersTable = pgTable(
     // a round-trip to WooCommerce. Nullable for legacy rows and guest orders
     // where no phone was captured.
     senderPhone: text("sender_phone"),
+    // Presentail OS order id (UUID) returned by POST /api/orders. Nullable for
+    // legacy rows created before OS order submission was wired up, and for rows
+    // created during the startup window before OS is available.
+    osOrderId: text("os_order_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

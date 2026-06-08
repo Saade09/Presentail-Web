@@ -22,7 +22,7 @@ import {
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
-import { getDeliverySlots } from "./osLocationsCache";
+import { getDeliverySlots, resolveOsDeliveryConfig } from "./osLocationsCache";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductByWcId } from "./osProductsCache";
 
@@ -312,14 +312,29 @@ export async function attemptCreateWcOrder(
   );
 
   const shippingLines: any[] = [];
-  // Compute the district fee from the server-side authoritative table using
-  // the catalog-resolved subtotal. The client-supplied districtFee is ignored.
+  // Resolve OS-delivered delivery config for this city/country — used for
+  // city-level delivery fee and express surcharge when the OS has sent data.
   const isNoAddress = body.noAddress === true;
-  const serverDistrictFeeUsd = computeDistrictFeeUsd(
-    body.district,
-    catalogSubtotalUsd,
-    isNoAddress,
+  const osDeliveryConfig = resolveOsDeliveryConfig(
+    body.shippingCountry ?? undefined,
+    body.cityId ?? undefined,
   );
+  // Prefer OS city-level delivery fee; fall back to hardcoded district table
+  // when OS hasn't sent city data yet (e.g. during initial startup window).
+  let serverDistrictFeeUsd: number;
+  if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
+    const isFreeByOs =
+      osDeliveryConfig.freeDeliveryEnabled === true &&
+      typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
+      catalogSubtotalUsd >= osDeliveryConfig.freeDeliveryThresholdUsd;
+    serverDistrictFeeUsd = isFreeByOs ? 0 : osDeliveryConfig.cityFeeUsd;
+  } else {
+    serverDistrictFeeUsd = computeDistrictFeeUsd(
+      body.district,
+      catalogSubtotalUsd,
+      isNoAddress,
+    );
+  }
   const convertedDistrictFee = await conv(serverDistrictFeeUsd);
   const deliveryLabel = isNoAddress ? "Contact Recipient" : body.district;
   if (convertedDistrictFee > 0) {
@@ -336,13 +351,16 @@ export async function attemptCreateWcOrder(
     });
   }
 
-  // Express surcharge: use the server constant when the client signalled
-  // express (body.expressFee > 0). We never use the client's numeric value.
+  // Express surcharge: prefer OS-delivered city value; fall back to hardcoded
+  // country constant when the OS cache has no data for this city yet.
   const clientSignalledExpress = body.expressFee > 0;
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     const districtCountry = countryForDistrict(body.district);
-    expressSurchargeAppliedUsd = expressSurchargeUsd(districtCountry);
+    expressSurchargeAppliedUsd =
+      osDeliveryConfig.expressSurchargeUsd > 0
+        ? osDeliveryConfig.expressSurchargeUsd
+        : expressSurchargeUsd(districtCountry);
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
@@ -496,6 +514,10 @@ export async function recordSuccessfulWcOrder(input: {
   // the SMS/WhatsApp notifier can reach the sender on subsequent state changes
   // without a round-trip to WooCommerce.
   senderPhone?: string | null;
+  // Presentail OS order id (UUID) returned by POST /api/orders on OS.
+  // Stored so the OS webhook can later look up the app_orders row by osOrderId
+  // when firing order-status push notifications.
+  osOrderId?: string | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
   const {
@@ -508,6 +530,7 @@ export async function recordSuccessfulWcOrder(input: {
     platform,
     storeKey,
     senderPhone,
+    osOrderId,
     log,
   } = input;
   const rawDeviceId =
@@ -547,6 +570,7 @@ export async function recordSuccessfulWcOrder(input: {
         totalUsdCents: totalUsdCents ?? null,
         storeKey: storeKey ?? null,
         senderPhone: normalizedSenderPhone,
+        osOrderId: osOrderId ?? null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -563,6 +587,7 @@ export async function recordSuccessfulWcOrder(input: {
           totalUsdCents: totalUsdCents ?? null,
           storeKey: storeKey ?? null,
           senderPhone: normalizedSenderPhone,
+          osOrderId: osOrderId ?? null,
           updatedAt: new Date(),
         },
       });
@@ -699,17 +724,37 @@ export async function attemptCreateOsOrder(
 
   // Compute delivery fees server-side (same authoritative logic as WC path).
   const isNoAddress = body.noAddress === true;
-  const serverDistrictFeeUsd = computeDistrictFeeUsd(
-    body.district,
-    catalogSubtotalUsd,
-    isNoAddress,
+  const osDeliveryConfig = resolveOsDeliveryConfig(
+    body.shippingCountry ?? undefined,
+    body.cityId ?? undefined,
   );
+  // Prefer OS city-level delivery fee; fall back to hardcoded district table
+  // when OS hasn't sent city data yet (e.g. during initial startup window).
+  let serverDistrictFeeUsd: number;
+  if (!isNoAddress && typeof osDeliveryConfig.cityFeeUsd === "number") {
+    const isFreeByOs =
+      osDeliveryConfig.freeDeliveryEnabled === true &&
+      typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
+      catalogSubtotalUsd >= osDeliveryConfig.freeDeliveryThresholdUsd;
+    serverDistrictFeeUsd = isFreeByOs ? 0 : osDeliveryConfig.cityFeeUsd;
+  } else {
+    serverDistrictFeeUsd = computeDistrictFeeUsd(
+      body.district,
+      catalogSubtotalUsd,
+      isNoAddress,
+    );
+  }
 
   const clientSignalledExpress = body.expressFee > 0;
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     const districtCountry = countryForDistrict(body.district);
-    expressSurchargeAppliedUsd = expressSurchargeUsd(districtCountry);
+    // Prefer OS-delivered city surcharge; fall back to hardcoded constant
+    // when the OS cache has no data for this city yet.
+    expressSurchargeAppliedUsd =
+      osDeliveryConfig.expressSurchargeUsd > 0
+        ? osDeliveryConfig.expressSurchargeUsd
+        : expressSurchargeUsd(districtCountry);
   }
 
   let slotFeeAppliedUsd = 0;
@@ -791,7 +836,13 @@ export async function attemptCreateOsOrder(
 
   try {
     const response = await createOsOrder(osConfig, osPayload);
-    const osOrderId = typeof response.id === "string" ? response.id : null;
+    // OS may return either `order_id` (UUID, preferred) or `id` (legacy).
+    const osOrderId =
+      typeof response.order_id === "string"
+        ? response.order_id
+        : typeof response.id === "string"
+          ? response.id
+          : null;
     return {
       ok: true,
       osOrderId,

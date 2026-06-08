@@ -57,27 +57,30 @@ export async function fetchOsLocations(
     });
   }
 
-  // Primary: /api/delivery-locations (the current canonical endpoint).
-  // If it responds with 2xx, trust it — even if countries is empty (OS has no
-  // data published yet). Only fall back to the legacy path when the primary
-  // itself fails (non-2xx), which handles old OS instances that haven't
-  // deployed the new endpoint yet.
-  const primaryRes = await tryFetch("/api/delivery-locations");
+  // Primary: /api/delivery-locations-ext (enriched endpoint with slug, expressFeeTotal,
+  // expressSurcharge, and freeDeliveryThreshold fields). Fall back to the
+  // plain /api/delivery-locations for older OS instances that haven't deployed
+  // the ext endpoint yet. A non-ok response from both is a hard failure.
+  const primaryRes = await tryFetch("/api/delivery-locations-ext");
   if (primaryRes.ok) {
     return primaryRes.json() as Promise<OSLocationsResponse>;
   }
 
-  // Primary failed — try the legacy endpoint (deprecated; some OS instances
-  // may still serve it). /api/public/locations returns 410 on updated instances,
-  // so a non-ok response here is a hard failure.
-  const legacyRes = await tryFetch("/api/public/locations");
-  if (!legacyRes.ok) {
+  // Primary failed — try the legacy endpoint.
+  const legacyRes = await tryFetch("/api/delivery-locations");
+  if (legacyRes.ok) {
+    return legacyRes.json() as Promise<OSLocationsResponse>;
+  }
+
+  // Both endpoints failed — try the oldest legacy path as a last resort.
+  const oldLegacyRes = await tryFetch("/api/public/locations");
+  if (!oldLegacyRes.ok) {
     throw new Error(
-      `Presentail OS locations API returned HTTP ${legacyRes.status} (primary: ${primaryRes.status})`,
+      `Presentail OS locations API returned HTTP ${oldLegacyRes.status} (primary ext: ${primaryRes.status}, legacy: ${legacyRes.status})`,
     );
   }
 
-  return legacyRes.json() as Promise<OSLocationsResponse>;
+  return oldLegacyRes.json() as Promise<OSLocationsResponse>;
 }
 
 /**
@@ -256,15 +259,15 @@ export async function createOsOrder(
 
   const url = new URL(`${baseUrl}/api/orders`);
   url.searchParams.set("workspace", workspace);
-  // API key is sent only in the x-api-key header — never in the URL so it
-  // cannot be captured by proxy or server access logs.
-
+  // API key is sent as both Bearer token and x-api-key — OS /api/orders
+  // requires Bearer auth; x-api-key is kept for backward compatibility.
   const res = await fetch(url.toString(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
       "User-Agent": "PresentailApp/1.0",
+      Authorization: `Bearer ${apiKey}`,
       "x-api-key": apiKey,
     },
     body: JSON.stringify({ ...payload, workspace }),

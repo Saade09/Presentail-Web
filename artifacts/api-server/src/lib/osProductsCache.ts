@@ -939,6 +939,42 @@ export function getOsProductHash(storeKey?: string): string {
 }
 
 /**
+ * Immediately remove a single product (by OS integer id) from all per-store
+ * caches so clients see the deletion without waiting for the next poll cycle.
+ * Also triggers a full cache invalidation so the data converges with OS.
+ *
+ * `deletedId` is the integer id sent in the `product.deleted` webhook payload.
+ * OSProduct.id is stored as a string, so we compare against `String(deletedId)`.
+ */
+export function removeOsProductById(deletedId: number | string): void {
+  const idStr = String(deletedId);
+  let removedFromAny = false;
+
+  for (const [, cache] of storeCache) {
+    const idx = cache.products.findIndex((p) => p.id === idStr);
+    if (idx === -1) continue;
+    const [removed] = cache.products.splice(idx, 1);
+    if (removed) {
+      // wcIdIndex is keyed by p.wcId (WooCommerce numeric id), not p.id.
+      if (removed.wcId != null) cache.wcIdIndex.delete(removed.wcId);
+      cache.slugIndex.delete(removed.id);
+      removedFromAny = true;
+    }
+  }
+
+  if (removedFromAny) {
+    logger.info(
+      { deletedId: idStr },
+      "osProductsCache: product removed immediately from in-memory cache",
+    );
+  }
+
+  // Full invalidation to reconcile with OS (in case the id doesn't match
+  // exactly or the cache was already stale).
+  invalidateOsProductsCache();
+}
+
+/**
  * Invalidate the cache and trigger a fresh fetch immediately.
  * Retains the last-good cache while the refetch is in progress.
  */
