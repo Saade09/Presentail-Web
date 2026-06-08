@@ -272,3 +272,110 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     expect(submitIndexNowUrlsMock).toHaveBeenCalledOnce();
   });
 });
+
+describe("detectAndSubmitNewTaxonomySlugs — brands", () => {
+  beforeEach(() => {
+    __resetIndexNowSlugTrackingForTest();
+    submitIndexNowUrlsMock.mockReset();
+    submitIndexNowUrlsMock.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    __resetIndexNowSlugTrackingForTest();
+  });
+
+  it("first fetch seeds the brand baseline without calling submitIndexNowUrls", () => {
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only"), makeBrand("tulip-house")],
+      [],
+      [],
+    );
+
+    expect(submitIndexNowUrlsMock).not.toHaveBeenCalled();
+  });
+
+  it("second fetch with the same brand slugs does not submit anything", () => {
+    const brands = [makeBrand("roses-only"), makeBrand("tulip-house")];
+
+    __detectAndSubmitNewTaxonomySlugsForTest([], brands, [], []);
+    submitIndexNowUrlsMock.mockClear();
+
+    __detectAndSubmitNewTaxonomySlugsForTest([], brands, [], []);
+
+    expect(submitIndexNowUrlsMock).not.toHaveBeenCalled();
+  });
+
+  it("second fetch with a new brand slug submits canonical URLs for en/ar/fr × lb/ae/cy", async () => {
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only")],
+      [],
+      [],
+    );
+
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only"), makeBrand("tulip-house")],
+      [],
+      [],
+    );
+
+    // submitIndexNowUrls is called fire-and-forget; give microtasks a cycle
+    await vi.waitFor(() => expect(submitIndexNowUrlsMock).toHaveBeenCalledOnce());
+
+    const [submittedUrls] = submitIndexNowUrlsMock.mock.calls[0] as [string[]];
+
+    // 1 new brand slug × 3 langs × 3 countries = 9 URLs
+    expect(submittedUrls).toHaveLength(9);
+
+    const langs = ["en", "ar", "fr"];
+    const countryCity = [
+      ["lb", "beirut"],
+      ["ae", "dubai"],
+      ["cy", "nicosia"],
+    ];
+
+    for (const lang of langs) {
+      for (const [country, city] of countryCity) {
+        expect(submittedUrls).toContain(
+          `https://new.presentail.com/${lang}-${country}/${city}/brand/tulip-house`,
+        );
+      }
+    }
+  });
+
+  it("reset restores brand baseline so a re-seen brand is not re-submitted", () => {
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only")],
+      [],
+      [],
+    );
+
+    __resetIndexNowSlugTrackingForTest();
+    submitIndexNowUrlsMock.mockClear();
+
+    // First fetch after reset — establishes new baseline; nothing submitted
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only")],
+      [],
+      [],
+    );
+
+    expect(submitIndexNowUrlsMock).not.toHaveBeenCalled();
+
+    submitIndexNowUrlsMock.mockClear();
+
+    // Second fetch after reset — "roses-only" is known, "tulip-house" is new
+    __detectAndSubmitNewTaxonomySlugsForTest(
+      [],
+      [makeBrand("roses-only"), makeBrand("tulip-house")],
+      [],
+      [],
+    );
+
+    expect(submitIndexNowUrlsMock).toHaveBeenCalledOnce();
+  });
+});

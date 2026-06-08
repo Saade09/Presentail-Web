@@ -110,11 +110,12 @@ let fetching = false;
 
 /**
  * Slugs seen in prior taxonomy fetches. Used to detect new category /
- * occasion slugs and submit only the newly-added canonical URLs to IndexNow
- * instead of re-submitting the entire sitemap on every refresh cycle.
+ * occasion / brand slugs and submit only the newly-added canonical URLs to
+ * IndexNow instead of re-submitting the entire sitemap on every refresh
+ * cycle.
  *
  * Populated on the first successful taxonomy fetch; subsequent fetches
- * diff against these sets. Both sets are intentionally never cleared so
+ * diff against these sets. All sets are intentionally never cleared so
  * a slug that temporarily disappears from OS and returns later is NOT
  * re-submitted (it was already indexed).
  */
@@ -208,7 +209,12 @@ function detectAndSubmitNewTaxonomySlugs(
     // First fetch — record all slugs as baseline; nothing to submit yet.
     taxonomySeeded = true;
     logger.info(
-      { categories: knownCategorySlugs.size, brands: knownBrandSlugs.size, occasions: knownOccasionSlugs.size, products: knownProductSlugs.size },
+      {
+        categories: knownCategorySlugs.size,
+        brands: knownBrandSlugs.size,
+        occasions: knownOccasionSlugs.size,
+        products: knownProductSlugs.size,
+      },
       "osProductsCache: IndexNow slug baseline established",
     );
     return;
@@ -766,7 +772,12 @@ async function fetchAndStore(): Promise<void> {
     // are recorded as the baseline and nothing is submitted; subsequent
     // fetches submit only slugs that are newly seen since the baseline.
     const freshProductSlugs = [...freshProductSlugSet];
-    if (freshCategories.length > 0 || freshBrands.length > 0 || freshOccasions.length > 0 || freshProductSlugs.length > 0) {
+    if (
+      freshCategories.length > 0 ||
+      freshBrands.length > 0 ||
+      freshOccasions.length > 0 ||
+      freshProductSlugs.length > 0
+    ) {
       detectAndSubmitNewTaxonomySlugs(freshCategories, freshBrands, freshOccasions, freshProductSlugs);
     }
 
