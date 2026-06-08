@@ -42,6 +42,7 @@ import {
   isExpressDeliveryAvailable,
   nearestSlotForHour,
   timeSlotsForCountry,
+  type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
 import { calcRewardPoints } from "@workspace/display-currency";
@@ -535,7 +536,9 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // Seed defaults used when the shopper switches to scheduled delivery
   // without opening the reschedule sheet (e.g. the express-unavailable
   // auto-fallback). The sheet overwrites these on Confirm.
-  const PROD_SLOTS = timeSlotsForCountry(cc);
+  const PROD_SLOTS = (selectedCity?.timeSlots?.length
+    ? selectedCity.timeSlots
+    : timeSlotsForCountry(cc)) as TimeSlot[];
   const localH = getCountryHour(cc);
   const todaySlot = nearestSlotForHour(PROD_SLOTS, true, localH);
   const todayIso = new Date().toISOString().slice(0, 10);

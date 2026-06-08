@@ -12,10 +12,14 @@
  */
 
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { AppText } from "@/components/AppText";
 
 import type { TimeSlot } from "@workspace/delivery";
+
+function fmtHour(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
+}
 
 export type SlotPickerColors = {
   primary: string;
@@ -48,6 +52,7 @@ export function SlotPicker({
       {slots.map((s) => {
         const past = isToday && localHour >= s.cutoffHour;
         const active = selectedSlotLabel === s.label;
+        const hasHours = s.startHour !== undefined && s.endHour !== undefined;
         return (
           <Pressable
             key={s.label}
@@ -64,16 +69,41 @@ export function SlotPicker({
               opacity: past ? 0.55 : 1,
             }}
           >
-            <AppText
-              style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 12,
-                color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
-                textDecorationLine: past ? "line-through" : "none",
-              }}
-            >
-              {s.label}
-            </AppText>
+            {hasHours ? (
+              <>
+                <AppText
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 12,
+                    color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
+                    textDecorationLine: past ? "line-through" : "none",
+                  }}
+                >
+                  {fmtHour(s.startHour!)}–{fmtHour(s.endHour!)}
+                </AppText>
+                <AppText
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 10,
+                    color: active ? "rgba(255,255,255,0.75)" : colors.mutedForeground,
+                    marginTop: 1,
+                  }}
+                >
+                  {s.label}
+                </AppText>
+              </>
+            ) : (
+              <AppText
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 12,
+                  color: active ? "#fff" : past ? colors.mutedForeground : colors.primary,
+                  textDecorationLine: past ? "line-through" : "none",
+                }}
+              >
+                {s.label}
+              </AppText>
+            )}
           </Pressable>
         );
       })}
