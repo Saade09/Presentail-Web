@@ -69,8 +69,11 @@ export default function ProductDetail() {
   const now = useNow();
   // OS can disable express per-city (e.g. Akkar has expressAvailable: false).
   // AND with the time-of-day check so both gates must pass.
+  // Use `=== true` (not `!== false`) so a null city (data not yet loaded)
+  // evaluates to false — avoids flashing Express for cities that have it
+  // disabled before the delivery-locations query resolves.
   const expressAvailable = useMemo(
-    () => city?.expressAvailable !== false && isExpressDeliveryAvailable(countryCode, now),
+    () => city?.expressAvailable === true && isExpressDeliveryAvailable(countryCode, now),
     [city, countryCode, now],
   );
 

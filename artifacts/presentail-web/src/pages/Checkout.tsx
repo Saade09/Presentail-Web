@@ -459,9 +459,10 @@ function CheckoutForm() {
   const now = useNow();
   const expressAvailable = useMemo(() => {
     const timeOk = isExpressDeliveryAvailable(countryCode, now);
-    // Default to true when the OS hasn't set the flag (undefined) so
-    // existing behaviour is preserved for cities not yet in OS.
-    const cityOk = selectedCityData?.expressAvailable !== false;
+    // Use `=== true` so a null/missing city (data not yet loaded, or OS
+    // hasn't set the flag) defaults to false — prevents showing express for
+    // cities where OS has disabled it before the query resolves.
+    const cityOk = selectedCityData?.expressAvailable === true;
     return timeOk && cityOk;
   }, [countryCode, now, selectedCityData]);
   const expressSurcharge = expressSurchargeForCountry(countryCode);
