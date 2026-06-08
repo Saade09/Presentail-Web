@@ -12,36 +12,36 @@ import {
 // shape: which tiles are visible, in which order, and what the Mamo tile is
 // labelled as (since it doubles as the AED card option).
 describe("webVisiblePayMethods — visibility matrix", () => {
-  it("LB × USD: card, paypal, wallet, whish (no Mamo, no Western Union)", () => {
+  it("LB × USD: wallet first, then card, paypal, whish (no Mamo, no Western Union)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "LB", activeCurrency: "USD" }),
-    ).toEqual(["card", "paypal", "wallet", "whish"]);
+    ).toEqual(["wallet", "card", "paypal", "whish"]);
   });
 
-  it("AE × AED: only Mamo + wallet (Stripe card hidden, PayPal hidden in UAE)", () => {
+  it("AE × AED: wallet first, then Mamo (Stripe card hidden, PayPal hidden in UAE)", () => {
     // Stripe doesn't settle in AED so the standalone `card` tile must be
     // hidden — the Mamo tile (relabelled below) is the card option in AED.
     expect(
       webVisiblePayMethods({ countryCode: "AE", activeCurrency: "AED" }),
-    ).toEqual(["mamo", "wallet"]);
+    ).toEqual(["wallet", "mamo"]);
   });
 
-  it("AE × USD: card + wallet only (PayPal UAE-excluded, Whish LB-only, Mamo AED-only)", () => {
+  it("AE × USD: wallet first, then card (PayPal UAE-excluded, Whish LB-only, Mamo AED-only)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "AE", activeCurrency: "USD" }),
-    ).toEqual(["card", "wallet"]);
+    ).toEqual(["wallet", "card"]);
   });
 
-  it("CY × EUR: card + wallet only (PayPal/Whish/Mamo all hidden in EUR + CY)", () => {
+  it("CY × EUR: wallet first, then card (PayPal/Whish/Mamo all hidden in EUR + CY)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "CY", activeCurrency: "EUR" }),
-    ).toEqual(["card", "wallet"]);
+    ).toEqual(["wallet", "card"]);
   });
 
-  it("CY × USD: card + paypal + wallet (Whish/Western LB-only, Mamo AED-only)", () => {
+  it("CY × USD: wallet first, then card + paypal (Whish/Western LB-only, Mamo AED-only)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "CY", activeCurrency: "USD" }),
-    ).toEqual(["card", "paypal", "wallet"]);
+    ).toEqual(["wallet", "card", "paypal"]);
   });
 
   it("never returns Western Union (web checkout doesn't implement it)", () => {
@@ -119,37 +119,41 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
     ).toBe("wallet");
   });
 
-  it("LB→AE flip drops Whish to card (USD) and to Mamo (AED)", () => {
+  it("LB→AE flip drops Whish to wallet (wallet is the new default when available)", () => {
+    // wallet is supported in both USD and AED, so it becomes the default
+    // when whish is no longer available.
     expect(
       webNextPaymentMethod("whish", {
         countryCode: "AE",
         activeCurrency: "USD",
       }),
-    ).toBe("card");
+    ).toBe("wallet");
     expect(
       webNextPaymentMethod("whish", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("wallet");
   });
 
-  it("USD→AED currency flip drops card to Mamo (Stripe can't settle AED)", () => {
+  it("USD→AED currency flip drops card to wallet (wallet is now the default, supported in AED)", () => {
     expect(
       webNextPaymentMethod("card", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("wallet");
   });
 
-  it("PayPal hidden in UAE: USD shopper switching country to AE falls back to card", () => {
+  it("PayPal hidden in UAE: USD shopper switching country to AE falls back to wallet", () => {
+    // wallet is supported in USD and is now the first default, so PayPal
+    // degrades to wallet (not card) when country switches to AE.
     expect(
       webNextPaymentMethod("paypal", {
         countryCode: "AE",
         activeCurrency: "USD",
       }),
-    ).toBe("card");
+    ).toBe("wallet");
   });
 
   it("auto-fallback never selects a hidden method across the LB/AE/CY × USD/AED/EUR matrix", () => {

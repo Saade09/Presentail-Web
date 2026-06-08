@@ -92,6 +92,7 @@ export function defaultPayMethodFor(
   currency: string,
   ctx: PayMethodContext = {},
 ): PayMethodId {
+  if (isPayMethodSupported("wallet", currency, ctx)) return "wallet";
   if (isPayMethodSupported("card", currency, ctx)) return "card";
   if (isPayMethodSupported("mamo", currency, ctx)) return "mamo";
   if (isPayMethodSupported("paypal", currency, ctx)) return "paypal";

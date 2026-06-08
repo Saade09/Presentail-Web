@@ -347,7 +347,7 @@ function CheckoutForm() {
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
   );
-  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("card");
+  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("wallet");
   // Wrap the setter so user-driven payment-method picks emit a funnel
   // event. We deliberately do NOT instrument the auto-fallback effect
   // below (e.g. AE customers being switched off whish) so the funnel
@@ -615,6 +615,49 @@ function CheckoutForm() {
     if (fallback !== paymentMethod) setPaymentMethodState(fallback);
   }, [currencyCode, countryCode, paymentMethod]);
 
+  // Stripe PaymentRequest object reused for both the canMakePayment probe
+  // and the actual wallet submit (non-AED). Stored after canMakePayment()
+  // confirms support so it can be shown synchronously from handleSubmit.
+  const paymentRequestRef = useRef<import("@stripe/stripe-js").PaymentRequest | null>(null);
+
+  // Probe wallet (Apple Pay / Google Pay) availability via Stripe's
+  // PaymentRequest API. Runs once when the Stripe.js instance resolves.
+  // If the browser / device reports no wallet is configured, silently
+  // advance the selection to the next supported method so the shopper
+  // is never stuck on a tile that would fail at submission.
+  const walletCheckedRef = useRef(false);
+  useEffect(() => {
+    if (!stripe || walletCheckedRef.current) return;
+    walletCheckedRef.current = true;
+    const pr = stripe.paymentRequest({
+      country: "LB",
+      currency: "usd",
+      total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
+      requestPayerName: false,
+      requestPayerEmail: false,
+    });
+    pr.canMakePayment().then((result) => {
+      if (result) {
+        // Wallet is available: store the PR object so handleSubmit can
+        // call pr.show() synchronously without a redundant canMakePayment call.
+        paymentRequestRef.current = pr;
+      } else {
+        // No wallet payment method available on this device/browser.
+        // Advance to the first supported non-wallet method so the shopper
+        // is never left on a tile that would fail at submission.
+        //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
+        //   • else → card  (Stripe settles all other supported currencies)
+        setPaymentMethodState((current) => {
+          if (current !== "wallet") return current;
+          return currencyCode === "AED" ? "mamo" : "card";
+        });
+      }
+    }).catch(() => {
+      // Ignore errors (e.g. Stripe not fully initialised yet).
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe]);
+
   if (showLoginGate) {
     return (
       <>
@@ -828,7 +871,130 @@ function CheckoutForm() {
       // order payload so both sides reference the same order ID.
       const orderId = `web-${Date.now()}`;
 
-      if (paymentMethod === "card") {
+      // For non-AED wallet: the Stripe Payment Request flow is used when
+      // paymentRequestRef holds the probe-confirmed PR object. If the probe
+      // hasn't resolved yet (rare race before submit), fall back to card.
+      const walletViaNativeSheet =
+        paymentMethod === "wallet" &&
+        activeCurrency !== "AED" &&
+        paymentRequestRef.current !== null;
+
+      // Resolve effective method used for the non-wallet submit branches below.
+      const payMethod: PaymentMethodId =
+        paymentMethod === "wallet" && activeCurrency !== "AED" && !walletViaNativeSheet
+          ? "card"
+          : paymentMethod;
+
+      if (walletViaNativeSheet && stripe) {
+        const pr = paymentRequestRef.current!;
+
+        // Update the displayed total before opening the native sheet so the
+        // shopper sees the correct order amount (amount is in USD cents).
+        pr.update({ total: { label: t("checkout.payment.orderTitle"), amount: Math.round(total * 100) } });
+
+        // pr.show() MUST be called synchronously from the click-handler
+        // context. Await below is inside the paymentmethod callback, not here.
+        pr.show();
+
+        await new Promise<void>((resolve) => {
+          const cleanup = () => {
+            pr.off("paymentmethod", pmHandler);
+            pr.off("cancel", cancelHandler);
+          };
+
+          const cancelHandler = () => { cleanup(); resolve(); };
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const pmHandler = async (ev: any) => {
+            cleanup();
+            try {
+              const intentRes = await createPaymentIntent.mutateAsync({
+                data: {
+                  items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+                  orderId,
+                  currency: "USD",
+                  email: sender.email || undefined,
+                },
+              });
+
+              if (!intentRes.ok || !intentRes.clientSecret) {
+                ev.complete("fail");
+                setStripeCardError((intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"));
+                resolve();
+                return;
+              }
+
+              const { error: stripeError, paymentIntent: confirmedIntent } =
+                await stripe.confirmCardPayment(
+                  intentRes.clientSecret,
+                  { payment_method: ev.paymentMethod.id },
+                  { handleActions: false },
+                );
+
+              if (stripeError) {
+                ev.complete("fail");
+                trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
+                setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
+                resolve();
+                return;
+              }
+
+              let finalIntent: import("@stripe/stripe-js").PaymentIntent | undefined = confirmedIntent ?? undefined;
+              if (confirmedIntent?.status === "requires_action") {
+                const { error: actionError, paymentIntent: actionIntent } = await stripe.handleNextAction({
+                  clientSecret: intentRes.clientSecret,
+                });
+                if (actionError) {
+                  ev.complete("fail");
+                  trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
+                  setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
+                  resolve();
+                  return;
+                }
+                finalIntent = actionIntent;
+              }
+
+              if (finalIntent?.status !== "succeeded") {
+                ev.complete("fail");
+                setStripeCardError(t("checkout.toast.cardPaymentFailed"));
+                resolve();
+                return;
+              }
+
+              ev.complete("success");
+              void maybeSaveNewAddress();
+              const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
+              const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
+              if (res.ok) {
+                if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
+                clearCart();
+                try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+                void maybeSaveProfilePhone();
+                trackEvent({ name: "order_placed", surface: "checkout", action: "wallet" });
+                setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+              } else if (res.code === "coupon_invalid") {
+                setCouponError(res.message || t("checkout.coupon.invalidError"));
+                setCouponApplied(false);
+                setCouponOpen(true);
+                setTimeout(() => couponInputRef.current?.focus(), 80);
+              } else {
+                toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
+              }
+            } catch {
+              ev.complete("fail");
+            } finally {
+              resolve();
+            }
+          };
+
+          pr.on("paymentmethod", pmHandler);
+          pr.on("cancel", cancelHandler);
+        });
+
+        return;
+      }
+
+      if (payMethod === "card") {
         // Inline Stripe Elements flow — no redirect.
         if (!stripe || !elements) {
           toast({
@@ -947,7 +1113,7 @@ function CheckoutForm() {
         return;
       }
 
-      if (paymentMethod === "paypal") {
+      if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
@@ -975,10 +1141,11 @@ function CheckoutForm() {
       // through the same Mamo flow as the "Pay by card" tile so we don't
       // need a separate web wallet integration just for UAE — mirrors the
       // mobile checkout behaviour.
+      // payMethod is "wallet" here only for AED (non-AED was already resolved to "card").
       const walletViaMamo =
-        paymentMethod === "wallet" && activeCurrency === "AED";
+        payMethod === "wallet" && activeCurrency === "AED";
 
-      if (paymentMethod === "mamo" || walletViaMamo) {
+      if (payMethod === "mamo" || walletViaMamo) {
         // Wallet-via-Mamo carries `paymentMethod: "wallet"` in client
         // state, but the WC finalizer treats `wallet` as a Stripe-verified
         // method. Normalise to `"mamo"` in the stashed payload so the
@@ -987,7 +1154,7 @@ function CheckoutForm() {
         // from Mamo's hosted page.
         const finalizedPaymentMethod: PaymentMethodId = walletViaMamo
           ? "mamo"
-          : paymentMethod;
+          : payMethod;
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,

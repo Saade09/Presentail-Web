@@ -631,7 +631,7 @@ function CheckoutScreen() {
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
-  const [payMethod, setPayMethod] = useState<PayMethodId>("card");
+  const [payMethod, setPayMethod] = useState<PayMethodId>("wallet");
 
   // Reset the selected method only when the active currency makes it
   // unusable. Otherwise we preserve the customer's explicit choice so
@@ -650,6 +650,48 @@ function CheckoutScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const deliveryStepRef = useRef<{ scrollToFirstError: () => void } | null>(null);
   const { confirmPayment, handleNextAction, isPlatformPaySupported, confirmPlatformPayPayment } = useStripe();
+
+  // Probe wallet (Apple Pay / Google Pay) availability early — before the
+  // shopper taps "Place Order" — so we can silently fall back to card / Mamo
+  // if the device has no wallet configured (e.g. no Apple Pay card set up,
+  // simulator, Google Pay not linked).
+  // null = probe not yet complete; true/false = cached result.
+  const walletSupportedRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (walletSupportedRef.current !== null) return;
+    const isTestEnv = !STRIPE_PUBLISHABLE_KEY.startsWith("pk_live_");
+    isPlatformPaySupported(
+      Platform.OS === "android"
+        ? { googlePay: { testEnv: isTestEnv } }
+        : undefined,
+    ).then((supported) => {
+      walletSupportedRef.current = supported;
+      if (!supported) {
+        // Advance to the first supported non-wallet method so the shopper
+        // is never left on a tile that would fail at submission.
+        //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
+        //   • else → card  (Stripe settles all other supported currencies)
+        setPayMethod((current) => {
+          if (current !== "wallet") return current;
+          return currencyCode === "AED" ? "mamo" : "card";
+        });
+      }
+    }).catch(() => {
+      // Ignore — wallet check failed, leave selection as-is.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // If the probe already resolved "not supported" and the selection is later
+  // switched back to "wallet" (currency change, manual tap), re-apply the
+  // fallback immediately using the cached result.
+  useEffect(() => {
+    if (payMethod !== "wallet") return;
+    if (walletSupportedRef.current === false) {
+      setPayMethod(currencyCode === "AED" ? "mamo" : "card");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payMethod]);
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
   // stripe-react-native exposes the decline code in error.code for card declines.
@@ -2844,6 +2886,30 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           if (!Object.values(visible).some(Boolean)) visible.card = true;
           return (
             <>
+              {visible.wallet ? (
+        <PayOption
+          colors={colors}
+          active={payMethod === "wallet"}
+          onPress={() => tap("wallet")}
+          title={t.checkoutPayWallet}
+          payIcons="wallet"
+        >
+          {payMethod === "wallet" ? (
+            currencyCode === "AED" ? (
+              // AED wallet routes through Mamo's hosted page (no Stripe
+              // receipt-email step here — Mamo collects the email itself
+              // and we already have the sender email from the delivery step).
+              <SecurityNote colors={colors} />
+            ) : (
+              <View style={{ gap: 12 }}>
+                <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                <SecurityNote colors={colors} />
+              </View>
+            )
+          ) : null}
+        </PayOption>
+
+              ) : null}
               {visible.mamo ? (
                 <PayOption
                   colors={colors}
@@ -2896,30 +2962,6 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
-        </PayOption>
-
-              ) : null}
-              {visible.wallet ? (
-        <PayOption
-          colors={colors}
-          active={payMethod === "wallet"}
-          onPress={() => tap("wallet")}
-          title={t.checkoutPayWallet}
-          payIcons="wallet"
-        >
-          {payMethod === "wallet" ? (
-            currencyCode === "AED" ? (
-              // AED wallet routes through Mamo's hosted page (no Stripe
-              // receipt-email step here — Mamo collects the email itself
-              // and we already have the sender email from the delivery step).
-              <SecurityNote colors={colors} />
-            ) : (
-              <View style={{ gap: 12 }}>
-                <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
-                <SecurityNote colors={colors} />
-              </View>
-            )
-          ) : null}
         </PayOption>
 
               ) : null}

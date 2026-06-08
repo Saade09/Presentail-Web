@@ -35,6 +35,12 @@ const mockHandleNextAction = vi.fn();
 const mockStripe = {
   confirmCardPayment: mockConfirmCardPayment,
   handleNextAction: mockHandleNextAction,
+  // In jsdom there is no Apple Pay / Google Pay, so canMakePayment returns null.
+  // This causes the checkout's wallet-availability effect to fall back to "card"
+  // as the selected payment method, matching the original test intent.
+  paymentRequest: vi.fn(() => ({
+    canMakePayment: vi.fn().mockResolvedValue(null),
+  })),
 };
 const mockCardElement = {}; // opaque card element reference
 
@@ -371,7 +377,9 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     renderCheckout();
     await navigateToStep2(user);
 
-    // Card tile should already be selected (paymentMethod defaults to "card").
+    // Card tile is selected: wallet is the optimistic default but the
+    // canMakePayment mock returns null (no wallet in jsdom) so the checkout
+    // effect silently falls back to card before the shopper interacts.
     const submitBtn = screen.getByTestId("button-submit-payment");
     await user.click(submitBtn);
 

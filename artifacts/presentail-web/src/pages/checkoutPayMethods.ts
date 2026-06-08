@@ -21,10 +21,10 @@ export type WebPaymentMethodId = Extract<
 >;
 
 export const WEB_PAY_METHODS: readonly WebPaymentMethodId[] = [
+  "wallet",
   "card",
   "paypal",
   "mamo",
-  "wallet",
   "whish",
 ] as const;
 
