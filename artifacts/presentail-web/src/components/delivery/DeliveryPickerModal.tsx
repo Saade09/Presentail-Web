@@ -17,6 +17,8 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
+  firstAvailableDay,
+  firstAvailableSlot,
   getCountryHour,
   isExpressDeliveryAvailable,
   nearestSlotForHour,
@@ -67,6 +69,11 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const currentHour = useMemo(() => getCountryHour(countryCode, now), [countryCode, now]);
   const todayIso = useMemo(() => now.toISOString().slice(0, 10), [now]);
 
+  const todayHasSlots = useMemo(
+    () => firstAvailableSlot(timeSlots, true, currentHour) !== null,
+    [timeSlots, currentHour],
+  );
+
   const initialMode: "express" | "schedule" =
     deliverySelection.mode === "express" ? "express" : "schedule";
   const initialDate =
@@ -86,10 +93,21 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   useEffect(() => {
     if (!open) return;
     setMode(deliverySelection.mode === "express" ? "express" : "schedule");
-    const newDate =
+    let newDate =
       deliverySelection.mode !== "express" && deliverySelection.date
         ? deliverySelection.date
         : "";
+
+    const dateIsEmptyOrToday = !newDate || newDate === todayIso;
+    if (dateIsEmptyOrToday && !todayHasSlots) {
+      const result = firstAvailableDay(todayIso, timeSlots, currentHour, todayIso);
+      if (result) {
+        setDate(result.iso);
+        setSlot(result.slot.label);
+        return;
+      }
+    }
+
     setDate(newDate);
     const isToday = !newDate || newDate === todayIso;
     setSlot(
@@ -172,21 +190,25 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
                 {/* Quick-pick chips: today / tomorrow / day after */}
                 <div className="grid grid-cols-3 gap-2">
-                  {quickDays.map((d) => (
-                    <button
-                      key={d.iso}
-                      type="button"
-                      onClick={() => setDate(d.iso)}
-                      className={`rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors ${
-                        date === d.iso
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      <div className="font-semibold">{d.label}</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">{dayMonthShort(d.iso)}</div>
-                    </button>
-                  ))}
+                  {quickDays.map((d) => {
+                    const isDisabledToday = d.iso === todayIso && !todayHasSlots;
+                    return (
+                      <button
+                        key={d.iso}
+                        type="button"
+                        disabled={isDisabledToday}
+                        onClick={() => !isDisabledToday && setDate(d.iso)}
+                        className={`rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors ${
+                          date === d.iso
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-foreground hover:border-foreground/20"
+                        } ${isDisabledToday ? "opacity-40 cursor-not-allowed" : ""}`}
+                      >
+                        <div className="font-semibold">{d.label}</div>
+                        <div className="text-[10px] opacity-80 mt-0.5">{dayMonthShort(d.iso)}</div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Full date input for any other date */}
@@ -194,7 +216,11 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={todayHasSlots ? todayIso : (() => {
+                    const tom = new Date(todayIso);
+                    tom.setDate(tom.getDate() + 1);
+                    return tom.toISOString().slice(0, 10);
+                  })()}
                 />
               </div>
 
@@ -203,23 +229,28 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                   {t("checkout.deliveryTime")}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {timeSlots.map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => setSlot(s.label)}
-                      className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
-                        slot === s.label
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      <div>{s.label}</div>
-                      {s.extraFee && s.extraFee > 0 ? (
-                        <div className="text-xs opacity-75 mt-0.5">+${s.extraFee}</div>
-                      ) : null}
-                    </button>
-                  ))}
+                  {timeSlots.map((s) => {
+                    const isPastCutoff =
+                      (!date || date === todayIso) && s.cutoffHour <= currentHour;
+                    return (
+                      <button
+                        key={s.label}
+                        type="button"
+                        disabled={isPastCutoff}
+                        onClick={() => !isPastCutoff && setSlot(s.label)}
+                        className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+                          slot === s.label
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-foreground hover:border-foreground/20"
+                        } ${isPastCutoff ? "opacity-40 cursor-not-allowed" : ""}`}
+                      >
+                        <div>{s.label}</div>
+                        {s.extraFee && s.extraFee > 0 ? (
+                          <div className="text-xs opacity-75 mt-0.5">+${s.extraFee}</div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </>

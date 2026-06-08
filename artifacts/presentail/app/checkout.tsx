@@ -80,6 +80,7 @@ import {
   EXPRESS_CLOSE_HOUR,
   dayLabels,
   expressSurchargeForCountry,
+  firstAvailableDay,
   getCountryHour,
   isExpressDeliveryAvailable,
   resolveSlotLabel,
@@ -567,14 +568,26 @@ function CheckoutScreen() {
   // visited checkout before, and re-validate any stored slot label against
   // the current country's slot list AND the current country-local hour
   // (so a stored same-day slot whose cutoff has already passed gets bumped
-  // to the next available one). Keep it defensive: never throw.
+  // to the next available one, and if today is fully sold out we advance
+  // to the next available day automatically). Keep it defensive: never throw.
   useEffect(() => {
+    const h = getCountryHour(effectiveCountry);
     if (deliverySelection.mode == null) {
-      deliverySelection.setSelection({
-        mode: "today_slot",
-        date: todayIso,
-        slotLabel: defaultSlotForToday?.label ?? null,
-      });
+      if (defaultSlotForToday == null) {
+        // Today fully past — advance to the first available day.
+        const result = firstAvailableDay(todayIso, timeSlots, h, todayIso);
+        deliverySelection.setSelection({
+          mode: result && result.iso !== todayIso ? "schedule" : "today_slot",
+          date: result?.iso ?? todayIso,
+          slotLabel: result?.slot.label ?? null,
+        });
+      } else {
+        deliverySelection.setSelection({
+          mode: "today_slot",
+          date: todayIso,
+          slotLabel: defaultSlotForToday.label,
+        });
+      }
       return;
     }
     if (deliverySelection.mode === "today_slot") {
@@ -583,10 +596,20 @@ function CheckoutScreen() {
         deliverySelection.slotLabel,
         timeSlots,
         isToday,
-        getCountryHour(effectiveCountry),
+        h,
       );
       if (fixed !== deliverySelection.slotLabel) {
-        deliverySelection.setSlotLabel(fixed);
+        if (fixed === null && isToday) {
+          // Today's last slot has passed — advance to the next available day.
+          const result = firstAvailableDay(todayIso, timeSlots, h, todayIso);
+          deliverySelection.setSelection({
+            mode: result && result.iso !== todayIso ? "schedule" : "today_slot",
+            date: result?.iso ?? todayIso,
+            slotLabel: result?.slot.label ?? null,
+          });
+        } else {
+          deliverySelection.setSlotLabel(fixed);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2643,6 +2666,8 @@ function DeliveryTimeCard({
   const { formatPrice } = useCurrency();
   const t = useT();
   const todayIso = days[0]?.iso;
+  const todayHasSlots = (timeSlots as TimeSlot[]).some((s) => s.cutoffHour > localHour);
+  const disabledDates = todayHasSlots ? undefined : new Set<string>(todayIso ? [todayIso] : []);
   return (
     <Card colors={colors} title={t.deliveryTimeTitle}>
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -2663,7 +2688,9 @@ function DeliveryTimeCard({
           title={t.todayDelivery}
           subtitle={t.scheduledSlotLabel}
           active={deliveryMode === "today_slot"}
+          disabled={!todayHasSlots}
           onPress={() => {
+            if (!todayHasSlots) return;
             setDeliveryMode("today_slot");
             setDate(days[0].iso);
             const firstAvail = timeSlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
@@ -2687,6 +2714,7 @@ function DeliveryTimeCard({
               selectedDate={date}
               onSelectDate={(iso) => { setDate(iso); setSlot(null); }}
               colors={colors}
+              disabledDates={disabledDates}
             />
           )}
           <SlotPicker

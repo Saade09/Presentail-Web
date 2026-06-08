@@ -316,6 +316,48 @@ export function getCountryHour(
 }
 
 // ---------------------------------------------------------------------------
+// First available day
+// ---------------------------------------------------------------------------
+
+export type FirstAvailableDayResult = {
+  /** ISO date string (YYYY-MM-DD) of the first day with at least one open slot. */
+  iso: string;
+  /** The earliest available slot on that day. */
+  slot: TimeSlot;
+};
+
+/**
+ * Starting from `startIso`, walks forward day by day (up to `maxDays`) and
+ * returns the first date that has at least one non-past slot together with
+ * that date's earliest available slot.
+ *
+ * `todayIso` identifies "today" — slots on this date are filtered by
+ * `currentHour`; slots on all later dates are always available.
+ *
+ * Returns `null` only when every day in the look-ahead window is fully
+ * booked/past, which is an extremely rare edge case.
+ */
+export function firstAvailableDay(
+  startIso: string,
+  slots: TimeSlot[],
+  currentHour: number,
+  todayIso: string,
+  maxDays = 10,
+): FirstAvailableDayResult | null {
+  if (slots.length === 0) return null;
+  const startMs = new Date(`${startIso}T00:00:00`).getTime();
+  for (let i = 0; i < maxDays; i++) {
+    const d = new Date(startMs);
+    d.setDate(d.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const isToday = iso === todayIso;
+    const slot = firstAvailableSlot(slots, isToday, currentHour);
+    if (slot) return { iso, slot };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Express availability window
 // ---------------------------------------------------------------------------
 

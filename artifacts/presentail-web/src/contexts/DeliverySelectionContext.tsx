@@ -8,7 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { timeSlotsForCountry } from "@workspace/delivery";
+import {
+  firstAvailableDay,
+  getBeirutHour,
+  timeSlotsForCountry,
+} from "@workspace/delivery";
 
 export type DeliveryMode = "express" | "today_slot" | "schedule";
 
@@ -31,6 +35,22 @@ const DeliverySelectionContext =
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Resolve the first available delivery date starting from today.
+ * Uses LB slots + Beirut hour as a conservative default when country is
+ * unknown (the picker modal will re-check with the actual country on open).
+ */
+function resolveFirstAvailableDate(): { date: string; slotLabel: string | null } {
+  const today = todayIso();
+  const lbSlots = timeSlotsForCountry("LB");
+  const h = getBeirutHour();
+  const result = firstAvailableDay(today, lbSlots, h, today);
+  return {
+    date: result?.iso ?? today,
+    slotLabel: result?.slot.label ?? null,
+  };
 }
 
 function sanitize(raw: unknown): DeliverySelection {
@@ -62,7 +82,21 @@ function sanitize(raw: unknown): DeliverySelection {
   if (mode === "express") {
     return { mode, date: todayIso(), slotLabel: null };
   }
-  if (!date) date = todayIso();
+  const today = todayIso();
+  if (!date || date === today) {
+    const lbSlots = timeSlotsForCountry("LB");
+    const h = getBeirutHour();
+    const todayHasSlots = lbSlots.some((s) => s.cutoffHour > h);
+    if (!todayHasSlots) {
+      const resolved = resolveFirstAvailableDate();
+      return {
+        mode: resolved.date !== today ? "schedule" : mode,
+        date: resolved.date,
+        slotLabel: resolved.slotLabel,
+      };
+    }
+    if (!date) date = today;
+  }
   return { mode, date, slotLabel };
 }
 
@@ -71,7 +105,18 @@ function readInitial(): DeliverySelection {
     return { mode: null, date: null, slotLabel: null };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { mode: null, date: null, slotLabel: null };
+    if (!raw) {
+      // No persisted selection — resolve a conservative default (LB slots + Beirut
+      // hour). The web checkout page re-validates with the actual country slots on
+      // mount so AE/CY shoppers get the correct country-aware default.
+      const resolved = resolveFirstAvailableDate();
+      const today = todayIso();
+      return {
+        mode: resolved.date !== today ? "schedule" : "today_slot",
+        date: resolved.date,
+        slotLabel: resolved.slotLabel,
+      };
+    }
     return sanitize(JSON.parse(raw));
   } catch {
     return { mode: null, date: null, slotLabel: null };

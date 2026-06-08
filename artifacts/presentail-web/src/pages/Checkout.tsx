@@ -51,7 +51,9 @@ import { useNow } from "@/lib/useNow";
 import {
   dayLabels,
   expressSurchargeForCountry,
+  firstAvailableDay,
   formatDeliveryRow,
+  getCountryHour,
   isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
@@ -541,6 +543,47 @@ function CheckoutForm() {
       setDeliverySlot(newSlots[0]?.label ?? "");
     }
   }, [countryCode]);
+
+  // Country-aware mount-time correction: when the selected date is today (or
+  // absent) and today has no remaining slots for this country, advance to the
+  // first available day.  Runs whenever timeSlots updates (e.g. OS city data
+  // arrives after the initial render), but only corrects toward a later date —
+  // it never moves a future date backward.
+  const deliveryDayInitRef = useRef(false);
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const currentDate = recipient.deliveryDate;
+    // Only correct when the current date is today or not yet set.
+    if (currentDate && currentDate !== today) return;
+    // Skip if already corrected and nothing has changed.
+    if (deliveryDayInitRef.current && currentDate && currentDate !== today) return;
+    deliveryDayInitRef.current = true;
+    const h = getCountryHour(countryCode, new Date());
+    const todayHasSlots = timeSlots.some((s) => s.cutoffHour > h);
+    if (todayHasSlots) {
+      // Today still has available slots — ensure the pre-selected slot is the
+      // first one that hasn't yet passed its cutoff.
+      const firstAvailableSlot = timeSlots.find((s) => s.cutoffHour > h);
+      if (firstAvailableSlot && !deliverySlot) {
+        setDeliverySlot(firstAvailableSlot.label);
+      }
+      return;
+    }
+    // Today is fully sold out — advance to the first available future day.
+    const result = firstAvailableDay(today, timeSlots, h, today);
+    if (result) {
+      setRecipient((r) => ({ ...r, deliveryDate: result.iso }));
+      setDeliverySlot(result.slot.label);
+      if (result.iso !== today) setDeliveryMode("schedule");
+      // Persist the corrected selection so the product page / cart stay in sync.
+      deliverySelection.setSelection({
+        mode: result.iso !== today ? "schedule" : "today_slot",
+        date: result.iso,
+        slotLabel: result.slot.label,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeSlots]);
 
   // These hooks must be called unconditionally — before any early return — to
   // comply with React's Rules of Hooks. Moving them here prevents a hooks-count
