@@ -217,7 +217,9 @@ export function ScheduleInlinePanel({
             const isToday = date === todayIso;
             const past = isToday && localHour >= s.cutoffHour;
             const active = slotLabel === s.label;
-            const [from, to] = s.label.split("–").map((p) => p.trim());
+            const hasHours = s.startHour !== undefined && s.endHour !== undefined;
+            const fromLabel = hasHours ? fmtHour(s.startHour!) : s.label.split("–")[0]?.trim() ?? s.label;
+            const toLabel = hasHours ? fmtHour(s.endHour!) : (s.label.split("–")[1]?.trim() ?? null);
             return (
               <button
                 key={s.label}
@@ -234,10 +236,13 @@ export function ScheduleInlinePanel({
                 )}
                 data-testid={`schedule-slot-${s.cutoffHour}`}
               >
-                <span className="block text-xs leading-tight">{from}</span>
-                {to ? (
-                  <span className="block text-xs leading-tight">{to}</span>
+                <span className="block text-xs leading-tight">{fromLabel}</span>
+                {toLabel ? (
+                  <span className="block text-xs leading-tight">{toLabel}</span>
                 ) : null}
+                {hasHours && (
+                  <span className="block text-[10px] leading-tight opacity-60">{s.label}</span>
+                )}
                 {s.extraFee && s.extraFee > 0 ? (
                   <span className="block text-[10px] leading-tight mt-0.5 opacity-80">
                     +${s.extraFee}
@@ -250,6 +255,10 @@ export function ScheduleInlinePanel({
       </div>
     </div>
   );
+}
+
+function fmtHour(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
 }
 
 function monthShort(iso: string): string {
