@@ -459,7 +459,7 @@ router.get("/auth/diagnostics", async (req, res) => {
 
   const checks: Record<
     string,
-    { ok: boolean; status?: number; detail?: string }
+    { ok: boolean; status?: number; reason?: string; detail?: string }
   > = {};
 
   // 1) WC customers endpoint reachable + creds accepted.
@@ -533,6 +533,45 @@ router.get("/auth/diagnostics", async (req, res) => {
     };
   } catch (e: any) {
     checks.classifier = { ok: false, detail: e?.message ?? "threw" };
+  }
+
+  // 4) Stripe key presence + format check (no network call required).
+  //    Both STRIPE_SECRET_KEY (server-side API calls) and STRIPE_PUBLISHABLE_KEY
+  //    (returned to clients for Elements / mobile SDK) must be set and valid-looking.
+  {
+    const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
+    if (!secretKey) {
+      checks.stripe = {
+        ok: false,
+        reason: "stripe_not_configured", // i18n-ignore
+        detail: "STRIPE_SECRET_KEY not set", // i18n-ignore
+      };
+    } else if (!secretKey.startsWith("sk_")) {
+      checks.stripe = {
+        ok: false,
+        reason: "stripe_not_configured", // i18n-ignore
+        detail: "STRIPE_SECRET_KEY does not start with sk_", // i18n-ignore
+      };
+    } else if (!publishableKey) {
+      checks.stripe = {
+        ok: false,
+        reason: "stripe_not_configured", // i18n-ignore
+        detail: "STRIPE_PUBLISHABLE_KEY not set", // i18n-ignore
+      };
+    } else if (!publishableKey.startsWith("pk_")) {
+      checks.stripe = {
+        ok: false,
+        reason: "stripe_not_configured", // i18n-ignore
+        detail: "STRIPE_PUBLISHABLE_KEY does not start with pk_", // i18n-ignore
+      };
+    } else {
+      const mode = secretKey.startsWith("sk_live_") ? "live" : "test";
+      checks.stripe = {
+        ok: true,
+        detail: `keys present (${mode} mode)`, // i18n-ignore
+      };
+    }
   }
 
   const overallOk = Object.values(checks).every((c) => c.ok);
