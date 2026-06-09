@@ -24,7 +24,7 @@ import {
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 import { getDeliverySlots, resolveOsDeliveryConfig } from "./osLocationsCache";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
-import { getOsProductByWcId } from "./osProductsCache";
+import { getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -675,6 +675,18 @@ export async function attemptCreateOsOrder(
   // Client-supplied prices are never used for financial calculations.
   const catalogItemInputs = body.items.filter((item) => !!item.wcId);
   const nonCatalogFeeItems = body.items.filter((item) => !item.wcId);
+
+  // Guard: if the OS product cache is still cold and the order contains catalog
+  // items, reject immediately rather than forwarding a raw WC numeric ID as the
+  // OS productId (which causes OS to return HTTP 500).
+  if (catalogItemInputs.length > 0 && !hasOsProducts(opts.store?.storeKey)) {
+    return {
+      ok: false,
+      status: 503,
+      message: "Catalog not yet loaded, please try again shortly", // i18n-ignore
+      recipientName: recipientFullName,
+    };
+  }
   const nonCatalogFeesUsd = nonCatalogFeeItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
@@ -830,7 +842,7 @@ export async function attemptCreateOsOrder(
       currencyCode: presentedCurrency,
       totalUsd: Math.round(totalUsd * 100) / 100,
     },
-    platform: opts.platform ?? null,
+    platform: opts.platform ?? undefined,
     couponCode: body.couponCode || undefined,
   };
 

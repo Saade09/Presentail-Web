@@ -274,14 +274,29 @@ export async function createOsOrder(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  const body = (await res.json().catch(() => ({}))) as OSCreateOrderResponse;
-
   if (!res.ok) {
+    const rawText = await res.text().catch(() => "");
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      // not JSON — use raw text snippet as fallback
+    }
+    const snippet = rawText.length > 500 ? rawText.slice(0, 500) + "…" : rawText;
+    // Log the full raw body so ops can diagnose OS-side rejections.
+    // (imported logger is not available here; use console.warn which the
+    //  API server's pino transport captures at WARN level)
+    console.warn(
+      `[presentail-os] createOsOrder HTTP ${res.status} raw body: ${snippet}`,
+    );
     const msg =
-      (typeof body.message === "string" && body.message) ||
+      (typeof parsed["error"] === "string" && parsed["error"]) ||
+      (typeof parsed["message"] === "string" && parsed["message"]) ||
+      snippet ||
       `Presentail OS order API returned HTTP ${res.status}`;
     throw new Error(msg);
   }
 
+  const body = (await res.json().catch(() => ({}))) as OSCreateOrderResponse;
   return body;
 }
