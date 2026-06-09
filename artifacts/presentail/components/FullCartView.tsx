@@ -39,6 +39,7 @@ import {
   getCountryHour,
   isExpressDeliveryAvailable,
   resolveSlotLabel,
+  slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
@@ -245,6 +246,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     mode: deliverySelection.mode,
     date: deliverySelection.date,
     slotLabel: displaySlotLabel,
+    slotTimeRange: slotTimeRangeForLabel(displaySlotLabel, cityTimeSlots),
     days,
     expressLabel: t.expressDelivery,
   });

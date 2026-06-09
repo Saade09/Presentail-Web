@@ -81,16 +81,6 @@ export function SlotPicker({
                 >
                   {fmtHour(s.startHour!)}–{fmtHour(s.endHour!)}
                 </AppText>
-                <AppText
-                  style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 10,
-                    color: active ? "rgba(255,255,255,0.75)" : colors.mutedForeground,
-                    marginTop: 1,
-                  }}
-                >
-                  {s.label}
-                </AppText>
               </>
             ) : (
               <AppText

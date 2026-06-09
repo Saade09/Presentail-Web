@@ -240,9 +240,6 @@ export function ScheduleInlinePanel({
                 {toLabel ? (
                   <span className="block text-xs leading-tight">{toLabel}</span>
                 ) : null}
-                {hasHours && (
-                  <span className="block text-[10px] leading-tight opacity-60">{s.label}</span>
-                )}
                 {s.extraFee && s.extraFee > 0 ? (
                   <span className="block text-[10px] leading-tight mt-0.5 opacity-80">
                     +${s.extraFee}

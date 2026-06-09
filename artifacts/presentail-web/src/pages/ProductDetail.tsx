@@ -31,6 +31,8 @@ import {
   expressSurchargeForCountry,
   formatDeliveryRow,
   isExpressDeliveryAvailable,
+  slotTimeRangeForLabel,
+  timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -149,6 +151,10 @@ export default function ProductDetail() {
   }, [product, vm]);
 
   const days = useMemo(() => dayLabels("Today", "Tomorrow"), []);
+  const cityTimeSlots = useMemo(
+    () => (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(countryCode)),
+    [city, countryCode],
+  );
   const scheduledRowSubtitle = useMemo(() => {
     const formatted =
       deliverySelection.mode && deliverySelection.mode !== "express"
@@ -156,6 +162,7 @@ export default function ProductDetail() {
             mode: deliverySelection.mode,
             date: deliverySelection.date,
             slotLabel: deliverySelection.slotLabel,
+            slotTimeRange: slotTimeRangeForLabel(deliverySelection.slotLabel, cityTimeSlots),
             days,
             expressLabel: delivery.expressDeliveryTimeLabel,
           })
@@ -165,6 +172,7 @@ export default function ProductDetail() {
     deliverySelection.mode,
     deliverySelection.date,
     deliverySelection.slotLabel,
+    cityTimeSlots,
     days,
     delivery.expressDeliveryTimeLabel,
   ]);

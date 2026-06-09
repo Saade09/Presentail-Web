@@ -3,7 +3,7 @@ import { CalendarDays, ChevronRight } from "lucide-react";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { dayLabels, formatDeliveryRow } from "@workspace/delivery";
+import { dayLabels, formatDeliveryRow, slotTimeRangeForLabel, timeSlotsForCountry } from "@workspace/delivery";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
 
 interface Props {
@@ -25,12 +25,18 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
     [t],
   );
 
+  const cityTimeSlots = useMemo(
+    () => (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(null)),
+    [city],
+  );
+
   const contextRowText =
     mode != null
       ? formatDeliveryRow({
           mode,
           date,
           slotLabel,
+          slotTimeRange: slotTimeRangeForLabel(slotLabel, cityTimeSlots),
           days: summaryDays,
           expressLabel: t("checkout.expressDeliveryLabel"),
         })

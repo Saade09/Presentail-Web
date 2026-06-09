@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   type DeliveryDay,
   formatDeliveryRow,
+  formatSlotTimeRange,
   resolveSlotLabel,
+  slotTimeRangeForLabel,
   timeSlotsForCountry,
+  type TimeSlot,
 } from "../index.js";
 
 // ---------------------------------------------------------------------------
@@ -305,5 +308,113 @@ describe("formatDeliveryRow", () => {
       expressLabel: EXPRESS_LABEL,
     });
     expect(result).toBeNull();
+  });
+
+  // --- slotTimeRange overrides slotLabel in the display string -----------
+
+  it("uses slotTimeRange instead of slotLabel when both are provided", () => {
+    const result = formatDeliveryRow({
+      mode: "schedule",
+      date: "2026-06-01",
+      slotLabel: "Afternoon",
+      slotTimeRange: "12:00–16:00",
+      days,
+      expressLabel: EXPRESS_LABEL,
+    });
+    expect(result).toBe("Today · 12:00–16:00");
+  });
+
+  it("falls back to slotLabel when slotTimeRange is undefined", () => {
+    const result = formatDeliveryRow({
+      mode: "schedule",
+      date: "2026-06-01",
+      slotLabel: "Afternoon",
+      slotTimeRange: undefined,
+      days,
+      expressLabel: EXPRESS_LABEL,
+    });
+    expect(result).toBe("Today · Afternoon");
+  });
+
+  it("slotTimeRange does not affect express mode (expressLabel is still returned)", () => {
+    const result = formatDeliveryRow({
+      mode: "express",
+      date: "2026-06-01",
+      slotLabel: "Afternoon",
+      slotTimeRange: "12:00–16:00",
+      days,
+      expressLabel: EXPRESS_LABEL,
+    });
+    expect(result).toBe(EXPRESS_LABEL);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatSlotTimeRange
+// ---------------------------------------------------------------------------
+
+describe("formatSlotTimeRange", () => {
+  it("returns formatted 'HH:MM–HH:MM' string for a slot with startHour and endHour", () => {
+    const slot: TimeSlot = { label: "Afternoon", cutoffHour: 16, startHour: 12, endHour: 16 };
+    expect(formatSlotTimeRange(slot)).toBe("12:00–16:00");
+  });
+
+  it("zero-pads single-digit hours", () => {
+    const slot: TimeSlot = { label: "Morning", cutoffHour: 9, startHour: 9, endHour: 12 };
+    expect(formatSlotTimeRange(slot)).toBe("09:00–12:00");
+  });
+
+  it("returns undefined when startHour is missing", () => {
+    const slot: TimeSlot = { label: "Morning", cutoffHour: 9, endHour: 12 };
+    expect(formatSlotTimeRange(slot)).toBeUndefined();
+  });
+
+  it("returns undefined when endHour is missing", () => {
+    const slot: TimeSlot = { label: "Morning", cutoffHour: 9, startHour: 9 };
+    expect(formatSlotTimeRange(slot)).toBeUndefined();
+  });
+
+  it("returns undefined for a legacy label-only slot", () => {
+    const slot: TimeSlot = { label: "9:00 AM – 2:00 PM", cutoffHour: 9 };
+    expect(formatSlotTimeRange(slot)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// slotTimeRangeForLabel
+// ---------------------------------------------------------------------------
+
+describe("slotTimeRangeForLabel", () => {
+  const slots: TimeSlot[] = [
+    { label: "Morning", cutoffHour: 9, startHour: 9, endHour: 12 },
+    { label: "Afternoon", cutoffHour: 16, startHour: 12, endHour: 16 },
+    { label: "Evening", cutoffHour: 21 },
+  ];
+
+  it("returns the formatted time range for a matched slot with hours", () => {
+    expect(slotTimeRangeForLabel("Afternoon", slots)).toBe("12:00–16:00");
+  });
+
+  it("returns undefined for a matched slot without hours (legacy)", () => {
+    expect(slotTimeRangeForLabel("Evening", slots)).toBeUndefined();
+  });
+
+  it("returns undefined when slotLabel is not in the list", () => {
+    expect(slotTimeRangeForLabel("Unknown", slots)).toBeUndefined();
+  });
+
+  it("returns undefined when slotLabel is null", () => {
+    expect(slotTimeRangeForLabel(null, slots)).toBeUndefined();
+  });
+
+  it("returns undefined when slotLabel is undefined", () => {
+    expect(slotTimeRangeForLabel(undefined, slots)).toBeUndefined();
+  });
+
+  it("works with LB legacy slots (no startHour/endHour) — always undefined", () => {
+    const lbSlots = timeSlotsForCountry("LB");
+    for (const s of lbSlots) {
+      expect(slotTimeRangeForLabel(s.label, lbSlots)).toBeUndefined();
+    }
   });
 });

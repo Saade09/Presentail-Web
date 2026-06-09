@@ -55,6 +55,7 @@ import {
   formatDeliveryRow,
   getCountryHour,
   isExpressDeliveryAvailable,
+  slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
@@ -736,6 +737,7 @@ function CheckoutForm() {
       mode: deliveryMode,
       date: recipient.deliveryDate,
       slotLabel: deliverySlot,
+      slotTimeRange: slotTimeRangeForLabel(deliverySlot, timeSlots),
       days: summaryDays,
       expressLabel: t("checkout.expressDeliveryLabel"),
     });

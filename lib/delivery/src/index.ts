@@ -207,20 +207,53 @@ export function dayLabels(
 }
 
 /**
+ * Returns "HH:MM–HH:MM" for a slot that has `startHour` and `endHour`
+ * defined (OS-configured slots), or `undefined` for legacy slots that only
+ * carry a label.
+ */
+export function formatSlotTimeRange(slot: TimeSlot): string | undefined {
+  if (slot.startHour === undefined || slot.endHour === undefined) return undefined;
+  const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
+  return `${pad(slot.startHour)}–${pad(slot.endHour)}`;
+}
+
+/**
+ * Looks up `slotLabel` in `slots` and returns the formatted time range (e.g.
+ * "12:00–16:00") when the matching slot has `startHour`/`endHour` defined.
+ * Returns `undefined` when the slot is not found or has no hour bounds (legacy
+ * label-only slots).
+ */
+export function slotTimeRangeForLabel(
+  slotLabel: string | null | undefined,
+  slots: TimeSlot[],
+): string | undefined {
+  if (!slotLabel) return undefined;
+  const slot = slots.find((s) => s.label === slotLabel);
+  if (!slot) return undefined;
+  return formatSlotTimeRange(slot);
+}
+
+/**
  * Format the selected delivery row for display in the cart.
  *
  * - Express  →  `expressLabel`
- * - Date+slot →  e.g. "Today · 2:00 PM – 6:00 PM" or "Wed 13 · 6:00 PM – 9:00 PM"
+ * - Date+slot →  e.g. "Today · 12:00–16:00" (when `slotTimeRange` is provided)
+ *               or "Wed 13 · 6:00 PM – 9:00 PM" (legacy label fallback)
  * - No selection → null (caller should show a fallback affordance)
+ *
+ * Pass `slotTimeRange` (from `slotTimeRangeForLabel`) so shoppers always see
+ * the numeric hour range rather than the internal slot name.
  */
 export function formatDeliveryRow(args: {
   mode: "express" | "today_slot" | "schedule" | null | undefined;
   date: string | null | undefined;
   slotLabel: string | null | undefined;
+  /** Formatted time range to display instead of slotLabel (e.g. "12:00–16:00"). */
+  slotTimeRange?: string;
   days: DeliveryDay[];
   expressLabel: string;
 }): string | null {
-  const { mode, date, slotLabel, days, expressLabel } = args;
+  const { mode, date, slotLabel, slotTimeRange, days, expressLabel } = args;
   if (mode === "express") return expressLabel;
   if (!date || !slotLabel) return null;
   const day = days.find((d) => d.iso === date);
@@ -229,7 +262,8 @@ export function formatDeliveryRow(args: {
       ? day.label
       : `${day.day} ${day.date}`
     : date;
-  return `${dayPrefix} · ${slotLabel}`;
+  const displaySlot = slotTimeRange ?? slotLabel;
+  return `${dayPrefix} · ${displaySlot}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -253,3 +253,39 @@ describe("SlotPicker — selection callback and visual feedback", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests — slots with startHour/endHour (OS-configured slots)
+// ---------------------------------------------------------------------------
+
+describe("SlotPicker — slots with startHour/endHour show hours only (no label)", () => {
+  const HOUR_SLOTS: TimeSlot[] = [
+    { label: "Morning", cutoffHour: 12, startHour: 9, endHour: 12 },
+    { label: "Afternoon", cutoffHour: 16, startHour: 12, endHour: 16 },
+  ];
+
+  it("renders the formatted time range (HH:MM–HH:MM) for slots with startHour/endHour", () => {
+    const { tree } = render({ slots: HOUR_SLOTS, date: FUTURE_ISO });
+    const content = textContent(tree);
+    expect(content).toContain("09:00–12:00");
+    expect(content).toContain("12:00–16:00");
+  });
+
+  it("does NOT render the slot label name for slots with startHour/endHour", () => {
+    const { tree } = render({ slots: HOUR_SLOTS, date: FUTURE_ISO });
+    const content = textContent(tree);
+    expect(content).not.toContain("Morning");
+    expect(content).not.toContain("Afternoon");
+  });
+
+  it("still calls onSelectSlot with the full TimeSlot object when a tile is pressed", () => {
+    const onSelectSlot = vi.fn();
+    const { tree } = render({ slots: HOUR_SLOTS, date: FUTURE_ISO, localHour: 8, onSelectSlot });
+    const tile = findPressableWithText(tree, "12:00–16:00");
+    act(() => {
+      (tile?.props.onPress as (() => void) | undefined)?.();
+    });
+    expect(onSelectSlot).toHaveBeenCalledOnce();
+    expect((onSelectSlot.mock.calls[0] as [TimeSlot])[0].label).toBe("Afternoon");
+  });
+});

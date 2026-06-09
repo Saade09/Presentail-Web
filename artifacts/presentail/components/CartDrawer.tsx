@@ -34,6 +34,7 @@ import {
   getCountryHour,
   isExpressDeliveryAvailable,
   resolveSlotLabel,
+  slotTimeRangeForLabel,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
@@ -144,6 +145,7 @@ export function CartDrawer() {
     mode: deliverySelection.mode,
     date: deliverySelection.date,
     slotLabel: displaySlotLabel,
+    slotTimeRange: slotTimeRangeForLabel(displaySlotLabel, cityTimeSlots),
     days,
     expressLabel: t.expressDelivery,
   });

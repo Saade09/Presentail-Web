@@ -311,6 +311,26 @@ describe("ScheduleInlinePanel — interactions", () => {
     expect(screen.getByTestId("calendar-popover")).toBeTruthy();
   });
 
+  it("slot tiles with startHour/endHour do NOT render the slot name label", async () => {
+    const HOUR_SLOTS = [
+      { label: "Morning", cutoffHour: 0, startHour: 9, endHour: 12 },
+      { label: "Afternoon", cutoffHour: 24, startHour: 12, endHour: 16 },
+    ];
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TOMORROW_ISO}
+        timeSlots={HOUR_SLOTS}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    expect(screen.queryByText("Morning")).toBeNull();
+    expect(screen.queryByText("Afternoon")).toBeNull();
+    expect(screen.getByTestId("schedule-slot-0")).toBeTruthy();
+    expect(screen.getByTestId("schedule-slot-24")).toBeTruthy();
+  });
+
   it("picking a date from the CalendarPopover creates a synthetic chip and closes the popover", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
