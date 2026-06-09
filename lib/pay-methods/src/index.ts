@@ -26,8 +26,10 @@ export const PAY_METHOD_CURRENCIES: Record<
   // AED — the mobile checkout submit handler routes AED+wallet through the
   // existing Mamo flow rather than Stripe.
   wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
-  // PayPal: settle in USD only (we always send USD to the API).
-  paypal: ["USD"],
+  // PayPal settles in USD and the other major currencies the app supports;
+  // Gulf currencies (AED, QAR, SAR, KWD, OMR) are excluded — PayPal does
+  // not settle in them, and UAE is also blocked via PAY_METHOD_EXCLUDED_COUNTRIES.
+  paypal: ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"],
   // Mamo is the UAE-only wallet/card processor; only AED.
   mamo: ["AED"],
   // Manual cash flows operate in USD locally.
