@@ -50,6 +50,7 @@ import { HomepageHeader } from "@/components/homepage/HomepageHeader";
 import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
+import { CheckoutErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/PageLoader";
 import { HomePageSkeleton } from "@/components/skeletons/HomePageSkeleton";
 import { ShopPageSkeleton } from "@/components/skeletons/ShopPageSkeleton";
@@ -185,6 +186,7 @@ function ShopShell() {
       <div className="min-h-screen flex flex-col">
         {!isCheckoutPage && <HomepageHeader />}
         <main className="flex-1">
+          <RouteErrorBoundary>
           <Switch>
             <Route path="/" component={HomeRoute} />
             <Route path="/shop" component={ShopRoute} />
@@ -195,7 +197,11 @@ function ShopShell() {
             <Route path="/brand/:slug" component={BrandDetailRoute} />
             <Route path="/occasions" component={AllOccasionsRoute} />
             <Route path="/cart" component={CartRoute} />
-            <Route path="/checkout" component={CheckoutRoute} />
+            <Route path="/checkout">
+              <CheckoutErrorBoundary>
+                <CheckoutRoute />
+              </CheckoutErrorBoundary>
+            </Route>
             <Route path="/order-confirmed" component={OrderConfirmedRoute} />
             <Route path="/careers" component={CareersRoute} />
             <Route path="/blog/:slug" component={BlogPostRoute} />
@@ -228,6 +234,7 @@ function ShopShell() {
             </Route>
             <Route component={NotFoundRoute} />
           </Switch>
+          </RouteErrorBoundary>
         </main>
         {!isCheckoutPage && <Footer />}
       </div>

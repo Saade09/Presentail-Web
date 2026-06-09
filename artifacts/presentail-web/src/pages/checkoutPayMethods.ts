@@ -59,6 +59,8 @@ export function webPaymentMethodLabelKey(
       return "checkout.pay.whish";
     case "western":
       return "checkout.pay.western";
+    default:
+      return "checkout.pay.card";
   }
 }
 

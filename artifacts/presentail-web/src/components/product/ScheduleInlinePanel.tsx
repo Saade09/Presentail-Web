@@ -218,8 +218,8 @@ export function ScheduleInlinePanel({
             const past = isToday && localHour >= s.cutoffHour;
             const active = slotLabel === s.label;
             const hasHours = s.startHour !== undefined && s.endHour !== undefined;
-            const fromLabel = hasHours ? fmtHour(s.startHour!) : s.label.split("–")[0]?.trim() ?? s.label;
-            const toLabel = hasHours ? fmtHour(s.endHour!) : (s.label.split("–")[1]?.trim() ?? null);
+            const fromLabel = hasHours ? fmtHour(s.startHour ?? 0) : s.label.split("–")[0]?.trim() ?? s.label;
+            const toLabel = hasHours ? fmtHour(s.endHour ?? 0) : (s.label.split("–")[1]?.trim() ?? null);
             return (
               <button
                 key={s.label}

@@ -630,13 +630,26 @@ function CheckoutForm() {
   useEffect(() => {
     if (!stripe || walletCheckedRef.current) return;
     walletCheckedRef.current = true;
-    const pr = stripe.paymentRequest({
-      country: "LB",
-      currency: "usd",
-      total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
-      requestPayerName: false,
-      requestPayerEmail: false,
-    });
+    // LB is not a supported Stripe PaymentRequest country — the call throws
+    // synchronously, so we wrap the entire probe in try/catch and treat any
+    // error as "wallet unavailable" to prevent a render-crashing IntegrationError.
+    let pr: import("@stripe/stripe-js").PaymentRequest;
+    try {
+      pr = stripe.paymentRequest({
+        country: "LB",
+        currency: "usd",
+        total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
+        requestPayerName: false,
+        requestPayerEmail: false,
+      });
+    } catch {
+      // Country not supported for PaymentRequest — treat as wallet unavailable.
+      setPaymentMethodState((current) => {
+        if (current !== "wallet") return current;
+        return currencyCode === "AED" ? "mamo" : "card";
+      });
+      return;
+    }
     pr.canMakePayment().then((result) => {
       if (result) {
         // Wallet is available: store the PR object so handleSubmit can
@@ -717,13 +730,18 @@ function CheckoutForm() {
   // line for the order summary so the shopper can confirm their pick at a
   // glance before paying — mirrors the mobile checkout summary.
   // NOTE: summaryDays is computed above (before early returns) to satisfy Rules of Hooks.
-  const deliveryRowText = formatDeliveryRow({
-    mode: deliveryMode,
-    date: recipient.deliveryDate,
-    slotLabel: deliverySlot,
-    days: summaryDays,
-    expressLabel: t("checkout.expressDeliveryLabel"),
-  });
+  let deliveryRowText: string | null = null;
+  try {
+    deliveryRowText = formatDeliveryRow({
+      mode: deliveryMode,
+      date: recipient.deliveryDate,
+      slotLabel: deliverySlot,
+      days: summaryDays,
+      expressLabel: t("checkout.expressDeliveryLabel"),
+    });
+  } catch {
+    // safe fallback — delivery row will show the picker affordance
+  }
   const isProcessing =
     createOrder.isPending ||
     stripeSession.isPending ||
@@ -1589,7 +1607,7 @@ function CheckoutForm() {
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
                   <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
                   <div className="space-y-3">
-                    {paymentOptions.map((m) => {
+                    {(paymentOptions ?? []).map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
                       type LogoSpec = { name: string; src: string; fill?: boolean; maxH?: string };
                       const cardLogos: LogoSpec[] = [
