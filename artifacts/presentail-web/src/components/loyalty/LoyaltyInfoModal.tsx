@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { LoyaltyTiersExplainer } from "./LoyaltyTiersInfo";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -25,7 +26,7 @@ export function LoyaltyInfoModal({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center p-4"
       role="dialog"
@@ -50,6 +51,7 @@ export function LoyaltyInfoModal({
         </div>
         <LoyaltyTiersExplainer />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
