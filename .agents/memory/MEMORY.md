@@ -2,3 +2,4 @@
 - [react-test-renderer + vitest (RN)](rtr-vitest-compat.md) — RNTL breaks in vitest; use react-test-renderer + act() + toJSON() traversal instead
 - [Web native auth](web-native-auth.md) — Clerk replaced by localStorage JWT auth on web; key design decisions documented
 - [API server test mocking patterns](api-server-test-patterns.md) — key patterns for mocking app.ts, routes, and pino-http in clerkShim-style tests
+- [OS brands admin endpoint shape](os-brands-admin-shape.md) — /api/brands has no slug field; must toSlug(name) to map to OSProductBrand; product-embedded brands have canonical slugs

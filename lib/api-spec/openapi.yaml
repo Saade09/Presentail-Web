@@ -2460,9 +2460,19 @@ components:
           type: string
         slug:
           type: string
+        image:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Brand logo URL from Presentail OS, or null when no image has been set.
+        count:
+          type: integer
+          description: Number of in-stock products associated with this brand across all supported countries.
       required:
         - name
         - slug
+        - image
+        - count
     CatalogProduct:
       type: object
       description: |

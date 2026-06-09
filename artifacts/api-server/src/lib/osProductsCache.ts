@@ -648,6 +648,19 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
 
 // ── Index helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Convert a brand display name to a URL-safe slug.
+ * Matches the common convention used by OS product-embedded brand slugs:
+ * lowercase, apostrophes/quotes removed, non-alphanumeric runs → hyphens.
+ */
+function toSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['''`]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function buildStoreCache(products: OSProduct[]): StoreProductCache {
   const wcIdIndex = new Map<number, OSProduct>();
   const slugIndex = new Map<string, OSProduct>();
@@ -751,18 +764,62 @@ async function fetchAndStore(): Promise<void> {
         freshCategories = cats;
       }
     }
-    if (brandsResp.status === "fulfilled") {
-      const brands = brandsResp.value.brands ?? [];
-      if (brands.length > 0) {
-        cachedBrands = brands;
-        freshBrands = brands;
-      }
-    }
     if (occasionsResp.status === "fulfilled") {
       const occasions = occasionsResp.value.occasions ?? [];
       if (occasions.length > 0) {
         cachedOccasions = occasions;
         freshOccasions = occasions;
+      }
+    }
+
+    // ── Brands ────────────────────────────────────────────────────────────
+    // The OS /api/brands admin endpoint returns a different shape from the
+    // OSProductBrand type (no slug field, numeric id). We map it ourselves:
+    // slug is derived from the name, id is set to the slug string.
+    // Once products are added to OS their embedded brand objects will carry
+    // the canonical slug — we merge those in so counts stay accurate.
+    {
+      const brandMap = new Map<string, OSProductBrand>();
+
+      // Primary: OS /api/brands global list
+      if (brandsResp.status === "fulfilled") {
+        const raw = (brandsResp.value.brands ?? []) as Array<{
+          id: number | string;
+          name: string;
+          description?: string | null;
+          image?: string | null;
+        }>;
+        for (const b of raw) {
+          if (!b.name) continue;
+          const slug = toSlug(b.name);
+          if (slug && !brandMap.has(slug)) {
+            brandMap.set(slug, {
+              id: slug,
+              slug,
+              name: b.name,
+              image: b.image ?? null,
+              description: b.description ?? undefined,
+            });
+          }
+        }
+      }
+
+      // Supplement: product-embedded brand objects (carry canonical slugs once
+      // products exist; also fills any gaps if the global list is unavailable).
+      for (const entry of storeCache.values()) {
+        for (const p of entry.products) {
+          for (const b of p.brands ?? []) {
+            if (b.slug && !brandMap.has(b.slug)) {
+              brandMap.set(b.slug, b);
+            }
+          }
+        }
+      }
+
+      if (brandMap.size > 0) {
+        const derived = [...brandMap.values()];
+        cachedBrands = derived;
+        freshBrands = derived;
       }
     }
 

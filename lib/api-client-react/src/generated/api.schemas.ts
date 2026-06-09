@@ -861,6 +861,10 @@ export interface CatalogOccasion {
 export interface CatalogBrand {
   name: string;
   slug: string;
+  /** Brand logo URL from Presentail OS, or null when no image has been set. */
+  image: string | null;
+  /** Number of in-stock products associated with this brand across all supported countries. */
+  count: number;
 }
 
 /**

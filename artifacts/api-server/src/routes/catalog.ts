@@ -10,9 +10,11 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrands } from "../lib/osProductsCache";
+import { getOsBrands, getOsProducts } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
+
+const STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
 
 router.get("/currencies", (_req, res) => {
   const data = GetCurrenciesResponse.parse({
@@ -25,8 +27,30 @@ router.get("/currencies", (_req, res) => {
 
 router.get("/catalog/metadata", (_req, res) => {
   const osBrands = getOsBrands();
+
+  // Compute per-brand in-stock product count across all stores,
+  // deduplicating by product id so a product deliverable to multiple
+  // regions is only counted once.
+  const brandCountMap = new Map<string, number>();
+  const seenProductIds = new Set<string>();
+  for (const key of STORE_KEYS) {
+    const products = getOsProducts(key) ?? [];
+    for (const p of products) {
+      if (!p.inStock || seenProductIds.has(p.id)) continue;
+      seenProductIds.add(p.id);
+      for (const b of p.brands ?? []) {
+        brandCountMap.set(b.slug, (brandCountMap.get(b.slug) ?? 0) + 1);
+      }
+    }
+  }
+
   const brands = osBrands
-    ? osBrands.map((b) => ({ name: b.name, slug: b.slug }))
+    ? osBrands.map((b) => ({
+        name: b.name,
+        slug: b.slug,
+        image: b.image ?? null,
+        count: brandCountMap.get(b.slug) ?? 0,
+      }))
     : [];
 
   const data = GetCatalogMetadataResponse.parse({

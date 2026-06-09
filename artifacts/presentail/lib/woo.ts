@@ -179,23 +179,29 @@ export type WooOrderPayload = {
 };
 
 export type WcBrand = {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   count: number;
   image: string | null;
 };
 
-export async function fetchWcBrands(filter?: DeliveryFilter): Promise<WcBrand[]> {
+// fetchWcBrands reads from /api/catalog/metadata (Presentail OS).
+// Brands are global — the delivery filter is accepted for call-site
+// compatibility but is no longer forwarded to the server.
+export async function fetchWcBrands(_filter?: DeliveryFilter): Promise<WcBrand[]> {
   try {
-    const params = new URLSearchParams();
-    appendDeliveryParams(params, filter);
-    const qs = params.toString();
-    const res = await fetch(`${API_BASE}/api/woo/brands${qs ? `?${qs}` : ""}`, {
-      headers: storeHeaders(filter),
-    });
+    const res = await fetch(`${API_BASE}/api/catalog/metadata`);
     const json = await res.json();
-    if (json.ok && Array.isArray(json.brands)) return json.brands;
+    if (Array.isArray(json.brands)) {
+      return json.brands.map((b: { name: string; slug: string; image?: string | null; count?: number }) => ({
+        id: b.slug,
+        name: b.name,
+        slug: b.slug,
+        count: b.count ?? 0,
+        image: b.image ?? null,
+      }));
+    }
     return [];
   } catch {
     return [];

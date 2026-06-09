@@ -1113,6 +1113,16 @@ export const GetCatalogMetadataResponse = zod.object({
     zod.object({
       name: zod.string(),
       slug: zod.string(),
+      image: zod
+        .union([zod.string(), zod.null()])
+        .describe(
+          "Brand logo URL from Presentail OS, or null when no image has been set.",
+        ),
+      count: zod
+        .number()
+        .describe(
+          "Number of in-stock products associated with this brand across all supported countries.",
+        ),
     }),
   ),
 });

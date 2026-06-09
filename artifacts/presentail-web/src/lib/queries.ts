@@ -140,7 +140,7 @@ export type CatalogImageRef = { asset?: string; uri?: string } | null;
 
 export type CatalogCategory = { id: string; name: string; icon: string; image?: CatalogImageRef };
 export type CatalogOccasion = { id: string; name: string; icon: string; description?: string; image?: CatalogImageRef };
-export type CatalogBrand = { name: string; slug: string };
+export type CatalogBrand = { name: string; slug: string; image: string | null; count: number };
 export type CatalogMetadataResponse = {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];
@@ -187,16 +187,26 @@ export const useFxRates = () => {
   });
 };
 
-export const useBrands = (params: LocalizedParams = {}) => {
-  const q = new URLSearchParams();
-  if (params.countryCode) q.set("countryCode", params.countryCode);
-  if (params.cityId) q.set("cityId", params.cityId);
-  if (params.lang) q.set("lang", params.lang);
-  const qs = q.toString();
-  return useQuery({
-    queryKey: ["brands", params],
-    queryFn: () => apiFetch<{ ok: boolean; brands: { id: number; name: string; slug: string; count: number; image: string | null }[] }>(`/woo/brands${qs ? `?${qs}` : ""}`)
-  });
+// useBrands is backed by the /catalog/metadata endpoint (Presentail OS).
+// Brands are global — countryCode/cityId/lang params are accepted for call-site
+// compatibility but are no longer forwarded to the server.
+export const useBrands = (_params: LocalizedParams = {}) => {
+  const result = useCatalogMetadata();
+  return {
+    ...result,
+    data: result.data
+      ? {
+          ok: true as const,
+          brands: result.data.brands.map((b) => ({
+            id: b.slug,
+            name: b.name,
+            slug: b.slug,
+            image: b.image,
+            count: b.count,
+          })),
+        }
+      : undefined,
+  };
 };
 
 // Customer's order history — combines guest checkouts (matched by email/phone)

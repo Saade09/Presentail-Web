@@ -353,47 +353,22 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
   };
 }
 
-router.get("/woo/brands", async (req, res) => {
-  // Serve from OS cache when available.
+router.get("/woo/brands", (_req, res) => {
+  // Brands are served exclusively from the Presentail OS cache.
+  // The WooCommerce fallback has been retired — add/manage brands in OS.
   const osBrands = getOsBrands();
-  if (osBrands) {
-    return res.json({
-      ok: true,
-      brands: osBrands.map((b) => ({
-        id: b.slug,
-        name: decodeHtmlEntities(b.name),
-        slug: b.slug,
-        count: undefined,
-        image: b.image ?? null,
-      })),
-    });
+  if (!osBrands) {
+    return res.status(503).json({ ok: false, message: "OS catalog not yet available" }); // i18n-ignore
   }
-
-  const store = resolveStoreFromRequest(req);
-  if (!store.consumerKey) {
-    return res.status(503).json({ ok: false, message: "WooCommerce not configured" }); // i18n-ignore
-  }
-  try {
-    const lang = readLang(req);
-    const r = await wooFetch("/products/brands?per_page=100", {}, lang, store);
-    if (!r.ok) {
-      const err = (await r.json()) as WcErrorResponse;
-      return res.status(r.status).json({ ok: false, message: err?.message ?? "Failed to fetch brands" }); // i18n-ignore
-    }
-    const brands = (await r.json()) as WcBrand[];
-    return res.json({
-      ok: true,
-      brands: brands.map((b) => ({
-        id: b.id,
-        name: decodeHtmlEntities(b.name),
-        slug: b.slug,
-        count: b.count,
-        image: b.image?.src ?? null,
-      })),
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, message: err?.message ?? "Failed to fetch brands" }); // i18n-ignore
-  }
+  return res.json({
+    ok: true,
+    brands: osBrands.map((b) => ({
+      id: b.slug,
+      name: decodeHtmlEntities(b.name),
+      slug: b.slug,
+      image: b.image ?? null,
+    })),
+  });
 });
 
 router.get("/woo/brand-products", async (req, res) => {
