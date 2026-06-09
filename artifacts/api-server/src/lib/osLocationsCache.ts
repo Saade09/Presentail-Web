@@ -163,6 +163,11 @@ function buildCityIndex(countries: CachedCountry[]): Map<string, CachedCity> {
  * Add an entry here when OS uses a different spelling or transliteration
  * than the one in our hardcoded city list and none of the three automatic
  * resolution strategies below can match them (e.g. "dennaye" vs "dennaya").
+ *
+ * An entry here also implicitly fixes the display name: whenever the resolved
+ * canonicalId differs from the OS slug, transformOsResponse looks up the
+ * matching hardcoded city by canonicalId and uses its `name` field instead of
+ * the OS-supplied name. No separate display-name override map is needed.
  */
 const OS_SLUG_TO_CANONICAL_ID: Record<string, string> = {
   "minnieh-dennaye": "lb-minnieh-dennaya",
@@ -258,15 +263,31 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               code,
               hardcoded?.cities ?? [],
             );
+            // When the canonical id differs from the OS slug (i.e. an explicit
+            // override was applied), prefer the hardcoded city's display name
+            // so the name matches the canonical spelling the web router expects
+            // (e.g. "Minnieh-Dennaya" not "Minnieh-Dennaye"). Fall back to the
+            // OS-supplied name when no hardcoded entry exists (future-proofing).
+            const hardcodedCity =
+              canonicalId !== osSlug
+                ? (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
+                : undefined;
+            const displayName = hardcodedCity?.name ?? c.name;
             if (canonicalId !== osSlug) {
               logger.debug(
-                { osSlug, canonicalId, cityName: c.name, countryCode: code },
+                {
+                  osSlug,
+                  canonicalId,
+                  osCityName: c.name,
+                  resolvedName: displayName,
+                  countryCode: code,
+                },
                 "osLocationsCache: mapped OS city slug to canonical id",
               );
             }
             return {
               id: canonicalId,
-              name: c.name,
+              name: displayName,
               isActive: c.isActive ?? true,
               // deliveryFee is in country display currency — convert to USD.
               fee:
