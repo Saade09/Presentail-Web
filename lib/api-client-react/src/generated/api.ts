@@ -23,6 +23,7 @@ import type {
   AuthMeResponse,
   AuthMeUpdateRequest,
   CatalogMetadataResponse,
+  CatalogOccasionsResponse,
   CheckoutPaymentIntentRequest,
   CheckoutPaymentIntentResponse,
   ClientErrorReportRequest,
@@ -1911,6 +1912,88 @@ export function useGetCurrencies<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCurrenciesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns occasions that have the "Featured / Mega menu" flag enabled in
+Presentail OS. Used by the web storefront's Occasions megamenu panel.
+Updates in real time within the existing cache/webhook refresh cycle
+(~15 min polling + immediate on `catalog_attributes.changed` webhook).
+Returns an empty `occasions` array when the OS cache has not yet been
+populated or no occasions are flagged as featured.
+
+ * @summary Featured occasions for the megamenu
+ */
+export const getGetCatalogOccasionsUrl = () => {
+  return `/api/catalog/occasions`;
+};
+
+export const getCatalogOccasions = async (
+  options?: RequestInit,
+): Promise<CatalogOccasionsResponse> => {
+  return customFetch<CatalogOccasionsResponse>(getGetCatalogOccasionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCatalogOccasionsQueryKey = () => {
+  return [`/api/catalog/occasions`] as const;
+};
+
+export const getGetCatalogOccasionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCatalogOccasions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCatalogOccasionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCatalogOccasions>>
+  > = ({ signal }) => getCatalogOccasions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogOccasions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCatalogOccasionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCatalogOccasions>>
+>;
+export type GetCatalogOccasionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Featured occasions for the megamenu
+ */
+
+export function useGetCatalogOccasions<
+  TData = Awaited<ReturnType<typeof getCatalogOccasions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCatalogOccasions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCatalogOccasionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

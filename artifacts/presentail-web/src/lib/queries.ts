@@ -155,6 +155,7 @@ export const useCatalogMetadata = () => {
   });
 };
 
+
 // Display-currency metadata served by `/currencies`. Mirrors the
 // CurrenciesResponse OpenAPI schema.
 export type CurrenciesResponse = {

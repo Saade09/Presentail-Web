@@ -116,6 +116,8 @@ export type OSProductOccasion = {
   id: string;
   slug: string;
   name: string;
+  featured?: boolean;
+  image?: string | null;
 };
 
 /**

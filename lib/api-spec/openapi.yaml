@@ -627,6 +627,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CurrenciesResponse"
+  /catalog/occasions:
+    get:
+      operationId: getCatalogOccasions
+      tags: [catalog]
+      summary: Featured occasions for the megamenu
+      description: |
+        Returns occasions that have the "Featured / Mega menu" flag enabled in
+        Presentail OS. Used by the web storefront's Occasions megamenu panel.
+        Updates in real time within the existing cache/webhook refresh cycle
+        (~15 min polling + immediate on `catalog_attributes.changed` webhook).
+        Returns an empty `occasions` array when the OS cache has not yet been
+        populated or no occasions are flagged as featured.
+      responses:
+        "200":
+          description: Featured occasions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogOccasionsResponse"
   /catalog/metadata:
     get:
       operationId: getCatalogMetadata
@@ -2503,6 +2522,29 @@ components:
         - id
         - name
         - category
+    FeaturedOccasion:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        image:
+          oneOf:
+            - type: string
+            - type: "null"
+      required:
+        - slug
+        - name
+    CatalogOccasionsResponse:
+      type: object
+      properties:
+        occasions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeaturedOccasion"
+      required:
+        - occasions
     CatalogMetadataResponse:
       type: object
       properties:

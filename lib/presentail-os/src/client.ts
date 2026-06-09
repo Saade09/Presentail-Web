@@ -207,6 +207,10 @@ export async function fetchOsBrands(
 /**
  * Fetch occasions from Presentail OS.
  * Throws on failure — caller handles graceful fallback.
+ *
+ * The OS API returns { items: [...], total, page, pageSize, totalPages } where
+ * each item uses snake_case keys (is_featured, image_url). We normalise to the
+ * OSProductOccasion shape used throughout the app.
  */
 export async function fetchOsOccasions(
   config: PresentailOsConfig,
@@ -231,7 +235,43 @@ export async function fetchOsOccasions(
   if (!res.ok) {
     throw new Error(`Presentail OS occasions API returned HTTP ${res.status}`);
   }
-  return res.json() as Promise<OSOccasionsResponse>;
+
+  const raw = (await res.json()) as {
+    items?: Array<{
+      id: number | string;
+      slug: string;
+      name: string;
+      is_featured?: boolean;
+      image_url?: string | null;
+    }>;
+    occasions?: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      featured?: boolean;
+      image?: string | null;
+    }>;
+  };
+
+  // Support both the snake_case paginated shape { items } and the legacy { occasions } shape.
+  if (Array.isArray(raw.occasions)) {
+    return { occasions: raw.occasions };
+  }
+
+  const items = raw.items ?? [];
+  return {
+    occasions: items.map((item) => ({
+      id: String(item.id),
+      slug: item.slug,
+      name: item.name,
+      featured: item.is_featured ?? false,
+      image: item.image_url
+        ? item.image_url.startsWith("http")
+          ? item.image_url
+          : `${baseUrl}${item.image_url}`
+        : null,
+    })),
+  };
 }
 
 /**

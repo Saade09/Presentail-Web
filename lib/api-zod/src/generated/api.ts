@@ -1059,6 +1059,26 @@ export const GetCurrenciesResponse = zod.object({
 });
 
 /**
+ * Returns occasions that have the "Featured / Mega menu" flag enabled in
+Presentail OS. Used by the web storefront's Occasions megamenu panel.
+Updates in real time within the existing cache/webhook refresh cycle
+(~15 min polling + immediate on `catalog_attributes.changed` webhook).
+Returns an empty `occasions` array when the OS cache has not yet been
+populated or no occasions are flagged as featured.
+
+ * @summary Featured occasions for the megamenu
+ */
+export const GetCatalogOccasionsResponse = zod.object({
+  occasions: zod.array(
+    zod.object({
+      slug: zod.string(),
+      name: zod.string(),
+      image: zod.union([zod.string(), zod.null()]).optional(),
+    }),
+  ),
+});
+
+/**
  * Returns the static catalog metadata that mobile bundles offline:
 category and occasion definitions (with localized-friendly slugs,
 icons and asset paths) and the curated brand list. Image fields

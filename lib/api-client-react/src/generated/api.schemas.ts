@@ -884,6 +884,16 @@ export interface CatalogProduct {
   image?: CatalogImageRef | null;
 }
 
+export interface FeaturedOccasion {
+  slug: string;
+  name: string;
+  image?: string | null;
+}
+
+export interface CatalogOccasionsResponse {
+  occasions: FeaturedOccasion[];
+}
+
 export interface CatalogMetadataResponse {
   categories: CatalogCategory[];
   occasions: CatalogOccasion[];

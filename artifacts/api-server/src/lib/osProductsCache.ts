@@ -769,6 +769,11 @@ async function fetchAndStore(): Promise<void> {
       if (occasions.length > 0) {
         cachedOccasions = occasions;
         freshOccasions = occasions;
+        const featuredCount = occasions.filter((o) => o.featured === true).length;
+        logger.info(
+          { occasionCount: occasions.length, featuredCount },
+          "osProductsCache: occasions refreshed from Presentail OS",
+        );
       }
     }
 

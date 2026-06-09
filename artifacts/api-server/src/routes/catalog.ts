@@ -10,7 +10,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrands, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrands, getOsOccasions, getOsProducts } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -23,6 +23,16 @@ router.get("/currencies", (_req, res) => {
     countryToCurrency: COUNTRY_TO_CURRENCY_MAP,
   });
   res.json(data);
+});
+
+router.get("/catalog/occasions", (_req, res) => {
+  const osOccasions = getOsOccasions();
+  const featured = osOccasions
+    ? osOccasions
+        .filter((o) => o.featured === true)
+        .map((o) => ({ slug: o.slug, name: o.name, image: o.image ?? null }))
+    : [];
+  res.json({ occasions: featured });
 });
 
 router.get("/catalog/metadata", (_req, res) => {

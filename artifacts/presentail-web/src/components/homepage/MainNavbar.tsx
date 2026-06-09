@@ -11,6 +11,11 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { useBrands } from "@/lib/queries";
+import {
+  useGetCatalogOccasions,
+  getGetCatalogOccasionsQueryKey,
+} from "@workspace/api-client-react";
+import { OCCASION_OPTIONS } from "@/data/occasions";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
@@ -18,7 +23,6 @@ import {
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
-import { OCCASION_OPTIONS } from "@/data/occasions";
 
 type MegaItem = {
   label: string;
@@ -32,20 +36,10 @@ type MegaMenuDef = {
   labelKey: string;
   items: MegaItem[];
   footer?: { label: string; href: string };
+  loading?: boolean;
 };
 
-const MEGA_MENUS: MegaMenuDef[] = [
-  {
-    key: "occasions",
-    labelKey: "nav.occasions",
-    items: OCCASION_OPTIONS.map((o) => ({
-      label: o.label,
-      href: `/occasion/${o.value}`,
-      ...("img" in o ? { img: o.img } : {}),
-      ...("emoji" in o ? { emoji: o.emoji } : {}),
-    })),
-    footer: { label: "View All Occasions", href: "/occasions" },
-  },
+const STATIC_MENUS: MegaMenuDef[] = [
   {
     key: "flowers",
     labelKey: "nav.flowersPlants",
@@ -104,32 +98,39 @@ function MegaMenuPanel({
     >
       <div className="container mx-auto max-w-content px-page pt-5 pb-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {def.items.map((item) => (
-            <Link
-              key={item.label + item.href}
-              href={item.href}
-              onClick={onClose}
-              data-testid={`megamenu-item-${item.label.toLowerCase().replace(/[\s']+/g, "-")}`}
-              className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
-            >
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 shadow-sm">
-                {item.img ? (
-                  <img
-                    src={item.img}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <span className="text-xl select-none leading-none">{item.emoji}</span>
-                )}
-              </div>
-              <span className="text-[13px] font-medium leading-snug text-foreground group-hover:text-primary transition-colors">
-                {item.label}
-              </span>
-            </Link>
-          ))}
+          {def.loading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm animate-pulse">
+                  <div className="w-10 h-10 rounded-full bg-muted shrink-0" />
+                  <div className="h-3 bg-muted rounded flex-1" />
+                </div>
+              ))
+            : def.items.map((item) => (
+                <Link
+                  key={item.label + item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  data-testid={`megamenu-item-${item.label.toLowerCase().replace(/[\s']+/g, "-")}`}
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 shadow-sm">
+                    {item.img ? (
+                      <img
+                        src={item.img}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span className="text-xl select-none leading-none">{item.emoji}</span>
+                    )}
+                  </div>
+                  <span className="text-[13px] font-medium leading-snug text-foreground group-hover:text-primary transition-colors">
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
         </div>
 
         {def.footer && (
@@ -168,6 +169,34 @@ export function MainNavbar() {
     ? brandsData?.brands.find((b) => b.slug === activeBrandSlug)
     : null;
 
+  const { data: occasionsData, isPending: occasionsLoading } = useGetCatalogOccasions({
+    query: {
+      queryKey: getGetCatalogOccasionsQueryKey(),
+      staleTime: 15 * 60 * 1000,
+    },
+  });
+  const osOccasions = occasionsData?.occasions ?? [];
+  const occasionItems: MegaItem[] =
+    osOccasions.length > 0
+      ? osOccasions.map((o) => ({
+          label: o.name,
+          href: `/occasion/${o.slug}`,
+          ...(o.image ? { img: o.image } : { emoji: "🎉" }),
+        }))
+      : OCCASION_OPTIONS.map((o) => ({
+          label: o.label,
+          href: `/occasion/${o.value}`,
+          ...("img" in o ? { img: o.img } : { emoji: o.emoji }),
+        }));
+  const occasionsMenuDef: MegaMenuDef = {
+    key: "occasions",
+    labelKey: "nav.occasions",
+    items: occasionItems,
+    footer: { label: "View All Occasions", href: "/occasions" },
+    loading: occasionsLoading,
+  };
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...STATIC_MENUS];
+
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -193,7 +222,7 @@ export function MainNavbar() {
     return () => document.removeEventListener("keydown", handler);
   }, [activeMenu]);
 
-  const activeDef = MEGA_MENUS.find((m) => m.key === activeMenu) ?? null;
+  const activeDef = megaMenus.find((m) => m.key === activeMenu) ?? null;
 
   // Close on click outside the navbar+panel wrapper
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -223,7 +252,7 @@ export function MainNavbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-[300px] sm:w-[360px] overflow-y-auto">
               <nav className="flex flex-col gap-0.5 mt-8 pb-10">
-                {MEGA_MENUS.map((menu) => (
+                {megaMenus.map((menu) => (
                   <div key={menu.key} className="mb-4">
                     <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground px-2 mb-1.5 font-semibold">
                       {t(menu.labelKey)}
@@ -260,7 +289,7 @@ export function MainNavbar() {
 
           {/* Desktop nav triggers */}
           <nav className="hidden md:flex items-center gap-6" aria-label={t("nav.mainNavAria")}>
-            {MEGA_MENUS.map((menu) => (
+            {megaMenus.map((menu) => (
               <button
                 key={menu.key}
                 type="button"
