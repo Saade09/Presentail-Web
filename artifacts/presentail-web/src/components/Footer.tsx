@@ -280,20 +280,20 @@ export function Footer() {
           <div className="text-xs text-white/70 leading-relaxed md:flex-1">
             <p data-testid="footer-copyright">
               {t(
-                cityId === "ae-dubai"
-                  ? "footer.allRightsReservedDubai"
-                  : cityId === "ae-abu-dhabi"
-                    ? "footer.allRightsReservedAbuDhabi"
+                cityId === "ae-abu-dhabi"
+                  ? "footer.allRightsReservedAbuDhabi"
+                  : cityId?.startsWith("ae-")
+                    ? "footer.allRightsReservedDubai"
                     : "footer.allRightsReserved",
                 { year },
               )}
             </p>
             <p data-testid="footer-address">
               {t(
-                cityId === "ae-dubai"
-                  ? "footer.addressDubai"
-                  : cityId === "ae-abu-dhabi"
-                    ? "footer.addressAbuDhabi"
+                cityId === "ae-abu-dhabi"
+                  ? "footer.addressAbuDhabi"
+                  : cityId?.startsWith("ae-")
+                    ? "footer.addressDubai"
                     : "footer.address",
               )}
             </p>
