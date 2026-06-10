@@ -1,0 +1,48 @@
+Here's what's on Presentail OS for catalog attributes. There are three flavors depending on how you're authenticating.
+
+Public (no auth) — most likely what you want
+Base: GET /api/catalog-attributes
+
+GET /api/catalog-attributes — returns all four types in one response
+GET /api/catalog-attributes/occasions
+GET /api/catalog-attributes/categories
+GET /api/catalog-attributes/brands
+GET /api/catalog-attributes/recipients
+Each item looks like:
+
+{
+  "id": 123,
+  "name": "Mother's Day",
+  "slug": "mothers-day",
+  "description": "Gift ideas for mom",
+  "image_url": "https://storage.googleapis.com/...",
+  "image_public_url": "https://os.presentail.com/api/storage/public-objects/occasions/123.jpg",
+  "sort_order": 0
+}
+
+Note: image_public_url (the absolute, auth-free CDN-style URL) is currently only populated for occasions. Categories, brands, and recipients return image_url but not image_public_url.
+
+There's also a city-scoped variant if you need to filter by city: GET /api/public/catalog/:city_slug/occasions (and /catalog_categories, /catalog_brands, /recipients).
+
+API-key scoped (V1)
+Base: GET /api/catalog/v1/... with Authorization: Bearer <key>
+
+/api/catalog/v1/occasions, /categories, /brands, /recipients
+Wrapped in an envelope:
+
+{
+  "success": true,
+  "occasions": [
+    { "id": 123, "name": "...", "slug": "...", "image_url": "...", "image_public_path": "...", "image_public_url": "...", "sort_order": 0, "is_active": true }
+  ]
+}
+
+(Brands V1 returns primary_logo_id instead of the image fields.)
+
+Authenticated admin CRUD
+Base: GET/POST /api/:type, GET/PATCH/DELETE /api/:type/:id where :type is occasions | catalog_categories | catalog_brands | recipients. Requires Clerk session (or workspace API key for GETs). Items carry the full record including workspace_owner_id, is_active, is_featured (occasions only), created_at, etc.
+
+Field name summary for id/slug/name/image:
+
+id (number), slug (string), name (string)
+image: image_url everywhere; plus image_public_url on the public + V1 endpoints (occasions reliably; other types only on V1)

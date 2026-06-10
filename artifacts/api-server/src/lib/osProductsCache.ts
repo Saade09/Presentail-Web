@@ -29,7 +29,7 @@
 import {
   fetchOsProducts,
   fetchOsCategories,
-  fetchOsBrands,
+  fetchOsCatalogAttributesBrands,
   fetchOsOccasions,
   type PresentailOsConfig,
 } from "@workspace/presentail-os";
@@ -648,19 +648,6 @@ function detectAndAlertPriceChanges(products: OSProduct[]): void {
 
 // ── Index helpers ──────────────────────────────────────────────────────────
 
-/**
- * Convert a brand display name to a URL-safe slug.
- * Matches the common convention used by OS product-embedded brand slugs:
- * lowercase, apostrophes/quotes removed, non-alphanumeric runs → hyphens.
- */
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/['''`]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function buildStoreCache(products: OSProduct[]): StoreProductCache {
   const wcIdIndex = new Map<number, OSProduct>();
   const slugIndex = new Map<string, OSProduct>();
@@ -696,7 +683,7 @@ async function fetchAndStore(): Promise<void> {
     const [categoriesResp, brandsResp, occasionsResp, ...storeResults] =
       await Promise.allSettled([
         fetchOsCategories(config),
-        fetchOsBrands(config),
+        fetchOsCatalogAttributesBrands(config),
         fetchOsOccasions(config),
         ...storeFetches,
       ]);
@@ -778,39 +765,49 @@ async function fetchAndStore(): Promise<void> {
     }
 
     // ── Brands ────────────────────────────────────────────────────────────
-    // The OS /api/brands admin endpoint returns a different shape from the
-    // OSProductBrand type (no slug field, numeric id). We map it ourselves:
-    // slug is derived from the name, id is set to the slug string.
-    // Once products are added to OS their embedded brand objects will carry
-    // the canonical slug — we merge those in so counts stay accurate.
+    // Primary: catalog-attributes endpoint — returns all brands regardless of
+    // whether any products are linked, with canonical slugs, sort_order, and
+    // image_url. Mapped to the shared OSProductBrand shape used throughout.
+    //
+    // Supplement: product-embedded brand objects — fills any gaps if the
+    // catalog-attributes fetch fails or returns an incomplete set. First-seen
+    // wins, so the catalog-attributes data always takes precedence.
     {
       const brandMap = new Map<string, OSProductBrand>();
 
-      // Primary: OS /api/brands global list
       if (brandsResp.status === "fulfilled") {
-        const raw = (brandsResp.value.brands ?? []) as Array<{
-          id: number | string;
-          name: string;
-          description?: string | null;
-          image?: string | null;
-        }>;
+        const raw = brandsResp.value.brands ?? [];
+        const osBase = config.baseUrl ?? "https://os.presentail.com";
         for (const b of raw) {
-          if (!b.name) continue;
-          const slug = toSlug(b.name);
-          if (slug && !brandMap.has(slug)) {
-            brandMap.set(slug, {
-              id: slug,
-              slug,
-              name: b.name,
-              image: b.image ?? null,
-              description: b.description ?? undefined,
-            });
-          }
+          if (!b.slug) continue;
+          // image_public_url is preferred (absolute CDN URL); fall back to
+          // image_url which is a relative path that needs the OS base prepended.
+          const rawImage = b.image_public_url || b.image_url || null;
+          const image = rawImage
+            ? rawImage.startsWith("http")
+              ? rawImage
+              : `${osBase}${rawImage}`
+            : null;
+          brandMap.set(b.slug, {
+            id: b.slug,
+            slug: b.slug,
+            name: b.name,
+            image,
+            description: b.description ?? undefined,
+          });
         }
+        logger.info(
+          { brandCount: brandMap.size },
+          "osProductsCache: brands refreshed from Presentail OS catalog-attributes",
+        );
+      } else {
+        logger.warn(
+          { err: brandsResp.reason instanceof Error ? brandsResp.reason.message : String(brandsResp.reason) },
+          "osProductsCache: catalog-attributes brands fetch failed — falling back to product-embedded brands",
+        );
       }
 
-      // Supplement: product-embedded brand objects (carry canonical slugs once
-      // products exist; also fills any gaps if the global list is unavailable).
+      // Supplement from product-embedded brands (fills gaps on fallback).
       for (const entry of storeCache.values()) {
         for (const p of entry.products) {
           for (const b of p.brands ?? []) {

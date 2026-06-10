@@ -151,7 +151,7 @@ export const useCatalogMetadata = () => {
   return useQuery({
     queryKey: ["catalog-metadata"],
     queryFn: () => apiFetch<CatalogMetadataResponse>("/catalog/metadata"),
-    staleTime: 60 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 };
 

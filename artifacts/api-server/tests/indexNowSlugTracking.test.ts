@@ -41,7 +41,7 @@ vi.mock("@workspace/db", () => ({
 vi.mock("@workspace/presentail-os", () => ({
   fetchOsProducts: vi.fn(),
   fetchOsCategories: vi.fn(),
-  fetchOsBrands: vi.fn(),
+  fetchOsCatalogAttributesBrands: vi.fn(),
   fetchOsOccasions: vi.fn(),
 }));
 

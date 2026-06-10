@@ -2,7 +2,7 @@ import type {
   OSLocationsResponse,
   OSProductsResponse,
   OSCategoriesResponse,
-  OSBrandsResponse,
+  OSCatalogAttributeBrandsResponse,
   OSOccasionsResponse,
   OSCreateOrderPayload,
   OSCreateOrderResponse,
@@ -175,19 +175,21 @@ export async function fetchOsCategories(
 }
 
 /**
- * Fetch brands from Presentail OS.
+ * Fetch all brands from the Presentail OS public catalog-attributes endpoint.
+ * Returns brands with canonical slugs, names, images, and sort_order regardless
+ * of whether any products are currently linked to them.
  * Throws on failure — caller handles graceful fallback.
  */
-export async function fetchOsBrands(
+export async function fetchOsCatalogAttributesBrands(
   config: PresentailOsConfig,
-): Promise<OSBrandsResponse> {
+): Promise<OSCatalogAttributeBrandsResponse> {
   const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
 
   if (!apiKey) {
-    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsBrands.");
+    throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsCatalogAttributesBrands.");
   }
 
-  const url = new URL(`${baseUrl}/api/brands`);
+  const url = new URL(`${baseUrl}/api/catalog-attributes/brands`);
   url.searchParams.set("workspace", workspace);
   url.searchParams.set("apiKey", apiKey);
   const res = await fetch(url.toString(), {
@@ -199,9 +201,14 @@ export async function fetchOsBrands(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
-    throw new Error(`Presentail OS brands API returned HTTP ${res.status}`);
+    throw new Error(`Presentail OS catalog-attributes/brands API returned HTTP ${res.status}`);
   }
-  return res.json() as Promise<OSBrandsResponse>;
+  const body = (await res.json()) as unknown;
+  // The endpoint may return { brands: [...] } or a bare array.
+  if (Array.isArray(body)) {
+    return { brands: body as OSCatalogAttributeBrandsResponse["brands"] };
+  }
+  return body as OSCatalogAttributeBrandsResponse;
 }
 
 /**

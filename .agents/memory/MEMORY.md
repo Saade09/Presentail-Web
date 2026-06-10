@@ -3,3 +3,4 @@
 - [Web native auth](web-native-auth.md) — Clerk replaced by localStorage JWT auth on web; key design decisions documented
 - [API server test mocking patterns](api-server-test-patterns.md) — key patterns for mocking app.ts, routes, and pino-http in clerkShim-style tests
 - [OS brands admin endpoint shape](os-brands-admin-shape.md) — /api/brands has no slug field; must toSlug(name) to map to OSProductBrand; product-embedded brands have canonical slugs
+- [OS brand image auth](os-brand-images.md) — OS image_url is a SPA route, not a file; real files need Clerk JWT; API key won't work; fix must come from OS team

@@ -161,8 +161,18 @@ export type OSCategoriesResponse = {
   categories: OSProductCategory[];
 };
 
-export type OSBrandsResponse = {
-  brands: OSProductBrand[];
+export type OSCatalogAttributeBrand = {
+  id: number | string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  image_public_url?: string | null;
+  sort_order?: number;
+};
+
+export type OSCatalogAttributeBrandsResponse = {
+  brands: OSCatalogAttributeBrand[];
 };
 
 export type OSOccasionsResponse = {
