@@ -435,20 +435,18 @@ function CheckoutForm() {
   // from the picker within the polling interval.
   const activeCities = useMemo(
     () =>
-      (locations?.countries.find((c) => c.code === countryCode)?.cities ?? []).filter(
-        (c) => c.isActive !== false,
-      ),
+      locations?.countries.find((c) => c.code === countryCode)?.cities ?? [],
     [locations, countryCode],
   );
 
   // Pre-compute the selected city so we can read its OS express flag below.
-  const selectedCityData = useMemo(
-    () =>
-      activeCities.find(
-        (c) => c.name === (recipient.district || activeCities[0]?.name || ""),
-      ),
-    [activeCities, recipient.district],
-  );
+  // Only active cities are eligible for selection, so we restrict the lookup.
+  const selectedCityData = useMemo(() => {
+    const active = activeCities.filter((c) => c.isActive !== false);
+    return active.find(
+      (c) => c.name === (recipient.district || active[0]?.name || ""),
+    );
+  }, [activeCities, recipient.district]);
 
   // Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
   // the recipient country's local time, mirroring the mobile rule. Also
@@ -701,7 +699,8 @@ function CheckoutForm() {
   }
 
   const currentCountryCities = activeCities;
-  const _selectedDistrict = recipient.district || currentCountryCities[0]?.name || "";
+  const firstActiveCity = currentCountryCities.find((c) => c.isActive !== false);
+  const _selectedDistrict = recipient.district || firstActiveCity?.name || "";
   // Per-city fees and free-delivery rules come from the OS cache (via
   // /api/delivery-locations) so changes in Presentail OS propagate within
   // the polling interval. The OS threshold/enabled flag override the
@@ -788,7 +787,7 @@ function CheckoutForm() {
       lastName: recipient.lastName,
       phone: recipient.phone,
     },
-    district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+    district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
     districtFee: districtFee,
     expressFee,
     slotFee,
@@ -1141,7 +1140,7 @@ function CheckoutForm() {
       if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
-          district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1183,7 +1182,7 @@ function CheckoutForm() {
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
-          district: recipient.district || (currentCountryCities[0]?.name ?? "Beirut"),
+          district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1429,9 +1428,19 @@ function CheckoutForm() {
                             <SelectValue placeholder={t("checkout.selectDistrict")} />
                           </SelectTrigger>
                           <SelectContent>
-                            {currentCountryCities.map((city) => (
-                              <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
-                            ))}
+                            {currentCountryCities.map((city) => {
+                              const inactive = city.isActive === false;
+                              return (
+                                <SelectItem key={city.id} value={city.name} disabled={inactive}>
+                                  {city.name}
+                                  {inactive && (
+                                    <span className="ml-1.5 text-xs text-muted-foreground/70">
+                                      (not available at the moment)
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              );
+                            })}
                             {currentCountryCities.length === 0 && <SelectItem value={t("checkout.defaultCity")}>{t("checkout.defaultCity")}</SelectItem>}
                           </SelectContent>
                         </Select>

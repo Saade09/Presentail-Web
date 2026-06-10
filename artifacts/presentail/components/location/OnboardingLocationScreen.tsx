@@ -24,14 +24,14 @@ function activeCountries(list: DeliveryCountry[]): DeliveryCountry[] {
   return list.filter((c) => c.isActive);
 }
 
-function activeCities(country: DeliveryCountry | null): DeliveryCity[] {
+function allCities(country: DeliveryCountry | null): DeliveryCity[] {
   if (!country) return [];
-  return country.cities.filter((c) => c.isActive);
+  return country.cities;
 }
 
 function defaultCityFor(country: DeliveryCountry | null): DeliveryCity | null {
   if (!country) return null;
-  const active = activeCities(country);
+  const active = country.cities.filter((c) => c.isActive !== false);
   if (country.preferredDefaultCityId) {
     const preferred = active.find((c) => c.id === country.preferredDefaultCityId);
     if (preferred) return preferred;
@@ -69,7 +69,7 @@ export function OnboardingLocationScreen() {
     setDraftCity(defaultCityFor(first));
   }, [countries, draftCountry]);
 
-  const cities = useMemo(() => activeCities(draftCountry), [draftCountry]);
+  const cities = useMemo(() => allCities(draftCountry), [draftCountry]);
 
   const handlePickCountry = (country: DeliveryCountry) => {
     if (country.id === draftCountry?.id) return;
@@ -248,12 +248,13 @@ export function OnboardingLocationScreen() {
               <View style={{ paddingHorizontal: 16 }}>
                 {cities.map((city) => {
                   const selected = city.id === draftCity?.id;
+                  const inactive = city.isActive === false;
                   return (
                     <Pressable
                       key={city.id}
-                      onPress={() => handlePickCity(city)}
+                      onPress={inactive ? undefined : () => handlePickCity(city)}
                       accessibilityRole="button"
-                      accessibilityState={{ selected }}
+                      accessibilityState={{ selected, disabled: inactive }}
                       style={{
                         flexDirection: isRTL ? "row-reverse" : "row",
                         alignItems: "center",
@@ -261,23 +262,45 @@ export function OnboardingLocationScreen() {
                         paddingVertical: 14,
                         borderRadius: 12,
                         borderWidth: selected ? 2 : 1,
-                        borderColor: selected ? colors.teal600 : colors.border,
-                        backgroundColor: colors.card,
+                        borderColor: inactive
+                          ? colors.border
+                          : selected
+                            ? colors.teal600
+                            : colors.border,
+                        backgroundColor: inactive
+                          ? "rgba(0,0,0,0.015)"
+                          : colors.card,
                         marginVertical: 4,
                         gap: 12,
                       }}
                     >
-                      <AppText
-                        style={{
-                          flex: 1,
-                          fontFamily: selected ? typo.semibold : typo.medium,
-                          fontSize: 15,
-                          color: selected ? colors.primary : colors.text,
-                          textAlign: isRTL ? "right" : "left",
-                        }}
-                      >
-                        {city.name}
-                      </AppText>
+                      <View style={{ flex: 1, flexDirection: "column", gap: 2 }}>
+                        <AppText
+                          style={{
+                            fontFamily: selected && !inactive ? typo.semibold : typo.medium,
+                            fontSize: 15,
+                            color: inactive
+                              ? "rgba(0,0,0,0.35)"
+                              : selected
+                                ? colors.primary
+                                : colors.text,
+                            textAlign: isRTL ? "right" : "left",
+                          }}
+                        >
+                          {city.name}
+                        </AppText>
+                        {inactive && (
+                          <AppText
+                            style={{
+                              fontSize: 12,
+                              color: "rgba(0,0,0,0.3)",
+                              textAlign: isRTL ? "right" : "left",
+                            }}
+                          >
+                            (not available at the moment)
+                          </AppText>
+                        )}
+                      </View>
                     </Pressable>
                   );
                 })}

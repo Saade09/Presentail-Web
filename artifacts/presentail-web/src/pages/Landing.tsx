@@ -46,7 +46,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
           code,
           flag: live?.flag ?? fallback.flag,
           name: live?.name ?? fallback.name,
-          cities: (live?.cities ?? []).filter((c) => c.isActive !== false),
+          cities: live?.cities ?? [],
           ready: !!live && !!(live.cities ?? []).filter((c) => c.isActive !== false)[0],
         };
       });
@@ -69,24 +69,35 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     countryCode: string;
   }) => (
     <div className="flex flex-col">
-      {cities.map((city, idx) => (
-        <button
-          key={city.id}
-          type="button"
-          onClick={() => handleCitySelect(countryCode, city.id)}
-          className={`w-full flex items-center justify-between px-5 py-4 min-h-[52px] text-start transition-colors hover:bg-secondary/40 ${
-            idx > 0 ? "border-t border-border/60" : ""
-          }`}
-          data-testid={`button-city-${city.id}`}
-        >
-          <span className="text-base font-medium text-foreground">
-            {cityName(city.id, city.name)}
-          </span>
-          <ChevronRight
-            className={`w-4 h-4 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
-          />
-        </button>
-      ))}
+      {cities.map((city, idx) => {
+        const inactive = city.isActive === false;
+        return (
+          <button
+            key={city.id}
+            type="button"
+            onClick={inactive ? undefined : () => handleCitySelect(countryCode, city.id)}
+            disabled={inactive}
+            className={`w-full flex items-center justify-between px-5 py-4 min-h-[52px] text-start transition-colors ${
+              idx > 0 ? "border-t border-border/60" : ""
+            } ${inactive ? "cursor-not-allowed bg-muted/30" : "hover:bg-secondary/40"}`}
+            data-testid={`button-city-${city.id}`}
+          >
+            <span className={`text-base font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
+              {cityName(city.id, city.name)}
+              {inactive && (
+                <span className="ml-1.5 text-sm font-normal text-foreground/35">
+                  (not available at the moment)
+                </span>
+              )}
+            </span>
+            {!inactive && (
+              <ChevronRight
+                className={`w-4 h-4 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 
