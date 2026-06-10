@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useState } from "react";
 import {
   Baby,
   Briefcase,
@@ -80,12 +81,56 @@ const ICON_MAP: Record<string, LucideIcon> = {
 function getIcon(iconName: string): LucideIcon {
   if (!iconName) return Gift;
   const key = iconName.toLowerCase();
-  if (ICON_MAP[key]) return ICON_MAP[key];
-  const pascalCase = key
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join("");
-  return (ICON_MAP[pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1)] as LucideIcon | undefined) ?? Gift;
+  return (ICON_MAP[key] as LucideIcon | undefined) ?? Gift;
+}
+
+interface OccasionCardProps {
+  occasion: {
+    id: string;
+    name: string;
+    icon?: string | null;
+    image?: { uri?: string; asset?: string } | null;
+  };
+  index: number;
+}
+
+function OccasionCard({ occasion, index }: OccasionCardProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const Icon = getIcon(occasion.icon ?? "");
+  const photoUri = !imgFailed ? (occasion.image?.uri ?? null) : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: Math.min(index * 0.03, 0.3) }}
+    >
+      <Link
+        href={`/occasion/${occasion.id}`}
+        className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
+        data-testid={`link-occasion-${occasion.id}`}
+      >
+        {photoUri ? (
+          <span className="w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden bg-secondary flex-shrink-0">
+            <img
+              src={photoUri}
+              alt={occasion.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={() => setImgFailed(true)}
+            />
+          </span>
+        ) : (
+          <span className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors">
+            <Icon className="w-5 h-5 md:w-6 md:h-6" />
+          </span>
+        )}
+        <span className="font-serif text-base md:text-lg text-primary leading-snug">
+          {occasion.name}
+        </span>
+      </Link>
+    </motion.div>
+  );
 }
 
 export default function AllOccasions() {
@@ -117,30 +162,9 @@ export default function AllOccasions() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {occasions.map((occasion, i) => {
-              const Icon = getIcon(occasion.icon);
-              return (
-                <motion.div
-                  key={occasion.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3) }}
-                >
-                  <Link
-                    href={`/occasion/${occasion.id}`}
-                    className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
-                    data-testid={`link-occasion-${occasion.id}`}
-                  >
-                    <span className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors">
-                      <Icon className="w-5 h-5 md:w-6 md:h-6" />
-                    </span>
-                    <span className="font-serif text-base md:text-lg text-primary leading-snug">
-                      {occasion.name}
-                    </span>
-                  </Link>
-                </motion.div>
-              );
-            })}
+            {occasions.map((occasion, i) => (
+              <OccasionCard key={occasion.id} occasion={occasion} index={i} />
+            ))}
           </div>
         )}
       </div>

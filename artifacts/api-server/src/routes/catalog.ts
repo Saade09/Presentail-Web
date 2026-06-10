@@ -16,10 +16,8 @@ const router: IRouter = Router();
 
 const STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
 
-// Rewrite an OS storage URL to our proxy path so the browser never has to
-// supply the API key itself.
-// Only rewrites the known public-objects/catalog_brands/ prefix; any other
-// URL is returned as-is (or null if blank).
+// ── Brand image proxy ─────────────────────────────────────────────────────────
+
 const OS_BRAND_IMAGE_PREFIX =
   "https://os.presentail.com/api/storage/public-objects/catalog_brands/";
 
@@ -27,7 +25,6 @@ function toBrandImageProxyUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.startsWith(OS_BRAND_IMAGE_PREFIX)) {
     const filename = url.slice(OS_BRAND_IMAGE_PREFIX.length);
-    // Guard against path traversal — filename must be safe (no slashes, dots only for extension)
     if (/^[a-zA-Z0-9_-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
       return `/api/catalog/brand-image/${filename}`;
     }
@@ -35,8 +32,6 @@ function toBrandImageProxyUrl(url: string | null | undefined): string | null {
   return url;
 }
 
-// Proxy brand images from OS storage — adds the API key that the browser
-// cannot supply. Filename is restricted to a safe pattern.
 router.get("/catalog/brand-image/:filename", async (req, res) => {
   const { filename } = req.params;
   if (!/^[a-zA-Z0-9_-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
@@ -67,6 +62,57 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
   }
 });
 
+// ── Occasion image proxy ──────────────────────────────────────────────────────
+//
+// OS stores occasion images at auth-gated /objects/… paths. The browser cannot
+// supply the API key, so we proxy through here. The occasion ID (numeric string
+// as returned by the occasions API) is used as the cache key.
+
+router.get("/catalog/occasion-image/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: "OS API key not configured" });
+    return;
+  }
+  const osOccasions = getOsOccasions();
+  const occasion = osOccasions?.find((o) => o.id === id);
+  if (!occasion?.image) {
+    res.status(404).json({ error: "Occasion image not found" });
+    return;
+  }
+  try {
+    const upstream_res = await fetch(occasion.image, {
+      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!upstream_res.ok) {
+      res.status(upstream_res.status).json({ error: "Upstream error" });
+      return;
+    }
+    const contentType = upstream_res.headers.get("content-type") ?? "";
+    // OS private storage paths return the web-app HTML shell instead of an image
+    // when the storage URL is not directly accessible. Detect and surface as 404
+    // so the client can fall back to its icon.
+    if (!contentType.startsWith("image/")) {
+      res.status(404).json({ error: "Occasion image not accessible" });
+      return;
+    }
+    const buf = await upstream_res.arrayBuffer();
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    res.send(Buffer.from(buf));
+  } catch {
+    res.status(502).json({ error: "Failed to fetch occasion image" });
+  }
+});
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
 router.get("/currencies", (_req, res) => {
   const data = GetCurrenciesResponse.parse({
     currencies: CURRENCIES,
@@ -81,13 +127,39 @@ router.get("/catalog/occasions", (_req, res) => {
   const featured = osOccasions
     ? osOccasions
         .filter((o) => o.featured === true)
-        .map((o) => ({ slug: o.slug, name: o.name, image: o.image ?? null }))
+        .map((o) => ({
+          slug: o.slug,
+          name: o.name,
+          // Route through our proxy so the browser never needs the OS API key.
+          image: o.image ? `/api/catalog/occasion-image/${o.id}` : null,
+        }))
     : [];
   res.json({ occasions: featured });
 });
 
 router.get("/catalog/metadata", (_req, res) => {
   const osBrands = getOsBrands();
+  const osOccasions = getOsOccasions();
+
+  // Build a slug → OS occasion map so we can overlay images onto hardcoded occasions.
+  const osOccasionBySlug = new Map(
+    (osOccasions ?? []).map((o) => [o.slug, o]),
+  );
+
+  // Merge OS images into hardcoded occasions. The hardcoded list provides icons,
+  // descriptions, and stable slugs; OS provides real photos. When OS has an image
+  // for a slug, replace the bundled asset reference with a proxy URI so the browser
+  // never needs to supply the API key.
+  const mergedOccasions = occasions.map((occ) => {
+    const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
+    if (osOcc?.image) {
+      return {
+        ...occ,
+        image: { uri: `/api/catalog/occasion-image/${osOcc.id}` },
+      };
+    }
+    return occ;
+  });
 
   // Compute per-brand in-stock product count across all stores,
   // deduplicating by product id so a product deliverable to multiple
@@ -116,7 +188,7 @@ router.get("/catalog/metadata", (_req, res) => {
 
   const data = GetCatalogMetadataResponse.parse({
     categories,
-    occasions,
+    occasions: mergedOccasions,
     brands,
   });
   res.json(data);
