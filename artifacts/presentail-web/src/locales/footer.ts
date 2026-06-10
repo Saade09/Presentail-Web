@@ -29,9 +29,25 @@ export const footerStrings: Dict = {
     en: "All rights reserved © {year} Presentail SAL",
     ar: "جميع الحقوق محفوظة © {year} Presentail SAL",
   },
+  "footer.allRightsReservedDubai": {
+    en: "All rights reserved © {year} Presentail Flowers Trading L.L.C",
+    ar: "جميع الحقوق محفوظة © {year} Presentail Flowers Trading L.L.C",
+  },
+  "footer.allRightsReservedAbuDhabi": {
+    en: "All rights reserved © {year} Presentail Flowers Trading L.L.C - Branch Of Abu Dhabi",
+    ar: "جميع الحقوق محفوظة © {year} Presentail Flowers Trading L.L.C - فرع أبوظبي",
+  },
   "footer.address": {
     en: "3rd Floor, Karam el Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
     ar: "الطابق الثالث، كرم المونس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
+  },
+  "footer.addressDubai": {
+    en: "Shop 41, Al Barsha 1, Al Attar Business Center, Dubai, UAE",
+    ar: "محل 41، البرشاء 1، مركز العطار للأعمال، دبي، الإمارات العربية المتحدة",
+  },
+  "footer.addressAbuDhabi": {
+    en: "Al Nahyan, East 19, Mina Ahmed Mohammed Khalifa Building, Abu Dhabi, UAE",
+    ar: "النهيان، شرق 19، بناية مينا أحمد محمد خليفة، أبوظبي، الإمارات العربية المتحدة",
   },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
@@ -63,7 +79,11 @@ export const footerStringsFr: Record<string, string> = {
   "footer.openCity": "Changer de ville",
   "footer.selectCity": "Choisir une ville",
   "footer.allRightsReserved": "Tous droits réservés © {year} Presentail SAL",
+  "footer.allRightsReservedDubai": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C",
+  "footer.allRightsReservedAbuDhabi": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C - Succursale d'Abu Dhabi",
   "footer.address": "3ème étage, Karam el Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
+  "footer.addressDubai": "Boutique 41, Al Barsha 1, Al Attar Business Center, Dubaï, Émirats arabes unis",
+  "footer.addressAbuDhabi": "Al Nahyan, Est 19, Immeuble Mina Ahmed Mohammed Khalifa, Abu Dhabi, Émirats arabes unis",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
 };

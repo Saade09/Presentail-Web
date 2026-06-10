@@ -86,7 +86,7 @@ function InLink({
 
 export function Footer() {
   const { t, language } = useLocale();
-  const { city, countryCode, openPicker } = useLocationSelection();
+  const { city, cityId, countryCode, openPicker } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const [currentPath] = useLocation();
   const isOnContactPage = currentPath === "/contact" || currentPath.endsWith("/contact");
@@ -279,9 +279,24 @@ export function Footer() {
           {/* Copyright + address */}
           <div className="text-xs text-white/70 leading-relaxed md:flex-1">
             <p data-testid="footer-copyright">
-              {t("footer.allRightsReserved", { year })}
+              {t(
+                cityId === "ae-dubai"
+                  ? "footer.allRightsReservedDubai"
+                  : cityId === "ae-abu-dhabi"
+                    ? "footer.allRightsReservedAbuDhabi"
+                    : "footer.allRightsReserved",
+                { year },
+              )}
             </p>
-            <p data-testid="footer-address">{t("footer.address")}</p>
+            <p data-testid="footer-address">
+              {t(
+                cityId === "ae-dubai"
+                  ? "footer.addressDubai"
+                  : cityId === "ae-abu-dhabi"
+                    ? "footer.addressAbuDhabi"
+                    : "footer.address",
+              )}
+            </p>
           </div>
 
           {/* Legal links */}
