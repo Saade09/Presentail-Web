@@ -24,6 +24,23 @@ import {
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
 
+function MegaItemThumbnail({ img, emoji, className }: { img?: string; emoji?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (img && !failed) {
+    return (
+      <img
+        src={img}
+        alt=""
+        className={className ?? "w-full h-full object-cover"}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <span className="text-xl select-none leading-none">{emoji ?? "🎉"}</span>;
+}
+
 type MegaItem = {
   label: string;
   href: string;
@@ -114,17 +131,7 @@ function MegaMenuPanel({
                   className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 shadow-sm">
-                    {item.img ? (
-                      <img
-                        src={item.img}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ) : (
-                      <span className="text-xl select-none leading-none">{item.emoji}</span>
-                    )}
+                    <MegaItemThumbnail img={item.img} emoji={item.emoji} />
                   </div>
                   <span className="text-[13px] font-medium leading-snug text-foreground group-hover:text-primary transition-colors">
                     {item.label}
@@ -264,11 +271,7 @@ export function MainNavbar() {
                         className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-secondary/70 transition-colors text-sm"
                       >
                         <span className="w-7 h-7 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 text-base">
-                          {item.img ? (
-                            <img src={item.img} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <span className="text-base leading-none">{item.emoji}</span>
-                          )}
+                          <MegaItemThumbnail img={item.img} emoji={item.emoji} className="w-full h-full object-cover" />
                         </span>
                         {item.label}
                       </Link>

@@ -81,8 +81,9 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
   }
   const osOccasions = getOsOccasions();
   const occasion = osOccasions?.find((o) => o.id === id);
-  // Prefer the public-objects URL (accessible with x-api-key) over the private upload path.
-  const imageUrl = occasion?.imagePublicUrl ?? occasion?.image ?? null;
+  // Only use the public-objects URL. The private upload path (/objects/…) returns
+  // the OS web-app HTML shell instead of an image, so we never fall back to it.
+  const imageUrl = occasion?.imagePublicUrl ?? null;
   if (!imageUrl) {
     res.status(404).json({ error: "Occasion image not found" });
     return;
