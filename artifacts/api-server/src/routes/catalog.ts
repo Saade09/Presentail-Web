@@ -81,12 +81,14 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
   }
   const osOccasions = getOsOccasions();
   const occasion = osOccasions?.find((o) => o.id === id);
-  if (!occasion?.image) {
+  // Prefer the public-objects URL (accessible with x-api-key) over the private upload path.
+  const imageUrl = occasion?.imagePublicUrl ?? occasion?.image ?? null;
+  if (!imageUrl) {
     res.status(404).json({ error: "Occasion image not found" });
     return;
   }
   try {
-    const upstream_res = await fetch(occasion.image, {
+    const upstream_res = await fetch(imageUrl, {
       headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10_000),
     });

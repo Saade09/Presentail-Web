@@ -117,7 +117,10 @@ export type OSProductOccasion = {
   slug: string;
   name: string;
   featured?: boolean;
+  /** Private storage URL (auth-gated). Use imagePublicUrl when available. */
   image?: string | null;
+  /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */
+  imagePublicUrl?: string | null;
 };
 
 /**

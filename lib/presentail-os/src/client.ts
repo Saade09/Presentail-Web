@@ -250,6 +250,7 @@ export async function fetchOsOccasions(
       name: string;
       is_featured?: boolean;
       image_url?: string | null;
+      image_public_url?: string | null;
     }>;
     occasions?: Array<{
       id: string;
@@ -257,6 +258,7 @@ export async function fetchOsOccasions(
       name: string;
       featured?: boolean;
       image?: string | null;
+      imagePublicUrl?: string | null;
     }>;
   };
 
@@ -267,17 +269,20 @@ export async function fetchOsOccasions(
 
   const items = raw.items ?? [];
   return {
-    occasions: items.map((item) => ({
-      id: String(item.id),
-      slug: item.slug,
-      name: item.name,
-      featured: item.is_featured ?? false,
-      image: item.image_url
-        ? item.image_url.startsWith("http")
-          ? item.image_url
-          : `${baseUrl}${item.image_url}`
-        : null,
-    })),
+    occasions: items.map((item) => {
+      const toAbs = (u: string | null | undefined) =>
+        u ? (u.startsWith("http") ? u : `${baseUrl}${u}`) : null;
+      return {
+        id: String(item.id),
+        slug: item.slug,
+        name: item.name,
+        featured: item.is_featured ?? false,
+        // imagePublicUrl is the public-objects CDN path (accessible with x-api-key via our proxy).
+        // image is the raw upload path (private, not directly servable).
+        imagePublicUrl: toAbs(item.image_public_url),
+        image: toAbs(item.image_url),
+      };
+    }),
   };
 }
 
