@@ -49,6 +49,18 @@ export const footerStrings: Dict = {
     en: "Al Nahyan, East 19, Mina Ahmed Mohammed Khalifa Building, Abu Dhabi, UAE",
     ar: "النهيان، شرق 19، بناية مينا أحمد محمد خليفة، أبوظبي، الإمارات العربية المتحدة",
   },
+  "footer.allRightsReservedCyprus": {
+    en: "All rights reserved © {year} Presentail LTD",
+    ar: "جميع الحقوق محفوظة © {year} Presentail LTD",
+  },
+  "footer.ownedOperatedCyprus": {
+    en: "This website is owned and operated by Presentail LTD",
+    ar: "هذا الموقع مملوك ويُدار من قِبل Presentail LTD",
+  },
+  "footer.addressCyprus": {
+    en: "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus",
+    ar: "أغابينوروس وأرش. ماكاريوس الثالث، 2 IRIS TOWER، الطابق الرابع، مكتب 403-405 1076، نيقوسيا، قبرص",
+  },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
 };
@@ -84,6 +96,9 @@ export const footerStringsFr: Record<string, string> = {
   "footer.address": "3ème étage, Karam el Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
   "footer.addressDubai": "Boutique 41, Al Barsha 1, Al Attar Business Center, Dubaï, Émirats arabes unis",
   "footer.addressAbuDhabi": "Al Nahyan, Est 19, Immeuble Mina Ahmed Mohammed Khalifa, Abu Dhabi, Émirats arabes unis",
+  "footer.allRightsReservedCyprus": "Tous droits réservés © {year} Presentail LTD",
+  "footer.ownedOperatedCyprus": "Ce site est détenu et exploité par Presentail LTD",
+  "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
 };

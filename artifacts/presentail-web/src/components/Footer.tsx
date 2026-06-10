@@ -91,6 +91,7 @@ export function Footer() {
   const [currentPath] = useLocation();
   const isOnContactPage = currentPath === "/contact" || currentPath.endsWith("/contact");
   const isAE = countryCode?.toUpperCase() === "AE";
+  const isCY = countryCode?.toUpperCase() === "CY";
   const year = new Date().getFullYear();
   const cityLabel = city ? city.name : t("footer.selectCity");
 
@@ -280,21 +281,30 @@ export function Footer() {
           <div className="text-xs text-white/70 leading-relaxed md:flex-1">
             <p data-testid="footer-copyright">
               {t(
-                cityId === "ae-abu-dhabi"
-                  ? "footer.allRightsReservedAbuDhabi"
-                  : cityId?.startsWith("ae-")
-                    ? "footer.allRightsReservedDubai"
-                    : "footer.allRightsReserved",
+                isCY
+                  ? "footer.allRightsReservedCyprus"
+                  : cityId === "ae-abu-dhabi"
+                    ? "footer.allRightsReservedAbuDhabi"
+                    : cityId?.startsWith("ae-")
+                      ? "footer.allRightsReservedDubai"
+                      : "footer.allRightsReserved",
                 { year },
               )}
             </p>
+            {isCY && (
+              <p data-testid="footer-owned-operated">
+                {t("footer.ownedOperatedCyprus")}
+              </p>
+            )}
             <p data-testid="footer-address">
               {t(
-                cityId === "ae-abu-dhabi"
-                  ? "footer.addressAbuDhabi"
-                  : cityId?.startsWith("ae-")
-                    ? "footer.addressDubai"
-                    : "footer.address",
+                isCY
+                  ? "footer.addressCyprus"
+                  : cityId === "ae-abu-dhabi"
+                    ? "footer.addressAbuDhabi"
+                    : cityId?.startsWith("ae-")
+                      ? "footer.addressDubai"
+                      : "footer.address",
               )}
             </p>
           </div>
