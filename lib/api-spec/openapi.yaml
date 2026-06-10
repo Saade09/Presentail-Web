@@ -1938,6 +1938,13 @@ components:
           description: Available delivery time slots for this city. Empty array means slots are not yet configured.
           items:
             $ref: "#/components/schemas/DeliveryTimeSlot"
+        slotsByDay:
+          type: object
+          description: Per-day-of-week time slots keyed by lowercase English weekday name (e.g. "monday"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent.
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/DeliveryTimeSlot"
         localizedNames:
           $ref: "#/components/schemas/LocalizedNames"
         freeDeliveryThresholdUsd:

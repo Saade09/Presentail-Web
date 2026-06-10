@@ -18,7 +18,10 @@ import { AppText } from "@/components/AppText";
 import type { TimeSlot } from "@workspace/delivery";
 
 function fmtHour(h: number): string {
-  return `${String(h).padStart(2, "0")}:00`;
+  if (h === 0) return "12:00 AM";
+  if (h < 12) return `${h}:00 AM`;
+  if (h === 12) return "12:00 PM";
+  return `${h - 12}:00 PM`;
 }
 
 export type SlotPickerColors = {

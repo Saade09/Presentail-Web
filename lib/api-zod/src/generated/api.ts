@@ -977,6 +977,47 @@ export const GetDeliveryLocationsResponse = zod.object({
             .describe(
               "Available delivery time slots for this city. Empty array means slots are not yet configured.",
             ),
+          slotsByDay: zod
+            .record(
+              zod.string(),
+              zod.array(
+                zod.object({
+                  label: zod
+                    .string()
+                    .describe(
+                      'Human-readable slot label (e.g. \"Morning (9 AM – 12 PM)\").',
+                    ),
+                  startHour: zod
+                    .number()
+                    .optional()
+                    .describe(
+                      "Hour of day (0–23) the slot window opens (e.g. 9 for 9 AM). Optional; absent when the OS has not configured window boundaries.",
+                    ),
+                  endHour: zod
+                    .number()
+                    .optional()
+                    .describe(
+                      "Hour of day (0–23) the slot window closes (e.g. 14 for 2 PM). Optional; absent when the OS has not configured window boundaries.",
+                    ),
+                  cutoffHour: zod
+                    .number()
+                    .nullish()
+                    .describe(
+                      "Hour of day (0–23) after which this slot can no longer be booked for same-day delivery. Null when the OS has not configured a cutoff for this slot.",
+                    ),
+                  extraFee: zod
+                    .number()
+                    .optional()
+                    .describe(
+                      "Additional surcharge (USD) for booking this slot, e.g. a night-delivery fee.",
+                    ),
+                }),
+              ),
+            )
+            .optional()
+            .describe(
+              'Per-day-of-week time slots keyed by lowercase English weekday name (e.g. \"monday\"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent.',
+            ),
           localizedNames: zod
             .object({
               ar: zod.string().optional(),

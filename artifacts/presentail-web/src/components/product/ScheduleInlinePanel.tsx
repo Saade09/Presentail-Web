@@ -15,8 +15,14 @@ type Props = {
   countryCode?: string | null;
   initialDate?: string | null;
   initialSlotLabel?: string | null;
-  /** OS-sourced slots for the selected city. When provided, overrides the hardcoded per-country defaults. */
+  /** OS-sourced slots for the selected city (flat fallback). When provided, overrides the hardcoded per-country defaults. */
   timeSlots?: TimeSlot[];
+  /**
+   * Per-day-of-week slots from OS. Keys are lowercase English weekday names (e.g. "monday").
+   * When present, only the slots for the selected date's day of week are shown.
+   * Falls back to the flat `timeSlots` when the day key is absent or this prop is omitted.
+   */
+  slotsByDay?: Record<string, TimeSlot[]>;
   onChange: (args: {
     mode: "today_slot" | "schedule";
     date: string;
@@ -33,12 +39,14 @@ export function ScheduleInlinePanel({
   initialDate,
   initialSlotLabel,
   timeSlots: propTimeSlots,
+  slotsByDay: propSlotsByDay,
   onChange,
 }: Props) {
   const { t } = useLocale();
   const code = (countryCode ?? "LB").toUpperCase();
   const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
-  const timeSlots = useMemo(
+  /** Flat fallback slot list (all days merged, or hardcoded per-country). */
+  const flatTimeSlots = useMemo(
     () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code)),
     [propTimeSlots, code],
   );
@@ -55,15 +63,30 @@ export function ScheduleInlinePanel({
     setDateState(next);
   };
 
+  /**
+   * Active slot list for the currently selected date.
+   * When OS provides per-day slots, use the day-of-week subset;
+   * fall back to the flat list otherwise.
+   */
+  const timeSlots = useMemo<TimeSlot[]>(() => {
+    if (propSlotsByDay) {
+      const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+      const daySlots = propSlotsByDay[weekday];
+      if (daySlots && daySlots.length > 0) return daySlots as TimeSlot[];
+    }
+    return flatTimeSlots;
+  }, [propSlotsByDay, date, flatTimeSlots]);
+
   const [slotLabel, setSlotLabel] = useState<string | null>(() => {
+    // Use flatTimeSlots for seed-time lookup since `date` may not be set yet.
     if (initialSlotLabel && initialDate && initialDate >= todayIso) {
-      const known = timeSlots.find((s) => s.label === initialSlotLabel);
+      const known = flatTimeSlots.find((s) => s.label === initialSlotLabel);
       const isToday = seedDate === todayIso;
       if (known && (!isToday || localHour < known.cutoffHour))
         return initialSlotLabel;
     }
     const isToday = seedDate === todayIso;
-    return firstAvailableSlot(timeSlots, isToday, localHour)?.label ?? null;
+    return firstAvailableSlot(flatTimeSlots, isToday, localHour)?.label ?? null;
   });
 
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -255,7 +278,10 @@ export function ScheduleInlinePanel({
 }
 
 function fmtHour(h: number): string {
-  return `${String(h).padStart(2, "0")}:00`;
+  if (h === 0) return "12:00 AM";
+  if (h < 12) return `${h}:00 AM`;
+  if (h === 12) return "12:00 PM";
+  return `${h - 12}:00 PM`;
 }
 
 function monthShort(iso: string): string {

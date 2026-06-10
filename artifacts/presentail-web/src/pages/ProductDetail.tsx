@@ -33,6 +33,7 @@ import {
   isExpressDeliveryAvailable,
   slotTimeRangeForLabel,
   timeSlotsForCountry,
+  type TimeSlot,
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -337,6 +338,7 @@ export default function ProductDetail() {
               <ScheduleInlinePanel
                 countryCode={countryCode}
                 timeSlots={city?.timeSlots}
+                slotsByDay={city?.slotsByDay as Record<string, TimeSlot[]> | undefined}
                 initialDate={deliverySelection.date}
                 initialSlotLabel={deliverySelection.slotLabel}
                 onChange={({ mode, date, slotLabel }) => {

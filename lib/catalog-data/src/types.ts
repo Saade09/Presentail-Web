@@ -86,6 +86,12 @@ export type DeliveryCityData = {
   isActive: boolean;
   /** Available delivery time slots from Presentail OS. Empty when not yet configured in OS. */
   timeSlots?: Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>;
+  /**
+   * Per-day-of-week time slots from OS. Keys are lowercase English weekday names
+   * (e.g. "monday"). When present, clients should use slotsByDay[dayOfWeek] for
+   * the selected delivery date instead of the flat timeSlots array.
+   */
+  slotsByDay?: Record<string, Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>>;
   /** Whether express/same-day delivery is offered for this city (from OS). */
   expressAvailable?: boolean;
   /** Hour (0–23, local time) after which same-day/express delivery can no longer be booked (from OS). */

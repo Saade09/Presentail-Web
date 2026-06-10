@@ -207,14 +207,24 @@ export function dayLabels(
 }
 
 /**
- * Returns "HH:MM–HH:MM" for a slot that has `startHour` and `endHour`
- * defined (OS-configured slots), or `undefined` for legacy slots that only
- * carry a label.
+ * Format an hour (0–23) as a 12-hour clock string, e.g. 9 → "9:00 AM",
+ * 14 → "2:00 PM", 0 → "12:00 AM", 12 → "12:00 PM".
+ */
+export function fmt12h(h: number): string {
+  if (h === 0) return "12:00 AM";
+  if (h < 12) return `${h}:00 AM`;
+  if (h === 12) return "12:00 PM";
+  return `${h - 12}:00 PM`;
+}
+
+/**
+ * Returns "H:00 AM–H:00 PM" (12hr) for a slot that has `startHour` and
+ * `endHour` defined (OS-configured slots), or `undefined` for legacy slots
+ * that only carry a label.
  */
 export function formatSlotTimeRange(slot: TimeSlot): string | undefined {
   if (slot.startHour === undefined || slot.endHour === undefined) return undefined;
-  const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
-  return `${pad(slot.startHour)}–${pad(slot.endHour)}`;
+  return `${fmt12h(slot.startHour)}–${fmt12h(slot.endHour)}`;
 }
 
 /**

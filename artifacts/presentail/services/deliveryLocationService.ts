@@ -102,6 +102,30 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
           // city; callers fall back to lib/delivery hardcoded tables.
           city.timeSlots = sanitizedSlots;
         }
+        // Map per-day slots when OS returns them.
+        if (cobj.slotsByDay && typeof cobj.slotsByDay === "object" && !Array.isArray(cobj.slotsByDay)) {
+          const raw = cobj.slotsByDay as Record<string, unknown>;
+          const mapped: Record<string, Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>> = {};
+          for (const [day, slots] of Object.entries(raw)) {
+            if (!Array.isArray(slots)) continue;
+            mapped[day] = (slots as unknown[])
+              .filter(
+                (s): s is { label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number } =>
+                  !!s &&
+                  typeof s === "object" &&
+                  typeof (s as Record<string, unknown>).label === "string" &&
+                  typeof (s as Record<string, unknown>).cutoffHour === "number",
+              )
+              .map((s) => ({
+                label: s.label,
+                ...(typeof s.startHour === "number" ? { startHour: s.startHour } : {}),
+                ...(typeof s.endHour === "number" ? { endHour: s.endHour } : {}),
+                cutoffHour: s.cutoffHour,
+                ...(typeof s.extraFee === "number" ? { extraFee: s.extraFee } : {}),
+              }));
+          }
+          city.slotsByDay = mapped;
+        }
         return city;
       })
       .filter(Boolean) as DeliveryCountry["cities"];

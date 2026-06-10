@@ -52,6 +52,11 @@ type CachedCity = {
   /** Hour of day (0–23) after which same-day booking is disabled. Defaults to EXPRESS_CLOSE_HOUR. */
   sameDayCutoffHour: number;
   timeSlots: OSTimeSlot[];
+  /**
+   * Per-day-of-week slots from OS. Keys are lowercase English weekday names
+   * (e.g. "monday"). Absent when OS did not return per-day data.
+   */
+  slotsByDay?: Record<string, OSTimeSlot[]>;
   localizedNames?: { ar?: string; fr?: string };
   /**
    * Per-city free-delivery threshold in USD from Presentail OS.
@@ -303,6 +308,8 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
               // Normalise to an array even when OS omits the field.
               timeSlots: c.timeSlots ?? [],
+              // Per-day slots — pass through as-is when OS provides them.
+              slotsByDay: c.slotsByDay,
               localizedNames: localizedNamesForCity(canonicalId),
               // Per-city free-delivery settings: OS value takes precedence; fall
               // back to the hardcoded deliveryConfig entry so callers always get

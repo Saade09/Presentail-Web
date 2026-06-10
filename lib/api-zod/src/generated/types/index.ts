@@ -42,6 +42,7 @@ export * from "./customerAddressListResponse";
 export * from "./customerAddressPatchInput";
 export * from "./customerAddressResponse";
 export * from "./deliveryCity";
+export * from "./deliveryCitySlotsByDay";
 export * from "./deliveryConfigResponse";
 export * from "./deliveryCountry";
 export * from "./deliveryLocationsResponse";

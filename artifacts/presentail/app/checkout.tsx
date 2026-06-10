@@ -1490,6 +1490,7 @@ function CheckoutScreen() {
               setDeliveryMode={setDeliveryMode}
               expressAvailable={expressAvailable}
               timeSlots={timeSlots}
+              slotsByDay={selectedCity?.slotsByDay}
               expressSurcharge={expressSurcharge}
               localHour={getCountryHour(effectiveCountry)}
             />
@@ -2715,11 +2716,21 @@ function DeliveryTile({ colors, icon, title, subtitle, footer, active, disabled,
 
 function DeliveryTimeCard({
   colors, days, date, setDate, slot, setSlot,
-  deliveryMode, setDeliveryMode, expressAvailable, timeSlots, expressSurcharge, localHour,
+  deliveryMode, setDeliveryMode, expressAvailable, timeSlots, slotsByDay, expressSurcharge, localHour,
 }: any) {
   const { formatPrice } = useCurrency();
   const t = useT();
   const todayIso = days[0]?.iso;
+  // When OS provides per-day slots, show only the slots for the selected date's
+  // day of week. Fall back to the flat list when no per-day data is available.
+  const activeDaySlots: TimeSlot[] = React.useMemo(() => {
+    if (slotsByDay && date) {
+      const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+      const daySlots = (slotsByDay as Record<string, TimeSlot[]>)[weekday];
+      if (daySlots && daySlots.length > 0) return daySlots;
+    }
+    return timeSlots as TimeSlot[];
+  }, [slotsByDay, date, timeSlots]);
   const todayHasSlots = (timeSlots as TimeSlot[]).some((s) => s.cutoffHour > localHour);
   const disabledDates = todayHasSlots ? undefined : new Set<string>(todayIso ? [todayIso] : []);
   return (
@@ -2747,7 +2758,7 @@ function DeliveryTimeCard({
             if (!todayHasSlots) return;
             setDeliveryMode("today_slot");
             setDate(days[0].iso);
-            const firstAvail = timeSlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
+            const firstAvail = activeDaySlots.find((s: TimeSlot) => s.cutoffHour > localHour) ?? null;
             setSlot(firstAvail);
           }}
         />
@@ -2772,7 +2783,7 @@ function DeliveryTimeCard({
             />
           )}
           <SlotPicker
-            slots={timeSlots}
+            slots={activeDaySlots}
             selectedSlotLabel={slot?.label ?? null}
             date={date}
             todayIso={todayIso}

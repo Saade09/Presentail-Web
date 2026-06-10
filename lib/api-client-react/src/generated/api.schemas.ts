@@ -560,6 +560,11 @@ export interface DeliveryTimeSlot {
   extraFee?: number;
 }
 
+/**
+ * Per-day-of-week time slots keyed by lowercase English weekday name (e.g. "monday"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent.
+ */
+export type DeliveryCitySlotsByDay = { [key: string]: DeliveryTimeSlot[] };
+
 export interface DeliveryCity {
   id: string;
   name: string;
@@ -574,6 +579,8 @@ export interface DeliveryCity {
   sameDayCutoffHour: number;
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
   timeSlots: DeliveryTimeSlot[];
+  /** Per-day-of-week time slots keyed by lowercase English weekday name (e.g. "monday"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent. */
+  slotsByDay?: DeliveryCitySlotsByDay;
   localizedNames?: LocalizedNames;
   /** Free-delivery threshold in USD for this city from Presentail OS. Overrides the country-level threshold when present. */
   freeDeliveryThresholdUsd?: number;

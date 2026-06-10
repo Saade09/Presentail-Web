@@ -30,6 +30,13 @@ export type OSCity = {
   sameDayCutoffHour?: number;
   timeSlots?: OSTimeSlot[];
   /**
+   * Per-day-of-week time slot configuration. Keys are lowercase English weekday
+   * names (e.g. "monday", "tuesday"). When present, clients should use
+   * slotsByDay[dayOfWeek] for the selected delivery date instead of the flat
+   * timeSlots array, falling back to timeSlots when the key is absent.
+   */
+  slotsByDay?: Record<string, OSTimeSlot[]>;
+  /**
    * Total express delivery fee in the country's display currency (not USD).
    * Use getUsdAmount(expressFeeTotal, country.currency) to get USD amount.
    */

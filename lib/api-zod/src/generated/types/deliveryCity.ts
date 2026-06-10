@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryCitySlotsByDay } from "./deliveryCitySlotsByDay";
 import type { DeliveryTimeSlot } from "./deliveryTimeSlot";
 import type { LocalizedNames } from "./localizedNames";
 
@@ -22,6 +23,8 @@ export interface DeliveryCity {
   sameDayCutoffHour: number;
   /** Available delivery time slots for this city. Empty array means slots are not yet configured. */
   timeSlots: DeliveryTimeSlot[];
+  /** Per-day-of-week time slots keyed by lowercase English weekday name (e.g. "monday"). When present, use slotsByDay[dayOfWeek] for the selected delivery date instead of the flat timeSlots array, falling back to timeSlots when the day key is absent. */
+  slotsByDay?: DeliveryCitySlotsByDay;
   localizedNames?: LocalizedNames;
   /** Free-delivery threshold in USD for this city from Presentail OS. Overrides the country-level threshold when present. */
   freeDeliveryThresholdUsd?: number;
