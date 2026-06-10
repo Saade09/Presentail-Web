@@ -36,6 +36,7 @@ import {
 } from "@workspace/delivery";
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { trackFbEvent } from "@/lib/fbPixel";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -126,6 +127,17 @@ export default function ProductDetail() {
     () => (product ? buildProductViewModel(product) : null),
     [product],
   );
+
+  useEffect(() => {
+    if (!product) return;
+    trackFbEvent("ViewContent", {
+      content_name: product.name,
+      content_ids: [product.id],
+      content_type: "product",
+      value: product.priceValue,
+      currency: "USD",
+    });
+  }, [product?.id]); // i18n-ignore
 
   const productBreadcrumbs = useMemo((): Crumb[] => {
     const home: Crumb = { label: t("nav.home"), href: "/" };

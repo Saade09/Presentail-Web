@@ -21,6 +21,7 @@ import {
   getCustomerByWcId,
 } from "../lib/customers";
 import { creditReferralRedemption } from "../lib/loyalty";
+import { sendCapiPurchase } from "../lib/fbConversions";
 import {
   resolveStoreFromRequest,
   wooAuthHeader,
@@ -1454,6 +1455,29 @@ router.post("/woo/order", async (req, res) => {
     storeKey: store.storeKey,
     osOrderId: result.osOrderId ?? null,
     log: req.log,
+  });
+
+  // ── Facebook Conversions API — Purchase (fire-and-forget) ────────────────
+  // Send a server-side Purchase event to Meta CAPI so Lebanon and UAE ad
+  // campaigns can track conversions. The event_id mirrors the client-side
+  // fbpurchase-<orderId> token so Meta can deduplicate the browser pixel
+  // event and this server event. A CAPI failure must never block the order.
+  void sendCapiPurchase({
+    eventId: `fbpurchase-${body.orderId}`,
+    value: result.totalUsdCents != null ? result.totalUsdCents / 100 : 0,
+    currency: "USD",
+    countryCode: store.country,
+    userData: {
+      email: body.billing.email ?? null,
+      phone: body.billing.phone ?? null,
+      firstName: body.billing.firstName ?? null,
+      lastName: body.billing.lastName ?? null,
+    },
+  }).catch((err: unknown) => {
+    req.log?.warn?.(
+      { err: (err as Error)?.message, appOrderId: body.orderId },
+      "woo.order: CAPI Purchase event failed (non-fatal)",
+    );
   });
 
   // ── Referral points (fire-and-forget) ────────────────────────────────────

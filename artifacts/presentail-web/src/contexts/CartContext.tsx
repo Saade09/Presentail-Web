@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/lib/queries";
+import { trackFbEvent } from "@/lib/fbPixel";
 
 export type CartItem = {
   product: Product;
@@ -70,6 +71,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
       return [...current, { product, quantity }];
+    });
+    trackFbEvent("AddToCart", {
+      content_ids: [product.id],
+      content_type: "product",
+      value: product.priceValue,
+      currency: "USD",
     });
   };
 

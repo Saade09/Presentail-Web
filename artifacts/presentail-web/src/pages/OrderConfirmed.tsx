@@ -6,6 +6,7 @@ import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent } from "@/lib/analytics";
+import { trackFbEvent } from "@/lib/fbPixel";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
@@ -42,6 +43,34 @@ export default function OrderConfirmed() {
 
   const [state, setState] = useState<FinalizeState>(initial);
   const triedRef = useRef(false);
+  const purchaseFiredRef = useRef(false);
+
+  // Fire Purchase immediately for the inline-payment success path: Checkout.tsx
+  // sets ?ref=<orderRef> on the URL and redirects here without going through the
+  // createOrder.mutate flow, so state initialises directly to { kind: "success" }.
+  // Read real total/currency from the stashed payload when available; fall back to
+  // safe zeros so the event is always sent. purchaseFiredRef prevents double-fire.
+  useEffect(() => {
+    if (state.kind !== "success") return;
+    if (purchaseFiredRef.current) return;
+    purchaseFiredRef.current = true;
+    let value = 0;
+    let currency = "USD";
+    try {
+      const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
+      if (stashed) {
+        const parsed = JSON.parse(stashed) as { payload?: Record<string, unknown> };
+        if (typeof parsed?.payload?.totalUsd === "number") value = parsed.payload.totalUsd;
+        if (typeof parsed?.payload?.currencyCode === "string") currency = parsed.payload.currencyCode;
+      }
+    } catch { /* best-effort — safe fallback to 0 / USD */ }
+    trackFbEvent("Purchase", {
+      value,
+      currency,
+      event_id: `fbpurchase-${state.ref}`,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (state.kind !== "finalizing" || triedRef.current) return;
@@ -85,7 +114,16 @@ export default function OrderConfirmed() {
             surface: "checkout",
             ...(chosenMethod ? { action: chosenMethod } : {}),
           });
-          setState({ kind: "success", ref: String(res.wcOrderId || payload.orderId) });
+          const orderRef = String(res.wcOrderId || payload.orderId);
+          if (!purchaseFiredRef.current) {
+            purchaseFiredRef.current = true;
+            trackFbEvent("Purchase", {
+              value: typeof payload.totalUsd === "number" ? payload.totalUsd : 0,
+              currency: (payload.currencyCode as string | undefined) ?? "USD",
+              event_id: `fbpurchase-${orderRef}`,
+            });
+          }
+          setState({ kind: "success", ref: orderRef });
         } else {
           setState({ kind: "failed", message: res.message || t("order.fail.couldntCreate") });
         }

@@ -8,6 +8,7 @@ import {
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { prefetchOnIdle } from "@/lib/prefetch";
+import { initPixel, trackFbPageView } from "@/lib/fbPixel";
 import {
   loadHome,
   loadShop,
@@ -344,6 +345,25 @@ function DocumentMeta() {
   return null;
 }
 
+function FbPixelTracker() {
+  const [path] = useLocation();
+  const { countryCode } = useLocationSelection();
+
+  const countrySlug = countryCode
+    ? (countryCode.toLowerCase() as import("@/lib/locale-route").CountrySlug)
+    : null;
+
+  useEffect(() => {
+    initPixel(countrySlug);
+  }, [countrySlug]);
+
+  useEffect(() => {
+    trackFbPageView();
+  }, [path]);
+
+  return null;
+}
+
 function CurrencyDataLoader() {
   const { data } = useCurrenciesData();
   useEffect(() => {
@@ -384,6 +404,7 @@ function App() {
                     <DeliverySelectionProvider>
                       <CurrencyDataLoader />
                       <DocumentMeta />
+                      <FbPixelTracker />
                       <SeoHead />
                       <RootRouter />
                       <Toaster />

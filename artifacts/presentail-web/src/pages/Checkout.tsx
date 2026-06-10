@@ -47,6 +47,7 @@ import westernUnionLogo from "@/assets/payment-logos/western-union.svg";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { trackEvent } from "@/lib/analytics";
+import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import {
   dayLabels,
@@ -500,6 +501,7 @@ function CheckoutForm() {
     if (checkoutStartedRef.current) return;
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
+    trackFbEvent("InitiateCheckout");
   }, [authLoading, showLoginGate]);
 
   // Reflect any in-checkout edits to the delivery mode / date / slot back
@@ -800,6 +802,8 @@ function CheckoutForm() {
     paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     currencyCode: "USD",
+    totalUsd: total,
+    countryCode: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
   });
