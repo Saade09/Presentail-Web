@@ -69,12 +69,13 @@ export function ScheduleInlinePanel({
    * fall back to the flat list otherwise.
    */
   const timeSlots = useMemo<TimeSlot[]>(() => {
+    const byStart = (arr: TimeSlot[]) => [...arr].sort((a, b) => a.cutoffHour - b.cutoffHour);
     if (propSlotsByDay) {
       const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
       const daySlots = propSlotsByDay[weekday];
-      if (daySlots && daySlots.length > 0) return daySlots as TimeSlot[];
+      if (daySlots && daySlots.length > 0) return byStart(daySlots as TimeSlot[]);
     }
-    return flatTimeSlots;
+    return byStart(flatTimeSlots);
   }, [propSlotsByDay, date, flatTimeSlots]);
 
   const [slotLabel, setSlotLabel] = useState<string | null>(() => {
