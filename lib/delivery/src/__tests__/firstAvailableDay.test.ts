@@ -152,4 +152,46 @@ describe("firstAvailableDay", () => {
     expect(result!.iso).toBe(TODAY);
     expect(result!.slot.label).toBe(aeSlots[0].label);
   });
+
+  // ---------------------------------------------------------------------------
+  // CY (Cyprus) — uses Beirut slots, same as LB
+  // ---------------------------------------------------------------------------
+
+  it("CY: advances to tomorrow when all of today's slots are past", () => {
+    // CY uses the same slot table as LB (Beirut). Cutoffs: 9, 14, 18, 21.
+    // hour 22 → all cutoffs are ≤ 22 → today is fully past.
+    const cySlots = timeSlotsForCountry("CY");
+    const result = firstAvailableDay(TODAY, cySlots, 22, TODAY);
+    expect(result).not.toBeNull();
+    expect(result!.iso).toBe(TOMORROW);
+    expect(result!.slot.label).toBe(cySlots[0].label);
+  });
+
+  it("CY: returns today when a slot is still open", () => {
+    const cySlots = timeSlotsForCountry("CY");
+    // hour 17 → cutoff 18 is still open (18 > 17)
+    const result = firstAvailableDay(TODAY, cySlots, 17, TODAY);
+    expect(result!.iso).toBe(TODAY);
+    expect(result!.slot.label).toBe(cySlots[2].label); // "6:00 PM – 9:00 PM"
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cross-country: LB still open, AE already closed at same UTC instant
+  // ---------------------------------------------------------------------------
+
+  it("LB open / AE closed at the same wall-clock UTC instant", () => {
+    // Scenario: it is 20:30 Beirut (LB hour=20) and 21:30 Dubai (AE hour=21).
+    // LB cutoffs: 9, 14, 18, 21 → hour 20 < cutoff 21 → LB still open today.
+    // AE cutoffs: 7, 13, 16, 20 → hour 21 > all AE cutoffs → AE fully past.
+    const lbSlots = timeSlotsForCountry("LB");
+    const aeSlots = timeSlotsForCountry("AE");
+
+    const lbResult = firstAvailableDay(TODAY, lbSlots, 20, TODAY);
+    expect(lbResult!.iso).toBe(TODAY);
+    expect(lbResult!.slot.label).toBe(lbSlots[3].label); // "9:00 PM – 11:00 PM"
+
+    const aeResult = firstAvailableDay(TODAY, aeSlots, 21, TODAY);
+    expect(aeResult!.iso).toBe(TOMORROW);
+    expect(aeResult!.slot.label).toBe(aeSlots[0].label);
+  });
 });

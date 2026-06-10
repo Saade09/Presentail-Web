@@ -554,8 +554,20 @@ function CheckoutScreen() {
   }, [timeSlots, effectiveCountry]);
 
   const deliveryMode: "express" | "today_slot" | "schedule" =
-    deliverySelection.mode ?? "today_slot";
-  const date = deliverySelection.date ?? todayIso;
+    deliverySelection.mode ?? (defaultSlotForToday == null ? "schedule" : "today_slot");
+  // When there is no stored selection and today has no remaining slots, compute
+  // the first available date synchronously so DateStrip highlights the correct
+  // tile on first render (before the seeding useEffect below fires).
+  const date = useMemo(() => {
+    if (deliverySelection.date) return deliverySelection.date;
+    if (deliverySelection.mode != null) return todayIso;
+    if (defaultSlotForToday == null) {
+      const h = getCountryHour(effectiveCountry);
+      const result = firstAvailableDay(todayIso, timeSlots, h, todayIso);
+      return result?.iso ?? todayIso;
+    }
+    return todayIso;
+  }, [deliverySelection.date, deliverySelection.mode, defaultSlotForToday, todayIso, timeSlots, effectiveCountry]);
   const slot = useMemo<TimeSlot | null>(() => {
     if (deliverySelection.slotLabel) {
       const found = timeSlots.find((s) => s.label === deliverySelection.slotLabel);

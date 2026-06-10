@@ -10,7 +10,7 @@ import {
 } from "react";
 import {
   firstAvailableDay,
-  getBeirutHour,
+  getCountryHour,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
@@ -39,21 +39,36 @@ function todayIso(): string {
 
 /**
  * Resolve the first available delivery date starting from today.
- * Uses LB slots + Beirut hour as a conservative default when country is
- * unknown (the picker modal will re-check with the actual country on open).
+ * Uses the supplied `countryCode` for country-aware slot table and local
+ * hour (Asia/Dubai for AE, Asia/Beirut for LB & CY). Falls back to LB
+ * when `countryCode` is omitted — the picker modal will re-check with
+ * the actual country on open, and the web Checkout page has its own
+ * correction effect that runs when city time-slot data arrives.
  */
-function resolveFirstAvailableDate(): { date: string; slotLabel: string | null } {
+function resolveFirstAvailableDate(countryCode?: string | null): { date: string; slotLabel: string | null } {
   const today = todayIso();
-  const lbSlots = timeSlotsForCountry("LB");
-  const h = getBeirutHour();
-  const result = firstAvailableDay(today, lbSlots, h, today);
+  const slots = timeSlotsForCountry(countryCode);
+  const h = getCountryHour(countryCode);
+  const result = firstAvailableDay(today, slots, h, today);
   return {
     date: result?.iso ?? today,
     slotLabel: result?.slot.label ?? null,
   };
 }
 
-function sanitize(raw: unknown): DeliverySelection {
+/** Read the stored country code from LocationContext's localStorage entry. */
+function readStoredCountryCode(): string | null {
+  try {
+    const raw = window.localStorage.getItem("presentail_delivery_location_v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.countryCode === "string" ? parsed.countryCode : null;
+  } catch {
+    return null;
+  }
+}
+
+function sanitize(raw: unknown, countryCode?: string | null): DeliverySelection {
   const empty: DeliverySelection = { mode: null, date: null, slotLabel: null };
   if (!raw || typeof raw !== "object") return empty;
   const obj = raw as Record<string, unknown>;
@@ -84,11 +99,11 @@ function sanitize(raw: unknown): DeliverySelection {
   }
   const today = todayIso();
   if (!date || date === today) {
-    const lbSlots = timeSlotsForCountry("LB");
-    const h = getBeirutHour();
-    const todayHasSlots = lbSlots.some((s) => s.cutoffHour > h);
+    const slots = timeSlotsForCountry(countryCode);
+    const h = getCountryHour(countryCode);
+    const todayHasSlots = slots.some((s) => s.cutoffHour > h);
     if (!todayHasSlots) {
-      const resolved = resolveFirstAvailableDate();
+      const resolved = resolveFirstAvailableDate(countryCode);
       return {
         mode: resolved.date !== today ? "schedule" : mode,
         date: resolved.date,
@@ -104,12 +119,14 @@ function readInitial(): DeliverySelection {
   if (typeof window === "undefined")
     return { mode: null, date: null, slotLabel: null };
   try {
+    // Read the stored country so resolution uses the correct slot table and
+    // timezone (Dubai for AE, Beirut for LB/CY). Falls back to LB when no
+    // location is stored — the Checkout page correction effect covers AE/CY
+    // when the OS city data arrives after the initial render.
+    const countryCode = readStoredCountryCode();
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // No persisted selection — resolve a conservative default (LB slots + Beirut
-      // hour). The web checkout page re-validates with the actual country slots on
-      // mount so AE/CY shoppers get the correct country-aware default.
-      const resolved = resolveFirstAvailableDate();
+      const resolved = resolveFirstAvailableDate(countryCode);
       const today = todayIso();
       return {
         mode: resolved.date !== today ? "schedule" : "today_slot",
@@ -117,7 +134,7 @@ function readInitial(): DeliverySelection {
         slotLabel: resolved.slotLabel,
       };
     }
-    return sanitize(JSON.parse(raw));
+    return sanitize(JSON.parse(raw), countryCode);
   } catch {
     return { mode: null, date: null, slotLabel: null };
   }
