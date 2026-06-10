@@ -2,11 +2,19 @@ import { logger } from "./logger";
 
 // Single source of truth for currency conversion across the server.
 //
-// We convert all monetary amounts received from the app (which prices its
-// catalogue in USD) into the customer-facing currency *server-side* so that
-// what the user sees is what they get charged. Live FX rates are fetched
-// from the free open.er-api.com endpoint with a 6h TTL and an embedded
-// fallback for the cold-start / offline case.
+// FX rate sources (priority order):
+//   1. Presentail OS public endpoint (`GET /api/public/currency-rates?workspace=…`)
+//      for the currencies it manages: AED, EUR, GBP, KWD, OMR, QAR, SAR.
+//      These are fetched in parallel with the open.er-api.com call below.
+//   2. open.er-api.com for the remaining live currencies: CAD, AUD, CHF.
+//      Also used as a full fallback if the OS fetch fails (covering all
+//      currencies except LBP which is a static peg).
+//   3. Embedded static fallback rates — returned when both upstreams are
+//      unreachable. The fxRatesFallbackMonitor fires a Slack alert in this case.
+//
+// Cache TTL is 24 h for live rates (OS updates twice daily; one refresh per
+// day is sufficient) and 5 min for the fallback retry so `consecutiveFailures`
+// increments at most once per 5 minutes rather than per request.
 
 export type SupportedCurrency =
   | "USD"
@@ -37,8 +45,14 @@ export const SUPPORTED_CURRENCIES: SupportedCurrency[] = [
   "LBP",
 ];
 
-// Conservative fallback if the FX API is unreachable. Kept reasonably close
-// to the static rates the mobile app shipped with so prices don't lurch.
+// Currencies sourced from Presentail OS (primary).
+const OS_CURRENCIES: SupportedCurrency[] = ["AED", "EUR", "GBP", "KWD", "OMR", "QAR", "SAR"];
+
+// Currencies always sourced from open.er-api.com (OS does not provide these).
+const ER_API_CURRENCIES: SupportedCurrency[] = ["CAD", "AUD", "CHF"];
+
+// Conservative fallback if both FX upstreams are unreachable. Kept reasonably
+// close to the static rates the mobile app shipped with so prices don't lurch.
 // LBP: the Lebanese pound has been pegged informally at ~89,500 LBP/USD since
 // the 2023 monetary reform; update if the peg shifts.
 const FALLBACK_RATES: Record<SupportedCurrency, number> = {
@@ -80,8 +94,10 @@ type RateCache = {
   source: "live" | "fallback";
 };
 
-// Cache TTL for live rates — matches the historical 6h window.
-const LIVE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+// Cache TTL for live rates — 24 h matches the Presentail OS daily rate refresh
+// cadence. Previously 6 h (open.er-api.com); one refresh per day is sufficient
+// now that OS is the primary source and updates twice daily internally.
+const LIVE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
 
 // When live rates are unavailable the cache falls back to static rates.
 // Rather than retrying on *every* incoming request (which would hammer
@@ -132,22 +148,103 @@ export function normalizeCurrency(value: unknown): SupportedCurrency {
   return "USD";
 }
 
+/**
+ * Fetch rates for OS_CURRENCIES from the Presentail OS public endpoint.
+ * Returns a partial rate map on success, or rejects on failure.
+ */
+async function fetchOsRates(): Promise<Partial<Record<SupportedCurrency, number>>> {
+  const osBaseUrl = process.env["PRESENTAIL_OS_API_URL"];
+  if (!osBaseUrl) {
+    throw new Error("PRESENTAIL_OS_API_URL is not set");
+  }
+  const workspace = process.env["PRESENTAIL_OS_WORKSPACE"] ?? "presentail";
+  const url = `${osBaseUrl}/api/public/currency-rates?workspace=${encodeURIComponent(workspace)}`;
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`OS FX API HTTP ${res.status}`);
+  const data = (await res.json()) as { rates?: Record<string, number> };
+  if (!data.rates || typeof data.rates !== "object") {
+    throw new Error("OS FX API returned no rates");
+  }
+  const result: Partial<Record<SupportedCurrency, number>> = {};
+  for (const code of OS_CURRENCIES) {
+    const r = data.rates[code];
+    if (typeof r === "number" && r > 0) result[code] = r;
+  }
+  return result;
+}
+
+/**
+ * Fetch all non-LBP rates from open.er-api.com.
+ * Returns the raw rates map on success, or rejects on failure.
+ */
+async function fetchErApiRates(): Promise<Record<string, number>> {
+  const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`ER_API FX HTTP ${res.status}`);
+  const data = (await res.json()) as { result?: string; rates?: Record<string, number> };
+  if (data.result !== "success" || !data.rates) {
+    throw new Error("ER_API FX returned no rates");
+  }
+  return data.rates;
+}
+
 async function fetchLiveRates(): Promise<RateCache> {
   try {
-    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`FX API HTTP ${res.status}`);
-    const data = (await res.json()) as { result?: string; rates?: Record<string, number> };
-    if (data.result !== "success" || !data.rates) {
-      throw new Error("FX API returned no rates");
+    // Start from embedded fallback; overwrite with live values below.
+    const rates: Record<SupportedCurrency, number> = { ...FALLBACK_RATES };
+
+    // Fetch from both upstreams in parallel to minimise latency.
+    const [osResult, erResult] = await Promise.allSettled([
+      fetchOsRates(),
+      fetchErApiRates(),
+    ]);
+
+    const osOk = osResult.status === "fulfilled";
+    const erOk = erResult.status === "fulfilled";
+
+    if (!osOk) {
+      logger.warn(
+        { err: (osResult as PromiseRejectedResult).reason?.message },
+        "fx: Presentail OS rates fetch failed; falling back to open.er-api.com for those currencies",
+      );
     }
-    const rates = { ...FALLBACK_RATES };
-    for (const code of SUPPORTED_CURRENCIES) {
-      const r = data.rates[code];
-      if (typeof r === "number" && r > 0) rates[code] = r;
+
+    if (osOk) {
+      // Primary path: apply OS rates for OS_CURRENCIES.
+      const osRates = (osResult as PromiseFulfilledResult<Partial<Record<SupportedCurrency, number>>>).value;
+      for (const code of OS_CURRENCIES) {
+        const r = osRates[code];
+        if (typeof r === "number" && r > 0) rates[code] = r;
+      }
     }
+
+    if (erOk) {
+      const erRates = (erResult as PromiseFulfilledResult<Record<string, number>>).value;
+      // Always apply ER_API rates for CAD/AUD/CHF.
+      // If OS failed, also apply ER_API rates for OS_CURRENCIES as a fallback.
+      const codesFromEr = osOk ? ER_API_CURRENCIES : [...OS_CURRENCIES, ...ER_API_CURRENCIES];
+      for (const code of codesFromEr) {
+        const r = erRates[code];
+        if (typeof r === "number" && r > 0) rates[code] = r;
+      }
+    } else {
+      logger.warn(
+        { err: (erResult as PromiseRejectedResult).reason?.message },
+        "fx: open.er-api.com fetch failed",
+      );
+      // If both sources failed, fall through to the catch path.
+      if (!osOk) {
+        throw (erResult as PromiseRejectedResult).reason ?? new Error("Both FX upstreams failed");
+      }
+      // OS succeeded but ER_API failed — CAD/AUD/CHF remain on embedded fallback values.
+      // Still treat the result as "live" since the majority of rates are fresh.
+    }
+
     rates.USD = 1;
+    // LBP is always the static peg; no upstream provides it.
+    rates.LBP = FALLBACK_RATES.LBP;
+
     consecutiveFailures = 0;
     lastLiveAt = Date.now();
     return {
@@ -160,7 +257,7 @@ async function fetchLiveRates(): Promise<RateCache> {
     consecutiveFailures += 1;
     logger.warn(
       { err: err?.message, consecutiveFailures },
-      "fx: failed to fetch live rates, using fallback",
+      "fx: failed to fetch live rates from all sources, using fallback",
     );
     return {
       base: "USD",

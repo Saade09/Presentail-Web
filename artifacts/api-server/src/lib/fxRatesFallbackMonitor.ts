@@ -1,7 +1,8 @@
-// Monitors the FX rate service for sustained live-rate failures. When the
-// open.er-api.com fetch fails, `lib/fx.ts` silently falls back to embedded
-// static rates — shoppers keep seeing prices, but those prices may drift from
-// the live mid-market rates for hours without anyone noticing.
+// Monitors the FX rate service for sustained live-rate failures. When both the
+// Presentail OS primary endpoint and the open.er-api.com fallback fail,
+// `lib/fx.ts` silently falls back to embedded static rates — shoppers keep
+// seeing prices, but those prices may drift from the live mid-market rates for
+// hours without anyone noticing.
 //
 // `lib/fx.ts` caps live-rate retries to once every 5 minutes (FALLBACK_RETRY_MS)
 // so `consecutiveFailures` measures retry cycles, not request volume. A single
@@ -107,7 +108,7 @@ export async function runOnce(): Promise<void> {
         await sendAlert({
           title: "FX rates recovered",
           body:
-            `The live FX rate fetch from open.er-api.com has recovered. Shoppers are now ` +
+            `Live FX rates have recovered (Presentail OS + open.er-api.com). Shoppers are now ` +
             `receiving up-to-date mid-market rates. The outage lasted approximately ${outageDurationH} h.`,
           severity: "info",
           fields: [
@@ -159,9 +160,9 @@ export async function runOnce(): Promise<void> {
     await sendAlert({
       title: "FX rates stuck on fallback",
       body:
-        `The live FX rate fetch from open.er-api.com has failed ${consecutiveFailures} consecutive ` +
+        `Both FX rate sources (Presentail OS and open.er-api.com) have failed ${consecutiveFailures} consecutive ` +
         `retry cycle(s) — shoppers have been seeing static embedded rates for ≈${staleSinceH} h. ` +
-        `Check network egress / open.er-api.com status. Prices remain functional but may ` +
+        `Check network egress, Presentail OS status, and open.er-api.com status. Prices remain functional but may ` +
         `drift from the live mid-market rate until the service recovers.`,
       severity: "warn",
       fields: [
