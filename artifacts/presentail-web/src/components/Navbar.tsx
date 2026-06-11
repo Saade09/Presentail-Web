@@ -65,6 +65,16 @@ export function Navbar() {
             </SheetContent>
           </Sheet>
 
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex md:hidden"
+            aria-label={t("nav.searchAria")}
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="w-5 h-5" />
+          </Button>
+
           <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")}>
             <Logo height={32} />
           </Link>
@@ -90,7 +100,7 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="hidden sm:flex"
+            className="hidden md:flex"
             aria-label={t("nav.searchAria")}
             onClick={() => setSearchOpen(true)}
           >
