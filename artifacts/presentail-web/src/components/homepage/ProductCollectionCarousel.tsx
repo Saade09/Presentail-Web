@@ -115,7 +115,7 @@ export function ProductCollectionCarousel({
                   <div
                     key={i}
                     data-collection-card
-                    className="flex-shrink-0 snap-start w-[78%] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                    className="flex-shrink-0 snap-start w-[calc(50%-8px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
                   >
                     <div className="aspect-square animate-shimmer rounded-2xl mb-4" />
                     <div className="h-5 animate-shimmer rounded w-2/3 mb-2" />
@@ -126,7 +126,7 @@ export function ProductCollectionCarousel({
                 <div
                   key={p.id}
                   data-collection-card
-                  className="flex-shrink-0 snap-start w-[78%] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                  className="flex-shrink-0 snap-start w-[calc(50%-8px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
                 >
                   <ProductCard product={p} index={i} />
                 </div>

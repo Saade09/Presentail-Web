@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function ProductCardSkeleton() {
   return (
-    <div className="space-y-3 flex-shrink-0 w-48 sm:w-56">
+    <div className="space-y-3 flex-shrink-0 w-[calc(50%-8px)] sm:w-56">
       <Skeleton className="aspect-square rounded-2xl w-full" />
       <Skeleton className="h-4 w-4/5 rounded-md" />
       <Skeleton className="h-3 w-1/2 rounded-md" />
