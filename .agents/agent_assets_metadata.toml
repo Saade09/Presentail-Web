@@ -233,3 +233,27 @@ id = "iPcXfM2x2VUULwh_SVR19"
 uri = "file://attached_assets/play-store/v2/tablet10-5.png"
 type = "image"
 title = "10-inch tablet 5 — Card message"
+
+[[outputs]]
+id = "VZbu05fBy9sfU-DrC6_DR"
+uri = "file://attached_assets/image_search/express_1.jpg"
+type = "image"
+title = "express_1.jpg"
+
+[[outputs]]
+id = "PF6GjukkX03bq7CP9WcCO"
+uri = "file://attached_assets/image_search/express_2.jpg"
+type = "image"
+title = "express_2.jpg"
+
+[[outputs]]
+id = "BwIvC_iX35YELJCtMpKZx"
+uri = "file://attached_assets/image_search/wedding_1.webp"
+type = "image"
+title = "wedding_1.webp"
+
+[[outputs]]
+id = "0838DAZ7z3eNU2ds7xvy-"
+uri = "file://attached_assets/image_search/wedding_2.jpg"
+type = "image"
+title = "wedding_2.jpg"

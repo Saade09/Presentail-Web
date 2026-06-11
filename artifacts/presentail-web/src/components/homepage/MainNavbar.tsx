@@ -4,8 +4,8 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, Menu, Search, ShoppingCart, User } from "lucide-react";
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ChevronDown, ChevronRight, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -39,6 +39,40 @@ function MegaItemThumbnail({ img, emoji, className }: { img?: string; emoji?: st
     );
   }
   return <span className="text-xl select-none leading-none">{emoji ?? "🎉"}</span>;
+}
+
+const EMOJI_GRADIENTS: Record<string, string> = {
+  "🧺": "from-amber-50 to-orange-100",
+  "🌾": "from-yellow-50 to-amber-100",
+  "🌺": "from-pink-50 to-rose-100",
+  "💄": "from-rose-50 to-pink-100",
+  "🎁": "from-purple-50 to-violet-100",
+  "🎉": "from-sky-50 to-blue-100",
+  "🌸": "from-pink-50 to-fuchsia-100",
+  "⚡": "from-yellow-50 to-amber-100",
+  "💐": "from-green-50 to-emerald-100",
+};
+
+function MobileSubPanelTile({ img, emoji }: { img?: string; emoji?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (img && !failed) {
+    return (
+      <img
+        src={img}
+        alt=""
+        className="w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  const gradient = EMOJI_GRADIENTS[emoji ?? "🎉"] ?? "from-gray-50 to-gray-100";
+  return (
+    <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${gradient}`}>
+      <span className="text-4xl select-none leading-none">{emoji ?? "🎉"}</span>
+    </div>
+  );
 }
 
 type MegaItem = {
@@ -204,6 +238,9 @@ export function MainNavbar() {
   };
   const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...STATIC_MENUS];
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
+
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -251,42 +288,182 @@ export function MainNavbar() {
         {/* ── Left: nav ────────────────────────────────────── */}
         <div className="flex items-center gap-2">
           {/* Mobile sheet */}
-          <Sheet>
+          <Sheet
+            open={mobileMenuOpen}
+            onOpenChange={(open) => {
+              setMobileMenuOpen(open);
+              if (!open) setMobileSubPanel(null);
+            }}
+          >
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("nav.menuAria")} data-testid="button-mobile-menu">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[300px] sm:w-[360px] overflow-y-auto">
-              <nav className="flex flex-col gap-0.5 mt-8 pb-10">
-                {megaMenus.map((menu) => (
-                  <div key={menu.key} className="mb-4">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground px-2 mb-1.5 font-semibold">
-                      {t(menu.labelKey)}
-                    </p>
-                    {menu.items.map((item) => (
-                      <Link
-                        key={item.label + item.href}
-                        href={item.href}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-secondary/70 transition-colors text-sm"
+            <SheetContent side="left" className="w-full border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
+
+              {/* ── Main menu view ───────────────────────────── */}
+              <div
+                className={`absolute inset-0 flex flex-col bg-white transition-transform duration-300 ease-in-out ${
+                  mobileSubPanel ? "-translate-x-full" : "translate-x-0"
+                }`}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 h-16 border-b border-gray-100 shrink-0">
+                  <Logo className="h-10 w-auto" />
+                  <SheetClose asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
+                      aria-label={t("nav.closeMenuAria")}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </SheetClose>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* Category rows */}
+                  <div className="px-5 pt-3">
+                    {[
+                      {
+                        key: "occasions",
+                        label: t("nav.occasions"),
+                        img: "/catalog/categories/preserved-flowers.avif",
+                        emoji: "🎉",
+                      },
+                      {
+                        key: "flowers",
+                        label: t("nav.flowersPlants"),
+                        img: "/catalog/categories/flower-boxes.avif",
+                        emoji: "🌸",
+                      },
+                      {
+                        key: "gifts",
+                        label: t("nav.gifts"),
+                        img: "/catalog/categories/bundles.webp",
+                        emoji: "🎁",
+                      },
+                    ].map((cat) => (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setMobileSubPanel(cat.key)}
+                        className="w-full flex items-center gap-4 py-3.5 border-b border-gray-100 last:border-0"
                       >
-                        <span className="w-7 h-7 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 text-base">
-                          <MegaItemThumbnail img={item.img} emoji={item.emoji} className="w-full h-full object-cover" />
-                        </span>
-                        {item.label}
-                      </Link>
+                        <div className="w-11 h-11 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center shrink-0 shadow-sm">
+                          <MegaItemThumbnail img={cat.img} emoji={cat.emoji} className="w-full h-full object-cover" />
+                        </div>
+                        <span className="flex-1 text-[15px] font-medium text-gray-800 text-left">{cat.label}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                      </button>
                     ))}
-                    {menu.footer && (
-                      <Link
-                        href={menu.footer.href}
-                        className="flex items-center px-2 py-2 text-sm font-semibold text-primary hover:underline mt-1"
-                      >
-                        {menu.footer.label} →
-                      </Link>
-                    )}
                   </div>
-                ))}
-              </nav>
+
+                  {/* Image card tiles */}
+                  <div className="px-5 pt-5 pb-10 grid grid-cols-2 gap-3">
+                    {[
+                      {
+                        key: "express",
+                        label: t("nav.expressDelivery"),
+                        href: "/shop",
+                        img: "/catalog/menu/express-delivery.jpg",
+                        emoji: "⚡",
+                      },
+                      {
+                        key: "weddings",
+                        label: t("nav.weddingEvents"),
+                        href: "/weddings",
+                        img: "/catalog/menu/wedding-events.jpg",
+                        emoji: "💐",
+                      },
+                    ].map((card) => (
+                      <SheetClose asChild key={card.key}>
+                        <Link href={card.href} className="group block">
+                          <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
+                            <MegaItemThumbnail
+                              img={card.img}
+                              emoji={card.emoji}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                          <span className="text-[13px] font-medium text-gray-800">{card.label}</span>
+                        </Link>
+                      </SheetClose>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Sub-panel view ────────────────────────────── */}
+              <div
+                className={`absolute inset-0 flex flex-col bg-white transition-transform duration-300 ease-in-out ${
+                  mobileSubPanel ? "translate-x-0" : "translate-x-full"
+                }`}
+              >
+                {(() => {
+                  const subDef = megaMenus.find((m) => m.key === mobileSubPanel);
+                  return (
+                    <>
+                      {/* Sub-panel header */}
+                      <div className="flex items-center gap-3 px-5 h-16 border-b border-gray-100 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setMobileSubPanel(null)}
+                          className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors shrink-0"
+                          aria-label={t("nav.backAria")}
+                        >
+                          <ChevronRight className="w-5 h-5 rotate-180" />
+                        </button>
+                        <span className="text-[17px] font-semibold text-gray-900">
+                          {subDef ? t(subDef.labelKey) : ""}
+                        </span>
+                      </div>
+
+                      {/* Sub-panel grid */}
+                      <div className="flex-1 overflow-y-auto px-4 py-5">
+                        {subDef?.loading ? (
+                          <div className="grid grid-cols-3 gap-3">
+                            {Array.from({ length: 9 }).map((_, i) => (
+                              <div key={i} className="flex flex-col items-center gap-2">
+                                <div className="w-full aspect-square rounded-2xl bg-gray-100 animate-pulse" />
+                                <div className="h-3 w-14 rounded bg-gray-100 animate-pulse" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-3">
+                            {(subDef?.items ?? []).map((item) => (
+                              <SheetClose asChild key={item.label + item.href}>
+                                <Link href={item.href} className="flex flex-col items-center gap-1.5 group">
+                                  <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+                                    <MobileSubPanelTile img={item.img} emoji={item.emoji} />
+                                  </div>
+                                  <span className="text-[11px] font-medium text-center text-gray-700 leading-tight px-0.5">
+                                    {item.label}
+                                  </span>
+                                </Link>
+                              </SheetClose>
+                            ))}
+                          </div>
+                        )}
+                        {subDef?.footer && (
+                          <SheetClose asChild>
+                            <Link
+                              href={subDef.footer.href}
+                              className="flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2"
+                            >
+                              {subDef.footer.label} →
+                            </Link>
+                          </SheetClose>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
             </SheetContent>
           </Sheet>
 
