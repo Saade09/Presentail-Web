@@ -1100,6 +1100,42 @@ export interface PhoneOtpVerifyRequest {
 }
 
 /**
+ * Standard Facebook Pixel event name.
+ */
+export type FbMobileEventRequestEvent =
+  (typeof FbMobileEventRequestEvent)[keyof typeof FbMobileEventRequestEvent];
+
+export const FbMobileEventRequestEvent = {
+  ViewContent: "ViewContent",
+  AddToCart: "AddToCart",
+  InitiateCheckout: "InitiateCheckout",
+  Purchase: "Purchase",
+} as const;
+
+export interface FbMobileEventRequest {
+  /** Standard Facebook Pixel event name. */
+  event: FbMobileEventRequestEvent;
+  /** ISO 3166-1 alpha-2 country code of the shopper's delivery location (e.g. "LB", "AE"). CY is a silent no-op. */
+  countryCode: string;
+  /** Order or product value in the checkout currency. */
+  value?: number;
+  /** ISO 4217 currency code (e.g. "USD", "AED"). */
+  currency?: string;
+  /** Product IDs associated with the event. */
+  contentIds?: string[];
+  /** Human-readable product name for ViewContent events. */
+  contentName?: string;
+  /** Shopper email to be SHA-256 hashed server-side before sending to CAPI. */
+  email?: string;
+  /** Shopper phone (E.164 or local) to be SHA-256 hashed server-side before sending to CAPI. */
+  phone?: string;
+}
+
+export interface FbMobileEventResponse {
+  ok: boolean;
+}
+
+/**
  * Error code when ok is false.
  */
 export type PhoneOtpVerifyResponseCode =

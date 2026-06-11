@@ -40,6 +40,8 @@ import type {
   FavoriteShareResponse,
   FavoriteToggleResponse,
   FavoritesListResponse,
+  FbMobileEventRequest,
+  FbMobileEventResponse,
   GeoCurrencyResponse,
   GetDeliveryConfigParams,
   GetGeoCurrencyByCoordsParams,
@@ -524,6 +526,98 @@ export const useReportClientError = <
   TContext
 > => {
   return useMutation(getReportClientErrorMutationOptions(options));
+};
+
+/**
+ * Accepts a single standard Facebook Pixel event fired from the mobile app
+and forwards it to the Facebook Conversions API server-side. No auth
+required — pixel IDs and access tokens remain server-side. Cyprus
+(countryCode="CY") and any country without a configured pixel are silently
+skipped. Rate-limited per IP.
+
+ * @summary Forward a Facebook CAPI event from the mobile app
+ */
+export const getRecordFbMobileEventUrl = () => {
+  return `/api/fb/events`;
+};
+
+export const recordFbMobileEvent = async (
+  fbMobileEventRequest: FbMobileEventRequest,
+  options?: RequestInit,
+): Promise<FbMobileEventResponse> => {
+  return customFetch<FbMobileEventResponse>(getRecordFbMobileEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fbMobileEventRequest),
+  });
+};
+
+export const getRecordFbMobileEventMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordFbMobileEvent>>,
+    TError,
+    { data: BodyType<FbMobileEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recordFbMobileEvent>>,
+  TError,
+  { data: BodyType<FbMobileEventRequest> },
+  TContext
+> => {
+  const mutationKey = ["recordFbMobileEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recordFbMobileEvent>>,
+    { data: BodyType<FbMobileEventRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return recordFbMobileEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecordFbMobileEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordFbMobileEvent>>
+>;
+export type RecordFbMobileEventMutationBody = BodyType<FbMobileEventRequest>;
+export type RecordFbMobileEventMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Forward a Facebook CAPI event from the mobile app
+ */
+export const useRecordFbMobileEvent = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordFbMobileEvent>>,
+    TError,
+    { data: BodyType<FbMobileEventRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recordFbMobileEvent>>,
+  TError,
+  { data: BodyType<FbMobileEventRequest> },
+  TContext
+> => {
+  return useMutation(getRecordFbMobileEventMutationOptions(options));
 };
 
 /**

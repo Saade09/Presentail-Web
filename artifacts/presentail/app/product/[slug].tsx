@@ -36,6 +36,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { trackScreenTTID } from "@/lib/analytics";
+import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { buildProductShareUrl } from "@/lib/productShareUrl";
 import {
   getCountryHour,
@@ -157,6 +158,9 @@ function ProductDetail() {
   const t = useT();
   const { user } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
+  const { selectedCountry } = useDeliveryLocation();
+  const { currencyCode } = useCurrency();
+  const cc = (selectedCountry?.code ?? "").toUpperCase();
   const headingFontRegular = useHeadingFont("400Regular");
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
@@ -249,7 +253,14 @@ function ProductDetail() {
   useEffect(() => {
     if (!product || Platform.OS === "web") return;
     trackScreenTTID("product", mountMsRef.current);
-  }, [product]);
+    if (cc) {
+      trackFbMobileEvent("ViewContent", {
+        countryCode: cc,
+        contentIds: [product.id],
+        contentName: product.name,
+      });
+    }
+  }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (productsLoading && !product) {
     return <ProductDetailSkeleton />;
@@ -365,7 +376,17 @@ function ProductDetail() {
         }}
       >
         <Pressable
-          onPress={() => add(product.id, 1)}
+          onPress={() => {
+            add(product.id, 1);
+            if (cc) {
+              trackFbMobileEvent("AddToCart", {
+                countryCode: cc,
+                contentIds: [product.id],
+                value: Number.isFinite(Number(product.priceValue)) ? Number(product.priceValue) : 0,
+                currency: currencyCode,
+              });
+            }
+          }}
           style={({ pressed }) => [
             {
               alignSelf: "stretch",

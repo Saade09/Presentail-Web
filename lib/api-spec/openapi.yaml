@@ -40,6 +40,8 @@ tags:
     description: Saved occasions (birthdays, anniversaries, etc.) for the signed-in customer
   - name: referral
     description: Referral code for the signed-in customer
+  - name: fbEvents
+    description: Server-side Facebook Conversions API events from mobile
 paths:
   /healthz:
     get:
@@ -173,6 +175,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientErrorReportResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /fb/events:
+    post:
+      operationId: recordFbMobileEvent
+      tags: [fbEvents]
+      summary: Forward a Facebook CAPI event from the mobile app
+      description: |
+        Accepts a single standard Facebook Pixel event fired from the mobile app
+        and forwards it to the Facebook Conversions API server-side. No auth
+        required — pixel IDs and access tokens remain server-side. Cyprus
+        (countryCode="CY") and any country without a configured pixel are silently
+        skipped. Rate-limited per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FbMobileEventRequest"
+      responses:
+        "200":
+          description: Event accepted (or silently skipped)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FbMobileEventResponse"
         "400":
           description: Invalid request
           content:
@@ -2924,6 +2956,50 @@ components:
         - password
         - firstName
         - lastName
+    FbMobileEventRequest:
+      type: object
+      properties:
+        event:
+          type: string
+          enum:
+            - ViewContent
+            - AddToCart
+            - InitiateCheckout
+            - Purchase
+          description: Standard Facebook Pixel event name.
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of the shopper's delivery location (e.g. "LB", "AE"). CY is a silent no-op.
+        value:
+          type: number
+          description: Order or product value in the checkout currency.
+        currency:
+          type: string
+          description: ISO 4217 currency code (e.g. "USD", "AED").
+        contentIds:
+          type: array
+          items:
+            type: string
+          description: Product IDs associated with the event.
+        contentName:
+          type: string
+          description: Human-readable product name for ViewContent events.
+        email:
+          type: string
+          description: Shopper email to be SHA-256 hashed server-side before sending to CAPI.
+        phone:
+          type: string
+          description: Shopper phone (E.164 or local) to be SHA-256 hashed server-side before sending to CAPI.
+      required:
+        - event
+        - countryCode
+    FbMobileEventResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
     PhoneOtpVerifyResponse:
       type: object
       properties:

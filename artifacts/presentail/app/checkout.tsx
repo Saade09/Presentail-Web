@@ -99,6 +99,7 @@ import { API_BASE, createPaymentIntent, createStripeCheckoutSession, STRIPE_PUBL
 import { createWooOrder } from "@/lib/woo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
+import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { getDeviceId } from "@/services/notifications";
@@ -270,7 +271,8 @@ function CheckoutScreen() {
   // so we measure it directly rather than inferring it from cart_viewed.
   useEffect(() => {
     trackEvent({ name: "checkout_started", surface: "checkout" });
-  }, []);
+    trackFbMobileEvent("InitiateCheckout", { countryCode: effectiveCountry });
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 1 — Customize / Card Message
   const [recipientFirst, setRecipientFirst] = useState("");
@@ -956,6 +958,18 @@ function CheckoutScreen() {
           name: "order_placed",
           surface: "checkout",
           action: payMethod,
+        });
+        trackFbMobileEvent("Purchase", {
+          countryCode: effectiveCountry,
+          value: fees.grand,
+          currency: currencyCode,
+          contentIds: detailed.map((d) => d.product.id),
+          email: senderEmail || undefined,
+          phone: hasProfilePhone
+            ? profilePhone || undefined
+            : senderWhatsapp.trim()
+              ? `${senderCountry.dial} ${senderWhatsapp}`.trim()
+              : undefined,
         });
         router.replace(buildResultPath("success", paymentRef));
       } else {

@@ -189,6 +189,58 @@ export const ReportClientErrorResponse = zod.object({
 });
 
 /**
+ * Accepts a single standard Facebook Pixel event fired from the mobile app
+and forwards it to the Facebook Conversions API server-side. No auth
+required — pixel IDs and access tokens remain server-side. Cyprus
+(countryCode="CY") and any country without a configured pixel are silently
+skipped. Rate-limited per IP.
+
+ * @summary Forward a Facebook CAPI event from the mobile app
+ */
+export const RecordFbMobileEventBody = zod.object({
+  event: zod
+    .enum(["ViewContent", "AddToCart", "InitiateCheckout", "Purchase"])
+    .describe("Standard Facebook Pixel event name."),
+  countryCode: zod
+    .string()
+    .describe(
+      'ISO 3166-1 alpha-2 country code of the shopper\'s delivery location (e.g. \"LB\", \"AE\"). CY is a silent no-op.',
+    ),
+  value: zod
+    .number()
+    .optional()
+    .describe("Order or product value in the checkout currency."),
+  currency: zod
+    .string()
+    .optional()
+    .describe('ISO 4217 currency code (e.g. \"USD\", \"AED\").'),
+  contentIds: zod
+    .array(zod.string())
+    .optional()
+    .describe("Product IDs associated with the event."),
+  contentName: zod
+    .string()
+    .optional()
+    .describe("Human-readable product name for ViewContent events."),
+  email: zod
+    .string()
+    .optional()
+    .describe(
+      "Shopper email to be SHA-256 hashed server-side before sending to CAPI.",
+    ),
+  phone: zod
+    .string()
+    .optional()
+    .describe(
+      "Shopper phone (E.164 or local) to be SHA-256 hashed server-side before sending to CAPI.",
+    ),
+});
+
+export const RecordFbMobileEventResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Accepts a single lightweight product-analytics event from a web or
 mobile client (for example, which button a shopper picked on the
 checkout login prompt). Events are bounded, validated against an

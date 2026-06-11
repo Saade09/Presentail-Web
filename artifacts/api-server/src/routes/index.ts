@@ -28,6 +28,7 @@ import wooWebhookRouter from "./wooWebhook";
 import eventsRouter from "./events";
 import seoRouter from "./seo";
 import partnerApplicationRouter from "./partnerApplication";
+import fbRouter from "./fb";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(wooWebhookRouter);
 router.use(eventsRouter);
 router.use(seoRouter);
 router.use(partnerApplicationRouter);
+router.use(fbRouter);
 
 export default router;

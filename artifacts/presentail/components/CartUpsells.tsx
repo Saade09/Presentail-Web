@@ -29,6 +29,8 @@ import {
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
 import { trackEvent } from "@/lib/analytics";
+import { trackFbMobileEvent } from "@/lib/fbPixel";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 function tabLabel(t: ReturnType<typeof useT>, id: UpsellTabId): string {
   switch (id) {
@@ -58,6 +60,7 @@ export function CartUpsells() {
   const { products } = useWooProducts();
   const { add } = useCart();
   const { selectedCountry } = useDeliveryLocation();
+  const { currencyCode } = useCurrency();
 
   const tabs = React.useMemo<ResolvedUpsellTab[]>(
     () => resolveUpsellTabs(products),
@@ -137,9 +140,19 @@ export function CartUpsells() {
         action: activeId ?? undefined,
         productId,
       });
+      if (selectedCountry?.code) {
+        const priceValue = products.find((p) => p.id === productId)?.priceValue;
+        trackFbMobileEvent("AddToCart", {
+          countryCode: selectedCountry.code,
+          contentIds: [productId],
+          value:
+            Number.isFinite(Number(priceValue)) ? Number(priceValue) : undefined,
+          currency: currencyCode,
+        });
+      }
       showToast(`${productName} · ${t.cartUpsellsAddedToast}`);
     },
-    [add, activeId, showToast, t.cartUpsellsAddedToast],
+    [add, activeId, showToast, t.cartUpsellsAddedToast, selectedCountry, currencyCode, products],
   );
 
   if (tabs.length === 0 || !activeId) return null;
