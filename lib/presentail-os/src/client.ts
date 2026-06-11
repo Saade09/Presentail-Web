@@ -96,6 +96,16 @@ export async function fetchOsLocations(
  * @param cityId       Optional city id to filter by city.
  * @param lang         BCP-47 language tag (default "en").
  */
+
+/**
+ * Maximum number of pages to fetch in a single `fetchOsProducts` call.
+ * At 100 products per page this covers up to 5 000 products — well above
+ * any realistic catalog size. Acts as a circuit-breaker against an
+ * unexpectedly large response or a buggy `totalPages` field.
+ */
+const MAX_PAGES = 50;
+const DEFAULT_PAGE_SIZE = 100;
+
 export async function fetchOsProducts(
   config: PresentailOsConfig,
   opts: { countryCode?: string; cityId?: string; lang?: string } = {},
@@ -107,13 +117,15 @@ export async function fetchOsProducts(
     throw new Error("PRESENTAIL_OS_API_KEY is required for fetchOsProducts.");
   }
 
-  async function tryProductFetch(path: string): Promise<Response> {
+  async function fetchPage(path: string, page: number): Promise<Response> {
     const url = new URL(`${baseUrl}${path}`);
     url.searchParams.set("workspace", workspace);
     url.searchParams.set("apiKey", apiKey);
     if (opts.countryCode) url.searchParams.set("countryCode", opts.countryCode);
     if (opts.cityId) url.searchParams.set("cityId", opts.cityId);
     if (lang !== "en") url.searchParams.set("lang", lang);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("pageSize", String(DEFAULT_PAGE_SIZE));
     return fetch(url.toString(), {
       headers: {
         Accept: "application/json",
@@ -124,20 +136,38 @@ export async function fetchOsProducts(
     });
   }
 
-  // Primary endpoint: /api/products
-  let res = await tryProductFetch("/api/products");
-  if (res.ok) {
-    const body = (await res.json()) as OSProductsResponse;
-    if (Array.isArray(body.products)) return body;
+  async function fetchAllPages(path: string): Promise<OSProductsResponse | null> {
+    const firstRes = await fetchPage(path, 1);
+    if (!firstRes.ok) return null;
+    const firstBody = (await firstRes.json()) as OSProductsResponse;
+    if (!Array.isArray(firstBody.products)) return null;
+
+    const totalPages = Math.min(firstBody.totalPages ?? 1, MAX_PAGES);
+    if (totalPages <= 1) return firstBody;
+
+    // Fetch remaining pages in parallel.
+    const remaining = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) => fetchPage(path, i + 2)),
+    );
+    const allProducts = [...firstBody.products];
+    for (const res of remaining) {
+      if (!res.ok) break; // stop collecting on any error; use what we have
+      const body = (await res.json()) as OSProductsResponse;
+      if (Array.isArray(body.products)) allProducts.push(...body.products);
+    }
+    return { ...firstBody, products: allProducts };
   }
 
+  // Primary endpoint: /api/products
+  const primary = await fetchAllPages("/api/products");
+  if (primary) return primary;
+
   // Fallback: /api/stickers (legacy OS path)
-  res = await tryProductFetch("/api/stickers");
-  if (!res.ok) {
-    throw new Error(`Presentail OS products API returned HTTP ${res.status}`);
+  const legacyRes = await fetchPage("/api/stickers", 1);
+  if (!legacyRes.ok) {
+    throw new Error(`Presentail OS products API returned HTTP ${legacyRes.status}`);
   }
-  const body = (await res.json()) as OSProductsResponse;
-  // The stickers endpoint may wrap products under a different key.
+  const body = (await legacyRes.json()) as OSProductsResponse;
   if (!Array.isArray(body.products)) {
     throw new Error("Presentail OS products API: unexpected response shape");
   }

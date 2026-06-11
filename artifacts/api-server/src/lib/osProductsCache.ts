@@ -655,8 +655,11 @@ function buildStoreCache(products: OSProduct[]): StoreProductCache {
     if (typeof p.wcId === "number" && p.wcId > 0) {
       wcIdIndex.set(p.wcId, p);
     }
-    if (p.id) {
-      slugIndex.set(p.id, p);
+    // The OS API may return a numeric id (e.g. 578) even though OSProduct.id
+    // is typed as string. Always coerce to string so slugIndex lookups with
+    // String keys work correctly regardless of the API's id type.
+    if (p.id != null) {
+      slugIndex.set(String(p.id), p);
     }
   }
   return { products, wcIdIndex, slugIndex };
@@ -672,7 +675,21 @@ async function fetchAndStore(): Promise<void> {
     // Fetch per-store product lists in parallel, plus global taxonomy data.
     const storeFetches = OS_STORE_SPECS.map((spec) =>
       fetchOsProducts(config, { countryCode: spec.countryCode, cityId: spec.cityId })
-        .then((resp) => ({ spec, products: resp.products ?? [] as OSProduct[] }))
+        .then(async (resp) => {
+          const products = resp.products ?? ([] as OSProduct[]);
+          // If OS returned 0 products with a country filter, the products may
+          // not yet have country availability set on the OS side. Retry without
+          // the filter so the full catalog is shown until OS data is corrected.
+          if (products.length === 0 && (spec.countryCode || spec.cityId)) {
+            logger.warn(
+              { storeKey: spec.storeKey, countryCode: spec.countryCode, cityId: spec.cityId },
+              "osProductsCache: country-filtered fetch returned 0 products — retrying without country filter (OS products may not have country availability set)",
+            );
+            const fallback = await fetchOsProducts(config, {});
+            return { spec, products: fallback.products ?? [] as OSProduct[] };
+          }
+          return { spec, products };
+        })
         .catch((err: unknown) => ({
           spec,
           products: null as OSProduct[] | null,

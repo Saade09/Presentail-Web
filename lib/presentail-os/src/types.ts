@@ -165,6 +165,11 @@ export type OSProduct = {
 
 export type OSProductsResponse = {
   products: OSProduct[];
+  /** Total number of products matching the query (used for pagination). */
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
 };
 
 export type OSCategoriesResponse = {
