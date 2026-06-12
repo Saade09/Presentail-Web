@@ -20,6 +20,7 @@ import {
   loadSignIn,
   loadSignUp,
   loadAccount,
+  loadFavorites,
   loadBrands,
   loadBrandDetail,
   loadAllOccasions,

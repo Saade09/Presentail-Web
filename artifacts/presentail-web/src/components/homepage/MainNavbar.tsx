@@ -465,6 +465,18 @@ export function MainNavbar() {
             </SheetContent>
           </Sheet>
 
+          {/* Mobile search — right of hamburger, hidden on desktop */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label={t("nav.searchAria")}
+            data-testid="button-search-mobile"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="!w-[22px] !h-[22px]" />
+          </Button>
+
           {/* Desktop nav triggers */}
           <nav className="hidden md:flex items-center gap-6" aria-label={t("nav.mainNavAria")}>
             {megaMenus.map((menu) => (
@@ -504,6 +516,7 @@ export function MainNavbar() {
           <Button
             variant="ghost"
             size="icon"
+            className="hidden md:inline-flex"
             aria-label={t("nav.searchAria")}
             data-testid="button-search"
             onClick={() => setSearchOpen(true)}
