@@ -217,6 +217,17 @@ function resolveOsCityId(
   return osId;
 }
 
+/**
+ * Strips OS time slot entries that have no cutoffHour (null or undefined).
+ * The OS admin panel can produce draft/incomplete slot rows that are
+ * visible via the public API but should never reach shoppers — they lack
+ * the cutoff needed for the availability check and inflate the displayed
+ * slot list.
+ */
+function filterValidOsSlots(slots: OSTimeSlot[]): OSTimeSlot[] {
+  return slots.filter((s) => s.cutoffHour != null);
+}
+
 function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
   const osCodes = new Set(resp.countries.map((c) => c.code.toUpperCase()));
 
@@ -307,9 +318,19 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
               expressDeliveryLabel: c.expressDeliveryLabel ?? "",
               sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
               // Normalise to an array even when OS omits the field.
-              timeSlots: c.timeSlots ?? [],
-              // Per-day slots — pass through as-is when OS provides them.
-              slotsByDay: c.slotsByDay,
+              // Filter out slots where cutoffHour is null — these are
+              // draft/incomplete entries in the OS admin panel that should
+              // never be shown to shoppers.
+              timeSlots: filterValidOsSlots(c.timeSlots ?? []),
+              // Per-day slots — filter each day's slot list the same way.
+              slotsByDay: c.slotsByDay
+                ? Object.fromEntries(
+                    Object.entries(c.slotsByDay).map(([day, slots]) => [
+                      day,
+                      filterValidOsSlots(slots),
+                    ]),
+                  )
+                : undefined,
               localizedNames: localizedNamesForCity(canonicalId),
               // Per-city free-delivery settings: OS value takes precedence; fall
               // back to the hardcoded deliveryConfig entry so callers always get
