@@ -358,14 +358,13 @@ function getOsConfig(): PresentailOsConfig {
  * Filter products by brand slug allowlist.
  *
  * Reads PRESENTAIL_OS_BRAND_ALLOWLIST (comma-separated brand slugs).
- * Defaults to "presentail-flowers--gifts,flower-scent" — the two Presentail
- * vendor brands. Set the env var to an empty string to disable filtering and
- * show all brands.
+ * Defaults to "presentail-flowers--gifts" — only the Presentail brand.
+ * Set the env var to an empty string to disable filtering and show all brands.
  */
 function applyBrandAllowlist(products: OSProduct[]): OSProduct[] {
   const raw = process.env.PRESENTAIL_OS_BRAND_ALLOWLIST;
   const allowlistStr = raw === undefined
-    ? "presentail-flowers--gifts,flower-scent"
+    ? "presentail-flowers--gifts"
     : raw;
   if (!allowlistStr.trim()) return products; // empty string = no filtering
   const allowed = new Set(allowlistStr.split(",").map((s) => s.trim()).filter(Boolean));
