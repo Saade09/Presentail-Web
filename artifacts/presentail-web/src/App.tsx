@@ -6,7 +6,9 @@ import {
   useLocation,
 } from "wouter";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { prefetchOnIdle } from "@/lib/prefetch";
 import { initPixel, trackFbPageView } from "@/lib/fbPixel";
 import {
@@ -132,6 +134,9 @@ const TermsRoute = withSuspense(Terms, PageLoader);
 const PrivacyRoute = withSuspense(Privacy, PageLoader);
 const NotFoundRoute = withSuspense(NotFound, PageLoader);
 
+const OS_PRODUCTS_CACHE_KEY = "presentail-os-products-cache-v1";
+const OS_PRODUCTS_MAX_AGE = 5 * 60 * 1000; // 5 minutes — matches os-products staleTime
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -139,6 +144,12 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
     },
   },
+});
+
+const persister = createSyncStoragePersister({
+  storage: typeof window !== "undefined" ? window.localStorage : undefined,
+  key: OS_PRODUCTS_CACHE_KEY,
+  throttleTime: 1000,
 });
 
 function CustomerOnly({ children }: { children: React.ReactNode }) {
@@ -393,7 +404,17 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: OS_PRODUCTS_MAX_AGE,
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[0] === "os-products" && query.state.status === "success",
+        },
+      }}
+    >
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <LocaleProvider>
@@ -416,7 +437,7 @@ function App() {
           </LocaleProvider>
         </WouterRouter>
       </TooltipProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
