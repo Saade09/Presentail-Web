@@ -22,6 +22,7 @@ import {
 import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { ProductTabs } from "@/components/product/ProductTabs";
+import { FavoriteLoginDialog } from "@/components/product/FavoriteLoginDialog";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
@@ -51,6 +52,7 @@ export default function ProductDetail() {
   const { countryCode: locationCountry } = useLocationSelection();
   const [,] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
+  const [favoriteLoginOpen, setFavoriteLoginOpen] = useState(false);
   const delivery = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
 
@@ -310,7 +312,13 @@ export default function ProductDetail() {
               images={vm.galleryImages}
               productName={product.name}
               onShare={handleShare}
-              onFavorite={isSignedIn && product ? () => void toggleFavorite(product.id, locationCountry ?? null) : undefined}
+              onFavorite={product ? () => {
+                if (isSignedIn) {
+                  void toggleFavorite(product.id, locationCountry ?? null);
+                } else {
+                  setFavoriteLoginOpen(true);
+                }
+              } : undefined}
               isFavorited={product ? isFavorited(product.id) : false}
             />
           </div>
@@ -389,6 +397,11 @@ export default function ProductDetail() {
       <AddToCartUpsellModal
         open={upsellOpen}
         onClose={() => setUpsellOpen(false)}
+      />
+
+      <FavoriteLoginDialog
+        open={favoriteLoginOpen}
+        onOpenChange={setFavoriteLoginOpen}
       />
     </div>
   );

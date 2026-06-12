@@ -33,6 +33,8 @@ export const productStrings: Dict = {
   "product.benefit.noAddress.sub": { en: "We will collect the address for you.", ar: "سنتولى جمع العنوان نيابةً عنك." },
   "product.benefit.tracking.title": { en: "Live Order Tracking", ar: "تتبع الطلب مباشرةً" },
   "product.benefit.tracking.sub": { en: "You will receive real-time updates.", ar: "ستتلقى تحديثات فورية." },
+  "product.favoriteLogin.title": { en: "Sign in to save favorites", ar: "سجّل الدخول لحفظ المفضلة" },
+  "product.favoriteLogin.desc": { en: "Create an account or sign in to save products you love.", ar: "أنشئ حسابًا أو سجّل الدخول لحفظ المنتجات التي تحبها." },
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -68,4 +70,6 @@ export const productStringsFr: Record<string, string> = {
   "product.benefit.noAddress.sub": "Nous collecterons l'adresse pour vous.",
   "product.benefit.tracking.title": "Suivi de commande en direct",
   "product.benefit.tracking.sub": "Vous recevrez des mises à jour en temps réel.",
+  "product.favoriteLogin.title": "Connectez-vous pour sauvegarder vos favoris",
+  "product.favoriteLogin.desc": "Créez un compte ou connectez-vous pour sauvegarder les produits que vous aimez.",
 };

@@ -325,20 +325,24 @@ function ProductDetail() {
               <Feather name="arrow-left" size={20} color={colors.primary} />
             </Pressable>
             <View style={{ flexDirection: "row", gap: 10 }}>
-              {user && (
-                <Pressable
-                  onPress={() => void toggleFavorite(product.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
-                  style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
-                >
-                  <Ionicons
-                    name={isFavorited(product.id) ? "heart" : "heart-outline"}
-                    size={20}
-                    color={isFavorited(product.id) ? "#e11d48" : colors.primary}
-                  />
-                </Pressable>
-              )}
+              <Pressable
+                onPress={() => {
+                  if (user) {
+                    void toggleFavorite(product.id);
+                  } else {
+                    router.push("/auth");
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isFavorited(product.id) ? "Remove from favorites" : "Add to favorites"}
+                style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+              >
+                <Ionicons
+                  name={isFavorited(product.id) ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFavorited(product.id) ? "#e11d48" : colors.primary}
+                />
+              </Pressable>
               <Pressable
                 onPress={() => handleShareProduct(String(slug || product.id), product.name)}
                 accessibilityRole="button"
