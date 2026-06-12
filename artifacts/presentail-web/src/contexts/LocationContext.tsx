@@ -198,20 +198,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     setPickerForceCountryStep(false);
   }, []);
 
-  // Auto-open the location picker when the stored/URL selection refers to a
-  // city or country that is now inactive in the fresh locations data.
-  // Condition: we have a non-null countryCode/cityId but the resolved country/city
-  // is null (filtered out by the isActive check in `countries` memo above).
-  // We wait until the locations query finishes so we don't flash the picker
-  // during the initial load, and skip if the picker is already open.
-  useEffect(() => {
-    if (isLoading || isPickerOpen) return;
-    const countryDeactivated = countryCode !== null && country === null;
-    const cityDeactivated = cityId !== null && country !== null && city === null;
-    if (countryDeactivated || cityDeactivated) {
-      openPicker({ forceCountryStep: countryDeactivated });
-    }
-  }, [isLoading, isPickerOpen, countryCode, cityId, country, city, openPicker]);
 
   // Sync across tabs.
   useEffect(() => {
