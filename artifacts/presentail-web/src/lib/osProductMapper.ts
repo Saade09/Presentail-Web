@@ -123,6 +123,7 @@ export function mapOsProduct(p: OSProduct): Product {
       : undefined,
     tag: p.featured ? "Featured" : undefined,
     occasions: p.occasions.map((o) => o.slug),
+    brandNames: p.brands.map((b) => b.name),
     popularity: p.totalSales ?? 0,
   };
 }

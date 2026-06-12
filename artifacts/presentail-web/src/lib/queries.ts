@@ -23,6 +23,7 @@ export type Product = {
   description?: string;
   tag?: string;
   occasions: string[];
+  brandNames?: string[];
   popularity?: number;
 };
 
@@ -550,9 +551,8 @@ export type SearchResponse = {
   brands: SearchBrand[];
 };
 
-// useSearch filters the OS product cache client-side for product matches.
-// Category, occasion, and brand results are omitted (they are static and
-// the caller's UI can derive them from useCatalogMetadata if needed).
+// useSearch filters the OS product cache client-side for product matches and
+// searches categories, occasions, and brands by name.
 export const useSearch = (q: string, params: LocalizedParams = {}) => {
   const [debouncedQ, setDebouncedQ] = useState(q);
 
@@ -562,12 +562,20 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
   }, [q]);
 
   const allProducts = useOsAllProducts(params, debouncedQ.length >= 2);
+  const catalogMetadata = useCatalogMetadata();
+  const brandsData = useBrands(params);
 
   const data = useMemo((): SearchResponse | undefined => {
     if (!allProducts.data) return undefined;
     const needle = debouncedQ.toLowerCase();
+
     const products: SearchProduct[] = allProducts.data
-      .filter((p) => p.name.toLowerCase().includes(needle))
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(needle) ||
+          (p.description && p.description.toLowerCase().includes(needle)) ||
+          (p.brandNames && p.brandNames.some((bn) => bn.toLowerCase().includes(needle))),
+      )
       .slice(0, 20)
       .map((p) => ({
         slug: p.id,
@@ -576,13 +584,29 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
         price: p.price,
         priceValue: p.priceValue,
       }));
-    return { ok: true, products, categories: [], occasions: [], brands: [] };
-  }, [allProducts.data, debouncedQ]);
+
+    const categories: SearchCategory[] = (catalogMetadata.data?.categories ?? [])
+      .filter((c) => c.name.toLowerCase().includes(needle))
+      .slice(0, 5)
+      .map((c) => ({ slug: c.id, name: c.name }));
+
+    const occasions: SearchOccasion[] = (catalogMetadata.data?.occasions ?? [])
+      .filter((o) => o.name.toLowerCase().includes(needle))
+      .slice(0, 5)
+      .map((o) => ({ slug: o.id, name: o.name }));
+
+    const brands: SearchBrand[] = (brandsData.data?.brands ?? [])
+      .filter((b) => b.name.toLowerCase().includes(needle))
+      .slice(0, 5)
+      .map((b) => ({ slug: b.slug, name: b.name, image: b.image ?? null }));
+
+    return { ok: true, products, categories, occasions, brands };
+  }, [allProducts.data, debouncedQ, catalogMetadata.data, brandsData.data]);
 
   return {
     data: debouncedQ.length >= 2 ? data : undefined,
     isLoading: allProducts.isLoading,
-    isFetching: allProducts.isFetching,
+    isFetching: allProducts.isFetching || catalogMetadata.isLoading || brandsData.isLoading,
     isError: allProducts.isError,
     error: allProducts.error,
   };
