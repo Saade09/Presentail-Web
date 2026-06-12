@@ -8,7 +8,6 @@ export const homeStrings: Dict = {
 
   "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
   "collections.boxes.title": { en: "Gift Boxes", ar: "صناديق الهدايا" },
-  "collections.cakes.title": { en: "Celebration Cakes", ar: "كعك الاحتفالات" },
   "collections.balloons.title": { en: "Balloons", ar: "البالونات" },
 
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
@@ -76,7 +75,6 @@ export const homeStringsFr: Record<string, string> = {
 
   "collections.summer.title": "Sélections estivales",
   "collections.boxes.title": "Coffrets cadeaux",
-  "collections.cakes.title": "Gâteaux de fête",
   "collections.balloons.title": "Ballons",
 
   "categories.eyebrow": "Collections sélectionnées",

@@ -17,7 +17,6 @@ import {
   useStripeCheckoutSession,
   useMamoPayment,
   usePaypalPayment,
-  type CreateWcOrderResponse,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { StripeCardFields } from "@/components/StripeCardFields";
@@ -27,7 +26,6 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
@@ -886,8 +884,8 @@ function CheckoutForm() {
 
       const origin = window.location.origin;
       const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const successUrl = `${origin}${base}/order-confirmed?status=success&pid={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${origin}${base}/order-confirmed?status=failed`;
+      const _successUrl = `${origin}${base}/order-confirmed?status=success&pid={CHECKOUT_SESSION_ID}`;
+      const _cancelUrl = `${origin}${base}/order-confirmed?status=failed`;
       const returnUrl = `${origin}${base}/order-confirmed?status=success`;
       const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
 

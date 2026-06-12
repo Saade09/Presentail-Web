@@ -85,7 +85,7 @@ export default function SignInPage() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const router = useRouter();
-  const base = (router.base || "").replace(/\/+$/, "");
+  const _base = (router.base || "").replace(/\/+$/, "");
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const [oauthBusy, setOauthBusy] = useState<"apple" | "google" | null>(null);

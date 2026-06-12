@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useRoute } from "wouter";
+import { Link, useRoute } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -197,8 +197,6 @@ export function MainNavbar() {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [location] = useLocation();
-
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
   const { data: brandsData } = useBrands({

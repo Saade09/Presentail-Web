@@ -19,7 +19,6 @@ import {
   readManualCurrency,
   writeManualCurrency,
   subscribeManualCurrency,
-  type ManualCurrencyState,
 } from "./displayCurrencyStorage";
 
 export {
@@ -70,8 +69,6 @@ type GeoCurrencyResponse = {
   countryCode: string | null;
   currencyCode: string;
 };
-
-type ManualState = ManualCurrencyState;
 
 function clearLegacyDetectedCurrency(): void {
   if (typeof window === "undefined") return;

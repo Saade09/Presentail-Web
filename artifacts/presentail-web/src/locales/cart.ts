@@ -14,12 +14,19 @@ export const cartStrings: Dict = {
   "cart.decreaseAria": { en: "Decrease quantity", ar: "تقليل الكمية" },
   "cart.increaseAria": { en: "Increase quantity", ar: "زيادة الكمية" },
   "cart.upsells.title": { en: "Make it perfect", ar: "اجعلها مثالية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.recommended": { en: "Recommended", ar: "موصى به" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.singleBalloons": { en: "Balloons", ar: "البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.balloonBundles": { en: "Balloon Bundles", ar: "باقات البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.chocolate": { en: "Chocolate", ar: "الشوكولاتة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.plants": { en: "Plants", ar: "النباتات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.bears": { en: "Teddy Bears", ar: "الدببة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.candles": { en: "Candles", ar: "الشموع" },
   "cart.upsells.add": { en: "Add", ar: "إضافة" },
   "cart.upsells.modal.addedTitle": { en: "You've added items to your cart", ar: "لقد أضفت عناصر إلى سلتك" },

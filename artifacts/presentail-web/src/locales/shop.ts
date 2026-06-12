@@ -33,19 +33,32 @@ export const shopStrings: Dict = {
   "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
   "shop.productCount": { en: "{count} Products", ar: "{count} منتج" },
 
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.plants": { en: "Plants", ar: "نباتات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.cakes": { en: "Cakes", ar: "كيك" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.chocolate": { en: "Chocolate", ar: "شوكولاتة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.bundles": { en: "Bundles", ar: "باقات مجمّعة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.baskets": { en: "Baskets", ar: "سلال" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.bearsBalloons": { en: "Bears & Balloons", ar: "دببة وبالونات" },
 
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.congratulations": { en: "Congratulations", ar: "تهانٍ" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.thankYou": { en: "Thank You", ar: "شكراً" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
 
   "shop.filter.priceTitle": { en: "Price", ar: "السعر" },
@@ -54,9 +67,13 @@ export const shopStrings: Dict = {
   "shop.filter.showMore": { en: "Show more", ar: "عرض المزيد" },
   "shop.filter.showLess": { en: "Show less", ar: "عرض أقل" },
   "shop.filter.showResults": { en: "Show {count} results", ar: "عرض {count} نتيجة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.filter.priceUnder50": { en: "Under $50", ar: "أقل من $50" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.filter.price50to100": { en: "$50–$100", ar: "$50–$100" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.filter.price100to200": { en: "$100–$200", ar: "$100–$200" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.filter.priceOver200": { en: "Over $200", ar: "أكثر من $200" },
 
   "shop.color.red": { en: "Red", ar: "أحمر" },

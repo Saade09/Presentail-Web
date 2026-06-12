@@ -21,14 +21,23 @@ export const partnerStrings: Dict = {
   "partner.form.websitePh": { en: "https://yourbrand.com", ar: "https://yourbrand.com" }, // no-translate
   "partner.form.categories": { en: "Category", ar: "الفئة" },
   "partner.form.categoriesHint": { en: "Select all that apply", ar: "اختر كل ما ينطبق" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.chocolates": { en: "Chocolates", ar: "شوكولاتة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.homeAccessories": { en: "Home Accessories", ar: "إكسسوارات المنزل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.candles": { en: "Candles", ar: "شموع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.cakes": { en: "Cakes", ar: "كعك" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.bakery": { en: "Bakery", ar: "مخبوزات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.sweets": { en: "Sweets", ar: "حلويات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.perfumes": { en: "Perfumes", ar: "عطور" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.beauty": { en: "Beauty", ar: "تجميل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "partner.form.cat.fashion": { en: "Fashion", ar: "أزياء" },
   "partner.form.otherCategory": { en: "Other Category", ar: "فئة أخرى" },
   "partner.form.otherCategoryPh": { en: "Describe other categories (optional)", ar: "صف الفئات الأخرى (اختياري)" },

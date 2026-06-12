@@ -20,7 +20,6 @@ import {
   loadSignIn,
   loadSignUp,
   loadAccount,
-  loadFavorites,
   loadBrands,
   loadBrandDetail,
   loadAllOccasions,
@@ -101,7 +100,6 @@ const Contact = lazy(() => import("@/pages/Contact"));
 const Faqs = lazy(() => import("@/pages/Faqs"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
-const Favorites = lazy(loadFavorites);
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
@@ -112,7 +110,6 @@ const ProductDetailRoute = withSuspense(ProductDetail, ProductDetailSkeleton);
 const CheckoutRoute = withSuspense(Checkout, CheckoutSkeleton);
 const AccountRoute = withSuspense(Account, AccountSkeleton);
 const PersonalInformationRoute = withSuspense(PersonalInformation, AccountSkeleton);
-const FavoritesRoute = withSuspense(Favorites, AccountSkeleton);
 const BrandsRoute = withSuspense(Brands, PageLoader);
 const BrandDetailRoute = withSuspense(BrandDetail, ShopPageSkeleton);
 const AllOccasionsRoute = withSuspense(AllOccasions, ShopPageSkeleton);

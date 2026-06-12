@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { COLOR_SWATCHES, type ColorKeyword } from "@/lib/colorExtractor";
 import { useLocale } from "@/contexts/LocaleContext";
 import { cn } from "@/lib/utils";

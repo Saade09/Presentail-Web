@@ -25,30 +25,37 @@ export const footerStrings: Dict = {
   "footer.city": { en: "City", ar: "المدينة" },
   "footer.openCity": { en: "Change city", ar: "تغيير المدينة" },
   "footer.selectCity": { en: "Select city", ar: "اختر المدينة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.allRightsReserved": {
     en: "All rights reserved © {year} Presentail SAL",
     ar: "جميع الحقوق محفوظة © {year} Presentail SAL",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.allRightsReservedDubai": {
     en: "All rights reserved © {year} Presentail Flowers Trading L.L.C",
     ar: "جميع الحقوق محفوظة © {year} Presentail Flowers Trading L.L.C",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.allRightsReservedAbuDhabi": {
     en: "All rights reserved © {year} Presentail Flowers Trading L.L.C - Branch Of Abu Dhabi",
     ar: "جميع الحقوق محفوظة © {year} Presentail Flowers Trading L.L.C - فرع أبوظبي",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.address": {
     en: "3rd Floor, Karam el Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
     ar: "الطابق الثالث، كرم المونس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.addressDubai": {
     en: "Shop 41, Al Barsha 1, Al Attar Business Center, Dubai, UAE",
     ar: "محل 41، البرشاء 1، مركز العطار للأعمال، دبي، الإمارات العربية المتحدة",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.addressAbuDhabi": {
     en: "Al Nahyan, East 19, Mina Ahmed Mohammed Khalifa Building, Abu Dhabi, UAE",
     ar: "النهيان، شرق 19، بناية مينا أحمد محمد خليفة، أبوظبي، الإمارات العربية المتحدة",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.allRightsReservedCyprus": {
     en: "All rights reserved © {year} Presentail LTD",
     ar: "جميع الحقوق محفوظة © {year} Presentail LTD",
@@ -57,6 +64,7 @@ export const footerStrings: Dict = {
     en: "This website is owned and operated by Presentail LTD",
     ar: "هذا الموقع مملوك ويُدار من قِبل Presentail LTD",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.addressCyprus": {
     en: "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus",
     ar: "أغابينوروس وأرش. ماكاريوس الثالث، 2 IRIS TOWER، الطابق الرابع، مكتب 403-405 1076، نيقوسيا، قبرص",

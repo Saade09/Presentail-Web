@@ -68,13 +68,20 @@ export const checkoutStrings: Dict = {
   "checkout.step3.title": { en: "Payment", ar: "الدفع" },
   "checkout.step3.desc": { en: "Choose how you'd like to pay securely. You'll be redirected to your provider to complete payment.", ar: "اختر طريقة الدفع الآمنة. ستتم إعادة توجيهك إلى مزوّد الدفع لإكمال العملية." },
 
-  // Payment method labels (used by webPaymentMethodLabelKey in checkoutPayMethods.ts)
+  // Payment method labels (used via webPaymentMethodLabelKey in checkoutPayMethods.ts — dynamic key, not a direct t() call)
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.card": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.wallet": { en: "Apple Pay / Google Pay", ar: "Apple Pay / Google Pay" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.mamo": { en: "Mamo", ar: "مامو" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.paypal": { en: "PayPal", ar: "PayPal" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.whish": { en: "Whish Money", ar: "ويش موني" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.payByCard": { en: "Pay by Card", ar: "الدفع بالبطاقة" },
 
   // Descriptions shown under offline payment options
