@@ -63,15 +63,13 @@ export default function Home() {
           />
         )}
 
-        {/* Third themed rail — Cakes. Only shown in Lebanon (category doesn't exist in UAE or Cyprus). */}
-        {countryCode === "LB" && (
-          <BestSellersPreview
-            categorySlug="cakes"
-            titleKey="collections.cakes.title"
-            railKey="rail-cakes"
-            testId="section-collection-cakes"
-          />
-        )}
+        {/* Third themed rail — Balloons. */}
+        <BestSellersPreview
+          categorySlug="balloons"
+          titleKey="collections.balloons.title"
+          railKey="rail-balloons"
+          testId="section-collection-balloons"
+        />
       </div>
 
       {/* Trustpilot review carousel — sits above the footer */}
