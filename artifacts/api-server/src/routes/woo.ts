@@ -135,7 +135,9 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
     stock_status: p.inStock ? "instock" : "outofstock",
     featured: p.featured ?? false,
     total_sales: p.totalSales ?? 0,
-    images: p.images.map((img: { url: string }) => ({ src: img.url })),
+    images: p.images.map((img: { url: string }) => ({
+      src: img.url,
+    })),
     categories,
     meta_data: meta,
   };
@@ -345,11 +347,12 @@ router.get("/woo/brand-products", (req, res) => {
   const brandName = brandEntry ? decodeHtmlEntities(brandEntry.name) : brandSlug;
   const brandImage = brandEntry?.image ?? null;
 
+  const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const products = osProducts
     .filter((p) => p.brands.some((b) => b.slug === brandSlug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, filter))
+    .filter((p) => isDeliverable(p, browseFilter))
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, brandName, brandImage });
 });
@@ -441,11 +444,12 @@ router.get("/woo/occasion-products", (req, res) => {
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
 
+  const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const deliverable = osProducts
     .filter((p) => p.occasions.some((o) => o.slug === slug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, filter));
+    .filter((p) => isDeliverable(p, browseFilter));
 
   type TransformedProduct = ReturnType<typeof transformProduct>;
   const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
@@ -480,10 +484,15 @@ router.get("/woo/products", (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
+  // Product listings filter by country only. City-level delivery restrictions
+  // are enforced at checkout — not at browse time — because OS city IDs may not
+  // match the web app's city slug format, which would incorrectly exclude all
+  // products for unrecognised city slugs (e.g. "lb-akkar").
+  const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const products = osProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, filter))
+    .filter((p) => isDeliverable(p, browseFilter))
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length });
 });

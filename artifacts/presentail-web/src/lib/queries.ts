@@ -1,6 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
+import { fetchOsProducts, fetchOsBrands } from "./osClient";
+import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
+
+// Brand slugs allowed to appear on the storefront.
+// Must stay in sync with the server-side PRESENTAIL_OS_BRAND_ALLOWLIST default
+// in artifacts/api-server/src/lib/osProductsCache.ts.
+const OS_BRAND_ALLOWLIST = new Set(["presentail-flowers--gifts", "flower-scent"]);
 
 // Types matching the backend shape
 export type Product = {
@@ -61,53 +68,185 @@ export type DeliveryLocationsResponse = { countries: DeliveryCountry[] };
 
 type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
+// ── Occasion-type grouping (mirrors OCCASION_TYPE_CATEGORIES in routes/woo.ts) ─
+
+const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
+  { slug: "flowers", label: "Flowers & Bouquets" },
+  { slug: "hand-bouquets", label: "Hand Bouquets" },
+  { slug: "flower-boxes", label: "Flower Boxes" },
+  { slug: "flower-vases", label: "Flower Vases" },
+  { slug: "lux-arrangements", label: "Lux Arrangements" },
+  { slug: "dried-flowers", label: "Dried Flowers" },
+  { slug: "preserved-flowers", label: "Preserved Flowers" },
+  { slug: "chocolate", label: "Chocolates" },
+  { slug: "cakes", label: "Cakes & Sweets" },
+  { slug: "arabic-sweets", label: "Arabic Sweets" },
+  { slug: "balloons", label: "Balloons" },
+  { slug: "stuffed-animals", label: "Stuffed Animals" },
+  { slug: "plants", label: "Plants" },
+  { slug: "baskets", label: "Baskets" },
+  { slug: "beauty", label: "Beauty" },
+  { slug: "bundles", label: "Gift Bundles" },
+];
+
+function groupOccasionProducts(
+  products: Product[],
+): { slug: string; label: string; count: number; products: Product[] }[] {
+  const groups = new Map<string, { label: string; products: Product[] }>();
+  const assigned = new Set<string>();
+
+  for (const typecat of OCCASION_TYPE_CATEGORIES) {
+    for (const p of products) {
+      if (assigned.has(p.id)) continue;
+      if (p.category === typecat.slug) {
+        if (!groups.has(typecat.slug)) {
+          groups.set(typecat.slug, { label: typecat.label, products: [] });
+        }
+        groups.get(typecat.slug)!.products.push(p);
+        assigned.add(p.id);
+      }
+    }
+  }
+
+  return Array.from(groups.entries()).map(([slug, g]) => ({
+    slug,
+    label: g.label,
+    count: g.products.length,
+    products: g.products.slice(0, 10),
+  }));
+}
+
+// ── Base OS products hook ──────────────────────────────────────────────────
+//
+// Fetches all products from Presentail OS for a given country+city+lang,
+// applies visibility and deliverability filters, and maps to the Product type.
+// All per-category/occasion/brand hooks share this query cache.
+//
+// When VITE_OS_API_KEY is set the browser fetches directly from OS (fastest).
+// When the key is absent, or when OS is unreachable (e.g. CORS in dev), the
+// hook falls back to the API server's /woo/products endpoint, which serves
+// the same OS data from its in-process cache. apiFetch sends the stored
+// x-store-country / x-store-city headers automatically so the country/city
+// context is preserved in the fallback path.
+
+function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
+  return useQuery<Product[]>({
+    queryKey: ["os-products", params.countryCode ?? null, params.cityId ?? null, params.lang ?? "en"],
+    queryFn: async () => {
+      const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
+      if (osKey) {
+        try {
+          const raw = await fetchOsProducts({
+            countryCode: params.countryCode,
+            cityId: params.cityId,
+            lang: params.lang,
+          });
+          // Filter by country only — city-level restrictions are enforced at
+          // checkout, not at browse time, because OS city IDs may not match
+          // the web app's city slug format.
+          return raw
+            .filter(isVisibleOsProduct)
+            .filter((p) =>
+              isDeliverableOsProduct(p, params.countryCode ?? null, null),
+            )
+            .filter((p) =>
+              Array.isArray(p.brands) && p.brands.some((b) => OS_BRAND_ALLOWLIST.has(b.slug)),
+            )
+            .map(mapOsProduct);
+        } catch {
+          // CORS / network failure — fall through to API server proxy below
+        }
+      }
+      // Fallback: API server (already caches OS products; country/city resolved
+      // via x-store-country / x-store-city headers injected by apiFetch).
+      const data = await apiFetch<{ ok: boolean; products: Product[] }>("/woo/products");
+      return data.products ?? [];
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 // Query Hooks
 export const useProducts = (
   params: LocalizedParams = {},
   enabled: boolean = true,
 ) => {
-  const q = new URLSearchParams();
-  if (params.countryCode) q.set("countryCode", params.countryCode);
-  if (params.cityId) q.set("cityId", params.cityId);
-  if (params.lang) q.set("lang", params.lang);
-  const qs = q.toString();
-
-  return useQuery({
-    queryKey: ["products", params],
-    queryFn: () => apiFetch<{ ok: boolean; products: Product[] }>(`/woo/products${qs ? `?${qs}` : ""}`),
-    enabled,
-  });
+  const result = useOsAllProducts(params, enabled);
+  return {
+    ...result,
+    data: result.data != null
+      ? { ok: true as const, products: result.data }
+      : result.data,
+  };
 };
 
 export const useCategoryProducts = (
   slug: string,
   params: LocalizedParams = {},
 ) => {
-  const q = new URLSearchParams();
-  q.set("slug", slug);
-  if (params.countryCode) q.set("countryCode", params.countryCode);
-  if (params.cityId) q.set("cityId", params.cityId);
-  if (params.lang) q.set("lang", params.lang);
-  return useQuery({
-    queryKey: ["category", slug, params],
-    queryFn: () => apiFetch<CategoryProductsResponse>(`/woo/category-products?${q.toString()}`),
-    enabled: !!slug
-  });
+  const result = useOsAllProducts(params, !!slug);
+  const data = useMemo(() => {
+    if (!result.data) return undefined;
+    const products = result.data.filter((p) => p.category === slug);
+    return { ok: true as const, products, count: products.length } satisfies CategoryProductsResponse;
+  }, [result.data, slug]);
+  return { ...result, data };
 };
 
 export const useOccasionProducts = (
   slug: string,
   params: LocalizedParams = {},
 ) => {
-  const q = new URLSearchParams();
-  q.set("slug", slug);
-  if (params.countryCode) q.set("countryCode", params.countryCode);
-  if (params.cityId) q.set("cityId", params.cityId);
-  if (params.lang) q.set("lang", params.lang);
-  return useQuery({
-    queryKey: ["occasion", slug, params],
-    queryFn: () => apiFetch<OccasionProductsResponse>(`/woo/occasion-products?${q.toString()}`),
-    enabled: !!slug
+  const result = useOsAllProducts(params, !!slug);
+  const data = useMemo(() => {
+    if (!result.data) return undefined;
+    const matching = result.data.filter((p) => p.occasions.includes(slug));
+    const groups = groupOccasionProducts(matching);
+    return { ok: true as const, groups, total: matching.length } satisfies OccasionProductsResponse;
+  }, [result.data, slug]);
+  return { ...result, data };
+};
+
+export const useBrandProducts = (
+  slug: string,
+  params: LocalizedParams = {},
+) => {
+  return useQuery<{ ok: boolean; products: Product[]; count: number; brandName?: string }>({
+    queryKey: ["brand-products", slug, params.countryCode ?? null, params.cityId ?? null, params.lang ?? "en"],
+    queryFn: async () => {
+      if (!slug) return { ok: true, products: [], count: 0 };
+      const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
+      if (osKey) {
+        try {
+          const raw = await fetchOsProducts({
+            countryCode: params.countryCode,
+            cityId: params.cityId,
+            lang: params.lang,
+          });
+          const products = raw
+            .filter(isVisibleOsProduct)
+            .filter((p) =>
+              isDeliverableOsProduct(p, params.countryCode ?? null, params.cityId ?? null),
+            )
+            .filter((p) => Array.isArray(p.brands) && p.brands.some((b) => OS_BRAND_ALLOWLIST.has(b.slug)))
+            .filter((p) => p.brands.some((b) => b.slug === slug))
+            .map(mapOsProduct);
+          const brandEntry = raw.flatMap((p) => p.brands).find((b) => b.slug === slug);
+          const brandName = brandEntry?.name ?? slug;
+          return { ok: true, products, count: products.length, brandName };
+        } catch {
+          // fall through to API server
+        }
+      }
+      // Fallback: API server brand-products endpoint
+      const data = await apiFetch<{ ok: boolean; products: Product[]; count: number; brandName?: string }>(
+        `/woo/brand-products?slug=${encodeURIComponent(slug)}`,
+      );
+      return data;
+    },
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -193,26 +332,43 @@ export const useFxRates = () => {
   });
 };
 
-// useBrands is backed by the /catalog/metadata endpoint (Presentail OS).
-// Brands are global — countryCode/cityId/lang params are accepted for call-site
-// compatibility but are no longer forwarded to the server.
+// useBrands fetches brands from Presentail OS (direct when VITE_OS_API_KEY is
+// set) or falls back to the API server's /woo/brands endpoint, which serves
+// the same data from the OS brands cache.
 export const useBrands = (_params: LocalizedParams = {}) => {
-  const result = useCatalogMetadata();
-  return {
-    ...result,
-    data: result.data
-      ? {
-          ok: true as const,
-          brands: result.data.brands.map((b) => ({
-            id: b.slug,
-            name: b.name,
-            slug: b.slug,
-            image: b.image,
-            count: b.count,
-          })),
+  return useQuery({
+    queryKey: ["os-brands"],
+    queryFn: async () => {
+      const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
+      if (osKey) {
+        try {
+          const brands = await fetchOsBrands();
+          return {
+            ok: true as const,
+            brands: brands.map((b) => ({
+              id: b.slug,
+              name: b.name,
+              slug: b.slug,
+              image: b.image_public_url ?? b.image_url ?? null,
+              count: 0,
+            })),
+          };
+        } catch {
+          // fall through to API server
         }
-      : undefined,
-  };
+      }
+      // Fallback: API server brands endpoint
+      const data = await apiFetch<{
+        ok: boolean;
+        brands: { id: string; name: string; slug: string; image: string | null }[];
+      }>("/woo/brands");
+      return {
+        ok: true as const,
+        brands: (data.brands ?? []).map((b) => ({ ...b, count: 0 })),
+      };
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 };
 
 // Customer's order history — combines guest checkouts (matched by email/phone)
@@ -394,6 +550,9 @@ export type SearchResponse = {
   brands: SearchBrand[];
 };
 
+// useSearch filters the OS product cache client-side for product matches.
+// Category, occasion, and brand results are omitted (they are static and
+// the caller's UI can derive them from useCatalogMetadata if needed).
 export const useSearch = (q: string, params: LocalizedParams = {}) => {
   const [debouncedQ, setDebouncedQ] = useState(q);
 
@@ -402,31 +561,29 @@ export const useSearch = (q: string, params: LocalizedParams = {}) => {
     return () => clearTimeout(id);
   }, [q]);
 
-  const qs = new URLSearchParams({ q: debouncedQ });
-  if (params.countryCode) qs.set("countryCode", params.countryCode);
-  if (params.cityId) qs.set("cityId", params.cityId);
-  if (params.lang) qs.set("lang", params.lang);
+  const allProducts = useOsAllProducts(params, debouncedQ.length >= 2);
 
-  return useQuery({
-    queryKey: ["search", debouncedQ, params],
-    queryFn: () => apiFetch<SearchResponse>(`/woo/search?${qs.toString()}`),
-    enabled: debouncedQ.length >= 2,
-    staleTime: 30 * 1000,
-  });
-};
+  const data = useMemo((): SearchResponse | undefined => {
+    if (!allProducts.data) return undefined;
+    const needle = debouncedQ.toLowerCase();
+    const products: SearchProduct[] = allProducts.data
+      .filter((p) => p.name.toLowerCase().includes(needle))
+      .slice(0, 20)
+      .map((p) => ({
+        slug: p.id,
+        name: p.name,
+        image: p.image,
+        price: p.price,
+        priceValue: p.priceValue,
+      }));
+    return { ok: true, products, categories: [], occasions: [], brands: [] };
+  }, [allProducts.data, debouncedQ]);
 
-export const useBrandProducts = (
-  slug: string,
-  params: LocalizedParams = {},
-) => {
-  const q = new URLSearchParams();
-  q.set("slug", slug);
-  if (params.countryCode) q.set("countryCode", params.countryCode);
-  if (params.cityId) q.set("cityId", params.cityId);
-  if (params.lang) q.set("lang", params.lang);
-  return useQuery({
-    queryKey: ["brand-products", slug, params],
-    queryFn: () => apiFetch<{ ok: boolean; products: Product[]; count?: number; brandName?: string }>(`/woo/brand-products?${q.toString()}`),
-    enabled: !!slug,
-  });
+  return {
+    data: debouncedQ.length >= 2 ? data : undefined,
+    isLoading: allProducts.isLoading,
+    isFetching: allProducts.isFetching,
+    isError: allProducts.isError,
+    error: allProducts.error,
+  };
 };

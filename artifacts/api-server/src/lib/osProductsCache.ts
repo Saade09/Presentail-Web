@@ -354,6 +354,26 @@ function getOsConfig(): PresentailOsConfig {
   };
 }
 
+/**
+ * Filter products by brand slug allowlist.
+ *
+ * Reads PRESENTAIL_OS_BRAND_ALLOWLIST (comma-separated brand slugs).
+ * Defaults to "presentail-flowers--gifts,flower-scent" — the two Presentail
+ * vendor brands. Set the env var to an empty string to disable filtering and
+ * show all brands.
+ */
+function applyBrandAllowlist(products: OSProduct[]): OSProduct[] {
+  const raw = process.env.PRESENTAIL_OS_BRAND_ALLOWLIST;
+  const allowlistStr = raw === undefined
+    ? "presentail-flowers--gifts,flower-scent"
+    : raw;
+  if (!allowlistStr.trim()) return products; // empty string = no filtering
+  const allowed = new Set(allowlistStr.split(",").map((s) => s.trim()).filter(Boolean));
+  return products.filter((p) =>
+    Array.isArray(p.brands) && p.brands.some((b) => allowed.has(b.slug)),
+  );
+}
+
 // ── Startup price snapshot helpers ─────────────────────────────────────────
 
 /**
@@ -737,12 +757,17 @@ async function fetchAndStore(): Promise<void> {
         }
         continue;
       }
-      if (products.length > 0) {
-        maybeRecordStartupSnapshot(products, spec.storeKey);
-        detectAndAlertPriceChanges(products);
-        storeCache.set(spec.storeKey, buildStoreCache(products));
+      const filtered = applyBrandAllowlist(products);
+      if (filtered.length > 0) {
+        maybeRecordStartupSnapshot(filtered, spec.storeKey);
+        detectAndAlertPriceChanges(filtered);
+        storeCache.set(spec.storeKey, buildStoreCache(filtered));
         logger.info(
-          { storeKey: spec.storeKey, productCount: products.length },
+          {
+            storeKey: spec.storeKey,
+            productCount: filtered.length,
+            filteredOut: products.length - filtered.length,
+          },
           "osProductsCache: products refreshed from Presentail OS",
         );
         for (const p of products) {

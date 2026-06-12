@@ -66,6 +66,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/clerk-types": "workspace:*",
     "@workspace/delivery": "workspace:*",
+    "@workspace/presentail-os": "workspace:*",
     "@workspace/display-currency": "workspace:*",
     "@workspace/eslint-config-base": "workspace:*",
     "@workspace/eslint-plugin-presentail": "workspace:*",
