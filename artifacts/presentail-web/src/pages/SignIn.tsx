@@ -404,7 +404,7 @@ export default function SignInPage() {
 
         {step === "email" ? (
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-[20px] pt-3">
               <label className="text-sm font-medium" htmlFor="signin-email">
                 {t("auth.emailLabel")}
               </label>
