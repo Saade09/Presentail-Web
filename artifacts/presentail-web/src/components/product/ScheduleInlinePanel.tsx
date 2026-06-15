@@ -45,11 +45,13 @@ export function ScheduleInlinePanel({
   const { t } = useLocale();
   const code = (countryCode ?? "LB").toUpperCase();
   const days = useMemo(() => dayLabels("Today", "Tomorrow").slice(0, 3), []);
-  /** Flat fallback slot list (all days merged, or hardcoded per-country). */
-  const flatTimeSlots = useMemo(
-    () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code)),
-    [propTimeSlots, code],
-  );
+  /** Flat fallback slot list (all days merged, or hardcoded per-country), sorted by window start. */
+  const flatTimeSlots = useMemo(() => {
+    const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(code);
+    return [...raw].sort(
+      (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
+    );
+  }, [propTimeSlots, code]);
   const localHour = useMemo(() => getCountryHour(code), [code]);
   const todayIso = days[0]?.iso ?? new Date().toISOString().slice(0, 10);
 
@@ -69,7 +71,10 @@ export function ScheduleInlinePanel({
    * fall back to the flat list otherwise.
    */
   const timeSlots = useMemo<TimeSlot[]>(() => {
-    const byStart = (arr: TimeSlot[]) => [...arr].sort((a, b) => a.cutoffHour - b.cutoffHour);
+    const byStart = (arr: TimeSlot[]) =>
+      [...arr].sort(
+        (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
+      );
     if (propSlotsByDay) {
       const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
       const daySlots = propSlotsByDay[weekday];

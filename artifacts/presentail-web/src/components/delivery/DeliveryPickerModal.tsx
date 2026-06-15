@@ -66,10 +66,12 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const now = useNow();
   const deliverySelection = useDeliverySelection();
 
-  const timeSlots = useMemo(
-    () => (propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(countryCode)),
-    [propTimeSlots, countryCode],
-  );
+  const timeSlots = useMemo(() => {
+    const raw = propTimeSlots?.length ? propTimeSlots : timeSlotsForCountry(countryCode);
+    return [...raw].sort(
+      (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
+    );
+  }, [propTimeSlots, countryCode]);
   const quickDays = useMemo(
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")).slice(0, 3),
     [t],
@@ -96,7 +98,10 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   const initialIsToday = !initialDate || initialDate === todayIso;
   const initialSlot =
     deliverySelection.slotLabel ??
-    nearestSlotForHour(timeSlots, initialIsToday, currentHour)?.label ??
+    (initialIsToday
+      ? nearestSlotForHour(timeSlots, true, currentHour)
+      : firstAvailableSlot(timeSlots, false, currentHour)
+    )?.label ??
     "";
 
   const [mode, setMode] = useState<"express" | "schedule">(initialMode);
@@ -125,10 +130,25 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     const isToday = !newDate || newDate === todayIso;
     setSlot(
       deliverySelection.slotLabel ??
-        nearestSlotForHour(timeSlots, isToday, currentHour)?.label ??
+        (isToday
+          ? nearestSlotForHour(timeSlots, true, currentHour)
+          : firstAvailableSlot(timeSlots, false, currentHour)
+        )?.label ??
         "",
     );
   }, [open]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Change date and reset the slot to the appropriate first-available. */
+  const handleDateChange = (newDate: string) => {
+    const isToday = !newDate || newDate === todayIso;
+    setDate(newDate);
+    setSlot(
+      (isToday
+        ? nearestSlotForHour(timeSlots, true, currentHour)
+        : firstAvailableSlot(timeSlots, false, currentHour)
+      )?.label ?? "",
+    );
+  };
 
   const handleConfirm = () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -210,7 +230,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                         key={d.iso}
                         type="button"
                         disabled={isDisabledToday}
-                        onClick={() => !isDisabledToday && setDate(d.iso)}
+                        onClick={() => !isDisabledToday && handleDateChange(d.iso)}
                         className={`rounded-xl border px-2 py-2 text-center text-xs font-medium transition-colors ${
                           date === d.iso
                             ? "border-primary bg-primary text-primary-foreground"
@@ -228,7 +248,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                 <Input
                   type="date"
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  onChange={(e) => handleDateChange(e.target.value)}
                   min={todayHasSlots ? todayIso : (() => {
                     const tom = new Date(todayIso);
                     tom.setDate(tom.getDate() + 1);

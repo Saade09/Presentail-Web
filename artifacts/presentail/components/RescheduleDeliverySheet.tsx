@@ -76,13 +76,14 @@ export function RescheduleDeliverySheet({
   );
   // Use OS-configured slots for the selected city when available, falling back
   // to the hardcoded per-country table so existing behaviour is preserved.
-  const timeSlots = React.useMemo(
-    () =>
-      selectedCity?.timeSlots?.length
-        ? selectedCity.timeSlots
-        : timeSlotsForCountry(countryCode),
-    [selectedCity, countryCode],
-  );
+  const timeSlots = React.useMemo(() => {
+    const raw = selectedCity?.timeSlots?.length
+      ? selectedCity.timeSlots
+      : timeSlotsForCountry(countryCode);
+    return [...raw].sort(
+      (a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour),
+    );
+  }, [selectedCity, countryCode]);
   const localHour = React.useMemo(
     () => getCountryHour(countryCode),
     [countryCode],

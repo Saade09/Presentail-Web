@@ -331,6 +331,55 @@ describe("ScheduleInlinePanel — interactions", () => {
     expect(screen.getByTestId("schedule-slot-24")).toBeTruthy();
   });
 
+  it("sorts OS-sourced slots by startHour, not by cutoffHour", () => {
+    // These slots have cutoffHour and startHour in opposite order.
+    // Old sort (by cutoffHour): Evening first, Morning second → wrong display order.
+    // New sort (by startHour): Morning first, Evening second → correct display order.
+    const OS_SLOTS = [
+      { label: "Evening", cutoffHour: 8, startHour: 18, endHour: 22 },
+      { label: "Morning", cutoffHour: 20, startHour: 9, endHour: 13 },
+    ];
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TOMORROW_ISO}
+        timeSlots={OS_SLOTS}
+        onChange={() => {}}
+      />,
+      { locale },
+    );
+    // schedule-slot-{cutoffHour}: Morning has cutoffHour=20, Evening has cutoffHour=8
+    const morningBtn = screen.getByTestId("schedule-slot-20");
+    const eveningBtn = screen.getByTestId("schedule-slot-8");
+    // Morning (startHour=9) must appear before Evening (startHour=18) in the DOM.
+    // DOCUMENT_POSITION_FOLLOWING (4) means morningBtn precedes eveningBtn.
+    expect(
+      morningBtn.compareDocumentPosition(eveningBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("pre-selects the earliest slot by startHour for a future date, not nearest to current hour", () => {
+    // getCountryHour is mocked to 10. With the old sort (by cutoffHour), Evening
+    // (cutoffHour=8) would be slots[0] and get pre-selected for a future date.
+    // After the fix (sort by startHour), Morning (startHour=9) is slots[0].
+    const OS_SLOTS = [
+      { label: "Evening", cutoffHour: 8, startHour: 18, endHour: 22 },
+      { label: "Morning", cutoffHour: 20, startHour: 9, endHour: 13 },
+    ];
+    const onChange = vi.fn();
+    renderWithProviders(
+      <ScheduleInlinePanel
+        countryCode="LB"
+        initialDate={TOMORROW_ISO}
+        timeSlots={OS_SLOTS}
+        onChange={onChange}
+      />,
+      { locale },
+    );
+    const lastCall = onChange.mock.calls.at(-1)![0] as { slotLabel: string };
+    expect(lastCall.slotLabel).toBe("Morning");
+  });
+
   it("picking a date from the CalendarPopover creates a synthetic chip and closes the popover", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

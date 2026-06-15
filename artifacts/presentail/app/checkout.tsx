@@ -2738,7 +2738,8 @@ function DeliveryTimeCard({
   // When OS provides per-day slots, show only the slots for the selected date's
   // day of week. Fall back to the flat list when no per-day data is available.
   const activeDaySlots: TimeSlot[] = React.useMemo(() => {
-    const byStart = (arr: TimeSlot[]) => [...arr].sort((a, b) => a.cutoffHour - b.cutoffHour);
+    const byStart = (arr: TimeSlot[]) =>
+      [...arr].sort((a, b) => (a.startHour ?? a.cutoffHour) - (b.startHour ?? b.cutoffHour));
     if (slotsByDay && date) {
       const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
       const daySlots = (slotsByDay as Record<string, TimeSlot[]>)[weekday];
