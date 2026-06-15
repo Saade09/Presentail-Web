@@ -209,7 +209,8 @@
   --sidebar-border: 220 13% 91%;
   --sidebar-primary: 190 100% 15%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 171 77% 64%;
+  /* light grey — replaces mint so language-picker hover is neutral */
+  --sidebar-accent: 220 13% 88%;
   --sidebar-accent-foreground: 190 100% 15%;
   --sidebar-ring: 190 100% 15%;
 
@@ -230,8 +231,8 @@
   /* slate */
   --muted-foreground: 213 8% 45%;
 
-  /* mint */
-  --accent: 171 77% 64%;
+  /* light grey — replaces mint so language-picker hover is neutral */
+  --accent: 220 13% 88%;
   --accent-foreground: 190 100% 15%;
 
   --destructive: 0 84% 60%;

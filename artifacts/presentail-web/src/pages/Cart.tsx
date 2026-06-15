@@ -289,7 +289,7 @@ export default function Cart() {
                 className="mb-6"
               />
             )}
-            <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
+            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
               {t("cart.deliverySummary")}
             </p>
             <div className="space-y-6">
@@ -347,7 +347,7 @@ export default function Cart() {
             {/* Card Message Panel */}
             <div className="pt-2 pb-6">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
                   {t("checkout.cardMessageSection")}
                 </p>
 
@@ -454,7 +454,7 @@ export default function Cart() {
                   type="button"
                   onClick={() => setCardPreviewOpen(true)}
                   className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
-                  style={{ borderColor: "rgba(0,65,78,0.35)", color: "#00414e", backgroundColor: "rgba(0,65,78,0.05)" }}
+                  style={{ borderColor: "hsl(var(--primary) / 0.35)", color: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.05)" }}
                   data-testid="button-preview-card"
                 >
                   <Eye className="h-4 w-4" />

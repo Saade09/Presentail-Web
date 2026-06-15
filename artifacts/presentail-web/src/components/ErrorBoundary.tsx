@@ -48,7 +48,7 @@ function CheckoutFallback() {
       data-testid="checkout-error-boundary"
     >
       <div className="max-w-sm">
-        <h1 className="text-2xl font-serif text-[#00414e] mb-3">
+        <h1 className="text-2xl font-serif text-primary mb-3">
           {CHECKOUT_TITLE}
         </h1>
         <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
@@ -56,7 +56,7 @@ function CheckoutFallback() {
         </p>
         <Link
           href="/cart"
-          className="inline-flex items-center justify-center rounded-xl bg-[#00414e] px-8 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+          className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
           data-testid="link-back-to-cart-error"
         >
           {CHECKOUT_CTA}

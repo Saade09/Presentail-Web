@@ -1246,8 +1246,8 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
-      <header className="sticky top-0 z-40" style={{ backgroundColor: "#00414e" }}>
-        <div className="max-w-content mx-auto px-page py-4 flex items-center justify-between text-[#00414e] border-t-[#00414e] border-r-[#00414e] border-b-[#00414e] border-l-[#00414e]">
+      <header className="sticky top-0 z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
+        <div className="max-w-content mx-auto px-page py-4 flex items-center justify-between text-primary-foreground">
           <Link
             href="/cart"
             className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
@@ -1277,9 +1277,9 @@ function CheckoutForm() {
                     <div
                       className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
                         done
-                          ? "border-emerald-400 bg-emerald-400 text-[#00414e]"
+                          ? "border-white bg-white text-primary"
                           : active
-                          ? "border-white bg-white text-[#00414e]"
+                          ? "border-white bg-white text-primary"
                           : "border-white/25 bg-transparent text-white/30"
                       }`}
                     >
@@ -1296,7 +1296,7 @@ function CheckoutForm() {
                   {i < 1 && (
                     <div
                       className={`w-10 sm:w-20 h-px mx-3 mb-5 transition-colors ${
-                        done ? "bg-emerald-400/50" : "bg-white/15"
+                        done ? "bg-white/50" : "bg-white/15"
                       }`}
                     />
                   )}
@@ -1317,13 +1317,13 @@ function CheckoutForm() {
             {step === 1 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step.deliveryDetails")}</h1>
+                  <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
 
                 {/* Recipient Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.recipientDetails")}</p>
 
                   {savedAddresses.length > 0 && (
                     <div className="mb-5">
@@ -1497,7 +1497,7 @@ function CheckoutForm() {
 
                 {/* Sender Details */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.senderDetails")}</p>
 
                   {isSignedIn ? (
                     <div className="mb-4 rounded-xl border bg-secondary/40 p-4" data-testid="sender-summary">
@@ -1559,7 +1559,7 @@ function CheckoutForm() {
 
                 {/* Delivery Time */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">{t("checkout.section.deliveryTime")}</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
                       type="button"
@@ -1567,9 +1567,9 @@ function CheckoutForm() {
                       disabled={!expressAvailable}
                       data-testid="delivery-mode-express"
                       className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-[#00414e]/30"
+                        deliveryMode === "express" ? "text-white" : "border-border bg-card text-foreground hover:border-primary/30"
                       } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                      style={deliveryMode === "express" ? { borderColor: "#00414e", backgroundColor: "#00414e" } : {}}
+                      style={deliveryMode === "express" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : {}}
                     >
                       <div className="font-semibold">{t("checkout.expressDelivery")}</div>
                       <div className="text-xs opacity-80 mt-1">{expressAvailable ? <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></> : t("checkout.expressUnavailable")}</div>
@@ -1579,9 +1579,9 @@ function CheckoutForm() {
                       onClick={() => setDeliveryMode("schedule")}
                       data-testid="delivery-mode-schedule"
                       className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-[#00414e]/30"
+                        deliveryMode === "schedule" ? "text-white" : "border-border bg-card text-foreground hover:border-primary/30"
                       }`}
-                      style={deliveryMode === "schedule" ? { borderColor: "#00414e", backgroundColor: "#00414e" } : {}}
+                      style={deliveryMode === "schedule" ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : {}}
                     >
                       <div className="font-semibold">{t("checkout.scheduleDelivery")}</div>
                       <div className="text-xs opacity-80 mt-1">{t("checkout.scheduleDeliveryDesc")}</div>
@@ -1606,7 +1606,7 @@ function CheckoutForm() {
                   <Button
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
-                    style={{ backgroundColor: "#00414e" }}
+                    style={{ backgroundColor: "hsl(var(--primary))" }}
                     onClick={() => {
                       setPhoneSubmitAttempted(true);
                       const recipientPhoneOk = !!recipient.phone && isValidPhoneNumber(recipient.phone);
@@ -1627,13 +1627,13 @@ function CheckoutForm() {
             {step === 2 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-[#00414e] mb-1">{t("checkout.step3.title")}</h1>
+                  <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step3.title")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
                 </div>
 
                 {/* Note for team */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">{t("checkout.noteForTeam")}</p>
                   <textarea
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
@@ -1645,7 +1645,7 @@ function CheckoutForm() {
 
                 {/* Payment methods */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
-                  <p className="text-xs font-semibold text-[#00414e] uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4">{t("checkout.section.payment")}</p>
                   <div className="space-y-3">
                     {(paymentOptions ?? []).map((m) => {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
@@ -1672,13 +1672,13 @@ function CheckoutForm() {
                       return (
                         <div
                           key={m.id}
-                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-[#00414e]/25 hover:bg-secondary/30"}`}
-                          style={paymentMethod === m.id ? { borderColor: "#00414e", backgroundColor: "rgba(0,65,78,0.04)", outlineColor: "rgba(0,65,78,0.15)" } : {}}
+                          className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
+                          style={paymentMethod === m.id ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}
                           onClick={() => { setPaymentMethod(m.id); setStripeCardError(null); }}
                           data-testid={`option-payment-${m.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === m.id ? { borderColor: "#00414e", backgroundColor: "#00414e" } : { borderColor: "rgba(0,0,0,0.25)" }}>
+                            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors" style={paymentMethod === m.id ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary))" } : { borderColor: "rgba(0,0,0,0.25)" }}>
                               {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-white" />}
                             </div>
                             <span className="font-medium text-sm">{t(m.labelKey)}</span>
@@ -1721,7 +1721,7 @@ function CheckoutForm() {
 
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "#00414e" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
+                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "hsl(var(--primary))" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
                     {isProcessing ? t("checkout.processing") : <>{t("checkout.placeOrderNow_prefix")} <FormattedPrice usdValue={total} /></>}
                   </Button>
                 </div>
@@ -1740,8 +1740,8 @@ function CheckoutForm() {
           <div className="w-full lg:w-96 xl:w-[420px] shrink-0">
             <div className="sticky top-36">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "rgba(0,65,78,0.05)" }}>
-                  <h3 className="text-sm font-semibold" style={{ color: "#00414e" }}>{t("checkout.summary")}</h3>
+                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}>
+                  <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("checkout.summary")}</h3>
                 </div>
                 <div className="px-6 py-5">
                   {/* Items */}
@@ -1754,7 +1754,7 @@ function CheckoutForm() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: "#00414e" }}><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(var(--primary))" }}><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
                         </div>
                       </div>
                     ))}
@@ -1764,7 +1764,7 @@ function CheckoutForm() {
                   <div className="border-t border-gray-100 pt-4 mb-4">
                     {couponApplied ? (
                       <>
-                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "#00414e" }} data-testid="row-coupon-discount">
+                        <div className="flex justify-between text-sm mb-1.5" style={{ color: "hsl(var(--primary))" }} data-testid="row-coupon-discount">
                           <div className="flex items-center gap-1.5">
                             <Tag className="w-3 h-3 shrink-0" />
                             <span className="font-medium">{couponInput}</span>
@@ -1776,7 +1776,7 @@ function CheckoutForm() {
                       </>
                     ) : (
                       <>
-                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "#00414e" }} data-testid="button-coupon-toggle">
+                        <button type="button" onClick={handleCouponToggle} className="text-sm underline underline-offset-2 hover:opacity-70 transition-opacity font-medium" style={{ color: "hsl(var(--primary))" }} data-testid="button-coupon-toggle">
                           {t("checkout.coupon.toggle")}
                         </button>
                         {couponOpen && (
@@ -1828,8 +1828,8 @@ function CheckoutForm() {
 
                   {/* Total */}
                   <div className="flex justify-between font-semibold text-base pt-4 mt-3 border-t border-gray-100">
-                    <span style={{ color: "#00414e" }}>{t("cart.total")}</span>
-                    <span style={{ color: "#00414e" }} data-testid="text-total"><FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} /></span>
+                    <span style={{ color: "hsl(var(--primary))" }}>{t("cart.total")}</span>
+                    <span style={{ color: "hsl(var(--primary))" }} data-testid="text-total"><FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} /></span>
                   </div>
 
                   {effectiveFreeDeliveryEnabled !== false && (
@@ -1841,7 +1841,7 @@ function CheckoutForm() {
 
                 {/* Delivery Summary */}
                 <div className="border-t border-gray-100 px-6 py-5" style={{ backgroundColor: "#f4f4f5" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#00414e" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "hsl(var(--primary))" }}>
                     {t("checkout.deliverySummary")}
                   </p>
                   <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
