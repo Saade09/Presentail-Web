@@ -71,6 +71,7 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
           id: cid,
           name: cname,
           isActive: cobj.isActive !== false,
+          ...(typeof cobj.fee === "number" ? { fee: cobj.fee } : {}),
         };
         if (typeof cobj.expressAvailable === "boolean") {
           city.expressAvailable = cobj.expressAvailable;
@@ -130,20 +131,17 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
       })
       .filter(Boolean) as DeliveryCountry["cities"];
 
-    // Trust OS cities when present. Fall back to hardcoded districts only
-    // when the server returned zero cities (data not yet entered in OS).
-    const fallback = FALLBACK_DELIVERY_COUNTRIES.find(
+    // Use OS cities exclusively. When OS returns zero active cities for a
+    // country, we propagate an empty array so the checkout can show the
+    // "no delivery areas available" state instead of silently falling back
+    // to a hardcoded governorate list that may be stale.
+    const cities = remoteCities;
+
+    // Keep the preferred-default-city hint from the static list; it's a UX
+    // preference (which city to pre-select) that OS does not carry yet.
+    const fallbackHint = FALLBACK_DELIVERY_COUNTRIES.find(
       (fc) => fc.code.toUpperCase() === upperCode,
     );
-    const cities =
-      remoteCities.length > 0
-        ? remoteCities
-        : (fallback?.cities ?? []).map((fc) => ({
-            id: fc.id,
-            name: fc.name,
-            isActive: fc.isActive,
-          }));
-
     out.push({
       id,
       name,
@@ -152,9 +150,7 @@ function sanitizeCountries(raw: unknown): DeliveryCountry[] | null {
       currency,
       isActive,
       cities,
-      // Preserve the static preferred-default-city hint (UX preference
-      // owned by the fallback list; OS does not carry this field yet).
-      preferredDefaultCityId: fallback?.preferredDefaultCityId,
+      preferredDefaultCityId: fallbackHint?.preferredDefaultCityId,
     });
   }
   return out.length > 0 ? out : null;

@@ -98,6 +98,8 @@ export type DeliveryCityData = {
   sameDayCutoffHour?: number;
   /** Human-readable express delivery time promise, e.g. "Arrives in 90 minutes" (from OS). */
   expressDeliveryLabel?: string;
+  /** Delivery fee in USD as returned by Presentail OS. When present, takes priority over the hardcoded district table. */
+  fee?: number;
 };
 
 export type DeliveryCountryData = {

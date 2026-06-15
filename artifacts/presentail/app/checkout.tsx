@@ -68,7 +68,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
-import { districtsForCountry, feeForDistrict, type District } from "@/data/districts";
+import { feeForDistrict, type District } from "@/data/districts";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -235,7 +235,7 @@ function CheckoutScreen() {
   const { loading: productsLoading } = useWooProducts();
   const { formatPrice, currencyCode } = useCurrency();
   const { token: authToken, user: authUser, updateProfile } = useAuth();
-  const { selectedCountry, selectedCity } = useDeliveryLocation();
+  const { selectedCountry, selectedCity, isLoading: locationsLoading } = useDeliveryLocation();
   const t = useT();
   const headingFontMedium = useHeadingFont("500Medium");
   const headingFontRegular = useHeadingFont("400Regular");
@@ -299,29 +299,25 @@ function CheckoutScreen() {
   }, []);
 
   // Step 2 — Delivery Details
-  // Derive the district picker list from OS-filtered active cities when
-  // selectedCountry is available (populated from the API's /delivery-locations
-  // endpoint, or the static fallback). This ensures inactive cities (e.g.
-  // ae-umm-al-quwain) are hidden here too, and that future OS-side deactivations
-  // propagate without a code deploy. Falls back to the static list only when
-  // selectedCountry has no cities (e.g. during the initial loading window).
+  // Derive the district picker list exclusively from OS-filtered active cities.
+  // When OS data is still loading (locationsLoading) or returns zero cities for
+  // a country, we return an empty array and show a loading / empty state on the
+  // picker instead of falling back to a hardcoded governorate list.
   const districts = useMemo<District[]>(() => {
     const activeCities = (selectedCountry?.cities ?? []).filter(
       (c) => c.isActive !== false,
     );
-    if (activeCities.length > 0) {
-      return activeCities.map((c) => ({
-        name: c.name,
-        fee: feeForDistrict(effectiveCountry, c.name),
-      }));
-    }
-    return districtsForCountry(effectiveCountry);
+    return activeCities.map((c) => ({
+      name: c.name,
+      // OS fee takes priority; fall back to the hardcoded lookup table.
+      fee: c.fee ?? feeForDistrict(effectiveCountry, c.name),
+    }));
   }, [selectedCountry, effectiveCountry]);
   const cityDistrictMatch = selectedCity
     ? districts.find((d) => d.name === selectedCity.name)
     : null;
-  const [district, setDistrict] = useState<District>(
-    cityDistrictMatch ?? districts[0],
+  const [district, setDistrict] = useState<District | null>(
+    cityDistrictMatch ?? districts[0] ?? null,
   );
   const districtManuallyEdited = React.useRef(false);
   const prevCityRef = React.useRef(selectedCity?.id);
@@ -356,7 +352,9 @@ function CheckoutScreen() {
       }
     }
     if (countryChanged) {
-      if (districts[0]) setDistrict(districts[0]);
+      // Always reset district on country change — set to first available city
+      // or null when OS has returned no active cities for the new country.
+      setDistrict(districts[0] ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountry, selectedCity, districts]);
@@ -722,7 +720,7 @@ function CheckoutScreen() {
 
   const fees = useMemo(() => {
     const subtotal = total;
-    const baseDeliveryFee = noAddress ? 35 : district.fee;
+    const baseDeliveryFee = noAddress ? 35 : (district?.fee ?? 0);
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
     const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
     const grand = subtotal + districtFee + expressFee;
@@ -751,7 +749,7 @@ function CheckoutScreen() {
         recipientFirst.trim() &&
         recipientLast.trim() &&
         isRecipientPhoneValid() &&
-        (noAddress || deliveryDetails.trim()) &&
+        (noAddress || (!!district && deliveryDetails.trim())) &&
         (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
         (!senderEmailRequired || senderEmail.trim())
@@ -767,6 +765,7 @@ function CheckoutScreen() {
     if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
     else if (!isRecipientPhoneValid()) missing.push(t.phoneInvalidNumber);
+    if (!noAddress && !district) missing.push(t.districtLabel);
     if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
@@ -828,7 +827,7 @@ function CheckoutScreen() {
       lastName: recipientLast,
       phone: `${recipientCountry.dial} ${recipientPhone}`.trim(),
     },
-    district: district.name,
+    district: district?.name ?? "",
     districtFee: fees.districtFee,
     expressFee: fees.expressFee,
     noAddress,
@@ -917,8 +916,8 @@ function CheckoutScreen() {
               label: "home",
               nickname: null,
               countryCode: recipientCountry.code,
-              district: district.name,
-              addressLine: deliveryDetails.trim() || district.name,
+              district: district?.name ?? "",
+              addressLine: deliveryDetails.trim() || (district?.name ?? ""),
               apartment: null,
               building: null,
               directions: null,
@@ -1222,7 +1221,7 @@ function CheckoutScreen() {
           .filter(({ product }) => product.wcId != null)
           .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
         orderId,
-        district: district.name,
+        district: district?.name ?? "",
         expressDelivery: deliveryMode === "express",
         noAddress,
         currency: currencyCode,
@@ -1258,7 +1257,7 @@ function CheckoutScreen() {
         items: detailed
           .filter(({ product }) => product.wcId != null)
           .map(({ product, qty }) => ({ wcId: product.wcId!, quantity: qty })),
-        district: district.name,
+        district: district?.name ?? "",
         expressDelivery: deliveryMode === "express",
         noAddress,
         currency: currencyCode,
@@ -1453,6 +1452,7 @@ function CheckoutScreen() {
               recipientCountry={recipientCountry}
               setRecipientCountry={(c: CountryDialCode) => { setRecipientPhoneShowError(false); setRecipientCountry(c); }}
               recipientPhoneShowError={recipientPhoneShowError}
+              locationsLoading={locationsLoading}
               districts={districts}
               district={district}
               setDistrict={setDistrict}
@@ -2212,7 +2212,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     recipientFirst, setRecipientFirst, recipientLast, setRecipientLast,
     recipientPhone, setRecipientPhone, recipientCountry, setRecipientCountry,
     recipientPhoneShowError,
-    districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
+    locationsLoading, districts, district, setDistrict, districtManuallyEdited, districtOpen, setDistrictOpen,
     noAddress, setNoAddress, deliveryDetails, setDeliveryDetails,
     isSignedIn, savedAddresses, activeAddressId, savedAddressPickerOpen, setSavedAddressPickerOpen, applySavedAddress,
     saveAddress, setSaveAddress,
@@ -2459,30 +2459,72 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         {!noAddress ? (
         <View>
           <Label colors={colors} required>{t.districtLabel}</Label>
-          <Pressable
-            onPress={() => setDistrictOpen(true)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 10,
-              backgroundColor: "#fff",
-              paddingHorizontal: 14,
-              paddingVertical: 13,
-            }}
-          >
-            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-              {district.name}
-            </AppText>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
-                {formatPrice(district.fee)} {t.checkoutDeliverySuffix}
+          {locationsLoading && districts.length === 0 ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                backgroundColor: "#f9f9f9",
+                paddingHorizontal: 14,
+                paddingVertical: 13,
+                opacity: 0.6,
+              }}
+            >
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground }}>
+                {t.loading}
               </AppText>
-              <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+              <Feather name="loader" size={16} color={colors.mutedForeground} />
             </View>
-          </Pressable>
+          ) : !locationsLoading && districts.length === 0 ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                backgroundColor: "#f9f9f9",
+                paddingHorizontal: 14,
+                paddingVertical: 13,
+                opacity: 0.6,
+              }}
+            >
+              <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground }}>
+                {t.districtNotAvailable}
+              </AppText>
+              <Feather name="alert-circle" size={16} color={colors.mutedForeground} />
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setDistrictOpen(true)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                backgroundColor: "#fff",
+                paddingHorizontal: 14,
+                paddingVertical: 13,
+              }}
+            >
+              <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+                {district?.name ?? ""}
+              </AppText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                  {district ? `${formatPrice(district.fee)} ${t.checkoutDeliverySuffix}` : ""}
+                </AppText>
+                <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+              </View>
+            </Pressable>
+          )}
 
           <Modal visible={districtOpen} transparent animationType="slide" onRequestClose={() => setDistrictOpen(false)}>
             <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }} onPress={() => setDistrictOpen(false)} />
@@ -2509,7 +2551,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
                 data={districts}
                 keyExtractor={(item) => item.name}
                 renderItem={({ item }) => {
-                  const selected = item.name === district.name;
+                  const selected = item.name === district?.name;
                   return (
                     <TouchableOpacity
                       onPress={() => { districtManuallyEdited.current = true; setDistrict(item); setDistrictOpen(false); }}

@@ -185,7 +185,7 @@ function CheckoutForm() {
   const createPaymentIntent = useCreateCheckoutPaymentIntent();
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
-  const { data: locations } = useDeliveryLocations();
+  const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
@@ -785,7 +785,7 @@ function CheckoutForm() {
       lastName: recipient.lastName,
       phone: recipient.phone,
     },
-    district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
+    district: recipient.district,
     districtFee: districtFee,
     expressFee,
     slotFee,
@@ -1138,7 +1138,7 @@ function CheckoutForm() {
       if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
-          district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
+          district: recipient.district,
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1180,7 +1180,7 @@ function CheckoutForm() {
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
           orderId,
-          district: recipient.district || (firstActiveCity?.name ?? "Beirut"),
+          district: recipient.district,
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1421,9 +1421,21 @@ function CheckoutForm() {
                     <>
                       <div className="space-y-2 mb-4">
                         <label className="text-sm font-medium">{t("checkout.district")}</label>
-                        <Select value={recipient.district} onValueChange={(v) => setRecipient({ ...recipient, district: v })}>
+                        <Select
+                          value={recipient.district}
+                          onValueChange={(v) => setRecipient({ ...recipient, district: v })}
+                          disabled={locationsLoading || currentCountryCities.length === 0}
+                        >
                           <SelectTrigger data-testid="select-district">
-                            <SelectValue placeholder={t("checkout.selectDistrict")} />
+                            <SelectValue
+                              placeholder={
+                                locationsLoading
+                                  ? t("checkout.districtLoading")
+                                  : currentCountryCities.length === 0
+                                  ? t("checkout.districtUnavailable")
+                                  : t("checkout.selectDistrict")
+                              }
+                            />
                           </SelectTrigger>
                           <SelectContent>
                             {currentCountryCities.map((city) => {
@@ -1439,7 +1451,6 @@ function CheckoutForm() {
                                 </SelectItem>
                               );
                             })}
-                            {currentCountryCities.length === 0 && <SelectItem value={t("checkout.defaultCity")}>{t("checkout.defaultCity")}</SelectItem>}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1587,7 +1598,7 @@ function CheckoutForm() {
                       if (!recipientPhoneOk || !senderPhoneOk) return;
                       setStep(2);
                     }}
-                    disabled={!recipient.firstName || !isValidPhoneNumber(recipient.phone) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
+                    disabled={!recipient.firstName || !isValidPhoneNumber(recipient.phone) || (!noAddress && !recipient.district) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
                   >
                     {t("checkout.continuePayment")}
