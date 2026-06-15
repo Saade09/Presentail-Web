@@ -149,6 +149,7 @@ const EN = {
   searchPlaceholder: "Search products, brands, occasions",
   loading: "Loading…",
   boutiqueSub: "{country}",
+  deliveryCityUnavailable: "Not available at the moment",
 
   // Product tags
 
@@ -984,6 +985,7 @@ const AR: typeof EN = {
   searchPlaceholder: "ابحث عن منتجات، علامات، مناسبات",
   loading: "جارٍ التحميل…",
   boutiqueSub: "{country}",
+  deliveryCityUnavailable: "غير متاحة في الوقت الحالي",
 
   // Product tags
 
@@ -1813,6 +1815,7 @@ const FR: typeof EN = {
   searchPlaceholder: "Rechercher produits, marques, occasions",
   loading: "Chargement…",
   boutiqueSub: "{country}",
+  deliveryCityUnavailable: "Pas disponible pour le moment",
 
   // Product tags
 

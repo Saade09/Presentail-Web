@@ -304,7 +304,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
             return {
               id: canonicalId,
               name: displayName,
-              isActive: c.isActive ?? true,
+              isActive:
+                c.isActive ??
+                (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
+                  ?.isActive ??
+                true,
               // deliveryFee is in country display currency — convert to USD.
               fee:
                 c.deliveryFee != null

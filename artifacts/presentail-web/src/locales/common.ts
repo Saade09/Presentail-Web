@@ -7,6 +7,7 @@ export const commonStrings: Dict = {
   "common.scrollRight": { en: "Scroll right", ar: "التمرير يميناً" },
   "currency.useAutomatic": { en: "Use automatic (detected)", ar: "استخدام التلقائي (مكتشف)" },
   "currency.rememberChoice": { en: "Remember my choice", ar: "تذكّر اختياري" },
+  "location.cityUnavailable": { en: "Not available at the moment", ar: "غير متاحة في الوقت الحالي" },
 };
 
 export const commonStringsFr: Record<string, string> = {
@@ -16,4 +17,5 @@ export const commonStringsFr: Record<string, string> = {
   "common.scrollRight": "Défiler à droite",
   "currency.useAutomatic": "Utiliser automatique (détecté)",
   "currency.rememberChoice": "Mémoriser mon choix",
+  "location.cityUnavailable": "Pas disponible pour le moment",
 };

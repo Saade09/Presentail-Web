@@ -6,6 +6,7 @@ import { AppText } from "@/components/AppText";
 import type { DeliveryCity } from "@/constants/deliveryLocations";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/hooks/useT";
 
 type Props = {
   cities: DeliveryCity[];
@@ -16,6 +17,7 @@ type Props = {
 export function CityList({ cities, onSelect, selectedId }: Props) {
   const colors = useColors();
   const { isRTL } = useLanguage();
+  const t = useT();
 
   return (
     <View>
@@ -61,7 +63,7 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
                     textAlign: isRTL ? "right" : "left",
                   }}
                 >
-                  (not available at the moment)
+                  {t.deliveryCityUnavailable}
                 </Text>
               )}
             </View>
