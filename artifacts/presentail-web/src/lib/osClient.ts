@@ -35,10 +35,45 @@ function osUrl(path: string, extra: Record<string, string> = {}): string {
   return url.toString();
 }
 
-type OsProductsPage = {
-  products: OSProduct[];
+type RawOsProduct = Omit<OSProduct, "id"> & {
+  id: number | string;
+  slug?: string;
+};
+
+type RawOsProductsPage = {
+  products: RawOsProduct[];
   totalPages?: number;
 };
+
+function nameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/'/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+type NormalisedProduct = OSProduct & { _rawNumericId: number | string };
+
+function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
+  const id = raw.slug ?? nameToSlug(raw.name);
+  return { ...raw, id, _rawNumericId: raw.id };
+}
+
+function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {
+  const counts = new Map<string, number>();
+  for (const p of products) {
+    counts.set(p.id, (counts.get(p.id) ?? 0) + 1);
+  }
+  return products.map((p) => {
+    const { _rawNumericId, ...rest } = p as NormalisedProduct & Record<string, unknown>;
+    if ((counts.get(p.id) ?? 0) > 1) {
+      return { ...(rest as OSProduct), id: `${p.id}--${_rawNumericId}` };
+    }
+    return rest as OSProduct;
+  });
+}
 
 /**
  * Fetch all products from OS for a given country/city/lang.
@@ -60,13 +95,14 @@ export async function fetchOsProducts(opts: {
   if (!firstRes.ok) {
     throw new Error(`OS products API returned HTTP ${firstRes.status}`);
   }
-  const firstBody = (await firstRes.json()) as OsProductsPage;
+  const firstBody = (await firstRes.json()) as RawOsProductsPage;
   if (!Array.isArray(firstBody.products)) {
     throw new Error("OS products API: unexpected response shape");
   }
 
   const totalPages = Math.min(firstBody.totalPages ?? 1, MAX_PAGES);
-  if (totalPages <= 1) return firstBody.products;
+  const normalisedFirst = firstBody.products.map(normaliseProduct);
+  if (totalPages <= 1) return deduplicateSlugs(normalisedFirst);
 
   const remaining = await Promise.all(
     Array.from({ length: totalPages - 1 }, (_, i) => {
@@ -75,13 +111,13 @@ export async function fetchOsProducts(opts: {
     }),
   );
 
-  const all = [...firstBody.products];
+  const all: NormalisedProduct[] = [...normalisedFirst];
   for (const res of remaining) {
     if (!res.ok) break;
-    const body = (await res.json()) as OsProductsPage;
-    if (Array.isArray(body.products)) all.push(...body.products);
+    const body = (await res.json()) as RawOsProductsPage;
+    if (Array.isArray(body.products)) all.push(...body.products.map(normaliseProduct));
   }
-  return all;
+  return deduplicateSlugs(all);
 }
 
 /** Fetch product categories from OS. */

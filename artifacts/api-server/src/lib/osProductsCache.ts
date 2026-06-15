@@ -674,11 +674,9 @@ function buildStoreCache(products: OSProduct[]): StoreProductCache {
     if (typeof p.wcId === "number" && p.wcId > 0) {
       wcIdIndex.set(p.wcId, p);
     }
-    // The OS API may return a numeric id (e.g. 578) even though OSProduct.id
-    // is typed as string. Always coerce to string so slugIndex lookups with
-    // String keys work correctly regardless of the API's id type.
-    if (p.id != null) {
-      slugIndex.set(String(p.id), p);
+    // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
+    if (p.id) {
+      slugIndex.set(p.id, p);
     }
   }
   return { products, wcIdIndex, slugIndex };

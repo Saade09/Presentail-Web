@@ -127,9 +127,8 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
 
   return {
     id: p.wcId ?? 0,
-    // OS may return a numeric id (e.g. 578) instead of a string slug.
-    // Coerce to string so product detail lookups and URL routing work.
-    slug: String(p.id),
+    // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
+    slug: p.id,
     name: decodeHtmlEntities(p.name),
     price: String(p.price),
     short_description: p.description,

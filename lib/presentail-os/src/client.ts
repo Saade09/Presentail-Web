@@ -1,5 +1,6 @@
 import type {
   OSLocationsResponse,
+  OSProduct,
   OSProductsResponse,
   OSCategoriesResponse,
   OSCatalogAttributeBrandsResponse,
@@ -106,6 +107,61 @@ export async function fetchOsLocations(
 const MAX_PAGES = 50;
 const DEFAULT_PAGE_SIZE = 100;
 
+/**
+ * Raw product shape as returned by the OS API wire format.
+ * The OS API returns a numeric `id` (database PK). A `slug` field may be
+ * present on newer OS deployments; when absent, the slug is derived from the
+ * product name so URLs remain human-readable (e.g. "velvet-rose-bouquet").
+ * After normalisation, `OSProduct.id` is always a URL-safe string slug.
+ */
+type RawOSProduct = Omit<OSProduct, "id"> & {
+  id: number | string;
+  slug?: string;
+};
+
+type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
+  products: RawOSProduct[];
+};
+
+function nameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/'/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Intermediate type that retains the raw numeric id for collision resolution. */
+type NormalisedProduct = OSProduct & { _rawNumericId: number | string };
+
+function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
+  // Prefer an explicit slug from the API; fall back to a name-derived slug so
+  // product URLs are human-readable rather than numeric IDs.
+  const id = raw.slug ?? nameToSlug(raw.name);
+  return { ...raw, id, _rawNumericId: raw.id };
+}
+
+/**
+ * Resolve slug collisions (products with the same name) by appending the
+ * numeric OS id so every product has a unique URL segment.
+ * E.g. two "Happy Birthday Balloon" products become
+ *   "happy-birthday-balloon--650" and "happy-birthday-balloon--651".
+ */
+function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {
+  const counts = new Map<string, number>();
+  for (const p of products) {
+    counts.set(p.id, (counts.get(p.id) ?? 0) + 1);
+  }
+  return products.map((p) => {
+    const { _rawNumericId, ...rest } = p as NormalisedProduct & Record<string, unknown>;
+    if ((counts.get(p.id) ?? 0) > 1) {
+      return { ...(rest as OSProduct), id: `${p.id}--${_rawNumericId}` };
+    }
+    return rest as OSProduct;
+  });
+}
+
 export async function fetchOsProducts(
   config: PresentailOsConfig,
   opts: { countryCode?: string; cityId?: string; lang?: string } = {},
@@ -139,23 +195,26 @@ export async function fetchOsProducts(
   async function fetchAllPages(path: string): Promise<OSProductsResponse | null> {
     const firstRes = await fetchPage(path, 1);
     if (!firstRes.ok) return null;
-    const firstBody = (await firstRes.json()) as OSProductsResponse;
+    const firstBody = (await firstRes.json()) as RawOSProductsResponse;
     if (!Array.isArray(firstBody.products)) return null;
 
     const totalPages = Math.min(firstBody.totalPages ?? 1, MAX_PAGES);
-    if (totalPages <= 1) return firstBody;
+    const normalisedFirst = firstBody.products.map(normaliseProduct);
+    if (totalPages <= 1) {
+      return { ...firstBody, products: deduplicateSlugs(normalisedFirst) };
+    }
 
     // Fetch remaining pages in parallel.
     const remaining = await Promise.all(
       Array.from({ length: totalPages - 1 }, (_, i) => fetchPage(path, i + 2)),
     );
-    const allProducts = [...firstBody.products];
+    const allProducts: NormalisedProduct[] = [...normalisedFirst];
     for (const res of remaining) {
       if (!res.ok) break; // stop collecting on any error; use what we have
-      const body = (await res.json()) as OSProductsResponse;
-      if (Array.isArray(body.products)) allProducts.push(...body.products);
+      const body = (await res.json()) as RawOSProductsResponse;
+      if (Array.isArray(body.products)) allProducts.push(...body.products.map(normaliseProduct));
     }
-    return { ...firstBody, products: allProducts };
+    return { ...firstBody, products: deduplicateSlugs(allProducts) };
   }
 
   // Primary endpoint: /api/products
@@ -167,11 +226,11 @@ export async function fetchOsProducts(
   if (!legacyRes.ok) {
     throw new Error(`Presentail OS products API returned HTTP ${legacyRes.status}`);
   }
-  const body = (await legacyRes.json()) as OSProductsResponse;
-  if (!Array.isArray(body.products)) {
+  const rawBody = (await legacyRes.json()) as RawOSProductsResponse;
+  if (!Array.isArray(rawBody.products)) {
     throw new Error("Presentail OS products API: unexpected response shape");
   }
-  return body;
+  return { ...rawBody, products: rawBody.products.map(normaliseProduct) };
 }
 
 /**
