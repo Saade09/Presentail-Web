@@ -640,7 +640,7 @@ function CardPreviewDialog({
   const trimmed = (cardMessage ?? "").trim();
   const len = trimmed.length;
   const messageFontPx = len === 0 ? 18 : len > 280 ? 14 : len > 180 ? 16 : len > 100 ? 18 : 20;
-  const ink = "#F5E9D7";
+  const ink = "#00414e";
   const toLabel = t("checkout.previewCardTo");
   const fromLabel = t("checkout.previewCardFrom");
   const cardRef = useRef<HTMLDivElement>(null);
@@ -684,35 +684,94 @@ function CardPreviewDialog({
       <img
         src={cardStationery}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full"
+        style={{ objectFit: "fill" }}
       />
-      <div className="relative flex h-full flex-col justify-between p-7 text-center">
-        <div
-          className="font-serif text-lg"
-          style={{ color: ink, opacity: cardTo ? 1 : 0.55 }}
-        >
-          {cardTo ? `${toLabel} ${cardTo}` : toLabel}
-        </div>
-        <div className="flex flex-1 items-center justify-center px-2 py-3">
-          <p
-            className="font-serif italic"
+      {/* Content positioned within the stationery's writable area:
+          top 25% clears the decorative Presentail header,
+          bottom 18% clears the decorative rule at the foot of the card. */}
+      <div
+        className="absolute text-center"
+        style={{
+          top: "25%",
+          bottom: "18%",
+          left: "26px",
+          right: "26px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ color: ink, opacity: cardTo ? 1 : 0.55, lineHeight: 1.3 }}>
+          <span
             style={{
+              fontFamily: "'Roboto', sans-serif",
+              fontWeight: 500,
+              fontSize: "12px",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            {toLabel}
+          </span>
+          {cardTo ? (
+            <>
+              {" "}
+              <span
+                style={{
+                  fontFamily: "'Roboto', sans-serif",
+                  fontWeight: 400,
+                  fontSize: "18px",
+                }}
+              >
+                {cardTo}
+              </span>
+            </>
+          ) : null}
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 4px" }}>
+          <p
+            style={{
+              fontFamily: "'Roboto', sans-serif",
+              fontStyle: "italic",
               color: ink,
               fontSize: `${messageFontPx}px`,
               lineHeight: 1.5,
               opacity: trimmed.length > 0 ? 1 : 0.55,
               whiteSpace: "pre-wrap",
               overflowWrap: "break-word",
+              margin: 0,
             }}
           >
             {trimmed.length > 0 ? trimmed : t("checkout.previewCardPlaceholder")}
           </p>
         </div>
-        <div
-          className="font-serif text-lg"
-          style={{ color: ink, opacity: cardFrom ? 1 : 0.55 }}
-        >
-          {cardFrom ? `${fromLabel} ${cardFrom}` : fromLabel}
+        <div style={{ color: ink, opacity: cardFrom ? 1 : 0.55, lineHeight: 1.3 }}>
+          <span
+            style={{
+              fontFamily: "'Roboto', sans-serif",
+              fontWeight: 500,
+              fontSize: "12px",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            {fromLabel}
+          </span>
+          {cardFrom ? (
+            <>
+              {" "}
+              <span
+                style={{
+                  fontFamily: "'Roboto', sans-serif",
+                  fontWeight: 400,
+                  fontSize: "18px",
+                }}
+              >
+                {cardFrom}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
       {qrLink ? (
@@ -720,20 +779,21 @@ function CardPreviewDialog({
           aria-hidden
           className="pointer-events-none absolute"
           style={{
-            bottom: "40px",
+            bottom: "8px",
             ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
           }}
         >
-          <QRCodeSVG value={qrLink} size={60} bgColor="transparent" fgColor="#00414e" />
+          <QRCodeSVG value={qrLink} size={56} bgColor="transparent" fgColor="#00414e" />
         </div>
       ) : null}
       {includeWatermark ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute bottom-2"
+          className="pointer-events-none absolute"
           style={{
-            ...(dir === "rtl" ? { left: "12px" } : { right: "12px" }),
-            fontFamily: headingFont,
+            bottom: "8px",
+            ...(dir === "rtl" ? { right: "12px" } : { left: "12px" }),
+            fontFamily: "'Roboto', sans-serif",
             fontWeight: 500,
             fontSize: "11px",
             letterSpacing: "0.2em",
@@ -759,7 +819,7 @@ function CardPreviewDialog({
           <div
             ref={cardRef}
             className="relative w-full overflow-hidden rounded-2xl shadow-2xl"
-            style={{ aspectRatio: "1 / 1.35", backgroundColor: "#0d3b3a" }}
+            style={{ aspectRatio: "4 / 3", backgroundColor: "#0d3b3a" }}
             data-testid="card-preview-stationery"
           >
             {renderCardBody(false)}
@@ -773,7 +833,7 @@ function CardPreviewDialog({
               left: "-10000px",
               top: 0,
               width: "540px",
-              aspectRatio: "1 / 1.35",
+              aspectRatio: "4 / 3",
               backgroundColor: "#0d3b3a",
             }}
             dir={dir}
