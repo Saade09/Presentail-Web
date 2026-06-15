@@ -30,7 +30,7 @@ export default function BrandDetail() {
   ];
 
   return (
-    <div className="min-h-screen pt-12 pb-24 bg-background">
+    <div className="min-h-screen pt-6 pb-24 bg-background">
       <div className="container mx-auto max-w-content px-page pt-4">
         <PageBreadcrumb crumbs={breadcrumbCrumbs} />
       </div>
