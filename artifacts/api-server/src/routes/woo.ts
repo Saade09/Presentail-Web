@@ -644,6 +644,22 @@ router.get("/woo/occasion", (req, res) => {
 // ---------------------------------------------------------------------------
 router.post("/woo/order", async (req, res) => {
   const store = resolveStoreFromRequest(req);
+
+  // Validate recipient phone before schema parsing so that null, blank, and
+  // prefix-only values (e.g. "+961" = 3 digits) all return 422 with a clear
+  // error code rather than a generic 400 from Zod's z.string().min(1) check.
+  // A real E.164 number needs at least 7 digits (country code + subscriber).
+  const rawRecipientPhone = req.body?.recipient?.phone;
+  const recipientPhoneDigits =
+    typeof rawRecipientPhone === "string" ? rawRecipientPhone.replace(/\D/g, "") : "";
+  if (recipientPhoneDigits.length < 7) {
+    return res.status(422).json({
+      ok: false,
+      code: "recipient_phone_required",
+      message: "Recipient phone number is required. Please enter a full phone number.", // i18n-ignore
+    });
+  }
+
   const parsed = WooOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     req.log?.warn?.(
@@ -655,6 +671,7 @@ router.post("/woo/order", async (req, res) => {
       .json({ ok: false, message: "Invalid order payload", issues: parsed.error.issues }); // i18n-ignore
   }
   const body = parsed.data;
+
   const requestPlatform = normalizePlatform(req.header("x-app-platform"));
 
   // Resolve the owning user from the Authorization header (if any). The

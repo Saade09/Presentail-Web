@@ -1587,7 +1587,7 @@ function CheckoutForm() {
                       if (!recipientPhoneOk || !senderPhoneOk) return;
                       setStep(2);
                     }}
-                    disabled={!recipient.firstName || !recipient.phone || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
+                    disabled={!recipient.firstName || !isValidPhoneNumber(recipient.phone) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
                   >
                     {t("checkout.continuePayment")}
