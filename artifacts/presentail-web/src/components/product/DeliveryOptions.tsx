@@ -35,29 +35,28 @@ export function DeliveryOptions({
         {t("product.deliveryOptions")}
       </p>
 
-      <DeliveryRow
-        active={value === "express"}
-        onClick={onSelectExpress}
-        disabled={!expressAvailable}
-        icon={<Zap className="w-4 h-4" />}
-        title={t("checkout.expressDelivery")}
-        subtitle={
-          expressAvailable
-            ? expressLabel
-            : expressUnavailableLabel ?? t("checkout.expressUnavailable")
-        }
-        showInfo
-        infoTitle={t("checkout.expressInfo.title")}
-        infoBody={t("checkout.expressInfo.body")}
-        infoFee={infoFee}
-        testId="delivery-option-express"
-      />
+      {expressAvailable && (
+        <>
+          <DeliveryRow
+            active={value === "express"}
+            onClick={onSelectExpress}
+            icon={<Zap className="w-4 h-4" />}
+            title={t("checkout.expressDelivery")}
+            subtitle={expressLabel}
+            showInfo
+            infoTitle={t("checkout.expressInfo.title")}
+            infoBody={t("checkout.expressInfo.body")}
+            infoFee={infoFee}
+            testId="delivery-option-express"
+          />
 
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-[10px] tracking-[0.2em] text-muted-foreground">OR</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] tracking-[0.2em] text-muted-foreground">OR</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
 
       <DeliveryRow
         active={value === "scheduled"}

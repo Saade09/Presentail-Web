@@ -90,7 +90,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
   );
 
   const initialMode: "express" | "schedule" =
-    deliverySelection.mode === "express" ? "express" : "schedule";
+    deliverySelection.mode === "express" && expressAvailable ? "express" : "schedule";
   const initialDate =
     deliverySelection.mode !== "express" && deliverySelection.date
       ? deliverySelection.date
@@ -110,7 +110,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
 
   useEffect(() => {
     if (!open) return;
-    setMode(deliverySelection.mode === "express" ? "express" : "schedule");
+    setMode(deliverySelection.mode === "express" && expressAvailable ? "express" : "schedule");
     let newDate =
       deliverySelection.mode !== "express" && deliverySelection.date
         ? deliverySelection.date
@@ -172,32 +172,31 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
         </DialogTitle>
 
         <div className="space-y-6 pt-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => expressAvailable && setMode("express")}
-                disabled={!expressAvailable}
-                className={`w-full px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
-                  mode === "express"
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground hover:border-foreground/20"
-                } ${!expressAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <div className="font-semibold pr-5">{t("checkout.expressDelivery")}</div>
-                <div className="text-xs opacity-80 mt-0.5">
-                  {expressAvailable
-                    ? <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></>
-                    : t("checkout.expressUnavailable")}
-                </div>
-              </button>
-              <ExpressInfoPopover
-                infoTitle={t("checkout.expressInfo.title")}
-                infoBody={t("checkout.expressInfo.body")}
-                infoFee={expressAvailable ? <>+ <FormattedPrice usdValue={expressSurcharge} /></> : undefined}
-                active={mode === "express"}
-              />
-            </div>
+          <div className={`grid gap-2 ${expressAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+            {expressAvailable && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMode("express")}
+                  className={`w-full px-3 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                    mode === "express"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-foreground hover:border-foreground/20"
+                  }`}
+                >
+                  <div className="font-semibold pr-5">{t("checkout.expressDelivery")}</div>
+                  <div className="text-xs opacity-80 mt-0.5">
+                    <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></>
+                  </div>
+                </button>
+                <ExpressInfoPopover
+                  infoTitle={t("checkout.expressInfo.title")}
+                  infoBody={t("checkout.expressInfo.body")}
+                  infoFee={<>+ <FormattedPrice usdValue={expressSurcharge} /></>}
+                  active={mode === "express"}
+                />
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setMode("schedule")}

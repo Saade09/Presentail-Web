@@ -2809,17 +2809,18 @@ function DeliveryTimeCard({
   return (
     <Card colors={colors} title={t.deliveryTimeTitle}>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <DeliveryTile
-          colors={colors}
-          icon="zap"
-          title={t.expressDelivery}
-          subtitle={t.oneToThreeHrs}
-          footer={expressAvailable ? `+${formatPrice(expressSurcharge)}` : t.opensAt8AM}
-          active={deliveryMode === "express"}
-          disabled={!expressAvailable}
-          onPress={() => setDeliveryMode("express")}
-          onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, `${t.expressInfoPopupBody}\n\n+${formatPrice(expressSurcharge)}`)}
-        />
+        {expressAvailable && (
+          <DeliveryTile
+            colors={colors}
+            icon="zap"
+            title={t.expressDelivery}
+            subtitle={t.oneToThreeHrs}
+            footer={`+${formatPrice(expressSurcharge)}`}
+            active={deliveryMode === "express"}
+            onPress={() => setDeliveryMode("express")}
+            onInfoPress={() => Alert.alert(t.expressInfoPopupTitle, `${t.expressInfoPopupBody}\n\n+${formatPrice(expressSurcharge)}`)}
+          />
+        )}
         <DeliveryTile
           colors={colors}
           icon=""
