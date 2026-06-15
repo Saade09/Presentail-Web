@@ -168,20 +168,38 @@ function ScrollToTop() {
   const isPop = useRef(false);
 
   useEffect(() => {
-    const handler = () => {
+    history.scrollRestoration = "manual";
+
+    const onScroll = () => {
+      const state = history.state ?? {};
+      history.replaceState({ ...state, __scrollY: window.scrollY }, "");
+    };
+
+    const onPopState = () => {
       isPop.current = true;
     };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("popstate", onPopState);
+    };
   }, []);
 
   const [pathname] = useLocation();
   useEffect(() => {
     if (isPop.current) {
       isPop.current = false;
+      const saved = (history.state?.__scrollY as number | undefined) ?? 0;
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: saved, behavior: "instant" });
+      });
       return;
     }
-    window.scrollTo({ top: 0, behavior: "instant" });
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
   }, [pathname]);
 
   return null;
