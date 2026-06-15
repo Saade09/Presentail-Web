@@ -347,7 +347,12 @@ function CheckoutForm() {
   const [deliveryMode, setDeliveryMode] = useState<"express" | "schedule">(
     persistedScheduleMode,
   );
-  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("wallet");
+  const [paymentMethod, setPaymentMethodState] = useState<PaymentMethodId>("apple_pay");
+  // Tracks whether the Stripe PaymentRequest probe confirmed a wallet (Apple Pay /
+  // Google Pay) is available on this browser. Starts true (rows visible while probe
+  // is pending), flipped to false when probe resolves as unsupported so the rows
+  // are hidden and the shopper can't manually re-select an unavailable method.
+  const [walletSupported, setWalletSupported] = useState(true);
   // Wrap the setter so user-driven payment-method picks emit a funnel
   // event. We deliberately do NOT instrument the auto-fallback effect
   // below (e.g. AE customers being switched off whish) so the funnel
@@ -597,13 +602,16 @@ function CheckoutForm() {
     const ids = webVisiblePayMethods({
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
+    }).filter((id) => {
+      if (id === "apple_pay" || id === "google_pay") return walletSupported;
+      return true;
     });
     return ids.map((id) => ({
       id,
       labelKey: webPaymentMethodLabelKey(id, currencyCode),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currencyCode, countryCode]);
+  }, [currencyCode, countryCode, walletSupported]);
   // If the currently selected payment method is no longer available for
   // the active currency / country, re-select a sensible default through
   // the same shared helper the mobile checkout uses.
@@ -629,39 +637,37 @@ function CheckoutForm() {
   useEffect(() => {
     if (!stripe || walletCheckedRef.current) return;
     walletCheckedRef.current = true;
-    // LB is not a supported Stripe PaymentRequest country — the call throws
-    // synchronously, so we wrap the entire probe in try/catch and treat any
-    // error as "wallet unavailable" to prevent a render-crashing IntegrationError.
+    // Use "US" for the probe — it is always a valid Stripe PaymentRequest country.
+    // The probe only checks whether this browser/device has a wallet configured
+    // (Apple Pay in Safari, Google Pay in Chrome, etc.). The country parameter
+    // here does not need to match the shopper's delivery country.
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        country: "LB",
+        country: "US",
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
         requestPayerEmail: false,
       });
     } catch {
-      // Country not supported for PaymentRequest — treat as wallet unavailable.
-      setPaymentMethodState((current) => {
-        if (current !== "wallet") return current;
-        return currencyCode === "AED" ? "mamo" : "card";
-      });
+      // paymentRequest() itself failed (extremely rare) — leave rows visible
+      // so the shopper can still attempt to pay via other methods.
       return;
     }
     pr.canMakePayment().then((result) => {
       if (result) {
-        // Wallet is available: store the PR object so handleSubmit can
-        // call pr.show() synchronously without a redundant canMakePayment call.
+        // Browser has a wallet configured (Apple Pay / Google Pay).
+        // Store the PR object so handleSubmit can call pr.show() synchronously.
         paymentRequestRef.current = pr;
       } else {
-        // No wallet payment method available on this device/browser.
-        // Advance to the first supported non-wallet method so the shopper
-        // is never left on a tile that would fail at submission.
+        // Browser reported no wallet available — hide the rows and advance the
+        // selection so the shopper is never left on a tile that would fail.
         //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
         //   • else → card  (Stripe settles all other supported currencies)
+        setWalletSupported(false);
         setPaymentMethodState((current) => {
-          if (current !== "wallet") return current;
+          if (current !== "apple_pay" && current !== "google_pay") return current;
           return currencyCode === "AED" ? "mamo" : "card";
         });
       }
@@ -796,7 +802,12 @@ function CheckoutForm() {
     deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
     cardMessage: recipient.cardMessage,
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
-    paymentMethod: overrides.paymentMethod ?? paymentMethod,
+    // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
+    // WooCommerce only recognise the legacy "wallet" value for both.
+    paymentMethod: (() => {
+      const m = overrides.paymentMethod ?? paymentMethod;
+      return m === "apple_pay" || m === "google_pay" ? "wallet" : m;
+    })(),
     identitySecret,
     currencyCode: "USD",
     totalUsd: total,
@@ -896,14 +907,15 @@ function CheckoutForm() {
       // For non-AED wallet: the Stripe Payment Request flow is used when
       // paymentRequestRef holds the probe-confirmed PR object. If the probe
       // hasn't resolved yet (rare race before submit), fall back to card.
+      const isWalletMethod = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
       const walletViaNativeSheet =
-        paymentMethod === "wallet" &&
+        isWalletMethod &&
         activeCurrency !== "AED" &&
         paymentRequestRef.current !== null;
 
       // Resolve effective method used for the non-wallet submit branches below.
       const payMethod: PaymentMethodId =
-        paymentMethod === "wallet" && activeCurrency !== "AED" && !walletViaNativeSheet
+        isWalletMethod && activeCurrency !== "AED" && !walletViaNativeSheet
           ? "card"
           : paymentMethod;
 
@@ -992,7 +1004,7 @@ function CheckoutForm() {
                 clearCart();
                 try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
                 void maybeSaveProfilePhone();
-                trackEvent({ name: "order_placed", surface: "checkout", action: "wallet" });
+                trackEvent({ name: "order_placed", surface: "checkout", action: paymentMethod });
                 setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
               } else if (res.code === "coupon_invalid") {
                 setCouponError(res.message || t("checkout.coupon.invalidError"));
@@ -1163,9 +1175,10 @@ function CheckoutForm() {
       // through the same Mamo flow as the "Pay by card" tile so we don't
       // need a separate web wallet integration just for UAE — mirrors the
       // mobile checkout behaviour.
-      // payMethod is "wallet" here only for AED (non-AED was already resolved to "card").
+      // apple_pay / google_pay are excluded from AED by the currency table so
+      // this guard is a no-op in practice, but kept for defensive correctness.
       const walletViaMamo =
-        payMethod === "wallet" && activeCurrency === "AED";
+        (payMethod === "apple_pay" || payMethod === "google_pay") && activeCurrency === "AED";
 
       if (payMethod === "mamo" || walletViaMamo) {
         // Wallet-via-Mamo carries `paymentMethod: "wallet"` in client
@@ -1646,8 +1659,10 @@ function CheckoutForm() {
                         card: cardLogos,
                         mamo: cardLogos,
                         paypal: [{ name: "PayPal", src: paypalLogo, fill: true }],
-                        wallet: [
+                        apple_pay: [
                           { name: "Apple Pay", src: applePayLogo, maxH: "max-h-[14px]" },
+                        ],
+                        google_pay: [
                           { name: "Google Pay", src: googlePayLogo, maxH: "max-h-[14px]" },
                         ],
                         whish: [{ name: "Whish Money", src: whishLogo, fill: true }],

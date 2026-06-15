@@ -55,7 +55,7 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
-import { CardIcons, PayPalBadge, WalletIcons, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
+import { ApplePayBadge, CardIcons, GooglePayBadge, PayPalBadge, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { DateStrip } from "@/components/DateStrip";
@@ -643,7 +643,7 @@ function CheckoutScreen() {
 
   // Step 3 — Payment
   const [orderNotes, setOrderNotes] = useState("");
-  const [payMethod, setPayMethod] = useState<PayMethodId>("wallet");
+  const [payMethod, setPayMethod] = useState<PayMethodId>("apple_pay");
 
   // Reset the selected method only when the active currency makes it
   // unusable. Otherwise we preserve the customer's explicit choice so
@@ -667,43 +667,53 @@ function CheckoutScreen() {
   // shopper taps "Place Order" — so we can silently fall back to card / Mamo
   // if the device has no wallet configured (e.g. no Apple Pay card set up,
   // simulator, Google Pay not linked).
-  // null = probe not yet complete; true/false = cached result.
-  const walletSupportedRef = useRef<boolean | null>(null);
+  // null = probe not yet complete; true = supported; false = not supported.
+  // State (not a ref) so that when the probe resolves the picker re-renders
+  // and hides the apple_pay / google_pay rows on unsupported devices.
+  const [walletSupported, setWalletSupported] = useState<boolean | null>(null);
+  // Separate ref guards against running the probe more than once.
+  const walletProbedRef = useRef(false);
   useEffect(() => {
-    if (walletSupportedRef.current !== null) return;
+    if (walletProbedRef.current) return;
+    walletProbedRef.current = true;
     const isTestEnv = !STRIPE_PUBLISHABLE_KEY.startsWith("pk_live_");
     isPlatformPaySupported(
       Platform.OS === "android"
         ? { googlePay: { testEnv: isTestEnv } }
         : undefined,
     ).then((supported) => {
-      walletSupportedRef.current = supported;
+      setWalletSupported(supported);
       if (!supported) {
         // Advance to the first supported non-wallet method so the shopper
         // is never left on a tile that would fail at submission.
         //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
         //   • else → card  (Stripe settles all other supported currencies)
         setPayMethod((current) => {
-          if (current !== "wallet") return current;
+          if (current !== "apple_pay" && current !== "google_pay") return current;
           return currencyCode === "AED" ? "mamo" : "card";
         });
       }
     }).catch(() => {
-      // Ignore — wallet check failed, leave selection as-is.
+      // Probe failed — assume unsupported so rows are hidden and selection falls back.
+      setWalletSupported(false);
+      setPayMethod((current) => {
+        if (current !== "apple_pay" && current !== "google_pay") return current;
+        return currencyCode === "AED" ? "mamo" : "card";
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If the probe already resolved "not supported" and the selection is later
-  // switched back to "wallet" (currency change, manual tap), re-apply the
-  // fallback immediately using the cached result.
+  // switched to apple_pay or google_pay (currency change, manual tap), re-apply
+  // the fallback immediately using the resolved state value.
   useEffect(() => {
-    if (payMethod !== "wallet") return;
-    if (walletSupportedRef.current === false) {
+    if (payMethod !== "apple_pay" && payMethod !== "google_pay") return;
+    if (walletSupported === false) {
       setPayMethod(currencyCode === "AED" ? "mamo" : "card");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [payMethod]);
+  }, [payMethod, walletSupported]);
 
   // Maps known Stripe decline codes to plain-language, actionable messages.
   // stripe-react-native exposes the decline code in error.code for card declines.
@@ -845,7 +855,11 @@ function CheckoutScreen() {
     cardTo,
     ...(/^https?:\/\/.+/.test((qrLink ?? "").trim()) ? { qrLink: qrLink.trim() } : {}),
     orderNotes,
-    paymentMethod: payMethod,
+    // "apple_pay" / "google_pay" are client-side UX IDs only; WooCommerce
+    // and the API server only know the legacy "wallet" value (both call the
+    // same Stripe native-wallet flow).  Map both back before submission.
+    paymentMethod:
+      payMethod === "apple_pay" || payMethod === "google_pay" ? "wallet" : payMethod,
     identitySecret,
     appDeviceId: deviceIdForOrder ?? undefined,
     // Forwarded so the backend can record the customer-facing currency.
@@ -1073,7 +1087,7 @@ function CheckoutScreen() {
     // If the device doesn't support the native wallet (no wallet app configured, simulator,
     // etc.) we fall back to the Stripe hosted checkout redirect so the shopper is never
     // silently blocked.
-    if (payMethod === "wallet" && !walletViaMamo) {
+    if ((payMethod === "apple_pay" || payMethod === "google_pay") && !walletViaMamo) {
       const intentResult = await createPaymentIntent({
         items: detailed
           .filter(({ product }) => product.wcId != null)
@@ -1535,6 +1549,7 @@ function CheckoutScreen() {
               cardError={cardError}
               setCardError={setCardError}
               scrollViewRef={scrollViewRef}
+              walletSupported={walletSupported}
             />
             <CardMessageReviewCard
               colors={colors}
@@ -2912,7 +2927,7 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
   const cardErrorViewRef = useRef<View>(null);
@@ -2953,10 +2968,16 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         </AppText>
 
         {(() => {
+          // walletSupported === null  → probe not yet resolved; show rows
+          //                             so they don't flash away on fast devices.
+          // walletSupported === true  → device supports native wallet; show rows.
+          // walletSupported === false → probe resolved unsupported; hide rows.
+          const walletRowVisible = walletSupported !== false;
           const visible = {
             mamo: supports("mamo"),
             card: supports("card"),
-            wallet: supports("wallet"),
+            apple_pay: supports("apple_pay") && walletRowVisible,
+            google_pay: supports("google_pay") && walletRowVisible,
             paypal: supports("paypal"),
             whish: supports("whish"),
             western: supports("western"),
@@ -2967,26 +2988,35 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
           if (!Object.values(visible).some(Boolean)) visible.card = true;
           return (
             <>
-              {visible.wallet ? (
+              {visible.apple_pay ? (
         <PayOption
           colors={colors}
-          active={payMethod === "wallet"}
-          onPress={() => tap("wallet")}
-          title={t.checkoutPayWallet}
-          payIcons="wallet"
+          active={payMethod === "apple_pay"}
+          onPress={() => tap("apple_pay")}
+          title={t.checkoutPayApplePay}
+          payIcons="apple_pay"
         >
-          {payMethod === "wallet" ? (
-            currencyCode === "AED" ? (
-              // AED wallet routes through Mamo's hosted page (no Stripe
-              // receipt-email step here — Mamo collects the email itself
-              // and we already have the sender email from the delivery step).
+          {payMethod === "apple_pay" ? (
+            <View style={{ gap: 12 }}>
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
               <SecurityNote colors={colors} />
-            ) : (
-              <View style={{ gap: 12 }}>
-                <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
-                <SecurityNote colors={colors} />
-              </View>
-            )
+            </View>
+          ) : null}
+        </PayOption>
+              ) : null}
+              {visible.google_pay ? (
+        <PayOption
+          colors={colors}
+          active={payMethod === "google_pay"}
+          onPress={() => tap("google_pay")}
+          title={t.checkoutPayGooglePay}
+          payIcons="google_pay"
+        >
+          {payMethod === "google_pay" ? (
+            <View style={{ gap: 12 }}>
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+              <SecurityNote colors={colors} />
+            </View>
           ) : null}
         </PayOption>
 
@@ -3132,8 +3162,10 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
         ) : null}
         {payIcons === "card" ? (
           <CardIcons />
-        ) : payIcons === "wallet" ? (
-          <WalletIcons />
+        ) : payIcons === "apple_pay" ? (
+          <ApplePayBadge />
+        ) : payIcons === "google_pay" ? (
+          <GooglePayBadge />
         ) : payIcons === "paypal" ? (
           <PayPalBadge />
         ) : payIcons === "whish" ? (

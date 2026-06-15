@@ -38,6 +38,8 @@ type AnalyticsAction =
   | "dismissed"
   | "card"
   | "wallet"
+  | "apple_pay"
+  | "google_pay"
   | "paypal"
   | "mamo"
   | "whish"

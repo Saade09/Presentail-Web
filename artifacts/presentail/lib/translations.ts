@@ -518,7 +518,8 @@ const EN = {
   checkoutDayTomorrow: "Tom",
   checkoutPayCard: "Credit / Debit Card",
   checkoutPayByCard: "Pay by card",
-  checkoutPayWallet: "Apple Pay / Google Pay", // no-translate — brand names, identical across all locales
+  checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
+  checkoutPayGooglePay: "Google Pay", // no-translate — brand name, identical across all locales
   checkoutOrderFailedTitle: "We couldn't record your order",
   checkoutOrderFailedMsg: "Your payment may have gone through, but we couldn't save your order. Please contact us with the reference below so we can confirm and deliver it.",
   checkoutOrderFailedRetry: "Try placing the order again",
@@ -1351,7 +1352,8 @@ const AR: typeof EN = {
   checkoutDayTomorrow: "غداً",
   checkoutPayCard: "بطاقة ائتمان / خصم",
   checkoutPayByCard: "ادفع بالبطاقة",
-  checkoutPayWallet: "Apple Pay / Google Pay",
+  checkoutPayApplePay: "Apple Pay", // no-translate — brand name
+  checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutOrderFailedTitle: "تعذّر تسجيل طلبك",
   checkoutOrderFailedMsg: "ربما تمّت عملية الدفع، لكننا لم نتمكن من حفظ طلبك. يرجى التواصل معنا مع الرقم المرجعي أدناه لتأكيد طلبك وتسليمه.",
   checkoutOrderFailedRetry: "حاول إجراء الطلب مجدداً",
@@ -2179,7 +2181,8 @@ const FR: typeof EN = {
   checkoutDayTomorrow: "Dem.",
   checkoutPayCard: "Carte de crédit / débit",
   checkoutPayByCard: "Payer par carte",
-  checkoutPayWallet: "Apple Pay / Google Pay",
+  checkoutPayApplePay: "Apple Pay", // no-translate — brand name
+  checkoutPayGooglePay: "Google Pay", // no-translate — brand name
   checkoutOrderFailedTitle: "Nous n'avons pas pu enregistrer votre commande",
   checkoutOrderFailedMsg: "Votre paiement a peut-être été accepté, mais nous n'avons pas pu enregistrer votre commande. Veuillez nous contacter avec la référence ci-dessous afin que nous puissions confirmer et la livrer.",
   checkoutOrderFailedRetry: "Réessayer la commande",

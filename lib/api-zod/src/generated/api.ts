@@ -351,6 +351,8 @@ export const RecordAnalyticsEventBody = zod.object({
       "dismissed",
       "card",
       "wallet",
+      "apple_pay",
+      "google_pay",
       "paypal",
       "mamo",
       "whish",

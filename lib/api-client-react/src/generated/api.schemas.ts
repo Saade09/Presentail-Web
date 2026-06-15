@@ -265,6 +265,8 @@ export const AnalyticsEventRequestAction = {
   dismissed: "dismissed",
   card: "card",
   wallet: "wallet",
+  apple_pay: "apple_pay",
+  google_pay: "google_pay",
   paypal: "paypal",
   mamo: "mamo",
   whish: "whish",

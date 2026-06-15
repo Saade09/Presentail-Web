@@ -9,6 +9,8 @@
 export type PayMethodId =
   | "card"
   | "wallet"
+  | "apple_pay"
+  | "google_pay"
   | "whish"
   | "western"
   | "mamo"
@@ -18,13 +20,19 @@ export const PAY_METHOD_CURRENCIES: Record<
   PayMethodId,
   readonly string[] | "all"
 > = {
-  // Stripe processes USD/EUR/GBP/etc. cards directly; card+wallet are the
-  // safe default for any non-AED currency.
+  // Stripe processes USD/EUR/GBP/etc. cards directly; card+apple_pay+google_pay
+  // are the safe default for any non-AED currency.
   card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  // Wallet (Apple Pay / Google Pay) is supported by Stripe for the same
-  // currencies as `card`, and additionally by Mamo's hosted checkout for
-  // AED — the mobile checkout submit handler routes AED+wallet through the
-  // existing Mamo flow rather than Stripe.
+  // apple_pay uses Stripe's native PlatformPay sheet (iOS). Same currency set
+  // as card — AED is excluded because UAE shoppers go through Mamo's hosted
+  // checkout instead (the "wallet" id below).
+  apple_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // google_pay uses Stripe's native PlatformPay sheet (Android). Same currency
+  // set and exclusions as apple_pay.
+  google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // Wallet (legacy combined Apple Pay / Google Pay row) is kept in the table so
+  // the AED→Mamo redirect path in checkout.tsx continues to compile.  AED is
+  // included here because Mamo's hosted checkout exposes both wallet buttons.
   wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
   // PayPal settles in USD and the other major currencies the app supports;
   // Gulf currencies (AED, QAR, SAR, KWD, OMR) are excluded — PayPal does
@@ -94,7 +102,8 @@ export function defaultPayMethodFor(
   currency: string,
   ctx: PayMethodContext = {},
 ): PayMethodId {
-  if (isPayMethodSupported("wallet", currency, ctx)) return "wallet";
+  if (isPayMethodSupported("apple_pay", currency, ctx)) return "apple_pay";
+  if (isPayMethodSupported("google_pay", currency, ctx)) return "google_pay";
   if (isPayMethodSupported("card", currency, ctx)) return "card";
   if (isPayMethodSupported("mamo", currency, ctx)) return "mamo";
   if (isPayMethodSupported("paypal", currency, ctx)) return "paypal";
@@ -137,6 +146,8 @@ export function payMethodAvailability(
   const ids: PayMethodId[] = [
     "card",
     "wallet",
+    "apple_pay",
+    "google_pay",
     "whish",
     "western",
     "mamo",

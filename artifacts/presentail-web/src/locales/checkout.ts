@@ -72,7 +72,9 @@ export const checkoutStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.card": { en: "Credit / Debit Card", ar: "بطاقة ائتمان / دفع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "checkout.pay.wallet": { en: "Apple Pay / Google Pay", ar: "Apple Pay / Google Pay" },
+  "checkout.pay.apple_pay": { en: "Apple Pay", ar: "Apple Pay" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "checkout.pay.google_pay": { en: "Google Pay", ar: "Google Pay" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "checkout.pay.mamo": { en: "Mamo", ar: "مامو" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -240,7 +242,8 @@ export const checkoutStringsFr: Record<string, string> = {
 
   // Payment method labels
   "checkout.pay.card": "Carte de crédit / débit",
-  "checkout.pay.wallet": "Apple Pay / Google Pay",
+  "checkout.pay.apple_pay": "Apple Pay",
+  "checkout.pay.google_pay": "Google Pay",
   "checkout.pay.mamo": "Mamo",
   "checkout.pay.paypal": "PayPal",
   "checkout.pay.whish": "Whish Money",
