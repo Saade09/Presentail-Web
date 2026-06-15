@@ -691,6 +691,20 @@ async function fetchAndStore(): Promise<void> {
   if (!config.apiKey) return;
 
   try {
+    // Shared unfiltered fallback: if any store's country-filtered fetch returns
+    // 0 products (OS doesn't have country availability set yet), all stores share
+    // a single unfiltered fetch rather than each firing their own concurrent
+    // request, which overloads OS and causes timeouts.
+    let unfilteredFetch: Promise<OSProduct[]> | null = null;
+    const getUnfiltered = (): Promise<OSProduct[]> => {
+      if (!unfilteredFetch) {
+        unfilteredFetch = fetchOsProducts(config, {}).then(
+          (r) => r.products ?? ([] as OSProduct[]),
+        );
+      }
+      return unfilteredFetch;
+    };
+
     // Fetch per-store product lists in parallel, plus global taxonomy data.
     const storeFetches = OS_STORE_SPECS.map((spec) =>
       fetchOsProducts(config, { countryCode: spec.countryCode, cityId: spec.cityId })
@@ -699,13 +713,14 @@ async function fetchAndStore(): Promise<void> {
           // If OS returned 0 products with a country filter, the products may
           // not yet have country availability set on the OS side. Retry without
           // the filter so the full catalog is shown until OS data is corrected.
+          // All stores share the same unfiltered fetch to avoid concurrent requests.
           if (products.length === 0 && (spec.countryCode || spec.cityId)) {
             logger.warn(
               { storeKey: spec.storeKey, countryCode: spec.countryCode, cityId: spec.cityId },
               "osProductsCache: country-filtered fetch returned 0 products — retrying without country filter (OS products may not have country availability set)",
             );
-            const fallback = await fetchOsProducts(config, {});
-            return { spec, products: fallback.products ?? [] as OSProduct[] };
+            const fallbackProducts = await getUnfiltered();
+            return { spec, products: fallbackProducts };
           }
           return { spec, products };
         })
