@@ -310,7 +310,6 @@ export default function Cart() {
                   <div className="flex justify-between gap-4">
                     <div>
                       <h3 className="font-serif text-base leading-tight mb-1">{item.product.name}</h3>
-                      <p className="text-sm text-muted-foreground"><FormattedPrice usdValue={item.product.priceValue} /></p>
                     </div>
                     <button
                       onClick={() => removeItem(item.product.id)}
