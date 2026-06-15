@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { WebPhoneField } from "@/components/WebPhoneField";
+import { isValidPhoneNumber } from "react-phone-number-input";
 import { Link } from "wouter";
 
 const SUPPORTED_COUNTRIES = [
@@ -596,6 +597,10 @@ function AddAddressModal({
       return;
     }
     const trimmedPhone = form.recipientPhone.trim();
+    if (!trimmedPhone || !isValidPhoneNumber(trimmedPhone)) {
+      toast({ title: "A valid recipient phone number is required", variant: "destructive" });
+      return;
+    }
     setBusy(true);
     try {
       const body = JSON.stringify({
@@ -734,6 +739,7 @@ function AddAddressModal({
 
           <WebPhoneField
             label={t("account.addresses.recipientPhone")}
+            required
             value={form.recipientPhone}
             onChange={(v) => set("recipientPhone", v)}
             defaultCountry={form.countryCode}
