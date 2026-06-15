@@ -1155,6 +1155,32 @@ export interface PhoneOtpVerifyResponse {
   code?: PhoneOtpVerifyResponseCode;
 }
 
+export type ProductColorHintsRequestProductsItem = {
+  /** Product slug (unique identifier). */
+  slug: string;
+  /** Product display name used for color inference. */
+  name: string;
+};
+
+export interface ProductColorHintsRequest {
+  /**
+   * List of products to classify. Send only products that did not match any keyword on the client side.
+   * @minItems 1
+   * @maxItems 200
+   */
+  products: ProductColorHintsRequestProductsItem[];
+}
+
+/**
+ * Map of product slug to inferred color keyword or null.
+ */
+export type ProductColorHintsResponseColors = { [key: string]: string | null };
+
+export interface ProductColorHintsResponse {
+  /** Map of product slug to inferred color keyword or null. */
+  colors: ProductColorHintsResponseColors;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

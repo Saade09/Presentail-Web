@@ -24,6 +24,8 @@
     "@workspace/clerk-types": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/presentail-os": "workspace:*",
+    "@workspace/integrations-openai-ai-server": "workspace:*",
+    "openai": "^6.27.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2",

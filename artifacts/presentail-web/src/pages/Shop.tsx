@@ -11,7 +11,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
-import { extractColor } from "@/lib/colorExtractor";
+import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
 import {
   Sheet,
   SheetContent,
@@ -146,27 +146,43 @@ export default function Shop() {
     })).filter((b) => b.count > 0);
   }, [sourceProducts]);
 
+  // Identify products that did not match any keyword so we can ask the AI
+  const unmatchedProducts = useMemo(() => {
+    return sourceProducts
+      .filter((p) => extractColor(p.name) === null)
+      .map((p) => ({ slug: p.id, name: p.name }));
+  }, [sourceProducts]);
+
+  // AI-inferred color hints for unmatched products (loads asynchronously, does
+  // not block rendering — color facets update once the response arrives)
+  const aiColorHints = useProductColorHints(unmatchedProducts);
+
+  // Merged color resolver: keyword match first, AI hint as fallback
+  const resolveColor = (p: Product) => extractColor(p.name) ?? (aiColorHints[p.id] ?? null);
+
   const colorFacets: ColorFacet[] = useMemo(() => {
     const counts = new Map<string, number>();
     for (const p of sourceProducts) {
-      const c = extractColor(p.name);
+      const c = resolveColor(p);
       if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
     }
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([color, count]) => ({ color: color as ColorFacet["color"], count }));
-  }, [sourceProducts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceProducts, aiColorHints]);
 
   const filteredProducts: Product[] = useMemo(() => {
     return sourceProducts.filter((p) => {
       if (selectedPriceBucket && !matchesPriceBucket(p, selectedPriceBucket)) return false;
       if (selectedColors.length > 0) {
-        const c = extractColor(p.name);
+        const c = resolveColor(p);
         if (!c || !selectedColors.includes(c)) return false;
       }
       return true;
     });
-  }, [sourceProducts, selectedPriceBucket, selectedColors]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceProducts, selectedPriceBucket, selectedColors, aiColorHints]);
 
   const products = useMemo(() => {
     const p = [...filteredProducts];

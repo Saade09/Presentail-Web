@@ -30,6 +30,7 @@ import eventsRouter from "./events";
 import seoRouter from "./seo";
 import partnerApplicationRouter from "./partnerApplication";
 import fbRouter from "./fb";
+import productsRouter from "./products";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(eventsRouter);
 router.use(seoRouter);
 router.use(partnerApplicationRouter);
 router.use(fbRouter);
+router.use(productsRouter);
 
 export default router;

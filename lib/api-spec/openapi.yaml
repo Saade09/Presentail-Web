@@ -42,6 +42,8 @@ tags:
     description: Referral code for the signed-in customer
   - name: fbEvents
     description: Server-side Facebook Conversions API events from mobile
+  - name: products
+    description: Product utilities (color inference, etc.)
 paths:
   /healthz:
     get:
@@ -205,6 +207,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FbMobileEventResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /products/color-hints:
+    post:
+      operationId: getProductColorHints
+      tags: [products]
+      summary: Get AI-inferred color hints for a list of products
+      description: |
+        Accepts a list of product slugs and names. Returns a map of slug →
+        color keyword (one of the 17 known colors) or null for products where
+        no color can be confidently inferred. Results are cached by name hash
+        so the LLM is only called once per new or renamed product. No auth
+        required. Call this only for products that did not match any keyword
+        on the client side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductColorHintsRequest"
+      responses:
+        "200":
+          description: Color hints for each requested slug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductColorHintsResponse"
         "400":
           description: Invalid request
           content:
@@ -3019,3 +3052,36 @@ components:
             - too_many_attempts
       required:
         - ok
+    ProductColorHintsRequest:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+                description: Product slug (unique identifier).
+              name:
+                type: string
+                description: Product display name used for color inference.
+            required:
+              - slug
+              - name
+          minItems: 1
+          maxItems: 200
+          description: List of products to classify. Send only products that did not match any keyword on the client side.
+      required:
+        - products
+    ProductColorHintsResponse:
+      type: object
+      properties:
+        colors:
+          type: object
+          description: Map of product slug to inferred color keyword or null.
+          additionalProperties:
+            type: string
+            nullable: true
+      required:
+        - colors

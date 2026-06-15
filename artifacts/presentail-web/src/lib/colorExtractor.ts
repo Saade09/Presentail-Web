@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "./api";
+
 const COLOR_KEYWORDS = [
   "red",
   "white",
@@ -44,4 +47,48 @@ export function extractColor(productName: string): ColorKeyword | null {
     }
   }
   return null;
+}
+
+/**
+ * React Query hook that fetches AI-inferred colors for products that did not
+ * match any keyword. Returns a map of slug → color keyword or null.
+ *
+ * The query is disabled when there are no unmatched products, uses a 1-hour
+ * stale time, and is persisted to sessionStorage so it survives page refreshes
+ * within the same session.
+ */
+export function useProductColorHints(
+  unmatchedProducts: { slug: string; name: string }[],
+): Record<string, ColorKeyword | null> {
+  // Include a fingerprint of slugs+names so that if a product is renamed
+  // the query key changes and a fresh inference is triggered immediately
+  // rather than serving the stale cached color for up to staleTime.
+  const key = unmatchedProducts.map((p) => `${p.slug}:${p.name}`).join("|");
+
+  const query = useQuery<Record<string, ColorKeyword | null>>({
+    queryKey: ["product-color-hints-v3", key],
+    queryFn: async () => {
+      const response = await apiFetch<{ colors: Record<string, string | null> }>(
+        "/products/color-hints",
+        {
+          method: "POST",
+          body: JSON.stringify({ products: unmatchedProducts }),
+        },
+      );
+      const result: Record<string, ColorKeyword | null> = {};
+      for (const [slug, color] of Object.entries(response.colors)) {
+        if (color !== null && (COLOR_KEYWORDS as readonly string[]).includes(color)) {
+          result[slug] = color as ColorKeyword;
+        } else {
+          result[slug] = null;
+        }
+      }
+      return result;
+    },
+    enabled: unmatchedProducts.length > 0,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+  });
+
+  return query.data ?? {};
 }

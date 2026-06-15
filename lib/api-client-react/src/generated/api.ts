@@ -64,6 +64,8 @@ import type {
   PhoneOtpSendResponse,
   PhoneOtpVerifyRequest,
   PhoneOtpVerifyResponse,
+  ProductColorHintsRequest,
+  ProductColorHintsResponse,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -618,6 +620,100 @@ export const useRecordFbMobileEvent = <
   TContext
 > => {
   return useMutation(getRecordFbMobileEventMutationOptions(options));
+};
+
+/**
+ * Accepts a list of product slugs and names. Returns a map of slug →
+color keyword (one of the 17 known colors) or null for products where
+no color can be confidently inferred. Results are cached by name hash
+so the LLM is only called once per new or renamed product. No auth
+required. Call this only for products that did not match any keyword
+on the client side.
+
+ * @summary Get AI-inferred color hints for a list of products
+ */
+export const getGetProductColorHintsUrl = () => {
+  return `/api/products/color-hints`;
+};
+
+export const getProductColorHints = async (
+  productColorHintsRequest: ProductColorHintsRequest,
+  options?: RequestInit,
+): Promise<ProductColorHintsResponse> => {
+  return customFetch<ProductColorHintsResponse>(getGetProductColorHintsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(productColorHintsRequest),
+  });
+};
+
+export const getGetProductColorHintsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getProductColorHints>>,
+    TError,
+    { data: BodyType<ProductColorHintsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getProductColorHints>>,
+  TError,
+  { data: BodyType<ProductColorHintsRequest> },
+  TContext
+> => {
+  const mutationKey = ["getProductColorHints"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getProductColorHints>>,
+    { data: BodyType<ProductColorHintsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getProductColorHints(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetProductColorHintsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getProductColorHints>>
+>;
+export type GetProductColorHintsMutationBody =
+  BodyType<ProductColorHintsRequest>;
+export type GetProductColorHintsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get AI-inferred color hints for a list of products
+ */
+export const useGetProductColorHints = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getProductColorHints>>,
+    TError,
+    { data: BodyType<ProductColorHintsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getProductColorHints>>,
+  TError,
+  { data: BodyType<ProductColorHintsRequest> },
+  TContext
+> => {
+  return useMutation(getGetProductColorHintsMutationOptions(options));
 };
 
 /**

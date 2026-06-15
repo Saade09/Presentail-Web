@@ -35,6 +35,9 @@
     },
     {
       "path": "./lib/presentail-os"
+    },
+    {
+      "path": "./lib/integrations-openai-ai-server"
     }
   ]
 }

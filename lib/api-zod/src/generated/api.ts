@@ -241,6 +241,41 @@ export const RecordFbMobileEventResponse = zod.object({
 });
 
 /**
+ * Accepts a list of product slugs and names. Returns a map of slug →
+color keyword (one of the 17 known colors) or null for products where
+no color can be confidently inferred. Results are cached by name hash
+so the LLM is only called once per new or renamed product. No auth
+required. Call this only for products that did not match any keyword
+on the client side.
+
+ * @summary Get AI-inferred color hints for a list of products
+ */
+export const getProductColorHintsBodyProductsMax = 200;
+
+export const GetProductColorHintsBody = zod.object({
+  products: zod
+    .array(
+      zod.object({
+        slug: zod.string().describe("Product slug (unique identifier)."),
+        name: zod
+          .string()
+          .describe("Product display name used for color inference."),
+      }),
+    )
+    .min(1)
+    .max(getProductColorHintsBodyProductsMax)
+    .describe(
+      "List of products to classify. Send only products that did not match any keyword on the client side.",
+    ),
+});
+
+export const GetProductColorHintsResponse = zod.object({
+  colors: zod
+    .record(zod.string(), zod.string().nullable())
+    .describe("Map of product slug to inferred color keyword or null."),
+});
+
+/**
  * Accepts a single lightweight product-analytics event from a web or
 mobile client (for example, which button a shopper picked on the
 checkout login prompt). Events are bounded, validated against an

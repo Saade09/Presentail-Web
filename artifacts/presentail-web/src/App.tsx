@@ -426,8 +426,11 @@ function App() {
         persister,
         maxAge: OS_PRODUCTS_MAX_AGE,
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) =>
-            Array.isArray(query.queryKey) && query.queryKey[0] === "os-products" && query.state.status === "success",
+          shouldDehydrateQuery: (query) => {
+            if (!Array.isArray(query.queryKey) || query.state.status !== "success") return false;
+            const key = query.queryKey[0];
+            return key === "os-products" || key === "product-color-hints-v3";
+          },
         },
       }}
     >
