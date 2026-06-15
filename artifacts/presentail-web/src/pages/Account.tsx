@@ -541,8 +541,18 @@ function AddAddressModal({
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const isEdit = !!editAddress;
+  const { data: deliveryLocations } = useDeliveryLocations();
 
   const [form, setForm] = useState(() => buildEmptyForm(defaultCountryCode));
+
+  const availableCities = useMemo(() => {
+    const country = deliveryLocations?.countries.find(
+      (c) => c.code.toUpperCase() === form.countryCode.toUpperCase(),
+    );
+    return (country?.cities ?? [])
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [deliveryLocations, form.countryCode]);
 
   useEffect(() => {
     if (open) {
@@ -697,8 +707,7 @@ function AddAddressModal({
             <Select
               value={form.countryCode}
               onValueChange={(v) => {
-                set("countryCode", v);
-                setForm((f) => ({ ...f, countryCode: v, recipientPhoneCountryCode: defaultPhoneCode(v) }));
+                setForm((f) => ({ ...f, countryCode: v, area: "", recipientPhoneCountryCode: defaultPhoneCode(v) }));
               }}
             >
               <SelectTrigger>
@@ -718,11 +727,18 @@ function AddAddressModal({
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
               Area / District <span className="text-destructive">*</span>
             </Label>
-            <Input
-              value={form.area}
-              onChange={(e) => set("area", e.target.value)}
-              placeholder={t("account.addresses.areaPlaceholder")}
-            />
+            <Select value={form.area} onValueChange={(v) => set("area", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select area / district" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCities.map((city) => (
+                  <SelectItem key={city.id} value={city.name}>
+                    {city.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
