@@ -16,3 +16,4 @@ export * from "./partnerApplications";
 export * from "./occasions";
 export * from "./phoneOtps";
 export * from "./productColorCache";
+export * from "./wpCustomerIdMap";

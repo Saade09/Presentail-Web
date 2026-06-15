@@ -25,6 +25,11 @@ import { logger } from "./logger";
  * The "must never silently route a returning shopper to sign-up" rule means
  * the route handler MUST return a `code` whenever the outcome is anything
  * other than `exists_true_*` / `exists_false` / `invalid_email`.
+ *
+ * When `localOnly=true` is passed in the deps, the WC/WP probe steps are
+ * skipped entirely — a local miss is treated as a definitive `exists_false`
+ * rather than an inconclusive `wc_not_configured`. Use this mode after the
+ * WC customer import has run and all known customers are in the local DB.
  */
 export type AuthExistsOutcome =
   | "exists_true_local"
@@ -84,6 +89,13 @@ export type ClassifyAuthExistsDeps = {
   wcConfigured: boolean;
   wcFetch: FetchLike;
   wpFetch: FetchLike;
+  /**
+   * When `true`, skip all WC/WP upstream calls entirely. A local miss is
+   * treated as a definitive `exists_false` rather than `wc_not_configured`.
+   * Set this to `!wcAuthEnabled` so that once WC auth is disabled,
+   * the local DB is the single source of truth.
+   */
+  localOnly?: boolean;
 };
 
 /**
@@ -105,8 +117,15 @@ export async function classifyAuthExists(
         return { outcome: "exists_true_local", exists: true };
       }
     } catch {
-      // Non-fatal: fall through to WC lookup.
+      // Non-fatal: fall through to WC lookup (or local-only result).
     }
+  }
+
+  // When operating in local-only mode (WC auth disabled), a local miss is
+  // treated as definitive — no WC round-trip is made. This is correct after
+  // the WC customer import has run because all known customers are local.
+  if (deps.localOnly) {
+    return { outcome: "exists_false", exists: false };
   }
 
   if (!deps.wcConfigured) {

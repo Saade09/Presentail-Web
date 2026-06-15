@@ -16,6 +16,17 @@ export type AuthResult =
   | { ok: true; customerId: number; localCustomerId?: number; token: string }
   | { ok: false; status: number; message: string };
 
+/**
+ * Returns true when WooCommerce auth calls (syncCustomerToWoo, WP JWT
+ * validation, WC session resolution) are enabled. Defaults to false so
+ * new deployments operate in local-only mode. Set WC_AUTH_ENABLED=true
+ * only during the migration transition window.
+ */
+export function isWcAuthEnabled(): boolean {
+  const v = (process.env.WC_AUTH_ENABLED ?? "").trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes";
+}
+
 export function decodeJwtPayload(token: string): any | null {
   try {
     const parts = token.split(".");
@@ -49,28 +60,40 @@ function getServerJwtSecret(): Uint8Array | null {
   return new TextEncoder().encode(raw);
 }
 
-// Mint a server-issued session token for a WC customer. Used by the social
-// sign-in routes (Apple/Google) where we don't have the user's WP password
-// and therefore can't ask the WP JWT plugin for a token. The token embeds
-// the verified WC customer id and is checked back in `authenticate()`.
+// Mint a server-issued session token. Used by social sign-in routes and
+// new local-only registrations. When `localCustomerId` is provided and
+// `customerId` is absent the token uses the local row id for both so
+// downstream routes can resolve the customer without a WC lookup.
 export async function signServerToken(input: {
+  /** WC customer ID, or local customers.id when localCustomer=true. */
   customerId: number;
   email: string;
-  provider: "apple" | "google";
+  provider: "apple" | "google" | "password";
   storeBaseUrl: string;
+  /** Local customers.id — stored in the JWT for fast resolution. */
+  localCustomerId?: number;
+  /** True when customerId is a local customers.id, not a WC ID. */
+  localCustomer?: boolean;
 }): Promise<string> {
   const key = getServerJwtSecret();
   if (!key) {
     throw new Error(
-      "SOCIAL_JWT_SECRET (or JWT_SECRET) must be set to issue social-login tokens",
+      "SOCIAL_JWT_SECRET (or JWT_SECRET) must be set to issue session tokens",
     );
   }
-  return new SignJWT({
+  const payload: Record<string, unknown> = {
     email: input.email,
     provider: input.provider,
     customer_id: input.customerId,
     store_base_url: input.storeBaseUrl,
-  })
+  };
+  if (input.localCustomerId != null) {
+    payload.local_customer_id = input.localCustomerId;
+  }
+  if (input.localCustomer) {
+    payload.local_customer = true;
+  }
+  return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(SERVER_JWT_ISSUER)
     .setAudience(SERVER_JWT_AUDIENCE)
@@ -94,17 +117,22 @@ async function verifyServerToken(token: string, req?: { query: any; headers: any
     if (!Number.isFinite(id) || id <= 0) {
       return { ok: false, status: 401, message: "Token missing user id" }; // i18n-ignore
     }
-    if (req) {
+    // Extract optional local customer ID (set for local-only registrations).
+    const localCustomerId =
+      typeof payload.local_customer_id === "number" && payload.local_customer_id > 0
+        ? payload.local_customer_id
+        : undefined;
+    // When the JWT carries store_base_url, validate it against the request
+    // store so a Lebanon-issued token can't authenticate against Dubai.
+    // Tokens minted by local-only registrations omit store_base_url (they
+    // are not store-scoped), so we only enforce the check when present.
+    if (req && typeof payload.store_base_url === "string") {
       const requestStore = resolveStoreFromRequest(req);
-      if (typeof payload.store_base_url === "string") {
-        if (payload.store_base_url !== requestStore.baseUrl) {
-          return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." }; // i18n-ignore
-        }
-      } else {
-        return { ok: false, status: 401, message: "Session is outdated. Please sign in again." }; // i18n-ignore
+      if (payload.store_base_url !== requestStore.baseUrl) {
+        return { ok: false, status: 401, message: "Session belongs to a different store. Please sign in again." }; // i18n-ignore
       }
     }
-    return { ok: true, customerId: id, token };
+    return { ok: true, customerId: id, localCustomerId, token };
   } catch {
     return { ok: false, status: 401, message: "Invalid or expired session" }; // i18n-ignore
   }
@@ -112,18 +140,21 @@ async function verifyServerToken(token: string, req?: { query: any; headers: any
 
 // ── Clerk session resolution ─────────────────────────────────────────────────
 //
-// A Clerk-authenticated request must still resolve to a WooCommerce-aware
-// `customers.id` row so the rest of the API (orders, push, etc.) continues
-// to work unchanged. We:
+// A Clerk-authenticated request resolves to a local `customers.id` row.
+// When WC_AUTH_ENABLED=true (migration transition window) it also syncs the
+// customer to WooCommerce so WC-dependent routes keep working unchanged.
+// When WC_AUTH_ENABLED=false (default for new deployments) the WC sync is
+// skipped entirely and the local customer ID is returned directly.
+//
+// Resolution steps:
 //   1. Read the verified `userId` Clerk attached to the request.
-//   2. Look up Clerk's user record (email + name).
+//   2. Look up Clerk's user record (email + name) from JWT claims or API.
 //   3. upsertCustomer() by email; persist the Clerk user id as
 //      `(authProvider="clerk", authUserId=<clerk userId>)`.
-//   4. syncCustomerToWoo() so the row gets a `wcCustomerId` and the rest
-//      of the API can resolve back to a WooCommerce customer.
+//   4. [WC_AUTH_ENABLED=true only] syncCustomerToWoo() so the row gets a
+//      `wcCustomerId` and WC-dependent routes can resolve back to WC.
 //   5. Lazy-tag the Clerk user with `publicMetadata.userType="customer"`
-//      when the webhook hasn't fired yet (no CLERK_WEBHOOK_SECRET, retry
-//      pending, etc) so requireUserType(["customer"]) keeps working.
+//      when the webhook hasn't fired yet so requireUserType keeps working.
 async function resolveClerkSession(
   req: Request,
 ): Promise<AuthResult | null> {
@@ -237,36 +268,39 @@ async function resolveClerkSession(
     return { ok: false, status: 500, message: "Failed to resolve customer" }; // i18n-ignore
   }
 
-  // The legacy WP/social JWT flow returns the WooCommerce customer id as
-  // `customerId`, and downstream routes (`/auth/me`, `/me/orders`) look
-  // it up via `getCustomerByWcId(auth.customerId)`. We must therefore
-  // also return the WC id, not the local row id. Mirror the customer
-  // into WooCommerce (idempotent) to obtain or recover the wcCustomerId.
-  let wcCustomerId: number | null = null;
-  try {
-    const local = await getCustomerById(localCustomerId);
-    if (local?.wcCustomerId) {
-      wcCustomerId = local.wcCustomerId;
-    } else {
-      wcCustomerId = await syncCustomerToWoo(localCustomerId, store);
+  // When WC auth is disabled (default for new deployments), skip the
+  // WooCommerce sync entirely — the local customer ID is the canonical
+  // identifier. Downstream routes that previously relied on wcCustomerId
+  // via `getCustomerByWcId` should also check `localCustomerId` first.
+  let returnCustomerId = localCustomerId;
+  if (isWcAuthEnabled()) {
+    let wcCustomerId: number | null = null;
+    try {
+      const local = await getCustomerById(localCustomerId);
+      if (local?.wcCustomerId) {
+        wcCustomerId = local.wcCustomerId;
+      } else {
+        wcCustomerId = await syncCustomerToWoo(localCustomerId, store);
+      }
+    } catch (err: any) {
+      req.log?.error?.(
+        { err: err?.message, customerId: localCustomerId },
+        "auth.clerk: WooCommerce mirror failed",
+      );
+      return {
+        ok: false,
+        status: 502,
+        message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
+      };
     }
-  } catch (err: any) {
-    req.log?.error?.(
-      { err: err?.message, customerId: localCustomerId },
-      "auth.clerk: WooCommerce mirror failed",
-    );
-    return {
-      ok: false,
-      status: 502,
-      message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
-    };
-  }
-  if (!wcCustomerId || wcCustomerId <= 0) {
-    return {
-      ok: false,
-      status: 502,
-      message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
-    };
+    if (!wcCustomerId || wcCustomerId <= 0) {
+      return {
+        ok: false,
+        status: 502,
+        message: "Failed to resolve WooCommerce customer for this session", // i18n-ignore
+      };
+    }
+    returnCustomerId = wcCustomerId;
   }
 
   // Lazy userType tagging — covers the case where CLERK_WEBHOOK_SECRET
@@ -288,7 +322,7 @@ async function resolveClerkSession(
     }
   }
 
-  return { ok: true, customerId: wcCustomerId, localCustomerId, token: "" };
+  return { ok: true, customerId: returnCustomerId, localCustomerId, token: "" };
 }
 
 // Authenticate the request. Resolution order:

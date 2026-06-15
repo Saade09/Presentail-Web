@@ -117,6 +117,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const text = await res.text();
       let data: any = {};
       try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON */ }
+      // 410 Gone: password login is deprecated. Direct the user to update the
+      // app — the new flow uses Clerk email sign-in instead of WP JWT.
+      if (res.status === 410 || data?.code === "login_deprecated") {
+        return {
+          ok: false,
+          code: "login_deprecated",
+          message: data?.message ?? "Password sign-in is no longer supported. Please update the app and use the email sign-in link instead.", // i18n-ignore
+        };
+      }
       if (!res.ok || !data?.ok) {
         const fallback = `HTTP ${res.status} from ${url.split("?")[0]}${text ? ` — ${text.slice(0, 100)}` : ""}`;
         return { ok: false, message: data?.message ?? fallback, code: data?.code };

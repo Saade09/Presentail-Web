@@ -4,3 +4,4 @@
 - [API server test mocking patterns](api-server-test-patterns.md) — key patterns for mocking app.ts, routes, and pino-http in clerkShim-style tests
 - [OS brands admin endpoint shape](os-brands-admin-shape.md) — /api/brands has no slug field; must toSlug(name) to map to OSProductBrand; product-embedded brands have canonical slugs
 - [OS brand image auth](os-brand-images.md) — OS image_url is a SPA route, not a file; real files need Clerk JWT; API key won't work; fix must come from OS team
+- [WC auth migration Phase 4](wc-auth-migration.md) — WC_AUTH_ENABLED flag pattern, JWT localCustomerId claim, per-route behaviour, import prereqs before disabling

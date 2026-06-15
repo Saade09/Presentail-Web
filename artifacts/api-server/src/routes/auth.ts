@@ -2,11 +2,11 @@ import { Router, type IRouter } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, createHash, randomInt } from "node:crypto";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { authenticate, decodeJwtPayload, signServerToken } from "../lib/auth";
+import { authenticate, decodeJwtPayload, signServerToken, isWcAuthEnabled } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull, gt } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
-import { upsertCustomer, getCustomerByWcId, normalizePhoneE164 } from "../lib/customers";
+import { upsertCustomer, getCustomerByWcId, getCustomerById, normalizePhoneE164 } from "../lib/customers";
 import { validateStoredPhone } from "../lib/phoneValidation";
 import {
   ensureClerkUserInBackground,
@@ -243,6 +243,7 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
     return;
   }
 
+  const wcAuthEnabled = isWcAuthEnabled();
   const result = await classifyAuthExists({
     email,
     localLookup: async (e) => {
@@ -253,9 +254,10 @@ router.get("/auth/exists", existsIpLimiter, async (req, res) => {
         .limit(1);
       return rows.length > 0;
     },
-    wcConfigured: Boolean(process.env.WC_CONSUMER_KEY),
+    wcConfigured: wcAuthEnabled && Boolean(process.env.WC_CONSUMER_KEY),
     wcFetch: (path, init) => wcFetch(path, init, req),
     wpFetch: (path, init) => wpFetch(path, init, req),
+    localOnly: !wcAuthEnabled,
   });
 
   // Centralised structured log + persisted outcome row. Both feed the
@@ -579,7 +581,18 @@ router.get("/auth/diagnostics", async (req, res) => {
 });
 
 // ── Login: uses JWT Authentication for WP REST API plugin ────────────────────
+// When WC_AUTH_ENABLED is false (the default), this endpoint returns 410 Gone
+// so that old mobile app builds show a graceful upgrade prompt. All new
+// registrations and sign-ins go through Clerk on the mobile side.
 router.post("/auth/login", loginIpLimiter, async (req, res) => {
+  if (!isWcAuthEnabled()) {
+    return res.status(410).json({
+      ok: false,
+      code: "login_deprecated",
+      message: "Password login is no longer supported. Please update the app and sign in with your email via the new flow.", // i18n-ignore
+    });
+  }
+
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     return res.status(400).json({ ok: false, code: "missing_credentials", message: "Email and password are required" }); // i18n-ignore
@@ -676,11 +689,12 @@ router.post("/auth/login", loginIpLimiter, async (req, res) => {
   }
 });
 
-// ── Register: create a WooCommerce customer ──────────────────────────────────
+// ── Register: create a local customer (or WooCommerce customer for legacy) ───
+// When WC_AUTH_ENABLED=false (default), registration creates a row in the local
+// `customers` table directly, propagates to Clerk, and returns a server-issued
+// JWT — no WooCommerce round-trip needed.
+// When WC_AUTH_ENABLED=true (transition window), the legacy WC path runs as before.
 router.post("/auth/register", registerIpLimiter, async (req, res) => {
-  if (!process.env.WC_CONSUMER_KEY) {
-    return res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
-  }
   const { email, password, firstName, lastName, phone } = req.body as {
     email?: string;
     password?: string;
@@ -691,8 +705,85 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ ok: false, code: "missing_credentials", message: "Email and password are required" }); // i18n-ignore
   }
+  if (!EMAIL_RE.test(email.trim().toLowerCase())) {
+    return res.status(400).json({ ok: false, code: "invalid_email", message: "A valid email address is required" }); // i18n-ignore
+  }
   if (password.length < 8) {
     return res.status(400).json({ ok: false, code: "password_too_short", message: "Password must be at least 8 characters" }); // i18n-ignore
+  }
+
+  // ── Local-only registration (WC_AUTH_ENABLED=false) ──────────────────────
+  if (!isWcAuthEnabled()) {
+    const normalizedEmail = email.trim().toLowerCase();
+    try {
+      // Check for existing account first so we return a clear error.
+      const existing = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.email, normalizedEmail))
+        .limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({
+          ok: false,
+          code: "registration_failed",
+          message: "An account with this email already exists.", // i18n-ignore
+        });
+      }
+
+      const { customer } = await upsertCustomer({
+        email: normalizedEmail,
+        firstName: firstName?.trim() ?? "",
+        lastName: lastName?.trim() ?? "",
+        phone,
+        authProvider: null,
+        authUserId: null,
+        source: "presentail.com",
+        preferredLang: langFromRequest(req),
+      });
+
+      // Best-effort Clerk propagation (so web sign-in can find the new shopper).
+      if (isClerkConfigured()) {
+        ensureClerkUserInBackground({
+          email: normalizedEmail,
+          firstName: firstName?.trim() ?? null,
+          lastName: lastName?.trim() ?? null,
+          localCustomerId: customer.id,
+          log: req.log,
+        });
+      }
+
+      const store = resolveStoreFromRequest(req);
+      const token = await signServerToken({
+        customerId: customer.id,
+        email: normalizedEmail,
+        provider: "password",
+        storeBaseUrl: store.baseUrl,
+        localCustomerId: customer.id,
+        localCustomer: true,
+      });
+
+      return res.json({
+        ok: true,
+        token,
+        user: {
+          id: customer.id,
+          email: customer.email,
+          firstName: customer.firstName ?? "",
+          lastName: customer.lastName ?? "",
+          username: "",
+          phone: customer.phoneE164 ?? "",
+          gender: null,
+          birthday: null,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
+    }
+  }
+
+  // ── Legacy WC registration (WC_AUTH_ENABLED=true) ────────────────────────
+  if (!process.env.WC_CONSUMER_KEY) {
+    return res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
   }
 
   try {
@@ -731,9 +822,6 @@ router.post("/auth/register", registerIpLimiter, async (req, res) => {
     const mapped = mapCustomer(data);
     if (mapped.id) {
       // Mirror to local DB AND propagate to Clerk (best-effort, non-blocking).
-      // A brand-new mobile signup should appear in Clerk within seconds so a
-      // matching web sign-in can find them via email lookup, without waiting
-      // for the daily catch-up sync.
       mirrorAndPropagateToClerk(
         mapped.id,
         {
@@ -824,9 +912,44 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
-  // Read from the canonical local `customers` row first; fall back to WC
-  // during the migration window so accounts not yet mirrored still work.
+  // Resolution order:
+  //   1. auth.localCustomerId (set by verifyServerToken for local-only JWTs)
+  //   2. getCustomerById(auth.customerId) when WC auth is disabled
+  //   3. getCustomerByWcId(auth.customerId) during the transition window
+  //   4. WC REST fallback (WC_AUTH_ENABLED=true only)
   try {
+    // Try local customer by the explicit localCustomerId claim first.
+    const localById = auth.localCustomerId
+      ? await getCustomerById(auth.localCustomerId)
+      : !isWcAuthEnabled()
+        ? await getCustomerById(auth.customerId)
+        : null;
+
+    if (localById) {
+      // `requiresPasswordReset` is true when the row was imported from WC
+      // without a Clerk/social auth link — the user needs to go through the
+      // Clerk "forgot password" flow to set credentials.
+      const requiresPasswordReset =
+        localById.authProvider === null && localById.authUserId === null;
+      res.json({
+        ok: true,
+        user: {
+          id: localById.id,
+          email: localById.email,
+          firstName: localById.firstName ?? "",
+          lastName: localById.lastName ?? "",
+          username: "",
+          phone: localById.phoneE164 ?? "",
+          gender: localById.gender ?? null,
+          birthday: localById.birthday ?? null,
+          birthdayShareMonthDay: localById.birthdayShareMonthDay ?? true,
+          requiresPasswordReset,
+        },
+      });
+      return;
+    }
+
+    // Fallback for WC-linked sessions (WC_AUTH_ENABLED=true transition window).
     const local = await getCustomerByWcId(auth.customerId);
     if (local) {
       res.json({
@@ -842,6 +965,12 @@ router.get("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
           birthday: local.birthday ?? null,
         },
       });
+      return;
+    }
+
+    // Final fallback: WC REST (only attempted when WC auth is enabled).
+    if (!isWcAuthEnabled()) {
+      res.status(404).json({ ok: false, message: "Account not found." }); // i18n-ignore
       return;
     }
     const r = await wcFetch(`/customers/${auth.customerId}`, {}, req);
@@ -1267,15 +1396,22 @@ router.put("/auth/me", requireUserType(["customer", "team"]), async (req, res) =
     if (normalizedGender !== undefined) localPatch.gender = normalizedGender;
     if (normalizedBirthday !== undefined) localPatch.birthday = normalizedBirthday;
     if (Object.keys(localPatch).length > 0) {
+      // For local-only customers, auth.localCustomerId or auth.customerId IS
+      // the customers.id. For legacy WC sessions, match by wcCustomerId.
+      const whereClause = auth.localCustomerId
+        ? eq(customersTable.id, auth.localCustomerId)
+        : !isWcAuthEnabled()
+          ? eq(customersTable.id, auth.customerId)
+          : eq(customersTable.wcCustomerId, auth.customerId);
       await db
         .update(customersTable)
         .set({ ...localPatch, updatedAt: new Date() })
-        .where(eq(customersTable.wcCustomerId, auth.customerId));
+        .where(whereClause);
       localPatchApplied = true;
     }
   } catch (err: any) {
     req.log?.warn?.(
-      { err: err?.message, wcCustomerId: auth.customerId },
+      { err: err?.message, customerId: auth.customerId },
       "auth.me.put: local profile patch failed",
     );
   }
@@ -1446,8 +1582,56 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     res.status(auth.status).json({ ok: false, message: auth.message });
     return;
   }
+
+  // ── Local-only account deletion (WC_AUTH_ENABLED=false) ─────────────────
+  // Anonymise the local row and best-effort delete from Clerk. No WC calls.
+  if (!isWcAuthEnabled() || auth.localCustomerId) {
+    const localId = auth.localCustomerId ?? auth.customerId;
+    const tombstoneEmail = `deleted-${localId}-${Date.now()}@deleted.local`;
+    try {
+      await db
+        .update(customersTable)
+        .set({
+          email: tombstoneEmail,
+          firstName: "",
+          lastName: "",
+          phoneE164: null,
+          gender: null,
+          birthday: null,
+          authProvider: null,
+          authUserId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, localId));
+
+      // Best-effort Clerk deletion.
+      const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+      if (clerkSecretKey) {
+        const clerk = createClerkClient({ secretKey: clerkSecretKey });
+        const { data: clerkUsers } = await clerk.users.getUserList({
+          emailAddress: [tombstoneEmail],
+        }).catch(() => ({ data: [] }));
+        // If by chance the email lookup found them (unlikely post-anonymise),
+        // delete. Realistically the Clerk account was under the original email.
+        // We do a second lookup by externalId instead.
+        for (const u of clerkUsers) {
+          await clerk.users.deleteUser(u.id).catch((e: any) => {
+            req.log?.warn?.({ err: e?.message, clerkUserId: u.id }, "auth.delete: Clerk user delete failed (non-fatal)");
+          });
+        }
+      }
+
+      res.json({ ok: true });
+    } catch (e: any) {
+      req.log?.error?.({ err: e?.message }, "auth.delete: local anonymise error");
+      res.status(500).json({ ok: false, message: e?.message ?? "Delete failed" }); // i18n-ignore
+    }
+    return;
+  }
+
+  // ── Legacy WC account deletion (WC_AUTH_ENABLED=true) ───────────────────
   const id = auth.customerId;
-  const tombstoneEmail = `deleted-${id}-${Date.now()}@deleted.local`;
+  const tombstoneEmailLegacy = `deleted-${id}-${Date.now()}@deleted.local`;
   const randomPassword =
     "Del-" +
     Math.random().toString(36).slice(2) +
@@ -1465,7 +1649,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     postcode: "",
     country: "",
     state: "",
-    email: tombstoneEmail,
+    email: tombstoneEmailLegacy,
     phone: "",
   };
   const blankShipping = {
@@ -1484,7 +1668,7 @@ router.delete("/auth/me", requireUserType(["customer", "team"]), async (req, res
     const updateRes = await wcFetch(`/customers/${id}`, {
       method: "PUT",
       body: JSON.stringify({
-        email: tombstoneEmail,
+        email: tombstoneEmailLegacy,
         first_name: "",
         last_name: "",
         password: randomPassword,
@@ -1643,6 +1827,64 @@ async function issueSocialSession(
   profile: { email: string; firstName: string; lastName: string },
 ) {
   const store = resolveStoreFromRequest(req);
+
+  // ── Local-only social session (WC_AUTH_ENABLED=false) ───────────────────
+  // Upsert a local customer row directly — no WC round-trip. Propagate to
+  // Clerk best-effort so the web sign-in email-lookup flow can find the user.
+  if (!isWcAuthEnabled()) {
+    try {
+      const { customer } = await upsertCustomer({
+        email: profile.email,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        authProvider: provider,
+        authUserId: profile.email,
+        source: "presentail.com",
+        preferredLang: langFromRequest(req),
+      });
+
+      if (isClerkConfigured()) {
+        ensureClerkUserInBackground({
+          email: profile.email,
+          firstName: profile.firstName || null,
+          lastName: profile.lastName || null,
+          localCustomerId: customer.id,
+          log: req.log,
+        });
+      }
+
+      const token = await signServerToken({
+        customerId: customer.id,
+        email: customer.email,
+        provider,
+        storeBaseUrl: store.baseUrl,
+        localCustomerId: customer.id,
+        localCustomer: true,
+      });
+
+      return res.json({
+        ok: true,
+        token,
+        user: {
+          id: customer.id,
+          email: customer.email,
+          firstName: customer.firstName ?? "",
+          lastName: customer.lastName ?? "",
+          username: "",
+          phone: customer.phoneE164 ?? "",
+          gender: customer.gender ?? null,
+          birthday: customer.birthday ?? null,
+        },
+      });
+    } catch (e: any) {
+      req.log?.warn?.({ err: e?.message, provider }, "auth.social: local customer upsert failed");
+      return res
+        .status(500)
+        .json({ ok: false, code: "server_error", message: e?.message ?? "Sign-in failed" }); // i18n-ignore
+    }
+  }
+
+  // ── Legacy WC social session (WC_AUTH_ENABLED=true) ──────────────────────
   if (!store.consumerKey) {
     return res
       .status(503)
@@ -2341,12 +2583,83 @@ router.post("/auth/otp/verify", registerIpLimiter, async (req, res) => {
 
   await db.delete(phoneOtpsTable).where(eq(phoneOtpsTable.id, row.id)).catch(() => {});
 
-  if (!process.env.WC_CONSUMER_KEY) {
-    res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
-    return;
-  }
   if (password.length < 8) {
     res.status(400).json({ ok: false, code: "password_too_short", message: "Password must be at least 8 characters" }); // i18n-ignore
+    return;
+  }
+
+  // ── Local-only OTP registration (WC_AUTH_ENABLED=false) ─────────────────
+  if (!isWcAuthEnabled()) {
+    const normalizedEmail = email.trim().toLowerCase();
+    try {
+      const existing = await db
+        .select({ id: customersTable.id })
+        .from(customersTable)
+        .where(eq(customersTable.email, normalizedEmail))
+        .limit(1);
+      if (existing.length > 0) {
+        res.status(409).json({
+          ok: false,
+          code: "registration_failed",
+          message: "An account with this email already exists.", // i18n-ignore
+        });
+        return;
+      }
+
+      const { customer } = await upsertCustomer({
+        email: normalizedEmail,
+        firstName: firstName?.trim() ?? "",
+        lastName: lastName?.trim() ?? "",
+        phone: normalizedPhone,
+        authProvider: null,
+        authUserId: null,
+        source: "presentail.com",
+        preferredLang: langFromRequest(req),
+      });
+
+      if (isClerkConfigured()) {
+        ensureClerkUserInBackground({
+          email: normalizedEmail,
+          firstName: firstName?.trim() ?? null,
+          lastName: lastName?.trim() ?? null,
+          localCustomerId: customer.id,
+          log: req.log,
+        });
+      }
+
+      const store = resolveStoreFromRequest(req);
+      const token = await signServerToken({
+        customerId: customer.id,
+        email: normalizedEmail,
+        provider: "password",
+        storeBaseUrl: store.baseUrl,
+        localCustomerId: customer.id,
+        localCustomer: true,
+      });
+
+      res.json({
+        ok: true,
+        token,
+        user: {
+          id: customer.id,
+          email: customer.email,
+          firstName: customer.firstName ?? "",
+          lastName: customer.lastName ?? "",
+          username: "",
+          phone: customer.phoneE164 ?? normalizedPhone,
+          gender: null,
+          birthday: null,
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, code: "server_error", message: e?.message ?? "Registration failed" }); // i18n-ignore
+    }
+    return;
+  }
+
+  // ── Legacy WC OTP registration (WC_AUTH_ENABLED=true) ───────────────────
+  if (!process.env.WC_CONSUMER_KEY) {
+    res.status(503).json({ ok: false, code: "service_unavailable", message: "Registration unavailable" }); // i18n-ignore
     return;
   }
 
