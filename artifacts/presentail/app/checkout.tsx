@@ -944,7 +944,7 @@ function CheckoutScreen() {
           hadProfilePhoneOnMountRef.current === false &&
           senderWhatsapp.trim()
         ) {
-          const phoneToSave = `${senderCountry.dial} ${senderWhatsapp}`.trim();
+          const phoneToSave = `${senderCountry.dial} ${senderWhatsapp.trim().replace(/^0+/, "")}`.trim();
           updateProfile({ phone: phoneToSave }).catch((err) => {
             console.warn("[checkout] post-order phone save failed", {
               orderId,

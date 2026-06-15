@@ -44,9 +44,10 @@ function splitPhone(raw: string | undefined | null): { country: CountryDialCode;
     );
     const match = sorted.find((c) => compact.startsWith(c.dial));
     if (match) {
+      const local = compact.slice(match.dial.length).replace(/^[\s-]+/, "");
       return {
         country: match,
-        local: compact.slice(match.dial.length).replace(/^[\s-]+/, ""),
+        local: local.replace(/^0+/, ""),
       };
     }
   }
@@ -200,7 +201,8 @@ function PersonalInformationScreen() {
       setPhoneError(t.piPhoneErrorTooLong);
       return;
     }
-    const phoneValue = local ? `${phoneCountry.dial} ${local}`.trim() : "";
+    const normalizedLocal = local.replace(/^0+/, "");
+    const phoneValue = normalizedLocal ? `${phoneCountry.dial} ${normalizedLocal}`.trim() : "";
     setPhoneBusy(true);
     const r = await updateProfile({ phone: phoneValue });
     setPhoneBusy(false);
