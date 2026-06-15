@@ -176,6 +176,10 @@ function buildCityIndex(countries: CachedCountry[]): Map<string, CachedCity> {
  */
 const OS_SLUG_TO_CANONICAL_ID: Record<string, string> = {
   "minnieh-dennaye": "lb-minnieh-dennaya",
+  // OS uses a different spelling for these Lebanese cities than our canonical IDs.
+  "jbeil": "lb-jbail",
+  "kesserwan": "lb-kasserwan",
+  "rachaya": "lb-rechaya",
 };
 
 /**
@@ -242,120 +246,160 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
     // not yet published to the public API), fall back to hardcoded cities
     // for that country so shoppers still see a picker. Emit a WARN so ops
     // can see the gap without needing to check the API manually.
-    const cities: CachedCity[] =
-      osCountry.cities.length === 0 && hardcoded?.cities.length
-        ? (() => {
-            logger.warn(
-              { countryCode: code },
-              "osLocationsCache: OS returned 0 cities for country — serving hardcoded fallback cities until OS data is available",
-            );
-            return hardcoded.cities.map((city) => {
-              const cfg = resolveDeliveryConfig(code, city.id);
-              return {
-                id: city.id,
-                name: city.name,
-                isActive: city.isActive,
-                fee: feeForDistrict(code, city.name),
-                // OS returned 0 cities for this country — use hardcoded defaults.
-                // Default false: never falsely promise express when OS hasn't confirmed it.
-                expressAvailable: false,
-                expressDeliveryLabel: "",
-                sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
-                timeSlots: [] as OSTimeSlot[],
-                localizedNames: localizedNamesForCity(city.id),
-                freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
-                freeDeliveryEnabled: cfg.freeDeliveryEnabled,
-              };
-            });
-          })()
-        : osCountry.cities.map((c) => {
-            // Prefer slug (URL-safe string key from the ext endpoint) as the
-            // OS identifier; fall back to String(id) for legacy responses.
-            const osSlug = c.slug ?? String(c.id);
-            // Resolve the canonical city id regardless of what slug OS uses.
-            const canonicalId = resolveOsCityId(
+    //
+    // When OS returns 1+ cities, map them normally and then append any
+    // hardcoded cities absent from the OS response as inactive (isActive:
+    // false). The OS only returns active cities — a known city that OS
+    // omits has been disabled in the OS admin panel and should appear
+    // greyed out rather than vanishing entirely.
+    const cities: CachedCity[] = (() => {
+      if (osCountry.cities.length === 0 && hardcoded?.cities.length) {
+        logger.warn(
+          { countryCode: code },
+          "osLocationsCache: OS returned 0 cities for country — serving hardcoded fallback cities until OS data is available",
+        );
+        return hardcoded.cities.map((city) => {
+          const cfg = resolveDeliveryConfig(code, city.id);
+          return {
+            id: city.id,
+            name: city.name,
+            isActive: city.isActive,
+            fee: feeForDistrict(code, city.name),
+            // OS returned 0 cities for this country — use hardcoded defaults.
+            // Default false: never falsely promise express when OS hasn't confirmed it.
+            expressAvailable: false,
+            expressDeliveryLabel: "",
+            sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+            timeSlots: [] as OSTimeSlot[],
+            localizedNames: localizedNamesForCity(city.id),
+            freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
+            freeDeliveryEnabled: cfg.freeDeliveryEnabled,
+          };
+        });
+      }
+
+      const osCities: CachedCity[] = osCountry.cities.map((c) => {
+        // Prefer slug (URL-safe string key from the ext endpoint) as the
+        // OS identifier; fall back to String(id) for legacy responses.
+        const osSlug = c.slug ?? String(c.id);
+        // Resolve the canonical city id regardless of what slug OS uses.
+        const canonicalId = resolveOsCityId(
+          osSlug,
+          c.name,
+          code,
+          hardcoded?.cities ?? [],
+        );
+        // When the canonical id differs from the OS slug (i.e. an explicit
+        // override was applied), prefer the hardcoded city's display name
+        // so the name matches the canonical spelling the web router expects
+        // (e.g. "Minnieh-Dennaya" not "Minnieh-Dennaye"). Fall back to the
+        // OS-supplied name when no hardcoded entry exists (future-proofing).
+        const hardcodedCity =
+          canonicalId !== osSlug
+            ? (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
+            : undefined;
+        const displayName = hardcodedCity?.name ?? c.name;
+        if (canonicalId !== osSlug) {
+          logger.debug(
+            {
               osSlug,
-              c.name,
-              code,
-              hardcoded?.cities ?? [],
-            );
-            // When the canonical id differs from the OS slug (i.e. an explicit
-            // override was applied), prefer the hardcoded city's display name
-            // so the name matches the canonical spelling the web router expects
-            // (e.g. "Minnieh-Dennaya" not "Minnieh-Dennaye"). Fall back to the
-            // OS-supplied name when no hardcoded entry exists (future-proofing).
-            const hardcodedCity =
-              canonicalId !== osSlug
-                ? (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
-                : undefined;
-            const displayName = hardcodedCity?.name ?? c.name;
-            if (canonicalId !== osSlug) {
-              logger.debug(
-                {
-                  osSlug,
-                  canonicalId,
-                  osCityName: c.name,
-                  resolvedName: displayName,
-                  countryCode: code,
-                },
-                "osLocationsCache: mapped OS city slug to canonical id",
-              );
-            }
-            return {
-              id: canonicalId,
-              name: displayName,
-              isActive:
-                c.isActive ??
-                (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
-                  ?.isActive ??
-                true,
-              // deliveryFee is in country display currency — convert to USD.
-              fee:
-                c.deliveryFee != null
-                  ? getUsdAmount(c.deliveryFee, currency)
-                  : feeForDistrict(code, c.name),
-              // When OS omits a field fall back to safe defaults so the
-              // shape is always complete and required schema fields are present.
-              // Use false (not true) so we never falsely promise express when
-              // OS hasn't confirmed availability.
-              expressAvailable: c.expressAvailable ?? false,
-              expressDeliveryLabel: c.expressDeliveryLabel ?? "",
-              sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
-              // Normalise to an array even when OS omits the field.
-              // Filter out slots where cutoffHour is null — these are
-              // draft/incomplete entries in the OS admin panel that should
-              // never be shown to shoppers.
-              timeSlots: filterValidOsSlots(c.timeSlots ?? []),
-              // Per-day slots — filter each day's slot list the same way.
-              slotsByDay: c.slotsByDay
-                ? Object.fromEntries(
-                    Object.entries(c.slotsByDay).map(([day, slots]) => [
-                      day,
-                      filterValidOsSlots(slots),
-                    ]),
-                  )
-                : undefined,
-              localizedNames: localizedNamesForCity(canonicalId),
-              // Per-city free-delivery settings: OS value takes precedence; fall
-              // back to the hardcoded deliveryConfig entry so callers always get
-              // a defined value (and freeDeliveryEnabled is never silently true
-              // for cities that don't offer free delivery).
-              // freeDeliveryThreshold is in country display currency — convert to USD.
-              freeDeliveryThresholdUsd:
-                c.freeDeliveryThreshold != null
-                  ? getUsdAmount(c.freeDeliveryThreshold, currency)
-                  : resolveDeliveryConfig(code, canonicalId).freeDeliveryThresholdUsd,
-              freeDeliveryEnabled:
-                c.freeDeliveryEnabled ??
-                resolveDeliveryConfig(code, canonicalId).freeDeliveryEnabled,
-              // Express surcharge in USD from the ext endpoint (expressSurcharge
-              // is in country display currency; pipe through getUsdAmount).
-              expressSurchargeUsd:
-                c.expressSurcharge != null
-                  ? getUsdAmount(c.expressSurcharge, currency)
-                  : undefined,
-            };
-          });
+              canonicalId,
+              osCityName: c.name,
+              resolvedName: displayName,
+              countryCode: code,
+            },
+            "osLocationsCache: mapped OS city slug to canonical id",
+          );
+        }
+        return {
+          id: canonicalId,
+          name: displayName,
+          isActive:
+            c.isActive ??
+            (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
+              ?.isActive ??
+            true,
+          // deliveryFee is in country display currency — convert to USD.
+          fee:
+            c.deliveryFee != null
+              ? getUsdAmount(c.deliveryFee, currency)
+              : feeForDistrict(code, c.name),
+          // When OS omits a field fall back to safe defaults so the
+          // shape is always complete and required schema fields are present.
+          // Use false (not true) so we never falsely promise express when
+          // OS hasn't confirmed availability.
+          expressAvailable: c.expressAvailable ?? false,
+          expressDeliveryLabel: c.expressDeliveryLabel ?? "",
+          sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
+          // Normalise to an array even when OS omits the field.
+          // Filter out slots where cutoffHour is null — these are
+          // draft/incomplete entries in the OS admin panel that should
+          // never be shown to shoppers.
+          timeSlots: filterValidOsSlots(c.timeSlots ?? []),
+          // Per-day slots — filter each day's slot list the same way.
+          slotsByDay: c.slotsByDay
+            ? Object.fromEntries(
+                Object.entries(c.slotsByDay).map(([day, slots]) => [
+                  day,
+                  filterValidOsSlots(slots),
+                ]),
+              )
+            : undefined,
+          localizedNames: localizedNamesForCity(canonicalId),
+          // Per-city free-delivery settings: OS value takes precedence; fall
+          // back to the hardcoded deliveryConfig entry so callers always get
+          // a defined value (and freeDeliveryEnabled is never silently true
+          // for cities that don't offer free delivery).
+          // freeDeliveryThreshold is in country display currency — convert to USD.
+          freeDeliveryThresholdUsd:
+            c.freeDeliveryThreshold != null
+              ? getUsdAmount(c.freeDeliveryThreshold, currency)
+              : resolveDeliveryConfig(code, canonicalId).freeDeliveryThresholdUsd,
+          freeDeliveryEnabled:
+            c.freeDeliveryEnabled ??
+            resolveDeliveryConfig(code, canonicalId).freeDeliveryEnabled,
+          // Express surcharge in USD from the ext endpoint (expressSurcharge
+          // is in country display currency; pipe through getUsdAmount).
+          expressSurchargeUsd:
+            c.expressSurcharge != null
+              ? getUsdAmount(c.expressSurcharge, currency)
+              : undefined,
+        };
+      });
+
+      // Supplement with hardcoded cities that OS did not return.
+      // The OS only includes active cities in its response, so any
+      // hardcoded city absent here has been disabled in the OS admin
+      // panel. Include it with isActive: false so pickers can show it
+      // greyed out instead of silently hiding it from shoppers.
+      const osCityIdSet = new Set(osCities.map((city) => city.id));
+      const inactiveFromHardcoded: CachedCity[] = (hardcoded?.cities ?? [])
+        .filter((hc) => !osCityIdSet.has(hc.id))
+        .map((hc) => {
+          const cfg = resolveDeliveryConfig(code, hc.id);
+          logger.debug(
+            { cityId: hc.id, countryCode: code },
+            "osLocationsCache: city absent from OS response — serving as inactive",
+          );
+          return {
+            id: hc.id,
+            name: hc.name,
+            isActive: false,
+            fee: feeForDistrict(code, hc.name),
+            expressAvailable: false,
+            expressDeliveryLabel: "",
+            sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+            timeSlots: [] as OSTimeSlot[],
+            localizedNames: localizedNamesForCity(hc.id),
+            freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
+            freeDeliveryEnabled: cfg.freeDeliveryEnabled,
+          };
+        });
+
+      return [...osCities, ...inactiveFromHardcoded].sort((a, b) =>
+        a.name.localeCompare(b.name, "en"),
+      );
+    })();
 
     return {
       id: osCountry.id ?? osCountry.code.toLowerCase(),

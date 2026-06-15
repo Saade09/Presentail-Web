@@ -297,7 +297,7 @@ export function OnboardingLocationScreen() {
                               textAlign: isRTL ? "right" : "left",
                             }}
                           >
-                            (not available at the moment)
+                            {t.deliveryCityUnavailable}
                           </AppText>
                         )}
                       </View>

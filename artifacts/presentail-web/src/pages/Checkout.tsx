@@ -1461,7 +1461,7 @@ function CheckoutForm() {
                                   {label}
                                   {inactive && (
                                     <span className="ml-1.5 text-xs text-muted-foreground/70">
-                                      (not available at the moment)
+                                      {t("location.cityUnavailable")}
                                     </span>
                                   )}
                                 </SelectItem>

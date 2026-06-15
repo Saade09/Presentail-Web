@@ -299,25 +299,26 @@ function CheckoutScreen() {
   }, []);
 
   // Step 2 — Delivery Details
-  // Derive the district picker list exclusively from OS-filtered active cities.
+  // Derive the district picker list from all OS cities (active + inactive).
+  // Inactive cities are shown greyed-out and unclickable in the picker so
+  // shoppers know those areas exist but aren't currently served.
   // When OS data is still loading (locationsLoading) or returns zero cities for
   // a country, we return an empty array and show a loading / empty state on the
   // picker instead of falling back to a hardcoded governorate list.
-  const districts = useMemo<District[]>(() => {
-    const activeCities = (selectedCountry?.cities ?? []).filter(
-      (c) => c.isActive !== false,
-    );
-    return activeCities.map((c) => ({
+  type CheckoutDistrict = District & { isActive?: boolean };
+  const districts = useMemo<CheckoutDistrict[]>(() => {
+    return (selectedCountry?.cities ?? []).map((c) => ({
       name: c.name,
       // OS fee takes priority; fall back to the hardcoded lookup table.
       fee: c.fee ?? feeForDistrict(effectiveCountry, c.name),
+      isActive: c.isActive,
     }));
   }, [selectedCountry, effectiveCountry]);
   const cityDistrictMatch = selectedCity
-    ? districts.find((d) => d.name === selectedCity.name)
+    ? districts.find((d) => d.name === selectedCity.name && d.isActive !== false)
     : null;
-  const [district, setDistrict] = useState<District | null>(
-    cityDistrictMatch ?? districts[0] ?? null,
+  const [district, setDistrict] = useState<CheckoutDistrict | null>(
+    cityDistrictMatch ?? districts.find((d) => d.isActive !== false) ?? null,
   );
   const districtManuallyEdited = React.useRef(false);
   const prevCityRef = React.useRef(selectedCity?.id);
@@ -345,16 +346,16 @@ function CheckoutScreen() {
     }
     if (districtManuallyEdited.current) return;
     if (selectedCity) {
-      const match = districts.find((d) => d.name === selectedCity.name);
+      const match = districts.find((d) => d.name === selectedCity.name && d.isActive !== false);
       if (match) {
         setDistrict(match);
         return;
       }
     }
     if (countryChanged) {
-      // Always reset district on country change — set to first available city
+      // Always reset district on country change — set to first active city
       // or null when OS has returned no active cities for the new country.
-      setDistrict(districts[0] ?? null);
+      setDistrict(districts.find((d) => d.isActive !== false) ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountry, selectedCity, districts]);
@@ -454,7 +455,7 @@ function CheckoutScreen() {
     // district name is recorded in the address line so the courier
     // still sees it.
     const districtMatch = districts.find(
-      (d) => d.name.trim().toLowerCase() === addr.district.trim().toLowerCase(),
+      (d) => d.name.trim().toLowerCase() === addr.district.trim().toLowerCase() && d.isActive !== false,
     );
     if (districtMatch) {
       districtManuallyEdited.current = true;
@@ -759,7 +760,7 @@ function CheckoutScreen() {
         recipientFirst.trim() &&
         recipientLast.trim() &&
         isRecipientPhoneValid() &&
-        (noAddress || (!!district && deliveryDetails.trim())) &&
+        (noAddress || (!!district && district.isActive !== false && deliveryDetails.trim())) &&
         (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
         (!senderEmailRequired || senderEmail.trim())
@@ -775,7 +776,7 @@ function CheckoutScreen() {
     if (!recipientLast.trim()) missing.push(t.checkoutMfRecipientLast);
     if (!recipientPhone.trim()) missing.push(t.checkoutMfRecipientPhone);
     else if (!isRecipientPhoneValid()) missing.push(t.phoneInvalidNumber);
-    if (!noAddress && !district) missing.push(t.districtLabel);
+    if (!noAddress && (!district || district.isActive === false)) missing.push(t.districtLabel);
     if (!noAddress && !deliveryDetails.trim()) missing.push(t.checkoutMfDeliveryAddress);
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
@@ -2567,6 +2568,32 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
                 keyExtractor={(item) => item.name}
                 renderItem={({ item }) => {
                   const selected = item.name === district?.name;
+                  const inactive = item.isActive === false;
+                  if (inactive) {
+                    return (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          paddingHorizontal: 20,
+                          paddingVertical: 14,
+                          borderBottomWidth: 1,
+                          borderBottomColor: "#f7f4ef",
+                          backgroundColor: "rgba(0,0,0,0.015)",
+                        }}
+                      >
+                        <View style={{ flexDirection: "column", gap: 2 }}>
+                          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 15, color: "rgba(0,0,0,0.35)" }}>
+                            {item.name}
+                          </AppText>
+                          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "rgba(0,0,0,0.3)" }}>
+                            {t.deliveryCityUnavailable}
+                          </AppText>
+                        </View>
+                      </View>
+                    );
+                  }
                   return (
                     <TouchableOpacity
                       onPress={() => { districtManuallyEdited.current = true; setDistrict(item); setDistrictOpen(false); }}

@@ -86,7 +86,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
               {cityName(city.id, city.name)}
               {inactive && (
                 <span className="ml-1.5 text-sm font-normal text-foreground/35">
-                  (not available at the moment)
+                  {t("location.cityUnavailable")}
                 </span>
               )}
             </span>
