@@ -87,10 +87,11 @@ export default function ProductDetail() {
   // We intentionally default to "scheduled" when city data hasn't loaded yet
   // (city === null) so we never flash Express for a city where OS has it
   // turned off (e.g. Akkar). The upgrade effect below switches to "express"
-  // once we confirm the city supports it. A persisted "today_slot"/"schedule"
-  // always reflects back as the scheduled row.
+  // once we confirm the city supports it. Only a persisted "schedule" mode
+  // (explicit shopper choice with a concrete date) suppresses Express; the
+  // seed value "today_slot" is treated the same as no explicit choice.
   const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() => {
-    if (deliverySelection.mode && deliverySelection.mode !== "express") {
+    if (deliverySelection.mode === "schedule") {
       return "scheduled";
     }
     // city === null means the delivery-locations query hasn't resolved yet —
@@ -101,11 +102,13 @@ export default function ProductDetail() {
 
   // Upgrade to express once city data loads and confirms express is available
   // — only when the shopper has not made an explicit scheduled choice.
+  // "today_slot" is the seed value (not an explicit pick) so it is treated
+  // the same as no selection here.
   useEffect(() => {
     if (
       expressAvailable &&
       deliveryChoice === "scheduled" &&
-      (!deliverySelection.mode || deliverySelection.mode === "express")
+      (!deliverySelection.mode || deliverySelection.mode === "express" || deliverySelection.mode === "today_slot")
     ) {
       setDeliveryChoice("express");
     }

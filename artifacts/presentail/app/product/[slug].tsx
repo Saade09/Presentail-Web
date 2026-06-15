@@ -480,8 +480,11 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // loaded) evaluates to false — avoids flashing Express for cities that
   // have it disabled before the delivery-locations query resolves.
   const expressAvailable = selectedCity?.expressAvailable === true && isExpressDeliveryAvailable(cc, now);
+  // Only a persisted "schedule" mode (explicit shopper pick with a concrete
+  // date) suppresses Express. "today_slot" is the seed value and is treated
+  // the same as no explicit choice — Express wins when it's available.
   const initialDelivery: "express" | "scheduled" =
-    deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot"
+    deliverySelection.mode === "schedule"
       ? "scheduled"
       : expressAvailable
         ? "express"
@@ -489,11 +492,13 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
   // Upgrade to express once city data loads and confirms express is available
   // — only when the shopper has not made an explicit scheduled choice.
+  // "today_slot" is the seed value (not an explicit pick) so it is treated
+  // the same as no selection here.
   useEffect(() => {
     if (
       expressAvailable &&
       delivery === "scheduled" &&
-      (!deliverySelection.mode || deliverySelection.mode === "express")
+      (!deliverySelection.mode || deliverySelection.mode === "express" || deliverySelection.mode === "today_slot")
     ) {
       setDeliveryLocal("express");
       deliverySelection.setMode("express");
