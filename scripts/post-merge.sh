@@ -1,22 +1,15 @@
 #!/bin/bash
 set -e
 
-# Only run pnpm install when the lockfile has actually changed.
-# This keeps the post-merge setup well under the 20 s budget for
-# schema-only or code-only merges, while still installing on the
-# rare occasions a task adds or upgrades a dependency.
-LOCKFILE="pnpm-lock.yaml"
-STAMP="/tmp/.post-merge-lockfile-hash"
-
-CURRENT_HASH=$(md5sum "$LOCKFILE" 2>/dev/null | awk '{print $1}' || echo "none")
-STORED_HASH=$(cat "$STAMP" 2>/dev/null || echo "")
-
-if [ "$CURRENT_HASH" != "$STORED_HASH" ]; then
-  echo "lockfile changed — running pnpm install"
+# Only run pnpm install when pnpm-lock.yaml changed in the merge commit.
+# git diff HEAD~1..HEAD is reliable because post-merge always runs right
+# after the merge commit lands. Falls back to running install when the
+# diff command itself fails (e.g. shallow clone, initial commit).
+if git diff --name-only HEAD~1..HEAD 2>/dev/null | grep -q "^pnpm-lock.yaml$"; then
+  echo "pnpm-lock.yaml changed — running pnpm install"
   pnpm install --no-frozen-lockfile
-  echo "$CURRENT_HASH" > "$STAMP"
 else
-  echo "lockfile unchanged — skipping pnpm install"
+  echo "pnpm-lock.yaml unchanged — skipping pnpm install"
 fi
 
 pnpm --filter @workspace/db run push
