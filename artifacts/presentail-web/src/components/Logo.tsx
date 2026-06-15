@@ -4,7 +4,7 @@ import logoAr from "@assets/Presentail-Arabic-Logo.png";
 import logoEnWhite from "@assets/Presentail_PNG-01_white.png";
 import logoArWhite from "@assets/Presentail-Arabic-Logo-white.png";
 
-const AR_SCALE = 0.65;
+const AR_SCALE = 0.55;
 
 type LogoProps = {
   height?: number;
@@ -23,7 +23,7 @@ export function Logo({ height, className, inverse = false }: LogoProps) {
   if (height !== undefined) {
     style = { height: isArabic ? Math.round(height * AR_SCALE) : height, width: "auto" };
   } else if (isArabic) {
-    style = { transform: `scale(${AR_SCALE})`, transformOrigin: "left center" };
+    style = { zoom: AR_SCALE };
   }
 
   return (
