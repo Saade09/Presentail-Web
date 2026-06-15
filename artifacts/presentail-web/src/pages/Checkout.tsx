@@ -177,7 +177,7 @@ function CheckoutForm() {
   });
   const showLoginGate = !authLoading && !user && !guestAcked;
   const { toast } = useToast();
-  const { t, dir } = useLocale();
+  const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const createOrder = useCreateOrder();
@@ -1429,7 +1429,9 @@ function CheckoutForm() {
                           <SelectTrigger data-testid="select-district">
                             <SelectValue
                               placeholder={
-                                locationsLoading
+                                selectedCityData
+                                  ? cityName(selectedCityData.id, selectedCityData.name)
+                                  : locationsLoading
                                   ? t("checkout.districtLoading")
                                   : currentCountryCities.length === 0
                                   ? t("checkout.districtUnavailable")
@@ -1440,9 +1442,10 @@ function CheckoutForm() {
                           <SelectContent>
                             {currentCountryCities.map((city) => {
                               const inactive = city.isActive === false;
+                              const label = cityName(city.id, city.name);
                               return (
                                 <SelectItem key={city.id} value={city.name} disabled={inactive}>
-                                  {city.name}
+                                  {label}
                                   {inactive && (
                                     <span className="ml-1.5 text-xs text-muted-foreground/70">
                                       (not available at the moment)

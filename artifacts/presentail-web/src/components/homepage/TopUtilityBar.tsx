@@ -10,7 +10,7 @@ const TICKER_INTERVAL = 3500;
 
 export function TopUtilityBar() {
   const { country, city, openPicker } = useLocationSelection();
-  const { t, countryName } = useLocale();
+  const { t, countryName, cityName } = useLocale();
   const [idx, setIdx] = useState(0);
 
   const items = [
@@ -62,7 +62,7 @@ export function TopUtilityBar() {
             )}
             <span className="font-medium">
               {city
-                ? city.name
+                ? cityName(city.id, city.name)
                 : country
                   ? countryName(country.code, country.name)
                   : t("locationPicker.selectCountryLabel")}

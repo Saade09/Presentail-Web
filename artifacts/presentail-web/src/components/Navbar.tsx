@@ -19,7 +19,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { city, countryCode, cityId, openPicker } = useLocationSelection();
-  const { t, language } = useLocale();
+  const { t, language, cityName } = useLocale();
 
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
@@ -40,7 +40,9 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const cityLabel = city?.name ?? t("navbar.selectCity");
+  const cityLabel = cityId
+    ? cityName(cityId, city?.name ?? t("navbar.selectCity"))
+    : (city?.name ?? t("navbar.selectCity"));
 
   return (
     <header

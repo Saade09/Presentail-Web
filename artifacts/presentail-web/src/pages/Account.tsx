@@ -13,7 +13,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useMyOrders } from "@/lib/queries";
+import { useMyOrders, useDeliveryLocations } from "@/lib/queries";
 import { useProducts } from "@/lib/queries";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { LoyaltyPanel } from "@/components/loyalty/LoyaltyPanel";
@@ -428,11 +428,13 @@ type AddressData = {
 
 function AddressCard({
   address,
+  districtLabel,
   onDelete,
   onEdit,
   t,
 }: {
   address: AddressData;
+  districtLabel?: string;
   onDelete: () => void;
   onEdit: () => void;
   t: (k: string) => string;
@@ -460,7 +462,7 @@ function AddressCard({
             </div>
           )}
           {address.district && (
-            <div className="font-medium text-sm">{address.district}</div>
+            <div className="font-medium text-sm">{districtLabel ?? address.district}</div>
           )}
           {line2 && (
             <div className="text-sm text-muted-foreground mt-0.5">{line2}</div>
@@ -772,6 +774,25 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
   const { countryCode: activeCountryCode } = useLocationSelection();
+  const { cityName } = useLocale();
+  const { data: deliveryLocations } = useDeliveryLocations();
+
+  const cityIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const country of deliveryLocations?.countries ?? []) {
+      for (const city of country.cities ?? []) {
+        map.set(city.name, city.id);
+      }
+    }
+    return map;
+  }, [deliveryLocations]);
+
+  const getDistrictLabel = (district: string | null | undefined): string | undefined => {
+    if (!district) return undefined;
+    const id = cityIdByName.get(district);
+    if (!id) return undefined;
+    return cityName(id, district);
+  };
 
   const load = () => {
     setLoading(true);
@@ -837,6 +858,7 @@ function AddressesSection({ t }: { t: (k: string) => string }) {
               <AddressCard
                 key={addr.id}
                 address={addr}
+                districtLabel={getDistrictLabel(addr.district)}
                 onEdit={() => setEditAddress(addr)}
                 onDelete={() => setDeleteTarget(addr)}
                 t={t}
