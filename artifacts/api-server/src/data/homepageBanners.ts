@@ -15,7 +15,7 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
     ctaText: "Shop Flowers",
     desktopMediaType: "image",
     desktopMediaUrl:
-      "https://images.unsplash.com/photo-1487530811176-3780de880c2d?auto=format&fit=crop&w=2400&q=80",
+      "https://images.unsplash.com/photo-1487530811176-3780de880c2d?auto=format&fit=crop&w=1920&q=80",
     desktopLinkUrl: "/shop?category=hand-bouquets",
     mobileMediaType: "image",
     mobileMediaUrl:
@@ -32,7 +32,7 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
     ctaText: "Explore",
     desktopMediaType: "image",
     desktopMediaUrl:
-      "https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=2400&q=80",
+      "https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=1920&q=80",
     desktopLinkUrl: "/shop?occasion=summer-collection",
     mobileMediaType: "image",
     mobileMediaUrl:
@@ -49,7 +49,7 @@ export const HOMEPAGE_BANNERS: HomepageBanner[] = [
     ctaText: "Shop Luxury",
     desktopMediaType: "image",
     desktopMediaUrl:
-      "https://images.unsplash.com/photo-1455659817273-f96807779a8a?auto=format&fit=crop&w=2400&q=80",
+      "https://images.unsplash.com/photo-1455659817273-f96807779a8a?auto=format&fit=crop&w=1920&q=80",
     desktopLinkUrl: "/shop?category=lux-arrangements",
     mobileMediaType: "image",
     mobileMediaUrl:

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import type { HomepageBanner } from "@/lib/banners";
+import { buildUnsplashSrcset } from "@/lib/imageUtils";
 
 type Props = {
   banner: HomepageBanner;
@@ -14,6 +15,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
   const mediaUrl = isMobile ? banner.mobileMediaUrl : banner.desktopMediaUrl;
   const linkUrl = isMobile ? banner.mobileLinkUrl : banner.desktopLinkUrl;
   const hasText = !!(banner.title || banner.subtitle || banner.ctaText);
+  const responsiveProps = !isMobile && mediaType === "image" ? buildUnsplashSrcset(mediaUrl) : null;
 
   return (
     <Link
@@ -45,6 +47,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
             className="w-full h-full object-cover"
             loading={active ? "eager" : "lazy"}
             {...(active ? { fetchPriority: "high" } : {})}
+            {...(responsiveProps ?? {})}
             style={{ willChange: "transform" }}
             initial={{ scale: 1.07 }}
             animate={{ scale: active ? 1.0 : 1.07 }}

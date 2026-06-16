@@ -9,6 +9,8 @@ interface ShimmerImageProps {
   containerClassName?: string;
   fallback?: ReactNode;
   priority?: boolean;
+  srcset?: string;
+  sizes?: string;
 }
 
 /**
@@ -28,6 +30,8 @@ export function ShimmerImage({
   containerClassName = "",
   fallback,
   priority = false,
+  srcset,
+  sizes,
 }: ShimmerImageProps) {
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
@@ -52,6 +56,8 @@ export function ShimmerImage({
         ].join(" ")}
         loading={priority ? "eager" : "lazy"}
         {...(priority ? { fetchPriority: "high" } : {})}
+        {...(srcset ? { srcSet: srcset } : {})}
+        {...(sizes ? { sizes } : {})}
         onLoad={() => {
           loadedUrls.add(src);
           setLoaded(true);
