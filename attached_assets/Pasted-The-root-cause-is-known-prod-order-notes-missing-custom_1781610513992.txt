@@ -1,0 +1,32 @@
+The root cause is known (prod order_notes missing customer_note), and the fix needs a republish. But the user wants certainty that orders will actually go through. Let me verify against the live production database what schema is actually there right now, and confirm the code's migration is correct.
+
+
+7 actions
+Now I have the definitive answer. Production's order_notes table is the old legacy shape (note_type, body, boolean driver_note) — it has no customer_note column, which is exactly why every website order 500s. The code already fixes this two ways (the SAVEPOINT resilience so a note failure can't kill the order, plus the initDb migration that rebuilds the table) — both just need a republish to reach production.
+
+But the initDb migration does a DROP TABLE order_notes CASCADE. Before I rely on that hitting production, I need to confirm there's no real notes data there to lose, and check the dev schema state.
+
+
+3 actions
+Excellent — this is the reassuring confirmation I needed:
+
+Production order_notes: 0 rows → the DROP TABLE ... CASCADE migration is completely safe, no data to lose.
+Dev order_notes: already the correct new shape.
+The only write that can still block an order is the core orders INSERT itself (everything else is now SAVEPOINT-protected). Let me verify that the production orders table has every column that INSERT uses, so I'm certain nothing blocks creation.
+
+
+4 actions
+Everything checks out against the live production database. The chain is fully verified:
+
+Core order write — production's orders table has every column the insert uses (workspace_owner_id, external_order_id, ordered_at, delivery_address, delivery_type, delivery_instructions, totals, raw_payload). So orders will save. ✅
+The note bug — production's order_notes is the old shape and has 0 rows, so the code's rebuild migration is safe and loses nothing. ✅
+Safety net — every secondary write (notes, line items, contacts, payment) is now SAVEPOINT-protected, so even an unexpected mismatch can't kill the order. ✅
+There are no remaining code changes to make — the fix is already in the codebase and verified safe. The reason website orders are still erroring right now is simply that production is running the old deployed code/schema. It takes effect on the next publish.
+
+The one action that makes website orders go through: republish the app. After publishing, the deployed server rebuilds order_notes on startup and the resilient order logic takes over.
+
+(For context: all those red workflows in the status panel — e2e, expo apps, lint:spec, etc. — are pre-existing environment issues unrelated to this change. The order endpoint's own checks are green: typecheck clean, 21/21 tests passing.)
+
+
+Finalizing task completion plan
+The investigation and fix are complete, and I've handed off to publishing. Nothing further is needed in code — the website-order failures are purely a not-yet-published fix, verified safe against your live production database. Once you publish, website orders will go through.
