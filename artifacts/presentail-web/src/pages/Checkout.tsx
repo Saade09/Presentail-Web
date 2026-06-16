@@ -1429,11 +1429,11 @@ function CheckoutForm() {
 
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{t("checkout.firstName")}</label>
+                      <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
                       <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{t("checkout.lastName")}</label>
+                      <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
                       <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
                     </div>
                   </div>
@@ -1454,7 +1454,7 @@ function CheckoutForm() {
                   {!noAddress && (
                     <>
                       <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.district")}</label>
+                        <label className="text-sm font-medium">{t("checkout.district")}<span className="text-destructive ms-0.5">*</span></label>
                         <Select
                           value={recipient.district}
                           onValueChange={(v) => setRecipient({ ...recipient, district: v })}
@@ -1493,7 +1493,7 @@ function CheckoutForm() {
                       </div>
 
                       <div className="space-y-2 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.address")}</label>
+                        <label className="text-sm font-medium">{t("checkout.address")}<span className="text-destructive ms-0.5">*</span></label>
                         <Textarea rows={3} value={recipient.address} onChange={(e) => setRecipient({ ...recipient, address: e.target.value })} placeholder={t("checkout.addressPh")} data-testid="input-recipient-address" />
                       </div>
 
@@ -1539,16 +1539,16 @@ function CheckoutForm() {
                     <>
                       <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className="space-y-1.5">
-                          <label className="text-sm font-medium">{t("checkout.firstName")}</label>
+                          <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
                           <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-sm font-medium">{t("checkout.lastName")}</label>
+                          <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
                           <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} data-testid="input-sender-last-name" />
                         </div>
                       </div>
                       <div className="space-y-1.5 mb-4">
-                        <label className="text-sm font-medium">{t("checkout.emailAddress")}</label>
+                        <label className="text-sm font-medium">{t("checkout.emailAddress")}<span className="text-destructive ms-0.5">*</span></label>
                         <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
                       </div>
                     </>
