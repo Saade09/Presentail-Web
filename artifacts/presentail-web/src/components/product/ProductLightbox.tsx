@@ -139,11 +139,16 @@ export function ProductLightbox({
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current?.active) {
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
       dragRef.current.active = false;
       try {
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {
         // ignore
+      }
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+        handleZoomToggle();
       }
       return;
     }
@@ -271,7 +276,7 @@ export function ProductLightbox({
               draggable={false}
               className={cn(
                 "absolute inset-0 m-auto max-h-full max-w-full object-contain transition-transform duration-150 ease-out will-change-transform",
-                zoom > 1 ? "cursor-grab" : "cursor-zoom-in",
+                zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in",
                 dragRef.current?.active && "cursor-grabbing",
               )}
               style={{
