@@ -1102,10 +1102,14 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
   const storedPlatform = normalizePlatform(rawPayload?._platform);
   const store = resolveStore(storedCountryCode, storedCityId);
 
-  const result = await attemptCreateWcOrder(body, {
+  // Reconciliation retries via OS (the authoritative order submission path).
+  // preVerifiedItems are not stored in the queue — by the time a retry fires
+  // (min 5 min backoff) the OS products cache is always warm, so the cache
+  // lookup path in attemptCreateOsOrder is sufficient.
+  const result = await attemptCreateOsOrder(body, {
     paymentVerified,
-    wcCustomerId: storedWcCustomerId,
     store,
+    platform: storedPlatform,
   });
   const nextAttempts = row.attempts + 1;
 
@@ -1114,7 +1118,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       .update(pendingWooOrdersTable)
       .set({
         status: "succeeded",
-        wcOrderId: result.wcOrderId,
+        wcOrderId: null,
         attempts: nextAttempts,
         lastError: null,
         updatedAt: new Date(),
@@ -1122,7 +1126,8 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       .where(eq(pendingWooOrdersTable.id, row.id));
     await recordSuccessfulWcOrder({
       body,
-      wcOrderId: result.wcOrderId,
+      wcOrderId: null,
+      osOrderId: result.osOrderId ?? null,
       userId: row.userId,
       customerId: storedCustomerId,
       recipientName: result.recipientName,
@@ -1132,8 +1137,8 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       log: logger,
     });
     logger.info(
-      { id: row.id, appOrderId: row.appOrderId, wcOrderId: result.wcOrderId },
-      "wooReconcile: pending order reconciled",
+      { id: row.id, appOrderId: row.appOrderId, osOrderId: result.osOrderId },
+      "wooReconcile: pending order reconciled via OS",
     );
     return;
   }

@@ -4,6 +4,7 @@ import { authenticate } from "../lib/auth";
 import {
   WooOrderSchema,
   attemptCreateOsOrder,
+  enqueuePendingWcOrder,
   listPendingWooOrders,
   normalizePlatform,
   recordSuccessfulWcOrder,
@@ -994,9 +995,44 @@ router.post("/woo/order", async (req, res) => {
         paymentRef: body.paymentRef,
         status: result.status,
         message: result.message,
+        paymentVerified,
       },
       "woo.order: OS order creation failed",
     );
+
+    // If payment was already captured by the PSP (Stripe / Mamo / PayPal),
+    // the customer's money is committed — we must NOT return an error.
+    // Instead, enqueue the order for automatic retry and respond with success
+    // so the customer lands on the confirmation screen. The reconciliation
+    // worker will keep retrying (up to 8 times, max 6 h backoff) and will
+    // create the OS order as soon as it becomes available.
+    if (paymentVerified) {
+      await enqueuePendingWcOrder({
+        body,
+        paymentRef: body.paymentRef ?? null,
+        userId: resolvedUserId,
+        customerId: resolvedCustomerId,
+        wcCustomerId,
+        errorMessage: result.message,
+        paymentVerified: true,
+        storeCountryCode: store.country,
+        storeCityId: null,
+        platform: requestPlatform,
+        log: req.log,
+      });
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef: body.paymentRef },
+        "woo.order: payment verified but OS order failed — enqueued for reconciliation",
+      );
+      return res.json({
+        ok: true,
+        wcOrderId: null,
+        osOrderId: null,
+        queued: true,
+        couponDiscount: 0,
+      });
+    }
+
     return res
       .status(result.status)
       .json({ ok: false, message: result.message });
