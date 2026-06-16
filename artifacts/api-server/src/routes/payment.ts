@@ -112,7 +112,7 @@ router.post("/payment/mamo", async (req, res) => {
     returnUrl,
     failureReturnUrl,
   } = req.body as {
-    items: { wcId: number; quantity: number }[];
+    items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
     district?: string;
     expressDelivery?: boolean;
@@ -279,6 +279,7 @@ router.post("/payment/mamo", async (req, res) => {
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
+          osSlug: i.osSlug,
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
@@ -355,7 +356,7 @@ router.post("/payment/paypal", async (req, res) => {
     returnUrl,
     cancelUrl,
   } = req.body as {
-    items: { wcId: number; quantity: number }[];
+    items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
     district?: string;
     expressDelivery?: boolean;
@@ -453,6 +454,7 @@ router.post("/payment/paypal", async (req, res) => {
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
+          osSlug: i.osSlug,
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
