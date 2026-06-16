@@ -433,9 +433,10 @@ function CheckoutForm() {
     }
   };
 
-  // Active (isActive !== false) cities for the selected country — sourced
-  // from the OS cache so toggling a city off in Presentail OS removes it
-  // from the picker within the polling interval.
+  // All cities for the selected country (both active and inactive) — sourced
+  // from the OS cache so toggling a city in Presentail OS propagates within
+  // the polling interval. Inactive cities are shown greyed-out and unclickable;
+  // only active cities (isActive !== false) can be selected.
   const activeCities = useMemo(
     () =>
       locations?.countries.find((c) => c.code === countryCode)?.cities ?? [],
@@ -548,6 +549,20 @@ function CheckoutForm() {
       setDeliverySlot(newSlots[0]?.label ?? "");
     }
   }, [countryCode]);
+
+  // Clear a pre-populated district when OS marks that city inactive (e.g. a
+  // saved address was stored before the city was deactivated, or the location
+  // context passed in an inactive city on mount).  Runs whenever activeCities
+  // updates so the picker cannot silently hold an unavailable city.
+  useEffect(() => {
+    if (!activeCities.length) return;
+    setRecipient((r) => {
+      if (!r.district) return r;
+      const match = activeCities.find((c) => c.name === r.district);
+      if (match && match.isActive === false) return { ...r, district: "" };
+      return r;
+    });
+  }, [activeCities]);
 
   // Country-aware mount-time correction: when the selected date is today (or
   // absent) and today has no remaining slots for this country, advance to the
@@ -704,6 +719,7 @@ function CheckoutForm() {
 
   const currentCountryCities = activeCities;
   const firstActiveCity = currentCountryCities.find((c) => c.isActive !== false);
+  const hasActiveCities = firstActiveCity !== undefined;
   const _selectedDistrict = recipient.district || firstActiveCity?.name || "";
   // Per-city fees and free-delivery rules come from the OS cache (via
   // /api/delivery-locations) so changes in Presentail OS propagate within
@@ -1437,7 +1453,7 @@ function CheckoutForm() {
                         <Select
                           value={recipient.district}
                           onValueChange={(v) => setRecipient({ ...recipient, district: v })}
-                          disabled={locationsLoading || currentCountryCities.length === 0}
+                          disabled={locationsLoading || !hasActiveCities}
                         >
                           <SelectTrigger data-testid="select-district">
                             <SelectValue
@@ -1446,7 +1462,7 @@ function CheckoutForm() {
                                   ? cityName(selectedCityData.id, selectedCityData.name)
                                   : locationsLoading
                                   ? t("checkout.districtLoading")
-                                  : currentCountryCities.length === 0
+                                  : !hasActiveCities
                                   ? t("checkout.districtUnavailable")
                                   : t("checkout.selectDistrict")
                               }
