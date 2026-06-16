@@ -156,7 +156,7 @@ const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 // Typed shape of the /api/woo/order response. The generated hook uses `any`,
 // so we narrow it here to avoid `as any` casts in the order-handling code.
 type CreateOrderResponse =
-  | { ok: true; wcOrderId: number | null; orderKey?: string; couponDiscount: number }
+  | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
 function CheckoutForm() {
@@ -851,7 +851,7 @@ function CheckoutForm() {
         surface: "checkout",
         action: paymentMethod,
       });
-      setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+      setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
     } else if (res.code === "coupon_invalid") {
       // Coupon-specific error: surface inline below the coupon field (using
       // WC's specific message when available) so the shopper can correct the
@@ -1021,7 +1021,7 @@ function CheckoutForm() {
                 try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
                 void maybeSaveProfilePhone();
                 trackEvent({ name: "order_placed", surface: "checkout", action: paymentMethod });
-                setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+                setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
               } else if (res.code === "coupon_invalid") {
                 setCouponError(res.message || t("checkout.coupon.invalidError"));
                 setCouponApplied(false);
@@ -1151,7 +1151,7 @@ function CheckoutForm() {
           try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
           void maybeSaveProfilePhone();
           trackEvent({ name: "order_placed", surface: "checkout", action: "card" });
-          setLocation(`/order-confirmed?status=success&ref=${res.wcOrderId || payload.orderId}`);
+          setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
         } else if (res.code === "coupon_invalid") {
           setCouponError(res.message || t("checkout.coupon.invalidError"));
           setCouponApplied(false);
@@ -1236,12 +1236,26 @@ function CheckoutForm() {
       await finalizeOrderNow();
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
+      const apiErr = err as { status?: number; message?: string } | null;
+      const isColdCache = apiErr?.status === 503;
+      const hasSpecificMessage =
+        !isNetworkFailure &&
+        !isColdCache &&
+        typeof apiErr?.message === "string" &&
+        !apiErr.message.startsWith("API error ");
+      const description = isNetworkFailure
+        ? t("checkout.toast.networkTimeout")
+        : isColdCache
+          ? t("checkout.toast.catalogLoading")
+          : hasSpecificMessage
+            ? apiErr!.message!
+            : t("checkout.toast.networkError");
       toast({
         title: t("checkout.toast.errorTitle"),
-        description: t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError"),
+        description,
         variant: "destructive",
       });
-      trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : "provider" });
+      trackEvent({ name: "payment_error", surface: "checkout", action: isNetworkFailure ? "network" : isColdCache ? "catalog_cold" : "provider" });
     }
   };
 

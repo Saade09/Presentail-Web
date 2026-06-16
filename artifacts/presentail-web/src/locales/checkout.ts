@@ -123,6 +123,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.networkError": { en: "Something went wrong while contacting the payment provider. Please try again.", ar: "حدث خطأ أثناء الاتصال بمزوّد الدفع. يرجى المحاولة مرة أخرى." },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
   "checkout.toast.networkTimeout": { en: "Couldn't reach the payment provider. Please check your connection and try again.", ar: "تعذّر الوصول إلى مزوّد الدفع. يرجى التحقق من اتصالك والمحاولة مرة أخرى." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via isColdCache check in Checkout.tsx catch block
+  "checkout.toast.catalogLoading": { en: "Our catalog is still loading — please wait a moment and try again.", ar: "جارٍ تحميل الكتالوج — يرجى الانتظار لحظة والمحاولة مجدداً." },
   "checkout.toast.storageError": { en: "Couldn't save your order details. Please disable private browsing or free up storage space and try again.", ar: "تعذّر حفظ تفاصيل طلبك. يرجى تعطيل التصفح الخاص أو تحرير مساحة التخزين والمحاولة مجدداً." },
   "checkout.useSavedAddress": { en: "Use a saved address", ar: "استخدم عنواناً محفوظاً" },
   "checkout.savedAddresses": { en: "Saved addresses", ar: "العناوين المحفوظة" },
@@ -255,6 +257,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.errorTitle": "Erreur de paiement",
   "checkout.toast.networkError": "Une erreur s'est produite lors de la connexion au prestataire de paiement. Veuillez réessayer.",
   "checkout.toast.networkTimeout": "Impossible de joindre le prestataire de paiement. Vérifiez votre connexion et réessayez.",
+  "checkout.toast.catalogLoading": "Notre catalogue est en cours de chargement — veuillez patienter un instant et réessayer.",
   "checkout.toast.storageError": "Impossible d'enregistrer vos informations de commande. Désactivez la navigation privée ou libérez de l'espace de stockage, puis réessayez.",
   "checkout.useSavedAddress": "Utiliser une adresse enregistrée",
   "checkout.savedAddresses": "Adresses enregistrées",

@@ -420,6 +420,8 @@ export type CreateWcOrderResponse =
   | {
       ok: true;
       wcOrderId: number | null;
+      /** Presentail OS order ID (UUID). Preferred reference for tracking and customer-facing displays. */
+      osOrderId?: string | null;
       orderKey?: string;
       /** Coupon discount in display currency (from WC discount_total). Zero when no coupon. */
       couponDiscount: number;

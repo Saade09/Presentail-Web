@@ -679,7 +679,13 @@ export async function attemptCreateOsOrder(
   // Guard: if the OS product cache is still cold and the order contains catalog
   // items, reject immediately rather than forwarding a raw WC numeric ID as the
   // OS productId (which causes OS to return HTTP 500).
-  if (catalogItemInputs.length > 0 && !hasOsProducts(opts.store?.storeKey)) {
+  // We widen the check: if the store-specific slot is empty but another store's
+  // cache is already populated, allow the request through — getOsProductByWcId
+  // searches all store caches and will find the product. Only reject with 503
+  // when no store has any products at all (truly cold start).
+  const storeHasProducts =
+    hasOsProducts(opts.store?.storeKey) || hasOsProducts();
+  if (catalogItemInputs.length > 0 && !storeHasProducts) {
     return {
       ok: false,
       status: 503,

@@ -59,6 +59,7 @@ type AnalyticsAction =
   | "FCP"
   | "network"
   | "provider"
+  | "catalog_cold"
   | "namePassword"
   | "otp";
 
