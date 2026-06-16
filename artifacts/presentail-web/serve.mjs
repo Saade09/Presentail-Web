@@ -313,6 +313,15 @@ if (process.env.DATABASE_URL) {
   console.log("Image dims L2 cache: DATABASE_URL not set, running L1-only");
 }
 
+/**
+ * Returns true for transactional pages that must never be cached.
+ * Matches both bare paths (/checkout) and locale-prefixed variants
+ * (e.g. /en-lb/beirut/checkout) produced by the locale-aware URL scheme.
+ */
+function isTransactionalPage(pathname) {
+  return /(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname);
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
@@ -777,7 +786,12 @@ const server = http.createServer(async (req, res) => {
           // `.replit.app` preview domains) so Lighthouse / Googlebot don't
           // see "noindex" on a production deployment.
           "x-robots-tag": "index, follow",
-          "cache-control": "no-cache",
+          // Transactional pages (checkout, cart, order-confirmed) must never
+          // be stored by any cache layer — use no-store. All other pages use
+          // no-cache (must revalidate, but may cache).
+          "cache-control": isTransactionalPage(pathname)
+            ? "no-store, no-cache, must-revalidate"
+            : "no-cache",
           "expires": "0",
           "vary": "Accept-Encoding",
         };
@@ -900,7 +914,9 @@ const server = http.createServer(async (req, res) => {
     const headers = {
       "content-type": MIME[".html"],
       "x-robots-tag": "index, follow",
-      "cache-control": "no-cache",
+      "cache-control": isTransactionalPage(pathname)
+        ? "no-store, no-cache, must-revalidate"
+        : "no-cache",
       "expires": "0",
       "vary": "Accept-Encoding",
     };

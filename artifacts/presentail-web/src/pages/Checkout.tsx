@@ -1228,12 +1228,7 @@ function CheckoutForm() {
     } catch (err) {
       const isNetworkFailure = err instanceof TypeError;
       const apiErr = err as { status?: number; message?: string } | null;
-      const isColdCache =
-        apiErr?.status === 503 ||
-        (apiErr?.status === 422 &&
-          typeof apiErr?.message === "string" &&
-          (apiErr.message.includes("Catalog price unavailable") ||
-            apiErr.message.includes("not found in catalog")));
+      const isColdCache = apiErr?.status === 503;
       const hasSpecificMessage =
         !isNetworkFailure &&
         !isColdCache &&

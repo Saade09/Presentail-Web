@@ -759,18 +759,14 @@ export async function attemptCreateOsOrder(
       }
     }
     if (!catalog) {
-      if (process.env.PRESENTAIL_OS_API_KEY || process.env.WC_CONSUMER_KEY) {
-        return {
-          ok: false,
-          status: 422,
-          message: `Catalog price unavailable for product ${item.osSlug ?? item.wcId}. Cannot create order with unverified pricing.`, // i18n-ignore
-          recipientName: recipientFullName,
-        };
-      }
-      // Dev mode: OS and WC not configured — use client price with a warning.
+      // Cache miss — never hard-block the order. For payment-verified orders
+      // (Stripe/Mamo/PayPal) preVerifiedItems already supplied the price above,
+      // so reaching here means this is an offline payment (Whish/Western Union)
+      // with a transiently-cold cache. Use the client-supplied price with a WARN
+      // so the order goes through and ops can review if needed.
       logger.warn(
-        { wcId: item.wcId, osSlug: item.osSlug, appOrderId: body.orderId },
-        "osOrders: catalog not configured, using client price (dev mode only)",
+        { wcId: item.wcId, osSlug: item.osSlug, appOrderId: body.orderId, clientPrice: item.price },
+        "osOrders: catalog cache miss — using client-supplied price as fallback",
       );
       lineItemData.push({
         wcId: item.wcId,
