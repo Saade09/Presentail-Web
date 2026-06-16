@@ -729,7 +729,7 @@ function AddAddressModal({
             </Label>
             <Select value={form.area} onValueChange={(v) => set("area", v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Select area / district" />
+                <SelectValue placeholder={t("account.addresses.selectArea")} />
               </SelectTrigger>
               <SelectContent>
                 {availableCities.map((city) => (
