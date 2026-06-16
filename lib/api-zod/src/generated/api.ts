@@ -1919,6 +1919,24 @@ export const CreateCheckoutPaymentIntentBody = zod.object({
     .string()
     .optional()
     .describe("Shopper email for Stripe receipt. Optional."),
+  district: zod
+    .string()
+    .optional()
+    .describe(
+      "Delivery district name. Used to compute the server-side delivery fee included in the charge.",
+    ),
+  expressDelivery: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether express delivery is selected. Adds the express surcharge to the charged amount.",
+    ),
+  noAddress: zod
+    .boolean()
+    .optional()
+    .describe(
+      'True when the shopper chose \"no address\" (gift-box collection). Affects delivery fee computation.',
+    ),
   metadata: zod
     .record(zod.string(), zod.string())
     .optional()

@@ -1343,6 +1343,15 @@ components:
         email:
           type: string
           description: Shopper email for Stripe receipt. Optional.
+        district:
+          type: string
+          description: Delivery district name. Used to compute the server-side delivery fee included in the charge.
+        expressDelivery:
+          type: boolean
+          description: Whether express delivery is selected. Adds the express surcharge to the charged amount.
+        noAddress:
+          type: boolean
+          description: True when the shopper chose "no address" (gift-box collection). Affects delivery fee computation.
         metadata:
           type: object
           additionalProperties:

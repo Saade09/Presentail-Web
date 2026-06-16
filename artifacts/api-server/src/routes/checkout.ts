@@ -5,7 +5,12 @@ import {
   normalizeCurrency,
   toStripeMinorUnits,
 } from "../lib/fx";
-import { resolveCartItems } from "../lib/catalog";
+import {
+  resolveCartItems,
+  computeDistrictFeeUsd,
+  expressSurchargeUsd,
+  countryForDistrict,
+} from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 
@@ -157,6 +162,9 @@ type PaymentIntentBody = {
   orderId: string;
   currency?: string;
   email?: string;
+  district?: string;
+  expressDelivery?: boolean;
+  noAddress?: boolean;
   metadata?: Record<string, string>;
 };
 
@@ -171,7 +179,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
-  const { items, orderId, currency: rawCurrency, email, metadata } =
+  const { items, orderId, currency: rawCurrency, email, metadata, district, expressDelivery, noAddress } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -193,21 +201,39 @@ router.post("/checkout/payment-intent", async (req, res) => {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
+  // Compute server-side delivery fee so the charged amount matches the order total.
+  const resolvedDistrict = district ?? "Beirut";
+  const isExpress = expressDelivery === true;
+  const isNoAddress = noAddress === true;
+  const subtotalUsd = catalogResult.subtotalUsd;
+  const districtCountry = countryForDistrict(resolvedDistrict);
+  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
+  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
+  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+
   const currency = normalizeCurrency(rawCurrency ?? "USD");
   const stripeCurrency = currency.toLowerCase();
 
   try {
-    const convertedItems = await Promise.all(
+    const convertedSubtotal = await Promise.all(
       catalogResult.items.map(async (i) => {
         const convertedUnit = await convertFromUsd(i.priceUsd, currency);
         return { ...i, minorUnit: toStripeMinorUnits(convertedUnit, currency) };
       }),
     );
 
-    const totalMinorUnits = convertedItems.reduce(
+    const subtotalMinorUnits = convertedSubtotal.reduce(
       (sum, i) => sum + i.minorUnit * i.quantity,
       0,
     );
+
+    // Include delivery fee in the charged amount.
+    const deliveryFeeUsd = districtFeeUsd + expressFeeUsd;
+    const deliveryFeeMinorUnits = deliveryFeeUsd > 0
+      ? toStripeMinorUnits(await convertFromUsd(deliveryFeeUsd, currency), currency)
+      : 0;
+
+    const totalMinorUnits = subtotalMinorUnits + deliveryFeeMinorUnits;
 
     const stripe = new Stripe(key);
     const paymentIntent = await stripe.paymentIntents.create({
@@ -221,7 +247,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       orderId,
       paymentRef: paymentIntent.id,
       provider: "stripe",
-      totalUsd: catalogResult.subtotalUsd,
+      totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
@@ -229,8 +255,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
-        district: "",
-        expressDelivery: false,
+        district: resolvedDistrict,
+        expressDelivery: isExpress,
+        noAddress: isNoAddress,
       },
     });
 

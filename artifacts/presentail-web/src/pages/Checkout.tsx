@@ -965,6 +965,9 @@ function CheckoutForm() {
                   orderId,
                   currency: "USD",
                   email: sender.email || undefined,
+                  district: recipient.district,
+                  expressDelivery: deliveryMode === "express",
+                  noAddress,
                 },
               });
 
@@ -1014,23 +1017,14 @@ function CheckoutForm() {
 
               ev.complete("success");
               void maybeSaveNewAddress();
+              void maybeSaveProfilePhone();
               const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
-              const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
-              if (res.ok) {
-                if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
-                clearCart();
-                try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
-                void maybeSaveProfilePhone();
-                trackEvent({ name: "order_placed", surface: "checkout", action: paymentMethod });
-                setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
-              } else if (res.code === "coupon_invalid") {
-                setCouponError(res.message || t("checkout.coupon.invalidError"));
-                setCouponApplied(false);
-                setCouponOpen(true);
-                setTimeout(() => couponInputRef.current?.focus(), 80);
-              } else {
-                toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
-              }
+              try {
+                sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({ payload, createdAt: Date.now() }));
+              } catch { /* best-effort: sessionStorage full */ }
+              clearCart();
+              try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+              setLocation(`/order-confirmed?status=success`);
             } catch {
               ev.complete("fail");
             } finally {
@@ -1065,6 +1059,9 @@ function CheckoutForm() {
             orderId,
             currency: "USD",
             email: sender.email || undefined,
+            district: recipient.district,
+            expressDelivery: deliveryMode === "express",
+            noAddress,
           },
         });
 
@@ -1140,27 +1137,18 @@ function CheckoutForm() {
           return;
         }
 
-        // Step 3: Finalize the WC order with the PaymentIntent ID as the
-        // paymentRef. The server verifies the PI was paid before marking
-        // the order as paid — mirrors the hosted-session flow.
+        // Payment confirmed — stash the order and navigate to the confirmation
+        // page immediately. OrderConfirmed finalizes the order against the server
+        // so the user is never stranded on checkout after a successful Stripe charge.
         void maybeSaveNewAddress();
+        void maybeSaveProfilePhone();
         const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
-        const res = (await createOrder.mutateAsync(payload)) as CreateOrderResponse;
-        if (res.ok) {
-          if (res.couponDiscount > 0) setConfirmedCouponDiscount(res.couponDiscount);
-          clearCart();
-          try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
-          void maybeSaveProfilePhone();
-          trackEvent({ name: "order_placed", surface: "checkout", action: "card" });
-          setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
-        } else if (res.code === "coupon_invalid") {
-          setCouponError(res.message || t("checkout.coupon.invalidError"));
-          setCouponApplied(false);
-          setCouponOpen(true);
-          setTimeout(() => couponInputRef.current?.focus(), 80);
-        } else {
-          toast({ title: t("checkout.toast.failTitle"), description: res.message || t("checkout.toast.failGeneric"), variant: "destructive" });
-        }
+        try {
+          sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({ payload, createdAt: Date.now() }));
+        } catch { /* best-effort: sessionStorage full */ }
+        clearCart();
+        try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+        setLocation(`/order-confirmed?status=success`);
         return;
       }
 
