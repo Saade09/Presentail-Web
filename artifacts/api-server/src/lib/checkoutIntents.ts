@@ -23,7 +23,7 @@ export type CartSnapshot = {
   // Resolved catalog items: wcId, quantity, and the catalog price at session-
   // creation time. The WC order route verifies the submitted cart's wcId+quantity
   // pairs match this snapshot exactly.
-  items: { wcId: number; quantity: number; priceUsd: number }[];
+  items: { wcId: number; osSlug?: string; quantity: number; priceUsd: number }[];
   // Delivery context — only meaningful for Mamo/PayPal which include the
   // delivery fee in the charged total. Stripe sessions only cover product
   // subtotals; district/expressDelivery are still stored for audit purposes.
@@ -127,8 +127,8 @@ export type SnapshotVerifyOptions = {
 // gap: a client cannot pay for a cheap cart and then submit an expensive one.
 //
 // Comparison rules (always):
-//   - Same set of wcIds (order-independent)
-//   - Same quantity for each wcId
+//   - Same set of products (keyed by wcId when > 0, otherwise by osSlug)
+//   - Same quantity for each product
 //
 // Additional rules when checkDelivery is true:
 //   - Same district (delivery zone)
@@ -136,30 +136,35 @@ export type SnapshotVerifyOptions = {
 //
 // Returns null on success, or a human-readable rejection reason on mismatch.
 export function verifyCartMatchesSnapshot(
-  submittedItems: { wcId?: number; quantity: number }[],
+  submittedItems: { wcId?: number; osSlug?: string; quantity: number }[],
   snapshot: CartSnapshot,
   opts: SnapshotVerifyOptions = {},
 ): string | null {
+  // Catalog items: those with wcId > 0 OR an osSlug (OS-native products).
   const submitted = submittedItems
-    .filter((i) => !!i.wcId)
-    .map((i) => ({ wcId: i.wcId!, quantity: i.quantity }));
+    .filter((i) => (i.wcId != null && i.wcId > 0) || !!i.osSlug)
+    .map((i) => ({
+      key: i.wcId != null && i.wcId > 0 ? String(i.wcId) : i.osSlug!,
+      quantity: i.quantity,
+    }));
 
   if (submitted.length !== snapshot.items.length) {
     return `Cart item count mismatch: submitted ${submitted.length}, paid for ${snapshot.items.length}`; // i18n-ignore
   }
 
-  const snapshotMap = new Map<number, number>();
+  const snapshotMap = new Map<string, number>();
   for (const si of snapshot.items) {
-    snapshotMap.set(si.wcId, si.quantity);
+    const key = si.wcId > 0 ? String(si.wcId) : (si.osSlug ?? String(si.wcId));
+    snapshotMap.set(key, si.quantity);
   }
 
   for (const item of submitted) {
-    const expected = snapshotMap.get(item.wcId);
+    const expected = snapshotMap.get(item.key);
     if (expected === undefined) {
-      return `Product ${item.wcId} was not part of the paid-for cart`; // i18n-ignore
+      return `Product ${item.key} was not part of the paid-for cart`; // i18n-ignore
     }
     if (item.quantity !== expected) {
-      return `Quantity mismatch for product ${item.wcId}: submitted ${item.quantity}, paid for ${expected}`; // i18n-ignore
+      return `Quantity mismatch for product ${item.key}: submitted ${item.quantity}, paid for ${expected}`; // i18n-ignore
     }
   }
 

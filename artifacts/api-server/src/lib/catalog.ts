@@ -2,7 +2,7 @@
 // The client is never trusted as the source of truth for prices or fees.
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
-import { getOsProductByWcId, hasOsProducts } from "./osProductsCache";
+import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 import {
   getOsCountryFreeDeliveryThresholdUsd,
   getOsCountryFreeDeliveryEnabled,
@@ -168,6 +168,7 @@ export async function fetchWcProductPrice(wcId: number, store?: WooStoreConfig):
 
 export type ResolvedCartItem = {
   wcId: number;
+  osSlug?: string;
   name: string;
   priceUsd: number;
   quantity: number;
@@ -176,12 +177,12 @@ export type ResolvedCartItem = {
 };
 
 // Resolve catalog prices for a list of cart items.
-// Each item must have a wcId so the server can verify its price.
+// Each item must have a wcId > 0 OR an osSlug so the server can verify its price.
 // Enforces positive integer quantities — fractional or zero quantities would
 // silently distort the computed total.
-// Returns an error if any wcId cannot be found in the WC catalog.
+// Returns an error if any item cannot be found in the catalog.
 export async function resolveCartItems(
-  items: { wcId: number; quantity: number; name?: string; description?: string; image?: string }[],
+  items: { wcId: number; osSlug?: string; quantity: number; name?: string; description?: string; image?: string }[],
   store?: WooStoreConfig,
 ): Promise<{ ok: true; items: ResolvedCartItem[]; subtotalUsd: number } | { ok: false; message: string }> {
   const s = store ?? resolveStore();
@@ -196,18 +197,36 @@ export async function resolveCartItems(
     if (!Number.isInteger(item.quantity) || item.quantity < 1) {
       return {
         ok: false,
-        message: `Invalid quantity for product ${item.wcId}: must be a positive integer (got ${item.quantity})`, // i18n-ignore
+        message: `Invalid quantity for product ${item.osSlug ?? item.wcId}: must be a positive integer (got ${item.quantity})`, // i18n-ignore
       };
     }
   }
   const resolved: ResolvedCartItem[] = [];
   for (const item of items) {
-    const catalog = await fetchWcProductPrice(item.wcId, s);
+    let catalog: { price: number; name: string } | null = null;
+    let resolvedSlug: string | undefined = item.osSlug;
+    if (item.wcId > 0) {
+      // Standard: look up by WooCommerce ID (also checks OS cache by wcId index).
+      catalog = await fetchWcProductPrice(item.wcId, s);
+      if (!resolvedSlug) {
+        // Derive slug from the OS product entry when not provided by the client.
+        const osProduct = getOsProductByWcId(item.wcId, s.storeKey);
+        resolvedSlug = osProduct?.id;
+      }
+    } else if (item.osSlug) {
+      // OS-native product (wcId === 0): look up directly by slug in the OS cache.
+      const osProduct = getOsProductBySlug(item.osSlug, s.storeKey);
+      if (osProduct && osProduct.price > 0) {
+        catalog = { price: osProduct.price, name: osProduct.name };
+        resolvedSlug = osProduct.id;
+      }
+    }
     if (!catalog) {
-      return { ok: false, message: `Product ${item.wcId} not found in catalog` }; // i18n-ignore
+      return { ok: false, message: `Product ${item.osSlug ?? item.wcId} not found in catalog` }; // i18n-ignore
     }
     resolved.push({
       wcId: item.wcId,
+      osSlug: resolvedSlug,
       name: item.name ?? catalog.name,
       priceUsd: catalog.price,
       quantity: item.quantity,

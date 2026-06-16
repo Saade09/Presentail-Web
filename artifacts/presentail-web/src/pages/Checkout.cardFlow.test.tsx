@@ -388,7 +388,7 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
       expect(mockCreatePaymentIntentMutate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            items: [{ wcId: 99, quantity: 1 }],
+            items: [{ wcId: 99, osSlug: "p1", quantity: 1 }],
             currency: "USD",
           }),
         }),

@@ -13,6 +13,8 @@ const router: IRouter = Router();
 
 type LineItemInput = {
   wcId: number;
+  // OS product slug — used when wcId is 0 (OS-native products not mirrored in WC).
+  osSlug?: string;
   quantity: number;
   // Display-only fields forwarded to Stripe; prices are never read from here.
   name?: string;
@@ -57,10 +59,10 @@ router.post("/checkout/session", async (req, res) => {
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "No items in cart" }); // i18n-ignore
   }
-  if (items.some((i) => !i.wcId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
+  if (items.some((i) => (!i.wcId && !i.osSlug) || !Number.isInteger(i.quantity) || i.quantity < 1)) {
     return res.status(400).json({
       ok: false,
-      message: "Each item must have a valid wcId and a positive integer quantity", // i18n-ignore
+      message: "Each item must have a valid product identifier and a positive integer quantity", // i18n-ignore
     });
   }
   if (!successUrl || !cancelUrl) {
@@ -125,6 +127,7 @@ router.post("/checkout/session", async (req, res) => {
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
+          osSlug: i.osSlug,
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
@@ -150,7 +153,7 @@ router.post("/checkout/session", async (req, res) => {
 });
 
 type PaymentIntentBody = {
-  items: { wcId: number; quantity: number }[];
+  items: { wcId: number; osSlug?: string; quantity: number }[];
   orderId: string;
   currency?: string;
   email?: string;
@@ -177,10 +180,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: "No items in cart" }); // i18n-ignore
   }
-  if (items.some((i) => !i.wcId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
+  if (items.some((i) => (!i.wcId && !i.osSlug) || !Number.isInteger(i.quantity) || i.quantity < 1)) {
     return res.status(400).json({
       ok: false,
-      message: "Each item must have a valid wcId and a positive integer quantity", // i18n-ignore
+      message: "Each item must have a valid product identifier and a positive integer quantity", // i18n-ignore
     });
   }
 
@@ -222,6 +225,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       snapshot: {
         items: catalogResult.items.map((i) => ({
           wcId: i.wcId,
+          osSlug: i.osSlug,
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),

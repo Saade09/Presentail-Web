@@ -1878,6 +1878,7 @@ submitting the WooCommerce order after payment is confirmed.
 
  * @summary Create a Stripe PaymentIntent for inline card payment
  */
+export const createCheckoutPaymentIntentBodyItemsItemWcIdMin = 0;
 
 export const CreateCheckoutPaymentIntentBody = zod.object({
   items: zod
@@ -1885,8 +1886,16 @@ export const CreateCheckoutPaymentIntentBody = zod.object({
       zod.object({
         wcId: zod
           .number()
+          .min(createCheckoutPaymentIntentBodyItemsItemWcIdMin)
+          .optional()
           .describe(
-            "WooCommerce product ID. The server resolves the price from the catalog.",
+            "WooCommerce product ID. Use 0 for OS-native products not mirrored in WooCommerce; supply osSlug in that case.",
+          ),
+        osSlug: zod
+          .string()
+          .optional()
+          .describe(
+            "Presentail OS product slug. Required when wcId is 0 (OS-native product). The server resolves the price from the OS cache by slug.",
           ),
         quantity: zod.number().min(1),
       }),

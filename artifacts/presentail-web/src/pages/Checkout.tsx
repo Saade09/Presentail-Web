@@ -795,6 +795,7 @@ function CheckoutForm() {
       quantity: i.quantity,
       price: i.product.priceValue,
       wcId: i.product.wcId,
+      osSlug: i.product.id,
     })),
     billing: {
       firstName: sender.firstName,
@@ -960,7 +961,7 @@ function CheckoutForm() {
             try {
               const intentRes = await createPaymentIntent.mutateAsync({
                 data: {
-                  items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+                  items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
                   orderId,
                   currency: "USD",
                   email: sender.email || undefined,
@@ -1060,7 +1061,7 @@ function CheckoutForm() {
         // the Presentail OS catalog — client-supplied amounts are never used).
         const intentRes = await createPaymentIntent.mutateAsync({
           data: {
-            items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+            items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
             orderId,
             currency: "USD",
             email: sender.email || undefined,
@@ -1165,7 +1166,7 @@ function CheckoutForm() {
 
       if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
-          items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
           district: recipient.district,
           expressDelivery: deliveryMode === "express",
           noAddress,
@@ -1207,7 +1208,7 @@ function CheckoutForm() {
           ? "mamo"
           : payMethod;
         const res = await mamoPayment.mutateAsync({
-          items: items.map((i) => ({ wcId: i.product.wcId, quantity: i.quantity })),
+          items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
           orderId,
           district: recipient.district,
           expressDelivery: deliveryMode === "express",

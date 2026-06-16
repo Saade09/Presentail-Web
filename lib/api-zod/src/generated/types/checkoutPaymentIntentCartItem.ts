@@ -7,8 +7,13 @@
  */
 
 export interface CheckoutPaymentIntentCartItem {
-  /** WooCommerce product ID. The server resolves the price from the catalog. */
-  wcId: number;
+  /**
+   * WooCommerce product ID. Use 0 for OS-native products not mirrored in WooCommerce; supply osSlug in that case.
+   * @minimum 0
+   */
+  wcId?: number;
+  /** Presentail OS product slug. Required when wcId is 0 (OS-native product). The server resolves the price from the OS cache by slug. */
+  osSlug?: string;
   /** @minimum 1 */
   quantity: number;
 }

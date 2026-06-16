@@ -24,7 +24,7 @@ import {
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 import { getDeliverySlots, resolveOsDeliveryConfig } from "./osLocationsCache";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
-import { getOsProductByWcId, hasOsProducts } from "./osProductsCache";
+import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -58,7 +58,9 @@ export const WooOrderSchema = z.object({
         // For catalog items (wcId present), the server re-derives the price
         // from the WooCommerce catalog and ignores the client-supplied value.
         price: z.number().nonnegative(),
-        wcId: z.number().int().positive().optional(),
+        wcId: z.number().int().nonnegative().optional(),
+        // OS product slug — used when wcId is 0 (OS-native products not mirrored in WC).
+        osSlug: z.string().optional(),
       }),
     )
     .min(1),
@@ -670,11 +672,14 @@ export async function attemptCreateOsOrder(
 
   const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
 
-  // Resolve catalog prices from the OS product cache (by wcId).
+  // Resolve catalog prices from the OS product cache (by wcId or osSlug).
   // If OS cache is not populated, fall back to WooCommerce (startup window).
   // Client-supplied prices are never used for financial calculations.
-  const catalogItemInputs = body.items.filter((item) => !!item.wcId);
-  const nonCatalogFeeItems = body.items.filter((item) => !item.wcId);
+  // OS-native products (wcId === 0) are identified by their osSlug.
+  const isCatalogItem = (item: { wcId?: number; osSlug?: string }) =>
+    (item.wcId != null && item.wcId > 0) || !!item.osSlug;
+  const catalogItemInputs = body.items.filter(isCatalogItem);
+  const nonCatalogFeeItems = body.items.filter((item) => !isCatalogItem(item));
 
   // Guard: if the OS product cache is still cold and the order contains catalog
   // items, reject immediately rather than forwarding a raw WC numeric ID as the
@@ -702,24 +707,38 @@ export async function attemptCreateOsOrder(
   const lineItemData: { wcId: number | undefined; osProductId: string; name: string; quantity: number; priceUsd: number }[] = [];
 
   for (const item of catalogItemInputs) {
-    const catalog = await fetchWcProductPrice(item.wcId!, opts.store);
+    // Look up price: by wcId when > 0, by osSlug for OS-native products (wcId === 0).
+    let catalog: { price: number; name: string } | null = null;
+    let resolvedOsId: string | null = null;
+    if (item.wcId != null && item.wcId > 0) {
+      catalog = await fetchWcProductPrice(item.wcId, opts.store);
+      const osProduct = getOsProductByWcId(item.wcId, opts.store?.storeKey);
+      resolvedOsId = osProduct?.id ?? null;
+    } else if (item.osSlug) {
+      // OS-native product (wcId === 0): resolve price directly from OS cache by slug.
+      const osProduct = getOsProductBySlug(item.osSlug, opts.store?.storeKey);
+      if (osProduct && osProduct.price > 0) {
+        catalog = { price: osProduct.price, name: osProduct.name };
+        resolvedOsId = osProduct.id;
+      }
+    }
     if (!catalog) {
       if (process.env.PRESENTAIL_OS_API_KEY || process.env.WC_CONSUMER_KEY) {
         return {
           ok: false,
           status: 422,
-          message: `Catalog price unavailable for product ${item.wcId}. Cannot create order with unverified pricing.`, // i18n-ignore
+          message: `Catalog price unavailable for product ${item.osSlug ?? item.wcId}. Cannot create order with unverified pricing.`, // i18n-ignore
           recipientName: recipientFullName,
         };
       }
       // Dev mode: OS and WC not configured — use client price with a warning.
       logger.warn(
-        { wcId: item.wcId, appOrderId: body.orderId },
+        { wcId: item.wcId, osSlug: item.osSlug, appOrderId: body.orderId },
         "osOrders: catalog not configured, using client price (dev mode only)",
       );
       lineItemData.push({
         wcId: item.wcId,
-        osProductId: String(item.wcId),
+        osProductId: item.osSlug ?? String(item.wcId),
         name: item.name,
         quantity: item.quantity,
         priceUsd: item.price,
@@ -727,9 +746,8 @@ export async function attemptCreateOsOrder(
       catalogSubtotalUsd += item.price * item.quantity;
       continue;
     }
-    // Resolve the OS product id (slug) from the wcId for the OS payload.
-    const osProduct = item.wcId ? getOsProductByWcId(item.wcId) : null;
-    const osProductId = osProduct?.id ?? String(item.wcId ?? item.name);
+    // Resolve the OS product id (slug): prefer the cache-resolved id, fall back to client-supplied osSlug.
+    const osProductId = resolvedOsId ?? item.osSlug ?? String(item.wcId ?? item.name);
     lineItemData.push({
       wcId: item.wcId,
       osProductId,

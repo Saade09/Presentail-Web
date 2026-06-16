@@ -1315,12 +1315,15 @@ components:
       properties:
         wcId:
           type: integer
-          description: WooCommerce product ID. The server resolves the price from the catalog.
+          minimum: 0
+          description: WooCommerce product ID. Use 0 for OS-native products not mirrored in WooCommerce; supply osSlug in that case.
+        osSlug:
+          type: string
+          description: Presentail OS product slug. Required when wcId is 0 (OS-native product). The server resolves the price from the OS cache by slug.
         quantity:
           type: integer
           minimum: 1
       required:
-        - wcId
         - quantity
     CheckoutPaymentIntentRequest:
       type: object
