@@ -229,7 +229,7 @@
   /* light grey */
   --muted: 220 13% 95%;
   /* slate */
-  --muted-foreground: 213 8% 45%;
+  --muted-foreground: 213 8% 40%;
 
   /* light grey — replaces mint so language-picker hover is neutral */
   --accent: 220 13% 88%;
