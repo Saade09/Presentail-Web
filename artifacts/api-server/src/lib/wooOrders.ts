@@ -914,11 +914,11 @@ export async function attemptCreateOsOrder(
     couponCode: body.couponCode || undefined,
   };
 
-  // Log the item productIds being sent to OS so we can confirm numeric IDs are used.
+  // Log the FULL payload sent to OS so we can diagnose rejection errors.
   logger.info(
     {
       appOrderId: body.orderId,
-      osItems: osPayload.items.map((i) => ({ productId: i.productId, productName: i.productName, qty: i.quantity })),
+      osPayload,
     },
     "woo.order: submitting OS order",
   );
