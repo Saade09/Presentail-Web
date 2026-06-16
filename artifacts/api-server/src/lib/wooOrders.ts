@@ -748,7 +748,11 @@ export async function attemptCreateOsOrder(
       resolvedOsId = osProduct?.id ?? null;
     } else if (item.osSlug) {
       // OS-native product (wcId === 0): resolve price directly from OS cache by slug.
-      const osProduct = getOsProductBySlug(item.osSlug, opts.store?.storeKey);
+      // Fall back to any-store lookup when the store-specific cache is cold so
+      // Whish/Western-Union orders succeed even during transient cache population.
+      const osProduct =
+        getOsProductBySlug(item.osSlug, opts.store?.storeKey) ??
+        getOsProductBySlug(item.osSlug);
       if (osProduct && osProduct.price > 0) {
         catalog = { price: osProduct.price, name: osProduct.name };
         resolvedOsId = osProduct.id;

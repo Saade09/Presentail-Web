@@ -215,7 +215,11 @@ export async function resolveCartItems(
       }
     } else if (item.osSlug) {
       // OS-native product (wcId === 0): look up directly by slug in the OS cache.
-      const osProduct = getOsProductBySlug(item.osSlug, s.storeKey);
+      // Fall back to any-store lookup when the store-specific cache is cold so
+      // Whish/offline orders succeed even during transient cache population.
+      const osProduct =
+        getOsProductBySlug(item.osSlug, s.storeKey) ??
+        getOsProductBySlug(item.osSlug);
       if (osProduct && osProduct.price > 0) {
         catalog = { price: osProduct.price, name: osProduct.name };
         resolvedSlug = osProduct.id;
