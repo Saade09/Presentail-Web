@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRouter } from "wouter";
+import { loadAuthScripts } from "@/lib/authScripts";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,6 +144,7 @@ export default function SignInPage() {
       });
       return;
     }
+    await loadAuthScripts();
     if (!window.google?.accounts?.oauth2) {
       toast({
         title: t("auth.toast.error"),
@@ -210,6 +212,7 @@ export default function SignInPage() {
       });
       return;
     }
+    await loadAuthScripts();
     if (!window.AppleID?.auth) {
       toast({
         title: t("auth.toast.error"),
@@ -255,6 +258,12 @@ export default function SignInPage() {
       setOauthBusy(null);
     }
   };
+
+  // Pre-fetch Google GSI and Apple auth scripts on mount so they are ready
+  // when the user clicks a social button. loadAuthScripts() is idempotent.
+  useEffect(() => {
+    void loadAuthScripts();
+  }, []);
 
   // Auto-trigger OAuth when navigated here from CheckoutLoginDialog with ?strategy=
   useEffect(() => {

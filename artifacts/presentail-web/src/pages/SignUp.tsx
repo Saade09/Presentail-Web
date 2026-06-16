@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { loadAuthScripts } from "@/lib/authScripts";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,12 @@ export default function SignUpPage() {
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const { login } = useAuth();
+
+  // Pre-fetch Google GSI and Apple auth scripts on mount so they are ready
+  // if the user navigates back to sign-in. loadAuthScripts() is idempotent.
+  useEffect(() => {
+    void loadAuthScripts();
+  }, []);
 
   const initial = useMemo(() => {
     if (typeof window === "undefined") return { email: "", redirectTo: "" };

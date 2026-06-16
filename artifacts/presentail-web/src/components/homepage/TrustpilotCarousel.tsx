@@ -8,6 +8,21 @@ declare global {
   }
 }
 
+const TRUSTPILOT_SCRIPT_SRC =
+  "//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js";
+
+function injectTrustpilotScript(onLoad: () => void) {
+  if (document.querySelector(`script[src="${TRUSTPILOT_SCRIPT_SRC}"]`)) {
+    onLoad();
+    return;
+  }
+  const script = document.createElement("script");
+  script.src = TRUSTPILOT_SCRIPT_SRC;
+  script.async = true;
+  script.onload = onLoad;
+  document.head.appendChild(script);
+}
+
 export function TrustpilotCarousel() {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,11 +51,11 @@ export function TrustpilotCarousel() {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             observer.disconnect();
-            tryLoad();
+            injectTrustpilotScript(tryLoad);
           }
         }
       },
-      { threshold: 0.1 },
+      { rootMargin: "200px", threshold: 0.1 },
     );
 
     observer.observe(el);
