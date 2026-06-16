@@ -447,6 +447,76 @@ function injectFontPreloads(html) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared-chunk modulepreload hints — read the Vite manifest at startup and
+// build <link rel="modulepreload"> tags for every non-page shared chunk.
+//
+// WHY: After a lazy page chunk (Home, Shop, etc.) loads, the browser discovers
+// its static imports (dialog, input, app-shared, …) only at parse time and
+// must make a 3rd-waterfall round-trip to fetch them.  Preloading them from
+// the initial HTML response means they are already in the browser cache when
+// any lazy chunk needs them, collapsing the 3-level chain to 2.
+//
+// What IS included: every JS chunk in the manifest that is NOT the main entry
+// and NOT a lazy page-level chunk (identified by its source path basename).
+//
+// What IS NOT included: vendor chunks already covered by Vite's own
+// modulePreload injection into the built index.html; but re-listing them in
+// the HTTP response is harmless — the browser de-dupes link hints.
+//
+// Non-fatal: if the manifest is missing at startup (dev mode, or build hasn't
+// run) the server skips injection silently and logs a single WARN.
+// ---------------------------------------------------------------------------
+const PAGE_BASENAMES = new Set([
+  "Home", "Shop", "ProductDetail", "Cart", "Checkout",
+  "SignIn", "SignUp", "Account", "Brands", "BrandDetail",
+  "AllOccasions", "Landing", "OrderConfirmed", "Blog", "BlogPost",
+  "Partner", "Weddings", "Corporate", "Contact", "Faqs", "Terms",
+  "Privacy", "SharedFavorites", "Unauthorized", "ResetPassword",
+  "PersonalInformation", "DeleteAccountDialog", "Favorites",
+  "Careers", "not-found",
+]);
+
+let modulePreloadTagsHtml = "";
+{
+  const manifestPath = path.join(DIST, ".vite", "manifest.json");
+  try {
+    const raw = fs.readFileSync(manifestPath, "utf8");
+    const manifest = JSON.parse(raw);
+    const links = [];
+    for (const entry of Object.values(manifest)) {
+      if (typeof entry.file !== "string" || !entry.file.endsWith(".js")) continue;
+      if (entry.isEntry) continue;
+      if (entry.src) {
+        const srcBase = path.basename(entry.src, path.extname(entry.src));
+        if (PAGE_BASENAMES.has(srcBase)) continue;
+      }
+      const href = `${BASE_PATH}/${entry.file}`.replace(/\/+/g, "/");
+      links.push(`<link rel="modulepreload" crossorigin href="${href}">`);
+    }
+    modulePreloadTagsHtml = links.join("\n    ");
+    if (links.length > 0) {
+      console.log(`Module preloads: ${links.length} shared chunk(s) registered from Vite manifest`);
+    } else {
+      console.warn("WARN: Module preloads: no shared chunks found in Vite manifest — waterfall fix inactive");
+    }
+  } catch (err) {
+    console.warn(`WARN: Module preloads: could not read dist/.vite/manifest.json — ${err.message}`);
+  }
+}
+
+/**
+ * Inject modulepreload <link> tags for shared chunks immediately before </head>.
+ * No-op when modulePreloadTagsHtml is empty (manifest missing or build not run).
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function injectModulePreloads(html) {
+  if (!modulePreloadTagsHtml) return html;
+  return html.replace("</head>", `    ${modulePreloadTagsHtml}\n  </head>`);
+}
+
+// ---------------------------------------------------------------------------
 // Check site.webmanifest — present in every Vite build; its absence suggests
 // a partial build, but the app can still serve correctly without it (browsers
 // requesting it will get a 404, which does not block core shopping flows).
@@ -777,7 +847,7 @@ const server = http.createServer(async (req, res) => {
           search: url.search,
           acceptLanguage: req.headers["accept-language"],
         });
-        const out = injectFontPreloads(seoOut);
+        const out = injectModulePreloads(injectFontPreloads(seoOut));
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
         const headers = {
@@ -908,7 +978,7 @@ const server = http.createServer(async (req, res) => {
       search: url.search,
       acceptLanguage: req.headers["accept-language"],
     });
-    const out = injectFontPreloads(seoOut);
+    const out = injectModulePreloads(injectFontPreloads(seoOut));
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
     const headers = {

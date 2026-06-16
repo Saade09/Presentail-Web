@@ -132,6 +132,19 @@ export default defineConfig(async ({ command }) => {
             )
               return "vendor-embla";
             if (id.includes("node_modules/")) return "vendor";
+
+            // Collapse small app-level shared components into a single chunk so
+            // they are fetched in one request instead of 10+ tiny parallel ones.
+            // This eliminates the 3rd-waterfall level Lighthouse flags as a
+            // ~4 s delay: lazy page chunk loads → discovers shared deps → 3rd fetch.
+            const APP_SHARED_BASENAMES = new Set([
+              "PageBreadcrumb", "ProductCard", "dialog", "input", "label",
+              "select", "textarea", "useNow", "LoyaltyTiersInfo", "LegalPage",
+              "ScheduleInlinePanel", "DeleteAccountDialog",
+            ]);
+            if (id.includes("/src/components/ui/")) return "app-shared";
+            const base = path.basename(id, path.extname(id));
+            if (APP_SHARED_BASENAMES.has(base)) return "app-shared";
           },
         },
       },
