@@ -7,3 +7,4 @@
 - [OS brand image auth](os-brand-images.md) — OS image_url is a SPA route, not a file; real files need Clerk JWT; API key won't work; fix must come from OS team
 - [WC auth migration Phase 4](wc-auth-migration.md) — WC_AUTH_ENABLED flag pattern, JWT localCustomerId claim, per-route behaviour, import prereqs before disabling
 - [OS-native product checkout (wcId=0)](os-native-checkout.md) — OS-native products have wcId=0; all checkout layers must accept wcId=0+osSlug as a valid catalog item; see key files touched
+- [hasOsProducts cold-cache order failures](os-cache-order-guard.md) — hasOsProducts() can return false transiently even when cache is populated; bypass with preVerifiedItems+relaxed guard

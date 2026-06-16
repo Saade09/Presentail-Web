@@ -20,11 +20,13 @@ export interface CheckoutPaymentIntentRequest {
   currency?: string;
   /** Shopper email for Stripe receipt. Optional. */
   email?: string;
-  /** Delivery district name. Used to compute the server-side delivery fee included in the charge. */
+  /** Client-computed delivery fee in USD (district fee + express surcharge + slot fee). The server adds this to the product subtotal and charges the combined total. Must be >= 0. */
+  deliveryFeeUsd?: number;
+  /** Delivery district name. Stored in the payment intent snapshot for audit; delivery fee is taken from deliveryFeeUsd. */
   district?: string;
-  /** Whether express delivery is selected. Adds the express surcharge to the charged amount. */
+  /** Whether express delivery is selected. Stored in the snapshot for audit; surcharge is included in deliveryFeeUsd. */
   expressDelivery?: boolean;
-  /** True when the shopper chose "no address" (gift-box collection). Affects delivery fee computation. */
+  /** True when the shopper chose "no address". Stored in the snapshot for audit. */
   noAddress?: boolean;
   /** Extra key-value pairs forwarded to Stripe PaymentIntent metadata. */
   metadata?: CheckoutPaymentIntentRequestMetadata;

@@ -655,7 +655,18 @@ export type OsOrderAttemptResult =
  */
 export async function attemptCreateOsOrder(
   body: WooOrderPayload,
-  opts: { paymentVerified?: boolean; store?: WooStoreConfig; platform?: string | null } = {},
+  opts: {
+    paymentVerified?: boolean;
+    store?: WooStoreConfig;
+    platform?: string | null;
+    /**
+     * Pre-validated catalog items from the payment intent snapshot.
+     * When provided (Stripe-verified payments), these prices are used directly
+     * instead of looking up from the OS cache — bypassing the cold-cache guard.
+     * Keyed by `osSlug` (preferred) or `wcId` as fallback.
+     */
+    preVerifiedItems?: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[];
+  } = {},
 ): Promise<OsOrderAttemptResult> {
   const recipientFullName = `${body.recipient.firstName} ${body.recipient.lastName}`.trim();
   const cardToValue = (body.cardTo && body.cardTo.trim()) || recipientFullName;
@@ -681,16 +692,15 @@ export async function attemptCreateOsOrder(
   const catalogItemInputs = body.items.filter(isCatalogItem);
   const nonCatalogFeeItems = body.items.filter((item) => !isCatalogItem(item));
 
-  // Guard: if the OS product cache is still cold and the order contains catalog
-  // items, reject immediately rather than forwarding a raw WC numeric ID as the
-  // OS productId (which causes OS to return HTTP 500).
-  // We widen the check: if the store-specific slot is empty but another store's
-  // cache is already populated, allow the request through — getOsProductByWcId
-  // searches all store caches and will find the product. Only reject with 503
-  // when no store has any products at all (truly cold start).
-  const storeHasProducts =
-    hasOsProducts(opts.store?.storeKey) || hasOsProducts();
-  if (catalogItemInputs.length > 0 && !storeHasProducts) {
+  // Guard: only block orders where items have wcId > 0 AND no osSlug — those
+  // cannot be safely forwarded to OS without knowing the OS product ID.
+  // Items with osSlug can proceed even when the cache is cold; if the price
+  // lookup fails, the existing 422 path handles it gracefully.
+  // When preVerifiedItems are provided (payment already verified via Stripe PI),
+  // skip the guard entirely — prices were validated at PaymentIntent creation.
+  const hasWcOnlyItems = opts.preVerifiedItems === undefined &&
+    catalogItemInputs.some((i) => (i.wcId != null && i.wcId > 0) && !i.osSlug);
+  if (hasWcOnlyItems && !hasOsProducts(opts.store?.storeKey) && !hasOsProducts()) {
     return {
       ok: false,
       status: 503,
@@ -703,6 +713,15 @@ export async function attemptCreateOsOrder(
     0,
   );
 
+  // Build a lookup map from the pre-verified snapshot when provided.
+  const preVerifiedMap = new Map<string, { priceUsd: number; name?: string }>();
+  if (opts.preVerifiedItems) {
+    for (const pv of opts.preVerifiedItems) {
+      if (pv.osSlug) preVerifiedMap.set(`slug:${pv.osSlug}`, { priceUsd: pv.priceUsd, name: pv.name });
+      if (pv.wcId > 0) preVerifiedMap.set(`wc:${pv.wcId}`, { priceUsd: pv.priceUsd, name: pv.name });
+    }
+  }
+
   let catalogSubtotalUsd = 0;
   const lineItemData: { wcId: number | undefined; osProductId: string; name: string; quantity: number; priceUsd: number }[] = [];
 
@@ -710,7 +729,20 @@ export async function attemptCreateOsOrder(
     // Look up price: by wcId when > 0, by osSlug for OS-native products (wcId === 0).
     let catalog: { price: number; name: string } | null = null;
     let resolvedOsId: string | null = null;
-    if (item.wcId != null && item.wcId > 0) {
+
+    // 1. Pre-verified snapshot prices take priority (Stripe-paid orders).
+    const preVerified = (item.osSlug && preVerifiedMap.get(`slug:${item.osSlug}`))
+      || (item.wcId && item.wcId > 0 && preVerifiedMap.get(`wc:${item.wcId}`));
+    if (preVerified) {
+      catalog = { price: preVerified.priceUsd, name: preVerified.name ?? item.name };
+      // Still try to resolve the OS product ID from cache for the order payload.
+      if (item.wcId != null && item.wcId > 0) {
+        resolvedOsId = getOsProductByWcId(item.wcId, opts.store?.storeKey)?.id ?? null;
+      }
+      if (!resolvedOsId && item.osSlug) {
+        resolvedOsId = getOsProductBySlug(item.osSlug, opts.store?.storeKey)?.id ?? item.osSlug;
+      }
+    } else if (item.wcId != null && item.wcId > 0) {
       catalog = await fetchWcProductPrice(item.wcId, opts.store);
       const osProduct = getOsProductByWcId(item.wcId, opts.store?.storeKey);
       resolvedOsId = osProduct?.id ?? null;

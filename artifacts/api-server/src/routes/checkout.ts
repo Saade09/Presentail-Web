@@ -5,12 +5,7 @@ import {
   normalizeCurrency,
   toStripeMinorUnits,
 } from "../lib/fx";
-import {
-  resolveCartItems,
-  computeDistrictFeeUsd,
-  expressSurchargeUsd,
-  countryForDistrict,
-} from "../lib/catalog";
+import { resolveCartItems } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 
@@ -162,6 +157,7 @@ type PaymentIntentBody = {
   orderId: string;
   currency?: string;
   email?: string;
+  deliveryFeeUsd?: number;
   district?: string;
   expressDelivery?: boolean;
   noAddress?: boolean;
@@ -179,7 +175,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
-  const { items, orderId, currency: rawCurrency, email, metadata, district, expressDelivery, noAddress } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -201,15 +197,16 @@ router.post("/checkout/payment-intent", async (req, res) => {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
 
-  // Compute server-side delivery fee so the charged amount matches the order total.
-  const resolvedDistrict = district ?? "Beirut";
-  const isExpress = expressDelivery === true;
-  const isNoAddress = noAddress === true;
+  // Use the client-computed delivery fee (district + express + slot). The client
+  // derives this from the same OS /delivery-locations data the customer sees on
+  // screen, so the charged amount matches the displayed total exactly.
+  // Cap at $200 and floor at $0 for basic sanity; never trust for product prices.
+  const clientDeliveryFeeUsd =
+    typeof rawDeliveryFeeUsd === "number" && rawDeliveryFeeUsd >= 0
+      ? Math.min(rawDeliveryFeeUsd, 200)
+      : 0;
   const subtotalUsd = catalogResult.subtotalUsd;
-  const districtCountry = countryForDistrict(resolvedDistrict);
-  const districtFeeUsd = computeDistrictFeeUsd(resolvedDistrict, subtotalUsd, isNoAddress);
-  const expressFeeUsd = isExpress ? expressSurchargeUsd(districtCountry) : 0;
-  const totalUsd = subtotalUsd + districtFeeUsd + expressFeeUsd;
+  const totalUsd = subtotalUsd + clientDeliveryFeeUsd;
 
   const currency = normalizeCurrency(rawCurrency ?? "USD");
   const stripeCurrency = currency.toLowerCase();
@@ -228,9 +225,8 @@ router.post("/checkout/payment-intent", async (req, res) => {
     );
 
     // Include delivery fee in the charged amount.
-    const deliveryFeeUsd = districtFeeUsd + expressFeeUsd;
-    const deliveryFeeMinorUnits = deliveryFeeUsd > 0
-      ? toStripeMinorUnits(await convertFromUsd(deliveryFeeUsd, currency), currency)
+    const deliveryFeeMinorUnits = clientDeliveryFeeUsd > 0
+      ? toStripeMinorUnits(await convertFromUsd(clientDeliveryFeeUsd, currency), currency)
       : 0;
 
     const totalMinorUnits = subtotalMinorUnits + deliveryFeeMinorUnits;
@@ -255,9 +251,9 @@ router.post("/checkout/payment-intent", async (req, res) => {
           quantity: i.quantity,
           priceUsd: i.priceUsd,
         })),
-        district: resolvedDistrict,
-        expressDelivery: isExpress,
-        noAddress: isNoAddress,
+        district: district ?? "Beirut",
+        expressDelivery: expressDelivery === true,
+        noAddress: noAddress === true,
       },
     });
 

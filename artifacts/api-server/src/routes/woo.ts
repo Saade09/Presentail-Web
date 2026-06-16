@@ -756,6 +756,10 @@ router.post("/woo/order", async (req, res) => {
   // ── Payment verification (layered) ────────────────────────────────────
   let paymentVerified = false;
   const paymentRef = body.paymentRef;
+  // Snapshot items from the validated payment intent — populated after each
+  // payment-verified branch so that attemptCreateOsOrder can use these prices
+  // directly (bypassing the OS cache lookup and cold-cache guard).
+  let snapshotItems: { wcId: number; osSlug?: string; priceUsd: number; name?: string }[] | undefined;
 
   if (body.paymentMethod === "card" || body.paymentMethod === "wallet") {
     if (!paymentRef) {
@@ -797,6 +801,9 @@ router.post("/woo/order", async (req, res) => {
         message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
       });
     }
+
+    // Hoist the verified prices so attemptCreateOsOrder can use them directly.
+    snapshotItems = intent.snapshot.items;
 
     if (!process.env.STRIPE_SECRET_KEY) {
       req.log?.warn?.(
@@ -868,6 +875,8 @@ router.post("/woo/order", async (req, res) => {
       });
     }
 
+    snapshotItems = intent.snapshot.items;
+
     if (!process.env.MAMO_SECRET_KEY) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
@@ -932,6 +941,8 @@ router.post("/woo/order", async (req, res) => {
       });
     }
 
+    snapshotItems = intent.snapshot.items;
+
     if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
@@ -965,10 +976,15 @@ router.post("/woo/order", async (req, res) => {
     REFERRAL_CODE_RE.test(body.couponCode.trim().toUpperCase());
 
   // ── Submit order to Presentail OS ────────────────────────────────────────
+  // For Stripe/Mamo/PayPal-verified payments, snapshotItems holds the catalog
+  // prices from when the payment intent was created — those prices are already
+  // server-validated. Pass them so attemptCreateOsOrder can use them directly
+  // without re-querying the OS cache (which may be transiently empty).
   const result = await attemptCreateOsOrder(body, {
     paymentVerified,
     store,
     platform: requestPlatform,
+    preVerifiedItems: snapshotItems,
   });
 
   if (!result.ok) {

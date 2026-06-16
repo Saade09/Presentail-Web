@@ -1343,15 +1343,18 @@ components:
         email:
           type: string
           description: Shopper email for Stripe receipt. Optional.
+        deliveryFeeUsd:
+          type: number
+          description: Client-computed delivery fee in USD (district fee + express surcharge + slot fee). The server adds this to the product subtotal and charges the combined total. Must be >= 0.
         district:
           type: string
-          description: Delivery district name. Used to compute the server-side delivery fee included in the charge.
+          description: Delivery district name. Stored in the payment intent snapshot for audit; delivery fee is taken from deliveryFeeUsd.
         expressDelivery:
           type: boolean
-          description: Whether express delivery is selected. Adds the express surcharge to the charged amount.
+          description: Whether express delivery is selected. Stored in the snapshot for audit; surcharge is included in deliveryFeeUsd.
         noAddress:
           type: boolean
-          description: True when the shopper chose "no address" (gift-box collection). Affects delivery fee computation.
+          description: True when the shopper chose "no address". Stored in the snapshot for audit.
         metadata:
           type: object
           additionalProperties:
