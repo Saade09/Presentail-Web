@@ -24,6 +24,7 @@ export function ProductCollectionCarousel({
 }: Props) {
   const { t, dir } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
+  const cardWidthRef = useRef<number>(0);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
 
@@ -42,18 +43,31 @@ export function ProductCollectionCarousel({
     const el = trackRef.current;
     if (!el) return;
     el.addEventListener("scroll", updateNav, { passive: true });
-    window.addEventListener("resize", updateNav);
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const card = entry.target as HTMLElement;
+        cardWidthRef.current = card.getBoundingClientRect().width;
+      }
+      updateNav();
+    });
+
+    const firstCard = el.querySelector<HTMLElement>("[data-collection-card]");
+    if (firstCard) {
+      cardWidthRef.current = firstCard.getBoundingClientRect().width;
+      ro.observe(firstCard);
+    }
+
     return () => {
       el.removeEventListener("scroll", updateNav);
-      window.removeEventListener("resize", updateNav);
+      ro.disconnect();
     };
   }, [products.length, isLoading]);
 
   const scrollByDir = (direction: 1 | -1) => {
     const track = trackRef.current;
     if (!track) return;
-    const card = track.querySelector<HTMLElement>("[data-collection-card]");
-    const step = card ? card.offsetWidth + 24 : track.clientWidth * 0.8;
+    const step = (cardWidthRef.current > 0 ? cardWidthRef.current : 280) + 24;
     const sign = dir === "rtl" ? -direction : direction;
     track.scrollBy({ left: sign * step, behavior: "smooth" });
   };

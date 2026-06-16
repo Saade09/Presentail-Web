@@ -5,7 +5,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ShoppingCart, User, Search, Menu, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/Logo";
@@ -20,6 +20,7 @@ export function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { city, countryCode, cityId, openPicker } = useLocationSelection();
   const { t, language, cityName } = useLocale();
+  const rafRef = useRef<number | null>(null);
 
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
@@ -34,10 +35,20 @@ export function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        setScrolled(window.scrollY > 20);
+      });
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
   }, []);
 
   const cityLabel = cityId

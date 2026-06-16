@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Link } from "wouter";
 import {
@@ -67,13 +67,35 @@ type Props = {
 export function CircularCollectionCarousel({ title, items, isLoading, testId }: Props) {
   const { t } = useLocale();
   const trackRef = useRef<HTMLDivElement>(null);
+  const cardWidthRef = useRef<number>(0);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const card = entry.target as HTMLElement;
+        cardWidthRef.current = card.getBoundingClientRect().width;
+      }
+    });
+
+    const firstCard = el.querySelector<HTMLElement>("[data-carousel-card]");
+    if (firstCard) {
+      cardWidthRef.current = firstCard.getBoundingClientRect().width;
+      ro.observe(firstCard);
+    }
+
+    return () => {
+      ro.disconnect();
+    };
+  }, [items.length, isLoading]);
 
   const scrollBy = (dir: 1 | -1) => {
     const track = trackRef.current;
     if (!track) return;
-    const card = track.querySelector<HTMLElement>("[data-carousel-card]");
-    const step = card ? card.offsetWidth + 24 : track.clientWidth * 0.6;
-    track.scrollBy({ left: dir * step * 2, behavior: "smooth" });
+    const step = ((cardWidthRef.current > 0 ? cardWidthRef.current : 112) + 24) * 2;
+    track.scrollBy({ left: dir * step, behavior: "smooth" });
   };
 
   return (

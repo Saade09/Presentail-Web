@@ -12,9 +12,43 @@ export function TrustpilotCarousel() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ref.current && window.Trustpilot) {
-      window.Trustpilot.loadFromElement(ref.current, true);
-    }
+    const el = ref.current;
+    if (!el) return;
+
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollAttempts = 0;
+    const MAX_POLL_ATTEMPTS = 20;
+    const POLL_INTERVAL_MS = 250;
+
+    const tryLoad = () => {
+      if (!window.Trustpilot) {
+        if (pollAttempts < MAX_POLL_ATTEMPTS) {
+          pollAttempts++;
+          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
+        }
+        return;
+      }
+      window.Trustpilot.loadFromElement(el, true);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            observer.disconnect();
+            tryLoad();
+          }
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (pollTimer !== null) clearTimeout(pollTimer);
+    };
   }, []);
 
   return (
