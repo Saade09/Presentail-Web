@@ -140,6 +140,12 @@ export type OSProductOccasion = {
  */
 export type OSProduct = {
   id: string;
+  /**
+   * Raw numeric (or UUID string) database primary key returned by the OS API.
+   * Always set after normalisation; used as `productId` when creating OS orders
+   * because the order endpoint looks products up by their DB PK, not by slug.
+   */
+  osNumericId?: number | string;
   wcId?: number;
   name: string;
   price: number;
@@ -197,7 +203,7 @@ export type OSOccasionsResponse = {
 // ── Order creation types ───────────────────────────────────────────────────
 
 export type OSOrderLineItem = {
-  /** OS product slug (the `id` field on OSProduct). */
+  /** OS product database primary key (numeric id or UUID). Used — not the slug — because the OS orders endpoint looks up products by their DB PK. */
   productId: string;
   productName: string;
   quantity: number;

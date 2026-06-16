@@ -723,12 +723,13 @@ export async function attemptCreateOsOrder(
   }
 
   let catalogSubtotalUsd = 0;
-  const lineItemData: { wcId: number | undefined; osProductId: string; name: string; quantity: number; priceUsd: number }[] = [];
+  const lineItemData: { wcId: number | undefined; osProductId: string; osNumericId?: string; name: string; quantity: number; priceUsd: number }[] = [];
 
   for (const item of catalogItemInputs) {
     // Look up price: by wcId when > 0, by osSlug for OS-native products (wcId === 0).
     let catalog: { price: number; name: string } | null = null;
     let resolvedOsId: string | null = null;
+    let resolvedOsNumericId: string | undefined;
 
     // 1. Pre-verified snapshot prices take priority (Stripe-paid orders).
     const preVerified = (item.osSlug && preVerifiedMap.get(`slug:${item.osSlug}`))
@@ -737,15 +738,20 @@ export async function attemptCreateOsOrder(
       catalog = { price: preVerified.priceUsd, name: preVerified.name ?? item.name };
       // Still try to resolve the OS product ID from cache for the order payload.
       if (item.wcId != null && item.wcId > 0) {
-        resolvedOsId = getOsProductByWcId(item.wcId, opts.store?.storeKey)?.id ?? null;
+        const p = getOsProductByWcId(item.wcId, opts.store?.storeKey);
+        resolvedOsId = p?.id ?? null;
+        if (p?.osNumericId != null) resolvedOsNumericId = String(p.osNumericId);
       }
       if (!resolvedOsId && item.osSlug) {
-        resolvedOsId = getOsProductBySlug(item.osSlug, opts.store?.storeKey)?.id ?? item.osSlug;
+        const p = getOsProductBySlug(item.osSlug, opts.store?.storeKey);
+        resolvedOsId = p?.id ?? item.osSlug;
+        if (p?.osNumericId != null) resolvedOsNumericId = String(p.osNumericId);
       }
     } else if (item.wcId != null && item.wcId > 0) {
       catalog = await fetchWcProductPrice(item.wcId, opts.store);
       const osProduct = getOsProductByWcId(item.wcId, opts.store?.storeKey);
       resolvedOsId = osProduct?.id ?? null;
+      if (osProduct?.osNumericId != null) resolvedOsNumericId = String(osProduct.osNumericId);
     } else if (item.osSlug) {
       // OS-native product (wcId === 0): resolve price directly from OS cache by slug.
       // Fall back to any-store lookup when the store-specific cache is cold so
@@ -756,6 +762,7 @@ export async function attemptCreateOsOrder(
       if (osProduct && osProduct.price > 0) {
         catalog = { price: osProduct.price, name: osProduct.name };
         resolvedOsId = osProduct.id;
+        if (osProduct.osNumericId != null) resolvedOsNumericId = String(osProduct.osNumericId);
       }
     }
     if (!catalog) {
@@ -783,6 +790,7 @@ export async function attemptCreateOsOrder(
     lineItemData.push({
       wcId: item.wcId,
       osProductId,
+      osNumericId: resolvedOsNumericId,
       name: catalog.name,
       quantity: item.quantity,
       priceUsd: catalog.price,
@@ -846,7 +854,11 @@ export async function attemptCreateOsOrder(
     workspace: osConfig.workspace ?? "presentail",
     appOrderId: body.orderId,
     items: lineItemData.map((d) => ({
-      productId: d.osProductId,
+      // Prefer the raw OS database PK (osNumericId) — the OS orders endpoint
+      // looks up products by their DB PK, not by slug. Fall back to slug only
+      // when the cache didn't populate (osNumericId will always be set when
+      // the product was resolved from the OS products cache).
+      productId: d.osNumericId ?? d.osProductId,
       productName: d.name,
       quantity: d.quantity,
       priceUsd: d.priceUsd,
@@ -901,6 +913,15 @@ export async function attemptCreateOsOrder(
     platform: opts.platform ?? undefined,
     couponCode: body.couponCode || undefined,
   };
+
+  // Log the item productIds being sent to OS so we can confirm numeric IDs are used.
+  logger.info(
+    {
+      appOrderId: body.orderId,
+      osItems: osPayload.items.map((i) => ({ productId: i.productId, productName: i.productName, qty: i.quantity })),
+    },
+    "woo.order: submitting OS order",
+  );
 
   try {
     const response = await createOsOrder(osConfig, osPayload);

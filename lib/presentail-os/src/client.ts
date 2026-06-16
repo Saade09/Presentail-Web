@@ -155,10 +155,14 @@ function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {
   }
   return products.map((p) => {
     const { _rawNumericId, ...rest } = p as NormalisedProduct & Record<string, unknown>;
+    // Always preserve the raw OS database PK as osNumericId so order submission
+    // can send the correct identifier (the OS orders endpoint looks up products
+    // by their DB PK, not by slug).
+    const withNumericId: OSProduct = { ...(rest as OSProduct), osNumericId: _rawNumericId };
     if ((counts.get(p.id) ?? 0) > 1) {
-      return { ...(rest as OSProduct), id: `${p.id}--${_rawNumericId}` };
+      return { ...withNumericId, id: `${p.id}--${_rawNumericId}` };
     }
-    return rest as OSProduct;
+    return withNumericId;
   });
 }
 
