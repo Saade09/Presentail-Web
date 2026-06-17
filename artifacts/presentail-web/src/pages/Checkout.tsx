@@ -1289,7 +1289,7 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
-      <header className="sticky top-0 z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
+      <header className="z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
         <div className="max-w-content mx-auto px-page py-4 flex items-center justify-between text-primary-foreground">
           <Link
             href="/cart"
