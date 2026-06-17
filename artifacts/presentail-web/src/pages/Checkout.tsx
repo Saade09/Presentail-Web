@@ -812,7 +812,7 @@ function CheckoutForm() {
     districtFee: districtFee,
     expressFee,
     slotFee,
-    cityId: selectedCityData?.id,
+    cityId: selectedCityData?.id != null ? String(selectedCityData.id) : undefined,
     noAddress,
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
@@ -828,7 +828,7 @@ function CheckoutForm() {
     identitySecret,
     currencyCode: "USD",
     totalUsd: total,
-    countryCode: (countryCode ?? "LB").toUpperCase().slice(0, 2),
+    shippingCountry: (countryCode ?? "LB").toUpperCase().slice(0, 2),
     ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
     ...(overrides.paymentRef ? { paymentRef: overrides.paymentRef } : {}),
   });
