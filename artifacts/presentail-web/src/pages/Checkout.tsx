@@ -852,7 +852,13 @@ function CheckoutForm() {
         surface: "checkout",
         action: paymentMethod,
       });
-      setLocation(`/order-confirmed?status=success&ref=${res.osOrderId ?? res.wcOrderId ?? payload.orderId}`);
+      try {
+        sessionStorage.setItem(
+          PENDING_ORDER_KEY,
+          JSON.stringify({ payload, createdAt: Date.now() }),
+        );
+      } catch { /* best-effort */ }
+      setLocation(`/order-confirmed?status=success&ref=${payload.orderId}`);
     } else if (res.code === "coupon_invalid") {
       // Coupon-specific error: surface inline below the coupon field (using
       // WC's specific message when available) so the shopper can correct the

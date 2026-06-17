@@ -259,7 +259,7 @@ export default function OrderConfirmed() {
             surface: "checkout",
             ...(chosenMethod ? { action: chosenMethod } : {}),
           });
-          const orderRef = String(res.osOrderId ?? res.wcOrderId ?? payload.orderId);
+          const orderRef = String(payload.orderId ?? res.osOrderId ?? res.wcOrderId);
           if (!purchaseFiredRef.current) {
             purchaseFiredRef.current = true;
             trackFbEvent("Purchase", {
