@@ -393,6 +393,20 @@ function CheckoutForm() {
   const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(0);
   const [cardProcessing, setCardProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
+  // Stores the server-assigned order ID for the current checkout attempt.
+  // Generated once via /api/orders/next-id and reused across retries so
+  // a shopper who retries after a card decline reuses the same order ID.
+  const orderIdRef = useRef<string | null>(null);
+
+  const ensureOrderId = async (): Promise<string> => {
+    if (orderIdRef.current) return orderIdRef.current;
+    const res = await apiFetch<{ ok: boolean; orderId: string }>("/orders/next-id", {
+      method: "POST",
+      body: JSON.stringify({ countryCode: countryCode ?? "LB" }),
+    });
+    orderIdRef.current = res.orderId;
+    return res.orderId;
+  };
 
   const handleCouponApply = () => {
     const code = couponInput.trim().toUpperCase();
@@ -789,7 +803,7 @@ function CheckoutForm() {
       paymentMethod?: PaymentMethodId;
     } = {},
   ) => ({
-    orderId: overrides.orderId ?? `WEB-${Math.floor(100000 + Math.random() * 900000)}`,
+    orderId: overrides.orderId ?? orderIdRef.current ?? `LB-0`,
     items: items.map((i) => ({
       name: i.product.name,
       quantity: i.quantity,
@@ -925,9 +939,9 @@ function CheckoutForm() {
       const returnUrl = `${origin}${base}/order-confirmed?status=success`;
       const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
 
-      // Generate orderId ONCE and pass it to the payment endpoint AND the
-      // order payload so both sides reference the same order ID.
-      const orderId = `WEB-${Math.floor(100000 + Math.random() * 900000)}`;
+      // Reserve the order ID from the server ONCE. Retries reuse the same ID
+      // because ensureOrderId returns the cached value on subsequent calls.
+      const orderId = await ensureOrderId();
 
       // For non-AED wallet: the Stripe Payment Request flow is used when
       // paymentRequestRef holds the probe-confirmed PR object. If the probe

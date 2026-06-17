@@ -44,6 +44,8 @@ tags:
     description: Server-side Facebook Conversions API events from mobile
   - name: products
     description: Product utilities (color inference, etc.)
+  - name: orders
+    description: Order ID generation
 paths:
   /healthz:
     get:
@@ -1304,6 +1306,37 @@ paths:
                 $ref: "#/components/schemas/ReferralCodeResponse"
         "401":
           description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders/next-id:
+    post:
+      operationId: getNextOrderId
+      tags: [orders]
+      summary: Reserve the next sequential order ID for a delivery country
+      description: |
+        Atomically increments the per-country order ID counter and returns the
+        next available ID in the form `{PREFIX}-{NUMBER}` (e.g. `LB-1000`).
+        Supported prefixes: LB (Lebanon), AE (UAE), CY (Cyprus). Any unknown
+        countryCode falls back to LB. No authentication required — guest
+        checkout is supported and the occasional number burn on an abandoned
+        checkout is acceptable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NextOrderIdRequest"
+      responses:
+        "200":
+          description: Reserved order ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NextOrderIdResponse"
+        "400":
+          description: Invalid request
           content:
             application/json:
               schema:
@@ -3102,3 +3135,22 @@ components:
             nullable: true
       required:
         - colors
+    NextOrderIdRequest:
+      type: object
+      properties:
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB.
+      required:
+        - countryCode
+    NextOrderIdResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        orderId:
+          type: string
+          description: The reserved sequential order ID (e.g. "LB-1000").
+      required:
+        - ok
+        - orderId

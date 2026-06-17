@@ -1196,6 +1196,17 @@ export interface ProductColorHintsResponse {
   colors: ProductColorHintsResponseColors;
 }
 
+export interface NextOrderIdRequest {
+  /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
+  countryCode: string;
+}
+
+export interface NextOrderIdResponse {
+  ok: boolean;
+  /** The reserved sequential order ID (e.g. "LB-1000"). */
+  orderId: string;
+}
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter

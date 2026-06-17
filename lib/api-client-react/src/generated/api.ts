@@ -54,6 +54,8 @@ import type {
   HomepageCollectionResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
+  NextOrderIdRequest,
+  NextOrderIdResponse,
   OccasionDeleteResponse,
   OccasionInput,
   OccasionListResponse,
@@ -3941,3 +3943,96 @@ export function useGetMyReferralCode<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Atomically increments the per-country order ID counter and returns the
+next available ID in the form `{PREFIX}-{NUMBER}` (e.g. `LB-1000`).
+Supported prefixes: LB (Lebanon), AE (UAE), CY (Cyprus). Any unknown
+countryCode falls back to LB. No authentication required — guest
+checkout is supported and the occasional number burn on an abandoned
+checkout is acceptable.
+
+ * @summary Reserve the next sequential order ID for a delivery country
+ */
+export const getGetNextOrderIdUrl = () => {
+  return `/api/orders/next-id`;
+};
+
+export const getNextOrderId = async (
+  nextOrderIdRequest: NextOrderIdRequest,
+  options?: RequestInit,
+): Promise<NextOrderIdResponse> => {
+  return customFetch<NextOrderIdResponse>(getGetNextOrderIdUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(nextOrderIdRequest),
+  });
+};
+
+export const getGetNextOrderIdMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getNextOrderId>>,
+    TError,
+    { data: BodyType<NextOrderIdRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getNextOrderId>>,
+  TError,
+  { data: BodyType<NextOrderIdRequest> },
+  TContext
+> => {
+  const mutationKey = ["getNextOrderId"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getNextOrderId>>,
+    { data: BodyType<NextOrderIdRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getNextOrderId(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetNextOrderIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getNextOrderId>>
+>;
+export type GetNextOrderIdMutationBody = BodyType<NextOrderIdRequest>;
+export type GetNextOrderIdMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reserve the next sequential order ID for a delivery country
+ */
+export const useGetNextOrderId = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getNextOrderId>>,
+    TError,
+    { data: BodyType<NextOrderIdRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getNextOrderId>>,
+  TError,
+  { data: BodyType<NextOrderIdRequest> },
+  TContext
+> => {
+  return useMutation(getGetNextOrderIdMutationOptions(options));
+};

@@ -242,6 +242,30 @@ function CheckoutScreen() {
   const headingFontBold = useHeadingFont("700Bold");
   const effectiveCountry = resolveCountryCode(selectedCountry?.code, currencyCode);
 
+  // Stores the server-assigned order ID for the current checkout attempt.
+  // Generated once via /api/orders/next-id and reused across retries so
+  // a shopper who retries after a payment decline reuses the same order ID.
+  const orderIdRef = useRef<string | null>(null);
+
+  const ensureOrderId = async (): Promise<string> => {
+    if (orderIdRef.current) return orderIdRef.current;
+    const countryCode = selectedCountry?.code ?? "LB";
+    const resp = await fetch(`${API_BASE}/api/orders/next-id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ countryCode }),
+    });
+    if (!resp.ok) {
+      throw new Error(`Failed to reserve order ID (HTTP ${resp.status})`);
+    }
+    const json = (await resp.json()) as { ok: boolean; orderId?: string };
+    if (!json.ok || typeof json.orderId !== "string" || !json.orderId) {
+      throw new Error("Failed to reserve order ID: invalid server response");
+    }
+    orderIdRef.current = json.orderId;
+    return json.orderId;
+  };
+
   // Resolved lazily inside placeOrder to avoid hitting AsyncStorage on
   // every checkout render.
   const [deviceIdForOrder, setDeviceIdForOrder] = useState<string | null>(null);
@@ -895,7 +919,7 @@ function CheckoutScreen() {
     setCardError(null);
     setPaying(true);
     try {
-    const orderId = `PR-${Math.floor(100000 + Math.random() * 899999)}`;
+    const orderId = await ensureOrderId();
 
     const slotLabel = slot?.label ?? "";
     const buildResultPath = (status: "success" | "failed", paymentRef?: string) => {

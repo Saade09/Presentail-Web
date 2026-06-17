@@ -83,6 +83,8 @@ export * from "./loyaltyMeResponse";
 export * from "./loyaltySummary";
 export * from "./loyaltyTier";
 export * from "./loyaltyTierKey";
+export * from "./nextOrderIdRequest";
+export * from "./nextOrderIdResponse";
 export * from "./occasionDeleteResponse";
 export * from "./occasionInput";
 export * from "./occasionItem";

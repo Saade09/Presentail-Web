@@ -1990,3 +1990,28 @@ export const GetMyReferralCodeResponse = zod.object({
       "A pre-built share URL the client can pass directly to a share sheet.",
     ),
 });
+
+/**
+ * Atomically increments the per-country order ID counter and returns the
+next available ID in the form `{PREFIX}-{NUMBER}` (e.g. `LB-1000`).
+Supported prefixes: LB (Lebanon), AE (UAE), CY (Cyprus). Any unknown
+countryCode falls back to LB. No authentication required — guest
+checkout is supported and the occasional number burn on an abandoned
+checkout is acceptable.
+
+ * @summary Reserve the next sequential order ID for a delivery country
+ */
+export const GetNextOrderIdBody = zod.object({
+  countryCode: zod
+    .string()
+    .describe(
+      "ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB.",
+    ),
+});
+
+export const GetNextOrderIdResponse = zod.object({
+  ok: zod.boolean(),
+  orderId: zod
+    .string()
+    .describe('The reserved sequential order ID (e.g. \"LB-1000\").'),
+});
