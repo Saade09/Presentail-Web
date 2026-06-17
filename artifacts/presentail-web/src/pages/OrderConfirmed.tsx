@@ -17,7 +17,7 @@ type FinalizeState =
   | { kind: "success"; ref: string }
   | { kind: "failed"; message?: string };
 
-type OrderItem = { name: string; quantity: number; price: number };
+type OrderItem = { name: string; quantity: number; price: number; image?: string };
 
 type ConfirmedOrder = {
   items?: OrderItem[];
@@ -83,10 +83,17 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
       {items.length > 0 && (
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.items")}</p>
-          <ul className="space-y-1">
+          <ul className="space-y-3">
             {items.map((item, idx) => (
-              <li key={idx} className="flex justify-between gap-3 text-sm">
-                <span className="truncate">
+              <li key={idx} className="flex items-center gap-3 text-sm">
+                {item.image && (
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-12 h-12 rounded-lg object-cover shrink-0"
+                  />
+                )}
+                <span className="flex-1 min-w-0 truncate">
                   {item.name}
                   <span className="text-muted-foreground"> × {item.quantity}</span>
                 </span>

@@ -796,6 +796,7 @@ function CheckoutForm() {
       price: i.product.priceValue,
       wcId: i.product.wcId,
       osSlug: i.product.id,
+      image: i.product.images?.[0]?.uri,
     })),
     billing: {
       firstName: sender.firstName,
