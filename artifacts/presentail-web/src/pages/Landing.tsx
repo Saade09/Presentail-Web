@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronDown, Heart, Truck, Lock, MapPin } from "lucide-react";
+import { ChevronRight, ChevronDown, Heart, Truck, Clock, MapPin } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
@@ -194,16 +194,16 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
           {/* Trust badges */}
           <div className="flex flex-wrap gap-5">
             <div className="flex items-center gap-2 text-xs text-stone-500">
-              <Truck className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("locationPicker.trustSameDay")}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("locationPicker.trustSecureCheckout")}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-500">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("locationPicker.trustLocalPartners")}</span>
+              <span>{t("utility.noHassle")}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <Truck className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("utility.sameDayDelivery")}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("utility.fastCheckout")}</span>
             </div>
           </div>
         </div>
