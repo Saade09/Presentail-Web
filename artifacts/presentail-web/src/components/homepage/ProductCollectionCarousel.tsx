@@ -79,49 +79,48 @@ export function ProductCollectionCarousel({
 
   return (
     <section className="py-10 md:py-14" data-testid={testId}>
-      <div className="container mx-auto px-4">
-        <div className="flex items-end justify-between mb-6 md:mb-8">
-          <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
-          <div className="flex items-center gap-3 md:gap-4">
-            {viewAllHref && (
-              <Link
-                href={viewAllHref}
-                className="text-sm font-medium text-primary hover:text-gold transition-colors"
-                data-testid={`${testId ?? "collection"}-view-all`}
-              >
-                {t("bestSellers.viewAll")}
-              </Link>
-            )}
-            <div className="hidden md:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scrollByDir(-1)}
-                aria-label={t("carousel.prev")}
-                disabled={!canPrev}
-                className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
-                data-testid={`${testId ?? "collection"}-prev`}
-              >
-                <PrevIcon className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollByDir(1)}
-                aria-label={t("carousel.next")}
-                disabled={!canNext}
-                className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
-                data-testid={`${testId ?? "collection"}-next`}
-              >
-                <NextIcon className="w-5 h-5" />
-              </button>
-            </div>
+      <div className="flex items-end justify-between mb-6 md:mb-8">
+        <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
+        <div className="flex items-center gap-3 md:gap-4">
+          {viewAllHref && (
+            <Link
+              href={viewAllHref}
+              className="text-sm font-medium text-primary hover:text-gold transition-colors"
+              data-testid={`${testId ?? "collection"}-view-all`}
+            >
+              {t("bestSellers.viewAll")}
+            </Link>
+          )}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollByDir(-1)}
+              aria-label={t("carousel.prev")}
+              disabled={!canPrev}
+              className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
+              data-testid={`${testId ?? "collection"}-prev`}
+            >
+              <PrevIcon className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollByDir(1)}
+              aria-label={t("carousel.next")}
+              disabled={!canNext}
+              className="w-10 h-10 rounded-full border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
+              data-testid={`${testId ?? "collection"}-next`}
+            >
+              <NextIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
+      </div>
 
-        <div
-          ref={trackRef}
-          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:hidden"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
+      <div
+        ref={trackRef}
+        className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
           {isLoading
             ? Array(4)
                 .fill(0)
@@ -145,7 +144,6 @@ export function ProductCollectionCarousel({
                   <ProductCard product={p} index={i} />
                 </div>
               ))}
-        </div>
       </div>
     </section>
   );

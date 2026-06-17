@@ -36,41 +36,39 @@ export default function Home() {
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
 
-      <div className="px-page">
+      <BestSellersPreview
+        titleKey="bestSellers.title"
+        railKey="best-sellers"
+        viewAllHref="/shop"
+      />
+
+      {/* First themed product rail — mirrors the live site's "Summer Collection". */}
+      <BestSellersPreview
+        categorySlug="hand-bouquets"
+        titleKey="collections.summer.title"
+        railKey="rail-summer"
+        testId="section-collection-summer"
+      />
+
+      <HomepageCollections />
+
+      {/* Second themed rail — Flower Boxes. Not shown in Cyprus (category doesn't exist there). */}
+      {countryCode !== "CY" && (
         <BestSellersPreview
-          titleKey="bestSellers.title"
-          railKey="best-sellers"
-          viewAllHref="/shop"
+          categorySlug="flower-boxes"
+          titleKey="collections.boxes.title"
+          railKey="rail-boxes"
+          testId="section-collection-boxes"
         />
+      )}
 
-        {/* First themed product rail — mirrors the live site's "Summer Collection". */}
-        <BestSellersPreview
-          categorySlug="hand-bouquets"
-          titleKey="collections.summer.title"
-          railKey="rail-summer"
-          testId="section-collection-summer"
-        />
-
-        <HomepageCollections />
-
-        {/* Second themed rail — Flower Boxes. Not shown in Cyprus (category doesn't exist there). */}
-        {countryCode !== "CY" && (
-          <BestSellersPreview
-            categorySlug="flower-boxes"
-            titleKey="collections.boxes.title"
-            railKey="rail-boxes"
-            testId="section-collection-boxes"
-          />
-        )}
-
-        {/* Third themed rail — Balloons. */}
-        <BestSellersPreview
-          categorySlug="balloons"
-          titleKey="collections.balloons.title"
-          railKey="rail-balloons"
-          testId="section-collection-balloons"
-        />
-      </div>
+      {/* Third themed rail — Balloons. */}
+      <BestSellersPreview
+        categorySlug="balloons"
+        titleKey="collections.balloons.title"
+        railKey="rail-balloons"
+        testId="section-collection-balloons"
+      />
 
       {/* Trustpilot review carousel — sits above the footer */}
       <div className="px-page py-10">
