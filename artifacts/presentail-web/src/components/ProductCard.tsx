@@ -17,7 +17,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       data-testid={`card-product-${product.id}`}
     >
       <Link href={`/product/${product.id}`}>
-        <div className="aspect-square bg-secondary/50 rounded-2xl overflow-hidden relative mb-4">
+        <div className="aspect-square bg-secondary/50 rounded-xl overflow-hidden relative mb-4">
           {imageUrl ? (
             <ShimmerImage
               src={imageUrl}
