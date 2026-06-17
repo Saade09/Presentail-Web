@@ -109,9 +109,15 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
       {order.cardMessage && order.cardMessage.trim() !== "" && (
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.cardMessage")}</p>
-          <blockquote className="border-s-2 border-primary/30 ps-3 italic text-sm text-muted-foreground">
-            {order.cardMessage}
-          </blockquote>
+          <div className="relative rounded-xl overflow-hidden shadow-sm border border-primary/10">
+            <div className="absolute inset-0 bg-[#fdf8f2]" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30" />
+            <div className="relative px-5 py-4">
+              <p className="font-serif text-sm leading-relaxed text-neutral-700 whitespace-pre-wrap">
+                {order.cardMessage}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
