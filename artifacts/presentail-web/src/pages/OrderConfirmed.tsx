@@ -333,15 +333,6 @@ export default function OrderConfirmed() {
               <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
               <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
             </div>
-            <a
-              href={`https://orderstatus.presentail.com?order=${ref}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-medium text-primary underline underline-offset-4 hover:opacity-70 transition-opacity"
-              data-testid="link-track-order"
-            >
-              {t("order.trackOrder")} →
-            </a>
           </div>
         )}
 
