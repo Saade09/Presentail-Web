@@ -45,7 +45,7 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
       <div className="pt-6">
         {tab === "description" ? (
           <div className="space-y-5">
-            {description && (
+            {description && bouquetIncludes.length === 0 && (
               <p className="text-sm md:text-base leading-relaxed text-muted-foreground">
                 {description}
               </p>
