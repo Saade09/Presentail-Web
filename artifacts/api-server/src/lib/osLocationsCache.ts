@@ -396,9 +396,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
           };
         });
 
-      return [...osCities, ...inactiveFromHardcoded].sort((a, b) =>
-        a.name.localeCompare(b.name, "en"),
-      );
+      return [...osCities, ...inactiveFromHardcoded].sort((a, b) => {
+        if (a.id === "lb-beirut") return -1;
+        if (b.id === "lb-beirut") return 1;
+        return a.name.localeCompare(b.name, "en");
+      });
     })();
 
     return {
