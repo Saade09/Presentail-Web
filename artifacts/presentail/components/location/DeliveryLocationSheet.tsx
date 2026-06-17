@@ -182,7 +182,7 @@ export function DeliveryLocationSheet({ visible, onClose }: Props) {
       </View>
 
       <ScrollView
-        style={{ maxHeight: 380 }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 8 }}
         showsVerticalScrollIndicator={false}
       >

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -21,6 +22,7 @@ type BottomSheetProps = {
 export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
 
@@ -118,6 +120,7 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
             left: 0,
             right: 0,
             bottom: 0,
+            maxHeight: screenHeight * 0.85,
             backgroundColor: colors.background,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
@@ -143,7 +146,7 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
               }}
             />
           </View>
-          <View>{children}</View>
+          <View style={{ flex: 1 }}>{children}</View>
         </Animated.View>
       </View>
     </Modal>
