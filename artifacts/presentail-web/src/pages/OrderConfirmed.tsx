@@ -24,6 +24,7 @@ type ConfirmedOrder = {
   cardMessage?: string;
   deliveryDate?: string;
   deliverySlot?: string;
+  deliverySlotTime?: string;
   districtFee?: number;
   expressFee?: number;
   slotFee?: number;
@@ -114,8 +115,8 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
             <CalendarDays className="w-4 h-4 shrink-0 text-primary" />
             <span>
               {order.deliveryDate ? formatDeliveryDate(order.deliveryDate, language) : ""}
-              {order.deliverySlot && order.deliveryDate ? " · " : ""}
-              {order.deliverySlot ?? ""}
+              {(order.deliverySlotTime ?? order.deliverySlot) && order.deliveryDate ? " · " : ""}
+              {order.deliverySlotTime ?? order.deliverySlot ?? ""}
             </span>
           </div>
         </div>

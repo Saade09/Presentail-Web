@@ -817,6 +817,7 @@ function CheckoutForm() {
     deliveryDetails: noAddress ? "To be confirmed" : recipient.address,
     deliveryDate: deliveryMode === "express" ? todayIso() : recipient.deliveryDate,
     deliverySlot: deliveryMode === "express" ? t("checkout.expressDeliveryLabel") : deliverySlot,
+    deliverySlotTime: deliveryMode === "express" ? undefined : slotTimeRangeForLabel(deliverySlot, timeSlots),
     cardMessage: recipient.cardMessage,
     ...(/^https?:\/\/.+/.test(qrLink.trim()) ? { qrLink: qrLink.trim() } : {}),
     // "apple_pay" / "google_pay" are client-side UX IDs; the API server and
