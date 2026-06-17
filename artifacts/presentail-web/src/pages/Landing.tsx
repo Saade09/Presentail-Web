@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Heart, Truck, Lock, MapPin } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
@@ -15,6 +15,8 @@ const FALLBACK_COUNTRIES: Array<{ code: string; name: string; flag: string }> = 
   { code: "AE", name: "United Arab Emirates", flag: "🇦🇪" },
   { code: "CY", name: "Cyprus", flag: "🇨🇾" },
 ];
+
+const BG = "#ffffff";
 
 type LandingProps = {
   initialCountryCode?: string | null;
@@ -35,8 +37,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     return PICKER_COUNTRY_CODES
       .filter((code) => {
         const live = byCode.get(code);
-        // Hide the country when OS data is loaded and explicitly marks it inactive.
-        // If live data hasn't arrived yet (undefined), keep showing it via fallback.
         return live === undefined || live.isActive !== false;
       })
       .map((code) => {
@@ -77,22 +77,22 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             type="button"
             onClick={inactive ? undefined : () => handleCitySelect(countryCode, city.id)}
             disabled={inactive}
-            className={`w-full flex items-center justify-between px-5 py-4 min-h-[52px] text-start transition-colors ${
-              idx > 0 ? "border-t border-border/60" : ""
-            } ${inactive ? "cursor-not-allowed bg-muted/30" : "hover:bg-secondary/40"}`}
+            className={`w-full flex items-center justify-between px-5 py-3.5 min-h-[48px] text-start transition-colors ${
+              idx > 0 ? "border-t border-stone-200/70" : ""
+            } ${inactive ? "cursor-not-allowed opacity-40" : "hover:bg-stone-100/60"}`}
             data-testid={`button-city-${city.id}`}
           >
-            <span className={`text-base font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
+            <span className={`text-sm font-medium ${inactive ? "text-foreground/40" : "text-foreground"}`}>
               {cityName(city.id, city.name)}
               {inactive && (
-                <span className="ml-1.5 text-sm font-normal text-foreground/35">
+                <span className="ml-1.5 text-xs font-normal text-foreground/35">
                   {t("location.cityUnavailable")}
                 </span>
               )}
             </span>
             {!inactive && (
               <ChevronRight
-                className={`w-4 h-4 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
               />
             )}
           </button>
@@ -102,79 +102,128 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   );
 
   const skeletonRows = Array.from({ length: 3 }).map((_, i) => (
-    <div key={i} className="h-16 my-1 rounded-md bg-muted/60 animate-pulse" />
+    <div key={i} className="h-14 my-0.5 rounded-lg bg-stone-200/50 animate-pulse" />
   ));
+
+  const imgMask = isRtl
+    ? "linear-gradient(to left, transparent 0%, black 28%)"
+    : "linear-gradient(to right, transparent 0%, black 28%)";
 
   return (
     <div
-      className="min-h-screen bg-background flex flex-col"
+      className="h-screen overflow-hidden flex flex-col"
+      style={{ backgroundColor: BG }}
       data-testid="page-landing"
+      dir={isRtl ? "rtl" : "ltr"}
     >
-      <div className="w-full max-w-[480px] mx-auto px-6 pt-10 pb-16 flex-1 flex flex-col">
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex-1" />
-          <div
-            className="flex items-center justify-center"
-            data-testid="text-wordmark"
-          >
-            <span className="font-serif text-primary text-5xl md:text-6xl leading-none">
-              {language === "ar" ? "بريزانتيل" : "Presentail"}
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-8 py-5 shrink-0">
+        <div data-testid="text-wordmark">
+          <span className="font-serif text-primary text-5xl leading-none">
+            {language === "ar" ? "بريزانتيل" : "Presentail"}
+          </span>
+        </div>
+        <LanguageSwitcher />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 grid lg:grid-cols-[45fr_55fr] min-h-0 overflow-hidden">
+        {/* Left column — picker */}
+        <div className="flex flex-col justify-center px-10 xl:px-16 py-6 gap-5 overflow-hidden min-w-0">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2">
+            <Heart className="w-3 h-3 text-stone-400 shrink-0" />
+            <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-stone-400">
+              {t("locationPicker.deliverHappiness")}
             </span>
           </div>
-          <div className="flex-1 flex justify-end">
-            <LanguageSwitcher />
+
+          {/* Headline */}
+          <h1
+            className="text-4xl xl:text-5xl font-serif text-foreground leading-tight -mt-1"
+            data-testid="text-heading"
+          >
+            {t("locationPicker.sendGiftTo")}
+          </h1>
+
+          {/* Country accordion */}
+          <div className="rounded-2xl overflow-hidden border border-stone-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
+            {isLoadingCountries && countries.length === 0
+              ? skeletonRows
+              : rows.filter((row) => !selectedCountryCode || selectedCountryCode === row.code).map((row, idx) => {
+                  const isOpen = selectedCountryCode === row.code;
+                  return (
+                    <div
+                      key={row.code}
+                      className={idx > 0 ? "border-t border-stone-200/70" : ""}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleCountryClick(row.code, row.ready)}
+                        disabled={!row.ready}
+                        className={`w-full flex items-center justify-between px-4 py-4 min-h-[58px] text-start transition-colors disabled:opacity-50 ${
+                          isOpen ? "bg-stone-100/60" : "hover:bg-stone-50/80"
+                        }`}
+                        data-testid={`button-country-${row.code.toLowerCase()}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <CountryFlag code={row.code} className="w-6 aspect-[3/2] shrink-0" />
+                          <span className="text-sm font-medium leading-tight text-foreground">
+                            {countryName(row.code, row.name)}
+                          </span>
+                        </div>
+                        {isOpen ? (
+                          <ChevronDown className="w-4 h-4 text-primary shrink-0" />
+                        ) : (
+                          <ChevronRight
+                            className={`w-4 h-4 text-stone-400 shrink-0 ${isRtl ? "rotate-180" : ""}`}
+                          />
+                        )}
+                      </button>
+
+                      {isOpen && row.cities.length > 0 && (
+                        <div className="border-t border-stone-200/70 bg-stone-50/60 overflow-y-auto" style={{ maxHeight: "calc(100svh - 22rem)" }}>
+                          <CityList cities={row.cities} countryCode={row.code} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+          </div>
+
+          {/* Trust badges */}
+          <div className="flex flex-wrap gap-5">
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <Truck className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("locationPicker.trustSameDay")}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("locationPicker.trustSecureCheckout")}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("locationPicker.trustLocalPartners")}</span>
+            </div>
           </div>
         </div>
 
-        <h1
-          className="text-3xl md:text-[2rem] font-serif text-foreground mb-2 text-center"
-          data-testid="text-heading"
-        >
-          {t("locationPicker.sendGiftTo")}
-        </h1>
-        {/* Accordion picker — all screen sizes */}
-        <div className="border border-border/60 rounded-xl overflow-hidden">
-          {isLoadingCountries && countries.length === 0
-            ? skeletonRows
-            : rows.map((row, idx) => {
-                const isOpen = selectedCountryCode === row.code;
-                return (
-                  <div
-                    key={row.code}
-                    className={idx > 0 ? "border-t border-border/60" : ""}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleCountryClick(row.code, row.ready)}
-                      disabled={!row.ready}
-                      className={`w-full flex items-center justify-between px-4 py-5 min-h-[64px] text-start transition-colors disabled:opacity-50 ${
-                        isOpen ? "bg-secondary/60" : "hover:bg-secondary/30"
-                      }`}
-                      data-testid={`button-country-${row.code.toLowerCase()}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <CountryFlag code={row.code} className="w-7 aspect-[3/2] shrink-0" />
-                        <span className="text-base font-medium leading-tight">
-                          {countryName(row.code, row.name)}
-                        </span>
-                      </div>
-                      {isOpen ? (
-                        <ChevronDown className="w-5 h-5 text-primary shrink-0" />
-                      ) : (
-                        <ChevronRight
-                          className={`w-5 h-5 text-muted-foreground shrink-0 ${isRtl ? "rotate-180" : ""}`}
-                        />
-                      )}
-                    </button>
-
-                    {isOpen && row.cities.length > 0 && (
-                      <div className="bg-secondary/10 border-t border-border/40">
-                        <CityList cities={row.cities} countryCode={row.code} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {/* Right column — hero image, blended (desktop only) */}
+        <div className="hidden lg:block relative overflow-hidden bg-white">
+          <img
+            src="/hero-bouquet.png"
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-right"
+          />
+          {/* Opaque white-to-transparent overlay hides the image left edge without making the container itself transparent */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: isRtl
+                ? "linear-gradient(to left, white 0%, white 15%, transparent 40%)"
+                : "linear-gradient(to right, white 0%, white 15%, transparent 40%)",
+            }}
+          />
         </div>
       </div>
     </div>
