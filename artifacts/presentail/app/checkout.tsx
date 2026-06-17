@@ -56,6 +56,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
 import { ApplePayBadge, CardIcons, GooglePayBadge, PayPalBadge, WesternUnionBadge, WhishBadge } from "@/components/PaymentBadges";
+import { PaymentSubmitButton, isBrandedPayMethod } from "@/components/PaymentSubmitButton";
 import { SuggestedMessagesSheet } from "@/components/SuggestedMessagesSheet";
 import { PhoneField } from "@/components/PhoneField";
 import { DateStrip } from "@/components/DateStrip";
@@ -1613,40 +1614,50 @@ function CheckoutScreen() {
           paddingBottom: insets.bottom + 12,
         }}
       >
-        <Pressable
-          disabled={paying}
-          onPress={next}
-          style={({ pressed }) => [
-            {
-              backgroundColor: stepValid(step) && !paying ? colors.primary : colors.border,
-              paddingVertical: 16,
-              borderRadius: 14,
-              flexDirection: "row",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 10,
-              opacity: pressed ? 0.9 : 1,
-            },
-          ]}
-        >
-          <AppText
-            style={{
-              fontFamily: "Inter_600SemiBold",
-              color: "#fff",
-              fontSize: 14,
-              letterSpacing: 0.6,
-            }}
+        {step === 2 && isBrandedPayMethod(payMethod) ? (
+          <PaymentSubmitButton
+            payMethod={payMethod}
+            onPress={next}
+            disabled={paying || !stepValid(2)}
+            paying={paying}
+            processingLabel={t.processingOrder}
+          />
+        ) : (
+          <Pressable
+            disabled={paying}
+            onPress={next}
+            style={({ pressed }) => [
+              {
+                backgroundColor: stepValid(step) && !paying ? colors.primary : colors.border,
+                paddingVertical: 16,
+                borderRadius: 14,
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 10,
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
           >
-            {step === 0
-              ? t.continueToDelivery
-              : step === 1
-                ? t.continueToPayment
-                : paying
-                  ? t.processingOrder
-                  : `${t.payLabel} ${formatPrice(fees.grand)}`}
-          </AppText>
-          <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
-        </Pressable>
+            <AppText
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                color: "#fff",
+                fontSize: 14,
+                letterSpacing: 0.6,
+              }}
+            >
+              {step === 0
+                ? t.continueToDelivery
+                : step === 1
+                  ? t.continueToPayment
+                  : paying
+                    ? t.processingOrder
+                    : `${t.payLabel} ${formatPrice(fees.grand)}`}
+            </AppText>
+            <Feather name={step === 2 ? "lock" : "arrow-right"} size={14} color="#fff" />
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

@@ -96,6 +96,118 @@ const stripePromise = loadStripe(
 // `@workspace/pay-methods` table and mirror the mobile checkout.
 type PaymentMethodId = WebPaymentMethodId;
 
+// Branded submit button — swaps the generic teal button for a method-specific
+// branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
+// or Whish. All other methods fall back to the existing teal button.
+type PaymentSubmitButtonProps = {
+  paymentMethod: PaymentMethodId;
+  total: number;
+  onClick: () => void;
+  disabled: boolean;
+  isProcessing: boolean;
+};
+
+// Brand-name string constants for the payment submit button.
+// These are proper nouns / product names exempt from i18n translation.
+const ALT_APPLE_PAY = "Apple Pay"; // i18n-ignore
+const ALT_GOOGLE_PAY = "Google Pay"; // i18n-ignore
+const ALT_PAYPAL = "PayPal"; // i18n-ignore
+const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
+const ALT_WHISH = "Whish"; // i18n-ignore
+const LABEL_PAY_WHISH = "Pay with Whish App"; // i18n-ignore
+
+function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProcessing }: PaymentSubmitButtonProps) {
+  const { t } = useLocale();
+  const base = "flex-1 h-14 flex items-center justify-center gap-2 transition-opacity disabled:opacity-60 cursor-pointer select-none";
+
+  if (paymentMethod === "apple_pay") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-full px-6`}
+        style={{ backgroundColor: "#000" }}
+      >
+        {isProcessing
+          ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
+          : <img src={applePayLogo} alt={ALT_APPLE_PAY} style={{ height: 22, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />}
+      </button>
+    );
+  }
+
+  if (paymentMethod === "google_pay") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-xl border border-gray-300 px-6`}
+        style={{ backgroundColor: "#fff", color: "#3c4043" }}
+      >
+        {isProcessing
+          ? <span className="text-sm font-medium">{t("checkout.processing")}</span>
+          : <img src={googlePayLogo} alt={ALT_GOOGLE_PAY} style={{ height: 26, width: "auto" }} draggable={false} />}
+      </button>
+    );
+  }
+
+  if (paymentMethod === "paypal") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-xl px-6`}
+        style={{ backgroundColor: "#0070BA" }}
+      >
+        {isProcessing
+          ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
+          : <>
+              <img src={paypalLogo} alt={ALT_PAYPAL} style={{ height: 20, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />
+              <span className="text-white text-sm font-semibold">{LABEL_PAY_PAYPAL}</span>
+            </>}
+      </button>
+    );
+  }
+
+  if (paymentMethod === "whish") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-testid="button-submit-payment"
+        className={`${base} rounded-xl px-6`}
+        style={{ backgroundColor: "#D31F37" }}
+      >
+        {isProcessing
+          ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
+          : <>
+              <img src={whishLogo} alt={ALT_WHISH} style={{ height: 16, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />
+              <span className="text-white text-sm font-semibold">{LABEL_PAY_WHISH}</span>
+            </>}
+      </button>
+    );
+  }
+
+  return (
+    <Button
+      size="lg"
+      className="flex-1 h-14 rounded-xl text-white font-semibold text-base"
+      style={{ backgroundColor: "hsl(var(--primary))" }}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid="button-submit-payment"
+    >
+      {isProcessing ? t("checkout.processing") : <>{t("checkout.placeOrderNow_prefix")} <FormattedPrice usdValue={total} /></>}
+    </Button>
+  );
+}
+
 type SavedAddress = {
   id: number;
   label: string;
@@ -1764,9 +1876,7 @@ function CheckoutForm() {
 
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <Button size="lg" className="flex-1 h-14 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: "hsl(var(--primary))" }} onClick={handleSubmit} disabled={isProcessing} data-testid="button-submit-payment">
-                    {isProcessing ? t("checkout.processing") : <>{t("checkout.placeOrderNow_prefix")} <FormattedPrice usdValue={total} /></>}
-                  </Button>
+                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing} isProcessing={isProcessing} />
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
