@@ -789,7 +789,7 @@ function CheckoutForm() {
       paymentMethod?: PaymentMethodId;
     } = {},
   ) => ({
-    orderId: overrides.orderId ?? `web-${Date.now()}`,
+    orderId: overrides.orderId ?? `WEB-${Math.floor(100000 + Math.random() * 900000)}`,
     items: items.map((i) => ({
       name: i.product.name,
       quantity: i.quantity,
@@ -919,7 +919,7 @@ function CheckoutForm() {
 
       // Generate orderId ONCE and pass it to the payment endpoint AND the
       // order payload so both sides reference the same order ID.
-      const orderId = `web-${Date.now()}`;
+      const orderId = `WEB-${Math.floor(100000 + Math.random() * 900000)}`;
 
       // For non-AED wallet: the Stripe Payment Request flow is used when
       // paymentRequestRef holds the probe-confirmed PR object. If the probe
