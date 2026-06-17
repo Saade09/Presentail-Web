@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronDown, Heart, Truck, Clock, MapPin } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import {
   PICKER_COUNTRY_CODES,
@@ -105,10 +105,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     <div key={i} className="h-14 my-0.5 rounded-lg bg-stone-200/50 animate-pulse" />
   ));
 
-  const imgMask = isRtl
-    ? "linear-gradient(to left, transparent 0%, black 28%)"
-    : "linear-gradient(to right, transparent 0%, black 28%)";
-
   return (
     <div
       className="h-screen overflow-hidden flex flex-col"
@@ -117,30 +113,23 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-5 shrink-0">
+      <div className="relative flex items-center justify-center px-8 py-5 shrink-0">
         <div data-testid="text-wordmark">
           <span className="font-serif text-primary text-5xl leading-none">
             {language === "ar" ? "بريزانتيل" : "Presentail"}
           </span>
         </div>
-        <LanguageSwitcher />
+        <div className="absolute end-8">
+          <LanguageSwitcher />
+        </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 grid lg:grid-cols-[45fr_55fr] min-h-0 overflow-hidden">
-        {/* Left column — picker */}
-        <div className="flex flex-col justify-center px-10 xl:px-16 py-6 gap-5 overflow-hidden min-w-0">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-2">
-            <Heart className="w-3 h-3 text-stone-400 shrink-0" />
-            <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-stone-400">
-              {t("locationPicker.deliverHappiness")}
-            </span>
-          </div>
-
+      {/* Main content — single centered column, shifted slightly above center */}
+      <div className="flex-1 flex items-start justify-center px-6 pt-12 overflow-hidden">
+        <div className="w-full max-w-md flex flex-col gap-5">
           {/* Headline */}
           <h1
-            className="text-4xl xl:text-5xl font-serif text-foreground leading-tight -mt-1"
+            className="text-3xl xl:text-4xl font-serif text-foreground leading-tight"
             data-testid="text-heading"
           >
             {t("locationPicker.sendGiftTo")}
@@ -190,40 +179,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
                   );
                 })}
           </div>
-
-          {/* Trust badges */}
-          <div className="flex flex-wrap gap-5">
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("utility.noHassle")}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <Truck className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("utility.sameDayDelivery")}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>{t("utility.fastCheckout")}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right column — hero image, blended (desktop only) */}
-        <div className="hidden lg:block relative overflow-hidden bg-white">
-          <img
-            src="/hero-bouquet.png"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover object-right"
-          />
-          {/* Opaque white-to-transparent overlay hides the image left edge without making the container itself transparent */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: isRtl
-                ? "linear-gradient(to left, white 0%, white 15%, transparent 40%)"
-                : "linear-gradient(to right, white 0%, white 15%, transparent 40%)",
-            }}
-          />
         </div>
       </div>
     </div>
