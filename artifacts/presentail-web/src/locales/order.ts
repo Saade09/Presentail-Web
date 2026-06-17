@@ -18,6 +18,26 @@ export const orderStrings: Dict = {
   "order.fail.failed": { en: "Order finalization failed.", ar: "فشل إتمام الطلب." },
   "order.trackOrder": { en: "Track order", ar: "تتبّع الطلب" },
 
+  "order.summary.items": { en: "Items Ordered", ar: "المنتجات المطلوبة" },
+  "order.summary.cardMessage": { en: "Card Message", ar: "رسالة البطاقة" },
+  "order.summary.delivery": { en: "Delivery", ar: "التوصيل" },
+  "order.summary.subtotal": { en: "Subtotal", ar: "المجموع الفرعي" },
+  "order.summary.deliveryFee": { en: "Delivery Fee", ar: "رسوم التوصيل" },
+  "order.summary.total": { en: "Total", ar: "الإجمالي" },
+  "order.summary.paymentMethod": { en: "Payment Method", ar: "طريقة الدفع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.card": { en: "Card", ar: "بطاقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.paypal": { en: "PayPal", ar: "PayPal" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.whish": { en: "Whish", ar: "ويش" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.mamo": { en: "Mamo", ar: "مامو" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.wallet": { en: "Apple / Google Pay", ar: "Apple / Google Pay" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "order.summary.pay.western": { en: "Western Union", ar: "ويسترن يونيون" },
+
   "payments.waysToPay": { en: "Ways to Pay", ar: "طرق الدفع" },
 };
 
@@ -38,6 +58,20 @@ export const orderStringsFr: Record<string, string> = {
   "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
   "order.fail.failed": "Échec de la finalisation de la commande.",
   "order.trackOrder": "Suivre la commande",
+
+  "order.summary.items": "Articles commandés",
+  "order.summary.cardMessage": "Message de la carte",
+  "order.summary.delivery": "Livraison",
+  "order.summary.subtotal": "Sous-total",
+  "order.summary.deliveryFee": "Frais de livraison",
+  "order.summary.total": "Total",
+  "order.summary.paymentMethod": "Mode de paiement",
+  "order.summary.pay.card": "Carte",
+  "order.summary.pay.paypal": "PayPal",
+  "order.summary.pay.whish": "Whish",
+  "order.summary.pay.mamo": "Mamo",
+  "order.summary.pay.wallet": "Apple / Google Pay",
+  "order.summary.pay.western": "Western Union",
 
   "payments.waysToPay": "Moyens de paiement",
 };
