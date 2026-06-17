@@ -891,7 +891,17 @@ export async function attemptCreateOsOrder(
       countryCode: body.shippingCountry ?? undefined,
       address: body.deliveryDetails,
       date: body.deliveryDate || undefined,
-      slot: body.deliverySlot || undefined,
+      slot: (() => {
+        if (bookedSlot?.startHour != null && bookedSlot?.endHour != null) {
+          const fmt = (h: number) => {
+            const suffix = h < 12 ? "AM" : "PM";
+            const h12 = h % 12 === 0 ? 12 : h % 12;
+            return `${h12}:00 ${suffix}`;
+          };
+          return `${fmt(bookedSlot.startHour)}–${fmt(bookedSlot.endHour)}`;
+        }
+        return body.deliverySlot || undefined;
+      })(),
       isExpress: clientSignalledExpress,
       noAddress: isNoAddress,
       phone: body.recipient.phone || undefined,
