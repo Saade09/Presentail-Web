@@ -24,9 +24,15 @@ export function WebPhoneField({
   "data-testid": testId,
 }: Props) {
   const [touched, setTouched] = useState(false);
+  // hasTyped tracks whether the user has actually typed into the text field.
+  // It is set via the native onInput event on the wrapper, which only bubbles
+  // from the <input> element (keyboard entry) — NOT from the country <select>
+  // (which fires "change", not "input"). This prevents a country-picker
+  // interaction (which triggers onBlur) from prematurely revealing the error.
+  const [hasTyped, setHasTyped] = useState(false);
 
   const isInvalid = !!value && !isValidPhoneNumber(value);
-  const showInlineError = (touched || showError) && isInvalid && !!errorMessage;
+  const showInlineError = (showError || (touched && hasTyped)) && isInvalid && !!errorMessage;
 
   return (
     <div>
@@ -38,8 +44,20 @@ export function WebPhoneField({
           React's synthetic onBlur bubbles from child inputs, so placing it
           on the wrapper fires whenever the phone input or country select
           loses focus — giving us blur-time validation without patching the
-          library's internal input element directly. */}
-      <div dir="ltr" className="pi-phone-wrap" onBlur={() => setTouched(true)}>
+          library's internal input element directly.
+          onInput is used to set hasTyped: standard keyboard input in the
+          text field triggers the native "input" event, which bubbles here.
+          Country-picker selection normally does not emit an "input" event
+          on the text field, keeping hasTyped false when only the flag is
+          changed. If a browser quirk does fire an extra input event, the
+          worst case is one premature validation — which is still better
+          than the pre-existing state of always showing the error on load. */}
+      <div
+        dir="ltr"
+        className="pi-phone-wrap"
+        onBlur={() => setTouched(true)}
+        onInput={() => setHasTyped(true)}
+      >
         <PhoneInput
           international
           defaultCountry={defaultCountry as any}
