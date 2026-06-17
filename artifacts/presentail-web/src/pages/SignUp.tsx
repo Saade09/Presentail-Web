@@ -12,7 +12,7 @@ import PhoneInput from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
-type Step = "name-password" | "phone" | "otp";
+type Step = "name-password" | "phone";
 
 type ApiAuthResponse = {
   ok: boolean;
@@ -64,7 +64,6 @@ export default function SignUpPage() {
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
-  const [otpCode, setOtpCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -140,54 +139,13 @@ export default function SignUpPage() {
     }
   };
 
-  const sendOtp = async (phoneValue: string): Promise<boolean> => {
-    try {
-      const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneValue }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { message?: string };
-        toast({
-          title: t("auth.toast.error"),
-          description: data.message ?? t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return false;
-      }
-      return true;
-    } catch (err: any) {
-      toast({
-        title: t("auth.toast.error"),
-        description: err?.message ?? t("auth.checkFailed"),
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
   const onCreateAccountWithPhone = async () => {
     if (!phone) {
       setErrors((p) => ({ ...p, phone: t("auth.phoneRequired") }));
       return;
     }
     setErrors((p) => ({ ...p, phone: "" }));
-    setBusy(true);
-    const sent = await sendOtp(phone);
-    setBusy(false);
-    if (sent) {
-      setOtpCode("");
-      setStep("otp");
-    }
-  };
-
-  const onVerifyOtp = async () => {
-    await doRegister(phone as string);
-  };
-
-  const onResendOtp = async () => {
-    if (phone) await sendOtp(phone);
+    await doRegister(phone);
   };
 
   return (
@@ -199,10 +157,6 @@ export default function SignUpPage() {
         <button
           type="button"
           onClick={() => {
-            if (step === "otp") {
-              setStep("phone");
-              return;
-            }
             if (step === "phone") {
               setStep("name-password");
               return;
@@ -370,68 +324,6 @@ export default function SignUpPage() {
                 data-testid="button-signup-create"
               >
                 {busy ? t("checkout.processing") : t("auth.createAccount")}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {step === "otp" && (
-          <>
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-serif">{t("auth.otpStep.title")}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("auth.otpStep.desc")}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="signup-code">
-                  {t("auth.otpStep.codeLabel")}
-                </label>
-                <Input
-                  id="signup-code"
-                  data-testid="input-signup-code"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="000000"
-                  disabled={busy}
-                  className="h-12 rounded-sm tracking-widest text-center text-lg"
-                />
-              </div>
-
-              <Button
-                size="lg"
-                className="w-full h-12 rounded-xl"
-                onClick={() => void onVerifyOtp()}
-                disabled={busy || otpCode.length < 4}
-                data-testid="button-signup-verify"
-              >
-                {busy ? t("checkout.processing") : t("auth.otpStep.verify")}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full h-12 rounded-xl"
-                onClick={() => void onResendOtp()}
-                disabled={busy}
-                data-testid="button-signup-resend"
-              >
-                {t("auth.otpStep.resend")}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full"
-                onClick={() => setStep("phone")}
-                data-testid="button-signup-back"
-              >
-                {t("checkout.back")}
               </Button>
             </div>
           </>

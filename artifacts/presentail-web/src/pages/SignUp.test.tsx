@@ -130,115 +130,94 @@ describe("SignUp — phone step", () => {
 
   it("there is no skip button on the phone step — the only forward action is 'Create Account'", async () => {
     await advanceToPhoneStep();
-    // The back button should exist but there must be no button that skips phone entry.
-    // We verify by counting action buttons: only the back (page-level) and Create Account.
     expect(screen.queryByText(/skip/i)).toBeNull();
     expect(screen.queryByText(/later/i)).toBeNull();
     expect(screen.queryByText(/no thanks/i)).toBeNull();
-    // The only forward CTA is the Create Account button.
     const createBtn = screen.queryByTestId("button-signup-create");
     expect(createBtn).toBeTruthy();
   });
 
   it("clicking 'Create Account' without a phone shows a validation error, not the OTP step", async () => {
-    // Override the Button mock to allow clicks even when disabled (to test guard logic).
-    // In this case we just confirm the disabled state prevents progression; the
-    // component also guards inside onCreateAccountWithPhone() itself.
     await advanceToPhoneStep();
     const btn = screen.getByTestId("button-signup-create") as HTMLButtonElement;
-    // Button is disabled — clicking it should NOT show the OTP step.
+    // Button is disabled — clicking it should not show an OTP input (OTP step is removed).
     expect(btn.disabled).toBe(true);
     expect(screen.queryByTestId("input-signup-code")).toBeNull();
   });
 
-  it("OTP step appears after entering a valid phone and clicking 'Create Account'", async () => {
-    const fetchSpy = stubFetch({ ok: true });
+  it("clicking 'Create Account' with a valid phone calls /api/auth/register directly — no OTP step", async () => {
+    const fetchSpy = stubFetch({
+      ok: true,
+      token: "tok123",
+      user: { id: 1, email: "test@example.com", firstName: "Ada", lastName: "Lovelace" },
+    });
     const user = await advanceToPhoneStep();
 
     await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
     await user.click(screen.getByTestId("button-signup-create"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("input-signup-code")).toBeTruthy();
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/api/auth/register",
+        expect.objectContaining({ method: "POST" }),
+      );
     });
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/auth/otp/send",
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-
-  it("OTP step shows Verify and Resend buttons, and a Back button to return to phone step", async () => {
-    stubFetch({ ok: true });
-    const user = await advanceToPhoneStep();
-
-    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
-    await user.click(screen.getByTestId("button-signup-create"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("input-signup-code")).toBeTruthy();
-    });
-
-    expect(screen.getByTestId("button-signup-verify")).toBeTruthy();
-    expect(screen.getByTestId("button-signup-resend")).toBeTruthy();
-    expect(screen.getByTestId("button-signup-back")).toBeTruthy();
-  });
-
-  it("Verify button is disabled until at least 4 digits are entered", async () => {
-    stubFetch({ ok: true });
-    const user = await advanceToPhoneStep();
-
-    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
-    await user.click(screen.getByTestId("button-signup-create"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("input-signup-code")).toBeTruthy();
-    });
-
-    const verifyBtn = screen.getByTestId(
-      "button-signup-verify",
-    ) as HTMLButtonElement;
-    expect(verifyBtn.disabled).toBe(true);
-
-    await user.type(screen.getByTestId("input-signup-code"), "123456");
-    expect(verifyBtn.disabled).toBe(false);
-  });
-
-  it("registration endpoint is NOT called until OTP is verified", async () => {
-    const fetchSpy = stubFetch({ ok: true });
-    const user = await advanceToPhoneStep();
-
-    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
-    await user.click(screen.getByTestId("button-signup-create"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("input-signup-code")).toBeTruthy();
-    });
-
-    // Only /api/auth/otp/send should have been called — not /api/auth/register.
+    // OTP input must never appear.
+    expect(screen.queryByTestId("input-signup-code")).toBeNull();
+    // OTP endpoint must not be called.
     const calls = fetchSpy.mock.calls.map((c) => c[0] as string);
-    expect(calls).toContain("/api/auth/otp/send");
-    expect(calls).not.toContain("/api/auth/register");
+    expect(calls).not.toContain("/api/auth/otp/send");
   });
 
-  it("going back from the OTP step returns to the phone step without calling register", async () => {
-    const fetchSpy = stubFetch({ ok: true });
+  it("successful registration redirects to /account", async () => {
+    stubFetch({
+      ok: true,
+      token: "tok123",
+      user: { id: 1, email: "test@example.com", firstName: "Ada", lastName: "Lovelace" },
+    });
     const user = await advanceToPhoneStep();
 
     await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
     await user.click(screen.getByTestId("button-signup-create"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("input-signup-code")).toBeTruthy();
+      expect(mockSetLocation).toHaveBeenCalledWith("/account");
+    });
+  });
+
+  it("going back from the phone step returns to the name-password step", async () => {
+    await advanceToPhoneStep();
+
+    // Verify we are on the phone step.
+    expect(screen.getByTestId("input-signup-phone")).toBeTruthy();
+
+    // Click the global back button (button-signup-back-page).
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("button-signup-back-page"));
+
+    // Should now be back on the name-password step.
+    expect(screen.getByTestId("input-signup-name")).toBeTruthy();
+    expect(screen.queryByTestId("input-signup-phone")).toBeNull();
+  });
+
+  it("registration failure shows a toast error and stays on the phone step", async () => {
+    const { useToast } = await import("@/hooks/use-toast");
+    const toastFn = vi.fn();
+    vi.mocked(useToast).mockReturnValue({ toast: toastFn } as any);
+
+    stubFetch({ ok: false, message: "Something went wrong" }, false);
+    const user = await advanceToPhoneStep();
+
+    await user.type(screen.getByTestId("input-signup-phone"), "+96170000000");
+    await user.click(screen.getByTestId("button-signup-create"));
+
+    await waitFor(() => {
+      expect(toastFn).toHaveBeenCalled();
     });
 
-    await user.click(screen.getByTestId("button-signup-back"));
-
-    // Should be back on the phone step.
+    // Still on phone step — no redirect, no OTP.
     expect(screen.getByTestId("input-signup-phone")).toBeTruthy();
     expect(screen.queryByTestId("input-signup-code")).toBeNull();
-
-    const calls = fetchSpy.mock.calls.map((c) => c[0] as string);
-    expect(calls).not.toContain("/api/auth/register");
   });
 });
