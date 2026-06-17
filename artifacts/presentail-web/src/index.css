@@ -313,8 +313,19 @@
 /* ── react-phone-number-input: match shadcn Input appearance ─────────────── */
 .pi-phone-wrap .PhoneInput {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: stretch;
+  height: 2.25rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: calc(var(--radius) - 4px);
+  background: hsl(var(--card));
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.pi-phone-wrap .PhoneInput:focus-within {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 1px hsl(var(--ring));
 }
 
 .pi-phone-wrap .PhoneInputCountry {
@@ -323,10 +334,9 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0 0.5rem;
-  height: 3rem;
-  border: 1px solid hsl(var(--input));
-  border-radius: calc(var(--radius) - 2px);
-  background: hsl(var(--background));
+  border: none;
+  border-right: 1px solid hsl(var(--input));
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -358,25 +368,18 @@
 
 .pi-phone-wrap .PhoneInputInput {
   flex: 1;
-  height: 3rem;
+  height: 100%;
   padding: 0 0.75rem;
-  border: 1px solid hsl(var(--input));
-  border-radius: calc(var(--radius) - 2px);
-  background: hsl(var(--background));
+  border: none;
+  background: transparent;
   color: hsl(var(--foreground));
   font-size: 0.875rem;
   line-height: 1.25rem;
   outline: none;
-  transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .pi-phone-wrap .PhoneInputInput::placeholder {
   color: hsl(var(--muted-foreground));
-}
-
-.pi-phone-wrap .PhoneInputInput:focus {
-  border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.2);
 }
 
 @layer utilities {
