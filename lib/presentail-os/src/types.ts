@@ -247,6 +247,8 @@ export type OSCreateOrderPayload = {
     slot?: string;
     isExpress: boolean;
     noAddress: boolean;
+    /** Recipient phone number for this delivery (E.164 format when available). */
+    phone?: string;
     /** Computed server-side delivery fee in USD (0 when free). */
     feeUsd: number;
     /** Express surcharge in USD (0 when not express). */
@@ -273,6 +275,33 @@ export type OSCreateOrderPayload = {
     /** Authoritative total in USD (sum of product subtotal + all fees). */
     totalUsd: number;
   };
+  /**
+   * Structured delivery address for the OS order view.
+   * Maps to the OS `delivery_address` block (address_1, city, country, phone).
+   */
+  delivery_address?: {
+    address_1?: string;
+    address_2?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+    phone?: string;
+  };
+  /**
+   * ISO 8601 datetime string for the start of the delivery window
+   * (e.g. "2026-06-18T10:00:00"). For express orders, set to submission time.
+   */
+  window_start?: string;
+  /**
+   * ISO 8601 datetime string for the end of the delivery window
+   * (e.g. "2026-06-18T13:00:00"). Omitted for express orders.
+   */
+  window_end?: string;
+  /** Delivery type: "standard" or "express". */
+  delivery_type?: string;
+  /** Special instructions for the delivery (from order notes). */
+  delivery_instructions?: string;
   /** Normalised platform string: "ios" | "android" | "web" | null. */
   platform?: string | null;
   couponCode?: string;

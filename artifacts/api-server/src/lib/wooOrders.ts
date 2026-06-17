@@ -22,7 +22,11 @@ import {
 } from "./catalog";
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
-import { getDeliverySlots, resolveOsDeliveryConfig } from "./osLocationsCache";
+import {
+  getDeliverySlots,
+  resolveOsDeliveryConfig,
+  type OsDeliverySlot,
+} from "./osLocationsCache";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 
@@ -834,9 +838,10 @@ export async function attemptCreateOsOrder(
   }
 
   let slotFeeAppliedUsd = 0;
+  let bookedSlot: OsDeliverySlot | undefined;
   if (!clientSignalledExpress && body.deliverySlot && body.cityId) {
     const citySlots = getDeliverySlots(body.cityId);
-    const bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
+    bookedSlot = citySlots.find((s) => s.label === body.deliverySlot);
     if (bookedSlot?.extraFee && bookedSlot.extraFee > 0) {
       slotFeeAppliedUsd = bookedSlot.extraFee;
     }
@@ -889,6 +894,7 @@ export async function attemptCreateOsOrder(
       slot: body.deliverySlot || undefined,
       isExpress: clientSignalledExpress,
       noAddress: isNoAddress,
+      phone: body.recipient.phone || undefined,
       feeUsd: serverDistrictFeeUsd,
       expressSurchargeUsd: expressSurchargeAppliedUsd,
       slotFeeUsd: slotFeeAppliedUsd,
@@ -900,6 +906,39 @@ export async function attemptCreateOsOrder(
     qrLabel: body.qrLabel || undefined,
     orderNotes: body.orderNotes || undefined,
     identitySecret: body.identitySecret,
+    delivery_address: {
+      address_1: body.deliveryDetails || undefined,
+      city: body.district || undefined,
+      country: body.shippingCountry ?? undefined,
+      phone: body.recipient.phone || undefined,
+    },
+    ...((): {
+      window_start?: string;
+      window_end?: string;
+    } => {
+      if (clientSignalledExpress) {
+        // Express: window starts now; no end window.
+        return { window_start: new Date().toISOString() };
+      }
+      if (body.deliveryDate) {
+        const pad = (h: number) => String(h).padStart(2, "0");
+        const start =
+          bookedSlot?.startHour != null
+            ? `${body.deliveryDate}T${pad(bookedSlot.startHour)}:00:00`
+            : undefined;
+        const end =
+          bookedSlot?.endHour != null
+            ? `${body.deliveryDate}T${pad(bookedSlot.endHour)}:00:00`
+            : undefined;
+        return {
+          ...(start != null ? { window_start: start } : {}),
+          ...(end != null ? { window_end: end } : {}),
+        };
+      }
+      return {};
+    })(),
+    delivery_type: clientSignalledExpress ? "express" : "standard",
+    delivery_instructions: body.orderNotes || undefined,
     payment: {
       method:
         body.paymentMethod === "card" || body.paymentMethod === "wallet"
