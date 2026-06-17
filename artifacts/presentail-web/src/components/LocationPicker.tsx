@@ -90,6 +90,12 @@ export function LocationPicker({
         {t("locationPicker.sendGiftTo")}
       </h2>
 
+      {!showCities && (
+        <p className="text-sm text-foreground/60 font-medium mt-1 mb-4 text-start">
+          {t("locationPicker.selectRecipientCountry")}
+        </p>
+      )}
+
       {showCities && selectedCountry ? (
         <div className="mt-3 mb-4 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -109,9 +115,11 @@ export function LocationPicker({
         </div>
       ) : null}
 
-      <p className="text-sm font-bold text-foreground text-start mb-4 mt-3">
-        {sectionLabel}
-      </p>
+      {showCities && (
+        <p className="text-sm font-bold text-foreground text-start mb-4 mt-3">
+          {sectionLabel}
+        </p>
+      )}
 
       <div className="flex flex-col overflow-y-auto min-h-0 flex-1">
         {isLoadingCountries && countries.length === 0 ? (
