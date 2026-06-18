@@ -417,7 +417,7 @@ const EN = {
   noMatchesDesc: "Try a different category or search term.",
 
   // ── Cart ──
-  cartTitle: "Your Cart",
+  cartTitle: "Cart",
   cartClear: "Clear",
   cartEmpty: "Your cart is empty",
   cartClearConfirmTitle: "Clear your cart?",
@@ -1254,7 +1254,7 @@ const AR: typeof EN = {
   noMatchesDesc: "جرّب فئة مختلفة أو كلمة بحث أخرى.",
 
   // ── Cart ──
-  cartTitle: "عربتك",
+  cartTitle: "سلة التسوق",
   cartClear: "مسح",
   cartEmpty: "عربتك فارغة",
   cartClearConfirmTitle: "مسح عربتك؟",
@@ -2085,7 +2085,7 @@ const FR: typeof EN = {
   noMatchesDesc: "Essayez une autre catégorie ou un autre terme.",
 
   // ── Cart ──
-  cartTitle: "Votre panier",
+  cartTitle: "Panier",
   cartClear: "Vider",
   cartEmpty: "Votre panier est vide",
   cartClearConfirmTitle: "Vider votre panier ?",

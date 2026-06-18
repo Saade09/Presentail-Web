@@ -197,7 +197,7 @@ export function CartDrawer() {
           }}
         >
           <AppText style={{ fontFamily: headingFontMedium, fontSize: 20, color: colors.primary }}>
-            Your Cart {count > 0 ? `(${count})` : ""}
+            {t.cartTitle}{count > 0 ? ` (${count})` : ""}
           </AppText>
           <Pressable onPress={closeCart} hitSlop={12}>
             <Feather name="x" size={22} color={colors.primary} />
