@@ -11,6 +11,7 @@ import {
 import {
   firstAvailableDay,
   getCountryHour,
+  isExpressDeliveryAvailable,
   timeSlotsForCountry,
 } from "@workspace/delivery";
 
@@ -134,7 +135,15 @@ function readInitial(): DeliverySelection {
         slotLabel: resolved.slotLabel,
       };
     }
-    return sanitize(JSON.parse(raw), countryCode);
+    const sanitized = sanitize(JSON.parse(raw), countryCode);
+    // When the stored selection is a scheduled mode but Express is currently
+    // available, seed with Express so ProductDetail opens in the correct state
+    // on first render (the upgrade effect also corrects it once city data
+    // arrives, but pre-seeding avoids a flash for users with cached city data).
+    if (sanitized.mode === "schedule" && isExpressDeliveryAvailable(countryCode, new Date())) {
+      return { mode: "express", date: todayIso(), slotLabel: null };
+    }
+    return sanitized;
   } catch {
     return { mode: null, date: null, slotLabel: null };
   }

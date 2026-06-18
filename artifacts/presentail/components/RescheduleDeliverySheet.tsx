@@ -30,6 +30,8 @@ import {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Called after the shopper confirms a scheduled slot (not express). */
+  onConfirm?: () => void;
   /** The delivery mode that was active when the sheet was opened. */
   initialMode?: "express" | "today_slot" | "schedule" | null;
   /** Whether express delivery is currently available (8 AM – 10 PM window). */
@@ -54,6 +56,7 @@ type Props = {
 export function RescheduleDeliverySheet({
   visible,
   onClose,
+  onConfirm,
   initialMode,
   expressAvailable = false,
   expressSurchargeUsd = 0,
@@ -127,6 +130,7 @@ export function RescheduleDeliverySheet({
       date,
       slotLabel,
     });
+    onConfirm?.();
     onClose();
   };
 

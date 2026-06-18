@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,17 +82,17 @@ export default function ProductDetail() {
     [city, countryCode, now],
   );
 
+  // Tracks whether the shopper has explicitly picked "scheduled" during this
+  // session. A persisted "schedule" from a previous visit must not suppress
+  // the express upgrade; only an in-session explicit pick should.
+  const userPickedScheduledRef = useRef(false);
+
   // Local UI choice for the radio.
   // We intentionally default to "scheduled" when city data hasn't loaded yet
   // (city === null) so we never flash Express for a city where OS has it
   // turned off (e.g. Akkar). The upgrade effect below switches to "express"
-  // once we confirm the city supports it. Only a persisted "schedule" mode
-  // (explicit shopper choice with a concrete date) suppresses Express; the
-  // seed value "today_slot" is treated the same as no explicit choice.
+  // once we confirm the city supports it.
   const [deliveryChoice, setDeliveryChoice] = useState<DeliveryChoice>(() => {
-    if (deliverySelection.mode === "schedule") {
-      return "scheduled";
-    }
     // city === null means the delivery-locations query hasn't resolved yet —
     // safe default is "scheduled"; the upgrade effect corrects it once loaded.
     if (city === null) return "scheduled";
@@ -100,15 +100,11 @@ export default function ProductDetail() {
   });
 
   // Upgrade to express once city data loads and confirms express is available
-  // — only when the shopper has not made an explicit scheduled choice.
-  // "today_slot" is the seed value (not an explicit pick) so it is treated
-  // the same as no selection here.
+  // — unless the shopper has already made an explicit in-session scheduled
+  // pick. A persisted "schedule" from a prior session is not an explicit pick
+  // and must not block the upgrade.
   useEffect(() => {
-    if (
-      expressAvailable &&
-      deliveryChoice === "scheduled" &&
-      (!deliverySelection.mode || deliverySelection.mode === "express" || deliverySelection.mode === "today_slot")
-    ) {
+    if (expressAvailable && deliveryChoice === "scheduled" && !userPickedScheduledRef.current) {
       setDeliveryChoice("express");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,6 +192,7 @@ export default function ProductDetail() {
 
   const handleSelectExpress = () => {
     if (!expressAvailable) return;
+    userPickedScheduledRef.current = false;
     setDeliveryChoice("express");
     deliverySelection.setSelection({
       mode: "express",
@@ -205,6 +202,7 @@ export default function ProductDetail() {
   };
 
   const handleSelectScheduled = () => {
+    userPickedScheduledRef.current = true;
     setDeliveryChoice("scheduled");
     // The inline picker below the row handles the actual date/slot
     // selection; if the shopper has no persisted scheduled choice yet,

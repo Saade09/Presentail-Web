@@ -480,26 +480,18 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // loaded) evaluates to false — avoids flashing Express for cities that
   // have it disabled before the delivery-locations query resolves.
   const expressAvailable = selectedCity?.expressAvailable === true && isExpressDeliveryAvailable(cc, now);
-  // Only a persisted "schedule" mode (explicit shopper pick with a concrete
-  // date) suppresses Express. "today_slot" is the seed value and is treated
-  // the same as no explicit choice — Express wins when it's available.
-  const initialDelivery: "express" | "scheduled" =
-    deliverySelection.mode === "schedule"
-      ? "scheduled"
-      : expressAvailable
-        ? "express"
-        : "scheduled";
+  // Tracks whether the shopper has explicitly confirmed a scheduled slot during
+  // this session. A persisted "schedule" from a prior session must not block
+  // the express upgrade; only an in-session explicit confirmation should.
+  const userPickedScheduledRef = useRef(false);
+  // Express wins on fresh page load unless the city doesn't support it or city
+  // data hasn't loaded yet. A persisted "schedule" is not an in-session pick.
+  const initialDelivery: "express" | "scheduled" = expressAvailable ? "express" : "scheduled";
   const [delivery, setDeliveryLocal] = useState<"express" | "scheduled">(initialDelivery);
   // Upgrade to express once city data loads and confirms express is available
-  // — only when the shopper has not made an explicit scheduled choice.
-  // "today_slot" is the seed value (not an explicit pick) so it is treated
-  // the same as no selection here.
+  // — unless the shopper has explicitly confirmed a scheduled slot this session.
   useEffect(() => {
-    if (
-      expressAvailable &&
-      delivery === "scheduled" &&
-      (!deliverySelection.mode || deliverySelection.mode === "express" || deliverySelection.mode === "today_slot")
-    ) {
+    if (expressAvailable && delivery === "scheduled" && !userPickedScheduledRef.current) {
       setDeliveryLocal("express");
       deliverySelection.setMode("express");
     }
@@ -525,9 +517,16 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   // `today_slot` / `schedule`) flips the PDP into the scheduled state,
   // and an external switch back to express (e.g. from the cart) flips
   // it back here too.
+  // Guard: only revert to scheduled if express is unavailable OR the shopper
+  // has explicitly confirmed a scheduled slot this session. Without this gate
+  // a context hydration of a persisted "schedule" (from a prior session) would
+  // immediately override the express-upgrade effect — making Express
+  // unreachable even when it's available right now.
   useEffect(() => {
     if (deliverySelection.mode === "schedule" || deliverySelection.mode === "today_slot") {
-      if (delivery !== "scheduled") setDeliveryLocal("scheduled");
+      if (delivery !== "scheduled" && (!expressAvailable || userPickedScheduledRef.current)) {
+        setDeliveryLocal("scheduled");
+      }
     } else if (deliverySelection.mode === "express" && expressAvailable) {
       if (delivery !== "express") setDeliveryLocal("express");
     }
@@ -535,6 +534,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   }, [deliverySelection.mode]);
   const setDelivery = (next: "express" | "scheduled") => {
     if (next === "express" && !expressAvailable) return;
+    if (next === "express") userPickedScheduledRef.current = false;
     setDeliveryLocal(next);
     if (next === "express") {
       deliverySelection.setMode("express");
@@ -663,6 +663,7 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       <RescheduleDeliverySheet
         visible={rescheduleVisible}
         onClose={() => setRescheduleVisible(false)}
+        onConfirm={() => { userPickedScheduledRef.current = true; }}
       />
 
       {/* Trust badges — informational, intentionally non-button */}
