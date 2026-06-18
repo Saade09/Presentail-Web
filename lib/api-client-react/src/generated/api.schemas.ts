@@ -635,21 +635,18 @@ export const HomepageBannerMediaType = {
 
 export interface HomepageBanner {
   id: string;
-  /** ISO 3166-1 alpha-2 country code, or "*" for global banners. */
-  countryCode: string;
   title?: string;
   subtitle?: string;
+  /** Large display text rendered between title and subtitle. */
+  headline?: string;
   ctaText?: string;
-  desktopMediaType: HomepageBannerMediaType;
-  desktopMediaUrl: string;
-  desktopLinkUrl: string;
-  mobileMediaType: HomepageBannerMediaType;
-  mobileMediaUrl: string;
-  mobileLinkUrl: string;
+  mediaType: HomepageBannerMediaType;
+  mediaUrl: string;
+  /** Static image fallback when mediaType is video and the browser cannot autoplay. */
+  fallbackImageUrl?: string;
+  linkUrl: string;
   sortOrder: number;
-  isActive: boolean;
-  startsAt?: string;
-  endsAt?: string;
+  priority?: number;
 }
 
 export interface HomepageBannersResponse {
@@ -1212,12 +1209,31 @@ export interface NextOrderIdResponse {
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
-country-targeted banners. Wildcard "*" or omission returns only
-the global ("*") banners.
+country-targeted banners.
 
  */
   countryCode?: string;
+  /**
+ * Optional city identifier (e.g. "ae-dubai") used to filter
+city-targeted banners.
+
+ */
+  cityId?: string;
+  /**
+ * The requesting device type. OS uses this to return the correct
+media asset dimensions and crop for the viewport.
+
+ */
+  device: GetHomepageBannersDevice;
 };
+
+export type GetHomepageBannersDevice =
+  (typeof GetHomepageBannersDevice)[keyof typeof GetHomepageBannersDevice];
+
+export const GetHomepageBannersDevice = {
+  desktop: "desktop",
+  mobile: "mobile",
+} as const;
 
 export type GetHomepageCategoriesParams = {
   /**

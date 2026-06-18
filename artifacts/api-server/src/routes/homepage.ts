@@ -6,7 +6,7 @@ import {
   GetHomepageOccasionsResponse,
 } from "@workspace/api-zod";
 import type { HomepageCollectionItem } from "@workspace/api-zod";
-import { getActiveBanners } from "../data/homepageBanners";
+
 import {
   hasOsProducts,
   getOsProducts,
@@ -19,25 +19,63 @@ import { resolveStoreFromRequest } from "../lib/wooStore";
 
 const router: IRouter = Router();
 
-// Returns the active hero banner carousel for the supplied country.
-// Filtering by isActive, the optional startsAt/endsAt window, and country
-// code (with "*" matching every country) plus sortOrder ordering all happen
-// here so clients can render the response verbatim.
-router.get("/homepage/banners", (req, res) => {
-  const { countryCode } = GetHomepageBannersQueryParams.parse(req.query);
-  const code = (countryCode ?? "*").toUpperCase();
-  const now = Date.now();
+// Returns the active hero banner carousel sourced directly from Presentail OS.
+// OS handles all filtering (active status, schedule window, country/city
+// targeting, device) server-side. On any fetch error the route returns an
+// empty array so the homepage renders without crashing.
+router.get("/homepage/banners", async (req, res) => {
+  const { countryCode, cityId, device } = GetHomepageBannersQueryParams.parse(req.query);
+  const osBase = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
 
-  const banners = getActiveBanners().filter((b) => {
-    if (!b.isActive) return false;
-    if (b.countryCode !== "*" && b.countryCode.toUpperCase() !== code) return false;
-    if (b.startsAt && new Date(b.startsAt).getTime() > now) return false;
-    if (b.endsAt && new Date(b.endsAt).getTime() < now) return false;
-    return true;
-  }).sort((a, b) => a.sortOrder - b.sortOrder);
+  const qs = new URLSearchParams();
+  if (countryCode) qs.set("countryCode", countryCode);
+  if (cityId) qs.set("cityId", cityId);
+  qs.set("device", device);
 
-  const data = GetHomepageBannersResponse.parse({ banners });
-  res.json(data);
+  try {
+    const r = await fetch(`${osBase}/api/storefront/homepage-banners?${qs.toString()}`, {
+      headers: { "x-api-key": process.env.PRESENTAIL_OS_API_KEY ?? "" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      req.log.warn({ status: r.status }, "homepage/banners: OS returned non-ok");
+      return res.json(GetHomepageBannersResponse.parse({ banners: [] }));
+    }
+    const json = (await r.json()) as { banners?: unknown[] };
+    const rawList = Array.isArray(json.banners) ? json.banners : Array.isArray(json) ? json : [];
+    const banners = rawList
+      .map((item: unknown) => {
+        const b = item as Record<string, unknown>;
+        const rawMediaUrl = (b.media_url ?? b.mediaUrl ?? "") as string;
+        const mediaUrl = rawMediaUrl.startsWith("/") ? `${osBase}${rawMediaUrl}` : rawMediaUrl;
+        const rawFallback = (b.fallback_image_url ?? b.fallbackImageUrl ?? "") as string;
+        const fallbackImageUrl = rawFallback
+          ? rawFallback.startsWith("/") ? `${osBase}${rawFallback}` : rawFallback
+          : undefined;
+        return {
+          id: String(b.id ?? ""),
+          title: b.title ? String(b.title) : undefined,
+          subtitle: b.subtitle ? String(b.subtitle) : undefined,
+          headline: b.headline ? String(b.headline) : undefined,
+          ctaText: b.cta_text ? String(b.cta_text) : b.ctaText ? String(b.ctaText) : undefined,
+          mediaType: (b.media_type ?? b.mediaType ?? "image") as "image" | "video",
+          mediaUrl,
+          fallbackImageUrl,
+          linkUrl: String(b.link_url ?? b.linkUrl ?? ""),
+          sortOrder: Number(b.sort_order ?? b.sortOrder ?? 0),
+          priority: b.priority != null ? Number(b.priority) : undefined,
+        };
+      })
+      .filter((b) => b.id && b.mediaUrl)
+      .sort((a, b) => {
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        return (a.priority ?? 0) - (b.priority ?? 0);
+      });
+    return res.json(GetHomepageBannersResponse.parse({ banners }));
+  } catch (err: unknown) {
+    req.log.warn({ err: (err as Error)?.message }, "homepage/banners: OS fetch failed");
+    return res.json(GetHomepageBannersResponse.parse({ banners: [] }));
+  }
 });
 
 // In-memory best-sellers cache TTL (matches the collection pattern).

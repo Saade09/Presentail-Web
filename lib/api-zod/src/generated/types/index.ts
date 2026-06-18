@@ -60,6 +60,7 @@ export * from "./gender";
 export * from "./geoCurrencyResponse";
 export * from "./getDeliveryConfigParams";
 export * from "./getGeoCurrencyByCoordsParams";
+export * from "./getHomepageBannersDevice";
 export * from "./getHomepageBannersParams";
 export * from "./getHomepageBestSellersParams";
 export * from "./getHomepageCategoriesParams";

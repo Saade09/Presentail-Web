@@ -5,13 +5,25 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GetHomepageBannersDevice } from "./getHomepageBannersDevice";
 
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
-country-targeted banners. Wildcard "*" or omission returns only
-the global ("*") banners.
+country-targeted banners.
 
  */
   countryCode?: string;
+  /**
+ * Optional city identifier (e.g. "ae-dubai") used to filter
+city-targeted banners.
+
+ */
+  cityId?: string;
+  /**
+ * The requesting device type. OS uses this to return the correct
+media asset dimensions and crop for the viewport.
+
+ */
+  device: GetHomepageBannersDevice;
 };

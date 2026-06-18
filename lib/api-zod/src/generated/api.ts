@@ -457,10 +457,9 @@ export const RecordAnalyticsEventResponse = zod.object({
 
 /**
  * Returns the active homepage hero banner carousel for the supplied
-country. Banners are filtered server-side by isActive, the optional
-startsAt/endsAt window (inclusive bounds against the current server
-time), and country code (entries with countryCode "*" match every
-country). Results are sorted by sortOrder ascending.
+country, city, and device. All filtering (active status, schedule
+window, country/city targeting) is handled server-side by Presentail
+OS. Results are sorted by sortOrder ascending then priority ascending.
 
  * @summary Get active homepage hero banners
  */
@@ -469,7 +468,18 @@ export const GetHomepageBannersQueryParams = zod.object({
     .string()
     .optional()
     .describe(
-      'ISO 3166-1 alpha-2 country code (case-insensitive) used to filter\ncountry-targeted banners. Wildcard \"\*\" or omission returns only\nthe global (\"\*\") banners.\n',
+      "ISO 3166-1 alpha-2 country code (case-insensitive) used to filter\ncountry-targeted banners.\n",
+    ),
+  cityId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Optional city identifier (e.g. \"ae-dubai\") used to filter\ncity-targeted banners.\n',
+    ),
+  device: zod
+    .enum(["desktop", "mobile"])
+    .describe(
+      "The requesting device type. OS uses this to return the correct\nmedia asset dimensions and crop for the viewport.\n",
     ),
 });
 
@@ -477,24 +487,24 @@ export const GetHomepageBannersResponse = zod.object({
   banners: zod.array(
     zod.object({
       id: zod.string(),
-      countryCode: zod
-        .string()
-        .describe(
-          'ISO 3166-1 alpha-2 country code, or \"\*\" for global banners.',
-        ),
       title: zod.string().optional(),
       subtitle: zod.string().optional(),
+      headline: zod
+        .string()
+        .optional()
+        .describe("Large display text rendered between title and subtitle."),
       ctaText: zod.string().optional(),
-      desktopMediaType: zod.enum(["image", "video"]),
-      desktopMediaUrl: zod.string(),
-      desktopLinkUrl: zod.string(),
-      mobileMediaType: zod.enum(["image", "video"]),
-      mobileMediaUrl: zod.string(),
-      mobileLinkUrl: zod.string(),
+      mediaType: zod.enum(["image", "video"]),
+      mediaUrl: zod.string(),
+      fallbackImageUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Static image fallback when mediaType is video and the browser cannot autoplay.",
+        ),
+      linkUrl: zod.string(),
       sortOrder: zod.number(),
-      isActive: zod.boolean(),
-      startsAt: zod.coerce.date().optional(),
-      endsAt: zod.coerce.date().optional(),
+      priority: zod.number().optional(),
     }),
   ),
 });

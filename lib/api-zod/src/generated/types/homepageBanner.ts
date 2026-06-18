@@ -9,19 +9,16 @@ import type { HomepageBannerMediaType } from "./homepageBannerMediaType";
 
 export interface HomepageBanner {
   id: string;
-  /** ISO 3166-1 alpha-2 country code, or "*" for global banners. */
-  countryCode: string;
   title?: string;
   subtitle?: string;
+  /** Large display text rendered between title and subtitle. */
+  headline?: string;
   ctaText?: string;
-  desktopMediaType: HomepageBannerMediaType;
-  desktopMediaUrl: string;
-  desktopLinkUrl: string;
-  mobileMediaType: HomepageBannerMediaType;
-  mobileMediaUrl: string;
-  mobileLinkUrl: string;
+  mediaType: HomepageBannerMediaType;
+  mediaUrl: string;
+  /** Static image fallback when mediaType is video and the browser cannot autoplay. */
+  fallbackImageUrl?: string;
+  linkUrl: string;
   sortOrder: number;
-  isActive: boolean;
-  startsAt?: Date;
-  endsAt?: Date;
+  priority?: number;
 }

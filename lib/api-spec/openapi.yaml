@@ -286,23 +286,38 @@ paths:
       summary: Get active homepage hero banners
       description: |
         Returns the active homepage hero banner carousel for the supplied
-        country. Banners are filtered server-side by isActive, the optional
-        startsAt/endsAt window (inclusive bounds against the current server
-        time), and country code (entries with countryCode "*" match every
-        country). Results are sorted by sortOrder ascending.
+        country, city, and device. All filtering (active status, schedule
+        window, country/city targeting) is handled server-side by Presentail
+        OS. Results are sorted by sortOrder ascending then priority ascending.
       parameters:
         - name: countryCode
           in: query
           required: false
           description: |
             ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
-            country-targeted banners. Wildcard "*" or omission returns only
-            the global ("*") banners.
+            country-targeted banners.
           schema:
             type: string
+        - name: cityId
+          in: query
+          required: false
+          description: |
+            Optional city identifier (e.g. "ae-dubai") used to filter
+            city-targeted banners.
+          schema:
+            type: string
+        - name: device
+          in: query
+          required: true
+          description: |
+            The requesting device type. OS uses this to return the correct
+            media asset dimensions and crop for the viewport.
+          schema:
+            type: string
+            enum: [desktop, mobile]
       responses:
         "200":
-          description: Active banners for the country
+          description: Active banners for the country/city/device
           content:
             application/json:
               schema:
@@ -2128,48 +2143,34 @@ components:
       properties:
         id:
           type: string
-        countryCode:
-          type: string
-          description: ISO 3166-1 alpha-2 country code, or "*" for global banners.
         title:
           type: string
         subtitle:
           type: string
+        headline:
+          type: string
+          description: Large display text rendered between title and subtitle.
         ctaText:
           type: string
-        desktopMediaType:
+        mediaType:
           $ref: "#/components/schemas/HomepageBannerMediaType"
-        desktopMediaUrl:
+        mediaUrl:
           type: string
-        desktopLinkUrl:
+        fallbackImageUrl:
           type: string
-        mobileMediaType:
-          $ref: "#/components/schemas/HomepageBannerMediaType"
-        mobileMediaUrl:
-          type: string
-        mobileLinkUrl:
+          description: Static image fallback when mediaType is video and the browser cannot autoplay.
+        linkUrl:
           type: string
         sortOrder:
           type: integer
-        isActive:
-          type: boolean
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
+        priority:
+          type: integer
       required:
         - id
-        - countryCode
-        - desktopMediaType
-        - desktopMediaUrl
-        - desktopLinkUrl
-        - mobileMediaType
-        - mobileMediaUrl
-        - mobileLinkUrl
+        - mediaType
+        - mediaUrl
+        - linkUrl
         - sortOrder
-        - isActive
     HomepageBannersResponse:
       type: object
       properties:

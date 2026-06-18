@@ -5,12 +5,15 @@ import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
   const { t, cityName } = useLocale();
+  const isMobile = useIsMobile();
   const countryCode = country?.code ?? "*";
-  const { data: banners, isLoading } = useHomepageBanners(countryCode);
+  const device = isMobile ? "mobile" as const : "desktop" as const;
+  const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device);
 
   const cityLabel = city
     ? cityName(city.id, city.name)

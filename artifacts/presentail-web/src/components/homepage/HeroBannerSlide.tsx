@@ -11,10 +11,10 @@ type Props = {
 };
 
 export function HeroBannerSlide({ banner, isMobile, active }: Props) {
-  const mediaType = isMobile ? banner.mobileMediaType : banner.desktopMediaType;
-  const mediaUrl = isMobile ? banner.mobileMediaUrl : banner.desktopMediaUrl;
-  const linkUrl = isMobile ? banner.mobileLinkUrl : banner.desktopLinkUrl;
-  const hasText = !!(banner.title || banner.subtitle || banner.ctaText);
+  const mediaType = banner.mediaType;
+  const mediaUrl = banner.mediaUrl;
+  const linkUrl = banner.linkUrl;
+  const hasText = !!(banner.title || banner.headline || banner.subtitle || banner.ctaText);
   const responsiveProps = !isMobile && mediaType === "image" ? buildUnsplashSrcset(mediaUrl) : null;
 
   return (
@@ -29,6 +29,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
         {mediaType === "video" ? (
           <motion.video
             src={mediaUrl}
+            {...(banner.fallbackImageUrl ? { poster: banner.fallbackImageUrl } : {})}
             className="w-full h-full object-cover"
             autoPlay
             muted
@@ -74,6 +75,11 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
                 <h2 className="font-serif text-4xl md:text-6xl leading-[1.1] text-white mb-3 tracking-tight drop-shadow">
                   {banner.title}
                 </h2>
+              )}
+              {banner.headline && (
+                <p className="font-serif text-2xl md:text-4xl text-white/90 mb-2 leading-tight">
+                  {banner.headline}
+                </p>
               )}
               {banner.subtitle && (
                 <p className="text-sm md:text-lg text-white/85 mb-6 md:mb-8 max-w-md leading-relaxed">

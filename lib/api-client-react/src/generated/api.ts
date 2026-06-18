@@ -815,14 +815,13 @@ export const useRecordAnalyticsEvent = <
 
 /**
  * Returns the active homepage hero banner carousel for the supplied
-country. Banners are filtered server-side by isActive, the optional
-startsAt/endsAt window (inclusive bounds against the current server
-time), and country code (entries with countryCode "*" match every
-country). Results are sorted by sortOrder ascending.
+country, city, and device. All filtering (active status, schedule
+window, country/city targeting) is handled server-side by Presentail
+OS. Results are sorted by sortOrder ascending then priority ascending.
 
  * @summary Get active homepage hero banners
  */
-export const getGetHomepageBannersUrl = (params?: GetHomepageBannersParams) => {
+export const getGetHomepageBannersUrl = (params: GetHomepageBannersParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -839,7 +838,7 @@ export const getGetHomepageBannersUrl = (params?: GetHomepageBannersParams) => {
 };
 
 export const getHomepageBanners = async (
-  params?: GetHomepageBannersParams,
+  params: GetHomepageBannersParams,
   options?: RequestInit,
 ): Promise<HomepageBannersResponse> => {
   return customFetch<HomepageBannersResponse>(
@@ -861,7 +860,7 @@ export const getGetHomepageBannersQueryOptions = <
   TData = Awaited<ReturnType<typeof getHomepageBanners>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetHomepageBannersParams,
+  params: GetHomepageBannersParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getHomepageBanners>>,
@@ -900,7 +899,7 @@ export function useGetHomepageBanners<
   TData = Awaited<ReturnType<typeof getHomepageBanners>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetHomepageBannersParams,
+  params: GetHomepageBannersParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getHomepageBanners>>,

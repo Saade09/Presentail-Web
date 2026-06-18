@@ -6,12 +6,13 @@ import type { HomepageBanner } from "@workspace/api-client-react";
 
 export type { HomepageBanner };
 
-// Hook backed by the real Presentail OS feed at `/api/homepage/banners`.
-// Filtering (active / startsAt-endsAt window / countryCode) and sortOrder
-// ordering all happen server-side, so the client can render the response
-// verbatim.
-export function useHomepageBanners(countryCode: string) {
-  const params = { countryCode };
+export type BannerDevice = "desktop" | "mobile";
+
+// Hook backed by the live Presentail OS feed via `/api/homepage/banners`.
+// OS handles all filtering (active status, schedule window, country/city
+// targeting, device) server-side, so the client renders the response verbatim.
+export function useHomepageBanners(countryCode: string, cityId?: string, device: BannerDevice = "desktop") {
+  const params = { countryCode, cityId, device };
   return useGetHomepageBanners<HomepageBanner[]>(params, {
     query: {
       queryKey: getGetHomepageBannersQueryKey(params),

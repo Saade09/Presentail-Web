@@ -36,7 +36,6 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db, appOrdersTable, customersTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
-import type { HomepageBanner } from "@workspace/api-zod";
 import {
   storeLocationsFromWebhook,
   invalidateOsLocationsCache,
@@ -45,7 +44,7 @@ import { broadcastLocationsUpdated, getSseClientCount } from "../lib/sseBroadcas
 import { sendAllStoresDataRefreshPush } from "../lib/wooSync";
 import { invalidateOsProductsCache, removeOsProductById } from "../lib/osProductsCache";
 import { setFxRates } from "../lib/fxRateCache";
-import { setActiveBannersFromWebhook } from "../data/homepageBanners";
+
 import { sendOrderEventPush } from "../lib/orderEvents";
 import { sendOrderEventSms } from "../lib/smsNotify";
 import { upsertCustomer } from "../lib/customers";
@@ -218,86 +217,6 @@ export function parseDeliveryConfigPayload(data: {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers: banner mapper
-//
-// Maps the OS webhook banner payload (snake_case) to HomepageBanner (camelCase).
-// ---------------------------------------------------------------------------
-
-type WebhookBannerMediaRaw = {
-  media_type?: string;
-  media_url?: string;
-  link_url?: string;
-};
-
-type WebhookBannerRaw = {
-  id?: string;
-  country_codes?: string[];
-  country_code?: string;
-  title?: string;
-  subtitle?: string;
-  cta_text?: string;
-  // Nested form (preferred by OS):
-  desktop?: WebhookBannerMediaRaw;
-  mobile?: WebhookBannerMediaRaw;
-  // Flattened snake_case form (legacy / fallback):
-  desktop_media_type?: string;
-  desktop_media_url?: string;
-  desktop_link_url?: string;
-  mobile_media_type?: string;
-  mobile_media_url?: string;
-  mobile_link_url?: string;
-  sort_order?: number;
-  is_active?: boolean;
-  start_at?: string | null;
-  end_at?: string | null;
-};
-
-function mapWebhookBanners(raw: WebhookBannerRaw[]): HomepageBanner[] {
-  const banners: HomepageBanner[] = [];
-  for (const b of raw) {
-    if (!b.id) continue;
-    // A single OS banner with multiple country_codes expands to one entry per
-    // country code. A "*" code means the banner applies globally.
-    const codes =
-      Array.isArray(b.country_codes) && b.country_codes.length > 0
-        ? b.country_codes
-        : [b.country_code ?? "*"];
-    // Prefer nested desktop/mobile objects; fall back to flattened fields.
-    const desktopMediaType = (b.desktop?.media_type ?? b.desktop_media_type) as
-      | HomepageBanner["desktopMediaType"]
-      | undefined;
-    const desktopMediaUrl = b.desktop?.media_url ?? b.desktop_media_url ?? "";
-    const desktopLinkUrl = b.desktop?.link_url ?? b.desktop_link_url ?? "";
-    const mobileMediaType = (b.mobile?.media_type ?? b.mobile_media_type) as
-      | HomepageBanner["mobileMediaType"]
-      | undefined;
-    const mobileMediaUrl = b.mobile?.media_url ?? b.mobile_media_url ?? "";
-    const mobileLinkUrl = b.mobile?.link_url ?? b.mobile_link_url ?? "";
-    for (const cc of codes) {
-      const id = codes.length > 1 ? `${b.id}-${cc.toLowerCase()}` : b.id;
-      banners.push({
-        id,
-        countryCode: cc,
-        title: b.title,
-        subtitle: b.subtitle,
-        ctaText: b.cta_text,
-        desktopMediaType: desktopMediaType ?? "image",
-        desktopMediaUrl,
-        desktopLinkUrl,
-        mobileMediaType: mobileMediaType ?? "image",
-        mobileMediaUrl,
-        mobileLinkUrl,
-        sortOrder: b.sort_order ?? 0,
-        isActive: b.is_active ?? true,
-        startsAt: b.start_at ? new Date(b.start_at) : undefined,
-        endsAt: b.end_at ? new Date(b.end_at) : undefined,
-      });
-    }
-  }
-  return banners;
-}
-
-// ---------------------------------------------------------------------------
 // Helpers: order status mapping
 // ---------------------------------------------------------------------------
 
@@ -455,15 +374,17 @@ router.post("/os/webhook", async (req, res) => {
   }
 
   // banner.updated ────────────────────────────────────────────────────────
+  // The banner route now fetches live from OS on every request, so there is
+  // no in-memory store to update. Send a data_refresh push so mobile clients
+  // invalidate their React Query cache and pick up the new banners immediately.
   if (event === "banner.updated" || event === "catalog.banners.changed") {
-    const rawBanners = (data?.banners ?? (Array.isArray(data) ? data : [])) as WebhookBannerRaw[];
-    const banners = mapWebhookBanners(rawBanners);
-    // Accept empty array as a valid "clear all banners" instruction.
-    const changed = setActiveBannersFromWebhook(banners);
-    req.log.info(
-      { bannerCount: banners.length, changed },
-      "osWebhook: homepage banners updated from webhook",
-    );
+    req.log.info({ event }, "osWebhook: banner change received — sending data_refresh push");
+    void sendAllStoresDataRefreshPush().catch((err: unknown) => {
+      req.log.warn(
+        { err: (err as Error)?.message },
+        "osWebhook: sendAllStoresDataRefreshPush failed (non-fatal)",
+      );
+    });
     return res.json({ ok: true });
   }
 
