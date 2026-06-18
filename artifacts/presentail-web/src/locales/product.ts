@@ -33,6 +33,9 @@ export const productStrings: Dict = {
   "product.benefit.noAddress.sub": { en: "We will collect the address for you.", ar: "سنتولى جمع العنوان نيابةً عنك." },
   "product.benefit.tracking.title": { en: "Live Order Tracking", ar: "تتبع الطلب مباشرةً" },
   "product.benefit.tracking.sub": { en: "You will receive real-time updates.", ar: "ستتلقى تحديثات فورية." },
+  "product.tab.description": { en: "Description", ar: "الوصف" },
+  "product.tab.careTips": { en: "Care Tips", ar: "نصائح العناية" },
+  "product.bouquetIncludes": { en: "Bouquet Includes:", ar: "محتويات الباقة:" },
 };
 
 export const productStringsFr: Record<string, string> = {
@@ -68,4 +71,7 @@ export const productStringsFr: Record<string, string> = {
   "product.benefit.noAddress.sub": "Nous collecterons l'adresse pour vous.",
   "product.benefit.tracking.title": "Suivi de commande en direct",
   "product.benefit.tracking.sub": "Vous recevrez des mises à jour en temps réel.",
+  "product.tab.description": "Description",
+  "product.tab.careTips": "Conseils d'entretien",
+  "product.bouquetIncludes": "Le bouquet comprend :",
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Flower2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/contexts/LocaleContext";
 
 type Props = {
   description: string;
@@ -12,31 +13,32 @@ type Tab = "description" | "care";
 
 export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
   const [tab, setTab] = useState<Tab>("description");
+  const { t } = useLocale();
+
+  const tabs = [
+    { id: "description" as const, label: t("product.tab.description") },
+    { id: "care" as const, label: t("product.tab.careTips") },
+  ];
 
   return (
     <div className="mt-12" data-testid="product-tabs">
       <div className="flex gap-8 border-b border-border">
-        {(
-          [
-            { id: "description", label: "Description" },
-            { id: "care", label: "Care Tips" },
-          ] as const
-        ).map((t) => {
-          const active = tab === t.id;
+        {tabs.map((tabItem) => {
+          const active = tab === tabItem.id;
           return (
             <button
-              key={t.id}
+              key={tabItem.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tabItem.id)}
               className={cn(
                 "py-3 text-sm font-semibold uppercase tracking-[0.14em] -mb-px border-b-2",
                 active
                   ? "text-foreground border-foreground"
                   : "text-muted-foreground border-transparent hover:text-foreground/80",
               )}
-              data-testid={`product-tab-${t.id}`}
+              data-testid={`product-tab-${tabItem.id}`}
             >
-              {t.label}
+              {tabItem.label}
             </button>
           );
         })}
@@ -53,7 +55,7 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
             {bouquetIncludes.length > 0 && (
               <div>
                 <p className="text-xs uppercase tracking-[0.16em] text-foreground font-semibold mb-3">
-                  Bouquet Includes:
+                  {t("product.bouquetIncludes")}
                 </p>
                 <ul className="space-y-2">
                   {bouquetIncludes.map((line) => (
