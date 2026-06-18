@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
-import { getCustomerByWcId } from "../lib/customers";
+import { getCustomerById, getCustomerByWcId } from "../lib/customers";
 
 const router: IRouter = Router();
 
@@ -76,15 +76,23 @@ async function resolveCustomerId(
 > {
   const auth = await authenticate(authHeader, req);
   if (!auth.ok) return auth;
-  const local = await getCustomerByWcId(auth.customerId);
-  if (!local) {
-    return {
-      ok: false,
-      status: 404,
-      message: "Customer profile not found", // i18n-ignore
-    };
+  // Priority order:
+  // (a) localCustomerId claim — native JWT / web auth; look up directly.
+  if (auth.localCustomerId) {
+    const local = await getCustomerById(auth.localCustomerId);
+    if (local) return { ok: true, customerId: local.id };
   }
-  return { ok: true, customerId: local.id };
+  // (b) WC customer ID — mobile WordPress JWT; look up by wcCustomerId.
+  const byWc = await getCustomerByWcId(auth.customerId);
+  if (byWc) return { ok: true, customerId: byWc.id };
+  // (c) Final fallback — local-only JWT where customerId IS the local row id.
+  const byId = await getCustomerById(auth.customerId);
+  if (byId) return { ok: true, customerId: byId.id };
+  return {
+    ok: false,
+    status: 404,
+    message: "Customer profile not found", // i18n-ignore
+  };
 }
 
 // GET /api/me/addresses
