@@ -96,7 +96,7 @@ export default function SignInPage() {
     const sp = new URLSearchParams(window.location.search);
     return {
       email: sp.get("email_address")?.trim() ?? "",
-      redirectTo: sp.get("redirect_url") ?? "",
+      redirectTo: sp.get("return_to") ?? sp.get("redirect_url") ?? "",
       strategy: sp.get("strategy") ?? "",
     };
   }, []);

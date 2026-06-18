@@ -23,7 +23,6 @@ import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { TrustpilotMicroWidget } from "@/components/product/TrustpilotMicroWidget";
 import { ProductTabs } from "@/components/product/ProductTabs";
-import { FavoriteLoginDialog } from "@/components/product/FavoriteLoginDialog";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
@@ -51,9 +50,8 @@ export default function ProductDetail() {
   const isSignedIn = !!user;
   const { isFavorited, toggleFavorite } = useFavorites();
   const { countryCode: locationCountry } = useLocationSelection();
-  const [,] = useLocation();
+  const [currentPath, setLocation] = useLocation();
   const [upsellOpen, setUpsellOpen] = useState(false);
-  const [favoriteLoginOpen, setFavoriteLoginOpen] = useState(false);
   const delivery = useDeliveryConfig();
   const deliverySelection = useDeliverySelection();
 
@@ -320,7 +318,7 @@ export default function ProductDetail() {
                 if (isSignedIn) {
                   void toggleFavorite(product.id, locationCountry ?? null);
                 } else {
-                  setFavoriteLoginOpen(true);
+                  setLocation(`/sign-in?return_to=${encodeURIComponent(currentPath)}`);
                 }
               } : undefined}
               isFavorited={product ? isFavorited(product.id) : false}
@@ -406,10 +404,6 @@ export default function ProductDetail() {
         onClose={() => setUpsellOpen(false)}
       />
 
-      <FavoriteLoginDialog
-        open={favoriteLoginOpen}
-        onOpenChange={setFavoriteLoginOpen}
-      />
     </div>
   );
 }
