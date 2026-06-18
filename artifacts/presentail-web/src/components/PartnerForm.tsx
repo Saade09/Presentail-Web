@@ -29,7 +29,7 @@ type FormErrors = Record<string, string>;
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="text-destructive text-xs mt-1">{msg}</p>;
+  return <p className="text-destructive text-xs mt-1.5">{msg}</p>;
 }
 
 function FileInput({
@@ -52,13 +52,13 @@ function FileInput({
   const { t } = useLocale();
   const [fileName, setFileName] = useState<string | null>(null);
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-0">
       <Label htmlFor={id}>
         {label}
         {required && <span className="text-destructive ms-0.5">*</span>}
       </Label>
       <div
-        className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors ${
+        className={`mt-1.5 flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors ${
           error ? "border-destructive" : "border-input"
         }`}
       >
@@ -83,7 +83,7 @@ function FileInput({
           }}
         />
       </div>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground mt-1.5">{hint}</p>}
       <FieldError msg={error} />
     </div>
   );
@@ -227,7 +227,7 @@ export default function PartnerForm() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-country">
             {t("partner.form.country")}
             <span className="text-destructive ms-0.5">*</span>
@@ -235,7 +235,7 @@ export default function PartnerForm() {
           <Select value={country} onValueChange={setCountry}>
             <SelectTrigger
               id="partner-country"
-              className={inputCls("country")}
+              className={`mt-1.5 ${inputCls("country")}`}
             >
               <SelectValue placeholder={t("partner.form.selectCountry")} />
             </SelectTrigger>
@@ -248,7 +248,7 @@ export default function PartnerForm() {
           <FieldError msg={errors.country} />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-city">
             {t("partner.form.city")}
             <span className="text-destructive ms-0.5">*</span>
@@ -258,14 +258,14 @@ export default function PartnerForm() {
             value={city}
             onChange={(e) => setCity(e.target.value)}
             placeholder={t("partner.form.cityPh")}
-            className={inputCls("city")}
+            className={`mt-1.5 ${inputCls("city")}`}
           />
           <FieldError msg={errors.city} />
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-brand-name">
             {t("partner.form.brandName")}
             <span className="text-destructive ms-0.5">*</span>
@@ -275,12 +275,12 @@ export default function PartnerForm() {
             value={brandName}
             onChange={(e) => setBrandName(e.target.value)}
             placeholder={t("partner.form.brandNamePh")}
-            className={inputCls("brandName")}
+            className={`mt-1.5 ${inputCls("brandName")}`}
           />
           <FieldError msg={errors.brandName} />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-website">
             {t("partner.form.website")}
             <span className="text-destructive ms-0.5">*</span>
@@ -291,7 +291,7 @@ export default function PartnerForm() {
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             placeholder={t("partner.form.websitePh")}
-            className={inputCls("website")}
+            className={`mt-1.5 ${inputCls("website")}`}
           />
           <FieldError msg={errors.website} />
         </div>
@@ -334,23 +334,25 @@ export default function PartnerForm() {
         <FieldError msg={errors.categories} />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-0">
         <Label htmlFor="partner-other-category">{t("partner.form.otherCategory")}</Label>
         <Input
           id="partner-other-category"
           value={otherCategory}
           onChange={(e) => setOtherCategory(e.target.value)}
           placeholder={t("partner.form.otherCategoryPh")}
+          className="mt-1.5"
         />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-0">
         <Label htmlFor="partner-social">{t("partner.form.socialMedia")}</Label>
         <Input
           id="partner-social"
           value={socialMedia}
           onChange={(e) => setSocialMedia(e.target.value)}
           placeholder={t("partner.form.socialMediaPh")}
+          className="mt-1.5"
         />
       </div>
 
@@ -366,7 +368,7 @@ export default function PartnerForm() {
 
       <div className="border-t border-border pt-6 space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-0">
             <Label htmlFor="partner-first-name">
               {t("partner.form.firstName")}
               <span className="text-destructive ms-0.5">*</span>
@@ -376,12 +378,12 @@ export default function PartnerForm() {
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder={t("partner.form.firstNamePh")}
-              className={inputCls("firstName")}
+              className={`mt-1.5 ${inputCls("firstName")}`}
             />
             <FieldError msg={errors.firstName} />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-0">
             <Label htmlFor="partner-last-name">
               {t("partner.form.lastName")}
               <span className="text-destructive ms-0.5">*</span>
@@ -391,13 +393,13 @@ export default function PartnerForm() {
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder={t("partner.form.lastNamePh")}
-              className={inputCls("lastName")}
+              className={`mt-1.5 ${inputCls("lastName")}`}
             />
             <FieldError msg={errors.lastName} />
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-role">
             {t("partner.form.contactRole")}
             <span className="text-destructive ms-0.5">*</span>
@@ -407,12 +409,12 @@ export default function PartnerForm() {
             value={contactRole}
             onChange={(e) => setContactRole(e.target.value)}
             placeholder={t("partner.form.contactRolePh")}
-            className={inputCls("contactRole")}
+            className={`mt-1.5 ${inputCls("contactRole")}`}
           />
           <FieldError msg={errors.contactRole} />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-email">
             {t("partner.form.email")}
             <span className="text-destructive ms-0.5">*</span>
@@ -423,17 +425,17 @@ export default function PartnerForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t("partner.form.emailPh")}
-            className={inputCls("email")}
+            className={`mt-1.5 ${inputCls("email")}`}
           />
           <FieldError msg={errors.email} />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-0">
           <Label htmlFor="partner-phone">
             {t("partner.form.phone")}
             <span className="text-destructive ms-0.5">*</span>
           </Label>
-          <div className="flex gap-2">
+          <div className="mt-1.5 flex gap-2">
             <Select value={dialCode} onValueChange={setDialCode}>
               <SelectTrigger className="w-[140px] shrink-0">
                 <SelectValue />
