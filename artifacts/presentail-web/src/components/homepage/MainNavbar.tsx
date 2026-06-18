@@ -24,6 +24,8 @@ import {
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
 
+const LABEL_EXPLORE_PRESENTAIL = "Explore Presentail"; // i18n-ignore
+
 function MegaItemThumbnail({ img, emoji, className }: { img?: string; emoji?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (img && !failed) {
@@ -298,7 +300,7 @@ export function MainNavbar() {
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-full border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
+            <SheetContent side="left" className="max-w-[340px] w-[88vw] border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
 
               {/* ── Main menu view ───────────────────────────── */}
               <div
@@ -308,7 +310,7 @@ export function MainNavbar() {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 h-16 border-b border-gray-100 shrink-0">
-                  <Logo className="h-10 w-auto" />
+                  <span className="text-[17px] font-semibold text-gray-800">{LABEL_EXPLORE_PRESENTAIL}</span>
                   <SheetClose asChild>
                     <button
                       type="button"
@@ -366,14 +368,14 @@ export function MainNavbar() {
                         key: "express",
                         label: t("nav.expressDelivery"),
                         href: "/shop",
-                        img: "/catalog/menu/express-delivery.jpg",
+                        img: "/catalog/menu/express-delivery-new.webp",
                         emoji: "⚡",
                       },
                       {
                         key: "weddings",
                         label: t("nav.weddingEvents"),
                         href: "/weddings",
-                        img: "/catalog/menu/wedding-events.jpg",
+                        img: "/catalog/menu/wedding-events-new.webp",
                         emoji: "💐",
                       },
                     ].map((card) => (
