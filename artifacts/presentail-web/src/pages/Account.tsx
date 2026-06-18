@@ -743,7 +743,7 @@ function AddAddressModal({
 
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Street address <span className="text-destructive">*</span>
+              {t("account.addresses.streetLabel")} <span className="text-destructive">*</span>
             </Label>
             <Textarea
               rows={3}
