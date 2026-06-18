@@ -233,7 +233,7 @@ export default function PersonalInformation() {
 
         {/* ── Personal information card ───────────────────────────── */}
         <section
-          className="bg-secondary/30 rounded-3xl p-6 border border-border/50 mb-6"
+          className="bg-card rounded-3xl p-6 border border-border/50 mb-6"
           data-testid="pi-personal-card"
         >
           <h2 className="text-xl font-serif mb-4">{t("pi.title")}</h2>
@@ -355,7 +355,7 @@ export default function PersonalInformation() {
 
         {/* ── Phone card ──────────────────────────────────────────── */}
         <section
-          className="bg-secondary/30 rounded-3xl p-6 border border-border/50 mb-6"
+          className="bg-card rounded-3xl p-6 border border-border/50 mb-6"
           data-testid="pi-phone-card"
         >
           <h2 className="text-xl font-serif mb-1">{t("pi.phone.title")}</h2>
@@ -515,7 +515,7 @@ function PasswordCard({
 
   return (
     <section
-      className="bg-secondary/30 rounded-3xl p-6 border border-border/50"
+      className="bg-card rounded-3xl p-6 border border-border/50"
       data-testid="pi-password-card"
     >
       <h2 className="text-xl font-serif mb-1">{t("pi.password.title")}</h2>
