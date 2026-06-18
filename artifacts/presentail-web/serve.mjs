@@ -621,6 +621,36 @@ let sitemapCache = null;
 let sitemapCacheTsMs = 0;
 const SITEMAP_CACHE_TTL_MS = 15 * 60 * 1000;
 
+let llmsTxtCache = null;
+let llmsTxtCacheTsMs = 0;
+const LLMS_TXT_CACHE_TTL_MS = 60 * 60 * 1000;
+
+function generateLlmsTxt(origin, basePath) {
+  const cleanBase = basePath.replace(/\/$/, "");
+  const base = origin + cleanBase;
+  return `# Presentail
+
+Luxury flower and gift delivery across Lebanon, UAE, and Cyprus.
+Same-day and scheduled delivery. Shop online or via the mobile app.
+
+## Pages
+
+- [Home](${base}/)
+- [Shop](${base}/en-lb/beirut/shop)
+- [Brands](${base}/en-lb/beirut/brands)
+- [Occasions](${base}/en-lb/beirut/occasions)
+- [Categories](${base}/en-lb/beirut/shop)
+- [Blog](${base}/en-lb/beirut/blog)
+- [Corporate gifting](${base}/en-lb/beirut/corporate)
+- [Weddings](${base}/en-lb/beirut/weddings)
+- [Partner with us](${base}/en-lb/beirut/partner)
+- [Contact](${base}/en-lb/beirut/contact)
+- [FAQs](${base}/en-lb/beirut/faqs)
+- [Terms](${base}/en-lb/beirut/terms)
+- [Privacy](${base}/en-lb/beirut/privacy)
+`;
+}
+
 function escXml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -778,6 +808,26 @@ const server = http.createServer(async (req, res) => {
       const headers = {
         "content-type": MIME[".xml"],
         "cache-control": "public, max-age=900, must-revalidate",
+        "vary": "Accept-Encoding",
+      };
+      if (encoding) headers["content-encoding"] = encoding;
+      res.writeHead(200, headers);
+      res.end(body);
+      return;
+    }
+
+    // /llms.txt — machine-readable storefront index for AI agents / LLM browsers.
+    if (pathname === "/llms.txt") {
+      const nowMs = Date.now();
+      if (!llmsTxtCache || nowMs - llmsTxtCacheTsMs > LLMS_TXT_CACHE_TTL_MS) {
+        llmsTxtCache = generateLlmsTxt(origin, BASE_PATH);
+        llmsTxtCacheTsMs = nowMs;
+      }
+      const encoding = pickEncoding(req, ".txt");
+      const body = await compressBuffer(llmsTxtCache, encoding);
+      const headers = {
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "public, max-age=3600, must-revalidate",
         "vary": "Accept-Encoding",
       };
       if (encoding) headers["content-encoding"] = encoding;
