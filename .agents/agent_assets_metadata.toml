@@ -257,3 +257,9 @@ id = "0838DAZ7z3eNU2ds7xvy-"
 uri = "file://attached_assets/image_search/wedding_2.jpg"
 type = "image"
 title = "wedding_2.jpg"
+
+[[outputs]]
+id = "FI4QPuP0fxgoo3h9Ri8DY"
+uri = "file://attached_assets/card-stationery.png"
+type = "image"
+title = "Card stationery background (for OS printing)"
