@@ -86,12 +86,12 @@ export function LocationPicker({
         </button>
       )}
 
-      <h2 className="text-2xl md:text-[26px] font-serif text-primary text-start mb-1">
+      <h2 className="text-2xl md:text-[26px] font-serif text-primary text-center md:text-start mb-1">
         {t("locationPicker.sendGiftTo")}
       </h2>
 
       {!showCities && (
-        <p className="text-sm text-foreground/60 font-medium mt-1 mb-4 text-start">
+        <p className="text-sm text-foreground/60 font-medium mt-1 mb-4 text-center md:text-start">
           {t("locationPicker.selectRecipientCountry")}
         </p>
       )}
