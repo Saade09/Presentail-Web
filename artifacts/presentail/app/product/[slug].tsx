@@ -616,49 +616,50 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
         </View>
       </View>
 
-      {/* Delivery options */}
-      <View style={{ marginTop: 8, gap: 10 }}>
-        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
-          {t.deliveryOptionsLabel}
-        </AppText>
-
-        <DeliveryOption
-          colors={colors}
-          active={delivery === "express"}
-          onPress={() => setDelivery("express")}
-          icon="flash-outline"
-          title={t.expressDelivery}
-          subtitle={expressAvailable ? t.arrivesIn90 : t.opensAt8AM}
-          badge={expressAvailable ? t.fastest : undefined}
-          disabled={!expressAvailable}
-        />
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground, letterSpacing: 1.5 }}>
-            OR
+      {/* Delivery options — only shown when express is available */}
+      {expressAvailable && (
+        <View style={{ marginTop: 8, gap: 10 }}>
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.6, textTransform: "uppercase" }}>
+            {t.deliveryOptionsLabel}
           </AppText>
-          <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
-        </View>
 
-        <DeliveryOption
-          colors={colors}
-          active={delivery === "scheduled"}
-          onPress={() => {
-            // Open the sheet first; only flip to scheduled on Confirm.
-            // Dismissing the sheet leaves the current mode unchanged so
-            // "Keep Express" really does keep express on the PDP.
-            setRescheduleVisible(true);
-          }}
-          icon="calendar-clock"
-          title={t.selectDateAndTime}
-          subtitle={
-            delivery === "scheduled" && deliverySelection.date && deliverySelection.slotLabel
-              ? `${deliverySelection.date} · ${deliverySelection.slotLabel}`
-              : t.pickAWindow
-          }
-        />
-      </View>
+          <DeliveryOption
+            colors={colors}
+            active={delivery === "express"}
+            onPress={() => setDelivery("express")}
+            icon="flash-outline"
+            title={t.expressDelivery}
+            subtitle={t.arrivesIn90}
+            badge={t.fastest}
+          />
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground, letterSpacing: 1.5 }}>
+              OR
+            </AppText>
+            <View style={{ height: 1, backgroundColor: colors.border, flex: 1 }} />
+          </View>
+
+          <DeliveryOption
+            colors={colors}
+            active={delivery === "scheduled"}
+            onPress={() => {
+              // Open the sheet first; only flip to scheduled on Confirm.
+              // Dismissing the sheet leaves the current mode unchanged so
+              // "Keep Express" really does keep express on the PDP.
+              setRescheduleVisible(true);
+            }}
+            icon="calendar-clock"
+            title={t.selectDateAndTime}
+            subtitle={
+              delivery === "scheduled" && deliverySelection.date && deliverySelection.slotLabel
+                ? `${deliverySelection.date} · ${deliverySelection.slotLabel}`
+                : t.pickAWindow
+            }
+          />
+        </View>
+      )}
       <RescheduleDeliverySheet
         visible={rescheduleVisible}
         onClose={() => setRescheduleVisible(false)}
