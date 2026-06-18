@@ -289,9 +289,6 @@ export default function Cart() {
                 className="mb-6"
               />
             )}
-            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
-              {t("cart.deliverySummary")}
-            </p>
             <div className="space-y-6">
             {items.map((item, index) => (
               <motion.div
