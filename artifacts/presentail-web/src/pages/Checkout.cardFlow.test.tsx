@@ -161,6 +161,18 @@ vi.mock("@/lib/api", () => ({
   apiFetch: vi.fn().mockResolvedValue({ ok: true, addresses: [] }),
 }));
 
+vi.mock("@/components/product/useDeliveryConfig", () => ({
+  useDeliveryConfig: () => ({
+    expressDeliveryTimeLabel: "Arrives in 90 minutes",
+    freeDeliveryThreshold: "$90",
+    freeDeliveryThresholdUsd: 90,
+    currency: "USD",
+    freeDeliveryEnabled: false,
+    cityFeeUsd: 8,
+    expressSurchargeUsd: 15,
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Component stubs — replace heavy sub-components with lightweight test doubles
 // ---------------------------------------------------------------------------

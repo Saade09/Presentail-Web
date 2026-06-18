@@ -31,6 +31,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { FormattedPrice } from "@/components/FormattedPrice";
+import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -298,6 +299,7 @@ function CheckoutForm() {
   const mamoPayment = useMamoPayment();
   const paypalPayment = usePaypalPayment();
   const { data: locations, isLoading: locationsLoading } = useDeliveryLocations();
+  const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
@@ -649,10 +651,14 @@ function CheckoutForm() {
   );
 
   useEffect(() => {
+    // Only fall back once city data has loaded; firing before that would
+    // reset a seeded "express" selection while expressAvailable is still
+    // false simply because selectedCityData hasn't arrived yet.
+    if (locationsLoading) return;
     if (deliveryMode === "express" && !expressAvailable) {
       setDeliveryMode("schedule");
     }
-  }, [deliveryMode, expressAvailable]);
+  }, [deliveryMode, expressAvailable, locationsLoading]);
 
   // Emit exactly one checkout_started event per checkout mount, but only
   // after auth has resolved AND the shopper is allowed past the login

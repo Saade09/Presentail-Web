@@ -38,6 +38,12 @@ export interface CheckoutFeeInput {
    * Defaults to true when absent.
    */
   freeDeliveryEnabled?: boolean;
+  /**
+   * OS-derived express surcharge in USD for the selected city, from the
+   * /delivery-config endpoint. When provided and > 0, overrides the hardcoded
+   * per-country default from expressSurchargeForCountry().
+   */
+  expressSurchargeUsdOverride?: number;
   /** "express" triggers a per-country surcharge; "schedule" adds no surcharge. */
   deliveryMode: CheckoutDeliveryMode;
   /**
@@ -80,7 +86,10 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
   } = input;
 
   const threshold = thresholdOverride ?? freeDeliveryThresholdUsd(countryCode);
-  const surcharge = expressSurchargeForCountry(countryCode);
+  const surcharge =
+    typeof input.expressSurchargeUsdOverride === "number" && input.expressSurchargeUsdOverride > 0
+      ? input.expressSurchargeUsdOverride
+      : expressSurchargeForCountry(countryCode);
 
   const baseFee = noAddress ? 35 : cityFee;
   const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;

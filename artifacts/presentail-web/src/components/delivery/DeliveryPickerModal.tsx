@@ -47,6 +47,11 @@ interface Props {
    * per-city OS flag — the modal ANDs this with the time-window check.
    */
   cityExpressAvailable?: boolean;
+  /**
+   * OS-derived express surcharge in USD. When provided and > 0, overrides
+   * the hardcoded `expressSurchargeForCountry` fallback shown in the modal.
+   */
+  expressSurchargeUsd?: number;
 }
 
 /** Format an hour integer as a zero-padded HH:00 string, e.g. 9 → "09:00". */
@@ -60,7 +65,7 @@ function dayMonthShort(iso: string): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true }: Props) {
+export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: propTimeSlots, cityExpressAvailable = true, expressSurchargeUsd }: Props) {
   const { t } = useLocale();
   const { countryCode } = useLocationSelection();
   const now = useNow();
@@ -80,7 +85,10 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     () => cityExpressAvailable && isExpressDeliveryAvailable(countryCode, now),
     [cityExpressAvailable, countryCode, now],
   );
-  const expressSurcharge = expressSurchargeForCountry(countryCode);
+  const expressSurcharge =
+    expressSurchargeUsd && expressSurchargeUsd > 0
+      ? expressSurchargeUsd
+      : expressSurchargeForCountry(countryCode);
   const currentHour = useMemo(() => getCountryHour(countryCode, now), [countryCode, now]);
   const todayIso = useMemo(() => now.toISOString().slice(0, 10), [now]);
 
