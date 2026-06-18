@@ -41,7 +41,7 @@ export function LocationPickerGate({ children }: Props) {
           >
             <DialogPrimitive.Content
               aria-describedby={undefined}
-              className="relative w-full max-w-[480px] bg-card rounded-[18px] shadow-xl
+              className="relative w-full max-w-[480px] bg-gray-50 rounded-[18px] shadow-xl
                          flex flex-col overflow-hidden
                          data-[state=open]:animate-in data-[state=closed]:animate-out
                          data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
