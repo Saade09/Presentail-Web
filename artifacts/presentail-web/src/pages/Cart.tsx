@@ -576,7 +576,9 @@ export default function Cart() {
                   onClick={handleProceed}
                   data-testid="link-proceed-to-checkout"
                 >
-                  {t("cart.proceed")} <ArrowRight className={`w-4 h-4 ml-2 ${dir === "rtl" ? "rotate-180" : ""}`} />
+                  <span className="flex-1 text-start">{t("cart.proceed")}</span>
+                  <span className="font-normal opacity-80 mx-2"><FormattedPrice usdValue={cartTotal} /></span>
+                  <ArrowRight className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
                 </Link>
               </Button>
             </div>
