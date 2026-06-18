@@ -157,8 +157,8 @@ export function CheckoutLoginDialog({
         </div>
 
         <div className="px-6 pb-6 space-y-4">
-          <div className="space-y-[20px] pt-3">
-            <label className="text-sm font-medium" htmlFor="checkout-login-email">
+          <div className="flex flex-col gap-[5px] pt-3">
+            <label className="text-sm font-medium block" htmlFor="checkout-login-email">
               {t("auth.emailLabel")}
             </label>
             <Input

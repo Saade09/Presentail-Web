@@ -413,8 +413,8 @@ export default function SignInPage() {
 
         {step === "email" ? (
           <div className="space-y-4">
-            <div className="space-y-[20px] pt-3">
-              <label className="text-sm font-medium" htmlFor="signin-email">
+            <div className="flex flex-col gap-[5px] pt-3">
+              <label className="text-sm font-medium block" htmlFor="signin-email">
                 {t("auth.emailLabel")}
               </label>
               <Input
