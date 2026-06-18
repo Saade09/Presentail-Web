@@ -4,7 +4,15 @@ import { motion } from "framer-motion";
 import { ShimmerImage } from "./ShimmerImage";
 import { FormattedPrice } from "./FormattedPrice";
 
-export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+export function ProductCard({
+  product,
+  index = 0,
+  imageClassName,
+}: {
+  product: Product;
+  index?: number;
+  imageClassName?: string;
+}) {
   const imageUrl = product.image?.uri;
   const tag = product.tag;
 
@@ -17,7 +25,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       data-testid={`card-product-${product.id}`}
     >
       <Link href={`/product/${product.id}`}>
-        <div className="aspect-square bg-secondary/50 rounded-xl overflow-hidden relative mb-4">
+        <div className={`aspect-square bg-secondary/50 overflow-hidden relative mb-4 ${imageClassName ?? "rounded-xl"}`}>
           {imageUrl ? (
             <ShimmerImage
               src={imageUrl}

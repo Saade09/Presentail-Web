@@ -78,7 +78,7 @@ export function ProductCollectionCarousel({
   if (!isLoading && !isError && products.length === 0) return null;
 
   return (
-    <section className="py-10 md:py-14" data-testid={testId}>
+    <section className="py-10 md:py-14 px-4 md:px-0" data-testid={testId}>
       <div className="flex items-end justify-between mb-6 md:mb-8">
         <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
         <div className="flex items-center gap-3 md:gap-4">
@@ -128,9 +128,9 @@ export function ProductCollectionCarousel({
                   <div
                     key={i}
                     data-collection-card
-                    className="flex-shrink-0 snap-start w-[calc(50%-8px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                    className="flex-shrink-0 snap-start w-[calc(40%-6px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
                   >
-                    <div className="aspect-square animate-shimmer rounded-xl mb-4" />
+                    <div className="aspect-square animate-shimmer rounded-lg mb-4" />
                     <div className="h-5 animate-shimmer rounded w-2/3 mb-2" />
                     <div className="h-4 animate-shimmer rounded w-1/3" />
                   </div>
@@ -139,9 +139,9 @@ export function ProductCollectionCarousel({
                 <div
                   key={p.id}
                   data-collection-card
-                  className="flex-shrink-0 snap-start w-[calc(50%-8px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
+                  className="flex-shrink-0 snap-start w-[calc(40%-6px)] sm:w-[42%] md:w-[calc((100%-4.5rem)/4)]"
                 >
-                  <ProductCard product={p} index={i} />
+                  <ProductCard product={p} index={i} imageClassName="rounded-lg" />
                 </div>
               ))}
       </div>
