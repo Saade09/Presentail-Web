@@ -179,8 +179,6 @@ export const accountStrings: Dict = {
   "account.addresses.recipientLast": { en: "Recipient last name", ar: "اسم العائلة للمستلم" },
   "account.addresses.lastPlaceholder": { en: "e.g. Haddad", ar: "مثال: حداد" },
   "account.addresses.recipientPhone": { en: "Recipient phone", ar: "هاتف المستلم" },
-  "account.addresses.extraDetails": { en: "Extra details", ar: "تفاصيل إضافية" },
-  "account.addresses.extraPlaceholder": { en: "Landmark, buzzer code...", ar: "معلم، رمز الجرس..." },
   "account.addresses.deleteTitle": { en: "Delete address?", ar: "حذف العنوان؟" },
 
   "favorites.linkCopied": { en: "Link copied", ar: "تم نسخ الرابط" },
@@ -393,8 +391,6 @@ export const accountStringsFr: Record<string, string> = {
   "account.addresses.recipientLast": "Nom du destinataire",
   "account.addresses.lastPlaceholder": "ex. Haddad",
   "account.addresses.recipientPhone": "Téléphone du destinataire",
-  "account.addresses.extraDetails": "Détails supplémentaires",
-  "account.addresses.extraPlaceholder": "Point de repère, code de sonnette...",
   "account.addresses.deleteTitle": "Supprimer l'adresse ?",
 
   "favorites.linkCopied": "Lien copié",

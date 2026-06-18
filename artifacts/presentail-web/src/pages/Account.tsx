@@ -761,16 +761,6 @@ function AddAddressModal({
             defaultCountry={form.countryCode}
           />
 
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              {t("account.addresses.extraDetails")}
-            </Label>
-            <Input
-              value={form.directions}
-              onChange={(e) => set("directions", e.target.value)}
-              placeholder={t("account.addresses.extraPlaceholder")}
-            />
-          </div>
 
         </div>
 
