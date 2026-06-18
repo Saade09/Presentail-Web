@@ -61,9 +61,9 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
   return (
     <div
       data-testid="free-delivery-banner"
-      className={`flex items-center gap-3 rounded-2xl bg-secondary/60 px-4 py-3 ${className ?? ""}`}
+      className={`flex items-center gap-3 rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-3 ${className ?? ""}`}
     >
-      <span className="w-9 h-9 rounded-full bg-background flex items-center justify-center text-primary shrink-0">
+      <span className="w-9 h-9 rounded-full bg-secondary/40 flex items-center justify-center text-primary shrink-0">
         <Truck className="w-4 h-4" />
       </span>
       <div className="min-w-0 text-xs flex-1">
@@ -75,7 +75,7 @@ export function FreeDeliveryBanner({ className, subtotal, overrideThresholdUsd }
                 : <>{t("cart.banner.remaining.prefix")} <FormattedPrice usdValue={remaining} /> {t("cart.banner.remaining.suffix")}</>}
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-[#d97706] transition-[width] duration-300"
                   style={{ width: `${progressPct}%` }}
