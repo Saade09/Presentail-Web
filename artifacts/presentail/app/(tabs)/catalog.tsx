@@ -32,7 +32,7 @@ const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
 const ALL = "all";
 
-type SortKey = "featured" | "priceUp" | "priceDown" | "name";
+type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
 
 const OCC_NAME_KEY: Record<string, string> = {
   birthday: "occ_birthday",
@@ -95,6 +95,7 @@ function CatalogScreen() {
 
   const sortOptions: { id: SortKey; label: string }[] = [
     { id: "featured", label: t.sortFeatured },
+    { id: "bestSeller", label: t.sortBestSeller },
     { id: "priceUp", label: t.sortPriceUp },
     { id: "priceDown", label: t.sortPriceDown },
     { id: "name", label: t.sortName },
@@ -109,7 +110,9 @@ function CatalogScreen() {
     }
     if (sort !== "featured") {
       const sorted = [...list];
-      if (sort === "priceUp") {
+      if (sort === "bestSeller") {
+        sorted.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+      } else if (sort === "priceUp") {
         sorted.sort((a, b) => (a.priceValue ?? 0) - (b.priceValue ?? 0));
       } else if (sort === "priceDown") {
         sorted.sort((a, b) => (b.priceValue ?? 0) - (a.priceValue ?? 0));

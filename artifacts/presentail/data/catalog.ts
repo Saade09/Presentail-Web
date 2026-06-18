@@ -27,6 +27,7 @@ export type Product = {
   occasions?: string[];
   description?: string;
   wcId?: number;
+  popularity?: number;
 };
 
 export type Category = { id: string; name: string; icon: string; image: any };

@@ -37,7 +37,7 @@ import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
 
-type SortKey = "featured" | "priceUp" | "priceDown" | "name";
+type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
 
 function CategoryScreen() {
   const headingFontMedium = useHeadingFont("500Medium");
@@ -56,6 +56,7 @@ function CategoryScreen() {
   const [sort, setSort] = useState<SortKey>("featured");
   const SORTS: { key: SortKey; label: string }[] = [
     { key: "featured", label: t.sortFeatured },
+    { key: "bestSeller", label: t.sortBestSeller },
     { key: "priceUp", label: t.sortPriceUp },
     { key: "priceDown", label: t.sortPriceDown },
     { key: "name", label: t.sortName },
@@ -101,6 +102,7 @@ function CategoryScreen() {
 
   const sourceProducts = wcProducts;
   const products = useMemo(() => {
+    if (sort === "bestSeller") return [...sourceProducts].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
     if (sort === "priceUp") return [...sourceProducts].sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "priceDown") return [...sourceProducts].sort((a, b) => b.priceValue - a.priceValue);
     if (sort === "name") return [...sourceProducts].sort((a, b) => a.name.localeCompare(b.name));
@@ -362,6 +364,7 @@ function mergeWithStatic(wp: WooProduct): Product {
     description: wp.description,
     tag: wp.tag,
     occasions: wp.occasions,
+    popularity: wp.popularity,
   };
 }
 

@@ -18,6 +18,7 @@ export const shopStrings: Dict = {
 
   "shop.sortPlaceholder": { en: "Sort by", ar: "ترتيب حسب" },
   "shop.sort.featured": { en: "Featured", ar: "المميزة" },
+  "shop.sort.bestSeller": { en: "Best Seller", ar: "الأكثر مبيعاً" },
   "shop.sort.priceAsc": { en: "Price: Low to High", ar: "السعر: من الأقل إلى الأعلى" },
   "shop.sort.priceDesc": { en: "Price: High to Low", ar: "السعر: من الأعلى إلى الأقل" },
   "shop.filters": { en: "Filters", ar: "تصفية" },
@@ -117,6 +118,7 @@ export const shopStringsFr: Record<string, string> = {
 
   "shop.sortPlaceholder": "Trier par",
   "shop.sort.featured": "À la une",
+  "shop.sort.bestSeller": "Meilleures ventes",
   "shop.sort.priceAsc": "Prix : croissant",
   "shop.sort.priceDesc": "Prix : décroissant",
   "shop.filters": "Filtres",

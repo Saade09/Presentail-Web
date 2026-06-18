@@ -186,6 +186,7 @@ export default function Shop() {
 
   const products = useMemo(() => {
     const p = [...filteredProducts];
+    if (sort === "best-seller") p.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
     if (sort === "price-asc") p.sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "price-desc") p.sort((a, b) => b.priceValue - a.priceValue);
     return p;
@@ -289,6 +290,7 @@ export default function Shop() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="featured">{t("shop.sort.featured")}</SelectItem>
+                <SelectItem value="best-seller">{t("shop.sort.bestSeller")}</SelectItem>
                 <SelectItem value="price-asc">{t("shop.sort.priceAsc")}</SelectItem>
                 <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
               </SelectContent>

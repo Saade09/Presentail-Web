@@ -727,6 +727,7 @@ const EN = {
 
   // ── Sort labels ──
   sortFeatured: "Featured",
+  sortBestSeller: "Best Seller",
   sortPriceUp: "Price: Low to High",
   sortPriceDown: "Price: High to Low",
   sortName: "Name: A–Z",
@@ -1557,6 +1558,7 @@ const AR: typeof EN = {
 
   // ── Sort labels ──
   sortFeatured: "مميّز",
+  sortBestSeller: "الأكثر مبيعاً",
   sortPriceUp: "السعر: من الأقل إلى الأعلى",
   sortPriceDown: "السعر: من الأعلى إلى الأقل",
   sortName: "الاسم: أ–ي",
@@ -2390,6 +2392,7 @@ const FR: typeof EN = {
 
   // ── Sort labels ──
   sortFeatured: "À l'honneur",
+  sortBestSeller: "Meilleures ventes",
   sortPriceUp: "Prix : croissant",
   sortPriceDown: "Prix : décroissant",
   sortName: "Nom : A–Z",

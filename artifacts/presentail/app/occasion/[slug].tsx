@@ -32,6 +32,8 @@ import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = Math.min(160, (SCREEN_W - 48) / 2.3);
 
+type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
+
 function OccasionScreen() {
   const { slug, brand: brandParam, brandName: brandNameParam } = useLocalSearchParams<{
     slug: string;
@@ -49,6 +51,15 @@ function OccasionScreen() {
 
   const activeBrandSlug = Array.isArray(brandParam) ? brandParam[0] : (brandParam ?? "");
   const activeBrandName = Array.isArray(brandNameParam) ? brandNameParam[0] : (brandNameParam ?? "");
+
+  const [sort, setSort] = useState<SortKey>("featured");
+  const SORTS: { key: SortKey; label: string }[] = [
+    { key: "featured", label: t.sortFeatured },
+    { key: "bestSeller", label: t.sortBestSeller },
+    { key: "priceUp", label: t.sortPriceUp },
+    { key: "priceDown", label: t.sortPriceDown },
+    { key: "name", label: t.sortName },
+  ];
 
   const [groups, setGroups] = useState<OccasionGroup[]>([]);
   const [brandProducts, setBrandProducts] = useState<WooProduct[]>([]);
@@ -100,6 +111,62 @@ function OccasionScreen() {
       .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
       .slice(0, 6);
   }, [wooCatalog]);
+
+  const sortedBrandProducts = useMemo(() => {
+    if (sort === "featured") return brandProducts;
+    const list = [...brandProducts];
+    if (sort === "bestSeller") list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    else if (sort === "priceUp") list.sort((a, b) => a.priceValue - b.priceValue);
+    else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
+    else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [brandProducts, sort]);
+
+  const flatSortedGroupProducts = useMemo(() => {
+    if (sort === "featured") return null;
+    const seen = new Set<string>();
+    const flat: WooProduct[] = [];
+    for (const g of groups) {
+      for (const p of g.products) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        flat.push(p);
+      }
+    }
+    const list = [...flat];
+    if (sort === "bestSeller") list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    else if (sort === "priceUp") list.sort((a, b) => a.priceValue - b.priceValue);
+    else if (sort === "priceDown") list.sort((a, b) => b.priceValue - a.priceValue);
+    else if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [groups, sort]);
+
+  const sortChips = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingTop: 14, paddingBottom: 4 }}
+    >
+      {SORTS.map((s) => (
+        <Pressable
+          key={s.key}
+          onPress={() => setSort(s.key)}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: sort === s.key ? colors.gold : colors.border,
+            backgroundColor: sort === s.key ? colors.gold : "transparent",
+          }}
+        >
+          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
+            {s.label}
+          </AppText>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -186,6 +253,9 @@ function OccasionScreen() {
           </ScrollView>
         )}
 
+        {/* Sort chips — shown once loading is done and there are products */}
+        {!loading && (activeBrandSlug ? brandProducts.length > 0 : groups.length > 0) && sortChips}
+
         {/* Brand-scoped product grid */}
         {activeBrandSlug ? (
           loading ? (
@@ -207,7 +277,7 @@ function OccasionScreen() {
             </View>
           ) : (
             <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
-              {brandProducts.map((p) => (
+              {sortedBrandProducts.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p as any}
@@ -270,6 +340,17 @@ function OccasionScreen() {
                 </View>
               </View>
             ) : null}
+          </View>
+        ) : flatSortedGroupProducts ? (
+          <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
+            {flatSortedGroupProducts.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p as any}
+                width={CARD_W}
+                onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
+              />
+            ))}
           </View>
         ) : (
           <View style={{ marginTop: 10 }}>
