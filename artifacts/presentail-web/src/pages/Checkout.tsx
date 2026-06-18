@@ -1617,7 +1617,7 @@ function CheckoutForm() {
 
                   <div className="mb-4">
                     <WebPhoneField
-                      label={t("checkout.phoneLB", { country: country?.name ?? "Lebanon" })}
+                      label={t("checkout.phoneNumber")}
                       value={recipient.phone}
                       onChange={(v) => setRecipient({ ...recipient, phone: v })}
                       defaultCountry={(countryCode ?? "LB").toUpperCase()}
