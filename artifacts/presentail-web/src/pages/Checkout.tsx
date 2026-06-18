@@ -167,7 +167,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         {isProcessing
           ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
           : <>
-              <img src={paypalLogo} alt={ALT_PAYPAL} style={{ height: 20, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />
+              <img src={paypalLogo} alt={ALT_PAYPAL} style={{ height: 20, width: "auto" }} draggable={false} />
               <span className="text-white text-sm font-semibold">{LABEL_PAY_PAYPAL}</span>
             </>}
       </button>
@@ -187,7 +187,7 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
         {isProcessing
           ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
           : <>
-              <img src={whishLogo} alt={ALT_WHISH} style={{ height: 16, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />
+              <img src={whishLogo} alt={ALT_WHISH} style={{ height: 16, width: "auto" }} draggable={false} />
               <span className="text-white text-sm font-semibold">{LABEL_PAY_WHISH}</span>
             </>}
       </button>
