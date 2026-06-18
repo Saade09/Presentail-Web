@@ -549,8 +549,6 @@ export default function Cart() {
               </div>
 
               <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm">
-                <h2 className="text-2xl font-serif mb-4">{t("cart.orderSummary")}</h2>
-
                 <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("cart.subtotal")}</span>
