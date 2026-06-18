@@ -23,7 +23,7 @@ export function PageBreadcrumb({ crumbs }: PageBreadcrumbProps) {
   const separator = dir === "rtl" ? "‹" : "›";
 
   return (
-    <div className="px-4 py-2">
+    <div className="px-4 py-1">
       <Breadcrumb>
         <BreadcrumbList>
           {crumbs.map((crumb, i) => {
