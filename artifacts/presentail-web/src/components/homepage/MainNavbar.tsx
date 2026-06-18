@@ -514,7 +514,7 @@ export function MainNavbar() {
         </div>
 
         {/* ── Right: icons ─────────────────────────────────── */}
-        <div className="flex items-center justify-end gap-1 md:gap-3">
+        <div className="flex items-center justify-end gap-1 md:gap-1">
           <Button
             variant="ghost"
             size="icon"
