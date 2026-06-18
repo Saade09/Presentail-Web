@@ -128,12 +128,17 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
       <div className="flex-1 flex items-start justify-center px-6 pt-12 overflow-hidden">
         <div className="w-full max-w-md flex flex-col gap-5">
           {/* Headline */}
-          <h1
-            className="text-3xl xl:text-4xl font-serif text-foreground leading-tight"
-            data-testid="text-heading"
-          >
-            {t("locationPicker.sendGiftTo")}
-          </h1>
+          <div>
+            <h1
+              className="text-3xl xl:text-4xl font-serif text-foreground leading-tight text-center"
+              data-testid="text-heading"
+            >
+              {t("locationPicker.sendGiftTo")}
+            </h1>
+            <p className="text-sm text-foreground/60 font-medium mt-1.5 text-center">
+              {t("locationPicker.selectRecipientCountry")}
+            </p>
+          </div>
 
           {/* Country accordion */}
           <div className="rounded-2xl overflow-hidden border border-stone-200/80 bg-white/70 backdrop-blur-sm shadow-sm">
