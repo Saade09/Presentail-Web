@@ -113,7 +113,7 @@ export function Footer() {
   }
   popularCategories.push({
     label: t("footer.popular.occasions"),
-    href: "/occasion/birthday",
+    href: "/occasions",
     testId: "footer-link-occasions",
   });
 
