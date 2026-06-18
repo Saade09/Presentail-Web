@@ -85,7 +85,6 @@ export function StripeCardFields({ error, disabled }: Props) {
       <label className="flex items-center gap-2.5 cursor-not-allowed opacity-50 select-none">
         <input type="checkbox" disabled className="h-4 w-4 accent-primary" />
         <span className="text-sm">{t("checkout.stripe.saveCard")}</span>
-        <span className="text-xs text-muted-foreground">{t("checkout.stripe.saveCardSoon")}</span>
       </label>
 
       {error && (
