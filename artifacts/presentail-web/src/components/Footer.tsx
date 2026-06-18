@@ -35,7 +35,7 @@ const SOCIAL = {
 type ColumnHeadingProps = { children: React.ReactNode };
 function ColumnHeading({ children }: ColumnHeadingProps) {
   return (
-    <h2 className="font-serif text-base text-white mb-4">{children}</h2>
+    <h2 className="font-serif text-base text-white mb-3">{children}</h2>
   );
 }
 
@@ -132,16 +132,16 @@ export function Footer() {
       data-testid="footer"
       lang={language}
     >
-      <div className="container mx-auto max-w-content px-4 py-12 md:py-16">
-        <div className="grid gap-10 md:gap-8 md:grid-cols-12">
+      <div className="container mx-auto max-w-content px-4 py-8 md:py-10">
+        <div className="grid gap-6 md:gap-6 md:grid-cols-12">
           {/* Brand + social + contact */}
           <div className="md:col-span-3">
-            <div className="mb-6">
-              <Logo inverse className="h-20 md:h-24 w-auto max-w-full" />
+            <div className="mb-4">
+              <Logo inverse className="h-16 md:h-20 w-auto max-w-full" />
             </div>
 
             <ColumnHeading>{t("footer.socialMedia")}</ColumnHeading>
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-4">
               <ExtLink
                 href={SOCIAL.facebook}
                 ariaLabel="Facebook"
@@ -243,7 +243,7 @@ export function Footer() {
           </div>
 
           {/* Currency / Language / Country */}
-          <div className="md:col-span-3 space-y-6">
+          <div className="md:col-span-3 space-y-4">
             <div>
               <ColumnHeading>{t("footer.currencySwitcher")}</ColumnHeading>
               <CurrencySwitcher />
