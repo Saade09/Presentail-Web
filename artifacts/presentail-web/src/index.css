@@ -317,7 +317,7 @@
   height: 2.25rem;
   border: 1px solid hsl(var(--input));
   border-radius: calc(var(--radius) - 4px);
-  background: hsl(var(--card));
+  background: hsl(var(--background));
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.15s, border-color 0.15s;
