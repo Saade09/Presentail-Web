@@ -1947,7 +1947,7 @@ function CheckoutForm() {
                 </div>
                 <div className="px-6 py-5">
                   {/* Items */}
-                  <div className="space-y-4 mb-5 max-h-56 overflow-y-auto">
+                  <div className="space-y-4 mb-5">
                     {items.map((item) => (
                       <div key={item.product.id} className="flex gap-3" data-testid={`row-summary-${item.product.id}`}>
                         <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
