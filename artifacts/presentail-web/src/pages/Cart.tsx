@@ -23,6 +23,8 @@ import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessages
 import { useToast } from "@/hooks/use-toast";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
+import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
+import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -686,6 +688,8 @@ function CardPreviewDialog({
     }
   };
 
+  const cardLogo = dir === "rtl" ? cardLogoAr : cardLogoEn;
+
   const renderCardBody = (includeWatermark: boolean) => (
     <>
       <img
@@ -694,6 +698,14 @@ function CardPreviewDialog({
         className="absolute inset-0 h-full w-full"
         style={{ objectFit: "fill" }}
       />
+      {/* Crisp logo overlay — replaces the pixelated logo baked into the stationery image */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute flex items-center justify-center"
+        style={{ top: 0, left: 0, right: 0, height: "25%" }}
+      >
+        <img src={cardLogo} alt="" style={{ height: "38%", width: "auto", objectFit: "contain" }} draggable={false} />
+      </div>
       {/* Content positioned within the stationery's writable area:
           top 25% clears the decorative Presentail header,
           bottom 18% clears the decorative rule at the foot of the card. */}
