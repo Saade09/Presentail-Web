@@ -289,6 +289,9 @@ export default function Cart() {
                 className="mb-6"
               />
             )}
+            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-5">
+              {t("cart.orderSummary")}
+            </p>
             <div className="space-y-6">
             {items.map((item, index) => (
               <motion.div
@@ -536,51 +539,56 @@ export default function Cart() {
                 )}
               </div>
 
-              <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
-
-              <div className="text-sm mb-6 pb-6 border-b border-primary/10">
-                <DeliveryDateRow />
-              </div>
-
-              <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.subtotal")}</span>
-                  <span className="font-medium"><FormattedPrice usdValue={subtotal} /></span>
+              <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm mb-4">
+                <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
+                <div className="text-sm">
+                  <DeliveryDateRow />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
-                  <span className="font-medium">
-                    {deliveryFeeUsd === null
-                      ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
-                      : deliveryFeeUsd === 0
-                        ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
-                        : <FormattedPrice usdValue={deliveryFeeUsd} />
-                    }
-                  </span>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-primary/10 shadow-sm">
+                <h2 className="text-2xl font-serif mb-4">{t("cart.orderSummary")}</h2>
+
+                <div className="space-y-4 text-sm mb-6 pb-6 border-b border-primary/10">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("cart.subtotal")}</span>
+                    <span className="font-medium"><FormattedPrice usdValue={subtotal} /></span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("cart.deliveryCharges")}</span>
+                    <span className="font-medium">
+                      {deliveryFeeUsd === null
+                        ? <span className="text-muted-foreground text-xs">{t("cart.deliveryTbd")}</span>
+                        : deliveryFeeUsd === 0
+                          ? <span className="text-emerald-600">{t("cart.deliveryFree")}</span>
+                          : <FormattedPrice usdValue={deliveryFeeUsd} />
+                      }
+                    </span>
+                  </div>
+                  {expressSurchargeUsd > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("cart.expressNote").replace("{{amount}}", String(expressSurchargeUsd))}
+                    </p>
+                  )}
                 </div>
-                {expressSurchargeUsd > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("cart.expressNote").replace("{{amount}}", String(expressSurchargeUsd))}
-                  </p>
-                )}
-              </div>
 
-              <div className="flex justify-between items-center mb-8">
-                <span className="font-medium">{t("cart.total")}</span>
-                <span className="text-2xl font-serif"><FormattedPrice usdValue={cartTotal} /></span>
-              </div>
+                <div className="flex justify-between items-center mb-8">
+                  <span className="font-medium">{t("cart.total")}</span>
+                  <span className="text-2xl font-serif"><FormattedPrice usdValue={cartTotal} /></span>
+                </div>
 
-              <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
-                <Link
-                  href="/checkout"
-                  onClick={handleProceed}
-                  data-testid="link-proceed-to-checkout"
-                >
-                  <span className="flex-1 text-start">{t("cart.proceed")}</span>
-                  <span className="font-normal opacity-80 mx-2"><FormattedPrice usdValue={cartTotal} /></span>
-                  <ArrowRight className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
-                </Link>
-              </Button>
+                <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
+                  <Link
+                    href="/checkout"
+                    onClick={handleProceed}
+                    data-testid="link-proceed-to-checkout"
+                  >
+                    <span className="flex-1 text-start">{t("cart.proceed")}</span>
+                    <span className="font-normal opacity-80 mx-2"><FormattedPrice usdValue={cartTotal} /></span>
+                    <ArrowRight className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
