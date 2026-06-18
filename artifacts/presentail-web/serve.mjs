@@ -561,6 +561,55 @@ collectSidecars(DIST, [".br", ".gz"], SIDECAR_PATHS);
 }
 
 // ---------------------------------------------------------------------------
+// First-banner image URL cache
+//
+// Fetches the homepage banners once from the internal API and caches the first
+// image-type banner's URL in memory. Injected into every homepage HTML response
+// as a <link rel="preload"> tag so the browser preload scanner discovers and
+// fetches the LCP hero image before the JS bundle executes.
+//
+// TTL: 5 minutes. Non-fatal: if the fetch fails the cache stays null and no
+// preload tag is emitted — the page loads correctly, just without the hint.
+// ---------------------------------------------------------------------------
+let firstBannerImageUrl = null;
+let firstBannerFetchedAt = 0;
+const BANNER_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function refreshFirstBannerImageUrl() {
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 5_000);
+    const res = await fetch(
+      `${INTERNAL_API_BASE_URL}/api/homepage/banners?countryCode=LB`,
+      { signal: ac.signal },
+    );
+    clearTimeout(timer);
+    if (!res.ok) return;
+    const json = await res.json();
+    const banners = Array.isArray(json?.banners) ? json.banners : [];
+    const first = banners.find((b) => b.mediaType === "image" && b.mediaUrl);
+    firstBannerImageUrl = first?.mediaUrl ?? null;
+    firstBannerFetchedAt = Date.now();
+    if (firstBannerImageUrl) {
+      console.log(`Banner preload cache: updated — ${firstBannerImageUrl.slice(0, 80)}`);
+    }
+  } catch {
+    // Non-fatal — leave the existing cached value in place.
+  }
+}
+
+// Initial fetch after 10 s so startup I/O is not blocked, then refresh every
+// 5 minutes when the cache has gone stale.
+setTimeout(() => {
+  refreshFirstBannerImageUrl();
+  setInterval(() => {
+    if (Date.now() - firstBannerFetchedAt >= BANNER_CACHE_TTL_MS) {
+      refreshFirstBannerImageUrl();
+    }
+  }, BANNER_CACHE_TTL_MS).unref();
+}, 10_000).unref();
+
+// ---------------------------------------------------------------------------
 // Dynamic sitemap.xml
 // ---------------------------------------------------------------------------
 
@@ -896,6 +945,7 @@ const server = http.createServer(async (req, res) => {
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
           acceptLanguage: req.headers["accept-language"],
+          firstBannerImageUrl: firstBannerImageUrl ?? undefined,
         });
         const out = injectModulePreloads(injectFontPreloads(seoOut));
         const encoding = pickEncoding(req, ".html");
@@ -1027,6 +1077,7 @@ const server = http.createServer(async (req, res) => {
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
       acceptLanguage: req.headers["accept-language"],
+      firstBannerImageUrl: firstBannerImageUrl ?? undefined,
     });
     const out = injectModulePreloads(injectFontPreloads(seoOut));
     const encoding = pickEncoding(req, ".html");

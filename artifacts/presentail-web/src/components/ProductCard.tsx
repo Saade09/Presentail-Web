@@ -16,11 +16,13 @@ export function ProductCard({
   const imageUrl = product.image?.uri;
   const tag = product.tag;
 
+  const isPriority = index < 4;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
+      initial={isPriority ? false : { opacity: 0, y: 20 }}
+      animate={isPriority ? undefined : { opacity: 1, y: 0 }}
+      transition={isPriority ? undefined : { duration: 0.5, delay: index * 0.1 }}
       className="group relative"
       data-testid={`card-product-${product.id}`}
     >

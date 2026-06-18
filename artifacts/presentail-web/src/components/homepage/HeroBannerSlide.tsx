@@ -42,18 +42,22 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
             transition={{ duration: 8, ease: "easeOut" }}
           />
         ) : (
-          <motion.img
-            src={mediaUrl}
-            alt={banner.title ?? "Banner"}
-            className="w-full h-full object-cover"
-            loading={active ? "eager" : "lazy"}
-            {...(active ? { fetchPriority: "high" } : {})}
-            {...(responsiveProps ?? {})}
+          <motion.div
+            className="w-full h-full"
             style={{ willChange: "transform" }}
             initial={{ scale: 1.07 }}
             animate={{ scale: active ? 1.0 : 1.07 }}
             transition={{ duration: 8, ease: "easeOut" }}
-          />
+          >
+            <img
+              src={mediaUrl}
+              alt={banner.title ?? "Banner"}
+              className="w-full h-full object-cover"
+              loading={active ? "eager" : "lazy"}
+              {...(active ? { fetchPriority: "high" } : {})}
+              {...(responsiveProps ?? {})}
+            />
+          </motion.div>
         )}
       </div>
 

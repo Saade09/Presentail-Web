@@ -1812,9 +1812,22 @@ function buildShopEntityHead({
  * locale-aware injector on any failure.
  */
 export async function injectSeoTagsAsync(html, pathname, opts = {}) {
-  const { apiBaseUrl, search, hintLang, acceptLanguage, ...rest } = opts;
+  const { apiBaseUrl, search, hintLang, acceptLanguage, firstBannerImageUrl, ...rest } = opts;
   const generic = buildSeoHead(pathname, rest);
   const parsed = parseLocalePath(pathname);
+
+  // For homepage routes, append a <link rel="preload"> for the first banner
+  // image so the browser preload scanner can discover and fetch the LCP image
+  // before the JS bundle executes. Skipped gracefully when the cache is cold.
+  if (firstBannerImageUrl) {
+    const isHomepage =
+      (!parsed.hasLocalePrefix && (pathname === "/" || pathname === "")) ||
+      (parsed.hasLocalePrefix && (parsed.rest === "" || parsed.rest === "/"));
+    if (isHomepage) {
+      generic.headSnippet +=
+        `\n    <link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstBannerImageUrl)}">`;
+    }
+  }
   if (!apiBaseUrl) {
     return assembleHtml(html, generic);
   }
