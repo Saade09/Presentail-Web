@@ -14,6 +14,7 @@ import {
   getOsOccasions,
   registerOsProductsRefreshListener,
 } from "../lib/osProductsCache";
+import { categories as staticCategories } from "@workspace/catalog-data";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 
 const router: IRouter = Router();
@@ -84,14 +85,27 @@ const PRODUCT_TYPE_SLUGS = new Set([
 
 function buildOsCategories(): HomepageCollectionItem[] | null {
   const osCategories = getOsCategories();
-  if (!osCategories || osCategories.length === 0) return null;
-  return osCategories
-    .filter((c) => PRODUCT_TYPE_SLUGS.has(c.slug) && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
+  if (osCategories && osCategories.length > 0) {
+    return osCategories
+      .filter((c) => PRODUCT_TYPE_SLUGS.has(c.slug) && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
+      .map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        imageUrl: "",
+        sortOrder: i,
+        isActive: true,
+      }));
+  }
+  // Fall back to static catalog-data categories (same source as /catalog/metadata)
+  // so the homepage carousel is never empty even before the OS cache warms up.
+  return staticCategories
+    .filter((c) => PRODUCT_TYPE_SLUGS.has(c.id) && !HIDDEN_CATEGORY_SLUGS.has(c.id))
     .map((c, i) => ({
       id: c.id,
       name: c.name,
-      slug: c.slug,
-      imageUrl: "",
+      slug: c.id,
+      imageUrl: "image" in c && c.image && "uri" in c.image ? c.image.uri : "",
       sortOrder: i,
       isActive: true,
     }));
