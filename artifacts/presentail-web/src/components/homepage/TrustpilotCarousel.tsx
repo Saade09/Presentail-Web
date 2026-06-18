@@ -9,7 +9,7 @@ declare global {
 }
 
 const TRUSTPILOT_SCRIPT_SRC =
-  "//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js";
+  "https://widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js";
 
 function injectTrustpilotScript(onLoad: () => void) {
   if (document.querySelector(`script[src="${TRUSTPILOT_SCRIPT_SRC}"]`)) {

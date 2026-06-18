@@ -21,6 +21,7 @@ import {
 } from "@/components/product/DeliveryOptions";
 import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
+import { TrustpilotMicroWidget } from "@/components/product/TrustpilotMicroWidget";
 import { ProductTabs } from "@/components/product/ProductTabs";
 import { FavoriteLoginDialog } from "@/components/product/FavoriteLoginDialog";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
@@ -387,6 +388,9 @@ export default function ProductDetail() {
                 currencyCode={currencyCode}
               />
             </div>
+
+            {/* Trustpilot Micro TrustScore widget */}
+            <TrustpilotMicroWidget />
           </div>
         </div>
 
