@@ -17,6 +17,7 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { freeDeliveryThresholdUsd } from "@workspace/delivery";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
@@ -100,6 +101,7 @@ export default function Cart() {
     freeDeliveryThresholdUsd: configThresholdUsd,
   } = useDeliveryConfig();
   const { countryCode, city: locationCity, country: locationCountry } = useLocationSelection();
+  const { formatPrice } = useDisplayCurrency();
   // Derive the effective free-delivery threshold in USD, mirroring Checkout.tsx:
   //   1. OS per-city value (most specific)
   //   2. OS per-country value
@@ -617,7 +619,7 @@ export default function Cart() {
                   </div>
                   {expressSurchargeUsd > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      {t("cart.expressNote").replace("{{amount}}", String(expressSurchargeUsd))}
+                      {t("cart.expressNote").replace("{{amount}}", formatPrice(expressSurchargeUsd))}
                     </p>
                   )}
                   {couponApplied && couponDiscountUsd > 0 && (
