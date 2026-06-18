@@ -41,7 +41,7 @@ export const partnerStrings: Dict = {
   "partner.form.cat.fashion": { en: "Fashion", ar: "أزياء" },
   "partner.form.otherCategory": { en: "Other Category", ar: "فئة أخرى" },
   "partner.form.otherCategoryPh": { en: "Describe other categories (optional)", ar: "صف الفئات الأخرى (اختياري)" },
-  "partner.form.socialMedia": { en: "Social Media Account", ar: "حساب التواصل الاجتماعي" },
+  "partner.form.socialMedia": { en: "Instagram", ar: "إنستغرام" },
   "partner.form.socialMediaPh": { en: "@yourbrand (optional)", ar: "@yourbrand (اختياري)" }, // no-translate
   "partner.form.productList": { en: "Product List", ar: "قائمة المنتجات" },
   "partner.form.productListHint": {
@@ -107,7 +107,7 @@ export const partnerStringsFr: Record<string, string> = {
   "partner.form.cat.fashion": "Mode",
   "partner.form.otherCategory": "Autre catégorie",
   "partner.form.otherCategoryPh": "Décrivez d'autres catégories (facultatif)",
-  "partner.form.socialMedia": "Compte de réseau social",
+  "partner.form.socialMedia": "Instagram",
   "partner.form.socialMediaPh": "@votmarque (facultatif)", // no-translate
   "partner.form.productList": "Liste de produits",
   "partner.form.productListHint": "Merci d'inclure les SKU, images, descriptions et prix si possible (PDF, Excel ou Word)",
