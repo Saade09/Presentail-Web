@@ -1,7 +1,7 @@
 import type { Dict } from "./types";
 
 export const partnerStrings: Dict = {
-  "partner.form.heading": { en: "Tell us about your atelier", ar: "حدّثنا عن أتيليهك" },
+  "partner.form.heading": { en: "Tell Us About Your Brand", ar: "حدّثنا عن علامتك التجارية" },
   "partner.form.subheading": {
     en: "Fill in the form below and we'll be in touch within a week.",
     ar: "أكمل النموذج أدناه وسنتواصل معك خلال أسبوع.",
@@ -79,7 +79,7 @@ export const partnerStrings: Dict = {
 };
 
 export const partnerStringsFr: Record<string, string> = {
-  "partner.form.heading": "Parlez-nous de votre atelier",
+  "partner.form.heading": "Parlez-nous de votre marque",
   "partner.form.subheading": "Remplissez le formulaire ci-dessous et nous vous répondrons sous une semaine.",
   "partner.form.country": "Pays",
   "partner.form.selectCountry": "Sélectionner un pays",
