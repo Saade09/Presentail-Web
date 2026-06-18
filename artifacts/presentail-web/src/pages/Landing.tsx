@@ -69,7 +69,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
     countryCode: string;
   }) => (
     <div className="flex flex-col">
-      {cities.map((city, idx) => {
+      {[...cities].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((city, idx) => {
         const inactive = city.isActive === false;
         return (
           <button

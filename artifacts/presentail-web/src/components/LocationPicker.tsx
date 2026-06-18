@@ -154,7 +154,7 @@ export function LocationPicker({
             </button>
           ))
         ) : (
-          selectedCountry!.cities.map((city, idx) => {
+          [...selectedCountry!.cities].sort((a, b) => (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0)).map((city, idx) => {
             const inactive = city.isActive === false;
             return (
               <button
