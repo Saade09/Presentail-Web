@@ -32,6 +32,7 @@ import partnerApplicationRouter from "./partnerApplication";
 import fbRouter from "./fb";
 import productsRouter from "./products";
 import ordersRouter from "./orders";
+import couponsRouter from "./coupons";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(partnerApplicationRouter);
 router.use(fbRouter);
 router.use(productsRouter);
 router.use(ordersRouter);
+router.use(couponsRouter);
 
 export default router;

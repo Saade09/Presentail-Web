@@ -136,6 +136,9 @@ export const checkoutStrings: Dict = {
   "checkout.coupon.apply": { en: "Apply", ar: "تطبيق" },
   "checkout.coupon.remove": { en: "Remove", ar: "إزالة" },
   "checkout.coupon.applied": { en: "Coupon applied", ar: "تم تطبيق الكوبون" },
+  "checkout.coupon.validating": { en: "Checking...", ar: "جارٍ التحقق..." },
+  "checkout.coupon.invalid": { en: "This coupon is not valid.", ar: "هذا الكوبون غير صالح." },
+  "checkout.coupon.error": { en: "Could not validate coupon. Please try again.", ar: "تعذّر التحقق من الكوبون. يرجى المحاولة مجدداً." },
   "checkout.coupon.invalidError": { en: "This coupon is invalid or has expired. Please check the code and try again.", ar: "هذا الكوبون غير صالح أو منتهي الصلاحية. يرجى التحقق من الرمز والمحاولة مجدداً." },
 
   "checkout.step.deliveryDetails": { en: "Delivery Details", ar: "تفاصيل التوصيل" },
@@ -269,6 +272,9 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.coupon.apply": "Appliquer",
   "checkout.coupon.remove": "Supprimer",
   "checkout.coupon.applied": "Coupon appliqué",
+  "checkout.coupon.validating": "Vérification...",
+  "checkout.coupon.invalid": "Ce coupon n'est pas valide.",
+  "checkout.coupon.error": "Impossible de valider le coupon. Veuillez réessayer.",
   "checkout.coupon.invalidError": "Ce coupon est invalide ou a expiré. Veuillez vérifier le code et réessayer.",
 
   "checkout.step.deliveryDetails": "Détails de livraison",

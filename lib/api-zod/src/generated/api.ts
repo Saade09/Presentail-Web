@@ -1943,6 +1943,12 @@ export const CreateCheckoutPaymentIntentBody = zod.object({
     .describe(
       'True when the shopper chose \"no address\". Stored in the snapshot for audit.',
     ),
+  couponCode: zod
+    .string()
+    .optional()
+    .describe(
+      "Promo\/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted.",
+    ),
   metadata: zod
     .record(zod.string(), zod.string())
     .optional()

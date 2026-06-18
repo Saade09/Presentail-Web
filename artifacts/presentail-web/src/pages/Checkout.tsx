@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import { WebPhoneField } from "@/components/WebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
-import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY } from "./Cart";
+import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
 import {
   useCreateOrder,
   useDeliveryLocations,
@@ -499,10 +499,12 @@ function CheckoutForm() {
   // Inline error shown below the coupon input when the order fails due to an
   // invalid/expired coupon code. Cleared when the shopper edits or re-applies.
   const [couponError, setCouponError] = useState<string | null>(null);
-  // Discount amount confirmed by WC after order creation (display currency).
-  // Zero until WC responds; populated in finalizeOrderNow so the summary can
-  // show the actual deduction before the success-page redirect.
-  const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(0);
+  // Discount amount confirmed by server coupon validation (display currency).
+  // Initialized from localStorage (set by Cart.tsx validate flow) so the
+  // sidebar shows the discounted total before payment, not just after order.
+  const [confirmedCouponDiscount, setConfirmedCouponDiscount] = useState(() => {
+    try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
+  });
   const [cardProcessing, setCardProcessing] = useState(false);
   const couponInputRef = useRef<HTMLInputElement>(null);
   // Stores the server-assigned order ID for the current checkout attempt.
@@ -520,21 +522,60 @@ function CheckoutForm() {
     return res.orderId;
   };
 
-  const handleCouponApply = () => {
+  const [couponValidating, setCouponValidating] = useState(false);
+
+  const handleCouponApply = async () => {
     const code = couponInput.trim().toUpperCase();
-    if (!code) return;
-    try { localStorage.setItem(COUPON_STORAGE_KEY, code); } catch { /* best-effort */ }
-    setCouponInput(code);
-    setCouponApplied(true);
+    if (!code || couponValidating) return;
     setCouponError(null);
+    setCouponValidating(true);
+    try {
+      const res = await apiFetch<{
+        ok: boolean;
+        error?: string;
+        message?: string;
+        discountAmountUsd?: number;
+      }>("/coupons/validate", {
+        method: "POST",
+        body: JSON.stringify({
+          code,
+          customerEmail: user?.email ?? "",
+          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: i.product.priceValue, quantity: i.quantity })),
+          cartTotalUsd: subtotal,
+        }),
+      });
+      if (res.ok) {
+        const discount = res.discountAmountUsd ?? 0;
+        try {
+          localStorage.setItem(COUPON_STORAGE_KEY, code);
+          localStorage.setItem(COUPON_DISCOUNT_KEY, String(discount));
+        } catch { /* best-effort */ }
+        setCouponInput(code);
+        setCouponApplied(true);
+        setConfirmedCouponDiscount(discount);
+        setCouponError(null);
+      } else {
+        setCouponError(res.message ?? t("checkout.coupon.invalid"));
+        setConfirmedCouponDiscount(0);
+        try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+      }
+    } catch {
+      setCouponError(t("checkout.coupon.error"));
+    } finally {
+      setCouponValidating(false);
+    }
   };
 
   const handleCouponRemove = () => {
-    try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+    try {
+      localStorage.removeItem(COUPON_STORAGE_KEY);
+      localStorage.removeItem(COUPON_DISCOUNT_KEY);
+    } catch { /* best-effort */ }
     setCouponInput("");
     setCouponApplied(false);
     setCouponOpen(false);
     setCouponError(null);
+    setConfirmedCouponDiscount(0);
   };
 
   const handleCouponToggle = () => {
@@ -1103,7 +1144,8 @@ function CheckoutForm() {
                   district: recipient.district,
                   expressDelivery: deliveryMode === "express",
                   noAddress,
-                },
+                  ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+                } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
               });
 
               if (!intentRes.ok || !intentRes.clientSecret) {
@@ -1198,7 +1240,8 @@ function CheckoutForm() {
             district: recipient.district,
             expressDelivery: deliveryMode === "express",
             noAddress,
-          },
+            ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+          } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         });
 
         if (!intentRes.ok || !intentRes.clientSecret) {
@@ -1944,8 +1987,8 @@ function CheckoutForm() {
                                 className={`h-10 text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
                                 data-testid="input-coupon-code-checkout"
                               />
-                              <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" onClick={handleCouponApply} disabled={!couponInput.trim()} data-testid="button-coupon-apply-checkout">
-                                {t("checkout.coupon.apply")}
+                              <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" onClick={handleCouponApply} disabled={!couponInput.trim() || couponValidating} data-testid="button-coupon-apply-checkout">
+                                {couponValidating ? t("checkout.coupon.validating") : t("checkout.coupon.apply")}
                               </Button>
                             </div>
                             {couponError && <p className="mt-1.5 text-xs text-destructive" data-testid="text-coupon-error-checkout">{couponError}</p>}

@@ -28,6 +28,8 @@ export interface CheckoutPaymentIntentRequest {
   expressDelivery?: boolean;
   /** True when the shopper chose "no address". Stored in the snapshot for audit. */
   noAddress?: boolean;
+  /** Promo/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted. */
+  couponCode?: string;
   /** Extra key-value pairs forwarded to Stripe PaymentIntent metadata. */
   metadata?: CheckoutPaymentIntentRequestMetadata;
 }

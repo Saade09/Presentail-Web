@@ -8,6 +8,7 @@ import {
 import { resolveCartItems } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest } from "../lib/wooStore";
+import { validateCoupon } from "../lib/couponValidation";
 
 const router: IRouter = Router();
 
@@ -161,6 +162,7 @@ type PaymentIntentBody = {
   district?: string;
   expressDelivery?: boolean;
   noAddress?: boolean;
+  couponCode?: string;
   metadata?: Record<string, string>;
 };
 
@@ -175,7 +177,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
     });
   }
 
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, couponCode } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -229,7 +231,31 @@ router.post("/checkout/payment-intent", async (req, res) => {
       ? toStripeMinorUnits(await convertFromUsd(clientDeliveryFeeUsd, currency), currency)
       : 0;
 
-    const totalMinorUnits = subtotalMinorUnits + deliveryFeeMinorUnits;
+    // Apply coupon discount if a code is provided.
+    // The server re-validates the code (never trusts client-supplied discount amounts).
+    let couponDiscountUsd = 0;
+    let couponDiscountMinorUnits = 0;
+    if (couponCode && couponCode.trim()) {
+      const cartItemsForCoupon = catalogResult.items.map((i) => ({
+        osSlug: i.osSlug ?? "",
+        priceUsd: i.priceUsd,
+        quantity: i.quantity,
+      }));
+      const couponResult = await validateCoupon(couponCode.trim(), {
+        customerEmail: email ?? "",
+        cartItems: cartItemsForCoupon,
+        cartTotalUsd: subtotalUsd,
+      });
+      if (couponResult.valid) {
+        couponDiscountUsd = couponResult.discountAmountUsd;
+        couponDiscountMinorUnits = toStripeMinorUnits(
+          await convertFromUsd(couponDiscountUsd, currency),
+          currency,
+        );
+      }
+    }
+
+    const totalMinorUnits = Math.max(0, subtotalMinorUnits + deliveryFeeMinorUnits - couponDiscountMinorUnits);
 
     const stripe = new Stripe(key);
     const paymentIntent = await stripe.paymentIntents.create({

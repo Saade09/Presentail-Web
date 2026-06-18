@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ export const CARD_TO_KEY = "presentail_card_to_v1";
 export const CARD_FROM_KEY = "presentail_card_from_v1";
 export const CARD_QR_LINK_KEY = "presentail_card_qr_link_v1";
 export const COUPON_STORAGE_KEY = "presentail_coupon_v1";
+export const COUPON_DISCOUNT_KEY = "presentail_coupon_discount_v1";
 
 function isValidQrUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -123,8 +125,6 @@ export default function Cart() {
     return cityFeeUsd;
   })();
 
-  const cartTotal = deliveryFeeUsd !== null ? subtotal + deliveryFeeUsd : subtotal;
-
   // Promo code — persisted to localStorage so Checkout picks it up automatically.
   const [couponOpen, setCouponOpen] = useState(() => {
     try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
@@ -135,25 +135,72 @@ export default function Cart() {
   const [couponApplied, setCouponApplied] = useState(() => {
     try { return (localStorage.getItem(COUPON_STORAGE_KEY) ?? "").length > 0; } catch { return false; }
   });
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponDiscountUsd, setCouponDiscountUsd] = useState<number>(() => {
+    try { return parseFloat(localStorage.getItem(COUPON_DISCOUNT_KEY) ?? "0") || 0; } catch { return 0; }
+  });
+
+  const cartTotal = Math.max(0, (deliveryFeeUsd !== null ? subtotal + deliveryFeeUsd : subtotal) - couponDiscountUsd);
 
   const handleCouponToggle = () => {
     const next = !couponOpen;
     setCouponOpen(next);
   };
 
-  const handleCouponApply = () => {
+  const handleCouponApply = async () => {
     const code = couponInput.trim().toUpperCase();
-    if (!code) return;
-    try { localStorage.setItem(COUPON_STORAGE_KEY, code); } catch { /* best-effort */ }
-    setCouponInput(code);
-    setCouponApplied(true);
+    if (!code || couponValidating) return;
+    setCouponError(null);
+    setCouponValidating(true);
+    try {
+      const res = await apiFetch<{
+        ok: boolean;
+        error?: string;
+        message?: string;
+        discountAmountUsd?: number;
+        finalTotalUsd?: number;
+      }>("/coupons/validate", {
+        method: "POST",
+        body: JSON.stringify({
+          code,
+          customerEmail: user?.email ?? "",
+          cartItems: items.map((i) => ({ osSlug: i.product.id, priceUsd: i.product.priceValue, quantity: i.quantity })),
+          cartTotalUsd: subtotal,
+        }),
+      });
+      if (res.ok) {
+        const discount = res.discountAmountUsd ?? 0;
+        try {
+          localStorage.setItem(COUPON_STORAGE_KEY, code);
+          localStorage.setItem(COUPON_DISCOUNT_KEY, String(discount));
+        } catch { /* best-effort */ }
+        setCouponInput(code);
+        setCouponApplied(true);
+        setCouponDiscountUsd(discount);
+      } else {
+        setCouponError(res.message ?? t("cart.promoCodeInvalid"));
+        setCouponApplied(false);
+        setCouponDiscountUsd(0);
+        try { localStorage.removeItem(COUPON_DISCOUNT_KEY); } catch { /* best-effort */ }
+      }
+    } catch {
+      setCouponError(t("cart.promoCodeError"));
+    } finally {
+      setCouponValidating(false);
+    }
   };
 
   const handleCouponRemove = () => {
-    try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+    try {
+      localStorage.removeItem(COUPON_STORAGE_KEY);
+      localStorage.removeItem(COUPON_DISCOUNT_KEY);
+    } catch { /* best-effort */ }
     setCouponInput("");
     setCouponApplied(false);
     setCouponOpen(false);
+    setCouponError(null);
+    setCouponDiscountUsd(0);
   };
 
   // Card message — persisted to localStorage so it pre-populates checkout.
@@ -499,41 +546,45 @@ export default function Cart() {
                 </button>
 
                 {couponOpen && (
-                  <div className="mt-2 flex gap-2">
-                    <Input
-                      value={couponInput}
-                      onChange={(e) => {
-                        setCouponInput(e.target.value);
-                        if (couponApplied) setCouponApplied(false);
-                      }}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
-                      placeholder={t("cart.promoCodePlaceholder")}
-                      className="rounded-lg text-sm uppercase"
-                      data-testid="input-promo-code"
-                    />
-                    {couponApplied ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCouponRemove}
-                        className="shrink-0 rounded-lg"
-                        data-testid="button-promo-remove"
-                      >
-                        {t("cart.promoCodeRemove")}
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleCouponApply}
-                        disabled={!couponInput.trim()}
-                        className="shrink-0 rounded-lg"
-                        data-testid="button-promo-apply"
-                      >
-                        {t("cart.promoCodeApply")}
-                      </Button>
-                    )}
+                  <div className="mt-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value);
+                          if (couponError) setCouponError(null);
+                          if (couponApplied) { setCouponApplied(false); setCouponDiscountUsd(0); }
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
+                        placeholder={t("cart.promoCodePlaceholder")}
+                        className={`rounded-lg text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                        data-testid="input-promo-code"
+                      />
+                      {couponApplied ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCouponRemove}
+                          className="shrink-0 rounded-lg"
+                          data-testid="button-promo-remove"
+                        >
+                          {t("cart.promoCodeRemove")}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleCouponApply}
+                          disabled={!couponInput.trim() || couponValidating}
+                          className="shrink-0 rounded-lg"
+                          data-testid="button-promo-apply"
+                        >
+                          {couponValidating ? t("cart.promoCodeValidating") : t("cart.promoCodeApply")}
+                        </Button>
+                      )}
+                    </div>
+                    {couponError && <p className="mt-1.5 text-xs text-destructive" data-testid="text-promo-error">{couponError}</p>}
                   </div>
                 )}
               </div>
@@ -569,11 +620,17 @@ export default function Cart() {
                       {t("cart.expressNote").replace("{{amount}}", String(expressSurchargeUsd))}
                     </p>
                   )}
+                  {couponApplied && couponDiscountUsd > 0 && (
+                    <div className="flex justify-between text-emerald-600" data-testid="row-cart-coupon-discount">
+                      <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5" />{couponInput}</span>
+                      <span className="font-medium">−<FormattedPrice usdValue={couponDiscountUsd} /></span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center mb-8">
                   <span className="font-medium">{t("cart.total")}</span>
-                  <span className="text-2xl font-serif"><FormattedPrice usdValue={cartTotal} /></span>
+                  <span className="text-2xl font-serif"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
                 </div>
 
                 <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
