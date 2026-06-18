@@ -29,6 +29,7 @@ export function DeliveryOptions({
   infoFee,
 }: Props) {
   const { t } = useLocale();
+  if (!expressAvailable) return null;
   return (
     <div className="space-y-3" data-testid="delivery-options">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
