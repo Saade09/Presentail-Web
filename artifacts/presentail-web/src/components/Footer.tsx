@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Facebook, Instagram, Linkedin, MapPin } from "lucide-react";
+import { ChevronDown, Facebook, Instagram, Linkedin, MapPin } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -36,6 +37,40 @@ type ColumnHeadingProps = { children: React.ReactNode };
 function ColumnHeading({ children }: ColumnHeadingProps) {
   return (
     <h2 className="font-serif text-base text-white mb-3">{children}</h2>
+  );
+}
+
+type CollapsibleSectionProps = { heading: string; children: React.ReactNode };
+function CollapsibleSection({ heading, children }: CollapsibleSectionProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      {/* Mobile toggle button — hidden on md+ */}
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex items-center justify-between w-full md:hidden mb-2"
+      >
+        <span className="font-serif text-base text-white">{heading}</span>
+        <ChevronDown
+          className={`w-4 h-4 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {/* Desktop heading — always visible, hidden on mobile */}
+      <h2 className="hidden md:block font-serif text-base text-white mb-3">{heading}</h2>
+
+      {/* Content — collapsed on mobile by default, always open on md+ */}
+      <div
+        className={`overflow-hidden transition-[max-height] duration-300 ease-in-out md:overflow-visible md:max-h-none ${
+          open ? "max-h-[500px]" : "max-h-0"
+        }`}
+      >
+        <div className="mb-3 md:mb-0">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -176,70 +211,73 @@ export function Footer() {
               </ExtLink>
             </div>
 
-            <ColumnHeading>{t("footer.getInTouch")}</ColumnHeading>
-            <ul className="space-y-2">
-              <li>
-                {isOnContactPage ? (
-                  <button
-                    type="button"
-                    data-testid="footer-link-contact"
-                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                    className="text-sm text-white/75 hover:text-white transition-colors"
-                  >
-                    {t("footer.contactUs")}
-                  </button>
-                ) : (
-                  <InLink href="/contact" testId="footer-link-contact">
-                    {t("footer.contactUs")}
+            <CollapsibleSection heading={t("footer.getInTouch")}>
+              <ul className="space-y-2">
+                <li>
+                  {isOnContactPage ? (
+                    <button
+                      type="button"
+                      data-testid="footer-link-contact"
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                      className="text-sm text-white/75 hover:text-white transition-colors"
+                    >
+                      {t("footer.contactUs")}
+                    </button>
+                  ) : (
+                    <InLink href="/contact" testId="footer-link-contact">
+                      {t("footer.contactUs")}
+                    </InLink>
+                  )}
+                </li>
+                <li>
+                  <InLink href="/faqs" testId="footer-link-faqs">
+                    {t("footer.faqs")}
                   </InLink>
-                )}
-              </li>
-              <li>
-                <InLink href="/faqs" testId="footer-link-faqs">
-                  {t("footer.faqs")}
-                </InLink>
-              </li>
-            </ul>
+                </li>
+              </ul>
+            </CollapsibleSection>
           </div>
 
           {/* Popular Categories */}
           <div className="md:col-span-3">
-            <ColumnHeading>{t("footer.popularCategories")}</ColumnHeading>
-            <ul className="space-y-2">
-              {popularCategories.map((item) => (
-                <li key={item.testId}>
-                  {item.external ? (
-                    <ExtLink href={item.href} testId={item.testId}>
-                      {item.label}
-                    </ExtLink>
-                  ) : (
-                    <InLink href={item.href} testId={item.testId}>
-                      {item.label}
-                    </InLink>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <CollapsibleSection heading={t("footer.popularCategories")}>
+              <ul className="space-y-2">
+                {popularCategories.map((item) => (
+                  <li key={item.testId}>
+                    {item.external ? (
+                      <ExtLink href={item.href} testId={item.testId}>
+                        {item.label}
+                      </ExtLink>
+                    ) : (
+                      <InLink href={item.href} testId={item.testId}>
+                        {item.label}
+                      </InLink>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleSection>
           </div>
 
           {/* Get to Know Us */}
           <div className="md:col-span-3">
-            <ColumnHeading>{t("footer.getToKnowUs")}</ColumnHeading>
-            <ul className="space-y-2">
-              {knowUs.map((item) => (
-                <li key={item.testId}>
-                  {item.external ? (
-                    <ExtLink href={item.href} testId={item.testId}>
-                      {item.label}
-                    </ExtLink>
-                  ) : (
-                    <InLink href={item.href} testId={item.testId}>
-                      {item.label}
-                    </InLink>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <CollapsibleSection heading={t("footer.getToKnowUs")}>
+              <ul className="space-y-2">
+                {knowUs.map((item) => (
+                  <li key={item.testId}>
+                    {item.external ? (
+                      <ExtLink href={item.href} testId={item.testId}>
+                        {item.label}
+                      </ExtLink>
+                    ) : (
+                      <InLink href={item.href} testId={item.testId}>
+                        {item.label}
+                      </InLink>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleSection>
           </div>
 
           {/* Currency / Language / Country */}
