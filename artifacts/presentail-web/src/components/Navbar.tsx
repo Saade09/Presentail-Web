@@ -89,8 +89,8 @@ export function Navbar() {
           </Button>
 
           <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")}>
-            <Logo height={46} className="md:hidden" />
-            <Logo height={32} className="hidden md:block" />
+            <Logo height={52} className="md:hidden" />
+            <Logo height={44} className="hidden md:block" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
