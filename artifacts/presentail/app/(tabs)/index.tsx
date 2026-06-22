@@ -231,9 +231,9 @@ function HomeHeader({
             }}
           >
             <Animated.View>
-              <Wordmark size={64} inverse />
+              <Wordmark size={70} inverse />
               <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                <Wordmark size={64} />
+                <Wordmark size={70} />
               </Animated.View>
             </Animated.View>
           </View>
