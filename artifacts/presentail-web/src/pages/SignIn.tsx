@@ -525,14 +525,6 @@ export default function SignInPage() {
               {busy ? t("checkout.processing") : t("auth.continue")}
             </Button>
 
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                {t("auth.or")}
-              </span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
             <div className="space-y-2">
               <Button
                 variant="outline"
