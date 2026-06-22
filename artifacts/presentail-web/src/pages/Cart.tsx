@@ -617,7 +617,7 @@ export default function Cart() {
                       }
                     </span>
                   </div>
-                  {expressSurcharge > 0 && (
+                  {expressSurcharge > 0 && locationCity?.expressAvailable !== false && (
                     <p className="text-xs text-muted-foreground">
                       {t("cart.expressNote").replace("{{amount}}", formatPrice(expressSurcharge))}
                     </p>
