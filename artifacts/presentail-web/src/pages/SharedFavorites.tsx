@@ -57,8 +57,8 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
 
   if (isError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
-        <Heart className="w-12 h-12 text-muted-foreground/30 mb-6" />
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <Heart className="w-12 h-12 text-muted-foreground/30 mb-6" aria-hidden="true" />
         <h1 className="font-serif text-3xl mb-3">{t("sharedFavorites.unavailableTitle")}</h1>
         <p className="text-muted-foreground mb-8 max-w-sm">
           {t("sharedFavorites.unavailableDesc")}
@@ -66,7 +66,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
         <Button asChild variant="outline">
           <Link href="/">{t("sharedFavorites.discoverLink")}</Link>
         </Button>
-      </div>
+      </main>
     );
   }
 
@@ -79,7 +79,7 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
     : null;
 
   return (
-    <div className="min-h-screen pb-24">
+    <main className="min-h-screen pb-24">
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-4 flex items-center gap-3">
         <Link href="/" className="font-serif text-xl tracking-wide hover:opacity-70 transition-opacity">
           {t("nav.logoAria")}
@@ -137,6 +137,6 @@ export default function SharedFavorites({ token }: SharedFavoritesProps) {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

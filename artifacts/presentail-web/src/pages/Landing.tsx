@@ -106,7 +106,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   ));
 
   return (
-    <div
+    <main
       className="h-screen overflow-hidden flex flex-col"
       style={{ backgroundColor: BG }}
       data-testid="page-landing"
@@ -135,7 +135,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
             >
               {t("locationPicker.sendGiftTo")}
             </h1>
-            <p className="text-sm text-foreground/60 font-medium mt-1.5 text-center">
+            <p className="text-sm text-muted-foreground font-medium mt-1.5 text-center">
               {t("locationPicker.selectRecipientCountry")}
             </p>
           </div>
@@ -186,6 +186,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
