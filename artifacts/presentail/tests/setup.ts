@@ -81,3 +81,14 @@ vi.mock("react-native-svg", () => ({
   Rect: vi.fn(() => null),
   Circle: vi.fn(() => null),
 }));
+
+vi.mock("@expo/vector-icons", () => {
+  const iconComponent = vi.fn(() => null);
+  return {
+    Feather: iconComponent,
+    AntDesign: iconComponent,
+    Ionicons: iconComponent,
+    MaterialIcons: iconComponent,
+    FontAwesome: iconComponent,
+  };
+});

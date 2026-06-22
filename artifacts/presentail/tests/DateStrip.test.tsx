@@ -114,11 +114,11 @@ describe("DateStrip — rendering", () => {
     }
   });
 
-  it("renders one Pressable tile per day", () => {
+  it("renders one Pressable tile per day plus the More button", () => {
     const days = makeDays();
     const { tree } = render({ days });
     const pressables = findAllNodes(tree, "Pressable");
-    expect(pressables).toHaveLength(days.length);
+    expect(pressables).toHaveLength(days.length + 1);
   });
 });
 

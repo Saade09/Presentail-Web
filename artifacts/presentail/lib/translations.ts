@@ -517,6 +517,7 @@ const EN = {
   checkoutPleaseCompleteTitle: "Please complete the form",
   checkoutDayToday: "Today",
   checkoutDayTomorrow: "Tom",
+  dateStripMoreLabel: "More",
   checkoutPayCard: "Credit / Debit Card",
   checkoutPayByCard: "Pay by card",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
@@ -1353,6 +1354,7 @@ const AR: typeof EN = {
   checkoutPleaseCompleteTitle: "يرجى إكمال النموذج",
   checkoutDayToday: "اليوم",
   checkoutDayTomorrow: "غداً",
+  dateStripMoreLabel: "المزيد",
   checkoutPayCard: "بطاقة ائتمان / خصم",
   checkoutPayByCard: "ادفع بالبطاقة",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
@@ -2184,6 +2186,7 @@ const FR: typeof EN = {
   checkoutPleaseCompleteTitle: "Veuillez compléter le formulaire",
   checkoutDayToday: "Auj.",
   checkoutDayTomorrow: "Dem.",
+  dateStripMoreLabel: "Plus",
   checkoutPayCard: "Carte de crédit / débit",
   checkoutPayByCard: "Payer par carte",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name

@@ -2916,6 +2916,7 @@ function DeliveryTimeCard({
               onSelectDate={(iso) => { setDate(iso); setSlot(null); }}
               colors={colors}
               disabledDates={disabledDates}
+              moreLabel={t.dateStripMoreLabel}
             />
           )}
           <SlotPicker
