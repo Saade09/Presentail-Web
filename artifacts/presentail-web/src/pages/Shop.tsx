@@ -295,21 +295,24 @@ export default function Shop() {
                 <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              className="md:hidden relative"
-              onClick={() => setMobileFiltersOpen(true)}
-              data-testid="button-mobile-filters"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              {t("shop.filters")}
-              {hasActiveFilters && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
-                  {(selectedPriceBucket ? 1 : 0) + selectedColors.length}
-                </span>
-              )}
-            </Button>
           </div>
+        </div>
+
+        <div className="block md:hidden w-full mb-6">
+          <Button
+            variant="outline"
+            className="relative w-full h-12 border-primary text-primary hover:text-primary hover:bg-primary/5"
+            onClick={() => setMobileFiltersOpen(true)}
+            data-testid="button-mobile-filters"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            {t("shop.filters")}
+            {hasActiveFilters && (
+              <span className="absolute -top-1.5 right-3 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium">
+                {(selectedPriceBucket ? 1 : 0) + selectedColors.length}
+              </span>
+            )}
+          </Button>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">
