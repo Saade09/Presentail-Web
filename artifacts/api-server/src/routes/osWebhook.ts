@@ -47,6 +47,7 @@ import { setFxRates } from "../lib/fxRateCache";
 
 import { sendOrderEventPush } from "../lib/orderEvents";
 import { sendOrderEventSms } from "../lib/smsNotify";
+import { sendOrderEventEmail } from "../lib/emailNotify";
 import { upsertCustomer } from "../lib/customers";
 import type { OrderState } from "../lib/orderEvents";
 import type { OSLocationsResponse, OSTimeSlot } from "@workspace/presentail-os";
@@ -457,6 +458,11 @@ async function handleOrderStatusUpdated(
       recipientName: appOrdersTable.recipientName,
       senderPhone: appOrdersTable.senderPhone,
       storeKey: appOrdersTable.storeKey,
+      customerId: appOrdersTable.customerId,
+      deliveryDate: appOrdersTable.deliveryDate,
+      deliverySlot: appOrdersTable.deliverySlot,
+      totalUsdCents: appOrdersTable.totalUsdCents,
+      lineItemsJson: appOrdersTable.lineItemsJson,
     })
     .from(appOrdersTable)
     .where(where)
@@ -479,6 +485,34 @@ async function handleOrderStatusUpdated(
     .set({ state, updatedAt: new Date() })
     .where(eq(appOrdersTable.appOrderId, resolvedAppOrderId));
 
+  // Look up customer email + preferred lang for email notification (best-effort).
+  let customerEmail: string | null = null;
+  let customerLang: string | null = null;
+  if (row.customerId != null) {
+    try {
+      const customerRows = await db
+        .select({
+          email: customersTable.email,
+          preferredLang: customersTable.preferredLang,
+        })
+        .from(customersTable)
+        .where(eq(customersTable.id, row.customerId))
+        .limit(1);
+      const cr = customerRows[0];
+      if (cr) {
+        // Exclude placeholder emails generated for OS customers with no real email.
+        customerEmail =
+          cr.email && !cr.email.endsWith("@presentail-os.placeholder") ? cr.email : null;
+        customerLang = cr.preferredLang ?? null;
+      }
+    } catch (err: unknown) {
+      req.log.warn?.(
+        { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+        "osWebhook: customer email lookup failed (non-fatal)",
+      );
+    }
+  }
+
   // Fire push notification (best-effort).
   const pushCount = await sendOrderEventPush({
     state,
@@ -497,6 +531,29 @@ async function handleOrderStatusUpdated(
     storeKey: row.storeKey,
   }).catch(() => ({ smsSent: 0, smsSkipped: true }));
 
+  // Parse persisted line items for the confirmed email body (best-effort).
+  let parsedLineItems: { name: string; quantity: number; priceUsdCents: number }[] | undefined;
+  if (row.lineItemsJson) {
+    try {
+      parsedLineItems = JSON.parse(row.lineItemsJson);
+    } catch {
+      // Malformed JSON — skip items; email still sends without them.
+    }
+  }
+
+  // Fire order-event email (best-effort).
+  const emailResult = await sendOrderEventEmail({
+    state,
+    appOrderId: resolvedAppOrderId,
+    customerEmail,
+    recipientName: row.recipientName,
+    lang: customerLang,
+    deliveryDate: row.deliveryDate,
+    deliverySlot: row.deliverySlot,
+    totalUsdCents: row.totalUsdCents,
+    lineItems: parsedLineItems,
+  }).catch(() => ({ emailSent: false, emailSkipped: true }));
+
   req.log.info?.(
     {
       appOrderId: resolvedAppOrderId,
@@ -504,8 +561,10 @@ async function handleOrderStatusUpdated(
       pushCount,
       smsSent: smsResult.smsSent,
       smsSkipped: smsResult.smsSkipped,
+      emailSent: emailResult.emailSent,
+      emailSkipped: emailResult.emailSkipped,
     },
-    "osWebhook: order status push + SMS dispatched",
+    "osWebhook: order status push + SMS + email dispatched",
   );
 }
 

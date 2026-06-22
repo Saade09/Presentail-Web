@@ -524,6 +524,8 @@ export async function recordSuccessfulWcOrder(input: {
   // Stored so the OS webhook can later look up the app_orders row by osOrderId
   // when firing order-status push notifications.
   osOrderId?: string | null;
+  // Snapshot of resolved line items for use in transactional emails.
+  lineItems?: OrderLineItemSnapshot[] | null;
   log?: { warn?: (...args: any[]) => void; info?: (...args: any[]) => void };
 }) {
   const {
@@ -537,8 +539,11 @@ export async function recordSuccessfulWcOrder(input: {
     storeKey,
     senderPhone,
     osOrderId,
+    lineItems,
     log,
   } = input;
+  const lineItemsJson =
+    lineItems && lineItems.length > 0 ? JSON.stringify(lineItems) : null;
   const rawDeviceId =
     typeof body.appDeviceId === "string" && body.appDeviceId
       ? body.appDeviceId
@@ -577,6 +582,7 @@ export async function recordSuccessfulWcOrder(input: {
         storeKey: storeKey ?? null,
         senderPhone: normalizedSenderPhone,
         osOrderId: osOrderId ?? null,
+        lineItemsJson,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -594,6 +600,7 @@ export async function recordSuccessfulWcOrder(input: {
           storeKey: storeKey ?? null,
           senderPhone: normalizedSenderPhone,
           osOrderId: osOrderId ?? null,
+          lineItemsJson,
           updatedAt: new Date(),
         },
       });
@@ -631,12 +638,19 @@ function getOsConfig(): PresentailOsConfig {
   };
 }
 
+export type OrderLineItemSnapshot = {
+  name: string;
+  quantity: number;
+  priceUsdCents: number;
+};
+
 export type OsOrderAttemptResult =
   | {
       ok: true;
       osOrderId: string | null;
       recipientName: string;
       totalUsdCents: number;
+      lineItems: OrderLineItemSnapshot[];
     }
   | {
       ok: false;
@@ -986,6 +1000,11 @@ export async function attemptCreateOsOrder(
       osOrderId,
       recipientName: recipientFullName,
       totalUsdCents,
+      lineItems: lineItemData.map((d) => ({
+        name: d.name,
+        quantity: d.quantity,
+        priceUsdCents: Math.round(d.priceUsd * 100),
+      })),
     };
   } catch (err: any) {
     return {
@@ -1181,6 +1200,7 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       customerId: storedCustomerId,
       recipientName: result.recipientName,
       totalUsdCents: result.totalUsdCents,
+      lineItems: result.lineItems,
       platform: storedPlatform,
       storeKey: store.storeKey,
       log: logger,

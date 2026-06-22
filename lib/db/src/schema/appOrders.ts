@@ -47,6 +47,11 @@ export const appOrdersTable = pgTable(
     // legacy rows created before OS order submission was wired up, and for rows
     // created during the startup window before OS is available.
     osOrderId: text("os_order_id"),
+    // JSON-serialised snapshot of order line items at the time of placement.
+    // Shape: [{name: string, quantity: number, priceUsdCents: number}]
+    // Populated for OS-path orders (mobile + web checkout since Phase 3).
+    // Null for legacy rows created before this column existed.
+    lineItemsJson: text("line_items_json"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
