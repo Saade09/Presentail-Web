@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
-import { fetchOsProducts, fetchOsBrands } from "./osClient";
+import { fetchOsProducts } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 
 // Brand slugs allowed to appear on the storefront.
@@ -333,32 +333,16 @@ export const useFxRates = () => {
   });
 };
 
-// useBrands fetches brands from Presentail OS (direct when VITE_OS_API_KEY is
-// set) or falls back to the API server's /woo/brands endpoint, which serves
-// the same data from the OS brands cache.
+// useBrands fetches brands from the API server's /woo/brands endpoint, which
+// serves only brands that have at least one cached product. The previous
+// direct-to-OS path via VITE_OS_API_KEY has been removed because the OS
+// catalog-attributes endpoint returns all brands regardless of whether any
+// products are assigned to them, causing zero-product brands to appear in
+// search and navigation surfaces.
 export const useBrands = (_params: LocalizedParams = {}) => {
   return useQuery({
     queryKey: ["os-brands"],
     queryFn: async () => {
-      const osKey = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
-      if (osKey) {
-        try {
-          const brands = await fetchOsBrands();
-          return {
-            ok: true as const,
-            brands: brands.map((b) => ({
-              id: b.slug,
-              name: b.name,
-              slug: b.slug,
-              image: b.image_public_url ?? b.image_url ?? null,
-              count: 0,
-            })),
-          };
-        } catch {
-          // fall through to API server
-        }
-      }
-      // Fallback: API server brands endpoint
       const data = await apiFetch<{
         ok: boolean;
         brands: { id: string; name: string; slug: string; image: string | null }[];
