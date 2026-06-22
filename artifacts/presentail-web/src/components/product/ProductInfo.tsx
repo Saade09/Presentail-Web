@@ -17,7 +17,7 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints }: Props) {
   return (
     <div>
       <div className="flex items-center justify-between gap-4 mb-3">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-baseline gap-3 min-w-0">
           <span
             className="font-serif text-2xl md:text-3xl text-foreground"
             data-testid="product-price"

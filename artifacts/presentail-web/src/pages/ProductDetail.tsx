@@ -301,7 +301,7 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="bg-white min-h-screen relative z-0">
+    <div className="bg-white min-h-screen relative z-0 overflow-x-hidden">
       <div className="container mx-auto px-page max-w-content pt-4 sm:pt-6">
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
