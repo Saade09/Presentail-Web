@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import type { HomepageBanner } from "@/lib/banners";
-import { buildUnsplashSrcset } from "@/lib/imageUtils";
+import { buildUnsplashSrcset, buildOsImageSrcset, buildOsProxyUrl } from "@/lib/imageUtils";
 
 type Props = {
   banner: HomepageBanner;
@@ -15,7 +15,24 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
   const mediaUrl = banner.mediaUrl;
   const linkUrl = banner.linkUrl;
   const hasText = !!(banner.title || banner.headline || banner.subtitle || banner.ctaText);
-  const responsiveProps = !isMobile && mediaType === "image" ? buildUnsplashSrcset(mediaUrl) : null;
+
+  // For image banners, apply OS proxy for all viewports so the browser always
+  // receives WebP. On desktop, also build a full srcset. On mobile, the src
+  // alone is sufficient (srcset is skipped to let the browser pick from a
+  // narrower breakpoint without over-specifying desktop sizes).
+  const osStorageImage = mediaType === "image" ? buildOsImageSrcset(mediaUrl, "(max-width: 1280px) 100vw, 1280px") : null;
+  // Unsplash fallback (only on desktop when the URL is not an OS URL)
+  const unsplashResponsive =
+    !isMobile && mediaType === "image" && !osStorageImage ? buildUnsplashSrcset(mediaUrl) : null;
+
+  // Responsive srcset props: desktop only for OS banners; Unsplash handles its own.
+  const responsiveProps = (!isMobile ? osStorageImage : null) ?? unsplashResponsive;
+
+  // Resolve the src: for OS banners use an appropriate proxy width.
+  // Mobile gets 800w; desktop gets 1200w (srcset will usually win on desktop anyway).
+  const resolvedSrc = osStorageImage
+    ? buildOsProxyUrl(mediaUrl, isMobile ? 800 : 1200)
+    : mediaUrl;
 
   return (
     <Link
@@ -50,12 +67,12 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
             transition={{ duration: 8, ease: "easeOut" }}
           >
             <img
-              src={mediaUrl}
+              src={resolvedSrc}
               alt={banner.title ?? "Banner"}
               className="w-full h-full object-cover"
               loading={active ? "eager" : "lazy"}
               {...(active ? { fetchPriority: "high" } : {})}
-              {...(responsiveProps ?? {})}
+              {...(responsiveProps ? { srcSet: responsiveProps.srcset, sizes: responsiveProps.sizes } : {})}
             />
           </motion.div>
         )}

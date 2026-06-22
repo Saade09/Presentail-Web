@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { buildOsImageSrcset } from "@/lib/imageUtils";
 
 const loadedUrls = new Set<string>();
 
@@ -22,6 +23,10 @@ interface ShimmerImageProps {
  * Pass `priority={true}` for above-the-fold images: sets loading="eager" and
  * fetchpriority="high" so the browser fetches them immediately, and skips the
  * opacity fade so there is no render delay on top of the eager fetch.
+ *
+ * When `src` is an OS storage URL and no explicit `srcset` prop is provided,
+ * srcset/sizes are auto-derived via `/api/img/proxy` so all existing usages
+ * benefit from WebP + responsive sizing without any call-site changes.
  */
 export function ShimmerImage({
   src,
@@ -36,6 +41,12 @@ export function ShimmerImage({
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
 
+  // Auto-apply OS image srcset when the caller did not supply one.
+  const osProps = !srcset ? buildOsImageSrcset(src) : null;
+  const resolvedSrc = osProps?.src ?? src;
+  const resolvedSrcset = srcset ?? osProps?.srcset;
+  const resolvedSizes = sizes ?? osProps?.sizes;
+
   if (failed) {
     return fallback ? <>{fallback}</> : null;
   }
@@ -46,7 +57,7 @@ export function ShimmerImage({
         <div className="absolute inset-0 animate-shimmer rounded-[inherit]" />
       )}
       <img
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         className={[
           "w-full h-full",
@@ -56,8 +67,8 @@ export function ShimmerImage({
         ].join(" ")}
         loading={priority ? "eager" : "lazy"}
         {...(priority ? { fetchPriority: "high" } : {})}
-        {...(srcset ? { srcSet: srcset } : {})}
-        {...(sizes ? { sizes } : {})}
+        {...(resolvedSrcset ? { srcSet: resolvedSrcset } : {})}
+        {...(resolvedSizes ? { sizes: resolvedSizes } : {})}
         onLoad={() => {
           loadedUrls.add(src);
           setLoaded(true);

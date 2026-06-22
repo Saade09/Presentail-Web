@@ -68,6 +68,7 @@ import type {
   PhoneOtpVerifyResponse,
   ProductColorHintsRequest,
   ProductColorHintsResponse,
+  ProxyOsImageParams,
   PushOrderEventRequest,
   PushOrderEventResponse,
   PushRegisterRequest,
@@ -88,6 +89,110 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
+resizes it to the requested pixel width, and returns it as WebP (or JPEG).
+Results are cached server-side in an LRU cache and returned with a
+one-year immutable `Cache-Control` header so repeat requests are served
+instantly by the browser and any CDN in front of the API.
+
+Only URLs whose host is `os.presentail.com` and whose path begins with
+`/api/storage/` are accepted — all other origins are rejected with 400
+to prevent SSRF. No authentication required; product images are public.
+
+ * @summary Fetch and convert an OS storage image to WebP at a requested width
+ */
+export const getProxyOsImageUrl = (params: ProxyOsImageParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/img/proxy?${stringifiedParams}`
+    : `/api/img/proxy`;
+};
+
+export const proxyOsImage = async (
+  params: ProxyOsImageParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getProxyOsImageUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getProxyOsImageQueryKey = (params?: ProxyOsImageParams) => {
+  return [`/api/img/proxy`, ...(params ? [params] : [])] as const;
+};
+
+export const getProxyOsImageQueryOptions = <
+  TData = Awaited<ReturnType<typeof proxyOsImage>>,
+  TError = ErrorType<ErrorResponse | void>,
+>(
+  params: ProxyOsImageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof proxyOsImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getProxyOsImageQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof proxyOsImage>>> = ({
+    signal,
+  }) => proxyOsImage(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof proxyOsImage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ProxyOsImageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof proxyOsImage>>
+>;
+export type ProxyOsImageQueryError = ErrorType<ErrorResponse | void>;
+
+/**
+ * @summary Fetch and convert an OS storage image to WebP at a requested width
+ */
+
+export function useProxyOsImage<
+  TData = Awaited<ReturnType<typeof proxyOsImage>>,
+  TError = ErrorType<ErrorResponse | void>,
+>(
+  params: ProxyOsImageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof proxyOsImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getProxyOsImageQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns server health status

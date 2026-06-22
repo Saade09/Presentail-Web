@@ -47,6 +47,65 @@ tags:
   - name: orders
     description: Order ID generation
 paths:
+  /img/proxy:
+    get:
+      operationId: proxyOsImage
+      tags: [products]
+      summary: Fetch and convert an OS storage image to WebP at a requested width
+      description: |
+        Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
+        resizes it to the requested pixel width, and returns it as WebP (or JPEG).
+        Results are cached server-side in an LRU cache and returned with a
+        one-year immutable `Cache-Control` header so repeat requests are served
+        instantly by the browser and any CDN in front of the API.
+
+        Only URLs whose host is `os.presentail.com` and whose path begins with
+        `/api/storage/` are accepted — all other origins are rejected with 400
+        to prevent SSRF. No authentication required; product images are public.
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: Fully-qualified `https://os.presentail.com/api/storage/` image URL.
+          schema:
+            type: string
+        - name: w
+          in: query
+          required: false
+          description: |
+            Target pixel width. The image is resized to this width while preserving
+            aspect ratio. Clamped to a maximum of 1600. Defaults to 800 when omitted.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1600
+        - name: f
+          in: query
+          required: false
+          description: Output format. Defaults to `webp`.
+          schema:
+            type: string
+            enum: [webp, jpeg]
+      responses:
+        "200":
+          description: Converted image
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing, invalid, or disallowed URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream OS fetch failed
   /healthz:
     get:
       operationId: healthCheck

@@ -8,6 +8,41 @@
 import * as zod from "zod";
 
 /**
+ * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
+resizes it to the requested pixel width, and returns it as WebP (or JPEG).
+Results are cached server-side in an LRU cache and returned with a
+one-year immutable `Cache-Control` header so repeat requests are served
+instantly by the browser and any CDN in front of the API.
+
+Only URLs whose host is `os.presentail.com` and whose path begins with
+`/api/storage/` are accepted — all other origins are rejected with 400
+to prevent SSRF. No authentication required; product images are public.
+
+ * @summary Fetch and convert an OS storage image to WebP at a requested width
+ */
+export const proxyOsImageQueryWMax = 1600;
+
+export const ProxyOsImageQueryParams = zod.object({
+  url: zod.coerce
+    .string()
+    .describe(
+      "Fully-qualified `https:\/\/os.presentail.com\/api\/storage\/` image URL.",
+    ),
+  w: zod.coerce
+    .number()
+    .min(1)
+    .max(proxyOsImageQueryWMax)
+    .optional()
+    .describe(
+      "Target pixel width. The image is resized to this width while preserving\naspect ratio. Clamped to a maximum of 1600. Defaults to 800 when omitted.\n",
+    ),
+  f: zod
+    .enum(["webp", "jpeg"])
+    .optional()
+    .describe("Output format. Defaults to `webp`."),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */

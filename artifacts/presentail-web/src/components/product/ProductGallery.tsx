@@ -3,6 +3,7 @@ import { Heart, Maximize2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ProductLightbox } from "./ProductLightbox";
+import { buildOsImageSrcset, buildOsProxyUrl } from "@/lib/imageUtils";
 
 type Props = {
   images: { uri: string }[];
@@ -21,6 +22,8 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
   const handleExpand = () => {
     if (current?.uri) setLightboxOpen(true);
   };
+
+  const mainImageResponsive = current?.uri ? buildOsImageSrcset(current.uri, "(max-width: 768px) 100vw, 50vw") : null;
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -45,7 +48,11 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
                 data-testid={`product-gallery-thumb-${i}`}
               >
                 {img.uri ? (
-                  <img src={img.uri} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={buildOsProxyUrl(img.uri, 160)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full" />
                 )}
@@ -58,11 +65,12 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
         <div className="relative flex-1 bg-secondary/40 rounded-3xl overflow-hidden order-1 md:order-2 aspect-square">
           {current.uri ? (
             <img
-              src={current.uri}
+              src={mainImageResponsive?.src ?? current.uri}
               alt={productName}
               className="w-full h-full object-cover cursor-zoom-in"
               loading="eager"
               fetchPriority="high"
+              {...(mainImageResponsive ? { srcSet: mainImageResponsive.srcset, sizes: mainImageResponsive.sizes } : {})}
               onClick={handleExpand}
             />
           ) : (

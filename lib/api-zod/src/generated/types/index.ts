@@ -103,6 +103,8 @@ export * from "./productColorHintsRequest";
 export * from "./productColorHintsRequestProductsItem";
 export * from "./productColorHintsResponse";
 export * from "./productColorHintsResponseColors";
+export * from "./proxyOsImageF";
+export * from "./proxyOsImageParams";
 export * from "./pushOrderEventRequest";
 export * from "./pushOrderEventResponse";
 export * from "./pushPlatform";

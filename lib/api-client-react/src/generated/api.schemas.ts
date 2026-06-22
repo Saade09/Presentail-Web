@@ -1206,6 +1206,32 @@ export interface NextOrderIdResponse {
   orderId: string;
 }
 
+export type ProxyOsImageParams = {
+  /**
+   * Fully-qualified `https://os.presentail.com/api/storage/` image URL.
+   */
+  url: string;
+  /**
+ * Target pixel width. The image is resized to this width while preserving
+aspect ratio. Clamped to a maximum of 1600. Defaults to 800 when omitted.
+
+ * @minimum 1
+ * @maximum 1600
+ */
+  w?: number;
+  /**
+   * Output format. Defaults to `webp`.
+   */
+  f?: ProxyOsImageF;
+};
+
+export type ProxyOsImageF = (typeof ProxyOsImageF)[keyof typeof ProxyOsImageF];
+
+export const ProxyOsImageF = {
+  webp: "webp",
+  jpeg: "jpeg",
+} as const;
+
 export type GetHomepageBannersParams = {
   /**
  * ISO 3166-1 alpha-2 country code (case-insensitive) used to filter
