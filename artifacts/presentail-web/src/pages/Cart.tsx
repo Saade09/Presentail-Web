@@ -516,7 +516,7 @@ export default function Cart() {
           </div>
 
           {/* Order Summary */}
-          <div className="w-full lg:w-[26.4rem] shrink-0">
+          <div className="w-full lg:w-[26.4rem] shrink-0 order-first lg:order-none">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               {/* Promo Code Accordion */}
               <div className="mb-6">
@@ -640,10 +640,11 @@ export default function Cart() {
                     href="/checkout"
                     onClick={handleProceed}
                     data-testid="link-proceed-to-checkout"
+                    className="flex items-center"
                   >
                     <span className="flex-1 text-start">{t("cart.proceed")}</span>
-                    <span className="font-normal opacity-80 mx-2"><FormattedPrice usdValue={cartTotal} /></span>
-                    <ArrowRight className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+                    <span className="font-normal opacity-80 mx-2 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
+                    <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
                   </Link>
                 </Button>
               </div>
