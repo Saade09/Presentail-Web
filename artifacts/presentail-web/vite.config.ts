@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 // @ts-expect-error - plain ESM module (no types).
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
@@ -50,6 +51,51 @@ function seoInjectPlugin(basePath: string): Plugin {
   };
 }
 
+/**
+ * Inline critical (above-the-fold) CSS and load the full stylesheet
+ * non-blocking using Google's `critters` library. Runs only at build time so
+ * it never slows down dev-server restarts.
+ *
+ * critters converts each <link rel="stylesheet"> into:
+ *   1. A <style> block containing only the CSS rules needed for the initial
+ *      viewport (inlined critical CSS — no network round-trip before first paint).
+ *   2. A preload + onload swap pattern that fetches the full CSS asynchronously,
+ *      eliminating it from the render-blocking critical path.
+ *
+ * Note: the chunk-budget check (scripts/check-chunk-budget.mjs) iterates only
+ * over JS chunks from the Vite manifest — it never reads inline <style> blocks
+ * or CSS files, so this transformation has no effect on that budget check.
+ */
+function criticalCssPlugin(outDir: string): Plugin {
+  return {
+    name: "presentail-critical-css",
+    apply: "build",
+    async closeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      if (!fs.existsSync(htmlPath)) return;
+
+      // Dynamically import critters so the import is resolved at build time.
+      const { default: Critters } = await import("critters");
+      const critters = new Critters({
+        // "swap" converts <link rel="stylesheet"> to a preload+onload swap,
+        // eliminating both CSS files from the render-blocking critical path.
+        preload: "swap",
+        // Keep the full CSS file on disk; only inline the critical subset.
+        pruneSource: false,
+        // Resolve relative asset URLs against the built output directory.
+        path: outDir,
+        // Log warnings but don't throw on missing selectors (e.g. dynamic classes).
+        logLevel: "warn",
+      });
+
+      const html = fs.readFileSync(htmlPath, "utf8");
+      const result = await critters.process(html);
+      fs.writeFileSync(htmlPath, result, "utf8");
+      console.log("[critical-css] Inlined critical CSS into index.html");
+    },
+  };
+}
+
 export default defineConfig(async ({ command }) => {
   // BASE_PATH defaults to "/" so bare `vite build` works without wrapper env vars.
   const basePath = process.env.BASE_PATH ?? "/";
@@ -76,6 +122,7 @@ export default defineConfig(async ({ command }) => {
       tailwindcss(),
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
+      criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined
         ? [
