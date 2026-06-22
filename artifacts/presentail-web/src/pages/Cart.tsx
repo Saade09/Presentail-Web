@@ -559,7 +559,7 @@ export default function Cart() {
                         }}
                         onKeyDown={(e) => { if (e.key === "Enter") handleCouponApply(); }}
                         placeholder={t("cart.promoCodePlaceholder")}
-                        className={`rounded-lg text-sm uppercase${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
+                        className={`rounded-lg text-sm${couponError ? " border-destructive focus-visible:ring-destructive" : ""}`}
                         data-testid="input-promo-code"
                       />
                       {couponApplied ? (
