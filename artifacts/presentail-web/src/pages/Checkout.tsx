@@ -843,6 +843,11 @@ function CheckoutForm() {
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
         requestPayerEmail: false,
+        // Prevent Stripe Link from being injected as a wallet option in the
+        // native Apple Pay / Google Pay sheet. Without this, Stripe.js v9+
+        // may add a "Pay with Link" entry; selecting it redirects the page
+        // to checkout.link.com instead of showing the native payment sheet.
+        disableWallets: ["link", "browserCard"],
       });
     } catch {
       // paymentRequest() itself failed (extremely rare) — leave rows visible
@@ -2090,7 +2095,7 @@ function CheckoutForm() {
 
 export default function Checkout() {
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripePromise} options={{ locale: "auto" }}>
       <CheckoutForm />
     </Elements>
   );
