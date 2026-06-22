@@ -635,15 +635,15 @@ export default function Cart() {
                   <span className="text-2xl font-serif"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
                 </div>
 
-                <Button asChild size="lg" className="w-full h-14 text-base rounded-xl">
+                <Button asChild size="lg" className="w-full h-14 text-base rounded-xl px-5">
                   <Link
                     href="/checkout"
                     onClick={handleProceed}
                     data-testid="link-proceed-to-checkout"
-                    className="flex items-center"
+                    className="flex items-center gap-2"
                   >
                     <span className="flex-1 text-start">{t("cart.proceed")}</span>
-                    <span className="font-normal opacity-80 mx-2 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
+                    <span className="font-normal opacity-80 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
                     <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
                   </Link>
                 </Button>
