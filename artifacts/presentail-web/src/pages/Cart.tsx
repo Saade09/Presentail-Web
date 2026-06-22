@@ -340,14 +340,14 @@ export default function Cart() {
                 className="mb-6"
               />
             )}
-            <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 mb-6">
             {items.map((item, index) => (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 key={item.product.id}
-                className="flex gap-4 py-4 border-b"
+                className="flex gap-4 px-6 py-5"
               >
                 <div className="w-20 md:w-24 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
                   {item.product.image?.uri && (
@@ -391,6 +391,7 @@ export default function Cart() {
                 </div>
               </motion.div>
             ))}
+            </div>
 
             {/* Card Message Panel */}
             <div className="pt-2 pb-6">
@@ -511,7 +512,6 @@ export default function Cart() {
               </div>
 
               <CartUpsells />
-            </div>
             </div>
           </div>
 
