@@ -101,7 +101,7 @@ export default function SignInPage() {
     };
   }, []);
 
-  type Step = "email" | "password";
+  type Step = "email" | "password" | "social-redirect";
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState(initial.email);
   const [password, setPassword] = useState("");
@@ -303,6 +303,7 @@ export default function SignInPage() {
         ok?: boolean;
         exists?: boolean;
         code?: "lookup_failed" | "lookup_unavailable";
+        passwordLoginAvailable?: boolean;
       } | null;
       if (
         !bridgeJson ||
@@ -317,9 +318,16 @@ export default function SignInPage() {
         return;
       }
       // When the server found (or is confident about) an existing account,
-      // proceed to password regardless of whether Clerk/WC lookup had issues.
+      // check whether password login is still available before advancing.
+      // Only show the password step when the server explicitly signals
+      // passwordLoginAvailable === true — treat undefined (older server) as
+      // false so returning shoppers are never silently routed to a dead-end.
       if (bridgeJson.exists) {
-        setStep("password");
+        if (bridgeJson.passwordLoginAvailable === true) {
+          setStep("password");
+        } else {
+          setStep("social-redirect");
+        }
         return;
       }
       // When the lookup itself failed we cannot reliably classify the email —
@@ -396,7 +404,7 @@ export default function SignInPage() {
         <div className="text-center mb-6">
           <h1 className="text-2xl font-serif">{t("auth.cardHeading")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {step === "email"
+            {step === "email" || step === "social-redirect"
               ? t("auth.cardSubheading")
               : t("auth.enterPassword", { email })}
           </p>
@@ -411,7 +419,70 @@ export default function SignInPage() {
           </div>
         ) : null}
 
-        {step === "email" ? (
+        {step === "social-redirect" ? (
+          <div className="space-y-4">
+            <div
+              className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground"
+              data-testid="text-signin-social-prompt"
+            >
+              {t("auth.existingAccountSocialPrompt")}
+            </div>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                onClick={() => void onOAuthApple()}
+                disabled={busy || oauthBusy !== null}
+                data-testid="button-signin-apple"
+              >
+                <AppleLogo />
+                {oauthBusy === "apple"
+                  ? t("checkout.processing")
+                  : t("auth.continueApple")}
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                onClick={() => void onOAuthGoogle()}
+                disabled={busy || oauthBusy !== null}
+                data-testid="button-signin-google"
+              >
+                <GoogleLogo />
+                {oauthBusy === "google"
+                  ? t("checkout.processing")
+                  : t("auth.continueGoogle")}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => {
+                  setStep("email");
+                }}
+                data-testid="button-signin-change-email"
+              >
+                {t("auth.changeEmail")}
+              </button>
+              <button
+                type="button"
+                className="text-muted-foreground hover:underline"
+                onClick={() =>
+                  setLocation(
+                    `/reset-password?email_address=${encodeURIComponent(
+                      email.trim().toLowerCase()
+                    )}`
+                  )
+                }
+                data-testid="button-signin-forgot"
+              >
+                {t("auth.forgotPassword")}
+              </button>
+            </div>
+          </div>
+        ) : step === "email" ? (
           <div className="space-y-4">
             <div className="flex flex-col gap-[5px] pt-3">
               <label className="text-sm font-medium block" htmlFor="signin-email">

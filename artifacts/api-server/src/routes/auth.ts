@@ -357,7 +357,7 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
     // a hard error so the UI shows "try again later" rather than silently
     // failing on the next step.
     req.log?.warn?.("auth.web-bridge: Clerk not configured");
-    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable" });
+    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_unavailable", passwordLoginAvailable: isWcAuthEnabled() });
     return;
   }
 
@@ -421,10 +421,10 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
       );
       const code: "lookup_failed" | "lookup_unavailable" =
         ensure.reason === "not_configured" ? "lookup_unavailable" : "lookup_failed";
-      res.json({ ok: true, exists: true, clerkReady: false, code });
+      res.json({ ok: true, exists: true, clerkReady: false, code, passwordLoginAvailable: isWcAuthEnabled() });
       return;
     }
-    res.json({ ok: true, exists: true, clerkReady: true });
+    res.json({ ok: true, exists: true, clerkReady: true, passwordLoginAvailable: isWcAuthEnabled() });
   } catch (e: any) {
     // Defensive: helper shouldn't throw, but if it does (e.g. unexpected
     // sync error during construction), still surface a hard error.
@@ -432,7 +432,7 @@ router.post("/auth/web-bridge", existsIpLimiter, async (req, res) => {
       { err: e?.message },
       "auth.web-bridge: ensureClerkUserForCustomer threw",
     );
-    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_failed" });
+    res.json({ ok: true, exists: true, clerkReady: false, code: "lookup_failed", passwordLoginAvailable: isWcAuthEnabled() });
   }
 });
 

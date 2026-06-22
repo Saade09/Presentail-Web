@@ -22,6 +22,8 @@ import type {
   AnalyticsEventResponse,
   AuthMeResponse,
   AuthMeUpdateRequest,
+  AuthWebBridgeRequest,
+  AuthWebBridgeResponse,
   CatalogMetadataResponse,
   CatalogOccasionsResponse,
   CheckoutPaymentIntentRequest,
@@ -2647,6 +2649,99 @@ export function useWooSearch<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Accepts an email address and returns whether a matching account
+exists. Used by the web sign-in flow to decide whether to show
+sign-in options or redirect to sign-up. When `exists` is `true`
+and `passwordLoginAvailable` is `false` (the default production
+state when `WC_AUTH_ENABLED` is unset), the client should skip
+the password field and show social sign-in alternatives instead.
+
+ * @summary Check whether a returning shopper has an account
+ */
+export const getCheckAuthWebBridgeUrl = () => {
+  return `/api/auth/web-bridge`;
+};
+
+export const checkAuthWebBridge = async (
+  authWebBridgeRequest: AuthWebBridgeRequest,
+  options?: RequestInit,
+): Promise<AuthWebBridgeResponse> => {
+  return customFetch<AuthWebBridgeResponse>(getCheckAuthWebBridgeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authWebBridgeRequest),
+  });
+};
+
+export const getCheckAuthWebBridgeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAuthWebBridge>>,
+    TError,
+    { data: BodyType<AuthWebBridgeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkAuthWebBridge>>,
+  TError,
+  { data: BodyType<AuthWebBridgeRequest> },
+  TContext
+> => {
+  const mutationKey = ["checkAuthWebBridge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkAuthWebBridge>>,
+    { data: BodyType<AuthWebBridgeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkAuthWebBridge(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckAuthWebBridgeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkAuthWebBridge>>
+>;
+export type CheckAuthWebBridgeMutationBody = BodyType<AuthWebBridgeRequest>;
+export type CheckAuthWebBridgeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether a returning shopper has an account
+ */
+export const useCheckAuthWebBridge = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAuthWebBridge>>,
+    TError,
+    { data: BodyType<AuthWebBridgeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkAuthWebBridge>>,
+  TError,
+  { data: BodyType<AuthWebBridgeRequest> },
+  TContext
+> => {
+  return useMutation(getCheckAuthWebBridgeMutationOptions(options));
+};
 
 /**
  * Returns the canonical profile for the currently signed-in customer,

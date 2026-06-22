@@ -913,6 +913,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /auth/web-bridge:
+    post:
+      operationId: checkAuthWebBridge
+      tags: [auth]
+      summary: Check whether a returning shopper has an account
+      description: |
+        Accepts an email address and returns whether a matching account
+        exists. Used by the web sign-in flow to decide whether to show
+        sign-in options or redirect to sign-up. When `exists` is `true`
+        and `passwordLoginAvailable` is `false` (the default production
+        state when `WC_AUTH_ENABLED` is unset), the client should skip
+        the password field and show social sign-in alternatives instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthWebBridgeRequest"
+      responses:
+        "200":
+          description: Account check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthWebBridgeResponse"
   /auth/me:
     get:
       operationId: getAuthMe
@@ -3198,6 +3223,49 @@ components:
             nullable: true
       required:
         - colors
+    AuthWebBridgeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: The email address to look up.
+      required:
+        - email
+    AuthWebBridgeResponse:
+      type: object
+      description: |
+        Result of the /auth/web-bridge email lookup. When `exists` is `true`
+        and `passwordLoginAvailable` is `false`, the web client should skip
+        the password field and present social sign-in alternatives.
+      properties:
+        ok:
+          type: boolean
+        exists:
+          type: boolean
+          description: True when a matching account was found for the supplied email.
+        clerkReady:
+          type: boolean
+          description: |
+            True when the Clerk user record has been provisioned and the
+            email-code sign-in step can proceed. Only present when `exists`
+            is `true`.
+        passwordLoginAvailable:
+          type: boolean
+          description: |
+            Whether legacy password login is available for this account.
+            False (the default) when `WC_AUTH_ENABLED` is unset or false —
+            clients should skip the password field and show social sign-in
+            alternatives instead.
+        code:
+          type: string
+          description: Error code explaining a failed or degraded lookup.
+          enum:
+            - lookup_failed
+            - lookup_unavailable
+      required:
+        - ok
+        - exists
     NextOrderIdRequest:
       type: object
       properties:

@@ -1195,6 +1195,47 @@ export interface ProductColorHintsResponse {
   colors: ProductColorHintsResponseColors;
 }
 
+export interface AuthWebBridgeRequest {
+  /** The email address to look up. */
+  email: string;
+}
+
+/**
+ * Error code explaining a failed or degraded lookup.
+ */
+export type AuthWebBridgeResponseCode =
+  (typeof AuthWebBridgeResponseCode)[keyof typeof AuthWebBridgeResponseCode];
+
+export const AuthWebBridgeResponseCode = {
+  lookup_failed: "lookup_failed",
+  lookup_unavailable: "lookup_unavailable",
+} as const;
+
+/**
+ * Result of the /auth/web-bridge email lookup. When `exists` is `true`
+and `passwordLoginAvailable` is `false`, the web client should skip
+the password field and present social sign-in alternatives.
+
+ */
+export interface AuthWebBridgeResponse {
+  ok: boolean;
+  /** True when a matching account was found for the supplied email. */
+  exists: boolean;
+  /** True when the Clerk user record has been provisioned and the
+email-code sign-in step can proceed. Only present when `exists`
+is `true`.
+ */
+  clerkReady?: boolean;
+  /** Whether legacy password login is available for this account.
+False (the default) when `WC_AUTH_ENABLED` is unset or false —
+clients should skip the password field and show social sign-in
+alternatives instead.
+ */
+  passwordLoginAvailable?: boolean;
+  /** Error code explaining a failed or degraded lookup. */
+  code?: AuthWebBridgeResponseCode;
+}
+
 export interface NextOrderIdRequest {
   /** ISO 3166-1 alpha-2 country code (LB, AE, or CY). Anything else falls back to LB. */
   countryCode: string;

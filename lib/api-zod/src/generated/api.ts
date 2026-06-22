@@ -1529,6 +1529,49 @@ export const WooSearchResponse = zod.object({
 });
 
 /**
+ * Accepts an email address and returns whether a matching account
+exists. Used by the web sign-in flow to decide whether to show
+sign-in options or redirect to sign-up. When `exists` is `true`
+and `passwordLoginAvailable` is `false` (the default production
+state when `WC_AUTH_ENABLED` is unset), the client should skip
+the password field and show social sign-in alternatives instead.
+
+ * @summary Check whether a returning shopper has an account
+ */
+export const CheckAuthWebBridgeBody = zod.object({
+  email: zod.string().email().describe("The email address to look up."),
+});
+
+export const CheckAuthWebBridgeResponse = zod
+  .object({
+    ok: zod.boolean(),
+    exists: zod
+      .boolean()
+      .describe(
+        "True when a matching account was found for the supplied email.",
+      ),
+    clerkReady: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the Clerk user record has been provisioned and the\nemail-code sign-in step can proceed. Only present when `exists`\nis `true`.\n",
+      ),
+    passwordLoginAvailable: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Whether legacy password login is available for this account.\nFalse (the default) when `WC_AUTH_ENABLED` is unset or false —\nclients should skip the password field and show social sign-in\nalternatives instead.\n",
+      ),
+    code: zod
+      .enum(["lookup_failed", "lookup_unavailable"])
+      .optional()
+      .describe("Error code explaining a failed or degraded lookup."),
+  })
+  .describe(
+    "Result of the \/auth\/web-bridge email lookup. When `exists` is `true`\nand `passwordLoginAvailable` is `false`, the web client should skip\nthe password field and present social sign-in alternatives.\n",
+  );
+
+/**
  * Returns the canonical profile for the currently signed-in customer,
 including the optional personal-information fields (gender,
 birthday, birthday-sharing preference). Requires a Bearer token.
