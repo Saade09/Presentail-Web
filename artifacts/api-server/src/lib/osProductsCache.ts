@@ -861,17 +861,6 @@ async function fetchAndStore(): Promise<void> {
         );
       }
 
-      // Supplement from product-embedded brands (fills gaps on fallback).
-      for (const entry of storeCache.values()) {
-        for (const p of entry.products) {
-          for (const b of p.brands ?? []) {
-            if (b.slug && !brandMap.has(b.slug)) {
-              brandMap.set(b.slug, b);
-            }
-          }
-        }
-      }
-
       if (brandMap.size > 0) {
         const derived = [...brandMap.values()];
         cachedBrands = derived;
