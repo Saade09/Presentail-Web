@@ -76,7 +76,7 @@ export function PaymentMethods({
         <p
           className={
             labelClassName ??
-            "text-[11px] uppercase tracking-[0.18em] text-muted-foreground sm:shrink-0"
+            "text-[11px] tracking-wide text-muted-foreground sm:shrink-0"
           }
         >
           {resolvedLabel}
