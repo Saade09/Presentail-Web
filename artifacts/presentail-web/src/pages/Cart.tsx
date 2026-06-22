@@ -43,7 +43,7 @@ function isValidQrUrl(url: string): boolean {
 
 function CartSkeleton() {
   return (
-    <div className="min-h-screen bg-background pt-12 pb-24">
+    <div className="min-h-screen bg-[#fafaf9] pt-12 pb-24">
       <div className="container mx-auto px-page max-w-content">
         <Skeleton className="h-10 w-48 mb-12" />
         <div className="flex flex-col lg:flex-row gap-12">
@@ -310,7 +310,7 @@ export default function Cart() {
 
   if (itemCount === 0) {
     return (
-      <div className="min-h-[70vh] bg-background pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-page">
+      <div className="min-h-[70vh] bg-[#fafaf9] pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-page">
         <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
           <ShoppingCart className="w-10 h-10" />
         </div>
@@ -326,7 +326,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-12 pb-24">
+    <div className="min-h-screen bg-[#fafaf9] pt-12 pb-24">
       <div className="container mx-auto px-page max-w-content">
         <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
 
