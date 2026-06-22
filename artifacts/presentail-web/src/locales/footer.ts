@@ -42,7 +42,7 @@ export const footerStrings: Dict = {
   },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "footer.address": {
-    en: "3rd Floor, Karam el Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
+    en: "3rd Floor, Karam w Mwannes, Abdel Wahab El Inglizi St, Achrafieh, Beirut, Lebanon",
     ar: "الطابق الثالث، كرم المونس، شارع عبد الوهاب الإنكليزي، الأشرفية، بيروت، لبنان",
   },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -101,7 +101,7 @@ export const footerStringsFr: Record<string, string> = {
   "footer.allRightsReserved": "Tous droits réservés © {year} Presentail SAL",
   "footer.allRightsReservedDubai": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C",
   "footer.allRightsReservedAbuDhabi": "Tous droits réservés © {year} Presentail Flowers Trading L.L.C - Succursale d'Abu Dhabi",
-  "footer.address": "3ème étage, Karam el Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
+  "footer.address": "3ème étage, Karam w Mwannes, rue Abdel Wahab El Inglizi, Achrafieh, Beyrouth, Liban",
   "footer.addressDubai": "Boutique 41, Al Barsha 1, Al Attar Business Center, Dubaï, Émirats arabes unis",
   "footer.addressAbuDhabi": "Al Nahyan, Est 19, Immeuble Mina Ahmed Mohammed Khalifa, Abu Dhabi, Émirats arabes unis",
   "footer.allRightsReservedCyprus": "Tous droits réservés © {year} Presentail LTD",
