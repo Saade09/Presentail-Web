@@ -1877,8 +1877,8 @@ function CheckoutForm() {
                       const offlineDesc = m.id === "whish" ? t("checkout.pay.whishDesc") : m.id === "western" ? t("checkout.pay.westernDesc") : null;
                       type LogoSpec = { name: string; src: string; fill?: boolean; maxH?: string };
                       const cardLogos: LogoSpec[] = [
-                        { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
-                        { name: "Visa", src: visaLogo, maxH: "max-h-[14px]" },
+                        { name: "Mastercard", src: mastercardLogo, fill: true },
+                        { name: "Visa", src: visaLogo, fill: true },
                         { name: "American Express", src: amexLogo, fill: true },
                       ];
                       const methodLogos: Record<string, LogoSpec[]> = {

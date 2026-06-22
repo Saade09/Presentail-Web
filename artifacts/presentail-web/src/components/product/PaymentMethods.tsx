@@ -59,8 +59,8 @@ export function PaymentMethods({
       : []),
     ...(showCards
       ? [
-          { name: "Visa", src: visaLogo, maxH: "max-h-[14px]" },
-          { name: "Mastercard", src: mastercardLogo, maxH: "max-h-[18px]" },
+          { name: "Visa", src: visaLogo, fill: true },
+          { name: "Mastercard", src: mastercardLogo, fill: true },
         ]
       : []),
     ...(showWhish ? [{ name: "Whish Money", src: whishLogo, fill: true }] : []),
