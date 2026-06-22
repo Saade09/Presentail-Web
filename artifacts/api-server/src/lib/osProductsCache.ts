@@ -872,22 +872,6 @@ async function fetchAndStore(): Promise<void> {
         }
       }
 
-      // Filter to only brands that appear on at least one cached product.
-      // The catalog-attributes endpoint returns all brands defined in OS admin
-      // (e.g. Apple, Nike) even when no products are assigned to them; we only
-      // surface brands that shoppers can actually browse.
-      const brandsWithProducts = new Set<string>();
-      for (const entry of storeCache.values()) {
-        for (const p of entry.products) {
-          for (const b of p.brands ?? []) {
-            if (b.slug) brandsWithProducts.add(b.slug);
-          }
-        }
-      }
-      for (const slug of [...brandMap.keys()]) {
-        if (!brandsWithProducts.has(slug)) brandMap.delete(slug);
-      }
-
       if (brandMap.size > 0) {
         const derived = [...brandMap.values()];
         cachedBrands = derived;
