@@ -64,7 +64,7 @@ function CartSkeleton() {
               </div>
             ))}
           </div>
-          <div className="w-full lg:w-96 shrink-0">
+          <div className="w-full lg:w-[26.4rem] shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8">
               <Skeleton className="h-8 w-44 mb-4" />
               <div className="mb-6 pb-6 border-b border-primary/10">
@@ -516,7 +516,7 @@ export default function Cart() {
           </div>
 
           {/* Order Summary */}
-          <div className="w-full lg:w-96 shrink-0">
+          <div className="w-full lg:w-[26.4rem] shrink-0">
             <div className="bg-secondary/30 rounded-3xl p-8 sticky top-32">
               {/* Promo Code Accordion */}
               <div className="mb-6">
