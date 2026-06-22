@@ -816,6 +816,12 @@ function CheckoutForm() {
   // confirms support so it can be shown synchronously from handleSubmit.
   const paymentRequestRef = useRef<import("@stripe/stripe-js").PaymentRequest | null>(null);
 
+  // Tracks whether the Apple Pay / Google Pay native sheet is currently open.
+  // Prevents a second pr.update()/pr.show() call while the sheet is showing,
+  // which would throw "cannot update Payment Request options while the payment
+  // sheet is showing". Cleared in both the paymentmethod and cancel handlers.
+  const walletSheetOpenRef = useRef(false);
+
   // Probe wallet (Apple Pay / Google Pay) availability via Stripe's
   // PaymentRequest API. Runs once when the Stripe.js instance resolves.
   // If the browser / device reports no wallet is configured, silently
@@ -1098,10 +1104,6 @@ function CheckoutForm() {
       const returnUrl = `${origin}${base}/order-confirmed?status=success`;
       const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
 
-      // Reserve the order ID from the server ONCE. Retries reuse the same ID
-      // because ensureOrderId returns the cached value on subsequent calls.
-      const orderId = await ensureOrderId();
-
       // For non-AED wallet: the Stripe Payment Request flow is used when
       // paymentRequestRef holds the probe-confirmed PR object. If the probe
       // hasn't resolved yet (rare race before submit), fall back to card.
@@ -1118,18 +1120,27 @@ function CheckoutForm() {
           : paymentMethod;
 
       if (walletViaNativeSheet && stripe) {
+        // Guard against double-invocation while the sheet is already open.
+        // If the sheet is open a second tap would throw "cannot update Payment
+        // Request options while the payment sheet is showing".
+        if (walletSheetOpenRef.current) return;
+
         const pr = paymentRequestRef.current!;
 
         // Update the displayed total before opening the native sheet so the
         // shopper sees the correct order amount (amount is in USD cents).
         pr.update({ total: { label: t("checkout.payment.orderTitle"), amount: Math.round(total * 100) } });
 
-        // pr.show() MUST be called synchronously from the click-handler
-        // context. Await below is inside the paymentmethod callback, not here.
+        // pr.show() MUST be called synchronously within the click-handler
+        // context with NO await before it. Any await beforehand removes the
+        // call from the trusted user-gesture context, causing Safari to
+        // redirect the page instead of opening the native Apple Pay sheet.
+        walletSheetOpenRef.current = true;
         pr.show();
 
         await new Promise<void>((resolve) => {
           const cleanup = () => {
+            walletSheetOpenRef.current = false;
             pr.off("paymentmethod", pmHandler);
             pr.off("cancel", cancelHandler);
           };
@@ -1140,6 +1151,11 @@ function CheckoutForm() {
           const pmHandler = async (ev: any) => {
             cleanup();
             try {
+              // Reserve (or reuse) the order ID here — inside the async
+              // paymentmethod handler — so it is NOT called before pr.show()
+              // and does not break the synchronous gesture-context requirement.
+              const orderId = await ensureOrderId();
+
               const intentRes = await createPaymentIntent.mutateAsync({
                 data: {
                   items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
@@ -1221,6 +1237,12 @@ function CheckoutForm() {
 
         return;
       }
+
+      // Reserve the order ID from the server ONCE for non-wallet flows. Retries
+      // reuse the same ID because ensureOrderId returns the cached value.
+      // This call is intentionally placed after the wallet branch above so that
+      // no await precedes pr.show() in the Apple Pay / Google Pay path.
+      const orderId = await ensureOrderId();
 
       if (payMethod === "card") {
         // Inline Stripe Elements flow — no redirect.
