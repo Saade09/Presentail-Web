@@ -283,7 +283,7 @@ export function MainNavbar() {
 
   return (
     <div ref={wrapperRef} className="bg-white sticky top-0 z-[60] border-b border-gray-200">
-      <div className="container mx-auto max-w-content px-page h-20 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
+      <div className="container mx-auto max-w-content px-page h-24 grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
 
         {/* ── Left: nav ────────────────────────────────────── */}
         <div className="flex items-center gap-2">
@@ -509,7 +509,7 @@ export function MainNavbar() {
         {/* ── Center: logo ──────────────────────────────────── */}
         <div className="flex justify-center">
           <Link href="/" className="flex items-center" aria-label={t("nav.logoAria")} data-testid="link-logo">
-            <Logo className="h-14 md:h-20 w-auto" />
+            <Logo height={64} />
           </Link>
         </div>
 
