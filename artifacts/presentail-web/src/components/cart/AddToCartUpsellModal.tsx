@@ -17,10 +17,10 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 import { useToast } from "@/hooks/use-toast";
 import {
   type ResolvedUpsellTab,
-  type ResolvedUpsellProduct,
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
+import { UpsellQtyControl } from "@/components/cart/UpsellQtyControl";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 
@@ -50,7 +50,7 @@ type Props = {
 
 export function AddToCartUpsellModal({ open, onClose }: Props) {
   const { t, language, dir } = useLocale();
-  const { addItem, subtotal } = useCart();
+  const { subtotal } = useCart();
   const { countryCode, cityId } = useLocationSelection();
   const { freeDeliveryEnabled } = useDeliveryConfig();
   const { toast } = useToast();
@@ -82,8 +82,7 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
     }
   }, [tabs, activeId]);
 
-  const handleAddUpsell = (product: ResolvedUpsellProduct) => {
-    addItem(product, 1);
+  const handleFirstAdd = (product: { id: string; name: string }) => {
     trackEvent({
       name: "upsell_item_added",
       surface: "upsell_modal",
@@ -219,15 +218,12 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                           {product.name}
                         </h3>
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleAddUpsell(product)}
-                        aria-label={t("cart.upsells.add")}
+                      <UpsellQtyControl
+                        product={product}
+                        onFirstAdd={() => handleFirstAdd(product)}
+                        addButtonClassName="mt-auto w-full bg-primary text-primary-foreground rounded-full py-1.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors"
                         data-testid={`upsell-modal-add-${product.id}`}
-                        className="mt-auto w-full bg-primary text-primary-foreground rounded-full py-1.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors"
-                      >
-                        {t("cart.upsells.add")}
-                      </button>
+                      />
                     </div>
                   </div>
                 );

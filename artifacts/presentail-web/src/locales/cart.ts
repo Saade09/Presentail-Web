@@ -30,6 +30,8 @@ export const cartStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.candles": { en: "Candles", ar: "الشموع" },
   "cart.upsells.add": { en: "Add", ar: "إضافة" },
+  "cart.upsells.increaseQty": { en: "Increase quantity", ar: "زيادة الكمية" },
+  "cart.upsells.decreaseQty": { en: "Decrease quantity", ar: "تقليل الكمية" },
   "cart.upsells.modal.addedTitle": { en: "You've added items to your cart", ar: "لقد أضفت عناصر إلى سلتك" },
   "cart.upsells.modal.continueShopping": { en: "Continue Shopping", ar: "متابعة التسوق" },
   "cart.upsells.modal.close": { en: "Close", ar: "إغلاق" },
@@ -83,6 +85,8 @@ export const cartStringsFr: Record<string, string> = {
   "cart.upsells.tab.bears": "Nounours",
   "cart.upsells.tab.candles": "Bougies",
   "cart.upsells.add": "Ajouter",
+  "cart.upsells.increaseQty": "Augmenter la quantité",
+  "cart.upsells.decreaseQty": "Diminuer la quantité",
   "cart.upsells.modal.addedTitle": "Vous avez ajouté des articles à votre panier",
   "cart.upsells.modal.continueShopping": "Continuer mes achats",
   "cart.upsells.modal.close": "Fermer",

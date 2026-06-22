@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 
-import { useCart } from "@/contexts/CartContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useProducts } from "@/lib/queries";
@@ -10,10 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   type ResolvedUpsellTab,
-  type ResolvedUpsellProduct,
   type UpsellTabId,
   resolveUpsellTabs,
 } from "@/lib/cartUpsells";
+import { UpsellQtyControl } from "@/components/cart/UpsellQtyControl";
 
 const SKELETON_COUNT = 4;
 
@@ -64,7 +63,6 @@ function tabLabelKey(id: UpsellTabId): string {
 
 export function CartUpsells() {
   const { t, language } = useLocale();
-  const { addItem } = useCart();
   const { countryCode, cityId } = useLocationSelection();
   const { toast } = useToast();
 
@@ -94,8 +92,7 @@ export function CartUpsells() {
     }
   }, [tabs, activeId]);
 
-  const handleAdd = (product: ResolvedUpsellProduct) => {
-    addItem(product, 1);
+  const handleFirstAdd = (product: { name: string }) => {
     toast({
       title: t("product.toast.addedTitle"),
       description: t("product.toast.addedDesc", { name: product.name }),
@@ -169,15 +166,11 @@ export function CartUpsells() {
                     {product.name}
                   </h3>
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => handleAdd(product)}
-                  aria-label={t("cart.upsells.add")}
+                <UpsellQtyControl
+                  product={product}
+                  onFirstAdd={() => handleFirstAdd(product)}
                   data-testid={`cart-upsells-add-${product.id}`}
-                  className="mt-auto w-full bg-primary text-primary-foreground rounded-full py-2 text-[11px] font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors"
-                >
-                  {t("cart.upsells.add")}
-                </button>
+                />
               </div>
             </div>
           );
