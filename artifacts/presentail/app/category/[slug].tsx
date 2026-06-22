@@ -313,8 +313,8 @@ function CategoryScreen() {
               paddingHorizontal: 24,
               flexDirection: "row",
               flexWrap: "wrap",
-              gap: 14,
-              rowGap: 26,
+              gap: 10,
+              rowGap: 18,
             }}
           >
             {popularPicks.map((p) => (
@@ -334,10 +334,10 @@ function CategoryScreen() {
         numColumns={2}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
-        columnWrapperStyle={{ paddingHorizontal: 24, gap: 14 }}
+        columnWrapperStyle={{ paddingHorizontal: 24, gap: 10 }}
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,
-          rowGap: 26,
+          rowGap: 18,
         }}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews

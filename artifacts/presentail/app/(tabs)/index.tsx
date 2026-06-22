@@ -757,8 +757,8 @@ function BestSellers() {
           paddingHorizontal: 24,
           flexDirection: "row",
           flexWrap: "wrap",
-          gap: 14,
-          rowGap: 24,
+          gap: 10,
+          rowGap: 18,
         }}
       >
         {loading && displayProducts.length === 0
@@ -941,7 +941,7 @@ function BundlesSection() {
           </AppText>
         </Pressable>
       </View>
-      <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 24 }}>
+      <View style={{ paddingHorizontal: 24, flexDirection: "row", flexWrap: "wrap", gap: 10, rowGap: 18 }}>
         {loading && bundleProducts.length === 0
           ? Array.from({ length: 4 }).map((_, i) => (
               <ProductCardSkeleton key={i} width={CARD_W} />

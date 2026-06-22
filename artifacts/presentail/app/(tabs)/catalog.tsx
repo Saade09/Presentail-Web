@@ -419,8 +419,8 @@ function CatalogScreen() {
       numColumns={2}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
-      columnWrapperStyle={{ paddingHorizontal: 24, gap: 14 }}
-      contentContainerStyle={{ paddingBottom: 120, rowGap: 26 }}
+      columnWrapperStyle={{ paddingHorizontal: 24, gap: 10 }}
+      contentContainerStyle={{ paddingBottom: 120, rowGap: 18 }}
       showsVerticalScrollIndicator={false}
       removeClippedSubviews
       initialNumToRender={6}

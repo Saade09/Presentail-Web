@@ -169,8 +169,8 @@ function BrandScreen() {
           data={products}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          columnWrapperStyle={{ gap: 14, paddingHorizontal: 24 }}
-          contentContainerStyle={{ paddingTop: 20, paddingBottom: insets.bottom + 40, gap: 14 }}
+          columnWrapperStyle={{ gap: 10, paddingHorizontal: 24 }}
+          contentContainerStyle={{ paddingTop: 20, paddingBottom: insets.bottom + 40, gap: 18 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={{ paddingHorizontal: 24, marginBottom: 4 }}>

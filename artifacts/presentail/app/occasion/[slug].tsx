@@ -276,7 +276,7 @@ function OccasionScreen() {
               </AppText>
             </View>
           ) : (
-            <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
+            <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 10, rowGap: 18 }}>
               {sortedBrandProducts.map((p) => (
                 <ProductCard
                   key={p.id}
@@ -329,8 +329,8 @@ function OccasionScreen() {
                     paddingHorizontal: 24,
                     flexDirection: "row",
                     flexWrap: "wrap",
-                    gap: 14,
-                    rowGap: 26,
+                    gap: 10,
+                    rowGap: 18,
                     justifyContent: "center",
                   }}
                 >
@@ -342,7 +342,7 @@ function OccasionScreen() {
             ) : null}
           </View>
         ) : flatSortedGroupProducts ? (
-          <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 14, rowGap: 26 }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 10, rowGap: 18 }}>
             {flatSortedGroupProducts.map((p) => (
               <ProductCard
                 key={p.id}
