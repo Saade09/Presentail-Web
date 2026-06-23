@@ -94,6 +94,7 @@
     "expo-sharing": "~14.0.8",
     "expo-updates": "^29.0.17",
     "libphonenumber-js": "^1.13.4",
+    "react-async-hook": "^4.0.0",
     "react-native-phone-number-input": "^2.1.0",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-view-shot": "4.0.3"

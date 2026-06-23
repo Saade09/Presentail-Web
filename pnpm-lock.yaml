@@ -557,6 +557,9 @@ importers:
       libphonenumber-js:
         specifier: ^1.13.4
         version: 1.13.4
+      react-async-hook:
+        specifier: ^4.0.0
+        version: 4.0.0(react@19.1.0)
       react-native-phone-number-input:
         specifier: ^2.1.0
         version: 2.1.0(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -7501,6 +7504,12 @@ packages:
 
   react-async-hook@3.6.1:
     resolution: {integrity: sha512-YWBB2feVQF79t5u2raMPHlZ8975Jds+guCvkWVC4kRLDlSCouLsYpQm4DGSqPeHvoHYVVcDfqNayLZAXQmnxnw==}
+    engines: {node: '>=8', npm: '>=5'}
+    peerDependencies:
+      react: '>=16.8'
+
+  react-async-hook@4.0.0:
+    resolution: {integrity: sha512-97lgjFkOcHCTYSrsKBpsXg3iVWM0LnzedB749iP76sb3/8Ouu4nHIkCLEOrQWHVYqrYxjF05NN6GHoXWFkB3Kw==}
     engines: {node: '>=8', npm: '>=5'}
     peerDependencies:
       react: '>=16.8'
@@ -17009,6 +17018,10 @@ snapshots:
       strip-json-comments: 2.0.1
 
   react-async-hook@3.6.1(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+
+  react-async-hook@4.0.0(react@19.1.0):
     dependencies:
       react: 19.1.0
 
