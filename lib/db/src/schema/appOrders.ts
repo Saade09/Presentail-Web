@@ -52,6 +52,28 @@ export const appOrdersTable = pgTable(
     // Populated for OS-path orders (mobile + web checkout since Phase 3).
     // Null for legacy rows created before this column existed.
     lineItemsJson: text("line_items_json"),
+    // ── Extended fields (added for full order audit trail) ──────────────────
+    // Full name of the person who placed the order (billing first + last name).
+    senderName: text("sender_name"),
+    // Email address of the sender (billing email). Used for order confirmation
+    // emails and customer lookup.
+    senderEmail: text("sender_email"),
+    // Phone number of the recipient (E.164 when available). Stored separately
+    // from recipientName so delivery ops can contact the recipient directly.
+    recipientPhone: text("recipient_phone"),
+    // Delivery district / area name (e.g. "Beirut", "Hamra"). Kept separate
+    // from deliveryAddress so reports can group orders by district.
+    deliveryDistrict: text("delivery_district"),
+    // Free-text delivery address as entered by the shopper. Null when the
+    // shopper ticked "I don't know the address".
+    deliveryAddress: text("delivery_address"),
+    // Payment method used: card | wallet | whish | western | mamo | paypal.
+    paymentMethod: text("payment_method"),
+    // Coupon code applied at checkout (trimmed, uppercase). Null when no coupon
+    // was applied.
+    couponCode: text("coupon_code"),
+    // Card / gift message text. Null when the shopper left it blank.
+    cardMessage: text("card_message"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

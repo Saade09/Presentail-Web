@@ -542,6 +542,22 @@ export async function recordSuccessfulWcOrder(input: {
     lineItems,
     log,
   } = input;
+
+  const senderName =
+    `${body.billing.firstName ?? ""} ${body.billing.lastName ?? ""}`.trim() || null;
+  const senderEmail = body.billing.email || null;
+  const recipientPhone =
+    typeof body.recipient?.phone === "string" && body.recipient.phone
+      ? body.recipient.phone
+      : null;
+  const deliveryDistrict = body.district || null;
+  const deliveryAddress =
+    body.deliveryDetails && body.deliveryDetails !== "To be confirmed"
+      ? body.deliveryDetails
+      : null;
+  const paymentMethod = body.paymentMethod || null;
+  const couponCode = body.couponCode?.trim() || null;
+  const cardMessage = body.cardMessage?.trim() || null;
   const lineItemsJson =
     lineItems && lineItems.length > 0 ? JSON.stringify(lineItems) : null;
   const rawDeviceId =
@@ -583,6 +599,14 @@ export async function recordSuccessfulWcOrder(input: {
         senderPhone: normalizedSenderPhone,
         osOrderId: osOrderId ?? null,
         lineItemsJson,
+        senderName,
+        senderEmail,
+        recipientPhone,
+        deliveryDistrict,
+        deliveryAddress,
+        paymentMethod,
+        couponCode,
+        cardMessage,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -601,6 +625,14 @@ export async function recordSuccessfulWcOrder(input: {
           senderPhone: normalizedSenderPhone,
           osOrderId: osOrderId ?? null,
           lineItemsJson,
+          senderName,
+          senderEmail,
+          recipientPhone,
+          deliveryDistrict,
+          deliveryAddress,
+          paymentMethod,
+          couponCode,
+          cardMessage,
           updatedAt: new Date(),
         },
       });
