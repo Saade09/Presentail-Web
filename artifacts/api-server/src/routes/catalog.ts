@@ -245,4 +245,20 @@ router.get("/catalog/metadata", (_req, res) => {
   res.json(data);
 });
 
+// GET /api/catalog/brand-allowlist
+//
+// Returns the list of brand slugs that the storefront should show.
+// Reads the PRESENTAIL_OS_BRAND_ALLOWLIST env var (same source as
+// applyBrandAllowlist in osProductsCache.ts). The web client uses this to
+// stay in sync with the server-side filter without a deploy.
+// Returns { ok: true, slugs: [] } when filtering is disabled (empty env var).
+router.get("/catalog/brand-allowlist", (_req, res) => {
+  const raw = process.env.PRESENTAIL_OS_BRAND_ALLOWLIST;
+  const allowlistStr = raw === undefined ? "presentail-flowers--gifts" : raw;
+  const slugs = allowlistStr.trim()
+    ? allowlistStr.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  res.json({ ok: true, slugs });
+});
+
 export default router;

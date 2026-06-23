@@ -117,6 +117,7 @@ export function mapOsProduct(p: OSProduct): Product {
     image: imageList[0] ?? null,
     images: imageList,
     category: mapCategory(p.categories),
+    categories: p.categories.map((c) => c.slug),
     inStock: p.inStock,
     description: p.description
       ? decodeHtmlEntities(stripHtml(p.description))

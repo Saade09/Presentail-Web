@@ -438,7 +438,16 @@ router.get("/woo/category-products", (req, res) => {
 
 router.get("/woo/occasion-products", (req, res) => {
   const slug = String(req.query.slug ?? "");
-  if (!slug || !OCCASION_SLUGS.includes(slug)) {
+  if (!slug) {
+    return res.json({ ok: true, groups: [] });
+  }
+  // Validate against live OS occasions (warm cache). Fall back to the static
+  // OCCASION_SLUGS list on cold start so the endpoint never fails.
+  const liveOccasions = getOsOccasions();
+  const validSlug = liveOccasions
+    ? liveOccasions.some((o) => o.slug === slug)
+    : OCCASION_SLUGS.includes(slug);
+  if (!validSlug) {
     return res.json({ ok: true, groups: [] });
   }
 
@@ -602,11 +611,17 @@ router.get("/woo/occasion", (req, res) => {
   if (!slug) {
     return res.status(400).json({ ok: false, message: "Missing slug" }); // i18n-ignore
   }
-  if (!OCCASION_SLUGS.includes(slug)) {
+
+  const osOccasions = getOsOccasions();
+  // Validate against live OS occasions (warm cache). Fall back to the static
+  // OCCASION_SLUGS list on cold start so the endpoint never fails.
+  const isValid = osOccasions
+    ? osOccasions.some((o) => o.slug === slug)
+    : OCCASION_SLUGS.includes(slug);
+  if (!isValid) {
     return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
   }
 
-  const osOccasions = getOsOccasions();
   const o = osOccasions?.find((occ) => occ.slug === slug);
   if (!o) return res.status(404).json({ ok: false, message: "Occasion not found" }); // i18n-ignore
   return res.json({
@@ -1188,8 +1203,12 @@ router.get("/woo/search", (req, res) => {
     .filter((c) => c.label.toLowerCase().includes(lower))
     .map((c) => ({ slug: c.slug, name: c.label }));
 
-  const matchingOccasions = OCCASION_SLUGS
-    .map((slug) => ({ slug, name: OCCASION_LABELS[slug] ?? slug }))
+  // Use live OS occasions when available; fall back to static list on cold start.
+  const liveOccasionsForSearch = getOsOccasions();
+  const occasionSource = liveOccasionsForSearch
+    ? liveOccasionsForSearch.map((o) => ({ slug: o.slug, name: o.name }))
+    : OCCASION_SLUGS.map((slug) => ({ slug, name: OCCASION_LABELS[slug] ?? slug }));
+  const matchingOccasions = occasionSource
     .filter((o) => o.name.toLowerCase().includes(lower));
 
   const osBrands = getOsBrands() ?? [];

@@ -5,9 +5,32 @@ import { fetchOsProducts } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 
 // Brand slugs allowed to appear on the storefront.
-// Must stay in sync with the server-side PRESENTAIL_OS_BRAND_ALLOWLIST default
-// in artifacts/api-server/src/lib/osProductsCache.ts.
-const OS_BRAND_ALLOWLIST = new Set(["presentail-flowers--gifts", "flower-scent"]);
+// Fetched from /api/catalog/brand-allowlist on startup so it stays in sync
+// with the server-side PRESENTAIL_OS_BRAND_ALLOWLIST env var.
+// Returns null when the server has filtering disabled (empty allowlist).
+// Falls back to the default two-brand set when the fetch fails (not cached,
+// so the next call retries rather than permanently caching a failure).
+const OS_BRAND_ALLOWLIST_FALLBACK = new Set(["presentail-flowers--gifts", "flower-scent"]);
+// undefined = not yet fetched; null = fetched, filtering disabled; Set = fetched, filtering active
+let _osBrandAllowlist: Set<string> | null | undefined = undefined;
+
+async function getOsBrandAllowlist(): Promise<Set<string> | null> {
+  if (_osBrandAllowlist !== undefined) return _osBrandAllowlist;
+  try {
+    const resp = await fetch("/api/catalog/brand-allowlist");
+    if (resp.ok) {
+      const data: { ok: boolean; slugs: string[] } = await resp.json();
+      if (data.ok && Array.isArray(data.slugs)) {
+        // Empty slugs array = filtering disabled on the server; mirror that client-side.
+        _osBrandAllowlist = data.slugs.length > 0 ? new Set(data.slugs) : null;
+        return _osBrandAllowlist;
+      }
+    }
+  } catch {
+    // network failure — return fallback without caching so next call retries
+  }
+  return OS_BRAND_ALLOWLIST_FALLBACK;
+}
 
 // Types matching the backend shape
 export type Product = {
@@ -19,6 +42,7 @@ export type Product = {
   image: { uri: string } | null;
   images?: { uri: string }[];
   category: string;
+  categories: string[];
   inStock: boolean;
   description?: string;
   tag?: string;
@@ -99,7 +123,7 @@ function groupOccasionProducts(
   for (const typecat of OCCASION_TYPE_CATEGORIES) {
     for (const p of products) {
       if (assigned.has(p.id)) continue;
-      if (p.category === typecat.slug) {
+      if ((p.categories ?? [p.category]).includes(typecat.slug)) {
         if (!groups.has(typecat.slug)) {
           groups.set(typecat.slug, { label: typecat.label, products: [] });
         }
@@ -145,13 +169,15 @@ function useOsAllProducts(params: LocalizedParams = {}, enabled = true) {
           // Filter by country only — city-level restrictions are enforced at
           // checkout, not at browse time, because OS city IDs may not match
           // the web app's city slug format.
+          const brandAllowlist = await getOsBrandAllowlist();
           return raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
               isDeliverableOsProduct(p, params.countryCode ?? null, null),
             )
             .filter((p) =>
-              Array.isArray(p.brands) && p.brands.some((b) => OS_BRAND_ALLOWLIST.has(b.slug)),
+              brandAllowlist === null ||
+              (Array.isArray(p.brands) && p.brands.some((b) => brandAllowlist.has(b.slug))),
             )
             .map(mapOsProduct);
         } catch {
@@ -189,7 +215,7 @@ export const useCategoryProducts = (
   const result = useOsAllProducts(params, !!slug);
   const data = useMemo(() => {
     if (!result.data) return undefined;
-    const products = result.data.filter((p) => p.category === slug);
+    const products = result.data.filter((p) => (p.categories ?? [p.category]).includes(slug));
     return { ok: true as const, products, count: products.length } satisfies CategoryProductsResponse;
   }, [result.data, slug]);
   return { ...result, data };
@@ -225,12 +251,16 @@ export const useBrandProducts = (
             cityId: params.cityId,
             lang: params.lang,
           });
+          const brandAllowlist = await getOsBrandAllowlist();
           const products = raw
             .filter(isVisibleOsProduct)
             .filter((p) =>
               isDeliverableOsProduct(p, params.countryCode ?? null, params.cityId ?? null),
             )
-            .filter((p) => Array.isArray(p.brands) && p.brands.some((b) => OS_BRAND_ALLOWLIST.has(b.slug)))
+            .filter((p) =>
+              brandAllowlist === null ||
+              (Array.isArray(p.brands) && p.brands.some((b) => brandAllowlist.has(b.slug))),
+            )
             .filter((p) => p.brands.some((b) => b.slug === slug))
             .map(mapOsProduct);
           const brandEntry = raw.flatMap((p) => p.brands).find((b) => b.slug === slug);

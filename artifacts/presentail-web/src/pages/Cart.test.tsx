@@ -112,6 +112,7 @@ const FAKE_ITEM = {
     price: "75",
     image: null,
     category: "flowers",
+    categories: ["flowers"],
     inStock: true,
     occasions: [],
     wcId: 1,

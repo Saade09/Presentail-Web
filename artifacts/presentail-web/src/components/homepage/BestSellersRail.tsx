@@ -28,6 +28,7 @@ function toProduct(p: BestSellerProduct): Product {
     image: p.image,
     images: p.images,
     category: "",
+    categories: [],
     inStock: p.inStock,
     occasions: [],
     popularity: p.popularity,
