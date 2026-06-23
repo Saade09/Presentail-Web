@@ -84,12 +84,10 @@ function stripeDeclineMsg(
   return null;
 }
 
-// Stripe publishable key — loaded once at module level so the Stripe.js
-// script is only fetched once per page. `VITE_STRIPE_PUBLISHABLE_KEY` must
-// be set as a Vite env variable for real card payments to work.
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null,
-);
+// Currencies routed to the Gulf Stripe account. loadStripe is memoised per
+// key inside the Checkout wrapper so Stripe JS is only fetched once per key
+// for the lifetime of the page, not once per render.
+const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
 
 // The web checkout supports a subset of the shared payment-method catalog
 // (no Western Union). All availability / label / fallback decisions go
@@ -2094,6 +2092,15 @@ function CheckoutForm() {
 }
 
 export default function Checkout() {
+  const { currencyCode } = useDisplayCurrency();
+  const stripePromise = useMemo(() => {
+    const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
+    const key = isGulf
+      ? (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null)
+      : (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null);
+    return loadStripe(key);
+  }, [currencyCode]);
+
   return (
     <Elements stripe={stripePromise} options={{ locale: "auto" }}>
       <CheckoutForm />

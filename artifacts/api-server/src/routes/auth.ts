@@ -576,7 +576,52 @@ router.get("/auth/diagnostics", async (req, res) => {
     }
   }
 
-  const overallOk = Object.values(checks).every((c) => c.ok);
+  // 5) Gulf Stripe account key presence + format check (KWD / OMR payments).
+  //    Missing Gulf keys are a warning, not a hard failure — the server falls
+  //    back to the main account and logs a warning rather than returning 503.
+  {
+    const gulfSecretKey = process.env.STRIPE_SECRET_KEY_GULF ?? "";
+    const gulfPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY_GULF ?? "";
+    if (!gulfSecretKey) {
+      checks.stripeGulf = {
+        ok: false,
+        reason: "stripe_gulf_not_configured", // i18n-ignore
+        detail: "STRIPE_SECRET_KEY_GULF not set — KWD/OMR payments will fall back to the main Stripe account", // i18n-ignore
+      };
+    } else if (!gulfSecretKey.startsWith("sk_")) {
+      checks.stripeGulf = {
+        ok: false,
+        reason: "stripe_gulf_not_configured", // i18n-ignore
+        detail: "STRIPE_SECRET_KEY_GULF does not start with sk_", // i18n-ignore
+      };
+    } else if (!gulfPublishableKey) {
+      checks.stripeGulf = {
+        ok: false,
+        reason: "stripe_gulf_not_configured", // i18n-ignore
+        detail: "STRIPE_PUBLISHABLE_KEY_GULF not set", // i18n-ignore
+      };
+    } else if (!gulfPublishableKey.startsWith("pk_")) {
+      checks.stripeGulf = {
+        ok: false,
+        reason: "stripe_gulf_not_configured", // i18n-ignore
+        detail: "STRIPE_PUBLISHABLE_KEY_GULF does not start with pk_", // i18n-ignore
+      };
+    } else {
+      const mode = gulfSecretKey.startsWith("sk_live_") ? "live" : "test";
+      checks.stripeGulf = {
+        ok: true,
+        detail: `Gulf keys present (${mode} mode)`, // i18n-ignore
+      };
+    }
+  }
+
+  // stripeGulf is optional — missing Gulf keys fall back gracefully to the
+  // main Stripe account with a warning log, so they must not contribute to
+  // the hard-fail aggregation. Only the mandatory checks drive overall status.
+  const mandatoryChecks = Object.entries(checks)
+    .filter(([key]) => key !== "stripeGulf")
+    .map(([, v]) => v);
+  const overallOk = mandatoryChecks.every((c) => c.ok);
   res.status(overallOk ? 200 : 503).json({ ok: overallOk, checks });
 });
 

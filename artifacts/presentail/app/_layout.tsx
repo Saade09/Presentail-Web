@@ -44,8 +44,9 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
-import { API_BASE, STRIPE_PUBLISHABLE_KEY } from "@/lib/stripe";
+import { API_BASE, getStripePublishableKey } from "@/lib/stripe";
 import { StripeProvider } from "@stripe/stripe-react-native";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { trackEvent } from "@/lib/analytics";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
@@ -326,6 +327,19 @@ function useAutoUpdate() {
   }, []);
 }
 
+function AppWithStripe({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { currencyCode } = useCurrency();
+  return (
+    <StripeProvider
+      publishableKey={getStripePublishableKey(currencyCode)}
+      merchantIdentifier="merchant.presentail"
+      urlScheme="presentail"
+    >
+      <AppShell fontsLoaded={fontsLoaded} />
+    </StripeProvider>
+  );
+}
+
 function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { ready } = useAppInitialization({ fontsLoaded });
   const { hydrated: onboardingHydrated, needsOnboarding } = useOnboarding();
@@ -409,11 +423,6 @@ export default function RootLayout() {
   if (!fontsReady) return null;
 
   return (
-    <StripeProvider
-      publishableKey={STRIPE_PUBLISHABLE_KEY}
-      merchantIdentifier="merchant.presentail"
-      urlScheme="presentail"
-    >
     <SafeAreaProvider>
       <ErrorBoundary
         onError={(error, stackTrace) => {
@@ -441,7 +450,7 @@ export default function RootLayout() {
                         <WooProductsProvider>
                           <CartProvider>
                             <DeliverySelectionProvider>
-                              <AppShell fontsLoaded={fontsReady} />
+                              <AppWithStripe fontsLoaded={fontsReady} />
                             </DeliverySelectionProvider>
                           </CartProvider>
                         </WooProductsProvider>
@@ -456,6 +465,5 @@ export default function RootLayout() {
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
-    </StripeProvider>
   );
 }

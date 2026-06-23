@@ -12,6 +12,32 @@ import { validateCoupon } from "../lib/couponValidation";
 
 const router: IRouter = Router();
 
+// Currencies routed to the Gulf Stripe account.
+const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"] as const;
+
+/**
+ * Return the Stripe secret key for the given currency.
+ * KWD and OMR are charged through the Gulf account (STRIPE_SECRET_KEY_GULF);
+ * all other currencies use the main account (STRIPE_SECRET_KEY).
+ * If the Gulf key is not set, logs a warning and falls back to the main key.
+ */
+function getStripeSecretKey(
+  currency: string,
+  log?: { warn: (obj: object, msg: string) => void },
+): string | null {
+  const isGulf = (GULF_STRIPE_CURRENCIES as readonly string[]).includes(currency);
+  if (isGulf) {
+    const gulfKey = process.env.STRIPE_SECRET_KEY_GULF;
+    if (gulfKey) return gulfKey;
+    log?.warn(
+      { currency },
+      "STRIPE_SECRET_KEY_GULF not set; falling back to default Stripe account for Gulf currency",
+    );
+    return process.env.STRIPE_SECRET_KEY ?? null;
+  }
+  return process.env.STRIPE_SECRET_KEY ?? null;
+}
+
 type LineItemInput = {
   wcId: number;
   // OS product slug — used when wcId is 0 (OS-native products not mirrored in WC).
@@ -34,16 +60,6 @@ type Body = {
 };
 
 router.post("/checkout/session", async (req, res) => {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    return res.status(503).json({
-      ok: false,
-      code: "stripe_not_configured",
-      message:
-        "Stripe isn't configured yet. Add STRIPE_SECRET_KEY to enable real card payments.",
-    });
-  }
-
   const {
     items,
     orderId,
@@ -70,15 +86,26 @@ router.post("/checkout/session", async (req, res) => {
     return res.status(400).json({ ok: false, message: "successUrl and cancelUrl are required" }); // i18n-ignore
   }
 
+  const currency = normalizeCurrency(rawCurrency ?? "USD");
+
+  const key = getStripeSecretKey(currency, req.log);
+  if (!key) {
+    return res.status(503).json({
+      ok: false,
+      code: "stripe_not_configured",
+      message:
+        "Stripe isn't configured yet. Add STRIPE_SECRET_KEY to enable real card payments.",
+    });
+  }
+
+  const stripeCurrency = currency.toLowerCase();
+
   // Resolve catalog prices server-side. Client-supplied amounts are ignored.
   const store = resolveStoreFromRequest(req);
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, message: catalogResult.message });
   }
-
-  const currency = normalizeCurrency(rawCurrency ?? "USD");
-  const stripeCurrency = currency.toLowerCase();
 
   try {
     const convertedItems = await Promise.all(
@@ -167,16 +194,6 @@ type PaymentIntentBody = {
 };
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    return res.status(503).json({
-      ok: false,
-      code: "stripe_not_configured",
-      message:
-        "Stripe isn't configured yet. Add STRIPE_SECRET_KEY to enable real card payments.",
-    });
-  }
-
   const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, couponCode } =
     req.body as PaymentIntentBody;
 
@@ -190,6 +207,18 @@ router.post("/checkout/payment-intent", async (req, res) => {
     return res.status(400).json({
       ok: false,
       message: "Each item must have a valid product identifier and a positive integer quantity", // i18n-ignore
+    });
+  }
+
+  const currency = normalizeCurrency(rawCurrency ?? "USD");
+
+  const key = getStripeSecretKey(currency, req.log);
+  if (!key) {
+    return res.status(503).json({
+      ok: false,
+      code: "stripe_not_configured",
+      message:
+        "Stripe isn't configured yet. Add STRIPE_SECRET_KEY to enable real card payments.",
     });
   }
 
@@ -210,7 +239,6 @@ router.post("/checkout/payment-intent", async (req, res) => {
   const subtotalUsd = catalogResult.subtotalUsd;
   const totalUsd = subtotalUsd + clientDeliveryFeeUsd;
 
-  const currency = normalizeCurrency(rawCurrency ?? "USD");
   const stripeCurrency = currency.toLowerCase();
 
   try {

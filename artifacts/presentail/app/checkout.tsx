@@ -96,7 +96,7 @@ import {
   type PayMethodId,
 } from "@workspace/pay-methods";
 import { CardField, useStripe, PlatformPay } from "@stripe/stripe-react-native";
-import { API_BASE, createPaymentIntent, createStripeCheckoutSession, STRIPE_PUBLISHABLE_KEY } from "@/lib/stripe";
+import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
@@ -702,7 +702,7 @@ function CheckoutScreen() {
   useEffect(() => {
     if (walletProbedRef.current) return;
     walletProbedRef.current = true;
-    const isTestEnv = !STRIPE_PUBLISHABLE_KEY.startsWith("pk_live_");
+    const isTestEnv = !getStripePublishableKey(currencyCode).startsWith("pk_live_");
     isPlatformPaySupported(
       Platform.OS === "android"
         ? { googlePay: { testEnv: isTestEnv } }
@@ -1148,7 +1148,7 @@ function CheckoutScreen() {
       const walletMerchantCountry =
         resolveCountryCode(selectedCountry?.code, currencyCode) ?? "LB";
       // Use test environment when the publishable key is not a live key.
-      const isTestEnv = !STRIPE_PUBLISHABLE_KEY.startsWith("pk_live_");
+      const isTestEnv = !getStripePublishableKey(currencyCode).startsWith("pk_live_");
 
       // Check whether the native wallet (Apple Pay on iOS, Google Pay on Android)
       // is available on this device before attempting to present the sheet.
