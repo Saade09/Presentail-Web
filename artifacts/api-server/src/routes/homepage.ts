@@ -125,12 +125,14 @@ function buildOsCategories(): HomepageCollectionItem[] | null {
   const osCategories = getOsCategories();
   if (osCategories && osCategories.length > 0) {
     return osCategories
-      .filter((c) => PRODUCT_TYPE_SLUGS.has(c.slug) && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
+      .filter((c) => c.is_featured === true && !HIDDEN_CATEGORY_SLUGS.has(c.slug))
       .map((c, i) => ({
         id: c.id,
         name: c.name,
         slug: c.slug,
-        imageUrl: "",
+        // Route through our proxy so the browser never needs the OS API key.
+        // Only populate when an image URL exists; client handles empty gracefully.
+        imageUrl: c.image || c.imagePublicUrl ? `/api/catalog/category-image/${c.id}` : "",
         sortOrder: i,
         isActive: true,
       }));

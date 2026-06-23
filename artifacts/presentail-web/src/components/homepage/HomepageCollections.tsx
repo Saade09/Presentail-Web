@@ -25,22 +25,29 @@ function useHomepageCollection(endpoint: "categories" | "occasions") {
   });
 }
 
-function CategoriesRow({ title }: { title: string }) {
+function toCarouselItem(i: CollectionItem, href: string): CircularCarouselItem {
+  return {
+    id: i.id,
+    label: i.name,
+    slug: i.slug,
+    imageUrl: i.imageUrl,
+    href,
+  };
+}
+
+function CategoriesRow() {
+  const { t } = useLocale();
   const { data, isLoading, isError } = useHomepageCollection("categories");
+
   const items: CircularCarouselItem[] =
     data?.items
-      .filter((i: CollectionItem) => i.isActive)
-      .map((i: CollectionItem) => ({
-        id: i.id,
-        label: i.name,
-        slug: i.slug,
-        imageUrl: i.imageUrl,
-        href: `/category/${encodeURIComponent(i.slug)}`,
-      })) ?? [];
+      .filter((i) => i.isActive)
+      .map((i) => toCarouselItem(i, `/category/${encodeURIComponent(i.slug)}`)) ?? [];
+
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
     <CircularCollectionCarousel
-      title={title}
+      title={t("categories.title")}
       items={items}
       isLoading={isLoading}
       testId="section-home-categories"
@@ -53,13 +60,7 @@ function OccasionsRow({ title }: { title: string }) {
   const items: CircularCarouselItem[] =
     data?.items
       .filter((i: CollectionItem) => i.isActive)
-      .map((i: CollectionItem) => ({
-        id: i.id,
-        label: i.name,
-        slug: i.slug,
-        imageUrl: i.imageUrl,
-        href: `/occasion/${encodeURIComponent(i.slug)}`,
-      })) ?? [];
+      .map((i: CollectionItem) => toCarouselItem(i, `/occasion/${encodeURIComponent(i.slug)}`)) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
     <CircularCollectionCarousel
@@ -75,7 +76,7 @@ export function HomepageCollections() {
   const { t } = useLocale();
   return (
     <>
-      <CategoriesRow title={t("categories.title")} />
+      <CategoriesRow />
       <OccasionsRow title={t("occasions.title")} />
     </>
   );

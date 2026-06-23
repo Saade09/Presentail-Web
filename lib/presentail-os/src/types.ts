@@ -109,6 +109,11 @@ export type OSProductCategory = {
   id: string;
   slug: string;
   name: string;
+  is_featured?: boolean;
+  /** Private storage URL (auth-gated). Use imagePublicUrl when available. */
+  image?: string | null;
+  /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */
+  imagePublicUrl?: string | null;
 };
 
 export type OSProductBrand = {

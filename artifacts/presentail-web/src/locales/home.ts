@@ -16,6 +16,8 @@ export const homeStrings: Dict = {
     en: "From signature bouquets to artisanal cakes — every gift, beautifully presented.",
     ar: "من الباقات المميزة إلى الكعك الحرفي — كل هدية مقدّمة بأناقة.",
   },
+  "categories.flowers.title": { en: "Flowers & Plants", ar: "الزهور والنباتات" },
+  "categories.gifts.title": { en: "Gifts", ar: "الهدايا" },
   "occasions.eyebrow": { en: "For Every Moment", ar: "لكل لحظة" },
   "occasions.title": { en: "Shop by Occasion", ar: "تسوّق حسب المناسبة" },
   "occasions.subtitle": {
@@ -80,6 +82,8 @@ export const homeStringsFr: Record<string, string> = {
   "categories.eyebrow": "Collections sélectionnées",
   "categories.title": "Acheter par catégorie",
   "categories.subtitle": "Des bouquets signature aux gâteaux artisanaux — chaque cadeau, joliment présenté.",
+  "categories.flowers.title": "Fleurs & Plantes",
+  "categories.gifts.title": "Cadeaux",
   "occasions.eyebrow": "Pour chaque moment",
   "occasions.title": "Acheter par occasion",
   "occasions.subtitle": "Trouvez le geste parfait pour les jours les plus précieux de la vie.",

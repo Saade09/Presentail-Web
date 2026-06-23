@@ -10,7 +10,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrands, getOsOccasions, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrands, getOsCategories, getOsOccasions, getOsProducts } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -111,6 +111,54 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
     res.send(Buffer.from(buf));
   } catch {
     res.status(502).json({ error: "Failed to fetch occasion image" });
+  }
+});
+
+// ── Category image proxy ──────────────────────────────────────────────────────
+//
+// Mirrors the occasion-image proxy. OS category images may be auth-gated;
+// the browser cannot supply the API key, so we proxy through here.
+
+router.get("/catalog/category-image/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: "OS API key not configured" });
+    return;
+  }
+  const osCategories = getOsCategories();
+  const category = osCategories?.find((c) => c.id === id);
+  // Prefer the public-objects URL; only fall back to the private path when no
+  // public URL is available (the private path may return the OS web-app shell).
+  const imageUrl = category?.imagePublicUrl ?? category?.image ?? null;
+  if (!imageUrl) {
+    res.status(404).json({ error: "Category image not found" });
+    return;
+  }
+  try {
+    const upstream_res = await fetch(imageUrl, {
+      headers: { "x-api-key": apiKey, Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!upstream_res.ok) {
+      res.status(upstream_res.status).json({ error: "Upstream error" });
+      return;
+    }
+    const contentType = upstream_res.headers.get("content-type") ?? "";
+    if (!contentType.startsWith("image/")) {
+      res.status(404).json({ error: "Category image not accessible" });
+      return;
+    }
+    const buf = await upstream_res.arrayBuffer();
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    res.send(Buffer.from(buf));
+  } catch {
+    res.status(502).json({ error: "Failed to fetch category image" });
   }
 });
 
