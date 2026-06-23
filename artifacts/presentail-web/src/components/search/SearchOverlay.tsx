@@ -335,10 +335,10 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         <img
                           src={product.image.uri}
                           alt=""
-                          className="h-10 w-10 rounded-xl object-cover shrink-0 bg-muted"
+                          className="h-14 w-14 rounded-xl object-cover shrink-0 bg-muted"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-xl bg-primary/[0.06] shrink-0" />
+                        <div className="h-14 w-14 rounded-xl bg-primary/[0.06] shrink-0" />
                       )}
                       <div className="flex flex-col min-w-0 flex-1">
                         <span className="truncate text-sm font-medium text-primary/85">
