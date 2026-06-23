@@ -8,6 +8,7 @@ export type WooProduct = {
   price: string;
   priceValue: number;
   image: { uri: string } | null;
+  images?: Array<{ uri: string }>;
   category: string;
   inStock: boolean;
   description?: string;

@@ -15,6 +15,7 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
+import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 import { AppText } from "@/components/AppText";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -164,7 +165,6 @@ function ProductDetail() {
   const headingFontRegular = useHeadingFont("400Regular");
   const [copiedVisible, setCopiedVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState(t.shareLinkCopied);
-  const [heroLoaded, setHeroLoaded] = useState(false);
   const copiedOpacity = useRef(new Animated.Value(0)).current;
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Capture the moment this screen component mounts so we can report
@@ -280,12 +280,35 @@ function ProductDetail() {
   }
 
   const cat = getCategory(product.category);
-  const safeImageSource = toSafeImageSource(product.image);
   // Guard the price against NaN / non-finite values so anything we feed to
   // `Math.round` / `formatNative` / `<Price>` is always a real number.
   const safePriceValue = Number.isFinite(Number(product.priceValue))
     ? Number(product.priceValue)
     : 0;
+
+  // Build the images array for the carousel. Prefer the full list from the
+  // API; fall back to a single-item array from product.image so existing
+  // products without a gallery still show their hero image.
+  const safeFirstImage = toSafeImageSource(product.image);
+  const carouselImages: Array<{ uri: string }> = (() => {
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      return product.images.filter(
+        (img) =>
+          img !== null &&
+          typeof img === "object" &&
+          typeof img.uri === "string" &&
+          img.uri.length > 0,
+      );
+    }
+    if (
+      safeFirstImage !== null &&
+      typeof safeFirstImage === "object" &&
+      "uri" in safeFirstImage
+    ) {
+      return [safeFirstImage as { uri: string }];
+    }
+    return [];
+  })();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -293,21 +316,8 @@ function ProductDetail() {
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: SCREEN_W, backgroundColor: colors.imagePlaceholder }}>
-          {!heroLoaded && <ShimmerPlaceholder />}
-          {safeImageSource ? (
-            <Image
-              source={safeImageSource}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              onLoad={() => setHeroLoaded(true)}
-              onError={() => setHeroLoaded(true)}
-            />
-          ) : null}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.25)", "transparent", "rgba(0,0,0,0.05)"]}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={{ height: SCREEN_W }}>
+          <ProductImageCarousel images={carouselImages} height={SCREEN_W} />
           <View
             style={{
               position: "absolute",
