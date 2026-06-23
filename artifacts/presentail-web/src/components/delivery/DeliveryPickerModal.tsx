@@ -196,6 +196,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
                   <div className="text-xs opacity-80 mt-0.5">
                     <><span>+</span><FormattedPrice usdValue={expressSurcharge} /></>
                   </div>
+                  <div className="text-xs opacity-80 mt-0.5">{t("checkout.expressDelivery.subtitle")}</div>
                 </button>
                 <ExpressInfoPopover
                   infoTitle={t("checkout.expressInfo.title")}

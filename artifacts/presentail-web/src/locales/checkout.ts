@@ -24,6 +24,7 @@ export const checkoutStrings: Dict = {
   "checkout.expressDeliveryLabel": { en: "Express Delivery", ar: "توصيل سريع" },
   "checkout.expressUnavailable": { en: "Available 8 AM – 10 PM", ar: "متوفر من 8 صباحاً حتى 10 مساءً" },
   "checkout.expressInfo.title": { en: "Express Delivery", ar: "توصيل سريع" },
+  "checkout.expressDelivery.subtitle": { en: "Delivered in ~90 minutes", ar: "يُوصَّل خلال ~٩٠ دقيقة" },
   "checkout.expressInfo.body": {
     en: "Your order is prepared and delivered within 90 minutes — perfect when you need a gift right away. Available daily from 8 AM to 10 PM.",
     ar: "يُحضَّر طلبك ويُسلَّم خلال 90 دقيقة — مثالي حين تحتاج إلى هدية فوراً. متاح يومياً من 8 صباحاً حتى 10 مساءً.",
@@ -181,6 +182,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.expressDeliveryLabel": "Livraison express",
   "checkout.expressUnavailable": "Disponible de 8 h à 22 h",
   "checkout.expressInfo.title": "Livraison express",
+  "checkout.expressDelivery.subtitle": "Livré en ~90 minutes",
   "checkout.expressInfo.body": "Votre commande est préparée et livrée en 90 minutes — idéal quand vous avez besoin d'un cadeau immédiatement. Disponible tous les jours de 8 h à 22 h.",
   "checkout.scheduleDelivery": "Planifier",
   "checkout.scheduleDeliveryDesc": "Choisir une date et une heure",
