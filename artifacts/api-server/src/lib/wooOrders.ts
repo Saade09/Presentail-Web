@@ -29,6 +29,7 @@ import {
 } from "./osLocationsCache";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
+import { appendOrderToSheet } from "./ordersSheet.js";
 
 async function wooFetch(path: string, options: RequestInit = {}, store?: WooStoreConfig) {
   const s = store ?? resolveStore();
@@ -642,6 +643,29 @@ export async function recordSuccessfulWcOrder(input: {
       "woo.order: failed to persist app order mapping",
     );
   }
+
+  // Append to Google Sheet — best-effort, never blocks order completion.
+  void appendOrderToSheet({
+    appOrderId: body.orderId,
+    createdAt: new Date(),
+    platform: platform ?? null,
+    storeKey: storeKey ?? null,
+    senderName,
+    senderEmail,
+    senderPhone: senderPhone ?? null,
+    recipientName: recipientName || null,
+    recipientPhone,
+    deliveryDistrict,
+    deliveryAddress,
+    deliveryDate: body.deliveryDate ?? null,
+    deliverySlot: body.deliverySlot ?? null,
+    lineItemsJson: lineItems && lineItems.length > 0 ? JSON.stringify(lineItems) : null,
+    totalUsdCents: totalUsdCents ?? null,
+    paymentMethod,
+    couponCode,
+    cardMessage,
+    osOrderId: osOrderId ?? null,
+  });
 
   try {
     await sendOrderEventPush({
