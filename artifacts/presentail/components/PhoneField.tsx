@@ -164,6 +164,7 @@ export function PhoneField({
         }}
         countryPickerProps={{
           countryCodes: COUNTRY_DIAL_CODES.map((c) => c.code),
+          withCloseButton: false,
         }}
       />
 
