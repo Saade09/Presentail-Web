@@ -17,6 +17,7 @@
     "@clerk/express": "^2.1.15",
     "@clerk/shared": "^4.10.2",
     "@google-cloud/storage": "^7.19.0",
+    "@replit/connectors-sdk": "^0.4.1",
     "@types/multer": "^2.1.0",
     "@types/nodemailer": "^8.0.0",
     "@workspace/api-zod": "workspace:*",
