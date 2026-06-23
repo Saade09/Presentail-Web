@@ -213,12 +213,15 @@ export default function Shop() {
     ? catalogMetadata?.occasions.find((o) => o.id === occasion)
     : undefined;
 
+  const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
+  const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
+
   const pageTitle = category
-    ? t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category, {})
+    ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined)
       || catalogCategory?.name
       || category
     : occasion
-      ? t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion, {})
+      ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined)
         || catalogOccasion?.name
         || occasion
       : brand
@@ -237,20 +240,20 @@ export default function Shop() {
     const home: Crumb = { label: t("nav.home"), href: "/" };
     if (category) {
       const label =
-        t(CATEGORIES.find((c) => c.slug === category)?.labelKey ?? category, {}) ||
+        (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) ||
         catalogCategory?.name ||
         category;
       return [home, { label }];
     }
     if (occasion) {
       const label =
-        t(OCCASIONS.find((o) => o.slug === occasion)?.labelKey ?? occasion, {}) ||
+        (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) ||
         catalogOccasion?.name ||
         occasion;
       return [home, { label }];
     }
     return [home, { label: brandDisplayName }];
-  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName]);
+  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName, categoryLabelKey, occasionLabelKey]);
 
   const shopFiltersProps = {
     priceBuckets,
