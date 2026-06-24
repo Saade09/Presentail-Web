@@ -6,7 +6,7 @@ import {
   CircularCollectionCarousel,
   type CircularCarouselItem,
 } from "./CircularCollectionCarousel";
-import { CATEGORY_STATIC_IMAGES, OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
+import { CATEGORY_STATIC_IMAGES, CATEGORY_SLUG_REMAP, OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 type CollectionItem = {
   id: string;
@@ -44,7 +44,7 @@ function CategoriesRow() {
     data?.items
       .filter((i) => i.isActive)
       .map((i) => {
-        const base = toCarouselItem(i, `/category/${encodeURIComponent(i.slug)}`);
+        const base = toCarouselItem(i, `/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[i.slug] ?? i.slug)}`);
         return {
           ...base,
           imageUrl: base.imageUrl || CATEGORY_STATIC_IMAGES[i.slug] || "",

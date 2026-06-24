@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "@/contexts/LocaleContext";
 import { apiFetch } from "@/lib/api";
+import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
 import bouquets from "@/assets/category-bouquets.png";
 import boxes from "@/assets/category-boxes.png";
 import plants from "@/assets/category-plants.png";
@@ -65,7 +66,7 @@ export function CategoriesGrid() {
                 className={spanClass}
               >
                 <Link
-                  href={`/category/${encodeURIComponent(item.slug)}`}
+                  href={`/category/${encodeURIComponent(CATEGORY_SLUG_REMAP[item.slug] ?? item.slug)}`}
                   className="group relative block w-full h-full min-h-[200px] rounded-2xl md:rounded-3xl overflow-hidden bg-muted"
                   data-testid={`link-category-${item.slug}`}
                 >

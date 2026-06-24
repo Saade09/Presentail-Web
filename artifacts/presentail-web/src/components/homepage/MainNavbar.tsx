@@ -11,6 +11,7 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { useBrands, useCatalogMetadata } from "@/lib/queries";
+import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
 import {
   useGetCatalogOccasions,
   getGetCatalogOccasionsQueryKey,
@@ -259,7 +260,10 @@ export function MainNavbar() {
     const filteredItems = osCategorySlugs
       ? menu.items.filter((item) => {
           const slug = item.href.split("/category/")[1] ?? "";
-          return !slug || osCategorySlugs.has(slug);
+          // Allow if no slug, if the slug is in OS catalog, or if it's a known
+          // product-level alias (e.g. gift-baskets) that maps from a catalog slug.
+          const remapValues = new Set(Object.values(CATEGORY_SLUG_REMAP));
+          return !slug || osCategorySlugs.has(slug) || remapValues.has(slug);
         })
       : menu.items;
 
@@ -269,13 +273,17 @@ export function MainNavbar() {
           .filter(
             (c) =>
               !staticMenuSlugs.has(c.id) &&
+              // Also exclude catalog slugs whose remap target is already covered
+              // by a static menu item (e.g. "baskets" → "gift-baskets" is in static).
+              !(CATEGORY_SLUG_REMAP[c.id] && staticMenuSlugs.has(CATEGORY_SLUG_REMAP[c.id]!)) &&
               (CATEGORY_GROUPS[c.id] ?? "gifts") === menu.key,
           )
           .map((c) => {
-            const img = CATEGORY_STATIC_IMAGES[c.id];
+            const productSlug = CATEGORY_SLUG_REMAP[c.id] ?? c.id;
+            const img = CATEGORY_STATIC_IMAGES[productSlug] ?? CATEGORY_STATIC_IMAGES[c.id];
             return {
               label: c.name,
-              href: `/category/${c.id}`,
+              href: `/category/${productSlug}`,
               ...(img ? { img } : { emoji: "🎁" }),
             };
           })

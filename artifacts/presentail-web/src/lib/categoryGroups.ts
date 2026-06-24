@@ -1,6 +1,18 @@
 export type CategoryGroup = "flowers" | "gifts";
 
 /**
+ * Maps catalog-metadata category slugs to the actual product-level slugs used
+ * in OS product.categories[]. Apply this wherever a category slug from the
+ * catalog API is used to build a /category/<slug> URL, so the browse page
+ * filter (p.categories.includes(slug)) finds the right products.
+ *
+ * Example: OS catalog exposes id="baskets" but products are tagged "gift-baskets".
+ */
+export const CATEGORY_SLUG_REMAP: Record<string, string> = {
+  baskets: "gift-baskets",
+};
+
+/**
  * Maps category slugs to their display group on the homepage.
  * Slugs not present in this map default to "gifts".
  * This is the single authoritative place to update when new featured categories are added.
