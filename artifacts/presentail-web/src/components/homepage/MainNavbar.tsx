@@ -100,7 +100,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
     items: [
       { label: "Flower Boxes",       href: "/category/flower-boxes",        img: "/catalog/categories/flower-boxes.avif" },
       { label: "Preserved Flowers",  href: "/category/preserved-flowers",   img: "/catalog/categories/preserved-flowers.avif" },
-      { label: "Flower Baskets",     href: "/category/baskets",             emoji: "🧺" },
+      { label: "Flower Baskets",     href: "/category/flower-baskets",      emoji: "🧺" },
       { label: "All Flowers",        href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
       { label: "Flower Vases",       href: "/category/flower-vases",        img: "/catalog/categories/flower-vases.avif" },
       { label: "Dried Flowers",      href: "/category/dried-flowers",       emoji: "🌾" },
@@ -121,7 +121,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Chocolate",       href: "/category/chocolate",       img: "/catalog/categories/chocolate.webp" },
       { label: "Balloon Bundles", href: "/category/balloon-bundles", img: "/catalog/categories/balloons.webp" },
       { label: "Beauty",          href: "/category/beauty",          emoji: "💄" },
-      { label: "Gift Baskets",    href: "/category/baskets",         emoji: "🎁" },
+      { label: "Gift Baskets",    href: "/category/gift-baskets",    emoji: "🎁" },
       { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
     ],

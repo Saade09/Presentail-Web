@@ -28,6 +28,7 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "beauty": "gifts",
   "gift-bundles": "gifts",
   "baskets": "gifts",
+  "gift-baskets": "gifts",
   "spirits": "gifts",
   "gaming": "gifts",
   "summer-collection": "gifts",

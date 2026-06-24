@@ -115,8 +115,9 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "stuffed-animals", label: "Stuffed Animals" },
   { slug: "plants", label: "Plants" },
   { slug: "baskets", label: "Baskets" },
-  // OS uses "gift-baskets" for basket products
-  { slug: "gift-baskets", label: "Baskets" },
+  // OS uses "gift-baskets" / "flower-baskets" for basket products
+  { slug: "gift-baskets", label: "Gift Baskets" },
+  { slug: "flower-baskets", label: "Flower Baskets" },
   { slug: "beauty", label: "Beauty" },
   { slug: "bundles", label: "Gift Bundles" },
 ];
