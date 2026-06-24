@@ -147,6 +147,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   // fall back to the navigator context, otherwise the bare safe-area inset.
   const overlay = Math.max(bottomOffset ?? ctxTabBarHeight, insets.bottom);
   const [footerHeight, setFooterHeight] = React.useState(0);
+  const [stickyBarHeight, setStickyBarHeight] = React.useState(68);
   const { user } = useAuth();
   const [loginSheetVisible, setLoginSheetVisible] = React.useState(false);
 
@@ -255,6 +256,15 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     setRescheduleVisible(true);
   }, []);
 
+  const handleProceed = React.useCallback(() => {
+    trackEvent({ name: "upsell_checkout_proceeded", surface: "upsell_cart" });
+    if (!user) {
+      setLoginSheetVisible(true);
+      return;
+    }
+    router.push("/checkout");
+  }, [user, router]);
+
   return (
     <>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -332,7 +342,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             style={{ flex: 1 }}
             contentContainerStyle={{
               paddingHorizontal: 24,
-              paddingBottom: footerHeight + overlay + 24,
+              paddingBottom: footerHeight + stickyBarHeight + overlay + 24,
               gap: 14,
             }}
           >
@@ -545,7 +555,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: overlay,
+              bottom: overlay + stickyBarHeight,
               backgroundColor: "#fff",
               borderTopWidth: 1,
               borderColor: colors.border,
@@ -738,33 +748,62 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 22 }}
               />
             </View>
+          </View>
+
+          {/* Sticky proceed-to-checkout pill bar */}
+          <View
+            onLayout={(e) => setStickyBarHeight(e.nativeEvent.layout.height)}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: overlay,
+              backgroundColor: "#fff",
+              paddingHorizontal: 20,
+              paddingTop: 10,
+              paddingBottom: Math.max(overlay - insets.bottom, 10),
+              shadowColor: "#000",
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: -2 },
+              elevation: 6,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: colors.border,
+            }}
+          >
             <Pressable
-              onPress={() => {
-                trackEvent({ name: "upsell_checkout_proceeded", surface: "upsell_cart" });
-                if (!user) {
-                  setLoginSheetVisible(true);
-                  return;
-                }
-                router.push("/checkout");
-              }}
-              style={({ pressed }) => [
-                {
-                  backgroundColor: colors.primary,
-                  paddingVertical: 16,
-                  borderRadius: 999,
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 10,
-                  opacity: pressed ? 0.9 : 1,
-                  marginTop: 4,
-                },
-              ]}
+              onPress={handleProceed}
+              accessibilityRole="button"
+              accessibilityLabel={t.cartProceed}
+              style={({ pressed }) => ({
+                backgroundColor: colors.primary,
+                borderRadius: 999,
+                paddingVertical: 15,
+                paddingHorizontal: 22,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                opacity: pressed ? 0.9 : 1,
+                shadowColor: colors.primary,
+                shadowOpacity: 0.18,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              })}
             >
-              <Feather name="lock" size={14} color="#fff" />
-              <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12, textAlign: "center" }}>
-                {t.cartProceed}
-              </AppText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Feather name="lock" size={14} color="#fff" />
+                <AppText style={{ fontFamily: "Inter_600SemiBold", color: "#fff", letterSpacing: 1.5, textTransform: "uppercase", fontSize: 12 }}>
+                  {t.cartProceed}
+                </AppText>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Price
+                  value={grandTotalUsd}
+                  style={{ fontFamily: headingFontMedium, color: "#fff", fontSize: 15 }}
+                />
+                <Feather name="chevron-right" size={16} color="#fff" />
+              </View>
             </Pressable>
           </View>
         </>

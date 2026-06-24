@@ -326,7 +326,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] pt-12 pb-24">
+    <div className="min-h-screen bg-[#fafaf9] pt-12 pb-32 lg:pb-24">
       <div className="container mx-auto px-page max-w-content">
         <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
 
@@ -651,6 +651,22 @@ export default function Cart() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Sticky bottom bar – visible on mobile only; desktop uses the sidebar button */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] p-3 lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <Button asChild size="lg" className="w-full h-14 text-base rounded-full px-5">
+          <Link
+            href="/checkout"
+            onClick={handleProceed}
+            data-testid="link-proceed-to-checkout-sticky"
+            className="flex items-center gap-2"
+          >
+            <span className="flex-1 text-start">{t("cart.proceed")}</span>
+            <span className="font-normal opacity-80 shrink-0"><FormattedPrice usdValue={cartTotal} /></span>
+            <ArrowRight className={`w-4 h-4 shrink-0 ${dir === "rtl" ? "rotate-180" : ""}`} />
+          </Link>
+        </Button>
       </div>
 
       <SuggestedMessagesDialog
