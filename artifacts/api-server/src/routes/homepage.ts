@@ -23,28 +23,69 @@ const router: IRouter = Router();
 // OS handles all filtering (active status, schedule window, country/city
 // targeting, device) server-side. On any fetch error the route returns an
 // empty array so the homepage renders without crashing.
+// Countries to fan-out to when a visitor has no country selected.
+// OS requires countryCode on the storefront/homepage-banners endpoint;
+// querying all three and merging gives no-country visitors the same set
+// of banners a country-selected visitor would see.
+const BANNER_FANOUT_COUNTRIES = ["LB", "AE", "CY"] as const;
+
 router.get("/homepage/banners", async (req, res) => {
   const { countryCode, cityId, device } = GetHomepageBannersQueryParams.parse(req.query);
   const osBase = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY ?? "";
+  const workspace = process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail";
 
-  const qs = new URLSearchParams();
-  if (countryCode) qs.set("countryCode", countryCode);
-  if (cityId) qs.set("cityId", cityId);
-  qs.set("device", device);
+  // Build a URLSearchParams for a single country request.
+  // cityId is intentionally omitted: OS treats it as a strict filter and
+  // returns no results even for banners with city_ids=[] (global for country).
+  // Banners are country-level content; city-level targeting is not supported.
+  function makeQs(cc: string): URLSearchParams {
+    const qs = new URLSearchParams();
+    qs.set("workspace", workspace);
+    qs.set("apiKey", apiKey);
+    qs.set("countryCode", cc);
+    qs.set("device", device);
+    return qs;
+  }
 
-  try {
-    const r = await fetch(`${osBase}/api/storefront/homepage-banners?${qs.toString()}`, {
-      headers: { "x-api-key": process.env.PRESENTAIL_OS_API_KEY ?? "" },
+  async function fetchForCountry(cc: string): Promise<unknown[]> {
+    const r = await fetch(`${osBase}/api/storefront/homepage-banners?${makeQs(cc).toString()}`, {
+      headers: {
+        "x-api-key": apiKey,
+        Accept: "application/json",
+        "User-Agent": "PresentailApp/1.0",
+      },
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) {
-      req.log.warn({ status: r.status }, "homepage/banners: OS returned non-ok");
-      return res.json(GetHomepageBannersResponse.parse({ banners: [] }));
+      const body = await r.text().catch(() => "");
+      req.log.warn(
+        { status: r.status, countryCode: cc, osError: body.slice(0, 200) },
+        "homepage/banners: OS returned non-ok",
+      );
+      return [];
     }
     const json = (await r.json()) as { banners?: unknown[] };
-    const rawList = Array.isArray(json.banners) ? json.banners : Array.isArray(json) ? json : [];
-    const banners = rawList
-      .map((item: unknown) => {
+    return Array.isArray(json.banners) ? json.banners : Array.isArray(json) ? json : [];
+  }
+
+  type NormBanner = {
+    id: string;
+    title: string | undefined;
+    subtitle: string | undefined;
+    headline: string | undefined;
+    ctaText: string | undefined;
+    mediaType: "image" | "video";
+    mediaUrl: string;
+    fallbackImageUrl: string | undefined;
+    linkUrl: string;
+    sortOrder: number;
+    priority: number | undefined;
+  };
+
+  function normaliseBanners(rawList: unknown[]): NormBanner[] {
+    return rawList
+      .map((item: unknown): NormBanner => {
         const b = item as Record<string, unknown>;
         const rawMediaUrl = (b.media_url ?? b.mediaUrl ?? "") as string;
         const mediaUrl = rawMediaUrl.startsWith("/") ? `${osBase}${rawMediaUrl}` : rawMediaUrl;
@@ -71,6 +112,35 @@ router.get("/homepage/banners", async (req, res) => {
         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
         return (a.priority ?? 0) - (b.priority ?? 0);
       });
+  }
+
+  try {
+    let rawList: unknown[];
+
+    if (countryCode && countryCode !== "*") {
+      // Country selected: single targeted request.
+      rawList = await fetchForCountry(countryCode);
+    } else {
+      // No country selected: fan out to all supported countries and merge,
+      // deduplicating by banner id so a banner targeted to multiple countries
+      // only appears once.
+      const results = await Promise.all(
+        BANNER_FANOUT_COUNTRIES.map((cc) => fetchForCountry(cc)),
+      );
+      const seen = new Set<string>();
+      rawList = [];
+      for (const list of results) {
+        for (const item of list) {
+          const id = String((item as Record<string, unknown>).id ?? "");
+          if (id && !seen.has(id)) {
+            seen.add(id);
+            rawList.push(item);
+          }
+        }
+      }
+    }
+
+    const banners = normaliseBanners(rawList);
     return res.json(GetHomepageBannersResponse.parse({ banners }));
   } catch (err: unknown) {
     req.log.warn({ err: (err as Error)?.message }, "homepage/banners: OS fetch failed");

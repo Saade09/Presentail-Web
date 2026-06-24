@@ -11,7 +11,7 @@ export default function Home() {
   const { country, city, cityId } = useLocationSelection();
   const { t, cityName } = useLocale();
   const isMobile = useIsMobile();
-  const countryCode = country?.code ?? "*";
+  const countryCode = country?.code ?? undefined;
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device);
 

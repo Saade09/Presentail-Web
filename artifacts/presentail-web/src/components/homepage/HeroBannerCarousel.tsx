@@ -47,7 +47,7 @@ export function HeroBannerCarousel({
 
   if (isLoading) {
     return (
-      <div className="w-full aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] bg-muted animate-pulse" />
+      <div className="w-full aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9] bg-muted animate-pulse" />
     );
   }
 
@@ -59,7 +59,7 @@ export function HeroBannerCarousel({
 
   return (
     <div
-      className="relative w-full aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted"
+      className="relative w-full aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted"
       data-testid="hero-banner-carousel"
     >
       {banners.map((banner, i) => (
