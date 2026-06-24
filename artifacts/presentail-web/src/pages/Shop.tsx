@@ -210,7 +210,7 @@ export default function Shop() {
     ? catalogMetadata?.categories.find((c) => c.id === category)
     : undefined;
   const catalogOccasion = occasion
-    ? catalogMetadata?.occasions.find((o) => o.id === occasion)
+    ? catalogMetadata?.occasions.find((o) => o.id === occasion || o.id === occasion.replace(/-/g, ""))
     : undefined;
 
   const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
