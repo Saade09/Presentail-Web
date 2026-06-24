@@ -107,11 +107,11 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
     >
       <Link
         href={`/occasion/${occasion.id}`}
-        className="group flex flex-col items-center justify-center text-center gap-3 py-7 md:py-9 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
+        className="group flex flex-col items-center justify-center text-center gap-3 py-6 md:py-8 px-4 rounded-2xl bg-card border border-border/60 hover:border-gold hover:shadow-md transition-all"
         data-testid={`link-occasion-${occasion.id}`}
       >
         {photoUri ? (
-          <span className="w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden bg-secondary flex-shrink-0">
+          <span className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden flex-shrink-0">
             <img
               src={photoUri}
               alt={occasion.name}
@@ -121,8 +121,8 @@ function OccasionCard({ occasion, index }: OccasionCardProps) {
             />
           </span>
         ) : (
-          <span className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors">
-            <Icon className="w-5 h-5 md:w-6 md:h-6" />
+          <span className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-secondary flex items-center justify-center text-primary group-hover:bg-gold group-hover:text-white transition-colors">
+            <Icon className="w-10 h-10 md:w-12 md:h-12" />
           </span>
         )}
         <span className="font-serif text-base md:text-lg text-primary leading-snug">

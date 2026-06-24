@@ -1149,11 +1149,11 @@ function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () =
   const [imageLoaded, setImageLoaded] = React.useState(false);
 
   return (
-    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 88 }}>
+    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 108 }}>
       <View
         style={{
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           borderRadius: 999,
           overflow: "hidden",
           backgroundColor: "#F3F3F3",
@@ -1216,15 +1216,15 @@ function OccasionsCarousel() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
       >
         {isLoading
           ? Array.from({ length: 6 }).map((_, idx) => (
-              <View key={idx} style={{ alignItems: "center", gap: 10, width: 88 }}>
+              <View key={idx} style={{ alignItems: "center", gap: 10, width: 108 }}>
                 <View
                   style={{
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                     borderRadius: 999,
                     backgroundColor: colors.muted,
                     overflow: "hidden",
