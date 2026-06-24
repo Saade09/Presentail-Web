@@ -1,6 +1,7 @@
 import type {
   OSLocationsResponse,
   OSProduct,
+  OSProductCategory,
   OSProductsResponse,
   OSCategoriesResponse,
   OSCatalogAttributeBrandsResponse,
@@ -117,6 +118,8 @@ const DEFAULT_PAGE_SIZE = 100;
 type RawOSProduct = Omit<OSProduct, "id"> & {
   id: number | string;
   slug?: string;
+  /** OS API returns category data under this key (not `categories`). */
+  catalog_categories?: OSProductCategory[];
 };
 
 type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
@@ -139,7 +142,10 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
   // Prefer an explicit slug from the API; fall back to a name-derived slug so
   // product URLs are human-readable rather than numeric IDs.
   const id = raw.slug ?? nameToSlug(raw.name);
-  return { ...raw, id, _rawNumericId: raw.id };
+  // The OS API returns category data under `catalog_categories`, not `categories`.
+  // Prefer `catalog_categories` when present so filtering by category works correctly.
+  const categories = raw.catalog_categories ?? raw.categories ?? [];
+  return { ...raw, categories, id, _rawNumericId: raw.id };
 }
 
 /**

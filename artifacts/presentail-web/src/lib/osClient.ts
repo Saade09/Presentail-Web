@@ -38,6 +38,8 @@ function osUrl(path: string, extra: Record<string, string> = {}): string {
 type RawOsProduct = Omit<OSProduct, "id"> & {
   id: number | string;
   slug?: string;
+  /** OS API returns category data under this key (not `categories`). */
+  catalog_categories?: OSProductCategory[];
 };
 
 type RawOsProductsPage = {
@@ -58,7 +60,9 @@ type NormalisedProduct = OSProduct & { _rawNumericId: number | string };
 
 function normaliseProduct(raw: RawOsProduct): NormalisedProduct {
   const id = raw.slug ?? nameToSlug(raw.name);
-  return { ...raw, id, _rawNumericId: raw.id };
+  // The OS API returns category data under `catalog_categories`, not `categories`.
+  const categories = raw.catalog_categories ?? raw.categories ?? [];
+  return { ...raw, categories, id, _rawNumericId: raw.id };
 }
 
 function deduplicateSlugs(products: NormalisedProduct[]): OSProduct[] {

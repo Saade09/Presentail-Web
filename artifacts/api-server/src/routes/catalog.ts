@@ -237,8 +237,40 @@ router.get("/catalog/metadata", (_req, res) => {
       }))
     : [];
 
+  // Merge live OS categories into the hardcoded list so dynamically added
+  // categories (e.g. dried-flowers, lux-arrangements, beauty) have proper
+  // display names. Hardcoded entries take precedence to preserve existing i18n keys.
+  //
+  // The CatalogCategory schema requires an `icon` field. We keep a best-effort
+  // slug→icon map for known OS-only categories; anything not in the map falls
+  // back to a generic "tag" icon so Zod validation never rejects the response.
+  const OS_CATEGORY_ICONS: Record<string, string> = {
+    "dried-flowers": "flower-poppy",
+    "artificial-flowers": "flower-outline",
+    "balloon-deco": "balloon",
+    beauty: "lipstick",
+    accessories: "hanger",
+    candles: "candle",
+    perfume: "bottle-tonic",
+    jewelry: "diamond-stone",
+    spa: "spa",
+    "home-decor": "lamp",
+    sweets: "candy",
+  };
+  const osCategories = getOsCategories();
+  const hardcodedSlugs = new Set(categories.map((c) => c.id));
+  const extraOsCategories = (osCategories ?? [])
+    .filter((c) => !hardcodedSlugs.has(c.slug))
+    .map((c) => ({
+      id: c.slug,
+      name: c.name,
+      icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
+      image: null,
+    }));
+  const mergedCategories = [...categories, ...extraOsCategories];
+
   const data = GetCatalogMetadataResponse.parse({
-    categories,
+    categories: mergedCategories,
     occasions: mergedOccasions,
     brands,
   });

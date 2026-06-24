@@ -97,9 +97,14 @@ type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
 const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "flowers", label: "Flowers & Bouquets" },
+  // OS uses "roses-bouquets" and "hand-bouquet" (singular) for bouquet products
+  { slug: "roses-bouquets", label: "Flowers & Bouquets" },
   { slug: "hand-bouquets", label: "Hand Bouquets" },
+  { slug: "hand-bouquet", label: "Hand Bouquets" },
   { slug: "flower-boxes", label: "Flower Boxes" },
   { slug: "flower-vases", label: "Flower Vases" },
+  // OS uses "vases" for vase products
+  { slug: "vases", label: "Flower Vases" },
   { slug: "lux-arrangements", label: "Lux Arrangements" },
   { slug: "dried-flowers", label: "Dried Flowers" },
   { slug: "preserved-flowers", label: "Preserved Flowers" },
@@ -110,6 +115,8 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "stuffed-animals", label: "Stuffed Animals" },
   { slug: "plants", label: "Plants" },
   { slug: "baskets", label: "Baskets" },
+  // OS uses "gift-baskets" for basket products
+  { slug: "gift-baskets", label: "Baskets" },
   { slug: "beauty", label: "Beauty" },
   { slug: "bundles", label: "Gift Bundles" },
 ];

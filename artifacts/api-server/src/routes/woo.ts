@@ -309,12 +309,17 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
     image,
     images: imageList,
     category: mapCategory(p.categories ?? []),
+    categories: (p.categories ?? [])
+      .filter((c) => c.id < 10000)
+      .map((c) => c.slug),
     inStock: p.stock_status === "instock",
     description: p.short_description
       ? decodeHtmlEntities(p.short_description.replace(/<[^>]*>/g, "").trim())
       : undefined,
     tag: p.featured ? "Featured" : undefined,
-    occasions: [],
+    occasions: (p.categories ?? [])
+      .filter((c) => c.id >= 10000)
+      .map((c) => c.slug),
     brandNames: p.brandNames ?? [],
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
   };
@@ -396,9 +401,14 @@ export const SUPPORTED_LANGS_LIST = SUPPORTED_LANGS;
 
 const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "flowers", label: "Flowers & Bouquets" },
+  // OS uses "roses-bouquets" and "hand-bouquet" (singular) for bouquet products
+  { slug: "roses-bouquets", label: "Flowers & Bouquets" },
   { slug: "hand-bouquets", label: "Hand Bouquets" },
+  { slug: "hand-bouquet", label: "Hand Bouquets" },
   { slug: "flower-boxes", label: "Flower Boxes" },
   { slug: "flower-vases", label: "Flower Vases" },
+  // OS uses "vases" for vase products
+  { slug: "vases", label: "Flower Vases" },
   { slug: "lux-arrangements", label: "Lux Arrangements" },
   { slug: "dried-flowers", label: "Dried Flowers" },
   { slug: "preserved-flowers", label: "Preserved Flowers" },
@@ -409,6 +419,8 @@ const OCCASION_TYPE_CATEGORIES: { slug: string; label: string }[] = [
   { slug: "stuffed-animals", label: "Stuffed Animals" },
   { slug: "plants", label: "Plants" },
   { slug: "baskets", label: "Baskets" },
+  // OS uses "gift-baskets" for basket products
+  { slug: "gift-baskets", label: "Baskets" },
   { slug: "beauty", label: "Beauty" },
   { slug: "bundles", label: "Gift Bundles" },
 ];
@@ -423,6 +435,7 @@ router.get("/woo/category-products", (req, res) => {
   const store = resolveStoreFromRequest(req);
   const osProducts = getOsProducts(store.storeKey) ?? [];
   const filter = readDeliveryFilter(req);
+  const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
   const osCategories = getOsCategories();
   const catEntry = osCategories?.find((c) => c.slug === slug);
   const catName = catEntry?.name ?? slug;
@@ -431,7 +444,7 @@ router.get("/woo/category-products", (req, res) => {
     .filter((p) => p.categories.some((c) => c.slug === slug))
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, filter))
+    .filter((p) => isDeliverable(p, browseFilter))
     .map((p) => transformProduct(p, store.currencySymbol));
   return res.json({ ok: true, products, count: products.length, categoryName: catName });
 });
@@ -465,11 +478,11 @@ router.get("/woo/occasion-products", (req, res) => {
 
   type TransformedProduct = ReturnType<typeof transformProduct>;
   const groups = new Map<string, { label: string; products: TransformedProduct[] }>();
-  const assigned = new Set<number>();
+  const assigned = new Set<string>();
 
   for (const typecat of OCCASION_TYPE_CATEGORIES) {
     for (const p of deliverable) {
-      if (assigned.has(p.id)) continue;
+      if (assigned.has(p.slug)) continue;
       const slugs = (p.categories ?? []).map((c) => c.slug);
       if (slugs.includes(typecat.slug)) {
         if (!groups.has(typecat.slug)) {
@@ -477,7 +490,7 @@ router.get("/woo/occasion-products", (req, res) => {
           groups.set(typecat.slug, { label, products: [] });
         }
         groups.get(typecat.slug)!.products.push(transformProduct(p, store.currencySymbol));
-        assigned.add(p.id);
+        assigned.add(p.slug);
       }
     }
   }

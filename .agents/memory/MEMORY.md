@@ -9,3 +9,4 @@
 - [OS-native product checkout (wcId=0)](os-native-checkout.md) — OS-native products have wcId=0; all checkout layers must accept wcId=0+osSlug as a valid catalog item; see key files touched
 - [hasOsProducts cold-cache order failures](os-cache-order-guard.md) — hasOsProducts() can return false transiently even when cache is populated; bypass with preVerifiedItems+relaxed guard
 - [OS order productId must be numeric DB PK](os-order-product-id.md) — OS /api/orders rejects slug as productId; must use osNumericId from cache; slug caused every order to 500 since launch
+- [OS occasion pages empty](os-occasion-category-slugs.md) — 0 products on occasion/category pages: fallback /woo/products occasions:[], OCCASION_TYPE_CATEGORIES slug mismatch, + OS products with no category
