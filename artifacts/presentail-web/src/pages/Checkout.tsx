@@ -48,6 +48,7 @@ import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -821,6 +822,15 @@ function CheckoutForm() {
   // sheet is showing". Cleared in both the paymentmethod and cancel handlers.
   const walletSheetOpenRef = useRef(false);
 
+  // Tracks whether the current viewport is mobile (≤ 767 px). Used to decide
+  // whether a null canMakePayment() probe result should hide the wallet tiles
+  // or leave them visible (mobile browsers probe unreliably at page load).
+  const isMobile = useIsMobile();
+  // Keep a mutable ref so the probe effect closure always reads the latest
+  // value without needing to be added to the effect's dependency array.
+  const isMobileRef = useRef(isMobile);
+  isMobileRef.current = isMobile;
+
   // Probe wallet (Apple Pay / Google Pay) availability via Stripe's
   // PaymentRequest API. Runs once when the Stripe.js instance resolves.
   // If the browser / device reports no wallet is configured, silently
@@ -858,11 +868,17 @@ function CheckoutForm() {
         // Browser has a wallet configured (Apple Pay / Google Pay).
         // Store the PR object so handleSubmit can call pr.show() synchronously.
         paymentRequestRef.current = pr;
-      } else {
-        // Browser reported no wallet available — hide the rows and advance the
-        // selection so the shopper is never left on a tile that would fail.
+      } else if (!isMobileRef.current) {
+        // Desktop only: browser reported no wallet available — hide the rows
+        // and advance the selection so the shopper is never left on a tile
+        // that would fail.
         //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
         //   • else → card  (Stripe settles all other supported currencies)
+        //
+        // On mobile we intentionally skip this: the canMakePayment() probe can
+        // return null due to timing races or sheet pre-warm issues even when
+        // the native Apple Pay / Google Pay sheet works. We keep tiles visible
+        // and let handleSubmit try a fresh paymentRequest on tap.
         setWalletSupported(false);
         setPaymentMethodState((current) => {
           if (current !== "apple_pay" && current !== "google_pay") return current;
@@ -1112,6 +1128,39 @@ function CheckoutForm() {
       // paymentRequestRef holds the probe-confirmed PR object. If the probe
       // hasn't resolved yet (rare race before submit), fall back to card.
       const isWalletMethod = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
+
+      // Mobile-only: if the upfront probe returned null (paymentRequestRef is
+      // empty) try to create a fresh PaymentRequest on demand. On mobile
+      // browsers the probe often races against device initialisation and can
+      // return null even when the native Apple Pay / Google Pay sheet works
+      // fine when actually invoked. We surface a toast if creation itself
+      // throws so the shopper is never left with a silent failure.
+      if (
+        isWalletMethod &&
+        activeCurrency !== "AED" &&
+        paymentRequestRef.current === null &&
+        isMobile &&
+        stripe
+      ) {
+        try {
+          paymentRequestRef.current = stripe.paymentRequest({
+            country: "US",
+            currency: "usd",
+            total: { label: t("checkout.payment.orderTitle"), amount: Math.round(total * 100) },
+            requestPayerName: false,
+            requestPayerEmail: false,
+            disableWallets: ["link", "browserCard"],
+          });
+        } catch {
+          toast({
+            title: t("checkout.toast.walletUnavailable"),
+            description: t("checkout.toast.walletUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const walletViaNativeSheet =
         isWalletMethod &&
         activeCurrency !== "AED" &&
@@ -1140,7 +1189,21 @@ function CheckoutForm() {
         // call from the trusted user-gesture context, causing Safari to
         // redirect the page instead of opening the native Apple Pay sheet.
         walletSheetOpenRef.current = true;
-        pr.show();
+        try {
+          pr.show();
+        } catch {
+          // pr.show() can throw synchronously (e.g. the device declined to
+          // open the sheet, or a second show() was attempted while another is
+          // open). Reset the flag immediately so the shopper can retry without
+          // being permanently blocked, then surface a clear error.
+          walletSheetOpenRef.current = false;
+          toast({
+            title: t("checkout.toast.walletUnavailable"),
+            description: t("checkout.toast.walletUnavailableDesc"),
+            variant: "destructive",
+          });
+          return;
+        }
 
         await new Promise<void>((resolve) => {
           const cleanup = () => {

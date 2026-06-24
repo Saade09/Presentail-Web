@@ -118,6 +118,8 @@ export const checkoutStrings: Dict = {
   "checkout.toast.paypalUnavailableDesc": { en: "PayPal isn't available right now.", ar: "PayPal غير متوفر حالياً." },
   "checkout.toast.mamoUnavailable": { en: "Mamo unavailable", ar: "مامو غير متوفر" },
   "checkout.toast.mamoUnavailableDesc": { en: "Mamo isn't available right now.", ar: "مامو غير متوفر حالياً." },
+  "checkout.toast.walletUnavailable": { en: "Wallet payment unavailable", ar: "الدفع بالمحفظة غير متوفر" },
+  "checkout.toast.walletUnavailableDesc": { en: "Apple Pay / Google Pay could not be opened on this device. Please choose another payment method.", ar: "تعذّر فتح Apple Pay / Google Pay على هذا الجهاز. يرجى اختيار طريقة دفع أخرى." },
   "checkout.toast.errorTitle": { en: "Checkout Error", ar: "خطأ في الدفع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
   "checkout.toast.networkError": { en: "Something went wrong while contacting the payment provider. Please try again.", ar: "حدث خطأ أثناء الاتصال بمزوّد الدفع. يرجى المحاولة مرة أخرى." },
@@ -244,6 +246,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.paypalUnavailableDesc": "PayPal n'est pas disponible pour le moment.",
   "checkout.toast.mamoUnavailable": "Mamo indisponible",
   "checkout.toast.mamoUnavailableDesc": "Mamo n'est pas disponible pour le moment.",
+  "checkout.toast.walletUnavailable": "Paiement par portefeuille indisponible",
+  "checkout.toast.walletUnavailableDesc": "Apple Pay / Google Pay n'a pas pu s'ouvrir sur cet appareil. Veuillez choisir un autre mode de paiement.",
 
   // Payment method labels
   "checkout.pay.card": "Carte de crédit / débit",

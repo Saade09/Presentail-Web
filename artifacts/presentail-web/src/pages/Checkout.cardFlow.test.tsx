@@ -20,7 +20,7 @@
 //      must NOT create a WooCommerce order.
 
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
@@ -36,12 +36,25 @@ const mockStripe = {
   confirmCardPayment: mockConfirmCardPayment,
   handleNextAction: mockHandleNextAction,
   // In jsdom there is no Apple Pay / Google Pay, so canMakePayment returns null.
-  // This causes the checkout's wallet-availability effect to fall back to "card"
-  // as the selected payment method, matching the original test intent.
+  // Desktop tests rely on the checkout's wallet-availability effect falling back
+  // to "card" as the selected payment method (see useIsMobile mock below).
   paymentRequest: vi.fn(() => ({
     canMakePayment: vi.fn().mockResolvedValue(null),
+    update: vi.fn(),
+    show: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
   })),
 };
+
+// useIsMobile controls whether wallet tiles are hidden on a null probe result.
+// Default: false (desktop) — ensures existing card-flow tests keep working
+// because the null probe auto-advances the selection to "card".
+// Override per describe block to test mobile behaviour.
+const mockUseIsMobile = vi.fn().mockReturnValue(false);
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => mockUseIsMobile(),
+}));
 const mockCardElement = {}; // opaque card element reference
 
 vi.mock("@stripe/stripe-js", () => ({
@@ -373,6 +386,8 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSetLocation.mockClear();
+    // Default to desktop so the null canMakePayment probe auto-advances to card.
+    mockUseIsMobile.mockReturnValue(false);
     user = userEvent.setup();
   });
 
@@ -576,5 +591,54 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     // Neither Stripe nor the order route should be called.
     expect(mockConfirmCardPayment).not.toHaveBeenCalled();
     expect(mockCreateOrderMutate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mobile wallet tile visibility tests
+//
+// On mobile viewports (≤ 767 px), Apple Pay and Google Pay tiles must remain
+// visible even when Stripe's canMakePayment() probe returns null.  On desktop
+// the null result correctly hides the tiles (tested implicitly by the card-
+// flow suite above, which relies on the auto-advance to "card").
+// ---------------------------------------------------------------------------
+
+describe("Checkout — mobile viewport wallet tile visibility", () => {
+  let user: ReturnType<typeof userEvent.setup>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetLocation.mockClear();
+    // Simulate a mobile viewport so the null probe does NOT hide wallet tiles.
+    mockUseIsMobile.mockReturnValue(true);
+    user = userEvent.setup();
+  });
+
+  afterEach(() => {
+    // Restore desktop default so other describe blocks are unaffected.
+    mockUseIsMobile.mockReturnValue(false);
+  });
+
+  it("keeps Apple Pay and Google Pay tiles visible on mobile when canMakePayment returns null", async () => {
+    // canMakePayment returns null (no pre-configured wallet in the test
+    // environment), but isMobile=true so the checkout must NOT hide the tiles.
+    renderCheckout();
+    await navigateToStep2(user);
+
+    // Both wallet tiles must be present in the payment method list.
+    expect(screen.getByTestId("option-payment-apple_pay")).toBeTruthy();
+    expect(screen.getByTestId("option-payment-google_pay")).toBeTruthy();
+  });
+
+  it("hides Apple Pay and Google Pay tiles on desktop when canMakePayment returns null", async () => {
+    // Verify the inverse: on desktop the null probe hides the wallet tiles.
+    mockUseIsMobile.mockReturnValue(false);
+
+    renderCheckout();
+    await navigateToStep2(user);
+
+    // Tiles must be absent — the auto-advance effect removed them.
+    expect(screen.queryByTestId("option-payment-apple_pay")).toBeNull();
+    expect(screen.queryByTestId("option-payment-google_pay")).toBeNull();
   });
 });
