@@ -991,7 +991,7 @@ function CheckoutForm() {
       lastName: recipient.lastName,
       phone: recipient.phone,
     },
-    district: recipient.district,
+    district: _selectedDistrict,
     districtFee: districtFee,
     expressFee,
     slotFee,
@@ -1166,7 +1166,7 @@ function CheckoutForm() {
                   currency: "USD",
                   email: sender.email || undefined,
                   deliveryFeeUsd: districtFee + expressFee + slotFee,
-                  district: recipient.district,
+                  district: _selectedDistrict,
                   expressDelivery: deliveryMode === "express",
                   noAddress,
                   ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
@@ -1268,7 +1268,7 @@ function CheckoutForm() {
             currency: "USD",
             email: sender.email || undefined,
             deliveryFeeUsd: districtFee + expressFee + slotFee,
-            district: recipient.district,
+            district: _selectedDistrict,
             expressDelivery: deliveryMode === "express",
             noAddress,
             ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
@@ -1365,7 +1365,7 @@ function CheckoutForm() {
       if (payMethod === "paypal") {
         const res = await paypalPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
-          district: recipient.district,
+          district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1408,7 +1408,7 @@ function CheckoutForm() {
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
           orderId,
-          district: recipient.district,
+          district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
           currency: "USD",
@@ -1950,7 +1950,7 @@ function CheckoutForm() {
 
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing} isProcessing={isProcessing} />
+                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} />
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
