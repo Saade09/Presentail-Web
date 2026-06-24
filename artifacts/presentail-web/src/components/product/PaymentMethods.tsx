@@ -69,31 +69,30 @@ export function PaymentMethods({
 
   return (
     <div
-      className={className ?? "flex flex-col sm:flex-row sm:items-center gap-3"}
+      className={className ?? "flex flex-row items-center gap-3"}
       data-testid="payment-methods"
     >
       {resolvedLabel ? (
         <p
           className={
             labelClassName ??
-            "text-[11px] tracking-wide text-muted-foreground sm:shrink-0"
+            "text-[11px] tracking-wide text-muted-foreground shrink-0"
           }
         >
           {resolvedLabel}
         </p>
       ) : null}
 
-      <div className="flex flex-1 flex-nowrap items-center justify-center gap-[5px]">
+      <div className="flex flex-1 flex-nowrap items-center justify-center gap-[3px] sm:gap-[5px]">
         {logos.map((logo) => (
           <span
             key={logo.name}
             title={logo.name}
             className={
               logo.fill
-                ? "inline-flex overflow-hidden rounded-[4px] shadow-sm"
-                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px]"
+                ? "inline-flex overflow-hidden rounded-[4px] shadow-sm w-8 h-[21px] sm:w-[42px] sm:h-7"
+                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] w-8 h-[21px] sm:w-[42px] sm:h-7"
             }
-            style={{ width: 42, height: 28 }}
           >
             <img
               src={logo.src}
