@@ -6,6 +6,7 @@ import {
   CircularCollectionCarousel,
   type CircularCarouselItem,
 } from "./CircularCollectionCarousel";
+import { CATEGORY_STATIC_IMAGES, OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 type CollectionItem = {
   id: string;
@@ -42,7 +43,13 @@ function CategoriesRow() {
   const items: CircularCarouselItem[] =
     data?.items
       .filter((i) => i.isActive)
-      .map((i) => toCarouselItem(i, `/category/${encodeURIComponent(i.slug)}`)) ?? [];
+      .map((i) => {
+        const base = toCarouselItem(i, `/category/${encodeURIComponent(i.slug)}`);
+        return {
+          ...base,
+          imageUrl: base.imageUrl || CATEGORY_STATIC_IMAGES[i.slug] || "",
+        };
+      }) ?? [];
 
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
@@ -60,7 +67,13 @@ function OccasionsRow({ title }: { title: string }) {
   const items: CircularCarouselItem[] =
     data?.items
       .filter((i: CollectionItem) => i.isActive)
-      .map((i: CollectionItem) => toCarouselItem(i, `/occasion/${encodeURIComponent(i.slug)}`)) ?? [];
+      .map((i: CollectionItem) => {
+        const base = toCarouselItem(i, `/occasion/${encodeURIComponent(i.slug)}`);
+        return {
+          ...base,
+          imageUrl: base.imageUrl || OCCASION_STATIC_IMAGES[i.slug] || "",
+        };
+      }) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;
   return (
     <CircularCollectionCarousel

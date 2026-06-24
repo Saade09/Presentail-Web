@@ -187,6 +187,53 @@ export type WcBrand = {
   image: string | null;
 };
 
+// Mobile icon fallback map for OS-only categories that have no hardcoded entry.
+// Mirrors the OS_CATEGORY_ICONS map on the API server so the chip renders a
+// recognisable icon even when the category doesn't exist in the static list.
+const OS_CATEGORY_ICONS_MOBILE: Record<string, string> = {
+  "dried-flowers": "flower-poppy",
+  "artificial-flowers": "flower-outline",
+  "balloon-deco": "balloon",
+  beauty: "lipstick",
+  accessories: "hanger",
+  candles: "candle",
+  perfume: "bottle-tonic",
+  jewelry: "diamond-stone",
+  spa: "spa",
+  "home-decor": "lamp",
+  sweets: "candy",
+};
+
+// fetchWcCategories reads the OS-filtered category list from
+// /api/catalog/metadata (same endpoint as fetchWcBrands).
+// Maps to the mobile Category shape: icon and image are merged from the
+// local static list where available; OS-only categories fall back to the
+// OS_CATEGORY_ICONS_MOBILE map and a null image.
+// Returns the full static list on network failure so the screen is never blank.
+export async function fetchWcCategories(): Promise<{ id: string; name: string; icon: string; image: any }[]> {
+  const { categories: staticCategories } = await import("@/data/catalog");
+  try {
+    const res = await fetch(`${API_BASE}/api/catalog/metadata`);
+    if (!res.ok) return staticCategories;
+    const json = await res.json();
+    if (!Array.isArray(json.categories) || json.categories.length === 0) {
+      return staticCategories;
+    }
+    const localBySlug = new Map(staticCategories.map((c: { id: string; name: string; icon: string; image: any }) => [c.id, c]));
+    return json.categories.map((c: { id: string; name: string; icon?: string }) => {
+      const local = localBySlug.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        icon: local?.icon ?? c.icon ?? OS_CATEGORY_ICONS_MOBILE[c.id] ?? "tag",
+        image: local?.image ?? null,
+      };
+    });
+  } catch {
+    return staticCategories;
+  }
+}
+
 // fetchWcBrands reads from /api/catalog/metadata (Presentail OS).
 // Brands are global — the delivery filter is accepted for call-site
 // compatibility but is no longer forwarded to the server.

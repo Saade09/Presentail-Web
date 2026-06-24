@@ -234,7 +234,7 @@ function buildOsOccasions(): HomepageCollectionItem[] | null {
       id: o.id,
       name: o.name,
       slug: o.slug,
-      imageUrl: "",
+      imageUrl: o.image || o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
       sortOrder: result.length,
       isActive: true,
     });
@@ -246,7 +246,7 @@ function buildOsOccasions(): HomepageCollectionItem[] | null {
         id: o.id,
         name: o.name,
         slug: o.slug,
-        imageUrl: "",
+        imageUrl: o.image || o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
         sortOrder: result.length,
         isActive: true,
       });

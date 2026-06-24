@@ -258,16 +258,28 @@ router.get("/catalog/metadata", (_req, res) => {
     sweets: "candy",
   };
   const osCategories = getOsCategories();
-  const hardcodedSlugs = new Set(categories.map((c) => c.id));
-  const extraOsCategories = (osCategories ?? [])
-    .filter((c) => !hardcodedSlugs.has(c.slug))
-    .map((c) => ({
-      id: c.slug,
-      name: c.name,
-      icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
-      image: null,
-    }));
-  const mergedCategories = [...categories, ...extraOsCategories];
+  // When the OS cache is cold (null) fall back to the full hardcoded list so
+  // the UI is never blank. Once the cache is warm, treat OS as the source of
+  // truth: only show hardcoded categories whose slug appears in OS, and still
+  // append any OS-only extras (e.g. dried-flowers, beauty) that have no
+  // hardcoded entry.
+  let mergedCategories;
+  if (osCategories === null) {
+    mergedCategories = [...categories];
+  } else {
+    const osCategorySlugs = new Set(osCategories.map((c) => c.slug));
+    const filteredHardcoded = categories.filter((c) => osCategorySlugs.has(c.id));
+    const filteredSlugs = new Set(filteredHardcoded.map((c) => c.id));
+    const extraOsCategories = osCategories
+      .filter((c) => !filteredSlugs.has(c.slug))
+      .map((c) => ({
+        id: c.slug,
+        name: c.name,
+        icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
+        image: null,
+      }));
+    mergedCategories = [...filteredHardcoded, ...extraOsCategories];
+  }
 
   const data = GetCatalogMetadataResponse.parse({
     categories: mergedCategories,

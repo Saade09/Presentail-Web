@@ -22,10 +22,10 @@ import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
 import {
-  categories,
   getCategory,
   type Product,
 } from "@/data/catalog";
+import { useOsCategories } from "@/hooks/useOsCategories";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -75,6 +75,7 @@ function CategoryScreen() {
     trackScreenTTID("category", mountMsRef.current);
   }, [wcLoading]);
 
+  const categories = useOsCategories();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const countryCode = selectedCountry?.code ?? null;
   const cityId = selectedCity?.id ?? null;

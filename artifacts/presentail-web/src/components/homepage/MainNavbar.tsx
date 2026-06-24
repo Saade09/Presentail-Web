@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
-import { useBrands } from "@/lib/queries";
+import { useBrands, useCatalogMetadata } from "@/lib/queries";
 import {
   useGetCatalogOccasions,
   getGetCatalogOccasionsQueryKey,
@@ -23,6 +23,7 @@ import {
   loadShop,
 } from "@/lib/pageLoaders";
 import { AccountDropdown } from "@/components/account/AccountDropdown";
+import { CATEGORY_GROUPS, CATEGORY_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 const LABEL_EXPLORE_PRESENTAIL = "Explore Presentail"; // i18n-ignore
 
@@ -236,7 +237,54 @@ export function MainNavbar() {
     footer: { label: "View All Occasions", href: "/occasions" },
     loading: occasionsLoading,
   };
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...STATIC_MENUS];
+  // Filter mega-menu category items to only those present in the OS categories
+  // list so stale or unavailable categories don't appear in the nav.
+  // When useCatalogMetadata hasn't resolved yet (cold cache / loading), fall
+  // back to the unfiltered static list so the menu is never blank.
+  // New OS categories not covered by STATIC_MENUS are appended automatically
+  // to the appropriate group ("flowers" | "gifts") via CATEGORY_GROUPS.
+  const { data: catalogMetadata } = useCatalogMetadata();
+  const osCategorySlugs = catalogMetadata
+    ? new Set(catalogMetadata.categories.map((c) => c.id))
+    : null;
+
+  // Slugs already in STATIC_MENUS (pre-filter) — used to detect net-new OS categories.
+  const staticMenuSlugs = new Set(
+    STATIC_MENUS.flatMap((m) =>
+      m.items.map((item) => item.href.split("/category/")[1] ?? ""),
+    ),
+  );
+
+  const filteredStaticMenus: MegaMenuDef[] = STATIC_MENUS.map((menu) => {
+    const filteredItems = osCategorySlugs
+      ? menu.items.filter((item) => {
+          const slug = item.href.split("/category/")[1] ?? "";
+          return !slug || osCategorySlugs.has(slug);
+        })
+      : menu.items;
+
+    // Append OS-only categories for this group that aren't in STATIC_MENUS at all.
+    const newItems: MegaItem[] = catalogMetadata
+      ? catalogMetadata.categories
+          .filter(
+            (c) =>
+              !staticMenuSlugs.has(c.id) &&
+              (CATEGORY_GROUPS[c.id] ?? "gifts") === menu.key,
+          )
+          .map((c) => {
+            const img = CATEGORY_STATIC_IMAGES[c.id];
+            return {
+              label: c.name,
+              href: `/category/${c.id}`,
+              ...(img ? { img } : { emoji: "🎁" }),
+            };
+          })
+      : [];
+
+    return { ...menu, items: [...filteredItems, ...newItems] };
+  });
+
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);

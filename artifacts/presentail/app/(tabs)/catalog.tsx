@@ -20,7 +20,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useWooProducts } from "@/contexts/WooProductsContext";
-import { categories, occasions } from "@/data/catalog";
+import { occasions } from "@/data/catalog";
+import { useOsCategories } from "@/hooks/useOsCategories";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
@@ -71,6 +72,7 @@ function CatalogScreen() {
   const activeBrandSlug = params.brand ?? "";
   const activeBrandName = params.brandName ?? "";
 
+  const categories = useOsCategories();
   const { products } = useWooProducts();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
   const { lang } = useLanguage();
