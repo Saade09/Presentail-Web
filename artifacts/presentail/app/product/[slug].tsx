@@ -41,6 +41,7 @@ import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { buildProductShareUrl } from "@/lib/productShareUrl";
 import {
   getCountryHour,
+  firstAvailableDay,
   isExpressDeliveryAvailable,
   nearestSlotForHour,
   timeSlotsForCountry,
@@ -587,9 +588,12 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   })();
-  const defaultDate = todaySlot ? todayIso : tomorrowIso;
+  const _firstAvail = todaySlot
+    ? { iso: todayIso, slot: todaySlot }
+    : firstAvailableDay(todayIso, PROD_SLOTS, localH, todayIso);
+  const defaultDate = _firstAvail?.iso ?? tomorrowIso;
   const defaultSlot = (
-    todaySlot ??
+    _firstAvail?.slot ??
     nearestSlotForHour(PROD_SLOTS, false, localH) ??
     PROD_SLOTS[0]
   )!.label;

@@ -20,6 +20,7 @@ import { useT } from "@/hooks/useT";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   dayLabels,
+  firstAvailableDay,
   firstAvailableSlot,
   getCountryHour,
   nearestSlotForHour,
@@ -98,9 +99,20 @@ export function RescheduleDeliverySheet({
 
   React.useEffect(() => {
     if (!visible) return;
-    setDate(todayIso);
-    const initial = nearestSlotForHour(timeSlots, true, localHour);
-    setSlotLabel(initial?.label ?? timeSlots[0]?.label ?? null);
+    const todaySlot = nearestSlotForHour(timeSlots, true, localHour);
+    if (todaySlot) {
+      setDate(todayIso);
+      setSlotLabel(todaySlot.label);
+    } else {
+      const next = firstAvailableDay(todayIso, timeSlots, localHour, todayIso);
+      if (next) {
+        setDate(next.iso);
+        setSlotLabel(next.slot.label);
+      } else {
+        setDate(todayIso);
+        setSlotLabel(timeSlots[0]?.label ?? null);
+      }
+    }
   }, [visible, todayIso, timeSlots, localHour]);
 
   React.useEffect(() => {
