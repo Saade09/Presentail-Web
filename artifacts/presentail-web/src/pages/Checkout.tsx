@@ -1152,12 +1152,10 @@ function CheckoutForm() {
             disableWallets: ["link", "browserCard"],
           });
         } catch {
-          toast({
-            title: t("checkout.toast.walletUnavailable"),
-            description: t("checkout.toast.walletUnavailableDesc"),
-            variant: "destructive",
-          });
-          return;
+          // paymentRequest() constructor failed — wallet not available.
+          // Fall through: paymentRequestRef stays null, walletViaNativeSheet
+          // will be false, and payMethod resolves to "card" below so the card
+          // path runs automatically without any error toast.
         }
       }
 
@@ -1172,6 +1170,7 @@ function CheckoutForm() {
           ? "card"
           : paymentMethod;
 
+      let walletShowFailed = false;
       if (walletViaNativeSheet && stripe) {
         // Guard against double-invocation while the sheet is already open.
         // If the sheet is open a second tap would throw "cannot update Payment
@@ -1192,20 +1191,18 @@ function CheckoutForm() {
         try {
           pr.show();
         } catch {
-          // pr.show() can throw synchronously (e.g. the device declined to
-          // open the sheet, or a second show() was attempted while another is
-          // open). Reset the flag immediately so the shopper can retry without
-          // being permanently blocked, then surface a clear error.
+          // pr.show() threw synchronously (e.g. the device declined to open
+          // the sheet, or another sheet is already showing). Reset the state
+          // and silently fall back to the card path so the shopper can still
+          // complete checkout without seeing a dead-end error.
           walletSheetOpenRef.current = false;
-          toast({
-            title: t("checkout.toast.walletUnavailable"),
-            description: t("checkout.toast.walletUnavailableDesc"),
-            variant: "destructive",
-          });
-          return;
+          paymentRequestRef.current = null;
+          setPaymentMethodState("card");
+          walletShowFailed = true;
         }
 
-        await new Promise<void>((resolve) => {
+        if (!walletShowFailed) {
+          await new Promise<void>((resolve) => {
           const cleanup = () => {
             walletSheetOpenRef.current = false;
             pr.off("paymentmethod", pmHandler);
@@ -1300,9 +1297,10 @@ function CheckoutForm() {
 
           pr.on("paymentmethod", pmHandler);
           pr.on("cancel", cancelHandler);
-        });
+          });
 
-        return;
+          return;
+        }
       }
 
       // Reserve the order ID from the server ONCE for non-wallet flows. Retries

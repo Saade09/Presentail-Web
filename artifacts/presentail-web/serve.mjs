@@ -844,6 +844,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Stripe Apple Pay merchant domain association file.
+    // Stripe requires this file to be served at
+    // /.well-known/apple-developer-merchantid-domain-association so it can
+    // verify the domain before enabling Apple Pay in the browser.
+    // Set STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION to the exact file content Stripe
+    // provides under Dashboard → Settings → Payment methods → Apple Pay →
+    // Domains → Add domain → Download file.
+    if (pathname === "/.well-known/apple-developer-merchantid-domain-association") {
+      const token = process.env.STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION;
+      if (!token) {
+        res.writeHead(404, { "content-type": "text/plain" });
+        res.end("Not Found");
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "expires": makeExpires(3600),
+      });
+      res.end(token);
+      return;
+    }
+
     // Dynamic sitemap — intercept before file lookup so a missing
     // dist/public/sitemap.xml doesn't fall through to the SPA shell.
     if (pathname === "/sitemap.xml") {

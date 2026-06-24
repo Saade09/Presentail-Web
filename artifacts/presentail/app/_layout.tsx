@@ -45,7 +45,7 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext"
 import { WooProductsProvider } from "@/contexts/WooProductsContext";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE, getStripePublishableKey } from "@/lib/stripe";
-import { StripeProvider } from "@stripe/stripe-react-native";
+import { isPlatformPaySupported, StripeProvider } from "@stripe/stripe-react-native";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { trackEvent } from "@/lib/analytics";
 import { useT } from "@/hooks/useT";
@@ -329,6 +329,27 @@ function useAutoUpdate() {
 
 function AppWithStripe({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { currencyCode } = useCurrency();
+
+  // Probe Apple Pay / Google Pay availability once at startup so ops can
+  // catch misconfigured merchant IDs early from device logs.
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    isPlatformPaySupported().then((supported) => {
+      if (!supported) {
+        console.warn(
+          "[Presentail] Apple Pay not available on this device. " +
+          "Check that Merchant ID `merchant.presentail` is created in " +
+          "Apple Developer → Identifiers → Merchant IDs, the Apple Pay " +
+          "capability is enabled on the App ID, and the Apple Pay " +
+          "certificate is uploaded to Stripe Dashboard → Settings → " +
+          "Payment methods → Apple Pay → App integrations.",
+        );
+      }
+    }).catch(() => {
+      // Ignore — probe is diagnostic only.
+    });
+  }, []);
+
   return (
     <StripeProvider
       publishableKey={getStripePublishableKey(currencyCode)}

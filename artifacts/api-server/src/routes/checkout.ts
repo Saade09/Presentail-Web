@@ -121,7 +121,9 @@ router.post("/checkout/session", async (req, res) => {
     const stripe = new Stripe(key);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"],
+      // Omitting payment_method_types lets Stripe use all payment methods
+      // enabled on the account (card, Apple Pay, Google Pay, etc.).
+      // Explicitly listing only ["card"] would suppress wallet options.
       customer_email: email,
       line_items: convertedItems.map((i) => ({
         quantity: i.quantity,
@@ -289,6 +291,10 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalMinorUnits,
       currency: stripeCurrency,
+      // automatic_payment_methods lets Stripe include Apple Pay, Google Pay, and
+      // card without enumerating them explicitly, and automatically surfaces any
+      // future wallet methods Stripe adds to the account.
+      automatic_payment_methods: { enabled: true },
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       ...(email ? { receipt_email: email } : {}),
     });
