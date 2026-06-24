@@ -224,8 +224,12 @@ function buildOsCategories(): HomepageCollectionItem[] | null {
 function buildOsOccasions(): HomepageCollectionItem[] | null {
   const osOccasions = getOsOccasions();
   if (!osOccasions || osOccasions.length === 0) return null;
-  // Preserve DEFAULT_OCCASION_SLUGS ordering and filter to known occasions.
-  const bySlug = new Map(osOccasions.map((o) => [o.slug, o]));
+  // Only surface occasions that OS has flagged as featured.
+  const featured = osOccasions.filter((o) => o.featured === true);
+  if (featured.length === 0) return null;
+  // Preserve DEFAULT_OCCASION_SLUGS ordering for known occasions;
+  // append any featured occasions not in the list at the end.
+  const bySlug = new Map(featured.map((o) => [o.slug, o]));
   const result: HomepageCollectionItem[] = [];
   for (const slug of DEFAULT_OCCASION_SLUGS) {
     const o = bySlug.get(slug);
@@ -239,9 +243,9 @@ function buildOsOccasions(): HomepageCollectionItem[] | null {
       isActive: true,
     });
   }
-  // Append any OS occasions not in DEFAULT_OCCASION_SLUGS.
-  for (const o of osOccasions) {
-    if (bySlug.has(o.slug) && !DEFAULT_OCCASION_SLUGS.includes(o.slug)) {
+  // Append featured occasions not already added via DEFAULT_OCCASION_SLUGS.
+  for (const o of featured) {
+    if (!DEFAULT_OCCASION_SLUGS.includes(o.slug)) {
       result.push({
         id: o.id,
         name: o.name,
