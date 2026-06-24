@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -12,6 +12,8 @@ type Props = {
   isLoading?: boolean;
 };
 
+const SWIPE_THRESHOLD = 50;
+
 export function HeroBannerCarousel({
   banners,
   autoPlay = false,
@@ -23,6 +25,8 @@ export function HeroBannerCarousel({
   const { t, dir } = useLocale();
 
   const count = banners.length;
+
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     if (!autoPlay || count <= 1) return;
@@ -45,6 +49,24 @@ export function HeroBannerCarousel({
     setIndex((i) => (i + 1) % count);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || count <= 1) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+    // RTL: swipe left = next slide visually but prev semantically
+    const isRtl = dir === "rtl";
+    if (delta < 0) {
+      setIndex((i) => (isRtl ? (i - 1 + count) % count : (i + 1) % count));
+    } else {
+      setIndex((i) => (isRtl ? (i + 1) % count : (i - 1 + count) % count));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="w-full aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9] bg-muted animate-pulse" />
@@ -53,7 +75,6 @@ export function HeroBannerCarousel({
 
   if (!count) return null;
 
-  // In RTL, swap chevron direction visually but keep prev/next semantics.
   const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
   const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
 
@@ -61,6 +82,8 @@ export function HeroBannerCarousel({
     <div
       className="relative w-full aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted"
       data-testid="hero-banner-carousel"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {banners.map((banner, i) => (
         <div

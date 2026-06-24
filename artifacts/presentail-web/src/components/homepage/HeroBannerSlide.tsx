@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { Link } from "wouter";
 import type { HomepageBanner } from "@/lib/banners";
 import { buildUnsplashSrcset, buildOsImageSrcset, buildOsProxyUrl } from "@/lib/imageUtils";
 
@@ -10,38 +9,38 @@ type Props = {
   active: boolean;
 };
 
+function isExternal(url: string): boolean {
+  try {
+    return new URL(url).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export function HeroBannerSlide({ banner, isMobile, active }: Props) {
   const mediaType = banner.mediaType;
   const mediaUrl = banner.mediaUrl;
   const linkUrl = banner.linkUrl;
   const hasText = !!(banner.title || banner.headline || banner.subtitle || banner.ctaText);
 
-  // For image banners, apply OS proxy for all viewports so the browser always
-  // receives WebP. On desktop, also build a full srcset. On mobile, the src
-  // alone is sufficient (srcset is skipped to let the browser pick from a
-  // narrower breakpoint without over-specifying desktop sizes).
   const osStorageImage = mediaType === "image" ? buildOsImageSrcset(mediaUrl, "(max-width: 1280px) 100vw, 1280px") : null;
-  // Unsplash fallback (only on desktop when the URL is not an OS URL)
   const unsplashResponsive =
     !isMobile && mediaType === "image" && !osStorageImage ? buildUnsplashSrcset(mediaUrl) : null;
-
-  // Responsive srcset props: desktop only for OS banners; Unsplash handles its own.
   const responsiveProps = (!isMobile ? osStorageImage : null) ?? unsplashResponsive;
-
-  // Resolve the src: for OS banners use an appropriate proxy width.
-  // Mobile gets 800w; desktop gets 1200w (srcset will usually win on desktop anyway).
   const resolvedSrc = osStorageImage
     ? buildOsProxyUrl(mediaUrl, isMobile ? 800 : 1200)
     : mediaUrl;
 
+  const external = linkUrl ? isExternal(linkUrl) : false;
+
   return (
-    <Link
-      href={linkUrl}
+    <a
+      href={linkUrl || undefined}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="block relative w-full h-full"
       data-testid={`slide-${banner.id}`}
       tabIndex={active ? 0 : -1}
     >
-      {/* Media — Ken Burns gentle zoom-out when the slide becomes active */}
       <div className="absolute inset-0 overflow-hidden">
         {mediaType === "video" ? (
           <motion.video
@@ -78,11 +77,9 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
         )}
       </div>
 
-      {/* Gradient: bottom-heavy (matches mobile) + soft left edge on desktop for text legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent hidden md:block" />
 
-      {/* Text — inner content capped to content-max-width and centered */}
       {hasText && (
         <div className="absolute inset-0 flex items-end">
           <div className="w-full max-w-content mx-auto">
@@ -108,9 +105,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
                 </p>
               )}
               {banner.ctaText && (
-                <span
-                  className="inline-flex items-center gap-2 bg-white text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:bg-white/90 transition-colors"
-                >
+                <span className="inline-flex items-center gap-2 bg-white text-primary font-semibold text-[11px] md:text-[13px] tracking-[0.14em] uppercase px-5 md:px-7 py-3 rounded-full shadow-lg hover:bg-white/90 transition-colors">
                   {banner.ctaText}
                   <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </span>
@@ -119,6 +114,6 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
           </div>
         </div>
       )}
-    </Link>
+    </a>
   );
 }
