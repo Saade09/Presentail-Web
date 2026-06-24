@@ -301,6 +301,7 @@ function CheckoutForm() {
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [orderNote, setOrderNote] = useState("");
 
   // Saved addresses for signed-in shoppers
@@ -1964,12 +1965,28 @@ function CheckoutForm() {
           </div>
 
           {/* ── Order Summary Sidebar ── */}
-          <div className="w-full lg:w-96 xl:w-[420px] shrink-0">
+          <div className="w-full lg:w-96 xl:w-[420px] shrink-0 order-first lg:order-last">
             <div className="sticky top-36">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}>
+                <button
+                  type="button"
+                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between lg:cursor-default"
+                  style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
+                  onClick={() => setSummaryOpen((prev) => !prev)}
+                  aria-expanded={summaryOpen}
+                >
                   <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("checkout.summary")}</h3>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold lg:hidden" style={{ color: "hsl(var(--primary))" }}>
+                      <FormattedPrice usdValue={Math.max(0, total - confirmedCouponDiscount)} />
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 lg:hidden transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
+                      style={{ color: "hsl(var(--primary))" }}
+                    />
+                  </div>
+                </button>
+                <div className={`${summaryOpen ? "block" : "hidden"} lg:block`}>
                 <div className="px-6 py-5">
                   {/* Items */}
                   <div className="space-y-4 mb-5">
@@ -2073,6 +2090,7 @@ function CheckoutForm() {
                   </p>
                   <DeliveryDateRow rowText={deliveryRowText} onChangeClick={() => setDeliveryPickerOpen(true)} />
                 </div>
+                </div>{/* end collapsible */}
               </div>
             </div>
           </div>

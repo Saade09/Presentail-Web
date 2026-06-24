@@ -35,6 +35,7 @@ function loadShareModules() {
 }
 import {
   Alert,
+  Animated,
   findNodeHandle,
   FlatList,
   InteractionManager,
@@ -1444,6 +1445,24 @@ function CheckoutScreen() {
         </View>
       </View>
 
+      {/* Collapsible order summary — pinned between stepper and scroll body */}
+      <View style={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 12, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <CollapsibleOrderSummary
+          key={step}
+          colors={colors}
+          detailed={detailed}
+          fees={fees}
+          setQty={setQty}
+          remove={remove}
+          coupon={coupon}
+          setCoupon={setCoupon}
+          couponOpen={couponOpen}
+          setCouponOpen={setCouponOpen}
+          showDeliveryFee={step > 0}
+          initialOpen={step === 0}
+        />
+      </View>
+
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 220, gap: 18 }}
@@ -1451,18 +1470,6 @@ function CheckoutScreen() {
       >
         {step === 0 && (
           <>
-            <OrderSummary
-              colors={colors}
-              detailed={detailed}
-              fees={fees}
-              setQty={setQty}
-              remove={remove}
-              coupon={coupon}
-              setCoupon={setCoupon}
-              couponOpen={couponOpen}
-              setCouponOpen={setCouponOpen}
-              showDeliveryFee={false}
-            />
             <CustomizeStep
               colors={colors}
               cardTo={cardTo}
@@ -1581,18 +1588,6 @@ function CheckoutScreen() {
               colors={colors}
               cardMessage={cardMessage}
               setCardMessage={setCardMessage}
-            />
-            <OrderSummary
-              colors={colors}
-              detailed={detailed}
-              fees={fees}
-              setQty={setQty}
-              remove={remove}
-              coupon={coupon}
-              setCoupon={setCoupon}
-              couponOpen={couponOpen}
-              setCouponOpen={setCouponOpen}
-              showDeliveryFee
             />
             <DeliverySummaryCard colors={colors} days={days} date={date} slot={slot?.label ?? ""} mode={deliveryMode} />
           </>
@@ -3243,71 +3238,122 @@ function PayOption({ colors, active, onPress, title, badge, badgeColor, payIcons
   );
 }
 
-// =============== Order Summary ===============
+// =============== Collapsible Order Summary ===============
 
-function OrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee }: any) {
+function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupon, setCoupon, couponOpen, setCouponOpen, showDeliveryFee, initialOpen = false }: any) {
   const { formatPrice } = useCurrency();
+  const { isRTL } = useLanguage();
   const headingFontMedium = useHeadingFont("500Medium");
   const t = useT();
+  const [open, setOpen] = useState(initialOpen);
+  const animValue = useRef(new Animated.Value(initialOpen ? 1 : 0)).current;
+
+  const toggle = () => {
+    const toValue = open ? 0 : 1;
+    setOpen(!open);
+    Animated.timing(animValue, {
+      toValue,
+      duration: 240,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const bodyMaxHeight = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 900],
+  });
+  const bodyOpacity = animValue.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 0, 1],
+  });
+
   return (
-    <Card colors={colors} title={t.checkoutOrderSummaryCard}>
-      <View style={{ gap: 12 }}>
-        {detailed.map(({ product, qty, lineTotal }: any) => (
-          <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
-            <View style={{ flex: 1 }}>
-              <AppText numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
-                {product.name}
-              </AppText>
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 999, alignSelf: "flex-start" }}>
-                <Pressable onPress={() => setQty(product.id, Math.max(1, qty - 1))} style={styles.qtyMini}>
-                  <Feather name="minus" size={11} color={colors.primary} />
-                </Pressable>
-                <AppText style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 8, fontSize: 12 }}>{qty}</AppText>
-                <Pressable onPress={() => setQty(product.id, qty + 1)} style={styles.qtyMini}>
-                  <Feather name="plus" size={11} color={colors.primary} />
+    <View style={{ backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+      <Pressable
+        onPress={toggle}
+        style={({ pressed }) => ({
+          flexDirection: isRTL ? "row-reverse" : "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 18,
+          paddingVertical: 14,
+          opacity: pressed ? 0.75 : 1,
+        })}
+      >
+        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground }}>
+          {t.checkoutOrderSummaryCard}
+        </AppText>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+          <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
+            {formatPrice(fees.grand)}
+          </AppText>
+          <Feather
+            name={open ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.mutedForeground}
+          />
+        </View>
+      </Pressable>
+
+      <Animated.View style={{ maxHeight: bodyMaxHeight, opacity: bodyOpacity, overflow: "hidden" }}>
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, gap: 12 }}>
+          {detailed.map(({ product, qty, lineTotal }: any) => (
+            <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
+              <View style={{ flex: 1 }}>
+                <AppText numberOfLines={1} style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+                  {product.name}
+                </AppText>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 999, alignSelf: "flex-start" }}>
+                  <Pressable onPress={() => setQty(product.id, Math.max(1, qty - 1))} style={styles.qtyMini}>
+                    <Feather name="minus" size={11} color={colors.primary} />
+                  </Pressable>
+                  <AppText style={{ fontFamily: "Inter_600SemiBold", color: colors.primary, paddingHorizontal: 8, fontSize: 12 }}>{qty}</AppText>
+                  <Pressable onPress={() => setQty(product.id, qty + 1)} style={styles.qtyMini}>
+                    <Feather name="plus" size={11} color={colors.primary} />
+                  </Pressable>
+                </View>
+              </View>
+              <View style={{ alignItems: "flex-end", gap: 6 }}>
+                <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
+                  {formatPrice(lineTotal)}
+                </AppText>
+                <Pressable onPress={() => remove(product.id)} hitSlop={6}>
+                  <Feather name="x-circle" size={14} color={colors.mutedForeground} />
                 </Pressable>
               </View>
             </View>
-            <View style={{ alignItems: "flex-end", gap: 6 }}>
-              <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
-                {formatPrice(lineTotal)}
-              </AppText>
-              <Pressable onPress={() => remove(product.id)} hitSlop={6}>
-                <Feather name="x-circle" size={14} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-          </View>
-        ))}
-      </View>
+          ))}
 
-      <Pressable onPress={() => setCouponOpen(!couponOpen)}>
-        <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
-          {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
-        </AppText>
-      </Pressable>
-      {couponOpen ? (
-        <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
-      ) : null}
-
-      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label={t.checkoutSubtotalLabel} value={formatPrice(fees.subtotal)} colors={colors} />
-      {showDeliveryFee ? (
-        <>
-          <SummaryRow
-            label={t.checkoutDeliveryFeeLabel}
-            value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatPrice(fees.districtFee)}
-            colors={colors}
-            highlight={fees.districtFee === 0}
-          />
-          {fees.expressFee > 0 ? (
-            <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatPrice(fees.expressFee)} colors={colors} />
+          <Pressable onPress={() => setCouponOpen(!couponOpen)}>
+            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.gold }}>
+              {t.checkoutHaveCoupon} <AppText style={{ textDecorationLine: "underline" }}>{t.checkoutEnterCode}</AppText>
+            </AppText>
+          </Pressable>
+          {couponOpen ? (
+            <Field colors={colors} value={coupon} onChangeText={setCoupon} placeholder={t.checkoutCouponPlaceholder} />
           ) : null}
-        </>
-      ) : null}
-      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-      <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />
-    </Card>
+
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
+          <SummaryRow label={t.checkoutSubtotalLabel} value={formatPrice(fees.subtotal)} colors={colors} />
+          {showDeliveryFee ? (
+            <>
+              <SummaryRow
+                label={t.checkoutDeliveryFeeLabel}
+                value={fees.districtFee === 0 ? t.checkoutFreeUpper : formatPrice(fees.districtFee)}
+                colors={colors}
+                highlight={fees.districtFee === 0}
+              />
+              {fees.expressFee > 0 ? (
+                <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatPrice(fees.expressFee)} colors={colors} />
+              ) : null}
+            </>
+          ) : null}
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
+          <SummaryRow label={t.checkoutTotalLabel} value={formatPrice(fees.grand)} colors={colors} bold />
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
