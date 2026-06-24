@@ -1515,7 +1515,7 @@ function CheckoutForm() {
                       {done ? <Check className="w-3.5 h-3.5" /> : n}
                     </div>
                     <span
-                      className={`text-[11px] font-medium leading-none hidden sm:block tracking-wide ${
+                      className={`text-[11px] font-medium leading-none tracking-wide ${
                         active ? "text-white" : done ? "text-white/65" : "text-white/30"
                       }`}
                     >
