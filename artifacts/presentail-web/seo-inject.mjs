@@ -724,7 +724,7 @@ function buildGenericBodyHtml(routeKey, { title, description, localeBase }) {
   const safeDesc = escapeHtml(description);
   const safeIntro = escapeHtml(intro);
   return (
-    `<div>` +
+    `<div style="display:none">` +
     `<h1>${safeTitle}</h1>` +
     (safeDesc ? `<p>${safeDesc}</p>` : "") +
     (safeIntro && safeIntro !== safeDesc ? `<p>${safeIntro}</p>` : "") +
@@ -753,7 +753,7 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  return `<div>${imgHtml}<h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${nav}</div>`;
+  return `<div style="display:none">${imgHtml}<h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${priceHtml}${nav}</div>`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -764,7 +764,7 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  return `<div><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
+  return `<div style="display:none"><h1>${safeTitle}</h1>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
 // ---------------------------------------------------------------------------
