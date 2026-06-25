@@ -333,6 +333,20 @@ export default function SignInPage() {
       // passwordLoginAvailable === true — treat undefined (older server) as
       // false so returning shoppers are never silently routed to a dead-end.
       if (bridgeJson.exists) {
+        // If the lookup found an account but can't proceed (e.g. Clerk not
+        // configured, or provisioning failed), surface an error — the user
+        // already has an account so we must not silently route them to sign-up.
+        if (
+          bridgeJson.code === "lookup_failed" ||
+          bridgeJson.code === "lookup_unavailable"
+        ) {
+          toast({
+            title: t("auth.toast.error"),
+            description: t("auth.checkFailed"),
+            variant: "destructive",
+          });
+          return;
+        }
         if (bridgeJson.passwordLoginAvailable === true) {
           setStep("password");
         } else {
@@ -340,21 +354,10 @@ export default function SignInPage() {
         }
         return;
       }
-      // When the lookup itself failed we cannot reliably classify the email —
-      // block here rather than silently routing to sign-up and creating a
-      // duplicate account for a returning shopper.
-      if (
-        bridgeJson.code === "lookup_failed" ||
-        bridgeJson.code === "lookup_unavailable"
-      ) {
-        toast({
-          title: t("auth.toast.error"),
-          description: t("auth.checkFailed"),
-          variant: "destructive",
-        });
-        return;
-      }
-      // Confirmed new email → go to sign-up
+      // exists: false — route to sign-up even when the lookup was inconclusive.
+      // The sign-up endpoint rejects duplicate emails as a final safety net,
+      // so the worst case is the user sees a "already registered" message and
+      // is redirected to sign-in instead.
       goToSignUp(trimmed);
     } catch (err: any) {
       toast({
