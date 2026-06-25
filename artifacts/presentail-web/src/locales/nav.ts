@@ -31,6 +31,7 @@ export const navStrings: Dict = {
   "search.closeAria": { en: "Close search", ar: "إغلاق البحث" },
   "search.searching": { en: "Searching…", ar: "جارٍ البحث..." },
   "search.productsHeading": { en: "Products", ar: "المنتجات" },
+  "nav.viewAllFlowers": { en: "View All Flowers", ar: "عرض كل الزهور" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -64,4 +65,5 @@ export const navStringsFr: Record<string, string> = {
   "search.closeAria": "Fermer la recherche",
   "search.searching": "Recherche en cours…",
   "search.productsHeading": "Produits",
+  "nav.viewAllFlowers": "Voir toutes les fleurs",
 };

@@ -90,7 +90,7 @@ type MegaMenuDef = {
   key: string;
   labelKey: string;
   items: MegaItem[];
-  footer?: { label: string; href: string };
+  footer?: { label: string; labelKey?: string; href: string };
   loading?: boolean;
 };
 
@@ -118,7 +118,6 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Flower Boxes",       href: "/category/flower-boxes",        img: "/catalog/categories/flower-boxes.avif" },
       { label: "Preserved Flowers",  href: "/category/preserved-flowers",   img: "/catalog/categories/preserved-flowers.avif" },
       { label: "Flower Baskets",     href: "/category/flower-baskets",      emoji: "🧺" },
-      { label: "All Flowers",        href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
       { label: "Flower Vases",       href: "/category/flower-vases",        img: "/catalog/categories/flower-vases.avif" },
       { label: "Dried Flowers",      href: "/category/dried-flowers",       emoji: "🌾" },
       { label: "Plants",             href: "/category/plants",              img: "/catalog/categories/plants.webp" },
@@ -126,6 +125,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Lux Arrangements",   href: "/category/lux-arrangements",    img: "/catalog/categories/lux-arrangements.avif" },
       { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
+    footer: { label: "View All Flowers", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
   },
 ];
 
@@ -289,7 +289,14 @@ export function MainNavbar() {
           })
       : [];
 
-    return { ...menu, items: [...filteredItems, ...newItems] };
+    const resolvedFooter = menu.footer
+      ? {
+          ...menu.footer,
+          label: menu.footer.labelKey ? t(menu.footer.labelKey) : menu.footer.label,
+        }
+      : undefined;
+
+    return { ...menu, items: [...filteredItems, ...newItems], footer: resolvedFooter };
   });
 
   const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus];
