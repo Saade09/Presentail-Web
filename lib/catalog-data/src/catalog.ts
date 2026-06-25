@@ -86,6 +86,11 @@ export const occasions: Occasion[] = [
   { id: "friend", name: "Friend", icon: "account-heart", image: occFallback.friend, description: "Show your friends how much you care with a heartfelt gift." },
   { id: "im-sorry", name: "I'm Sorry", icon: "hand-heart", image: occFallback["im-sorry"], description: "A sincere apology, expressed through flowers and care." },
   { id: "children", name: "Children", icon: "star", image: occFallback.children, description: "Bright and joyful gifts to delight the little ones." },
+  { id: "valentine", name: "Valentine's Day", icon: "heart", image: occ["love-romance"], description: "Red roses and romantic gifts for the most loving day of the year." },
+  { id: "mothers-day", name: "Mother's Day", icon: "flower-2", image: occ["thank-you"], description: "Celebrate mum with beautiful blooms and heartfelt gifts." },
+  { id: "womens-day", name: "Women's Day", icon: "sparkles", image: occ["love-romance"], description: "Honour the special women in your life with elegant flowers and gifts." },
+  { id: "fathers-day", name: "Father's Day", icon: "user", image: occ.promotion, description: "Show dad how much he means to you with a thoughtful gift." },
+  { id: "christmas", name: "Christmas", icon: "gift", image: occFallback.congratulations, description: "Spread festive joy with seasonal blooms and luxury gift sets." },
 ];
 
 // Brands are served from Presentail OS via `GET /api/woo/brands`.
