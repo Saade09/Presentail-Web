@@ -274,7 +274,7 @@ export default function Shop() {
         </div>
       )}
       <div className={`container mx-auto max-w-content px-page${breadcrumbCrumbs.length > 0 ? " pt-4" : ""}`}>
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12 pb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">
               {pageTitle}
