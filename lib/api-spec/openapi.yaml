@@ -2702,6 +2702,9 @@ components:
           oneOf:
             - $ref: "#/components/schemas/CatalogImageRef"
             - type: "null"
+        description:
+          type: string
+          nullable: true
       required:
         - id
         - name

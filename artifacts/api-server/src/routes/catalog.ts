@@ -268,7 +268,11 @@ router.get("/catalog/metadata", (_req, res) => {
     mergedCategories = [...categories];
   } else {
     const osCategorySlugs = new Set(osCategories.map((c) => c.slug));
-    const filteredHardcoded = categories.filter((c) => osCategorySlugs.has(c.id));
+    const osCategoryBySlug = new Map(osCategories.map((c) => [c.slug, c]));
+    const filteredHardcoded = categories.filter((c) => osCategorySlugs.has(c.id)).map((c) => ({
+      ...c,
+      description: osCategoryBySlug.get(c.id)?.description ?? null,
+    }));
     const filteredSlugs = new Set(filteredHardcoded.map((c) => c.id));
     const extraOsCategories = osCategories
       .filter((c) => !filteredSlugs.has(c.slug))
@@ -277,6 +281,7 @@ router.get("/catalog/metadata", (_req, res) => {
         name: c.name,
         icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
         image: null,
+        description: c.description ?? null,
       }));
     mergedCategories = [...filteredHardcoded, ...extraOsCategories];
   }

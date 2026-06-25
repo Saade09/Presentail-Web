@@ -30,7 +30,7 @@ export type Product = {
   popularity?: number;
 };
 
-export type Category = { id: string; name: string; icon: string; image: any };
+export type Category = { id: string; name: string; icon: string; image: any; description?: string | null };
 export type Occasion = {
   id: string;
   name: string;

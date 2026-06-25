@@ -114,6 +114,7 @@ export type OSProductCategory = {
   image?: string | null;
   /** Public CDN URL (e.g. /api/storage/public-objects/…). Preferred over image. */
   imagePublicUrl?: string | null;
+  description?: string | null;
 };
 
 export type OSProductBrand = {

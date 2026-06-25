@@ -1375,6 +1375,7 @@ export const GetCatalogMetadataResponse = zod.object({
           zod.null(),
         ])
         .optional(),
+      description: zod.string().nullish(),
     }),
   ),
   occasions: zod.array(

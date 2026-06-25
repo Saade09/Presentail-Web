@@ -881,6 +881,7 @@ export interface CatalogCategory {
   name: string;
   icon: string;
   image?: CatalogImageRef | null;
+  description?: string | null;
 }
 
 export interface CatalogOccasion {

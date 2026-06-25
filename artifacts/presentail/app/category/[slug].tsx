@@ -327,6 +327,43 @@ function CategoryScreen() {
     </View>
   );
 
+  const currentCategory = categories.find((c) => c.id === slug);
+  const categoryDescription = currentCategory?.description ?? null;
+
+  const footer = categoryDescription ? (
+    <View
+      style={{
+        marginTop: 32,
+        marginHorizontal: 24,
+        paddingTop: 24,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.border,
+        paddingBottom: 8,
+      }}
+    >
+      <AppText
+        style={{
+          fontFamily: headingFontMedium,
+          fontSize: 20,
+          color: colors.primary,
+          marginBottom: 10,
+        }}
+      >
+        {displayName}
+      </AppText>
+      <AppText
+        style={{
+          fontFamily: "Inter_400Regular",
+          fontSize: 14,
+          color: colors.mutedForeground,
+          lineHeight: 22,
+        }}
+      >
+        {categoryDescription}
+      </AppText>
+    </View>
+  ) : null;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
@@ -335,6 +372,7 @@ function CategoryScreen() {
         numColumns={2}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
+        ListFooterComponent={footer}
         columnWrapperStyle={{ paddingHorizontal: 24, gap: 10 }}
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,

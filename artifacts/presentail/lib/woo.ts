@@ -210,7 +210,7 @@ const OS_CATEGORY_ICONS_MOBILE: Record<string, string> = {
 // local static list where available; OS-only categories fall back to the
 // OS_CATEGORY_ICONS_MOBILE map and a null image.
 // Returns the full static list on network failure so the screen is never blank.
-export async function fetchWcCategories(): Promise<{ id: string; name: string; icon: string; image: any }[]> {
+export async function fetchWcCategories(): Promise<{ id: string; name: string; icon: string; image: any; description?: string | null }[]> {
   const { categories: staticCategories } = await import("@/data/catalog");
   try {
     const res = await fetch(`${API_BASE}/api/catalog/metadata`);
@@ -220,13 +220,14 @@ export async function fetchWcCategories(): Promise<{ id: string; name: string; i
       return staticCategories;
     }
     const localBySlug = new Map(staticCategories.map((c: { id: string; name: string; icon: string; image: any }) => [c.id, c]));
-    return json.categories.map((c: { id: string; name: string; icon?: string }) => {
+    return json.categories.map((c: { id: string; name: string; icon?: string; description?: string | null }) => {
       const local = localBySlug.get(c.id);
       return {
         id: c.id,
         name: c.name,
         icon: local?.icon ?? c.icon ?? OS_CATEGORY_ICONS_MOBILE[c.id] ?? "tag",
         image: local?.image ?? null,
+        description: c.description ?? null,
       };
     });
   } catch {

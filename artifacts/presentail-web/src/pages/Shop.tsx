@@ -481,6 +481,12 @@ export default function Shop() {
                 ))}
               </div>
             )}
+            {category && catalogCategory?.description && (
+              <div className="mt-16 pt-10 border-t border-border" data-testid="category-description">
+                <h2 className="font-serif text-2xl mb-4">{catalogCategory.name}</h2>
+                <p className="text-muted-foreground leading-relaxed max-w-2xl">{catalogCategory.description}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
