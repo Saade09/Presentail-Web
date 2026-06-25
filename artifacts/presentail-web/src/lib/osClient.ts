@@ -89,8 +89,12 @@ export async function fetchOsProducts(opts: {
   lang?: string;
 } = {}): Promise<OSProduct[]> {
   const extra: Record<string, string> = {};
-  if (opts.countryCode) extra["countryCode"] = opts.countryCode;
-  if (opts.cityId) extra["cityId"] = opts.cityId;
+  // OS API requires snake_case query params: country_code and city_slug.
+  // Internal city IDs use a prefixed format (e.g. "ae-dubai"); strip the
+  // two-letter country prefix to get the OS city slug ("dubai").
+  // Confirmed: OS /api/products accepts country_code=LB and city_slug=dubai.
+  if (opts.countryCode) extra["country_code"] = opts.countryCode;
+  if (opts.cityId) extra["city_slug"] = opts.cityId.replace(/^[a-z]{2}-/, "");
   if (opts.lang && opts.lang !== "en") extra["lang"] = opts.lang;
   extra["page"] = "1";
   extra["pageSize"] = String(PAGE_SIZE);

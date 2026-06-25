@@ -187,8 +187,12 @@ export async function fetchOsProducts(
     const url = new URL(`${baseUrl}${path}`);
     url.searchParams.set("workspace", workspace);
     url.searchParams.set("apiKey", apiKey);
-    if (opts.countryCode) url.searchParams.set("countryCode", opts.countryCode);
-    if (opts.cityId) url.searchParams.set("cityId", opts.cityId);
+    // OS API requires snake_case query params: country_code and city_slug.
+    // Internal city IDs use a prefixed format (e.g. "ae-dubai"); strip the
+    // two-letter country prefix to get the OS city slug ("dubai").
+    // Confirmed: OS /api/products accepts country_code=LB and city_slug=dubai.
+    if (opts.countryCode) url.searchParams.set("country_code", opts.countryCode);
+    if (opts.cityId) url.searchParams.set("city_slug", opts.cityId.replace(/^[a-z]{2}-/, ""));
     if (lang !== "en") url.searchParams.set("lang", lang);
     url.searchParams.set("page", String(page));
     url.searchParams.set("pageSize", String(DEFAULT_PAGE_SIZE));
