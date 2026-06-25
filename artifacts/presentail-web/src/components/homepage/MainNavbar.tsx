@@ -517,7 +517,7 @@ export function MainNavbar() {
                               href={subDef.footer.href}
                               className="flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2"
                             >
-                              {subDef.footer.label} →
+                              {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label} →
                             </Link>
                           </SheetClose>
                         )}
