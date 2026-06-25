@@ -275,14 +275,14 @@ export default function Shop() {
       <div className={`container mx-auto max-w-content px-page${breadcrumbCrumbs.length > 0 ? " pt-4" : ""}`}>
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-4 pb-2">
           <div>
-            <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">
+            <h1 className="text-4xl md:text-5xl font-serif" data-testid="text-shop-title">
               {pageTitle}
-              {!isLoading && (
-                <span className="text-muted-foreground font-sans text-base md:text-lg font-normal">
-                  {" "}<span className="mx-2 opacity-40">/</span>{t("shop.productCount", { count: String(products.length) })}
-                </span>
-              )}
             </h1>
+            {!isLoading && (
+              <p className="text-sm text-muted-foreground font-normal mt-1 whitespace-nowrap">
+                <span className="opacity-40">/</span>{" "}{t("shop.productCount", { count: String(products.length) })}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
