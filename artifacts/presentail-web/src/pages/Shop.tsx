@@ -486,7 +486,7 @@ export default function Shop() {
       </div>
 
       <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0 rounded-t-2xl">
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0 rounded-t-2xl [&>button:first-child]:hidden">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-center justify-between">
               <SheetTitle className="font-serif text-xl">{t("shop.filters")}</SheetTitle>
