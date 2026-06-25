@@ -1538,21 +1538,9 @@ function CheckoutForm() {
     <div className="min-h-screen" style={{ backgroundColor: "#f4f4f5" }}>
       {/* ── Checkout header ── */}
       <header className="z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
-        <div className="max-w-content mx-auto px-page py-4 flex items-center justify-between text-primary-foreground">
-          <Link
-            href="/cart"
-            className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
-            style={{ color: "rgba(255,255,255,0.72)" }}
-            data-testid="link-back-to-cart"
-          >
-            <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
-            <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
-          </Link>
-          <Logo height={64} inverse={true} />
-          <div className="w-8 sm:w-24" />
-        </div>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <div className="max-w-content mx-auto px-page py-3 flex items-center justify-center">
+        <div className="max-w-content mx-auto px-page py-3 flex items-center text-primary-foreground">
+          <Logo height={56} inverse={true} />
+          <div className="flex-1 flex items-center justify-center">
             {stepLabels.map((label, i) => {
               const n = i + 1;
               const done = step > n;
@@ -1595,6 +1583,15 @@ function CheckoutForm() {
               );
             })}
           </div>
+          <Link
+            href="/cart"
+            className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-75"
+            style={{ color: "rgba(255,255,255,0.72)" }}
+            data-testid="link-back-to-cart"
+          >
+            <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} />
+            <span className="hidden sm:inline">{t("checkout.backToCart")}</span>
+          </Link>
         </div>
       </header>
       {/* ── Page content ── */}
