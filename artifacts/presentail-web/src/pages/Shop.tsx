@@ -279,7 +279,7 @@ export default function Shop() {
             <h1 className="text-4xl md:text-5xl font-serif mb-4" data-testid="text-shop-title">
               {pageTitle}
               {!isLoading && (
-                <span className="text-muted-foreground font-sans text-2xl md:text-3xl font-normal">
+                <span className="text-muted-foreground font-sans text-base md:text-lg font-normal">
                   {" "}<span className="mx-2 opacity-40">/</span>{t("shop.productCount", { count: String(products.length) })}
                 </span>
               )}
