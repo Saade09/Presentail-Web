@@ -96,22 +96,6 @@ type MegaMenuDef = {
 
 const STATIC_MENUS: MegaMenuDef[] = [
   {
-    key: "flowers",
-    labelKey: "nav.flowersPlants",
-    items: [
-      { label: "Flower Boxes",       href: "/category/flower-boxes",        img: "/catalog/categories/flower-boxes.avif" },
-      { label: "Preserved Flowers",  href: "/category/preserved-flowers",   img: "/catalog/categories/preserved-flowers.avif" },
-      { label: "Flower Baskets",     href: "/category/flower-baskets",      emoji: "🧺" },
-      { label: "All Flowers",        href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
-      { label: "Flower Vases",       href: "/category/flower-vases",        img: "/catalog/categories/flower-vases.avif" },
-      { label: "Dried Flowers",      href: "/category/dried-flowers",       emoji: "🌾" },
-      { label: "Plants",             href: "/category/plants",              img: "/catalog/categories/plants.webp" },
-      { label: "Hand Bouquets",      href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
-      { label: "Lux Arrangements",   href: "/category/lux-arrangements",    img: "/catalog/categories/lux-arrangements.avif" },
-      { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
-    ],
-  },
-  {
     key: "gifts",
     labelKey: "nav.gifts",
     items: [
@@ -125,6 +109,22 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Gift Baskets",    href: "/category/gift-baskets",    emoji: "🎁" },
       { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
+    ],
+  },
+  {
+    key: "flowers",
+    labelKey: "nav.flowersPlants",
+    items: [
+      { label: "Flower Boxes",       href: "/category/flower-boxes",        img: "/catalog/categories/flower-boxes.avif" },
+      { label: "Preserved Flowers",  href: "/category/preserved-flowers",   img: "/catalog/categories/preserved-flowers.avif" },
+      { label: "Flower Baskets",     href: "/category/flower-baskets",      emoji: "🧺" },
+      { label: "All Flowers",        href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
+      { label: "Flower Vases",       href: "/category/flower-vases",        img: "/catalog/categories/flower-vases.avif" },
+      { label: "Dried Flowers",      href: "/category/dried-flowers",       emoji: "🌾" },
+      { label: "Plants",             href: "/category/plants",              img: "/catalog/categories/plants.webp" },
+      { label: "Hand Bouquets",      href: "/category/hand-bouquets",       img: "/catalog/categories/hand-bouquets.webp" },
+      { label: "Lux Arrangements",   href: "/category/lux-arrangements",    img: "/catalog/categories/lux-arrangements.avif" },
+      { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
   },
 ];
@@ -390,16 +390,16 @@ export function MainNavbar() {
                         emoji: "🎉",
                       },
                       {
-                        key: "flowers",
-                        label: t("nav.flowersPlants"),
-                        img: "/catalog/categories/flower-boxes.avif",
-                        emoji: "🌸",
-                      },
-                      {
                         key: "gifts",
                         label: t("nav.gifts"),
                         img: "/catalog/categories/bundles.webp",
                         emoji: "🎁",
+                      },
+                      {
+                        key: "flowers",
+                        label: t("nav.flowersPlants"),
+                        img: "/catalog/categories/flower-boxes.avif",
+                        emoji: "🌸",
                       },
                     ].map((cat) => (
                       <button
