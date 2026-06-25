@@ -305,7 +305,7 @@ export default function ProductDetail() {
       <div className="container mx-auto px-page max-w-content pt-4 sm:pt-6">
         <PageBreadcrumb crumbs={productBreadcrumbs} />
       </div>
-      <div className="container mx-auto px-page max-w-content pt-4 sm:pt-6 pb-16 sm:pb-20">
+      <div className="container mx-auto px-page max-w-content pt-4 sm:pt-6 pb-28 sm:pb-20 md:pb-16">
         <div className="grid lg:grid-cols-[3fr_2fr] lg:items-stretch gap-6 sm:gap-8 lg:gap-16">
           <div className="h-full">
             <ProductGallery
@@ -355,7 +355,7 @@ export default function ProductDetail() {
               />
             )}
 
-            <div className="flex gap-3">
+            <div className="hidden md:flex gap-3">
               <Button
                 size="lg"
                 className="flex-1 h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
@@ -401,6 +401,20 @@ export default function ProductDetail() {
         open={upsellOpen}
         onClose={() => setUpsellOpen(false)}
       />
+
+      {/* Always-visible sticky Add to Cart bar on mobile */}
+      <div className="fixed bottom-0 inset-x-0 md:hidden z-50 bg-white border-t border-border px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+        <Button
+          size="lg"
+          className="w-full h-14 text-sm tracking-[0.18em] uppercase rounded-xl"
+          onClick={handleAdd}
+          disabled={!vm.inStock}
+          data-testid="button-add-to-cart-sticky"
+        >
+          <ShoppingCart className="w-5 h-5 mr-2" />
+          {vm.inStock ? t("product.addToCart") : t("product.outOfStock")}
+        </Button>
+      </div>
 
     </div>
   );
