@@ -28,7 +28,6 @@ const CATEGORIES = [
   { slug: "chocolate", labelKey: "shop.cat.chocolate" },
   { slug: "bundles", labelKey: "shop.cat.bundles" },
   { slug: "gift-baskets", labelKey: "shop.cat.baskets" },
-  { slug: "bears-balloons", labelKey: "shop.cat.bearsBalloons" },
 ];
 
 const OCCASIONS = [

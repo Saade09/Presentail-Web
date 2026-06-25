@@ -137,7 +137,6 @@ export function Footer() {
     { label: t("footer.popular.giftBundles"), href: "/category/bundles", testId: "footer-link-bundles" },
     { label: t("footer.popular.cakesSweets"), href: "/category/cakes", testId: "footer-link-cakes" },
     { label: t("footer.popular.baskets"), href: "/category/gift-baskets", testId: "footer-link-baskets" },
-    { label: t("footer.popular.bearsBalloons"), href: "/category/bears-balloons", testId: "footer-link-bears" },
   ];
   if (!isAE) {
     popularCategories.push({

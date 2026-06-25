@@ -54,8 +54,6 @@ export const shopStrings: Dict = {
   "shop.cat.bundles": { en: "Bundles", ar: "باقات مجمّعة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.baskets": { en: "Baskets", ar: "سلال" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.bearsBalloons": { en: "Bears & Balloons", ar: "دببة وبالونات" },
 
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
@@ -147,7 +145,6 @@ export const shopStringsFr: Record<string, string> = {
   "shop.cat.chocolate": "Chocolat",
   "shop.cat.bundles": "Coffrets",
   "shop.cat.baskets": "Paniers",
-  "shop.cat.bearsBalloons": "Oursons & Ballons",
 
   "shop.occ.birthday": "Anniversaire",
   "shop.occ.loveRomance": "Amour & Romance",

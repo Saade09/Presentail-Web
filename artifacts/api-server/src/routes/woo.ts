@@ -198,7 +198,6 @@ const CATEGORY_MAP: Record<string, string> = {
   coffee: "coffee",
   "gift-cards": "gift-cards",
   "stuffed-animals": "stuffed-animals",
-  "bears-balloons": "bears-balloons",
 };
 
 function mapCategory(cats: { id: number; name: string; slug: string }[]): string {

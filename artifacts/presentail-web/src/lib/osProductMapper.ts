@@ -44,7 +44,6 @@ const CATEGORY_MAP: Record<string, string> = {
   "arabic-sweets": "arabic-sweets",
   coffee: "coffee",
   "stuffed-animals": "stuffed-animals",
-  "bears-balloons": "bears-balloons",
 };
 
 function mapCategory(cats: { slug: string }[]): string {
