@@ -67,11 +67,10 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
             <img
               src={mainImageResponsive?.src ?? current.uri}
               alt={productName}
-              className="w-full h-full object-cover cursor-zoom-in"
+              className="w-full h-full object-cover"
               loading="eager"
               fetchPriority="high"
               {...(mainImageResponsive ? { srcSet: mainImageResponsive.srcset, sizes: mainImageResponsive.sizes } : {})}
-              onClick={handleExpand}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground font-serif text-4xl">
