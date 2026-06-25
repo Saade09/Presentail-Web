@@ -79,7 +79,7 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
   const payLabel = payKey ? t(payKey) : order.paymentMethod ?? "";
 
   return (
-    <div className="bg-secondary/50 rounded-2xl p-6 my-4 space-y-5 text-start max-h-[60vh] overflow-y-auto">
+    <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-4 space-y-5 text-start sm:max-h-[60vh] sm:overflow-y-auto">
       {items.length > 0 && (
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.items")}</p>
@@ -297,7 +297,7 @@ export default function OrderConfirmed() {
 
   if (state.kind === "finalizing") {
     return (
-      <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
+      <div className="min-h-screen pt-8 pb-8 sm:pt-32 sm:pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
         <div className="max-w-md w-full text-center space-y-6 animate-in fade-in">
           <div className="flex justify-center">
             <Loader2 className="w-16 h-16 text-primary animate-spin" />
@@ -313,28 +313,28 @@ export default function OrderConfirmed() {
   const ref = state.kind === "success" ? state.ref : "—";
 
   return (
-    <div className="min-h-[80vh] pt-32 pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
-      <div className="max-w-md w-full text-center space-y-6 animate-in zoom-in-95 duration-500">
+    <div className="min-h-screen pt-8 pb-8 sm:pt-32 sm:pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
+      <div className="max-w-md w-full text-center space-y-3 sm:space-y-6 animate-in zoom-in-95 duration-500">
         <div className="flex justify-center">
           {isSuccess ? (
-            <CheckCircle2 className="w-24 h-24 text-primary" data-testid="icon-success" />
+            <CheckCircle2 className="w-14 h-14 sm:w-24 sm:h-24 text-primary" data-testid="icon-success" />
           ) : (
-            <XCircle className="w-24 h-24 text-destructive" data-testid="icon-failed" />
+            <XCircle className="w-14 h-14 sm:w-24 sm:h-24 text-destructive" data-testid="icon-failed" />
           )}
         </div>
 
-        <h1 className="text-4xl font-serif" data-testid="text-confirmation-title">
+        <h1 className="text-2xl sm:text-4xl font-serif" data-testid="text-confirmation-title">
           {isSuccess ? t("order.confirmed") : t("order.failed")}
         </h1>
 
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-base sm:text-lg">
           {isSuccess
             ? t("order.thanks")
             : (state.kind === "failed" && state.message) || t("order.failGeneric")}
         </p>
 
         {isSuccess && (
-          <div className="bg-secondary/50 rounded-2xl p-6 my-8 space-y-4">
+          <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-8 space-y-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
               <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
@@ -346,7 +346,7 @@ export default function OrderConfirmed() {
           <OrderSummary order={confirmedOrder} t={t} language={language} />
         )}
 
-        <div className="pt-4">
+        <div className="pt-2 sm:pt-4">
           <Button
             size="lg"
             className="rounded-full px-8"
