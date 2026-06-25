@@ -633,6 +633,15 @@ export const HomepageBannerMediaType = {
   video: "video",
 } as const;
 
+export type HomepageBannerLinkKind =
+  | (typeof HomepageBannerLinkKind)[keyof typeof HomepageBannerLinkKind]
+  | null;
+
+export const HomepageBannerLinkKind = {
+  category: "category",
+  occasion: "occasion",
+} as const;
+
 export interface HomepageBanner {
   id: string;
   title?: string;
@@ -644,7 +653,10 @@ export interface HomepageBanner {
   mediaUrl: string;
   /** Static image fallback when mediaType is video and the browser cannot autoplay. */
   fallbackImageUrl?: string;
-  linkUrl: string;
+  linkUrl?: string | null;
+  linkKind?: HomepageBannerLinkKind;
+  linkSlug?: string | null;
+  linkName?: string | null;
   sortOrder: number;
   priority?: number;
 }

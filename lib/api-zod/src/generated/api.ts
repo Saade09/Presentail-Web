@@ -628,7 +628,10 @@ export const GetHomepageBannersResponse = zod.object({
         .describe(
           "Static image fallback when mediaType is video and the browser cannot autoplay.",
         ),
-      linkUrl: zod.string(),
+      linkUrl: zod.string().nullish(),
+      linkKind: zod.enum(["category", "occasion"]).nullish(),
+      linkSlug: zod.string().nullish(),
+      linkName: zod.string().nullish(),
       sortOrder: zod.number(),
       priority: zod.number().optional(),
     }),

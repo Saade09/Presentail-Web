@@ -2,6 +2,10 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { HomepageBanner } from "@/lib/banners";
 import { buildUnsplashSrcset, buildOsImageSrcset, buildOsProxyUrl } from "@/lib/imageUtils";
+import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { buildLocalePath, cityIdToSlug, isSupportedCountrySlug } from "@/lib/locale-route";
+import type { Lang, CountrySlug } from "@/lib/locale-route";
 
 type Props = {
   banner: HomepageBanner;
@@ -17,10 +21,38 @@ function isExternal(url: string): boolean {
   }
 }
 
+function bannerHref(
+  banner: HomepageBanner,
+  lang: Lang,
+  countrySlug: CountrySlug | null,
+  citySlug: string | null,
+): { href: string; external: boolean } | null {
+  if (banner.linkKind && banner.linkSlug && countrySlug) {
+    const base = buildLocalePath({ lang, country: countrySlug, city: citySlug ?? undefined });
+    const segment = banner.linkKind === "category" ? "category" : "occasion";
+    return { href: `${base}/${segment}/${banner.linkSlug}`, external: false };
+  }
+  if (banner.linkUrl) {
+    return { href: banner.linkUrl, external: isExternal(banner.linkUrl) };
+  }
+  return null;
+}
+
 export function HeroBannerSlide({ banner, isMobile, active }: Props) {
+  const { language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+
+  const countrySlug = countryCode
+    ? (isSupportedCountrySlug(countryCode.toLowerCase())
+        ? (countryCode.toLowerCase() as CountrySlug)
+        : null)
+    : null;
+  const citySlug = cityId ? cityIdToSlug(cityId) : null;
+
+  const link = bannerHref(banner, language as Lang, countrySlug, citySlug);
+
   const mediaType = banner.mediaType;
   const mediaUrl = banner.mediaUrl;
-  const linkUrl = banner.linkUrl;
   const hasText = !!(banner.title || banner.headline || banner.subtitle || banner.ctaText);
 
   const osStorageImage = mediaType === "image" ? buildOsImageSrcset(mediaUrl, "(max-width: 1280px) 100vw, 1280px") : null;
@@ -31,12 +63,10 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
     ? buildOsProxyUrl(mediaUrl, isMobile ? 800 : 1200)
     : mediaUrl;
 
-  const external = linkUrl ? isExternal(linkUrl) : false;
-
   return (
     <a
-      href={linkUrl || undefined}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      href={link?.href ?? undefined}
+      {...(link?.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="block relative w-full h-full"
       data-testid={`slide-${banner.id}`}
       tabIndex={active ? 0 : -1}

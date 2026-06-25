@@ -78,7 +78,10 @@ router.get("/homepage/banners", async (req, res) => {
     mediaType: "image" | "video";
     mediaUrl: string;
     fallbackImageUrl: string | undefined;
-    linkUrl: string;
+    linkUrl: string | null;
+    linkKind: "category" | "occasion" | null;
+    linkSlug: string | null;
+    linkName: string | null;
     sortOrder: number;
     priority: number | undefined;
   };
@@ -93,6 +96,16 @@ router.get("/homepage/banners", async (req, res) => {
         const fallbackImageUrl = rawFallback
           ? rawFallback.startsWith("/") ? `${osBase}${rawFallback}` : rawFallback
           : undefined;
+        const rawLinkKind = b.link_kind ?? b.linkKind;
+        const linkKind =
+          rawLinkKind === "category" || rawLinkKind === "occasion" ? rawLinkKind : null;
+        const rawLinkSlug = b.link_slug ?? b.linkSlug;
+        const linkSlug = rawLinkSlug ? String(rawLinkSlug) : null;
+        const rawLinkName = b.link_name ?? b.linkName;
+        const linkName = rawLinkName ? String(rawLinkName) : null;
+        const hasStructured = linkKind !== null && linkSlug !== null;
+        const rawLinkUrl = b.link_url ?? b.linkUrl;
+        const linkUrl = hasStructured ? null : rawLinkUrl ? String(rawLinkUrl) : null;
         return {
           id: String(b.id ?? ""),
           title: b.title ? String(b.title) : undefined,
@@ -102,7 +115,10 @@ router.get("/homepage/banners", async (req, res) => {
           mediaType: (b.media_type ?? b.mediaType ?? "image") as "image" | "video",
           mediaUrl,
           fallbackImageUrl,
-          linkUrl: String(b.link_url ?? b.linkUrl ?? ""),
+          linkUrl,
+          linkKind,
+          linkSlug,
+          linkName,
           sortOrder: Number(b.sort_order ?? b.sortOrder ?? 0),
           priority: b.priority != null ? Number(b.priority) : undefined,
         };

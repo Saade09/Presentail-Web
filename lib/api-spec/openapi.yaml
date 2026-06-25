@@ -2276,6 +2276,19 @@ components:
           description: Static image fallback when mediaType is video and the browser cannot autoplay.
         linkUrl:
           type: string
+          nullable: true
+        linkKind:
+          type: string
+          enum:
+            - category
+            - occasion
+          nullable: true
+        linkSlug:
+          type: string
+          nullable: true
+        linkName:
+          type: string
+          nullable: true
         sortOrder:
           type: integer
         priority:
@@ -2284,7 +2297,6 @@ components:
         - id
         - mediaType
         - mediaUrl
-        - linkUrl
         - sortOrder
     HomepageBannersResponse:
       type: object

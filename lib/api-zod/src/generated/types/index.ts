@@ -73,6 +73,7 @@ export * from "./getHomepageBestSellersParams";
 export * from "./getHomepageCategoriesParams";
 export * from "./healthStatus";
 export * from "./homepageBanner";
+export * from "./homepageBannerLinkKind";
 export * from "./homepageBannerMediaType";
 export * from "./homepageBannersResponse";
 export * from "./homepageBestSellerProduct";

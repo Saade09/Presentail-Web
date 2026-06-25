@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { HomepageBannerLinkKind } from "./homepageBannerLinkKind";
 import type { HomepageBannerMediaType } from "./homepageBannerMediaType";
 
 export interface HomepageBanner {
@@ -18,7 +19,10 @@ export interface HomepageBanner {
   mediaUrl: string;
   /** Static image fallback when mediaType is video and the browser cannot autoplay. */
   fallbackImageUrl?: string;
-  linkUrl: string;
+  linkUrl?: string | null;
+  linkKind?: HomepageBannerLinkKind;
+  linkSlug?: string | null;
+  linkName?: string | null;
   sortOrder: number;
   priority?: number;
 }
