@@ -4,6 +4,7 @@ import { AppText } from "@/components/AppText";
 
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { DirhamSymbol } from "@/components/DirhamSymbol";
+import { RiyalSymbol } from "@/components/RiyalSymbol";
 
 type Props = {
   /** The amount to display. When `native` is true this is already in the active currency; otherwise it is USD. */
@@ -43,6 +44,23 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
         ]}
       >
         <DirhamSymbol size={glyph} color={tint} />
+        <AppText style={style}>{numStr}</AppText>
+      </View>
+    );
+  }
+
+  if (currency.code === "SAR") {
+    const fontSize = (style?.fontSize as number) ?? 14;
+    const glyph = symbolSize ?? Math.round(fontSize * 0.75);
+    const tint = symbolColor ?? (style?.color as string) ?? "#00414E";
+    return (
+      <View
+        style={[
+          { flexDirection: "row", alignItems: "center", gap: 4 },
+          containerStyle,
+        ]}
+      >
+        <RiyalSymbol size={glyph} color={tint} />
         <AppText style={style}>{numStr}</AppText>
       </View>
     );

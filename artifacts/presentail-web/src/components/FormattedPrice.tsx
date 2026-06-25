@@ -1,10 +1,18 @@
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useFxRates } from "@/lib/queries";
 import { DirhamSymbol } from "./DirhamSymbol";
+import { RiyalSymbol } from "./RiyalSymbol";
 
 function aedNumStr(usdValue: number, rates: Record<string, number>): string {
   const v = Number(usdValue) || 0;
   const rate = Number(rates["AED"] ?? 0);
+  const converted = rate > 0 ? Math.round(v * rate) : Math.round(v);
+  return converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function sarNumStr(usdValue: number, rates: Record<string, number>): string {
+  const v = Number(usdValue) || 0;
+  const rate = Number(rates["SAR"] ?? 0);
   const converted = rate > 0 ? Math.round(v * rate) : Math.round(v);
   return converted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
@@ -44,6 +52,18 @@ export function FormattedPrice({ usdValue, className, symbolSize = "0.75em" }: P
         <span style={{ whiteSpace: "nowrap" }} className={className}>
           <DirhamSymbol size={symbolSize} />
           {aedNumStr(usdValue, rates)}
+        </span>
+      );
+    }
+  }
+
+  if (currencyCode === "SAR") {
+    const rate = Number((rates as Record<string, number>)["SAR"] ?? 0);
+    if (rate > 0) {
+      return (
+        <span style={{ whiteSpace: "nowrap" }} className={className}>
+          <RiyalSymbol size={symbolSize} />
+          {sarNumStr(usdValue, rates)}
         </span>
       );
     }
