@@ -635,7 +635,7 @@ export default function Cart() {
                   <span className="text-2xl font-serif"><FormattedPrice usdValue={Math.max(0, cartTotal)} /></span>
                 </div>
 
-                <Button asChild size="lg" className="w-full h-14 text-base rounded-xl px-5">
+                <Button asChild size="lg" className="hidden lg:flex w-full h-14 text-base rounded-xl px-5">
                   <Link
                     href="/checkout"
                     onClick={handleProceed}
