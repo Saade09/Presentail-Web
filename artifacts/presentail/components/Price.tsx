@@ -72,5 +72,9 @@ export function Price({ value, native, style, containerStyle, symbolColor, symbo
       ? `${currency.symbol}${sep}${numStr}`
       : `${numStr}${sep}${currency.symbol}`;
 
-  return <AppText style={style}>{text}</AppText>;
+  return (
+    <View style={[{ flexShrink: 0 }, containerStyle]}>
+      <AppText style={style}>{text}</AppText>
+    </View>
+  );
 }

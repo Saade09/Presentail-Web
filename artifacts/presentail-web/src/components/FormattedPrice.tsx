@@ -69,5 +69,5 @@ export function FormattedPrice({ usdValue, className, symbolSize = "0.75em" }: P
     }
   }
 
-  return <span className={className}>{formatPrice(usdValue)}</span>;
+  return <span style={{ whiteSpace: "nowrap" }} className={className}>{formatPrice(usdValue)}</span>;
 }

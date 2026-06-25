@@ -109,6 +109,7 @@ export function ProductCard({ product, width, onPress }: Props) {
           <Price
             value={product.priceValue}
             style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
+            containerStyle={{ flexShrink: 0 }}
           />
           {freeDeliveryEnabled && convertedPrice >= threshold ? (
             <AppText style={{ fontFamily: typo.regular, fontSize: 11, color: colors.gold, letterSpacing: 1 }}>

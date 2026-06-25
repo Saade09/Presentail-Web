@@ -18,18 +18,20 @@ export function DirhamSymbol({ size = "1em" }: Props) {
   const dim = typeof size === "number" ? `${size}px` : size;
   return (
     <svg
-      viewBox="0 0 1000 870"
+      viewBox="-100 0 1200 870"
       aria-hidden="true"
       style={{
         height: dim,
         width: "auto",
-        aspectRatio: "1000 / 870",
+        aspectRatio: "1200 / 870",
         display: "inline-block",
         verticalAlign: "middle",
         fill: "currentColor",
+        marginLeft: "1px",
         marginRight: "0.15em",
+        overflow: "visible",
         position: "relative",
-        top: "-0.05em",
+        top: "calc(-0.05em - 1px)",
       }}
     >
       <path d={DIRHAM_PATH} />
