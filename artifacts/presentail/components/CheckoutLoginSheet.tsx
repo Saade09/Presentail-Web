@@ -302,12 +302,8 @@ export function CheckoutLoginSheet({
     setEmailBusy(true);
     const r = await checkEmailExists(trimmed);
     setEmailBusy(false);
-    if (!r.ok) {
-      setEmailError(errorText(r));
-      return;
-    }
     setEmail(trimmed);
-    setStep(r.exists ? "passwordLogin" : "signup");
+    setStep(r.ok && r.exists ? "passwordLogin" : "signup");
   };
 
   const onSubmitLogin = async () => {

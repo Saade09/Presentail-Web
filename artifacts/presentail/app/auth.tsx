@@ -154,12 +154,8 @@ function AuthScreen() {
     setEmailBusy(true);
     const r = await checkEmailExists(trimmed);
     setEmailBusy(false);
-    if (!r.ok) {
-      setEmailError(errorText(r));
-      return;
-    }
     setEmail(trimmed);
-    if (r.exists) {
+    if (r.ok && r.exists) {
       setStep("passwordLogin");
     } else {
       setStep("signup");
