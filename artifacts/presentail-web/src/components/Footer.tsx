@@ -287,27 +287,29 @@ export function Footer() {
               <CurrencySwitcher />
             </div>
 
-            <div>
-              <ColumnHeading>{t("footer.language")}</ColumnHeading>
-              {/* LanguageSwitcher relies on `text-foreground` / dropdown menu styling.
-                  Wrap it in an inverted pill so it stays legible on the dark footer. */}
-              <div className="inline-flex items-center bg-white text-primary px-3 py-2 rounded-md text-sm">
-                <LanguageSwitcher />
+            <div className="flex flex-row gap-6 md:flex-col md:gap-0 md:space-y-4">
+              <div>
+                <ColumnHeading>{t("footer.language")}</ColumnHeading>
+                {/* LanguageSwitcher relies on `text-foreground` / dropdown menu styling.
+                    Wrap it in an inverted pill so it stays legible on the dark footer. */}
+                <div className="inline-flex items-center bg-white text-primary px-3 py-2 rounded-md text-sm">
+                  <LanguageSwitcher />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <ColumnHeading>{t("footer.city")}</ColumnHeading>
-              <button
-                type="button"
-                onClick={() => openPicker()}
-                aria-label={t("footer.openCity")}
-                data-testid="footer-city-trigger"
-                className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
-              >
-                <MapPin className="w-3.5 h-3.5 opacity-70" />
-                <span>{cityLabel}</span>
-              </button>
+              <div>
+                <ColumnHeading>{t("footer.city")}</ColumnHeading>
+                <button
+                  type="button"
+                  onClick={() => openPicker()}
+                  aria-label={t("footer.openCity")}
+                  data-testid="footer-city-trigger"
+                  className="inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 opacity-70" />
+                  <span>{cityLabel}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
