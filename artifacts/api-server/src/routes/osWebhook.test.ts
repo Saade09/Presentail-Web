@@ -277,4 +277,82 @@ describe("parseDeliveryConfigPayload", () => {
     const result = parseDeliveryConfigPayload({} as any);
     expect(result.countries).toHaveLength(0);
   });
+
+  it("returns undefined expressAvailable when both express_available and express_delivery_fee are absent", () => {
+    // This is the key case for Bug 1: a partial webhook that updates only
+    // time slots or free_delivery_threshold must NOT set expressAvailable=false.
+    // It should return undefined so the cache layer can preserve the prior value.
+    const result = parseDeliveryConfigPayload({
+      countries: [
+        {
+          code: "lb",
+          name: "Lebanon",
+          currency: "USD",
+          cities: [
+            {
+              id: 1,
+              slug: "beirut",
+              name: "Beirut",
+              // express_available omitted — partial payload (slot-only update)
+              // express_delivery_fee omitted
+              free_delivery_threshold: 75,
+              delivery_slots: [
+                { label: "Morning", start_time: "09:00:00", end_time: "14:00:00", cutoff_hour: 8 },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const city = result.countries[0]?.cities[0];
+    expect(city?.expressAvailable).toBeUndefined();
+  });
+
+  it("returns expressAvailable=true when express_delivery_fee is present but express_available is absent", () => {
+    const result = parseDeliveryConfigPayload({
+      countries: [
+        {
+          code: "lb",
+          name: "Lebanon",
+          currency: "USD",
+          cities: [
+            {
+              id: 1,
+              slug: "beirut",
+              name: "Beirut",
+              delivery_fee: 5,
+              express_delivery_fee: 20,
+              // express_available omitted — inferred from express_delivery_fee presence
+            },
+          ],
+        },
+      ],
+    });
+    const city = result.countries[0]?.cities[0];
+    expect(city?.expressAvailable).toBe(true);
+  });
+
+  it("respects explicit express_available=false even when express_delivery_fee is present", () => {
+    const result = parseDeliveryConfigPayload({
+      countries: [
+        {
+          code: "lb",
+          name: "Lebanon",
+          currency: "USD",
+          cities: [
+            {
+              id: 1,
+              slug: "beirut",
+              name: "Beirut",
+              delivery_fee: 5,
+              express_delivery_fee: 20,
+              express_available: false,
+            },
+          ],
+        },
+      ],
+    });
+    const city = result.countries[0]?.cities[0];
+    expect(city?.expressAvailable).toBe(false);
+  });
 });

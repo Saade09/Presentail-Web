@@ -244,6 +244,123 @@ describe("osLocationsCache — zero-city country fallback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: expressAvailable preservation (Bug 1 — partial webhook, Bug 2 — 0-city)
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — expressAvailable preservation", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+  });
+
+  it("preserves expressAvailable=true after a partial webhook that omits express fields", () => {
+    // Step 1: seed the cache with Beirut having express delivery enabled.
+    const goodPayload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(goodPayload);
+    const lbAfterGood = getLocations().find((c) => c.code === "LB");
+    const beirutAfterGood = lbAfterGood!.cities.find((c) => c.id === "lb-beirut");
+    expect(beirutAfterGood!.expressAvailable).toBe(true);
+
+    // Step 2: OS pushes a partial delivery.config.updated webhook that omits
+    // express_available and express_delivery_fee (e.g. a free-delivery-threshold
+    // or slot-only update). In the parsed payload expressAvailable is undefined.
+    // Bug 1: before the fix, the cache would set expressAvailable=false here.
+    const partialPayload: OSLocationsResponse = {
+      countries: [
+        {
+          code: "lb",
+          name: "Lebanon",
+          flag: "🇱🇧",
+          currency: "USD",
+          cities: [
+            {
+              id: 1,
+              slug: "beirut",
+              name: "Beirut",
+              // expressAvailable intentionally omitted — simulates a partial webhook
+              expressDeliveryLabel: "",
+              sameDayCutoffHour: 22,
+              timeSlots: [],
+            },
+          ],
+        },
+      ],
+    };
+    storeLocationsFromWebhook(partialPayload);
+
+    const lbAfterPartial = getLocations().find((c) => c.code === "LB");
+    const beirutAfterPartial = lbAfterPartial!.cities.find((c) => c.id === "lb-beirut");
+    expect(
+      beirutAfterPartial!.expressAvailable,
+      "Beirut expressAvailable must remain true after a partial webhook that omits express fields",
+    ).toBe(true);
+  });
+
+  it("sets expressAvailable=false for a city that had no prior cache (clean cold-start)", () => {
+    // No prior cache — a partial webhook with no express fields should default to false.
+    const partialPayload: OSLocationsResponse = {
+      countries: [
+        {
+          code: "lb",
+          name: "Lebanon",
+          flag: "🇱🇧",
+          currency: "USD",
+          cities: [
+            {
+              id: 1,
+              slug: "beirut",
+              name: "Beirut",
+              // expressAvailable omitted — no prior cache to fall back to
+              expressDeliveryLabel: "",
+              sameDayCutoffHour: 22,
+              timeSlots: [],
+            },
+          ],
+        },
+      ],
+    };
+    storeLocationsFromWebhook(partialPayload);
+    const lbAfterPartial = getLocations().find((c) => c.code === "LB");
+    const beirutAfterPartial = lbAfterPartial!.cities.find((c) => c.id === "lb-beirut");
+    expect(beirutAfterPartial!.expressAvailable).toBe(false);
+  });
+
+  it("preserves expressAvailable=true when OS returns 0 cities after a good cache (Bug 2)", () => {
+    // Step 1: seed a good cache where Beirut has express enabled.
+    const goodPayload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true }),
+        ]),
+      ],
+    };
+    storeLocationsFromWebhook(goodPayload);
+    const lbAfterGood = getLocations().find((c) => c.code === "LB");
+    expect(lbAfterGood!.cities.find((c) => c.id === "lb-beirut")!.expressAvailable).toBe(true);
+
+    // Step 2: OS returns 0 cities (transient error or polling gap).
+    // Bug 2: before the fix, the hardcoded fallback set expressAvailable=false.
+    // After the fix, the prior cache is used and expressAvailable stays true.
+    const zeroCityPayload: OSLocationsResponse = { countries: [makeLbCountry([])] };
+    storeLocationsFromWebhook(zeroCityPayload);
+
+    const lbAfterZero = getLocations().find((c) => c.code === "LB");
+    // When the prior cache has cities, they are returned verbatim (the prior-cache
+    // path at lines 264–270 fires before the hardcoded fallback).
+    const beirutAfterZero = lbAfterZero!.cities.find((c) => c.id === "lb-beirut");
+    expect(
+      beirutAfterZero!.expressAvailable,
+      "Beirut expressAvailable must remain true after a 0-city OS response when prior cache has express=true",
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: country entirely absent from OS → hardcoded fallback appended
 // ---------------------------------------------------------------------------
 

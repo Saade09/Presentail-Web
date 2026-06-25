@@ -280,14 +280,19 @@ function transformOsResponse(
           );
           return hardcoded.cities.map((city) => {
             const cfg = resolveDeliveryConfig(code, city.id);
+            // Prefer the prior cached city's expressAvailable so a
+            // transient 0-city OS response doesn't wipe a good value.
+            // Falls back to false only when there is genuinely no prior
+            // record (e.g. first-ever cold start with no cached data).
+            const priorCity = priorCountry?.cities.find(
+              (pc) => pc.id === city.id,
+            );
             return {
               id: city.id,
               name: city.name,
               isActive: city.isActive,
               fee: feeForDistrict(code, city.name),
-              // OS returned 0 cities for this country — use hardcoded defaults.
-              // Default false: never falsely promise express when OS hasn't confirmed it.
-              expressAvailable: false,
+              expressAvailable: priorCity?.expressAvailable ?? false,
               expressDeliveryLabel: "",
               sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
               timeSlots: [] as OSTimeSlot[],
@@ -348,11 +353,18 @@ function transformOsResponse(
             c.deliveryFee != null
               ? getUsdAmount(c.deliveryFee, currency)
               : feeForDistrict(code, c.name),
-          // When OS omits a field fall back to safe defaults so the
-          // shape is always complete and required schema fields are present.
-          // Use false (not true) so we never falsely promise express when
-          // OS hasn't confirmed availability.
-          expressAvailable: c.expressAvailable ?? false,
+          // When OS omits expressAvailable, check the prior cache for this
+          // city before defaulting to false. This prevents a partial webhook
+          // (e.g. slot-only or free-delivery-threshold update that omits
+          // express_available) from silently turning off express delivery.
+          // Fall back to false only when there is genuinely no prior record.
+          expressAvailable:
+            c.expressAvailable ??
+            previousCountries
+              ?.find((p) => p.code === code)
+              ?.cities.find((pc) => pc.id === canonicalId)
+              ?.expressAvailable ??
+            false,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
           // Normalise to an array even when OS omits the field.

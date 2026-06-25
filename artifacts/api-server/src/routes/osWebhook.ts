@@ -192,7 +192,17 @@ export function parseDeliveryConfigPayload(data: {
         name: city.name ?? "",
         isActive: city.is_active ?? true,
         deliveryFee,
-        expressAvailable: city.express_available ?? expressFeeTotal != null,
+        // Return undefined (not false) when both express_available and
+        // express_delivery_fee are absent from the payload. This lets
+        // storeLocationsFromWebhook / transformOsResponse preserve the
+        // prior cached value instead of clobbering it with false on a
+        // partial webhook (e.g. a slot-only or free-delivery update).
+        expressAvailable:
+          city.express_available !== undefined
+            ? city.express_available
+            : expressFeeTotal != null
+              ? true
+              : undefined,
         expressDeliveryLabel: city.express_delivery_label ?? "",
         sameDayCutoffHour: parseHour(city.express_delivery_cutoff_time),
         timeSlots: mapWebhookSlots(city.delivery_slots),
