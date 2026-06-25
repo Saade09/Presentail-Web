@@ -274,6 +274,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /pixel/event:
+    post:
+      operationId: recordFbWebEvent
+      tags: [fbEvents]
+      summary: Forward a Facebook CAPI event from the web app
+      description: |
+        Accepts a single standard Facebook Pixel event fired from the web storefront
+        and forwards it to the Facebook Conversions API server-side. No auth
+        required — access tokens remain server-side. The client supplies the pixel ID
+        (a non-secret identifier already present in the browser env) and an optional
+        fbp cookie value for deduplication. Unknown pixel IDs and any country without
+        a configured access token are silently skipped. Rate-limited per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FbWebEventRequest"
+      responses:
+        "200":
+          description: Event accepted (or silently skipped)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FbWebEventResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/color-hints:
     post:
       operationId: getProductColorHints
@@ -3165,6 +3196,69 @@ components:
         - event
         - countryCode
     FbMobileEventResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    FbWebEventRequest:
+      type: object
+      properties:
+        eventName:
+          type: string
+          enum:
+            - PageView
+            - ViewContent
+            - AddToCart
+            - InitiateCheckout
+            - Purchase
+          description: Standard Facebook Pixel event name.
+        pixelId:
+          type: string
+          description: Facebook Pixel ID (non-secret, already present in the browser env). The server resolves the access token from this ID.
+        eventId:
+          type: string
+          description: Optional deduplication event ID. The server generates a random one when absent.
+        fbp:
+          type: string
+          description: Value of the _fbp browser cookie (or a locally generated fallback) used for browser-side deduplication.
+        fbclid:
+          type: string
+          description: Facebook click ID from the URL query string, passed as fbc in user_data.
+        sourceUrl:
+          type: string
+          description: Full page URL where the event was fired, forwarded as event_source_url.
+        userData:
+          type: object
+          properties:
+            em:
+              type: string
+              description: Shopper email to be SHA-256 hashed server-side before sending to CAPI.
+            ph:
+              type: string
+              description: Shopper phone to be SHA-256 hashed server-side before sending to CAPI.
+        value:
+          type: number
+          description: Order or product value in the checkout currency.
+        currency:
+          type: string
+          description: ISO 4217 currency code (e.g. "USD", "AED").
+        contentIds:
+          type: array
+          items:
+            type: string
+          description: Product IDs associated with the event.
+        contentName:
+          type: string
+          description: Human-readable product name for ViewContent events.
+        numItems:
+          type: integer
+          description: Number of items for cart/checkout events.
+      required:
+        - eventName
+        - pixelId
+    FbWebEventResponse:
       type: object
       properties:
         ok:

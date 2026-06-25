@@ -9,82 +9,61 @@ function pixelIdForCountry(countrySlug: CountrySlug | null): string | null {
   return null;
 }
 
-/**
- * The pixel ID last passed to fbq('init'). null = no pixel active (CY, unknown,
- * or env var absent). All event calls use fbq('trackSingle', activePixelId, ...)
- * so events are scoped to exactly the active pixel even when multiple pixels have
- * been initialized in the same session (e.g. LB→AE SPA navigation).
- */
 let activePixelId: string | null = null;
 
-type AnyFn = (...args: unknown[]) => void;
-
-interface FbqObj extends AnyFn {
-  callMethod?: AnyFn;
-  push: AnyFn;
-  loaded: boolean;
-  version: string;
-  queue: unknown[];
-}
-
-function getFbq(): FbqObj | undefined {
-  if (typeof window === "undefined") return undefined;
-  return (window as unknown as { fbq?: FbqObj }).fbq;
-}
-
-function injectPixelScript(): void {
-  if (typeof window === "undefined") return;
-  const w = window as unknown as { fbq?: FbqObj; _fbq?: FbqObj };
-  if (w.fbq) return;
-
-  const queue: unknown[] = [];
-  const fn: AnyFn = function (...args: unknown[]) {
-    if ((fn as unknown as FbqObj).callMethod) {
-      ((fn as unknown as FbqObj).callMethod as AnyFn)(...args);
-    } else {
-      queue.push(args);
-    }
-  };
-  const fbqObj = fn as unknown as FbqObj;
-  fbqObj.push = fn;
-  fbqObj.loaded = true;
-  fbqObj.version = "2.0";
-  fbqObj.queue = queue;
-  w.fbq = fbqObj;
-  if (!w._fbq) w._fbq = fbqObj;
-
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://connect.facebook.net/en_US/fbevents.js";
-  const firstScript = document.getElementsByTagName("script")[0];
-  firstScript?.parentNode?.insertBefore(script, firstScript);
+/**
+ * Set the active pixel ID for the current country. No-ops for CY/unknown or
+ * when the corresponding env var is absent. Idempotent for repeat calls with
+ * the same country.
+ */
+export function initPixel(countrySlug: CountrySlug | null): void {
+  const pixelId = pixelIdForCountry(countrySlug);
+  activePixelId = pixelId;
 }
 
 /**
- * Call on every country change (including initial load) from FbPixelTracker.
+ * Read the Facebook browser identifier (_fbp) from document.cookie.
+ * Falls back to a locally generated token stored in localStorage so we
+ * always send a stable identifier without loading fbevents.js.
  *
- * - Injects fbevents.js on first call to a trackable country (LB/AE).
- * - Calls fbq('init', pixelId) when a new pixel ID is needed.
- * - Sets activePixelId = null for CY/unknown so subsequent event calls no-op.
- * - Subsequent trackFbEvent calls use trackSingle(activePixelId) so only the
- *   active country's pixel receives events, even if another was previously init'd.
+ * The generated fallback uses the documented _fbp format:
+ *   fb.1.<timestamp_seconds>.<random_int>
  */
-export function initPixel(countrySlug: CountrySlug | null): void {
-  if (typeof window === "undefined") return;
-  const pixelId = pixelIdForCountry(countrySlug);
-
-  if (!pixelId) {
-    activePixelId = null;
-    return;
+function getFbp(): string {
+  if (typeof document !== "undefined") {
+    const match = document.cookie.match(/(?:^|;)\s*_fbp=([^;]+)/);
+    if (match?.[1]) return match[1];
   }
+  try {
+    const stored = localStorage.getItem("_fbp_fallback");
+    if (stored) return stored;
+    const generated = `fb.1.${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 2147483648)}`;
+    localStorage.setItem("_fbp_fallback", generated);
+    return generated;
+  } catch {
+    return `fb.1.${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 2147483648)}`;
+  }
+}
 
-  if (pixelId === activePixelId) return;
-
-  injectPixelScript();
-  const fn = getFbq();
-  if (!fn) return;
-  fn("init", pixelId);
-  activePixelId = pixelId;
+/**
+ * Read the Facebook click ID (_fbc) from document.cookie if present.
+ * Also checks the fbclid URL parameter on the current page.
+ */
+function getFbclid(): string | undefined {
+  if (typeof document !== "undefined") {
+    const cookieMatch = document.cookie.match(/(?:^|;)\s*_fbc=([^;]+)/);
+    if (cookieMatch?.[1]) return cookieMatch[1];
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fbclid = params.get("fbclid");
+      if (fbclid) return fbclid;
+    } catch {
+      // Ignore
+    }
+  }
+  return undefined;
 }
 
 export type FbPixelParams = {
@@ -97,28 +76,55 @@ export type FbPixelParams = {
   event_id?: string;
 };
 
-/**
- * Fire a standard pixel event scoped to the active country pixel via trackSingle.
- * No-ops when no pixel is active (e.g. Cyprus or pixel env vars absent).
- */
-export function trackFbEvent(event: string, params?: FbPixelParams): void {
+function postPixelEvent(
+  eventName: string,
+  params?: FbPixelParams,
+): void {
   if (!activePixelId) return;
-  const fn = getFbq();
-  if (!fn) return;
-  if (params !== undefined) {
-    fn("trackSingle", activePixelId, event, params);
-  } else {
-    fn("trackSingle", activePixelId, event);
-  }
+  if (typeof fetch === "undefined") return;
+
+  const pixelId = activePixelId;
+  const fbp = getFbp();
+  const fbclid = getFbclid();
+  const sourceUrl =
+    typeof window !== "undefined" ? window.location.href : undefined;
+
+  const body: Record<string, unknown> = {
+    eventName,
+    pixelId,
+    fbp,
+    sourceUrl,
+  };
+  if (fbclid) body.fbclid = fbclid;
+  if (params?.event_id) body.eventId = params.event_id;
+  if (params?.value != null) body.value = params.value;
+  if (params?.currency) body.currency = params.currency;
+  if (params?.content_ids) body.contentIds = params.content_ids;
+  if (params?.content_name) body.contentName = params.content_name;
+  if (params?.num_items != null) body.numItems = params.num_items;
+
+  fetch("/api/pixel/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    keepalive: true,
+  }).catch(() => {
+    // Fire-and-forget — never surface analytics failures to the user.
+  });
 }
 
 /**
- * Fire a PageView pixel event scoped to the active country pixel via trackSingle.
+ * Fire a standard pixel event scoped to the active country pixel.
+ * No-ops when no pixel is active (e.g. Cyprus or pixel env vars absent).
+ */
+export function trackFbEvent(event: string, params?: FbPixelParams): void {
+  postPixelEvent(event, params);
+}
+
+/**
+ * Fire a PageView pixel event scoped to the active country pixel.
  * No-ops when no pixel is active (e.g. Cyprus).
  */
 export function trackFbPageView(): void {
-  if (!activePixelId) return;
-  const fn = getFbq();
-  if (!fn) return;
-  fn("trackSingle", activePixelId, "PageView");
+  postPixelEvent("PageView");
 }

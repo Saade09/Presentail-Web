@@ -1150,6 +1150,57 @@ export interface FbMobileEventResponse {
 }
 
 /**
+ * Standard Facebook Pixel event name.
+ */
+export type FbWebEventRequestEventName =
+  (typeof FbWebEventRequestEventName)[keyof typeof FbWebEventRequestEventName];
+
+export const FbWebEventRequestEventName = {
+  PageView: "PageView",
+  ViewContent: "ViewContent",
+  AddToCart: "AddToCart",
+  InitiateCheckout: "InitiateCheckout",
+  Purchase: "Purchase",
+} as const;
+
+export type FbWebEventRequestUserData = {
+  /** Shopper email to be SHA-256 hashed server-side before sending to CAPI. */
+  em?: string;
+  /** Shopper phone to be SHA-256 hashed server-side before sending to CAPI. */
+  ph?: string;
+};
+
+export interface FbWebEventRequest {
+  /** Standard Facebook Pixel event name. */
+  eventName: FbWebEventRequestEventName;
+  /** Facebook Pixel ID (non-secret, already present in the browser env). The server resolves the access token from this ID. */
+  pixelId: string;
+  /** Optional deduplication event ID. The server generates a random one when absent. */
+  eventId?: string;
+  /** Value of the _fbp browser cookie (or a locally generated fallback) used for browser-side deduplication. */
+  fbp?: string;
+  /** Facebook click ID from the URL query string, passed as fbc in user_data. */
+  fbclid?: string;
+  /** Full page URL where the event was fired, forwarded as event_source_url. */
+  sourceUrl?: string;
+  userData?: FbWebEventRequestUserData;
+  /** Order or product value in the checkout currency. */
+  value?: number;
+  /** ISO 4217 currency code (e.g. "USD", "AED"). */
+  currency?: string;
+  /** Product IDs associated with the event. */
+  contentIds?: string[];
+  /** Human-readable product name for ViewContent events. */
+  contentName?: string;
+  /** Number of items for cart/checkout events. */
+  numItems?: number;
+}
+
+export interface FbWebEventResponse {
+  ok: boolean;
+}
+
+/**
  * Error code when ok is false.
  */
 export type PhoneOtpVerifyResponseCode =

@@ -276,6 +276,97 @@ export const RecordFbMobileEventResponse = zod.object({
 });
 
 /**
+ * Accepts a single standard Facebook Pixel event fired from the web storefront
+and forwards it to the Facebook Conversions API server-side. No auth
+required — access tokens remain server-side. The client supplies the pixel ID
+(a non-secret identifier already present in the browser env) and an optional
+fbp cookie value for deduplication. Unknown pixel IDs and any country without
+a configured access token are silently skipped. Rate-limited per IP.
+
+ * @summary Forward a Facebook CAPI event from the web app
+ */
+export const RecordFbWebEventBody = zod.object({
+  eventName: zod
+    .enum([
+      "PageView",
+      "ViewContent",
+      "AddToCart",
+      "InitiateCheckout",
+      "Purchase",
+    ])
+    .describe("Standard Facebook Pixel event name."),
+  pixelId: zod
+    .string()
+    .describe(
+      "Facebook Pixel ID (non-secret, already present in the browser env). The server resolves the access token from this ID.",
+    ),
+  eventId: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional deduplication event ID. The server generates a random one when absent.",
+    ),
+  fbp: zod
+    .string()
+    .optional()
+    .describe(
+      "Value of the _fbp browser cookie (or a locally generated fallback) used for browser-side deduplication.",
+    ),
+  fbclid: zod
+    .string()
+    .optional()
+    .describe(
+      "Facebook click ID from the URL query string, passed as fbc in user_data.",
+    ),
+  sourceUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Full page URL where the event was fired, forwarded as event_source_url.",
+    ),
+  userData: zod
+    .object({
+      em: zod
+        .string()
+        .optional()
+        .describe(
+          "Shopper email to be SHA-256 hashed server-side before sending to CAPI.",
+        ),
+      ph: zod
+        .string()
+        .optional()
+        .describe(
+          "Shopper phone to be SHA-256 hashed server-side before sending to CAPI.",
+        ),
+    })
+    .optional(),
+  value: zod
+    .number()
+    .optional()
+    .describe("Order or product value in the checkout currency."),
+  currency: zod
+    .string()
+    .optional()
+    .describe('ISO 4217 currency code (e.g. \"USD\", \"AED\").'),
+  contentIds: zod
+    .array(zod.string())
+    .optional()
+    .describe("Product IDs associated with the event."),
+  contentName: zod
+    .string()
+    .optional()
+    .describe("Human-readable product name for ViewContent events."),
+  numItems: zod
+    .number()
+    .optional()
+    .describe("Number of items for cart\/checkout events."),
+});
+
+export const RecordFbWebEventResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Accepts a list of product slugs and names. Returns a map of slug →
 color keyword (one of the 17 known colors) or null for products where
 no color can be confidently inferred. Results are cached by name hash

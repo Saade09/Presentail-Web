@@ -7,15 +7,45 @@ type CountryKey = "lb" | "ae";
 
 function configForCountry(countryKey: CountryKey): { pixelId: string; accessToken: string } | null {
   if (countryKey === "lb") {
-    const pixelId = process.env.VITE_FB_PIXEL_ID_LB;
-    const accessToken = process.env.FB_CONVERSIONS_TOKEN_LB;
+    const pixelId = process.env.FACEBOOK_PIXEL_ID_LB ?? process.env.VITE_FB_PIXEL_ID_LB;
+    const accessToken =
+      process.env.FB_CONVERSIONS_TOKEN_LB ??
+      process.env.FACEBOOK_ACCESS_TOKEN;
     if (!pixelId || !accessToken) return null;
     return { pixelId, accessToken };
   }
   if (countryKey === "ae") {
-    const pixelId = process.env.VITE_FB_PIXEL_ID_AE;
-    const accessToken = process.env.FB_CONVERSIONS_TOKEN_AE;
+    const pixelId = process.env.FACEBOOK_PIXEL_ID_AE ?? process.env.VITE_FB_PIXEL_ID_AE;
+    const accessToken =
+      process.env.FB_CONVERSIONS_TOKEN_AE ??
+      process.env.FACEBOOK_ACCESS_TOKEN;
     if (!pixelId || !accessToken) return null;
+    return { pixelId, accessToken };
+  }
+  return null;
+}
+
+/**
+ * Resolve which country a pixelId belongs to by comparing against the known
+ * pixel IDs for LB and AE. Returns null when the pixelId is unrecognised or
+ * the corresponding env vars are not set.
+ */
+function configForPixelId(pixelId: string): { pixelId: string; accessToken: string } | null {
+  const lbPixelId = process.env.FACEBOOK_PIXEL_ID_LB ?? process.env.VITE_FB_PIXEL_ID_LB;
+  const aePixelId = process.env.FACEBOOK_PIXEL_ID_AE ?? process.env.VITE_FB_PIXEL_ID_AE;
+
+  if (lbPixelId && pixelId === lbPixelId) {
+    const accessToken =
+      process.env.FB_CONVERSIONS_TOKEN_LB ??
+      process.env.FACEBOOK_ACCESS_TOKEN;
+    if (!accessToken) return null;
+    return { pixelId, accessToken };
+  }
+  if (aePixelId && pixelId === aePixelId) {
+    const accessToken =
+      process.env.FB_CONVERSIONS_TOKEN_AE ??
+      process.env.FACEBOOK_ACCESS_TOKEN;
+    if (!accessToken) return null;
     return { pixelId, accessToken };
   }
   return null;
@@ -38,9 +68,12 @@ type CAPIUserData = {
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  fbp?: string | null;
+  fbclid?: string | null;
 };
 
 export type CAPIEventName =
+  | "PageView"
   | "ViewContent"
   | "AddToCart"
   | "InitiateCheckout"
@@ -55,6 +88,7 @@ export type CAPIEventParams = {
   contentName?: string | null;
   userData?: CAPIUserData;
   eventId?: string;
+  eventSourceUrl?: string | null;
   /**
    * Facebook CAPI action_source. Defaults to "website" to preserve existing
    * web purchase deduplication semantics. Pass "app" only for events that
@@ -63,20 +97,33 @@ export type CAPIEventParams = {
   actionSource?: "website" | "app";
 };
 
-/**
- * Generic CAPI event sender. Silently no-ops when:
- * - countryCode is not LB or AE (e.g. CY)
- * - The pixel ID or access token env vars are absent for the country
- */
-export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
-  const countryKey = countryCodeToKey(params.countryCode);
-  if (!countryKey) return;
+export type CAPIEventByPixelIdParams = {
+  eventName: CAPIEventName;
+  pixelId: string;
+  value?: number | null;
+  currency?: string | null;
+  contentIds?: string[] | null;
+  contentName?: string | null;
+  userData?: CAPIUserData;
+  eventId?: string;
+  eventSourceUrl?: string | null;
+};
 
-  const config = configForCountry(countryKey);
-  if (!config) return;
-
+async function sendCapiPayload(
+  config: { pixelId: string; accessToken: string },
+  params: {
+    eventName: CAPIEventName;
+    eventId: string;
+    actionSource: "website" | "app";
+    value?: number | null;
+    currency?: string | null;
+    contentIds?: string[] | null;
+    contentName?: string | null;
+    userData?: CAPIUserData;
+    eventSourceUrl?: string | null;
+  },
+): Promise<void> {
   const eventTime = Math.floor(Date.now() / 1000);
-  const eventId = params.eventId ?? randomBytes(16).toString("hex");
 
   const hashedUserData: Record<string, string> = {};
   if (params.userData?.email) {
@@ -91,6 +138,12 @@ export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
   if (params.userData?.lastName) {
     hashedUserData.ln = hashValue(params.userData.lastName);
   }
+  if (params.userData?.fbp) {
+    hashedUserData.fbp = params.userData.fbp;
+  }
+  if (params.userData?.fbclid) {
+    hashedUserData.fbc = params.userData.fbclid;
+  }
 
   const customData: Record<string, unknown> = {};
   if (params.value != null) customData.value = params.value;
@@ -101,21 +154,24 @@ export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
   }
   if (params.contentName) customData.content_name = params.contentName;
 
-  const payload = {
-    data: [
-      {
-        event_name: params.eventName,
-        event_time: eventTime,
-        event_id: eventId,
-        action_source: params.actionSource ?? "website",
-        user_data:
-          Object.keys(hashedUserData).length > 0
-            ? hashedUserData
-            : { client_user_agent: "" },
-        ...(Object.keys(customData).length > 0 ? { custom_data: customData } : {}),
-      },
-    ],
+  const eventPayload: Record<string, unknown> = {
+    event_name: params.eventName,
+    event_time: eventTime,
+    event_id: params.eventId,
+    action_source: params.actionSource,
+    user_data:
+      Object.keys(hashedUserData).length > 0
+        ? hashedUserData
+        : { client_user_agent: "" },
   };
+  if (params.eventSourceUrl) {
+    eventPayload.event_source_url = params.eventSourceUrl;
+  }
+  if (Object.keys(customData).length > 0) {
+    eventPayload.custom_data = customData;
+  }
+
+  const payload = { data: [eventPayload] };
 
   const url = `${GRAPH_API_BASE}/${config.pixelId}/events?access_token=${config.accessToken}`;
 
@@ -123,6 +179,59 @@ export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Generic CAPI event sender keyed by countryCode. Silently no-ops when:
+ * - countryCode is not LB or AE (e.g. CY)
+ * - The pixel ID or access token env vars are absent for the country
+ */
+export async function sendCapiEvent(params: CAPIEventParams): Promise<void> {
+  const countryKey = countryCodeToKey(params.countryCode);
+  if (!countryKey) return;
+
+  const config = configForCountry(countryKey);
+  if (!config) return;
+
+  const eventId = params.eventId ?? randomBytes(16).toString("hex");
+
+  await sendCapiPayload(config, {
+    eventName: params.eventName,
+    eventId,
+    actionSource: params.actionSource ?? "website",
+    value: params.value,
+    currency: params.currency,
+    contentIds: params.contentIds,
+    contentName: params.contentName,
+    userData: params.userData,
+    eventSourceUrl: params.eventSourceUrl,
+  });
+}
+
+/**
+ * CAPI event sender keyed by pixelId (for web client requests that pass the
+ * pixel ID directly). Resolves the access token server-side and silently
+ * no-ops when the pixelId is unrecognised or the token is missing.
+ */
+export async function sendCapiEventByPixelId(
+  params: CAPIEventByPixelIdParams,
+): Promise<void> {
+  const config = configForPixelId(params.pixelId);
+  if (!config) return;
+
+  const eventId = params.eventId ?? randomBytes(16).toString("hex");
+
+  await sendCapiPayload(config, {
+    eventName: params.eventName,
+    eventId,
+    actionSource: "website",
+    value: params.value,
+    currency: params.currency,
+    contentIds: params.contentIds,
+    contentName: params.contentName,
+    userData: params.userData,
+    eventSourceUrl: params.eventSourceUrl,
   });
 }
 
