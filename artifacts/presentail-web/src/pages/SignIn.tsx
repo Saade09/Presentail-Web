@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
+import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
 
 const AppleLogo = () => (
   <svg
@@ -90,6 +91,10 @@ export default function SignInPage() {
   const { t, dir } = useLocale();
   const { toast } = useToast();
   const [oauthBusy, setOauthBusy] = useState<"apple" | "google" | null>(null);
+  const [pendingAppleAuth, setPendingAppleAuth] = useState<{
+    token: string;
+    user: ShimUser;
+  } | null>(null);
 
   const initial = useMemo(() => {
     if (typeof window === "undefined") return { email: "", redirectTo: "", strategy: "" };
@@ -247,7 +252,12 @@ export default function SignInPage() {
       if (!res.ok || !data.ok || !data.token || !data.user) {
         throw new Error(data.message ?? t("auth.toast.error"));
       }
-      handleAuthSuccess(data.token, mapApiUser(data.user), "apple");
+      const mappedUser = mapApiUser(data.user);
+      if (!mappedUser.firstName.trim() || !mappedUser.lastName.trim()) {
+        setPendingAppleAuth({ token: data.token, user: mappedUser });
+      } else {
+        handleAuthSuccess(data.token, mappedUser, "apple");
+      }
     } catch (err: any) {
       toast({
         title: t("auth.toast.oauthFailed", { provider: "Apple" }),
@@ -393,6 +403,28 @@ export default function SignInPage() {
   };
 
   return (
+    <>
+    {pendingAppleAuth ? (
+      <CompleteProfileDialog
+        open={pendingAppleAuth !== null}
+        onOpenChange={(v) => {
+          if (!v && pendingAppleAuth) {
+            handleAuthSuccess(pendingAppleAuth.token, pendingAppleAuth.user, "apple");
+            setPendingAppleAuth(null);
+          }
+        }}
+        token={pendingAppleAuth.token}
+        onComplete={(update) => {
+          if (pendingAppleAuth) {
+            const updatedUser: ShimUser = update
+              ? { ...pendingAppleAuth.user, firstName: update.firstName, lastName: update.lastName }
+              : pendingAppleAuth.user;
+            handleAuthSuccess(pendingAppleAuth.token, updatedUser, "apple");
+            setPendingAppleAuth(null);
+          }
+        }}
+      />
+    ) : null}
     <div
       className="py-10 flex justify-center px-4 bg-[#F7F7F7]"
       dir={dir}
@@ -626,5 +658,6 @@ export default function SignInPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

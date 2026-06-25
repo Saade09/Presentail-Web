@@ -67,6 +67,13 @@ export const authStrings: Dict = {
     en: "We've updated how sign-in works — please use one of the options below to access your account.",
     ar: "لقد حدّثنا طريقة تسجيل الدخول — يرجى استخدام أحد الخيارات أدناه للوصول إلى حسابك.",
   },
+  "auth.completeProfile.title": { en: "What's your name?", ar: "ما اسمك؟" },
+  "auth.completeProfile.desc": {
+    en: "Apple didn't share your name this time. Add it so we can personalise your experience.",
+    ar: "لم يشارك Apple اسمك هذه المرة. أضفه لنتمكن من تخصيص تجربتك.",
+  },
+  "auth.completeProfile.save": { en: "Save Name", ar: "حفظ الاسم" },
+  "auth.completeProfile.skip": { en: "Skip for now", ar: "تخطّ في الوقت الحالي" },
 };
 
 export const authStringsFr: Record<string, string> = {
@@ -129,4 +136,8 @@ export const authStringsFr: Record<string, string> = {
   "auth.resetEmailSent": "Vérifiez votre boîte de réception — si un compte existe pour cet email, un lien de réinitialisation est en route.",
   "auth.sendResetLink": "Envoyer le lien de réinitialisation",
   "auth.existingAccountSocialPrompt": "Nous avons mis à jour notre système de connexion — veuillez utiliser l'une des options ci-dessous pour accéder à votre compte.",
+  "auth.completeProfile.title": "Quel est votre nom ?",
+  "auth.completeProfile.desc": "Apple n'a pas partagé votre nom cette fois-ci. Ajoutez-le pour personnaliser votre expérience.",
+  "auth.completeProfile.save": "Enregistrer le nom",
+  "auth.completeProfile.skip": "Passer pour l'instant",
 };
