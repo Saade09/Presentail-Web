@@ -99,6 +99,17 @@ export function RescheduleDeliverySheet({
 
   React.useEffect(() => {
     if (!visible) return;
+    // Seed from the existing delivery selection when one is already in place,
+    // so adding a second product inherits the slot already chosen for the first.
+    if (
+      (deliverySelection.mode === "today_slot" || deliverySelection.mode === "schedule") &&
+      deliverySelection.date &&
+      deliverySelection.slotLabel
+    ) {
+      setDate(deliverySelection.date);
+      setSlotLabel(deliverySelection.slotLabel);
+      return;
+    }
     const todaySlot = nearestSlotForHour(timeSlots, true, localHour);
     if (todaySlot) {
       setDate(todayIso);
@@ -113,7 +124,7 @@ export function RescheduleDeliverySheet({
         setSlotLabel(timeSlots[0]?.label ?? null);
       }
     }
-  }, [visible, todayIso, timeSlots, localHour]);
+  }, [visible, todayIso, timeSlots, localHour]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (!visible) return;

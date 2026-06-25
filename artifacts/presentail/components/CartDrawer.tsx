@@ -461,7 +461,7 @@ export function CartDrawer() {
                     {deliveryRowValue ?? t.cartSelectDateTimePrompt}
                   </AppText>
                 </View>
-                <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+                <Feather name={deliveryRowValue ? "edit-2" : "chevron-right"} size={14} color={colors.mutedForeground} />
               </Pressable>
               {isExpress ? (
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>

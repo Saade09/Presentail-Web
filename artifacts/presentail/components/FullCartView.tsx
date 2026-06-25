@@ -709,7 +709,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                   {deliveryRowValue ?? t.cartSelectDateTimePrompt}
                 </AppText>
               </View>
-              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+              <Feather name={deliveryRowValue ? "edit-2" : "chevron-right"} size={14} color={colors.mutedForeground} />
             </Pressable>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>

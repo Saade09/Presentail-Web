@@ -23,6 +23,7 @@ import {
 import { UpsellQtyControl } from "@/components/cart/UpsellQtyControl";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
 
 function tabLabelKey(id: UpsellTabId): string {
   switch (id) {
@@ -232,7 +233,10 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           ) : null}
         </div>
 
-        <div className="px-6 py-4 border-t border-primary/10 shrink-0 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="px-6 pb-2 pt-4 border-t border-primary/10 shrink-0">
+          <DeliveryDateRow className="mb-3" />
+        </div>
+        <div className="px-6 py-4 shrink-0 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1 flex flex-col gap-0.5 text-sm">
             <div className="flex items-center justify-between sm:justify-start sm:gap-2 text-muted-foreground">
               <span>{t("cart.subtotal")}</span>
