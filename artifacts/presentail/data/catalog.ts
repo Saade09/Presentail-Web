@@ -49,7 +49,6 @@ const ASSETS: Record<string, any> = {
   "categories/chocolate.webp": require("@/assets/categories/chocolate.webp"),
   "categories/flower-boxes.avif": require("@/assets/categories/flower-boxes.avif"),
   "categories/flower-vases.avif": require("@/assets/categories/flower-vases.avif"),
-  "categories/gift-cards.webp": require("@/assets/categories/gift-cards.webp"),
   "categories/hand-bouquets.webp": require("@/assets/categories/hand-bouquets.webp"),
   "categories/lux-arrangements.avif": require("@/assets/categories/lux-arrangements.avif"),
   "categories/plants.webp": require("@/assets/categories/plants.webp"),

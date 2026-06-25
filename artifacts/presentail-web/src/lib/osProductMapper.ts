@@ -43,7 +43,6 @@ const CATEGORY_MAP: Record<string, string> = {
   chocolate: "chocolate",
   "arabic-sweets": "arabic-sweets",
   coffee: "coffee",
-  "gift-cards": "gift-cards",
   "stuffed-animals": "stuffed-animals",
   "bears-balloons": "bears-balloons",
 };

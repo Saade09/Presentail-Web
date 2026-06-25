@@ -19,7 +19,6 @@ const cat = {
   "arabic-sweets": { asset: "categories/arabic-sweets.webp" },
   plants: { asset: "categories/plants.webp" },
   bundles: { asset: "categories/bundles.webp" },
-  "gift-cards": { asset: "categories/gift-cards.webp" },
 } as const;
 
 const occ = {
@@ -62,7 +61,6 @@ export const categories: Category[] = [
   { id: "arabic-sweets", name: "Arabic Sweets", icon: "candy-outline", image: cat["arabic-sweets"] },
   { id: "plants", name: "Plants", icon: "leaf", image: cat.plants },
   { id: "bundles", name: "Bundles", icon: "gift", image: cat.bundles },
-  { id: "gift-cards", name: "Gift Cards", icon: "card-giftcard", image: cat["gift-cards"] },
 ];
 
 export const occasions: Occasion[] = [
@@ -76,7 +74,7 @@ export const occasions: Occasion[] = [
   { id: "congratulations", name: "Congratulations", icon: "party-popper", image: occFallback.congratulations, description: "Mark their milestone with celebratory blooms and luxurious gifts." },
   { id: "thank-you", name: "Thank You", icon: "hand-heart", image: occ["thank-you"], description: "A graceful way to say thank you, hand-tied in Beirut." },
   { id: "get-well-soon", name: "Get Well Soon", icon: "emoticon-happy", image: occFallback["get-well-soon"], description: "Brighten their recovery with cheery blooms and heartfelt gifts." },
-  { id: "newborn", name: "New Baby", icon: "baby-carriage", image: occFallback.newborn, description: "Welcome a precious new arrival with pastel blooms and sweet gifts." },
+  { id: "newborn", name: "New Born", icon: "baby-carriage", image: occFallback.newborn, description: "Welcome a precious new arrival with pastel blooms and sweet gifts." },
   { id: "eid", name: "Eid Mubarak", icon: "star-crescent", image: occFallback.eid, description: "Celebrate the spirit of Eid with premium treats and elegant arrangements." },
   { id: "wedding", name: "Wedding", icon: "ring", image: occFallback.wedding, description: "Mark the most special day with breathtaking floral arrangements." },
   { id: "thinking-of-you", name: "Thinking of You", icon: "cards-heart", image: occFallback["thinking-of-you"], description: "Let someone know they are in your thoughts with a heartfelt gift." },

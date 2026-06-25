@@ -203,7 +203,7 @@ export const accountStrings: Dict = {
   "occasion.get-well-soon":    { en: "Get Well Soon",     ar: "الشفاء العاجل" },
   "occasion.thank-you":        { en: "Thank You",         ar: "شكراً" },
   "occasion.im-sorry":         { en: "I'm Sorry",         ar: "آسف" },
-  "occasion.newborn":          { en: "Newborn",           ar: "مولود جديد" },
+  "occasion.newborn":          { en: "New Born",          ar: "مولود جديد" },
   "occasion.congratulations":  { en: "Congratulations",   ar: "تهانينا" },
   "occasion.graduation":       { en: "Graduation",        ar: "تخرج" },
   "occasion.condolences":      { en: "Funeral",           ar: "عزاء" },

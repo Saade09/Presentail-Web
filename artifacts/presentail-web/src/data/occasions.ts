@@ -6,7 +6,7 @@ export const OCCASION_OPTIONS = [
   { value: "get-well-soon",     label: "Get Well Soon",     emoji: "🌸" },
   { value: "thank-you",         label: "Thank You",         img: "/catalog/occasions/thank-you.webp" },
   { value: "im-sorry",          label: "I'm Sorry",         emoji: "🕊️" },
-  { value: "newborn",           label: "Newborn",           emoji: "👶" },
+  { value: "newborn",           label: "New Born",          emoji: "👶" },
   { value: "congratulations",   label: "Congratulations",   emoji: "🎊" },
   { value: "graduation",        label: "Graduation",        emoji: "🎓" },
   { value: "condolences",       label: "Funeral",           img: "/catalog/occasions/condolences.webp" },
