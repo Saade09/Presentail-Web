@@ -26,10 +26,14 @@ export function Logo({ height, className, inverse = false }: LogoProps) {
     style = { zoom: AR_SCALE };
   }
 
+  const [intrinsicWidth, intrinsicHeight] = isArabic ? [3250, 792] : [4167, 2383];
+
   return (
     <img
       src={src}
       alt={t("nav.logoAria")}
+      width={intrinsicWidth}
+      height={intrinsicHeight}
       style={style}
       className={className}
       draggable={false}

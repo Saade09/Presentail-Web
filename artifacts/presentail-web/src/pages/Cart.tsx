@@ -768,6 +768,8 @@ function CardPreviewDialog({
       <img
         src={cardStationery}
         alt=""
+        width={1536}
+        height={1024}
         className="absolute inset-0 h-full w-full"
         style={{ objectFit: "fill" }}
       />
@@ -777,7 +779,14 @@ function CardPreviewDialog({
         className="pointer-events-none absolute flex items-center justify-center"
         style={{ top: 0, left: 0, right: 0, height: "25%" }}
       >
-        <img src={cardLogo} alt="" style={{ height: "38%", width: "auto", objectFit: "contain" }} draggable={false} />
+        <img
+          src={cardLogo}
+          alt=""
+          width={dir === "rtl" ? 3250 : 4167}
+          height={dir === "rtl" ? 792 : 2383}
+          style={{ height: "38%", width: "auto", objectFit: "contain" }}
+          draggable={false}
+        />
       </div>
       {/* Content positioned within the stationery's writable area:
           top 25% clears the decorative Presentail header,
