@@ -232,7 +232,10 @@ function filterValidOsSlots(slots: OSTimeSlot[]): OSTimeSlot[] {
   return slots.filter((s) => s.cutoffHour != null);
 }
 
-function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
+function transformOsResponse(
+  resp: OSLocationsResponse,
+  previousCountries?: CachedCountry[] | null,
+): CachedCountry[] {
   const osCodes = new Set(resp.countries.map((c) => c.code.toUpperCase()));
 
   const fromOs: CachedCountry[] = resp.countries.map((osCountry) => {
@@ -243,9 +246,11 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
     const currency = osCountry.currency ?? hardcoded?.currency ?? "USD";
 
     // When OS returns a country but with no cities (data pipeline gap or
-    // not yet published to the public API), fall back to hardcoded cities
-    // for that country so shoppers still see a picker. Emit a WARN so ops
-    // can see the gap without needing to check the API manually.
+    // not yet published to the public API), prefer the prior cached city
+    // list for that country so the last-known OS active/inactive states
+    // are preserved. Only fall back to hardcoded cities when there is no
+    // prior cached state at all (genuine first-ever fetch). Emit a WARN
+    // so ops can see the gap without needing to check the API manually.
     //
     // When OS returns 1+ cities, map them normally and then append any
     // hardcoded cities absent from the OS response as inactive (isActive:
@@ -253,29 +258,48 @@ function transformOsResponse(resp: OSLocationsResponse): CachedCountry[] {
     // omits has been disabled in the OS admin panel and should appear
     // greyed out rather than vanishing entirely.
     const cities: CachedCity[] = (() => {
-      if (osCountry.cities.length === 0 && hardcoded?.cities.length) {
-        logger.warn(
-          { countryCode: code },
-          "osLocationsCache: OS returned 0 cities for country — serving hardcoded fallback cities until OS data is available",
-        );
-        return hardcoded.cities.map((city) => {
-          const cfg = resolveDeliveryConfig(code, city.id);
-          return {
-            id: city.id,
-            name: city.name,
-            isActive: city.isActive,
-            fee: feeForDistrict(code, city.name),
-            // OS returned 0 cities for this country — use hardcoded defaults.
-            // Default false: never falsely promise express when OS hasn't confirmed it.
-            expressAvailable: false,
-            expressDeliveryLabel: "",
-            sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
-            timeSlots: [] as OSTimeSlot[],
-            localizedNames: localizedNamesForCity(city.id),
-            freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
-            freeDeliveryEnabled: cfg.freeDeliveryEnabled,
-          };
-        });
+      if (osCountry.cities.length === 0) {
+        // Prefer the prior cache for this country so last-known OS
+        // active/inactive states survive transient 0-city responses.
+        const priorCountry = previousCountries?.find((p) => p.code === code);
+        if (priorCountry && priorCountry.cities.length > 0) {
+          logger.warn(
+            { countryCode: code, source: "prior_cache" },
+            "osLocationsCache: OS returned 0 cities for country — retaining prior cached city states until OS data recovers",
+          );
+          return priorCountry.cities;
+        }
+
+        // No prior cache: fall back to hardcoded cities so shoppers still
+        // see a picker. All hardcoded flags are used as-is (conservative
+        // safe default for first-ever server start).
+        if (hardcoded?.cities.length) {
+          logger.warn(
+            { countryCode: code, source: "hardcoded_fallback" },
+            "osLocationsCache: OS returned 0 cities for country — serving hardcoded fallback cities until OS data is available",
+          );
+          return hardcoded.cities.map((city) => {
+            const cfg = resolveDeliveryConfig(code, city.id);
+            return {
+              id: city.id,
+              name: city.name,
+              isActive: city.isActive,
+              fee: feeForDistrict(code, city.name),
+              // OS returned 0 cities for this country — use hardcoded defaults.
+              // Default false: never falsely promise express when OS hasn't confirmed it.
+              expressAvailable: false,
+              expressDeliveryLabel: "",
+              sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
+              timeSlots: [] as OSTimeSlot[],
+              localizedNames: localizedNamesForCity(city.id),
+              freeDeliveryThresholdUsd: cfg.freeDeliveryThresholdUsd,
+              freeDeliveryEnabled: cfg.freeDeliveryEnabled,
+            };
+          });
+        }
+        // No cities available from any source — return empty (country
+        // will appear with no picker options, which is visible to ops).
+        return [];
       }
 
       const osCities: CachedCity[] = osCountry.cities.map((c) => {
@@ -492,7 +516,7 @@ async function fetchAndStore(): Promise<void> {
 
   try {
     const resp = await fetchOsLocations({ baseUrl, apiKey });
-    const countries = transformOsResponse(resp);
+    const countries = transformOsResponse(resp, cachedCountries);
     cachedCountries = countries;
     cityIndex = buildCityIndex(countries);
     const sig = locationsSignature(countries);
@@ -638,7 +662,7 @@ export function storeLocationsFromWebhook(payload: OSLocationsResponse): void {
     return;
   }
 
-  const countries = transformOsResponse(payload);
+  const countries = transformOsResponse(payload, cachedCountries);
   cachedCountries = countries;
   cityIndex = buildCityIndex(countries);
 
@@ -729,6 +753,27 @@ export function stopOsLocationSync(): void {
     clearInterval(timer);
     timer = null;
   }
+}
+
+/**
+ * Reset all module-level cache state back to the initial (null/empty) values.
+ * For use in unit tests only — not exported in production builds via the
+ * NODE_ENV guard in startOsLocationSync.
+ */
+export function resetCacheForTesting(): void {
+  cachedCountries = null;
+  cityIndex = new Map();
+  lastLocationsSignature = null;
+  locationsChangedFlag = false;
+}
+
+/**
+ * Trigger a single fetch-and-store cycle. For use in unit tests only —
+ * allows tests to exercise the fetchAndStore error-handling paths without
+ * starting the background interval.
+ */
+export async function fetchAndStoreForTesting(): Promise<void> {
+  return fetchAndStore();
 }
 
 /**
