@@ -72,6 +72,15 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
 };
 
 /**
+ * Category slugs that must never appear in the mega menu or hamburger menu,
+ * regardless of whether the OS catalog returns them. Add slugs here to
+ * permanently suppress a category from navigation.
+ */
+export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
+  "gift-cards",
+]);
+
+/**
  * Maps occasion slugs to their bundled static image path (served from /catalog/occasions/).
  * Used as a fallback in the homepage occasions carousel when the OS catalog has no image
  * configured for an occasion, so circles show a real photo instead of a generic icon.

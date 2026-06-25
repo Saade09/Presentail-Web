@@ -11,7 +11,7 @@ import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { useBrands, useCatalogMetadata } from "@/lib/queries";
-import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
+import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
 import {
   useGetCatalogOccasions,
   getGetCatalogOccasionsQueryKey,
@@ -273,6 +273,7 @@ export function MainNavbar() {
           .filter(
             (c) =>
               !staticMenuSlugs.has(c.id) &&
+              !CATEGORY_NAV_BLOCKLIST.has(c.id) &&
               // Also exclude catalog slugs whose remap target is already covered
               // by a static menu item (e.g. "baskets" → "gift-baskets" is in static).
               !(CATEGORY_SLUG_REMAP[c.id] && staticMenuSlugs.has(CATEGORY_SLUG_REMAP[c.id]!)) &&
