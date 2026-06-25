@@ -598,20 +598,21 @@ function Hero() {
         })}
         bounces={false}
       />
-      <View style={styles.heroDots}>
-        {slides.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.heroDot,
-              {
-                backgroundColor: i === activeIndex ? "#ffffff" : "rgba(255,255,255,0.45)",
-                width: i === activeIndex ? 24 : 8,
-              },
-            ]}
-          />
-        ))}
-      </View>
+      {slides.length > 1 && (
+        <View style={styles.heroDots}>
+          {slides.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.heroDot,
+                {
+                  backgroundColor: i === activeIndex ? "#ffffff" : "rgba(255,255,255,0.45)",
+                },
+              ]}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -1546,8 +1547,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroDot: {
-    height: 8,
-    borderRadius: 4,
+    width: 28,
+    height: 3,
+    borderRadius: 2,
   },
 });
 
