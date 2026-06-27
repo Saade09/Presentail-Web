@@ -4173,3 +4173,244 @@ describe("genericSeoCache — cache-hit, TTL expiry, and FIFO eviction", () => {
     expect(getCachedGenericSeo("newest-entry\x00\x00")).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// JSON-LD structured data (schema.org) — rich results
+//
+// These assert that the server-injected HTML carries valid, well-formed
+// schema.org JSON-LD so Google can render Product, BreadcrumbList,
+// Organization/WebSite/Florist (Store) and FAQPage rich results. Every block
+// must parse as JSON (no trailing junk, no broken escaping).
+// ---------------------------------------------------------------------------
+
+/** Extract and JSON.parse every <script type="application/ld+json"> block. */
+function extractJsonLd(html: string): any[] {
+  const re =
+    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
+  const out: any[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    // Reverse the </script> escaping applied by jsonLdTag before parsing.
+    const raw = m[1].replace(/<\\\/script>/gi, "</script>");
+    out.push(JSON.parse(raw));
+  }
+  return out;
+}
+
+const byType = (blocks: any[], type: string) =>
+  blocks.find((b) => b && b["@type"] === type);
+
+describe("JSON-LD — Product rich result on /product/<slug>", () => {
+  it("emits a valid Product schema with name, image, brand and an in-stock offer", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses, hand-tied.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/velvet-rose-bouquet",
+      OPTS,
+    );
+    const blocks = extractJsonLd(out);
+    const product = byType(blocks, "Product");
+    expect(product).toBeTruthy();
+    expect(product["@context"]).toBe("https://schema.org");
+    expect(product.name).toBe("Velvet Rose Bouquet");
+    expect(product.image).toBe("https://cdn.test/velvet.jpg");
+    expect(product.brand).toEqual({ "@type": "Brand", name: "Presentail" });
+    expect(product.offers).toEqual({
+      "@type": "Offer",
+      price: "89.50",
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+    });
+  });
+
+  it("emits a Home > Shop > Product BreadcrumbList alongside the Product", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses, hand-tied.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/velvet-rose-bouquet",
+      OPTS,
+    );
+    const crumb = byType(extractJsonLd(out), "BreadcrumbList");
+    expect(crumb).toBeTruthy();
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Shop",
+      "Velvet Rose Bouquet",
+    ]);
+    // Positions are 1-based and the leading crumbs carry an absolute item URL.
+    expect(crumb.itemListElement[0]).toMatchObject({
+      position: 1,
+      item: "https://presentail.test/en-ae/dubai",
+    });
+    expect(crumb.itemListElement[1]).toMatchObject({
+      position: 2,
+      item: "https://presentail.test/en-ae/dubai/shop",
+    });
+    // The current page (last crumb) omits the item URL per schema.org guidance.
+    expect(crumb.itemListElement[2].item).toBeUndefined();
+  });
+});
+
+describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () => {
+  it("emits Home > Brands > Brand on a brand page", async () => {
+    mockFetchOnce({
+      ok: true,
+      brand: { name: "Acme Florals", description: "Hand-tied bouquets.", image: "https://cdn.test/acme.jpg" },
+    });
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/brand/acme-florals", OPTS);
+    const crumb = byType(extractJsonLd(out), "BreadcrumbList");
+    expect(crumb).toBeTruthy();
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Brands",
+      "Acme Florals",
+    ]);
+  });
+
+  it("emits Home > Shop > Category and an ItemList on a category page", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            count: 2,
+            products: [{ name: "Red Roses" }, { name: "White Roses" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return { ok: true, json: async () => ({ ok: true, category: { name: "Roses", description: "Fresh roses." } }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/category/roses-jsonld-fixture", OPTS);
+    const blocks = extractJsonLd(out);
+    const crumb = byType(blocks, "BreadcrumbList");
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Shop",
+      "Roses",
+    ]);
+    const list = byType(blocks, "ItemList");
+    expect(list).toBeTruthy();
+    expect(list.numberOfItems).toBe(2);
+    expect(list.itemListElement.map((i: any) => i.name)).toEqual([
+      "Red Roses",
+      "White Roses",
+    ]);
+  });
+
+  it("emits Home > Shop > Occasion on an occasion page", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        return { ok: true, json: async () => ({ ok: true, occasion: { name: "Birthday", description: "Birthday gifts." } }) };
+      }
+      if (u.includes("/api/woo/products")) {
+        return { ok: true, json: async () => ({ ok: true, products: [{ name: "Balloon Set" }] }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(HTML, "/en-ae/dubai/occasion/birthday-jsonld-fixture", OPTS);
+    const crumb = byType(extractJsonLd(out), "BreadcrumbList");
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Shop",
+      "Birthday",
+    ]);
+  });
+});
+
+describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
+  it("emits Organization and WebSite on a locale homepage", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+    const org = byType(blocks, "Organization");
+    expect(org).toBeTruthy();
+    expect(org.name).toBe("Presentail");
+    expect(org.url).toBe("https://presentail.test");
+    expect(Array.isArray(org.sameAs)).toBe(true);
+    const site = byType(blocks, "WebSite");
+    expect(site).toBeTruthy();
+    expect(site.potentialAction["@type"]).toBe("SearchAction");
+  });
+
+  it("emits a Florist (LocalBusiness/Store) anchored to the city on a city homepage", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    expect(florist).toBeTruthy();
+    expect(florist.name).toBe("Presentail");
+    expect(florist.address["@type"]).toBe("PostalAddress");
+    expect(florist.address.addressLocality).toBe("Beirut");
+  });
+});
+
+describe("JSON-LD — FAQPage on /faqs", () => {
+  it("emits a FAQPage with Question/Answer pairs", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/faqs", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+    expect(faq).toBeTruthy();
+    expect(Array.isArray(faq.mainEntity)).toBe(true);
+    expect(faq.mainEntity.length).toBeGreaterThan(0);
+    const first = faq.mainEntity[0];
+    expect(first["@type"]).toBe("Question");
+    expect(typeof first.name).toBe("string");
+    expect(first.acceptedAnswer["@type"]).toBe("Answer");
+    expect(typeof first.acceptedAnswer.text).toBe("string");
+  });
+});
+
+describe("JSON-LD — every emitted block is valid JSON", () => {
+  it("parses cleanly on a product page (no broken escaping)", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses, hand-tied.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/velvet-rose-bouquet",
+      OPTS,
+    );
+    // extractJsonLd throws if any block is not valid JSON.
+    const blocks = extractJsonLd(out);
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    for (const b of blocks) expect(b["@context"]).toBe("https://schema.org");
+  });
+});
