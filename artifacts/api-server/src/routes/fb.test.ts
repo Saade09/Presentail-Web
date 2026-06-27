@@ -1,6 +1,7 @@
+import { createHash } from "crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FbMobileEventBodySchema } from "./fb";
-import { sendCapiEvent } from "../lib/fbConversions";
+import { sendCapiEvent, sendCapiEventByPixelId } from "../lib/fbConversions";
 
 describe("FbMobileEventBodySchema validation", () => {
   it("accepts a valid ViewContent event", () => {
@@ -221,4 +222,125 @@ describe("sendCapiEvent", () => {
     };
     expect(body.data[0].action_source).toBe("app");
   });
+
+  it("sends the exact SHA-256 hash of the trimmed, lowercased email in user_data.em", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 45.0,
+      currency: "USD",
+      userData: { email: "  Test@Example.COM  " },
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string> }>;
+    };
+    const expectedHash = createHash("sha256").update("test@example.com").digest("hex");
+    expect(body.data[0].user_data.em).toBe(expectedHash);
+    expect(body.data[0].user_data.em).not.toContain("@");
+  });
+
+  it("fires successfully for a guest Purchase with no email or phone (guest path)", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEvent({
+      eventName: "Purchase",
+      countryCode: "LB",
+      value: 75.0,
+      currency: "USD",
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string>; event_name: string }>;
+    };
+    expect(body.data[0].event_name).toBe("Purchase");
+    expect(body.data[0].user_data.em).toBeUndefined();
+    expect(body.data[0].user_data.ph).toBeUndefined();
+  });
 });
+
+describe("sendCapiEventByPixelId (POST /api/pixel/event path)", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    delete process.env.VITE_FB_PIXEL_ID_LB;
+    delete process.env.FB_CONVERSIONS_TOKEN_LB;
+    delete process.env.VITE_FB_PIXEL_ID_AE;
+    delete process.env.FB_CONVERSIONS_TOKEN_AE;
+  });
+
+  it("sends the exact SHA-256 hash of the normalised email in user_data.em for a Purchase event", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEventByPixelId({
+      eventName: "Purchase",
+      pixelId: "1234567890",
+      value: 99.0,
+      currency: "USD",
+      userData: { email: "  Shopper@Example.COM  " },
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("1234567890");
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string>; event_name: string }>;
+    };
+    const expectedHash = createHash("sha256").update("shopper@example.com").digest("hex");
+    expect(body.data[0].event_name).toBe("Purchase");
+    expect(body.data[0].user_data.em).toBe(expectedHash);
+    expect(body.data[0].user_data.em).not.toContain("@");
+    expect(body.data[0].user_data.em.length).toBe(64);
+  });
+
+  it("fires successfully for a guest Purchase with no email (guest path, web/pixel route)", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEventByPixelId({
+      eventName: "Purchase",
+      pixelId: "1234567890",
+      value: 55.0,
+      currency: "USD",
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ user_data: Record<string, string>; event_name: string }>;
+    };
+    expect(body.data[0].event_name).toBe("Purchase");
+    expect(body.data[0].user_data.em).toBeUndefined();
+  });
+
+  it("is a silent no-op when the pixelId is unrecognised", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEventByPixelId({
+      eventName: "Purchase",
+      pixelId: "unknown-pixel",
+      value: 50.0,
+      currency: "USD",
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
