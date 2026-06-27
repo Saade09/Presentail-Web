@@ -1,14 +1,20 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useCart } from "@/contexts/CartContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
+import { trackEvent, type AnalyticsEvent } from "@/lib/analytics";
+import { clearPendingOrder, loadPendingOrder, type PendingOrder } from "@/lib/pendingOrder";
+import { createWooOrder } from "@/lib/woo";
+import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 function OrderConfirmed() {
@@ -29,11 +35,73 @@ function OrderConfirmed() {
       paymentRef?: string;
     }>();
 
+  const { clear } = useCart();
+
   // The checkout flow routes here with status=failed when WooCommerce
   // order creation fails after a successful payment. We render a clear
   // failure variant so the customer knows to contact support with the
   // payment reference instead of assuming the order is on its way.
-  const isFailed = status === "failed";
+  //
+  // localStatus lets a successful in-place retry flip the screen from the
+  // failure variant to the success variant without re-navigating.
+  const [localStatus, setLocalStatus] = React.useState<string | undefined>(status);
+  const isFailed = localStatus === "failed";
+
+  // When the shopper was charged but the order failed to record, the checkout
+  // screen stashes the exact order payload. We load it here so the failure
+  // screen can replay it through createWooOrder — letting an already-charged
+  // shopper self-recover from a transient API failure without paying again.
+  const [retainedOrder, setRetainedOrder] = React.useState<PendingOrder | null>(null);
+  const [retrying, setRetrying] = React.useState(false);
+
+  React.useEffect(() => {
+    if (status !== "failed") return;
+    let cancelled = false;
+    loadPendingOrder().then((entry) => {
+      if (!cancelled) setRetainedOrder(entry);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  const canRetry = isFailed && retainedOrder !== null;
+
+  const handleRetry = async () => {
+    if (!retainedOrder || retrying) return;
+    setRetrying(true);
+    try {
+      const result = await submitWooOrderWithRetry({
+        createWooOrder: () =>
+          createWooOrder(retainedOrder.payload, {
+            authToken: retainedOrder.authToken,
+            filter: retainedOrder.filter ?? undefined,
+          }),
+        warn: (msg, meta) =>
+          console.warn(`[order-confirmed] ${msg}`, { orderId: String(orderId), ...(meta ?? {}) }),
+      });
+      if (result.ok) {
+        // Order finally recorded: drop the stash, clear the cart (kept intact
+        // until now so a retry could rebuild it), and reset the coupon.
+        await clearPendingOrder();
+        clear();
+        AsyncStorage.removeItem("@presentail/coupon_v1").catch(() => {});
+        // Funnel terminal step: emit order_placed only now that the order has
+        // actually been created, so a recovered order is still counted.
+        trackEvent({
+          name: "order_placed",
+          surface: "checkout",
+          action: retainedOrder.payload.paymentMethod as AnalyticsEvent["action"],
+        });
+        setRetainedOrder(null);
+        setLocalStatus("success");
+      } else {
+        Alert.alert(t.checkoutOrderFailedTitle, t.checkoutOrderRetryFailedMsg);
+      }
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -186,16 +254,26 @@ function OrderConfirmed() {
 
         {isFailed ? (
           <>
+            {/* When a retained payload exists, the shopper was already charged
+                — the primary CTA replays the stashed order. Otherwise we fall
+                back to re-entering checkout. */}
             <Pressable
-              onPress={() => router.replace("/checkout")}
+              onPress={canRetry ? handleRetry : () => router.replace("/checkout")}
+              disabled={retrying}
               style={{
                 marginTop: 16,
                 backgroundColor: colors.gold,
+                opacity: retrying ? 0.7 : 1,
                 paddingHorizontal: 28,
                 paddingVertical: 16,
                 borderRadius: 999,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
               }}
             >
+              {retrying ? <ActivityIndicator size="small" color="#fff" /> : null}
               <AppText
                 style={{
                   fontFamily: "Inter_600SemiBold",
@@ -206,10 +284,17 @@ function OrderConfirmed() {
                   textAlign: "center",
                 }}
               >
-                {t.checkoutOrderFailedRetry}
+                {retrying ? t.checkoutOrderRetrying : t.checkoutOrderFailedRetry}
               </AppText>
             </Pressable>
-            <Pressable onPress={() => Linking.openURL("mailto:hello@presentail.com")}>
+            {canRetry ? (
+              <Pressable onPress={() => router.replace("/checkout")} disabled={retrying}>
+                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
+                  {t.checkoutOrderFailedReturnCheckout}
+                </AppText>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => Linking.openURL("mailto:hello@presentail.com")} disabled={retrying}>
               <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.primary, letterSpacing: 1, textTransform: "uppercase", textAlign: "center" }}>
                 {t.checkoutOrderFailedContact}
               </AppText>

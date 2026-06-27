@@ -99,6 +99,7 @@ import {
 import { CardField, CardFieldInput, useStripe, PlatformPay } from "@stripe/stripe-react-native";
 import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
+import { clearPendingOrder, savePendingOrder } from "@/lib/pendingOrder";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
@@ -1026,9 +1027,25 @@ function CheckoutScreen() {
               ? `${senderCountry.dial} ${senderWhatsapp}`.trim()
               : undefined,
         });
+        // Terminal success — drop any pending-order stash left over from an
+        // earlier failed attempt so it can never be replayed on a later
+        // failure screen.
+        await clearPendingOrder();
         router.replace(buildResultPath("success", paymentRef));
       } else {
         // Keep cart intact so the customer can retry without rebuilding it.
+        // When the shopper has already been charged (an online payment that
+        // returned a paymentRef), stash the exact order payload so the failure
+        // screen can replay it through createWooOrder. Offline methods
+        // (whish / western) carry no paymentRef and can safely re-enter
+        // checkout instead, so we skip the stash for them.
+        if (paymentRef) {
+          await savePendingOrder({
+            payload: { ...buildWooPayload(orderId), paymentRef },
+            authToken,
+            filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+          });
+        }
         router.replace(buildResultPath("failed", paymentRef));
       }
     };

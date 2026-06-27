@@ -525,6 +525,9 @@ const EN = {
   checkoutOrderFailedTitle: "We couldn't record your order",
   checkoutOrderFailedMsg: "Your payment may have gone through, but we couldn't save your order. Please contact us with the reference below so we can confirm and deliver it.",
   checkoutOrderFailedRetry: "Try placing the order again",
+  checkoutOrderRetrying: "Placing your order…",
+  checkoutOrderRetryFailedMsg: "We still couldn't record your order. Please try again, or contact support with your payment reference.",
+  checkoutOrderFailedReturnCheckout: "Return to checkout",
   checkoutOrderFailedRef: "Payment reference",
   checkoutOrderFailedContact: "Contact support",
   // ── Account ──
@@ -1362,6 +1365,9 @@ const AR: typeof EN = {
   checkoutOrderFailedTitle: "تعذّر تسجيل طلبك",
   checkoutOrderFailedMsg: "ربما تمّت عملية الدفع، لكننا لم نتمكن من حفظ طلبك. يرجى التواصل معنا مع الرقم المرجعي أدناه لتأكيد طلبك وتسليمه.",
   checkoutOrderFailedRetry: "حاول إجراء الطلب مجدداً",
+  checkoutOrderRetrying: "جارٍ تسجيل طلبك…",
+  checkoutOrderRetryFailedMsg: "ما زلنا غير قادرين على تسجيل طلبك. يرجى المحاولة مرة أخرى أو التواصل مع الدعم مع الرقم المرجعي للدفع.",
+  checkoutOrderFailedReturnCheckout: "العودة إلى الدفع",
   checkoutOrderFailedRef: "الرقم المرجعي للدفع",
   checkoutOrderFailedContact: "تواصل مع الدعم",
   // ── Account ──
@@ -2194,6 +2200,9 @@ const FR: typeof EN = {
   checkoutOrderFailedTitle: "Nous n'avons pas pu enregistrer votre commande",
   checkoutOrderFailedMsg: "Votre paiement a peut-être été accepté, mais nous n'avons pas pu enregistrer votre commande. Veuillez nous contacter avec la référence ci-dessous afin que nous puissions confirmer et la livrer.",
   checkoutOrderFailedRetry: "Réessayer la commande",
+  checkoutOrderRetrying: "Enregistrement de votre commande…",
+  checkoutOrderRetryFailedMsg: "Nous n'avons toujours pas pu enregistrer votre commande. Veuillez réessayer ou contacter le support avec votre référence de paiement.",
+  checkoutOrderFailedReturnCheckout: "Retour au paiement",
   checkoutOrderFailedRef: "Référence de paiement",
   checkoutOrderFailedContact: "Contacter le support",
   // ── Account ──
