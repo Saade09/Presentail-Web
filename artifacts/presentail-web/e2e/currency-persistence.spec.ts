@@ -6,7 +6,18 @@ const SESSION_KEY = "presentail_display_currency_manual_v1";
 async function openCurrencySwitcher(page: Page) {
   const trigger = page.getByTestId("currency-switcher");
   await expect(trigger).toBeVisible({ timeout: 10_000 });
+  // The switcher lives in the footer at the bottom of a long, image-heavy page.
+  // Scroll it fully into view and let layout settle BEFORE opening, so Radix
+  // measures the trigger at its final position and flips the menu upward
+  // (within the viewport) instead of opening downward off-screen as a
+  // position:fixed element that page-scrolling can never bring into view.
+  await trigger.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
   await trigger.click();
+  // Confirm the menu actually opened (USD is always the first item).
+  await expect(page.getByTestId("button-currency-usd")).toBeVisible({
+    timeout: 5_000,
+  });
 }
 
 async function pickCurrency(page: Page, code: string) {
@@ -32,7 +43,36 @@ async function disableRemember(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  // Stub the currency + FX endpoints so the switcher offers a deterministic
+  // set of currencies (incl. AED) and never depends on the real API server's
+  // responsiveness — this keeps the tests fast and immune to the dev-server
+  // contention that occurs when the full suite runs serially.  Routes MUST be
+  // registered before the first page.goto() so React Query's fresh cache picks
+  // up the stubbed snapshot on first load.
+  await page.route("**/api/currencies", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_CURRENCIES),
+    }),
+  );
+  await page.route("**/api/fx/rates", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_FX_RATES),
+    }),
+  );
+
+  // Seed location so the shop shell (with footer + currency-switcher) renders
+  // instead of the Landing country-picker when navigating to the shop root.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "presentail_delivery_location_v1",
+      JSON.stringify({ countryCode: "LB", cityId: "lb-beirut" }),
+    );
+  });
+  await page.goto("/en-lb/beirut/");
   // Clear any leftover currency overrides before each test.
   await page.evaluate((keys) => {
     for (const k of keys) {
@@ -174,6 +214,14 @@ const STUB_CURRENCIES = {
       spaceBetween: false,
       decimals: 2,
     },
+    {
+      code: "AED",
+      name: "UAE Dirham",
+      symbol: "AED",
+      symbolPosition: "left",
+      spaceBetween: true,
+      decimals: 2,
+    },
   ],
   fallbackCode: "USD",
   // LB maps to USD so the seeded delivery-country doesn't force-override the
@@ -186,7 +234,7 @@ const STUB_CURRENCIES = {
 const STUB_FX_RATES = {
   ok: true,
   base: "USD",
-  rates: { USD: 1, EUR: 0.92, GBP: 0.79 },
+  rates: { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 },
 };
 
 // Fake product matching the slug used in the PDP navigation below.
@@ -277,7 +325,9 @@ test.describe("Currency propagates through the product and checkout flow", () =>
     // Navigate so the init script seeds localStorage and the stubbed currency
     // endpoints fire.  This page load happens after the outer beforeEach has
     // already cleared any leftover currency overrides.
-    await page.goto("/");
+    // Use a locale-prefixed path so the shop shell (footer + currency-switcher)
+    // renders instead of the Landing country-picker.
+    await page.goto("/en-lb/beirut/");
   });
 
   test("currency selected on the homepage is shown in EUR on the product detail page", async ({
@@ -323,13 +373,10 @@ test.describe("Currency propagates through the product and checkout flow", () =>
 
     // Navigate directly to checkout; the cart is already seeded in localStorage
     // by addInitScript so the summary renders without an API round-trip.
-    await page.goto("/checkout");
-
-    // Dismiss the guest-checkout login prompt if it appears.
-    const guestBtn = page.getByTestId("button-checkout-as-guest");
-    if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await guestBtn.click();
-    }
+    // Pass ?guest=1 so the checkout page sets guestAcked=true immediately from
+    // the URL param — the login gate never appears, regardless of how long the
+    // auth check takes to resolve.
+    await page.goto("/checkout?guest=1");
 
     // The navbar currency switcher must show EUR throughout the checkout.
     const checkoutTrigger = page.getByTestId("currency-switcher");

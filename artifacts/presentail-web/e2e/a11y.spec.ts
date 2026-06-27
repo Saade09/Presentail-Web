@@ -205,12 +205,10 @@ test.describe("Accessibility — no critical/serious WCAG violations", () => {
   });
 
   test("Checkout page", async ({ page }) => {
-    await page.goto("/checkout");
-    // Dismiss the guest-checkout login prompt if it appears.
-    const guestBtn = page.getByTestId("button-checkout-as-guest");
-    if (await guestBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await guestBtn.click();
-    }
+    // Pass ?guest=1 so the checkout page sets guestAcked=true immediately from
+    // the URL param — the login gate never appears, regardless of how long the
+    // auth check takes to resolve (avoids flaky guest-dialog timing).
+    await page.goto("/checkout?guest=1");
     await page.waitForSelector("main, #root > *", { timeout: 15_000 });
     await assertNoA11yViolations(page, "Checkout");
   });

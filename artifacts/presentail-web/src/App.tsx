@@ -51,6 +51,7 @@ import {
   type Lang,
 } from "@/lib/locale-route";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
+import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 import { SeoHead } from "@/components/SeoHead";
 import { CheckoutErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/PageLoader";
@@ -227,6 +228,11 @@ function ShopShell() {
             <HomepageHeader />
           </Suspense>
         )}
+        {isCheckoutPage && (
+          <header className="border-b px-4 py-2 flex items-center justify-end bg-white">
+            <CurrencySwitcher />
+          </header>
+        )}
         <main className="flex-1">
           <RouteErrorBoundary>
           <Switch>
@@ -318,6 +324,7 @@ function CityFallbackRedirect({
 }
 
 function UnprefixedRedirect() {
+  const [path] = useLocation();
   const { countryCode, cityId, countries, isLoadingCountries } =
     useLocationSelection();
   const { language } = useLocale();
@@ -328,12 +335,14 @@ function UnprefixedRedirect() {
     const slug = countryCodeToSlug(countryCode);
     if (isSupportedCountrySlug(slug)) {
       const citySlug = cityIdToSlug(cityId);
-      return (
-        <Redirect
-          to={buildLocalePath({ lang: language, country: slug, city: citySlug })}
-          replace
-        />
-      );
+      const base = buildLocalePath({ lang: language, country: slug, city: citySlug });
+      // Preserve the original path (e.g. /checkout, /sign-up) and query string
+      // so bookmarks and direct links reach the intended page after the locale
+      // prefix is prepended.
+      const suffix = path && path !== "/" ? path : "";
+      const search =
+        typeof window !== "undefined" ? window.location.search : "";
+      return <Redirect to={`${base}${suffix}${search}`} replace />;
     }
   }
   return <Redirect to="/" replace />;

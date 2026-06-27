@@ -10,13 +10,13 @@
  *   6. See the delivery-date row in the order summary reflect the chosen date
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // A minimal cart payload stored in localStorage so the checkout page has
 // something to render. Cart key and structure match CartContext.tsx.
 const CART_ITEM = {
   product: {
-    id: "test-rose-bouquet",
+    id: "rose-bouquet",
     name: "Rose Bouquet",
     slug: "rose-bouquet",
     priceValue: 65,
@@ -26,16 +26,59 @@ const CART_ITEM = {
   quantity: 1,
 };
 
+const STUB_PRODUCT = {
+  id: "rose-bouquet",
+  name: "Rose Bouquet",
+  slug: "rose-bouquet",
+  priceValue: 65,
+  image: { uri: "https://example.com/rose.jpg" },
+  category: "flowers",
+  description: "A beautiful rose bouquet",
+};
+
 const LOCATION = { countryCode: "LB", cityId: "lb-beirut" };
+
+/** Install route stubs so API calls resolve quickly and don't block rendering. */
+async function installStubs(page: Page): Promise<void> {
+  await page.route("**/api/currencies", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        currencies: [{ code: "USD", name: "US Dollar", symbol: "$", symbolPosition: "left", spaceBetween: false, decimals: 2 }],
+        fallbackCode: "USD",
+        countryToCurrency: { LB: "USD" },
+      }),
+    }),
+  );
+  await page.route("**/api/fx/rates", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, base: "USD", rates: { USD: 1 } }),
+    }),
+  );
+  await page.route("**/api/woo/products**", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, products: [STUB_PRODUCT] }),
+    }),
+  );
+}
 
 test.describe("Checkout — calendar date picker", () => {
   test.beforeEach(async ({ page }) => {
+    // Install stubs before any page load so API calls resolve immediately,
+    // ensuring the guest-login prompt appears well within its detection window.
+    await installStubs(page);
+
     // Seed cart and location into localStorage before any page load.
     await page.addInitScript(
       ({ cart, location }) => {
         window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
         window.localStorage.setItem(
-          "presentail_location_v1",
+          "presentail_delivery_location_v1",
           JSON.stringify(location),
         );
       },
@@ -46,19 +89,13 @@ test.describe("Checkout — calendar date picker", () => {
   test("picks a calendar date and confirms the order summary updates", async ({
     page,
   }) => {
-    await page.goto("/checkout");
+    // Navigate with ?guest=1 so the checkout page sets guestAcked=true
+    // immediately from the URL param — the login gate never appears,
+    // regardless of how long the auth check takes to resolve.
+    await page.goto("/checkout?guest=1");
 
-    // Dismiss the optional guest-login prompt if it appears.
-    const guestBtn = page.getByRole("button", {
-      name: /guest|continue without/i,
-    });
-    if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await guestBtn.click();
-    }
-
-    // Switch to "Scheduled" delivery mode.  The button text varies by locale
-    // but always contains "Schedule" or "Scheduled".
-    const scheduleBtn = page.getByRole("button", { name: /schedul/i });
+    // Switch to "Scheduled" delivery mode by testId (avoids locale/text variance).
+    const scheduleBtn = page.getByTestId("delivery-mode-schedule");
     await expect(scheduleBtn.first()).toBeVisible({ timeout: 10_000 });
     await scheduleBtn.first().click();
 

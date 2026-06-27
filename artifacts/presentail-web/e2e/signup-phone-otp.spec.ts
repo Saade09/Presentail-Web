@@ -1,13 +1,20 @@
 /**
- * E2E test: sign-up phone + OTP gate
+ * E2E test: sign-up phone gate
  *
- * Verifies the end-to-end behaviour of the sign-up phone step:
+ * The web sign-up flow has two steps: name/password, then a mandatory phone
+ * step. There is intentionally NO OTP step on web — clicking "Create Account"
+ * with a phone number calls /api/auth/register directly (the OTP gate was
+ * removed; see src/pages/SignUp.test.tsx for the authoritative unit coverage).
+ *
+ * This spec verifies the end-to-end behaviour of the phone step:
  *   1. The "Create Account" button is disabled until a phone number is entered.
- *   2. There is no way to skip the phone step and proceed to registration.
- *   3. Clicking "Create Account" with a phone triggers the OTP send endpoint.
- *   4. The OTP step (code input) appears only after /api/auth/otp/send succeeds.
- *   5. The "Verify" button stays disabled until ≥4 digits are typed.
- *   6. /api/auth/register is NOT called before OTP verification.
+ *   2. There is no way to skip the phone step.
+ *   3. The button enables once a phone number is typed.
+ *   4. Clicking "Create Account" calls /api/auth/register directly and never
+ *      shows an OTP code step or calls /api/auth/otp/send.
+ *   5. A successful registration navigates away from the sign-up page.
+ *   6. The phone number is included in the register payload.
+ *   7. Going back from the phone step returns to the name-password step.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -17,15 +24,21 @@ const TEST_PHONE = "+96170000000";
 
 const SIGN_UP_URL = `/sign-up?email_address=${encodeURIComponent(TEST_EMAIL)}`;
 
-test.describe("Sign-up — phone OTP gate", () => {
+test.describe("Sign-up — phone gate", () => {
   test.beforeEach(async ({ page }) => {
-    // Intercept OTP send: return success so we can see the code step.
-    await page.route("**/api/auth/otp/send", (route) =>
-      route.fulfill({ status: 200, json: { ok: true } }),
-    );
+    // Seed a delivery location so UnprefixedRedirect can forward /sign-up to
+    // the locale-prefixed route (e.g. /en-lb/beirut/sign-up) rather than
+    // falling back to the Landing country-picker.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "presentail_delivery_location_v1",
+        JSON.stringify({ countryCode: "LB", cityId: "lb-beirut" }),
+      );
+    });
 
-    // Intercept OTP verify: return success so we can test the full verify path.
-    await page.route("**/api/auth/otp/verify", (route) =>
+    // Register succeeds with a token + user so the success path logs in and
+    // redirects away from the sign-up page.
+    await page.route("**/api/auth/register", (route) =>
       route.fulfill({
         status: 200,
         json: {
@@ -39,11 +52,6 @@ test.describe("Sign-up — phone OTP gate", () => {
           },
         },
       }),
-    );
-
-    // Intercept register: track whether it was called unexpectedly.
-    await page.route("**/api/auth/register", (route) =>
-      route.fulfill({ status: 500, json: { ok: false, message: "Should not be called" } }),
     );
   });
 
@@ -90,40 +98,13 @@ test.describe("Sign-up — phone OTP gate", () => {
     await expect(page.getByTestId("button-signup-create")).toBeEnabled();
   });
 
-  test("OTP code step appears after entering phone and clicking 'Create Account'", async ({ page }) => {
-    await fillNamePassword(page);
-
-    const phoneInput = page.getByTestId("input-signup-phone");
-    await phoneInput.fill(TEST_PHONE);
-    await page.getByTestId("button-signup-create").click();
-
-    // The OTP code input must appear.
-    await expect(page.getByTestId("input-signup-code")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByTestId("button-signup-verify")).toBeVisible();
-    await expect(page.getByTestId("button-signup-resend")).toBeVisible();
-  });
-
-  test("OTP step's Verify button is disabled until ≥4 digits are entered", async ({ page }) => {
-    await fillNamePassword(page);
-
-    await page.getByTestId("input-signup-phone").fill(TEST_PHONE);
-    await page.getByTestId("button-signup-create").click();
-
-    await expect(page.getByTestId("input-signup-code")).toBeVisible({ timeout: 5_000 });
-
-    const verifyBtn = page.getByTestId("button-signup-verify");
-    await expect(verifyBtn).toBeDisabled();
-
-    await page.getByTestId("input-signup-code").fill("1234");
-    await expect(verifyBtn).toBeEnabled();
-  });
-
-  test("/api/auth/register is not called before OTP is verified", async ({ page }) => {
+  test("clicking 'Create Account' calls /api/auth/register directly — no OTP step", async ({ page }) => {
     const registerCalls: string[] = [];
+    const otpSendCalls: string[] = [];
     page.on("request", (req) => {
-      if (req.url().includes("/api/auth/register")) {
-        registerCalls.push(req.url());
-      }
+      const url = req.url();
+      if (url.includes("/api/auth/register")) registerCalls.push(url);
+      if (url.includes("/api/auth/otp/send")) otpSendCalls.push(url);
     });
 
     await fillNamePassword(page);
@@ -131,18 +112,36 @@ test.describe("Sign-up — phone OTP gate", () => {
     await page.getByTestId("input-signup-phone").fill(TEST_PHONE);
     await page.getByTestId("button-signup-create").click();
 
-    // OTP send is called but register should not be.
-    await expect(page.getByTestId("input-signup-code")).toBeVisible({ timeout: 5_000 });
+    // Register is called directly.
+    await expect.poll(() => registerCalls.length, { timeout: 5_000 }).toBeGreaterThan(0);
 
-    expect(registerCalls).toHaveLength(0);
+    // The OTP send endpoint is never called and no code input is rendered.
+    expect(otpSendCalls).toHaveLength(0);
+    await expect(page.getByTestId("input-signup-code")).toHaveCount(0);
   });
 
-  test("going back from the OTP step returns to the phone step without registration", async ({ page }) => {
-    const registerCalls: string[] = [];
-    page.on("request", (req) => {
-      if (req.url().includes("/api/auth/register")) {
-        registerCalls.push(req.url());
-      }
+  test("a successful registration navigates away from the sign-up page", async ({ page }) => {
+    await fillNamePassword(page);
+
+    await page.getByTestId("input-signup-phone").fill(TEST_PHONE);
+    await page.getByTestId("button-signup-create").click();
+
+    // On success the page logs in and redirects, so the sign-up card unmounts.
+    await expect(page.getByTestId("signup-card")).toHaveCount(0, { timeout: 10_000 });
+  });
+
+  test("the phone number is included in the register payload", async ({ page }) => {
+    let registerBody: Record<string, unknown> | undefined;
+    await page.route("**/api/auth/register", async (route) => {
+      registerBody = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        json: {
+          ok: true,
+          token: "fake-jwt",
+          user: { id: 1, email: TEST_EMAIL, firstName: "Ada", lastName: "Lovelace" },
+        },
+      });
     });
 
     await fillNamePassword(page);
@@ -150,15 +149,23 @@ test.describe("Sign-up — phone OTP gate", () => {
     await page.getByTestId("input-signup-phone").fill(TEST_PHONE);
     await page.getByTestId("button-signup-create").click();
 
-    await expect(page.getByTestId("input-signup-code")).toBeVisible({ timeout: 5_000 });
+    await expect.poll(() => registerBody, { timeout: 5_000 }).toBeTruthy();
+    expect(registerBody?.email).toBe(TEST_EMAIL.toLowerCase());
+    expect(typeof registerBody?.phone).toBe("string");
+    expect(registerBody?.phone as string).toContain("961");
+  });
 
-    // Click the Back button on the OTP step.
-    await page.getByTestId("button-signup-back").click();
+  test("going back from the phone step returns to the name-password step", async ({ page }) => {
+    await fillNamePassword(page);
 
-    // Should return to the phone step — phone input visible, code input gone.
-    await expect(page.getByTestId("input-signup-phone")).toBeVisible({ timeout: 3_000 });
-    await expect(page.getByTestId("input-signup-code")).not.toBeVisible();
+    // Verify we are on the phone step.
+    await expect(page.getByTestId("input-signup-phone")).toBeVisible();
 
-    expect(registerCalls).toHaveLength(0);
+    // Click the global back button.
+    await page.getByTestId("button-signup-back-page").click();
+
+    // Should return to the name-password step — name input visible, phone gone.
+    await expect(page.getByTestId("input-signup-name")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId("input-signup-phone")).toHaveCount(0);
   });
 });

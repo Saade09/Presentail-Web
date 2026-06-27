@@ -156,7 +156,9 @@ test.describe("PaymentMethods — no horizontal overflow at 375 px (phone)", () 
   test("Footer: PaymentMethods does not overflow horizontally", async ({
     page,
   }) => {
-    await page.goto("/");
+    // Use a locale-prefixed path so the shop shell with footer renders instead
+    // of the Landing country-picker (which has no footer).
+    await page.goto("/en-lb/beirut/");
 
     // Scroll to the bottom so the footer and its PaymentMethods are rendered
     // and in the normal document flow.

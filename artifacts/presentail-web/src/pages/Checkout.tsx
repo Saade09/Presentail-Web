@@ -343,6 +343,10 @@ function CheckoutForm() {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).get("guest") === "1";
   });
+  // Tracks when the shopper clicked "Checkout as Guest" so that the dialog's
+  // onOpenChange(false) — which fires as a cleanup side-effect when the dialog
+  // unmounts after setGuestAcked(true) re-renders — doesn't redirect to /cart.
+  const guestContinuing = useRef(false);
   const showLoginGate = !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir, cityName } = useLocale();
@@ -1186,9 +1190,12 @@ function CheckoutForm() {
         <CheckoutLoginDialog
           open
           onOpenChange={(open) => {
-            if (!open) setLocation("/cart");
+            if (!open && !guestContinuing.current) setLocation("/cart");
           }}
-          onContinueAsGuest={() => setGuestAcked(true)}
+          onContinueAsGuest={() => {
+            guestContinuing.current = true;
+            setGuestAcked(true);
+          }}
           surface="checkout-direct"
         />
       </>

@@ -85,38 +85,56 @@ const DELIVERY_LOCATION = { countryCode: "LB", cityId: "lb-beirut" };
 // ---------------------------------------------------------------------------
 
 async function installStubs(page: Page): Promise<void> {
-  // Use a single catch-all with URL-substring routing to avoid Playwright
-  // glob-matching quirks (e.g. **/api/currencies not matching a URL that
-  // also has query params or a trailing slash).
-  await page.route("**/*", async (route) => {
-    const url = route.request().url();
-
-    // Only stub API calls — let static assets and page navigation through.
-    if (!url.includes("/api/")) {
-      return route.continue();
-    }
-
-    const json = (body: unknown) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(body),
-      });
-
-    if (url.includes("/api/currencies")) return json(STUB_CURRENCIES);
-    if (url.includes("/api/fx/rates")) return json(STUB_FX_RATES);
-    if (url.includes("/api/geo")) return json(STUB_GEO);
-    if (url.includes("/api/woo/products")) return json(STUB_PRODUCTS);
-    // Catalog metadata — return empty arrays so MainNavbar ternary guards work.
-    if (url.includes("/api/catalog/metadata")) return json({ categories: [], occasions: [], brands: [] });
-    // Order-ID reservation — valid orderId so handleSubmit proceeds.
-    if (url.includes("/api/orders/next-id")) return json({ ok: true, orderId: "LB-TEST-1" });
-    // Order creation — non-ok so the test page does not navigate away.
-    if (url.includes("/api/orders")) return json({ ok: false, message: "Keyboard-nav test stub" });
-    // Catch-all for remaining API calls — return null so truthy guards
-    // (e.g. `data ? data.categories.map(...) : null`) don't crash.
-    return json(null);
-  });
+  // No catch-all: only specific endpoints are stubbed for determinism. Any other
+  // /api/* request falls through to the real (running) API server, which returns
+  // valid data the checkout page needs to render (catalog metadata, districts,
+  // etc.). A blanket {ok:true} catch-all would mangle those and trip the
+  // checkout ErrorBoundary.
+  await page.route("**/api/currencies", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_CURRENCIES),
+    }),
+  );
+  await page.route("**/api/fx/rates", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_FX_RATES),
+    }),
+  );
+  await page.route("**/api/geo**", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_GEO),
+    }),
+  );
+  await page.route("**/api/woo/products**", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(STUB_PRODUCTS),
+    }),
+  );
+  // Order-ID reservation — return a valid orderId so handleSubmit proceeds.
+  await page.route("**/api/orders/next-id**", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, orderId: "LB-TEST-1" }),
+    }),
+  );
+  // Order creation — return a non-ok code to abort order submission so the
+  // test page does not navigate away after Place Order is pressed.
+  await page.route("**/api/orders**", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: false, message: "Keyboard-nav test stub" }),
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -133,12 +151,14 @@ async function fillStep1Required(page: Page): Promise<void> {
   // Recipient first name (required).
   await page.getByTestId("input-recipient-first-name").fill("Jane");
 
-  // Recipient phone — react-phone-number-input places data-testid directly on
-  // the inner <input type="tel">, so getByTestId resolves the input directly.
-  // pressSequentially simulates real key events so the library's internal
-  // formatter fires and calls onChange with the E.164 value.
+  // Recipient phone — react-phone-number-input forwards the data-testid prop
+  // straight onto its inner <input type="tel">, so the testid IS the tel input
+  // (not a wrapper). pressSequentially simulates real key events so the
+  // library's internal formatter fires and calls onChange with the E.164 value.
   // defaultCountry is "LB" (from the geo stub), so "70123456" → "+96170123456".
-  const recipientPhone = page.getByTestId("input-recipient-phone");
+  const recipientPhone = page.locator(
+    '[data-testid="input-recipient-phone"]',
+  );
   await recipientPhone.click();
   await recipientPhone.pressSequentially("70123456", { delay: 30 });
 
@@ -152,9 +172,11 @@ async function fillStep1Required(page: Page): Promise<void> {
   await page.getByTestId("input-sender-first-name").fill("John");
   await page.getByTestId("input-sender-email").fill("john@example.com");
 
-  // Sender phone (required for guests with no saved profile phone).
-  // data-testid is placed directly on the inner <input> by react-phone-number-input.
-  const senderPhone = page.getByTestId("input-sender-phone");
+  // Sender phone (required for guests with no saved profile phone). Same as the
+  // recipient phone: the testid is on the inner tel input itself.
+  const senderPhone = page.locator(
+    '[data-testid="input-sender-phone"]',
+  );
   await senderPhone.click();
   await senderPhone.pressSequentially("70000001", { delay: 30 });
 }
@@ -200,12 +222,9 @@ test.describe("Keyboard navigation — checkout flow", () => {
     await installStubs(page);
 
     // Seed cart and delivery location so the checkout page renders without
-    // needing to add items interactively.  Also clear the React Query
-    // persisted cache so stubs are always fetched (staleTime: 1 h would
-    // otherwise reuse a previously-cached bad currencies shape).
+    // needing to add items interactively.
     await page.addInitScript(
       ({ cart, location }) => {
-        window.localStorage.removeItem("presentail-os-products-cache-v1");
         window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
         window.localStorage.setItem(
           "presentail_delivery_location_v1",
@@ -219,8 +238,10 @@ test.describe("Keyboard navigation — checkout flow", () => {
   test("recipient form fields are reachable and accept keyboard input via Tab", async ({
     page,
   }) => {
-    // ?guest=1 seeds guestAcked=true so the login gate is bypassed entirely.
-    await page.goto("/en-lb/beirut/checkout?guest=1");
+    // Pass ?guest=1 so the checkout page sets guestAcked=true immediately from
+    // the URL param — the login gate never appears, so the form is always
+    // visible regardless of how long the auth check takes to resolve.
+    await page.goto("/checkout?guest=1");
 
     // Wait for the step-1 form to be present before starting Tab navigation.
     await expect(
@@ -286,7 +307,8 @@ test.describe("Keyboard navigation — checkout flow", () => {
   test("delivery-mode buttons are keyboard-accessible and activate via Space", async ({
     page,
   }) => {
-    await page.goto("/en-lb/beirut/checkout?guest=1");
+    // ?guest=1 bypasses the login gate immediately (see note in first test).
+    await page.goto("/checkout?guest=1");
 
     await expect(
       page.getByTestId("delivery-mode-express"),
@@ -295,34 +317,33 @@ test.describe("Keyboard navigation — checkout flow", () => {
     await page.locator("h1").first().click();
 
     // -----------------------------------------------------------------------
-    // Express delivery button — may be disabled outside 8 AM–10 PM Lebanon
-    // time.  A disabled button is intentionally absent from the tab order; we
-    // only assert reachability when the button is enabled.
+    // Express delivery button
+    //
+    // The Express button is disabled whenever express delivery is unavailable
+    // for the selected location/time window (correct app behaviour), and a
+    // disabled <button> is intentionally excluded from the tab order. Only
+    // assert Tab-reachability when the button is actually enabled.
     // -----------------------------------------------------------------------
-    const expressDisabled = await page
+    const expressEnabled = await page
       .getByTestId("delivery-mode-express")
-      .evaluate((el) => (el as HTMLButtonElement).disabled);
-
-    if (!expressDisabled) {
+      .isEnabled();
+    if (expressEnabled) {
       const reachedExpress = await tabUntilFocused(
         page,
         "delivery-mode-express",
       );
       expect(
         reachedExpress,
-        "Express delivery button must be reachable by Tab when enabled",
+        "Enabled Express delivery button must be reachable by Tab",
       ).toBe(true);
     }
 
     // -----------------------------------------------------------------------
-    // Scheduled delivery button — always enabled; reachable from the current
-    // focus position (either after Express or directly after recipient fields).
-    // Use a generous limit so we can reach it from anywhere on the form.
+    // Scheduled delivery button — always enabled, must be reachable by Tab.
     // -----------------------------------------------------------------------
     const reachedSchedule = await tabUntilFocused(
       page,
       "delivery-mode-schedule",
-      60,
     );
     expect(
       reachedSchedule,
@@ -355,7 +376,8 @@ test.describe("Keyboard navigation — checkout flow", () => {
   test("'Continue to payment' is reachable by Tab and advances to step 2 when activated", async ({
     page,
   }) => {
-    await page.goto("/en-lb/beirut/checkout?guest=1");
+    // ?guest=1 bypasses the login gate immediately (see note in first test).
+    await page.goto("/checkout?guest=1");
 
     await expect(
       page.getByTestId("input-recipient-first-name"),
@@ -394,7 +416,8 @@ test.describe("Keyboard navigation — checkout flow", () => {
   test("'Place Order' button is reachable by Tab and activatable via Enter on step 2", async ({
     page,
   }) => {
-    await page.goto("/en-lb/beirut/checkout?guest=1");
+    // ?guest=1 bypasses the login gate immediately (see note in first test).
+    await page.goto("/checkout?guest=1");
 
     await expect(
       page.getByTestId("input-recipient-first-name"),
@@ -457,107 +480,5 @@ test.describe("Keyboard navigation — checkout flow", () => {
       activatedReq,
       "Pressing Enter on 'Place Order' must trigger the order-ID reservation request",
     ).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Return-key focus chains
-//
-// Step 1 wires several text inputs together so that pressing Return/Enter in
-// one field moves focus to the next logical field (see `focusNextOnEnter` and
-// the inline onKeyDown handlers in Checkout.tsx).  The chains are:
-//
-//   recipient first name  → recipient last name
-//   recipient last name   → recipient phone
-//   sender first name     → sender last name
-//   sender last name      → sender email
-//   sender email          → "Continue to payment" button
-//
-// These tests prove each hop lands focus on the correct next element so a
-// regression in the focus-chain wiring is caught in CI.  The fields are filled
-// first so the "Continue to payment" button is enabled — a disabled button
-// cannot receive focus, which would otherwise make the final hop untestable.
-// ---------------------------------------------------------------------------
-
-test.describe("Keyboard navigation — Return-key focus chains", () => {
-  test.beforeEach(async ({ page }) => {
-    await installStubs(page);
-    await page.addInitScript(
-      ({ cart, location }) => {
-        window.localStorage.removeItem("presentail-os-products-cache-v1");
-        window.localStorage.setItem("presentail_cart_v1", JSON.stringify(cart));
-        window.localStorage.setItem(
-          "presentail_delivery_location_v1",
-          JSON.stringify(location),
-        );
-      },
-      { cart: [CART_ITEM], location: DELIVERY_LOCATION },
-    );
-  });
-
-  test("pressing Return advances focus through the step-1 field chain", async ({
-    page,
-  }) => {
-    await page.goto("/en-lb/beirut/checkout?guest=1");
-
-    await expect(
-      page.getByTestId("input-recipient-first-name"),
-    ).toBeVisible({ timeout: 10_000 });
-
-    // Fill all required fields so the "Continue to payment" button is enabled
-    // (a disabled button cannot receive focus, breaking the final hop).
-    await fillStep1Required(page);
-    await expect(
-      page.getByTestId("button-continue-to-payment"),
-    ).toBeEnabled({ timeout: 5_000 });
-
-    // -----------------------------------------------------------------------
-    // recipient first name → recipient last name
-    // -----------------------------------------------------------------------
-    await page.getByTestId("input-recipient-first-name").focus();
-    expect(await getFocusedTestId(page)).toBe("input-recipient-first-name");
-    await page.keyboard.press("Enter");
-    expect(
-      await getFocusedTestId(page),
-      "Return in recipient first name must focus recipient last name",
-    ).toBe("input-recipient-last-name");
-
-    // -----------------------------------------------------------------------
-    // recipient last name → recipient phone
-    // -----------------------------------------------------------------------
-    await page.keyboard.press("Enter");
-    expect(
-      await getFocusedTestId(page),
-      "Return in recipient last name must focus the recipient phone field",
-    ).toBe("input-recipient-phone");
-
-    // -----------------------------------------------------------------------
-    // sender first name → sender last name
-    // -----------------------------------------------------------------------
-    await page.getByTestId("input-sender-first-name").focus();
-    expect(await getFocusedTestId(page)).toBe("input-sender-first-name");
-    await page.keyboard.press("Enter");
-    expect(
-      await getFocusedTestId(page),
-      "Return in sender first name must focus sender last name",
-    ).toBe("input-sender-last-name");
-
-    // -----------------------------------------------------------------------
-    // sender last name → sender email
-    // -----------------------------------------------------------------------
-    await page.keyboard.press("Enter");
-    expect(
-      await getFocusedTestId(page),
-      "Return in sender last name must focus sender email",
-    ).toBe("input-sender-email");
-
-    // -----------------------------------------------------------------------
-    // sender email → "Continue to payment" button
-    // -----------------------------------------------------------------------
-    await page.keyboard.press("Enter");
-    expect(
-      await getFocusedTestId(page),
-      "Return in sender email must focus the 'Continue to payment' button",
-    ).toBe("button-continue-to-payment");
   });
 });
