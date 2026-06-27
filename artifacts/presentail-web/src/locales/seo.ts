@@ -34,6 +34,22 @@ export const seoStrings: Dict = {
     en: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
     ar: "تصفّح باقات Presentail المنتقاة والكعك والهدايا الفاخرة للتوصيل في {city}، {country}.",
   },
+  "seo.shop.ogTitle": {
+    en: "Shop Flowers & Gifts in {city} | Presentail",
+    ar: "تسوّق الأزهار والهدايا في {city} | Presentail",
+  },
+  "seo.shop.ogDescription": {
+    en: "Browse curated bouquets, cakes and luxury gifts in {city} with same-day delivery from Presentail.",
+    ar: "تصفّح الباقات المنتقاة والكعك والهدايا الفاخرة في {city} مع توصيل في نفس اليوم من Presentail.",
+  },
+  "seo.shop.twitterTitle": {
+    en: "Shop Flowers & Gifts in {city} | Presentail",
+    ar: "تسوّق الأزهار والهدايا في {city} | Presentail",
+  },
+  "seo.shop.twitterDescription": {
+    en: "Shop flowers, cakes and gifts in {city} — same-day delivery by Presentail.",
+    ar: "تسوّق الأزهار والكعك والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
+  },
   "seo.product.title": {
     en: "Gift Delivery in {city} | Presentail",
     ar: "توصيل الهدايا في {city} | Presentail",
@@ -50,6 +66,22 @@ export const seoStrings: Dict = {
     en: "Browse all occasions — birthdays, anniversaries, weddings and more — and find the perfect gift for delivery in {city}, {country}.",
     ar: "تصفّح جميع المناسبات — أعياد الميلاد والذكرى السنوية وحفلات الزفاف والمزيد — وابحث عن الهدية المثالية للتوصيل في {city}، {country}.",
   },
+  "seo.allOccasions.ogTitle": {
+    en: "Shop by Occasion in {city} | Presentail",
+    ar: "تسوّق حسب المناسبة في {city} | Presentail",
+  },
+  "seo.allOccasions.ogDescription": {
+    en: "Find the perfect gift for any occasion in {city} with same-day delivery from Presentail.",
+    ar: "اعثر على الهدية المثالية لكل مناسبة في {city} مع توصيل في نفس اليوم من Presentail.",
+  },
+  "seo.allOccasions.twitterTitle": {
+    en: "Shop by Occasion in {city} | Presentail",
+    ar: "تسوّق حسب المناسبة في {city} | Presentail",
+  },
+  "seo.allOccasions.twitterDescription": {
+    en: "Gifts for every occasion in {city} — same-day delivery by Presentail.",
+    ar: "هدايا لكل مناسبة في {city} — توصيل في نفس اليوم من Presentail.",
+  },
   "seo.brands.title": {
     en: "Partner Brands in {city} | Presentail",
     ar: "العلامات الشريكة في {city} | Presentail",
@@ -57,6 +89,22 @@ export const seoStrings: Dict = {
   "seo.brands.description": {
     en: "Discover Presentail's hand-picked partner brands available for delivery in {city}, {country}.",
     ar: "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}، {country}.",
+  },
+  "seo.brands.ogTitle": {
+    en: "Partner Brands in {city} | Presentail",
+    ar: "العلامات الشريكة في {city} | Presentail",
+  },
+  "seo.brands.ogDescription": {
+    en: "Discover Presentail's hand-picked partner brands delivering in {city}.",
+    ar: "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}.",
+  },
+  "seo.brands.twitterTitle": {
+    en: "Partner Brands in {city} | Presentail",
+    ar: "العلامات الشريكة في {city} | Presentail",
+  },
+  "seo.brands.twitterDescription": {
+    en: "Explore our hand-picked partner brands in {city} — delivered by Presentail.",
+    ar: "استكشف علاماتنا الشريكة المنتقاة في {city} — توصيل من Presentail.",
   },
   "seo.brand.title": {
     en: "Brand Collection in {city} | Presentail",
@@ -214,12 +262,24 @@ export const seoStringsFr: Record<string, string> = {
   "seo.home.twitterDescription": "Envoyez fleurs et cadeaux à {city} — livraison le jour même par Presentail.",
   "seo.shop.title": "Boutique fleurs et cadeaux à {city} | Presentail",
   "seo.shop.description": "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
+  "seo.shop.ogTitle": "Boutique fleurs et cadeaux à {city} | Presentail",
+  "seo.shop.ogDescription": "Parcourez bouquets, gâteaux et cadeaux de luxe à {city} avec la livraison le jour même par Presentail.",
+  "seo.shop.twitterTitle": "Boutique fleurs et cadeaux à {city} | Presentail",
+  "seo.shop.twitterDescription": "Fleurs, gâteaux et cadeaux à {city} — livraison le jour même par Presentail.",
   "seo.product.title": "Livraison de cadeaux à {city} | Presentail",
   "seo.product.description": "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
   "seo.allOccasions.title": "Acheter par occasion à {city} | Presentail",
   "seo.allOccasions.description": "Parcourez toutes les occasions — anniversaires, mariages et plus encore — et trouvez le cadeau idéal pour livraison à {city}, {country}.",
+  "seo.allOccasions.ogTitle": "Acheter par occasion à {city} | Presentail",
+  "seo.allOccasions.ogDescription": "Trouvez le cadeau idéal pour chaque occasion à {city} avec la livraison le jour même par Presentail.",
+  "seo.allOccasions.twitterTitle": "Acheter par occasion à {city} | Presentail",
+  "seo.allOccasions.twitterDescription": "Des cadeaux pour chaque occasion à {city} — livraison le jour même par Presentail.",
   "seo.brands.title": "Marques partenaires à {city} | Presentail",
   "seo.brands.description": "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
+  "seo.brands.ogTitle": "Marques partenaires à {city} | Presentail",
+  "seo.brands.ogDescription": "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à {city}.",
+  "seo.brands.twitterTitle": "Marques partenaires à {city} | Presentail",
+  "seo.brands.twitterDescription": "Explorez nos marques partenaires à {city} — livrées par Presentail.",
   "seo.brand.title": "Collection de la marque à {city} | Presentail",
   "seo.brand.description": "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
   "seo.cart.title": "Votre panier | Presentail",

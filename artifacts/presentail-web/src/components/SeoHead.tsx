@@ -120,6 +120,13 @@ export function SeoHead() {
       parsed.rest !== "/";
     const isLanding = routeKey === "landing";
     const isHome = routeKey === "home" && Boolean(inLocale) && !isUnknownSubRoute;
+    // Generic browse routes (Shop, Brands, All Occasions) also get dedicated,
+    // shorter share copy. Only applies within a locale prefix.
+    const hasGenericShareCopy =
+      Boolean(inLocale) &&
+      (routeKey === "shop" ||
+        routeKey === "brands" ||
+        routeKey === "allOccasions");
     let ogTitle = title;
     let ogDescription = description;
     let twitterTitle = title;
@@ -134,6 +141,11 @@ export function SeoHead() {
       ogDescription = t("seo.home.ogDescription", params);
       twitterTitle = t("seo.home.twitterTitle", params);
       twitterDescription = t("seo.home.twitterDescription", params);
+    } else if (hasGenericShareCopy) {
+      ogTitle = t(`seo.${routeKey}.ogTitle`, params);
+      ogDescription = t(`seo.${routeKey}.ogDescription`, params);
+      twitterTitle = t(`seo.${routeKey}.twitterTitle`, params);
+      twitterDescription = t(`seo.${routeKey}.twitterDescription`, params);
     }
 
     document.title = title;
