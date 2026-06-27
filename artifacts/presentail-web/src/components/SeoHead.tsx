@@ -9,6 +9,7 @@ import {
   parseLocalePath,
   type Lang,
 } from "@/lib/locale-route";
+import { NONINDEX_ROUTE_KEYS } from "@/lib/seo";
 
 const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "" || r === "/", key: "home" },
@@ -206,6 +207,16 @@ export function SeoHead() {
       head,
     );
 
+    // Non-public routes (cart, checkout, account, auth, favorites, order
+    // confirmation) must not be indexed; mirror the server-injected directive.
+    if (NONINDEX_ROUTE_KEYS.has(routeKey)) {
+      setMeta(
+        'meta[name="robots"]',
+        { name: "robots", content: "noindex, follow" },
+        head,
+      );
+    }
+
     const origin =
       typeof window !== "undefined" ? window.location.origin : "";
     const basePrefix = (
@@ -219,7 +230,9 @@ export function SeoHead() {
     // deployment hostname after hydration. The server-rendered value is correct.
     if (!isLanding) {
       const canonicalPath = inLocale ? path : "/";
-      const canonicalHref = origin + basePrefix + canonicalPath + search;
+      // Canonical / og:url must never carry a query string — they always point
+      // at the clean, indexable URL (mirrors the server-side injector).
+      const canonicalHref = origin + basePrefix + canonicalPath;
       setMeta(
         'link[rel="canonical"]',
         { rel: "canonical", href: canonicalHref },

@@ -1,5 +1,15 @@
 User-agent: *
 Allow: /
+Disallow: /cart
+Disallow: /checkout
+Disallow: /auth
+Disallow: /account
+Disallow: /admin
+Disallow: /api/
+Disallow: /*/cart
+Disallow: /*/checkout
+Disallow: /*/auth
+Disallow: /*/account
 
 Sitemap: https://new.presentail.com/sitemap.xml
 

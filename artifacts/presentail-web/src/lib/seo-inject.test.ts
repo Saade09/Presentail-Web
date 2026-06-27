@@ -45,7 +45,7 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
     expect(fetchMock.mock.calls[0][0]).toContain("cityId=ae-dubai");
-    expect(out).toContain("<title>Velvet Rose Bouquet | Presentail</title>");
+    expect(out).toContain("<title>Velvet Rose Bouquet Delivery in Dubai | Presentail</title>");
     expect(out).toContain(
       'content="A dozen long-stem velvet roses, hand-tied."',
     );
@@ -168,10 +168,10 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?n=birthday-cakes",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-cakes");
-    expect(out).toContain("<title>Birthday Cakes | Presentail</title>");
+    expect(out).toContain("<title>Birthday Cakes Delivery in Dubai | Presentail</title>");
     expect(out).toContain('content="Same-day cake delivery."');
     expect(out).toContain(
       '<meta property="og:image" content="https://cdn.test/cakes.jpg"',
@@ -194,9 +194,9 @@ describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
       ...OPTS,
       search: "?category=roses",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1); // no image URL → no second fetch
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (no image URL → no dims fetch)
     expect(fetchMock.mock.calls[0][0]).toContain("slug=roses");
-    expect(out).toContain("<title>Roses | Presentail</title>");
+    expect(out).toContain("<title>Roses Delivery in Beirut | Presentail</title>");
     // When entity has no image the fallback opengraph.jpg is used → always summary_large_image.
     expect(out).toContain('<meta name="twitter:card" content="summary_large_image"');
     expect(out).toContain('<meta property="og:image" content="https://presentail.test/opengraph.jpg"');
@@ -237,10 +237,10 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday");
-    expect(out).toContain("<title>Birthday Gifts | Presentail</title>");
+    expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
     expect(out).toContain('content="Make every birthday memorable."');
     expect(out).toContain(
       '<meta property="og:image" content="https://cdn.test/birthday.jpg"',
@@ -291,10 +291,10 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
       ...OPTS,
       search: "?category=roses&occasion=birthday",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + listing products fetch (image null → no dims fetch)
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).not.toContain("/api/woo/occasion");
-    expect(out).toContain("<title>Roses | Presentail</title>");
+    expect(out).toContain("<title>Roses Delivery in Dubai | Presentail</title>");
   });
 
   it("serves occasion from entity cache on second call within TTL (no extra API call)", async () => {
@@ -305,6 +305,10 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        // SEO listing fetch — not counted as an entity or dims fetch.
+        return { ok: true, json: async () => ({ ok: true, groups: [] }) };
+      }
       if (u.includes("/api/woo/occasion")) {
         entityFetchCount++;
         return {
@@ -341,7 +345,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     );
     expect(entityFetchCount).toBe(1);
     expect(dimsFetchCount).toBe(1);
-    expect(out1).toContain("<title>Cache Hit Occasion | Presentail</title>");
+    expect(out1).toContain("<title>Cache Hit Occasion Flowers &amp; Gifts in Dubai | Presentail</title>");
 
     // Second call immediately (TTL not expired, no ETag): served from cache.
     const out2 = await injectSeoTagsAsync(
@@ -351,7 +355,7 @@ describe("injectSeoTagsAsync — /shop?occasion=<slug>", () => {
     );
     expect(entityFetchCount).toBe(1); // entity served from cache
     expect(dimsFetchCount).toBe(1);   // dims served from cache
-    expect(out2).toContain("<title>Cache Hit Occasion | Presentail</title>");
+    expect(out2).toContain("<title>Cache Hit Occasion Flowers &amp; Gifts in Dubai | Presentail</title>");
 
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -375,10 +379,10 @@ describe("injectSeoTagsAsync — /occasion/:slug (clean path)", () => {
       "/en-ae/dubai/occasion/birthday-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/occasion?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=birthday-path-unique");
-    expect(out).toContain("<title>Birthday Gifts | Presentail</title>");
+    expect(out).toContain("<title>Birthday Gifts Flowers &amp; Gifts in Dubai | Presentail</title>");
     expect(out).toContain('content="Make every birthday memorable."');
     expect(out).toContain(
       '<meta property="og:image" content="https://cdn.test/birthday-clean.jpg"',
@@ -420,12 +424,12 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
       "/en-lb/beirut/category/hand-bouquets-path-unique",
       CLEAN_PATH_OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + image dimension fetch
+    expect(fetchMock).toHaveBeenCalledTimes(3); // entity API + image dimension fetch + listing products fetch
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/category?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=hand-bouquets-path-unique");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=LB");
     expect(fetchMock.mock.calls[0][0]).toContain("cityId=lb-beirut");
-    expect(out).toContain("<title>Hand Bouquets | Presentail</title>");
+    expect(out).toContain("<title>Hand Bouquets Delivery in Beirut | Presentail</title>");
     expect(out).toContain('content="Beautiful hand-tied bouquets."');
     expect(out).toContain(
       '<meta property="og:image" content="https://cdn.test/bouquets-clean.jpg"',
@@ -462,7 +466,7 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
       ...CLEAN_PATH_OPTS,
       search: "?category=hand-bouquets-legacy-unique",
     });
-    expect(out).toContain("<title>Hand Bouquets | Presentail</title>");
+    expect(out).toContain("<title>Hand Bouquets Delivery in Beirut | Presentail</title>");
     expect(out).toContain(
       '<meta property="og:url" content="https://presentail.test/en-lb/beirut/category/hand-bouquets-legacy-unique"',
     );
@@ -694,7 +698,7 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
       "Flowers &amp; Gifts in Beirut | Presentail",
     );
     const expectedDesc =
-      "Send luxury flowers, cakes and gifts in Beirut, Lebanon with same-day delivery from Presentail.";
+      "Send flowers, cakes, balloons, plants, chocolates and gifts online in Beirut. Express same-day delivery available with Presentail.";
     expect(getMeta(headSnippet, 'property="og:description"')).toBe(expectedDesc);
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
       expectedDesc,
@@ -1759,6 +1763,10 @@ describe("image dims cache invalidation — occasion (string image field)", () =
     let dimsFetchCount = 0;
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion-products")) {
+        // SEO listing fetch — not counted as an entity or dims fetch.
+        return { ok: true, json: async () => ({ ok: true, groups: [] }) };
+      }
       if (String(url).includes("/api/woo/occasion")) {
         entityFetchCount++;
         return {
@@ -1806,6 +1814,10 @@ describe("image dims cache invalidation — occasion (string image field)", () =
     let dimsFetchCount = 0;
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/woo/occasion-products")) {
+        // SEO listing fetch — not counted as an entity or dims fetch.
+        return { ok: true, json: async () => ({ ok: true, groups: [] }) };
+      }
       if (String(url).includes("/api/woo/occasion")) {
         entityFetchCount++;
         return {
@@ -2705,6 +2717,10 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
 
     const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        // SEO listing fetch — not counted as an entity or dims fetch.
+        return { ok: true, json: async () => ({ ok: true, groups: [] }) };
+      }
       if (u.includes("/api/woo/occasion")) {
         entityFetchCount++;
         const ifNoneMatch = (init?.headers as Record<string, string> | undefined)?.["If-None-Match"];
@@ -2907,7 +2923,7 @@ describe("ETag conditional requests — 304 branch (no dims eviction)", () => {
     // Second call within TTL: conditional request fails → should still serve
     // the cached entity (not the generic fallback).
     const out = await injectSeoTagsAsync(ETAG_HTML, "/en-ae/dubai/product/etag-errf-withinttl-product", ETAG_OPTS);
-    expect(out).toContain("<title>Fallback Product | Presentail</title>");
+    expect(out).toContain("<title>Fallback Product Delivery in Dubai | Presentail</title>");
     expect(entityFetchCount).toBe(2); // conditional attempt was made
   });
 });
@@ -3626,7 +3642,7 @@ describe("shared-link preview cache — cache-hit skips upstream (product)", () 
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1);
-    expect(out1).toContain("<title>Cached Preview Product | Presentail</title>");
+    expect(out1).toContain("<title>Cached Preview Product Delivery in Dubai | Presentail</title>");
 
     // Second call immediately within TTL: entity must be served from the
     // in-process cache — the upstream must NOT be called again.
@@ -3636,7 +3652,7 @@ describe("shared-link preview cache — cache-hit skips upstream (product)", () 
       PREVIEW_OPTS,
     );
     expect(entityFetchCount).toBe(1); // still 1 — served from cache
-    expect(out2).toContain("<title>Cached Preview Product | Presentail</title>");
+    expect(out2).toContain("<title>Cached Preview Product Delivery in Dubai | Presentail</title>");
   });
 });
 
@@ -3741,7 +3757,7 @@ describe("shared-link preview cache — null result is NOT cached", () => {
     );
     expect(entityFetchCount).toBe(2); // upstream called again (null not cached)
     // This time the fetch succeeds → product-specific title is rendered.
-    expect(out2).toContain("<title>Retry Product | Presentail</title>");
+    expect(out2).toContain("<title>Retry Product Delivery in Dubai | Presentail</title>");
   });
 
   it("retries the upstream on the next call when the first brand fetch threw a network error", async () => {
@@ -3862,7 +3878,7 @@ describe("shared-link preview cache — analytics event fired on live failure bu
     );
     expect(successFetchCount).toBe(1); // upstream skipped — cache hit
     expect(analyticsCalls).toHaveLength(0); // no event on cache hit
-    expect(out2).toContain("<title>Analytics Cache Hit Product | Presentail</title>");
+    expect(out2).toContain("<title>Analytics Cache Hit Product Delivery in Dubai | Presentail</title>");
 
     // --- Failed entity: live failure fires the event ---
     analyticsCalls.length = 0;
@@ -3949,9 +3965,8 @@ describe("injectSeoTagsAsync — /product/<slug> bare path — locale resolution
       "/product/bare-ar-fallback-desc-unique",
       { ...BARE_OPTS, acceptLanguage: "ar" },
     );
-    // genericFallbackDescription("ar", "product") uses the Arabic template
-    // "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail."
-    expect(out).toContain("اطلب هذه الهدية");
+    // entityFallbackDescription("ar", "product", name) templates the product name.
+    expect(out).toContain("اطلب Velvet Rose Bouquet أونلاين");
   });
 
   it("produces French OG tags when ?lang=fr is in the query string", async () => {
@@ -3987,9 +4002,8 @@ describe("injectSeoTagsAsync — /product/<slug> bare path — locale resolution
       "/product/bare-fr-fallback-desc-unique",
       { ...BARE_OPTS, search: "?lang=fr" },
     );
-    // genericFallbackDescription("fr", "product") uses the French template
-    // "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail."
-    expect(out).toContain("Commandez ce cadeau");
+    // entityFallbackDescription("fr", "product", name) templates the product name.
+    expect(out).toContain("Commandez Velvet Rose Bouquet en ligne");
   });
 
   it("falls back to English when no lang hint is provided", async () => {
@@ -4021,9 +4035,8 @@ describe("injectSeoTagsAsync — /product/<slug> bare path — locale resolution
       "/product/bare-en-fallback-desc-unique",
       { ...BARE_OPTS },
     );
-    // genericFallbackDescription("en", "product") uses the English template
-    // "Order this gift for delivery in {city}, {country} with Presentail."
-    expect(out).toContain("Order this gift for delivery");
+    // entityFallbackDescription("en", "product", name) templates the product name.
+    expect(out).toContain("Order Velvet Rose Bouquet online");
   });
 
   it("prefers ?lang= query param over Accept-Language header", async () => {

@@ -46,457 +46,26 @@ function isSupportedCity(country, city) {
   return CITY_SLUGS_BY_COUNTRY[country]?.includes(city) ?? false;
 }
 
-const COUNTRY_NAMES = {
-  en: { ae: "the UAE", lb: "Lebanon", cy: "Cyprus" },
-  ar: {
-    ae: "الإمارات العربية المتحدة",
-    lb: "لبنان",
-    cy: "قبرص",
-  },
-  fr: { ae: "Émirats arabes unis", lb: "Liban", cy: "Chypre" },
-};
+import {
+  COUNTRY_NAMES,
+  COUNTRY_PLAIN_NAMES,
+  CITY_NAMES,
+  TITLES,
+  LANDING_OG,
+  LANDING_TWITTER,
+  HOME_OG,
+  HOME_TWITTER,
+  GENERIC_OG,
+  GENERIC_TWITTER,
+  DESCRIPTIONS,
+  OG_LOCALE,
+  SEO_SOCIAL_LINKS,
+  NONINDEX_ROUTE_KEYS,
+  buildProductSeo,
+  buildCategorySeo,
+  buildOccasionSeo,
+} from "./src/lib/seo.mjs";
 
-const CITY_NAMES = {
-  en: {
-    "ae-dubai": "Dubai",
-    "ae-abu-dhabi": "Abu Dhabi",
-    "ae-sharjah": "Sharjah",
-    "ae-ajman": "Ajman",
-    "ae-ras-al-khaimah": "Ras Al Khaimah",
-    "ae-fujairah": "Fujairah",
-    "ae-umm-al-quwain": "Umm Al Quwain",
-    "lb-beirut": "Beirut",
-    "lb-jounieh": "Jounieh",
-    "lb-tripoli": "Tripoli",
-    "lb-saida": "Saida",
-    "lb-tyre": "Tyre",
-    "lb-zahle": "Zahle",
-    "lb-byblos": "Byblos",
-    "lb-baalbek": "Baalbek",
-    "cy-nicosia": "Nicosia",
-    "cy-limassol": "Limassol",
-    "cy-larnaca": "Larnaca",
-    "cy-paphos": "Paphos",
-  },
-  ar: {
-    "ae-dubai": "دبي",
-    "ae-abu-dhabi": "أبو ظبي",
-    "ae-sharjah": "الشارقة",
-    "ae-ajman": "عجمان",
-    "ae-ras-al-khaimah": "رأس الخيمة",
-    "ae-fujairah": "الفجيرة",
-    "ae-umm-al-quwain": "أم القيوين",
-    "lb-beirut": "بيروت",
-    "lb-jounieh": "جونيه",
-    "lb-tripoli": "طرابلس",
-    "lb-saida": "صيدا",
-    "lb-tyre": "صور",
-    "lb-zahle": "زحلة",
-    "lb-byblos": "جبيل",
-    "lb-baalbek": "بعلبك",
-    "cy-nicosia": "نيقوسيا",
-    "cy-limassol": "ليماسول",
-    "cy-larnaca": "لارنكا",
-    "cy-paphos": "بافوس",
-  },
-  fr: {
-    "ae-dubai": "Dubaï",
-    "ae-abu-dhabi": "Abou Dhabi",
-    "ae-sharjah": "Charjah",
-    "ae-ajman": "Ajman",
-    "ae-ras-al-khaimah": "Ras el Khaïmah",
-    "ae-fujairah": "Foujaïrah",
-    "ae-umm-al-quwain": "Oumm al Qaïwaïn",
-    "lb-beirut": "Beyrouth",
-    "lb-jounieh": "Jounieh",
-    "lb-tripoli": "Tripoli",
-    "lb-saida": "Saïda",
-    "lb-tyre": "Tyr",
-    "lb-zahle": "Zahlé",
-    "lb-byblos": "Byblos",
-    "lb-baalbek": "Baalbek",
-    "cy-nicosia": "Nicosie",
-    "cy-limassol": "Limassol",
-    "cy-larnaca": "Larnaca",
-    "cy-paphos": "Paphos",
-  },
-};
-
-const TITLES = {
-  en: {
-    landing: "Online Flower & Gift Delivery | Presentail | Express Delivery",
-    home: "Flower & Gift Delivery in {city} | Presentail",
-    shop: "Shop Flowers & Gifts in {city} | Presentail",
-    product: "Gift Delivery in {city} | Presentail",
-    allOccasions: "Shop by Occasion in {city} | Presentail",
-    brands: "Partner Brands in {city} | Presentail",
-    brand: "Brand Collection in {city} | Presentail",
-    occasions: "Shop by Occasion in {city} | Presentail",
-    occasion: "Gift Delivery in {city} | Presentail",
-    category: "Gift Delivery in {city} | Presentail",
-    blogPost: "The Atelier Journal | Presentail",
-    cart: "Your Bag | Presentail",
-    checkout: "Checkout | Presentail",
-    orderConfirmed: "Order Confirmed | Presentail",
-    auth: "Sign In | Presentail",
-    account: "My Account | Presentail",
-    careers: "Careers at Presentail",
-    blog: "The Atelier Journal | Presentail",
-    partner: "Partner With Presentail | Brand Collaborations",
-    weddings: "Weddings & Florals by Presentail",
-    corporate: "Corporate Gifting | Presentail",
-    contact: "Contact Presentail | Concierge",
-    faqs: "FAQs | Presentail",
-    terms: "Terms of Use | Presentail",
-    privacy: "Privacy Policy | Presentail",
-  },
-  ar: {
-    landing: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
-    home: "توصيل الأزهار والهدايا في {city} | Presentail",
-    shop: "تسوّق الأزهار والهدايا في {city} | Presentail",
-    product: "توصيل الهدايا في {city} | Presentail",
-    allOccasions: "تسوّق حسب المناسبة في {city} | Presentail",
-    brands: "العلامات الشريكة في {city} | Presentail",
-    brand: "مجموعة العلامة في {city} | Presentail",
-    occasions: "تسوّق حسب المناسبة في {city} | Presentail",
-    occasion: "توصيل الهدايا في {city} | Presentail",
-    category: "توصيل الهدايا في {city} | Presentail",
-    blogPost: "يوميّات الأتيليه | Presentail",
-    cart: "حقيبتك | Presentail",
-    checkout: "الدفع | Presentail",
-    orderConfirmed: "تم تأكيد الطلب | Presentail",
-    auth: "تسجيل الدخول | Presentail",
-    account: "حسابي | Presentail",
-    about: "عن بريزانتيل | الأزهار والهدايا الفاخرة",
-    careers: "الوظائف في بريزانتيل",
-    blog: "يوميّات الأتيليه | Presentail",
-    partner: "كن شريكاً مع Presentail | تعاون العلامات",
-    weddings: "الأعراس والتنسيقات الزهرية | Presentail",
-    corporate: "الإهداء للشركات | Presentail",
-    contact: "تواصل مع Presentail | الكونسيرج",
-    faqs: "الأسئلة الشائعة | Presentail",
-    terms: "شروط الاستخدام | Presentail",
-    privacy: "سياسة الخصوصية | Presentail",
-  },
-  fr: {
-    landing: "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
-    home: "Livraison de fleurs et cadeaux à {city} | Presentail",
-    shop: "Boutique fleurs et cadeaux à {city} | Presentail",
-    product: "Livraison de cadeaux à {city} | Presentail",
-    allOccasions: "Acheter par occasion à {city} | Presentail",
-    brands: "Marques partenaires à {city} | Presentail",
-    brand: "Collection de la marque à {city} | Presentail",
-    occasions: "Acheter par occasion à {city} | Presentail",
-    occasion: "Livraison de cadeaux à {city} | Presentail",
-    category: "Livraison de cadeaux à {city} | Presentail",
-    blogPost: "Le Journal de l'Atelier | Presentail",
-    cart: "Votre sac | Presentail",
-    checkout: "Paiement | Presentail",
-    orderConfirmed: "Commande confirmée | Presentail",
-    auth: "Connexion | Presentail",
-    account: "Mon compte | Presentail",
-    about: "À propos de Presentail | Fleurs et cadeaux de luxe",
-    careers: "Carrières chez Presentail",
-    blog: "Le Journal de l'Atelier | Presentail",
-    partner: "Devenir partenaire de Presentail | Collaborations de marques",
-    weddings: "Mariages et compositions florales | Presentail",
-    corporate: "Cadeaux d'entreprise | Presentail",
-    contact: "Contacter Presentail | Conciergerie",
-    faqs: "FAQ | Presentail",
-    terms: "Conditions d'utilisation | Presentail",
-    privacy: "Politique de confidentialité | Presentail",
-  },
-};
-
-// Separate OG and Twitter copy for the landing page only.
-// All other routes reuse the page title/description for og:/twitter: tags.
-const LANDING_OG = {
-  en: {
-    title: "Online Flower & Gift Delivery | Presentail",
-    description: "Order flowers, cakes, balloons and gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
-  },
-  ar: {
-    title: "توصيل الزهور والهدايا أونلاين | Presentail",
-    description: "اطلب الزهور والكعك والبالونات والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
-  },
-  fr: {
-    title: "Livraison de fleurs et cadeaux en ligne | Presentail",
-    description: "Commandez fleurs, gâteaux, ballons et cadeaux en ligne avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
-  },
-};
-
-const LANDING_TWITTER = {
-  en: {
-    title: "Online Flower & Gift Delivery | Presentail",
-    description: "Send flowers and gifts online with Presentail. Express same-day delivery in Lebanon, UAE, and Cyprus.",
-  },
-  ar: {
-    title: "توصيل الزهور والهدايا أونلاين | Presentail",
-    description: "أرسل الزهور والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
-  },
-  fr: {
-    title: "Livraison de fleurs et cadeaux en ligne | Presentail",
-    description: "Envoyez fleurs et cadeaux en ligne avec Presentail. Livraison express le jour même au Liban, aux Émirats et à Chypre.",
-  },
-};
-
-// Separate OG and Twitter copy for the locale-prefixed homepage (routeKey
-// "home", e.g. /en-lb/beirut). Shorter, more share-friendly than the page
-// title/description. Uses {city} placeholders resolved via format().
-const HOME_OG = {
-  en: {
-    title: "Flowers & Gifts in {city} | Presentail",
-    description: "Send flowers, cakes and gifts in {city} with same-day delivery from Presentail.",
-  },
-  ar: {
-    title: "الأزهار والهدايا في {city} | Presentail",
-    description: "أرسل الأزهار والكعك والهدايا في {city} مع توصيل في نفس اليوم من Presentail.",
-  },
-  fr: {
-    title: "Fleurs et cadeaux à {city} | Presentail",
-    description: "Envoyez fleurs, gâteaux et cadeaux à {city} avec la livraison le jour même par Presentail.",
-  },
-};
-
-const HOME_TWITTER = {
-  en: {
-    title: "Flowers & Gifts in {city} | Presentail",
-    description: "Send flowers and gifts in {city} — same-day delivery by Presentail.",
-  },
-  ar: {
-    title: "الأزهار والهدايا في {city} | Presentail",
-    description: "أرسل الأزهار والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
-  },
-  fr: {
-    title: "Fleurs et cadeaux à {city} | Presentail",
-    description: "Envoyez fleurs et cadeaux à {city} — livraison le jour même par Presentail.",
-  },
-};
-
-// Separate OG and Twitter copy for the generic browse routes (Shop, Brands,
-// All Occasions, Category). Shorter, more share-friendly than the page
-// title/description. Keyed by routeKey, then lang. Uses {city} placeholders
-// resolved via format(). The "category" entry only applies when the per-entity
-// category lookup fails and computeSeoHead falls back to the generic head —
-// category routes always carry a slug, so the success path uses
-// buildCategoryHead with entity-specific copy.
-const GENERIC_OG = {
-  shop: {
-    en: {
-      title: "Shop Flowers & Gifts in {city} | Presentail",
-      description: "Browse curated bouquets, cakes and luxury gifts in {city} with same-day delivery from Presentail.",
-    },
-    ar: {
-      title: "تسوّق الأزهار والهدايا في {city} | Presentail",
-      description: "تصفّح الباقات المنتقاة والكعك والهدايا الفاخرة في {city} مع توصيل في نفس اليوم من Presentail.",
-    },
-    fr: {
-      title: "Boutique fleurs et cadeaux à {city} | Presentail",
-      description: "Parcourez bouquets, gâteaux et cadeaux de luxe à {city} avec la livraison le jour même par Presentail.",
-    },
-  },
-  brands: {
-    en: {
-      title: "Partner Brands in {city} | Presentail",
-      description: "Discover Presentail's hand-picked partner brands delivering in {city}.",
-    },
-    ar: {
-      title: "العلامات الشريكة في {city} | Presentail",
-      description: "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}.",
-    },
-    fr: {
-      title: "Marques partenaires à {city} | Presentail",
-      description: "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à {city}.",
-    },
-  },
-  occasions: {
-    en: {
-      title: "Shop by Occasion in {city} | Presentail",
-      description: "Find the perfect gift for any occasion in {city} with same-day delivery from Presentail.",
-    },
-    ar: {
-      title: "تسوّق حسب المناسبة في {city} | Presentail",
-      description: "اعثر على الهدية المثالية لكل مناسبة في {city} مع توصيل في نفس اليوم من Presentail.",
-    },
-    fr: {
-      title: "Acheter par occasion à {city} | Presentail",
-      description: "Trouvez le cadeau idéal pour chaque occasion à {city} avec la livraison le jour même par Presentail.",
-    },
-  },
-  category: {
-    en: {
-      title: "Shop Gifts by Category in {city} | Presentail",
-      description: "Browse Presentail's gift categories in {city} with same-day delivery.",
-    },
-    ar: {
-      title: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
-      description: "تصفّح فئات الهدايا من Presentail في {city} مع توصيل في نفس اليوم.",
-    },
-    fr: {
-      title: "Acheter des cadeaux par catégorie à {city} | Presentail",
-      description: "Parcourez les catégories de cadeaux Presentail à {city} avec la livraison le jour même.",
-    },
-  },
-};
-
-const GENERIC_TWITTER = {
-  shop: {
-    en: {
-      title: "Shop Flowers & Gifts in {city} | Presentail",
-      description: "Shop flowers, cakes and gifts in {city} — same-day delivery by Presentail.",
-    },
-    ar: {
-      title: "تسوّق الأزهار والهدايا في {city} | Presentail",
-      description: "تسوّق الأزهار والكعك والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
-    },
-    fr: {
-      title: "Boutique fleurs et cadeaux à {city} | Presentail",
-      description: "Fleurs, gâteaux et cadeaux à {city} — livraison le jour même par Presentail.",
-    },
-  },
-  brands: {
-    en: {
-      title: "Partner Brands in {city} | Presentail",
-      description: "Explore our hand-picked partner brands in {city} — delivered by Presentail.",
-    },
-    ar: {
-      title: "العلامات الشريكة في {city} | Presentail",
-      description: "استكشف علاماتنا الشريكة المنتقاة في {city} — توصيل من Presentail.",
-    },
-    fr: {
-      title: "Marques partenaires à {city} | Presentail",
-      description: "Explorez nos marques partenaires à {city} — livrées par Presentail.",
-    },
-  },
-  occasions: {
-    en: {
-      title: "Shop by Occasion in {city} | Presentail",
-      description: "Gifts for every occasion in {city} — same-day delivery by Presentail.",
-    },
-    ar: {
-      title: "تسوّق حسب المناسبة في {city} | Presentail",
-      description: "هدايا لكل مناسبة في {city} — توصيل في نفس اليوم من Presentail.",
-    },
-    fr: {
-      title: "Acheter par occasion à {city} | Presentail",
-      description: "Des cadeaux pour chaque occasion à {city} — livraison le jour même par Presentail.",
-    },
-  },
-  category: {
-    en: {
-      title: "Shop Gifts by Category in {city} | Presentail",
-      description: "Browse gifts by category in {city} — same-day delivery by Presentail.",
-    },
-    ar: {
-      title: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
-      description: "تصفّح الهدايا حسب الفئة في {city} — توصيل في نفس اليوم من Presentail.",
-    },
-    fr: {
-      title: "Acheter des cadeaux par catégorie à {city} | Presentail",
-      description: "Parcourez les cadeaux par catégorie à {city} — livraison le jour même par Presentail.",
-    },
-  },
-};
-
-const DESCRIPTIONS = {
-  en: {
-    landing:
-      "Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
-    home: "Send luxury flowers, cakes and gifts in {city}, {country} with same-day delivery from Presentail.",
-    shop: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
-    product: "Order this gift for delivery in {city}, {country} with Presentail.",
-    allOccasions:
-      "Browse all occasions — birthdays, anniversaries, weddings and more — and find the perfect gift for delivery in {city}, {country}.",
-    brands:
-      "Discover Presentail's hand-picked partner brands available for delivery in {city}, {country}.",
-    brand: "Shop this brand's full collection for delivery in {city}, {country} on Presentail.",
-    occasions: "Browse gifts by occasion in {city}, {country} — birthdays, anniversaries, weddings, sympathy, and more on Presentail.",
-    occasion: "Shop the perfect gift for this occasion in {city}, {country} with same-day delivery from Presentail.",
-    category: "Order from this gift category for delivery in {city}, {country} with Presentail.",
-    blogPost: "Read the latest stories, seasonal sourcing guides, and gifting inspiration from the Presentail editorial team.",
-    cart: "Review your Presentail bag and proceed to a secure checkout.",
-    checkout:
-      "Complete your Presentail order with secure card, PayPal or Mamo payment.",
-    orderConfirmed: "Thank you — your Presentail order has been confirmed.",
-    auth: "Sign in or create a Presentail account to manage orders and addresses.",
-    account: "Manage your Presentail profile, orders and saved addresses.",
-    about: "Presentail is a luxury flower and gift atelier delivering across Lebanon, the UAE and Cyprus. Meet the team and the craft behind every send.",
-    careers: "Join Presentail — we're hiring florists, designers, and engineers to build the most thoughtful gifting experience in the region.",
-    blog: "Notes from the Presentail studio: seasonal sourcing, partner makers, and gifting guides for life's most meaningful moments.",
-    partner: "Partner with Presentail to bring your brand to luxury gifting customers across Lebanon, the UAE and Cyprus.",
-    weddings: "Bespoke floral design and styling for weddings and private events by the Presentail atelier.",
-    corporate: "Corporate gifting programs from Presentail — curated client and team gifts at scale, delivered region-wide.",
-    contact: "Get in touch with the Presentail concierge for orders, partnerships and support.",
-    faqs: "Answers to the most common questions about Presentail orders, delivery, payment and accounts.",
-    terms: "The Terms of Use that govern your purchase and use of the Presentail website, mobile apps and services.",
-    privacy: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
-  },
-  ar: {
-    landing:
-      "أرسل الزهور والكعك والبالونات والنباتات والشوكولاتة والمزيد من الهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
-    home: "أرسل الأزهار الفاخرة والكعك والهدايا في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
-    shop: "تصفّح باقات Presentail المنتقاة والكعك والهدايا الفاخرة للتوصيل في {city}، {country}.",
-    product: "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail.",
-    allOccasions:
-      "تصفّح جميع المناسبات — أعياد الميلاد والذكرى السنوية وحفلات الزفاف والمزيد — وابحث عن الهدية المثالية للتوصيل في {city}، {country}.",
-    brands:
-      "اكتشف العلامات الشريكة المنتقاة من Presentail والمتاحة للتوصيل في {city}، {country}.",
-    brand: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
-    occasions: "تصفّح الهدايا حسب المناسبة في {city}، {country} — أعياد الميلاد والذكريات والأعراس والتعازي والمزيد.",
-    occasion: "تسوّق الهدية المثالية لهذه المناسبة في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
-    category: "اطلب من هذه الفئة للتوصيل في {city}، {country} مع Presentail.",
-    blogPost: "اقرأ أحدث قصص وأدلّة الإهداء الموسمي والإلهام من الفريق التحريري لبريزانتيل.",
-    cart: "راجع حقيبة Presentail وتابع إلى الدفع الآمن.",
-    checkout: "أكمل طلب Presentail عبر الدفع الآمن بالبطاقة أو PayPal أو Mamo.",
-    orderConfirmed: "شكراً لك — تم تأكيد طلب Presentail الخاص بك.",
-    auth: "سجّل الدخول أو أنشئ حساب Presentail لإدارة الطلبات والعناوين.",
-    account: "أدر بيانات حساب Presentail والطلبات والعناوين المحفوظة.",
-    about: "بريزانتيل أتيليه فاخر للأزهار والهدايا، يوصّل في لبنان والإمارات وقبرص. تعرّف على الفريق والحرفة وراء كل هدية.",
-    careers: "انضم إلى بريزانتيل — نوظّف منسّقي أزهار ومصمّمين ومهندسين لبناء أكثر تجارب الإهداء عناية في المنطقة.",
-    blog: "ملاحظات من استوديو بريزانتيل: مصادر موسمية، صنّاع شركاء، وأدلّة إهداء لأهمّ لحظات الحياة.",
-    partner: "كن شريكاً مع بريزانتيل لتقديم علامتك إلى عملاء الإهداء الفاخر في لبنان والإمارات وقبرص.",
-    weddings: "تصميم وتنسيق زهور بريزانتيل المخصّص للأعراس والمناسبات الخاصّة.",
-    corporate: "برامج الإهداء للشركات من بريزانتيل — هدايا منتقاة للعملاء والفِرَق على نطاق واسع.",
-    contact: "تواصل مع كونسيرج بريزانتيل للطلبات والشراكات والدعم.",
-    faqs: "إجابات على أكثر الأسئلة شيوعاً حول طلبات بريزانتيل والتوصيل والدفع والحسابات.",
-    terms: "شروط الاستخدام التي تحكم شراءك واستخدامك لموقع بريزانتيل وتطبيقاته وخدماته.",
-    privacy: "كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر الموقع والتطبيقات والقنوات الاجتماعية.",
-  },
-  fr: {
-    landing:
-      "Envoyez des fleurs, des gâteaux, des ballons, des plantes, des chocolats et plus encore avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
-    home: "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
-    shop: "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
-    product: "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
-    allOccasions:
-      "Parcourez toutes les occasions — anniversaires, mariages et plus encore — et trouvez le cadeau idéal pour livraison à {city}, {country}.",
-    brands:
-      "Découvrez les marques partenaires sélectionnées par Presentail, disponibles à la livraison à {city}, {country}.",
-    brand: "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
-    occasions: "Parcourez les cadeaux par occasion à {city}, {country} — anniversaires, mariages, condoléances et plus encore.",
-    occasion: "Trouvez le cadeau idéal pour cette occasion à {city}, {country} avec livraison le jour même par Presentail.",
-    category: "Commandez dans cette catégorie de cadeaux pour livraison à {city}, {country} avec Presentail.",
-    blogPost: "Lisez les dernières histoires, guides de saison et inspirations cadeaux de l'équipe éditoriale Presentail.",
-    cart: "Revoyez votre sac Presentail et passez au paiement sécurisé.",
-    checkout:
-      "Finalisez votre commande Presentail par carte, PayPal ou Mamo en toute sécurité.",
-    orderConfirmed: "Merci — votre commande Presentail a été confirmée.",
-    auth: "Connectez-vous ou créez un compte Presentail pour gérer vos commandes et adresses.",
-    account: "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
-    about: "Presentail est un atelier de fleurs et cadeaux de luxe livrant au Liban, aux Émirats arabes unis et à Chypre. Découvrez l'équipe et le savoir-faire derrière chaque envoi.",
-    careers: "Rejoignez Presentail — nous recrutons fleuristes, designers et ingénieurs pour bâtir la plus belle expérience cadeau de la région.",
-    blog: "Notes du studio Presentail : sourcing de saison, artisans partenaires et guides cadeaux pour les moments qui comptent.",
-    partner: "Devenez partenaire de Presentail pour présenter votre marque aux clients du cadeau de luxe au Liban, aux Émirats arabes unis et à Chypre.",
-    weddings: "Design et stylisme floraux sur mesure pour mariages et événements privés par l'atelier Presentail.",
-    corporate: "Programmes de cadeaux d'entreprise Presentail — sélections raffinées pour clients et équipes, livrées dans toute la région.",
-    contact: "Contactez la conciergerie Presentail pour vos commandes, partenariats et questions.",
-    faqs: "Réponses aux questions les plus fréquentes sur les commandes, la livraison, le paiement et les comptes Presentail.",
-    terms: "Les Conditions d'utilisation qui régissent vos achats et votre utilisation du site, des applications et des services Presentail.",
-    privacy: "Comment Presentail collecte, utilise et protège vos informations personnelles sur le site, les applications et les canaux sociaux.",
-  },
-};
-
-const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR" };
 
 // Localised SEO strings for shared wishlist pages.
 // The wishlist share path (/favorites/share/:token) has no locale prefix so
@@ -694,7 +263,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     parsed.hasLocalePrefix && parsed.country && (!parsed.city || hasValidCity);
   const lang = parsed.lang ?? "en";
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const routeKey = inLocale ? detectRouteKey(parsed.rest) : "landing";
+  // Non-locale paths default to the global landing page, but the non-public
+  // routes (cart, checkout, account, auth, favorites, order confirmation) are
+  // also reachable without a locale prefix (e.g. bare `/cart`) and MUST be
+  // marked noindex. Detect those specifically; every other bare path stays
+  // "landing" so indexable pages keep their existing canonical/title behaviour.
+  let routeKey;
+  if (inLocale) {
+    routeKey = detectRouteKey(parsed.rest);
+  } else {
+    const bareKey = detectRouteKey(parsed.rest);
+    routeKey = NONINDEX_ROUTE_KEYS.has(bareKey) ? bareKey : "landing";
+  }
 
   const cityKey =
     hasValidCity ? `${parsed.country}-${parsed.city}` : null;
@@ -776,6 +356,11 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
+  // Non-public routes (cart, checkout, account, auth, favorites, order
+  // confirmation) must not be indexed, but their links may still be followed.
+  if (NONINDEX_ROUTE_KEYS.has(routeKey)) {
+    lines.push(`<meta name="robots" content="noindex, follow" />`);
+  }
   lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
   lines.push(
     `<meta property="og:description" content="${escapeAttr(ogDescription)}" />`,
@@ -803,6 +388,25 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   // Organization + WebSite JSON-LD on every generic page.
   lines.push(jsonLdTag(buildOrganizationSchema(siteUrl)));
   lines.push(jsonLdTag(buildWebSiteSchema(siteUrl)));
+
+  // LocalBusiness (Florist) JSON-LD on city homepages — anchors the brand to
+  // the served city/country for local search visibility.
+  if (routeKey === "home" && hasValidCity) {
+    const countryPlain = parsed.country
+      ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
+        COUNTRY_PLAIN_NAMES.en[parsed.country] ??
+        countryLabel
+      : countryLabel;
+    lines.push(
+      jsonLdTag(
+        buildLocalBusinessSchema({
+          siteUrl,
+          cityName: cityLabel,
+          countryName: countryPlain,
+        }),
+      ),
+    );
+  }
 
   // FAQPage JSON-LD: emit structured Q&A markup for the /faqs route so search
   // engines and AI crawlers can reliably understand the page as a Q&A resource.
@@ -1612,6 +1216,60 @@ function fetchOccasionForSeo(opts) {
   });
 }
 
+/**
+ * Fetch the deliverable product count and first (≤10) product names for a
+ * category or occasion listing page. Used to (a) emit an ItemList JSON-LD and
+ * (b) mark genuinely empty listing pages as `noindex, follow`. Best-effort:
+ * returns null on any failure so the page still renders without a count.
+ */
+async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityId, apiBaseUrl }) {
+  if (!slug || !apiBaseUrl) return null;
+  const endpoint =
+    kind === "occasion" ? "/api/woo/occasion-products" : "/api/woo/category-products";
+  const params = new URLSearchParams({ slug });
+  if (lang) params.set("lang", lang);
+  if (countryCode) params.set("countryCode", countryCode);
+  if (cityId) params.set("cityId", cityId);
+  const url = `${apiBaseUrl.replace(/\/$/, "")}${endpoint}?${params.toString()}`;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ENTITY_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body || body.ok !== true) return null;
+    if (kind === "occasion") {
+      const groups = Array.isArray(body.groups) ? body.groups : [];
+      const names = [];
+      for (const g of groups) {
+        for (const p of g.products ?? []) {
+          if (p && typeof p.name === "string" && p.name.trim()) {
+            names.push(p.name.trim());
+            if (names.length >= 10) break;
+          }
+        }
+        if (names.length >= 10) break;
+      }
+      const count =
+        typeof body.total === "number"
+          ? body.total
+          : groups.reduce((s, g) => s + (g.count ?? 0), 0);
+      return { count, names };
+    }
+    const products = Array.isArray(body.products) ? body.products : [];
+    const names = products
+      .map((p) => (p && typeof p.name === "string" ? p.name.trim() : ""))
+      .filter(Boolean)
+      .slice(0, 10);
+    const count = typeof body.count === "number" ? body.count : products.length;
+    return { count, names };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Strip basic HTML tags and collapse whitespace. WooCommerce category and
 // brand `description` fields commonly contain HTML (paragraphs, links).
 // Plain text is what social previews want.
@@ -1653,6 +1311,49 @@ function buildOrganizationSchema(siteUrl) {
     name: "Presentail",
     url: siteUrl,
     logo: `${siteUrl}/opengraph.jpg`,
+    sameAs: SEO_SOCIAL_LINKS,
+  };
+}
+
+/**
+ * LocalBusiness (Florist) JSON-LD for city homepages. Helps Google associate
+ * the brand with each served city/country for local-pack visibility.
+ */
+function buildLocalBusinessSchema({ siteUrl, cityName, countryName }) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Florist",
+    name: "Presentail",
+    url: siteUrl,
+    image: `${siteUrl}/opengraph.jpg`,
+    logo: `${siteUrl}/opengraph.jpg`,
+  };
+  if (cityName || countryName) {
+    schema.address = {
+      "@type": "PostalAddress",
+      ...(cityName ? { addressLocality: cityName } : {}),
+      ...(countryName ? { addressCountry: countryName } : {}),
+    };
+    schema.areaServed = countryName || cityName;
+  }
+  return schema;
+}
+
+/**
+ * ItemList JSON-LD for category / occasion listing pages — emits the first
+ * (≤10) product names so search engines understand the page lists products.
+ */
+function buildItemListSchema(names, listName) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    ...(listName ? { name: listName } : {}),
+    numberOfItems: names.length,
+    itemListElement: names.map((name, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name,
+    })),
   };
 }
 
@@ -1716,6 +1417,7 @@ function buildEntityHead({
   pathname,
   search,
   lang,
+  robots,
   extraLines = [],
 }) {
   const cleanBase = basePath.replace(/\/$/, "");
@@ -1723,6 +1425,9 @@ function buildEntityHead({
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
+  if (robots) {
+    lines.push(`<meta name="robots" content="${escapeAttr(robots)}" />`);
+  }
   lines.push(`<meta property="og:title" content="${escapeAttr(title)}" />`);
   lines.push(
     `<meta property="og:description" content="${escapeAttr(description)}" />`,
@@ -1769,13 +1474,22 @@ function buildProductHead({
   basePath,
   origin,
   pathname,
+  cityLabel,
+  countryLabel,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
-  const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc =
     typeof product.description === "string" ? product.description.trim() : "";
+  const seo = buildProductSeo({
+    lang,
+    productName: rawName,
+    city: cityLabel || "",
+    country: countryLabel || "",
+    shortDescription: clampDescription(stripHtml(rawDesc), 160),
+  });
+  const title = rawName ? seo.title : "Presentail";
   const description =
-    clampDescription(rawDesc) || genericFallbackDescription(lang, "product");
+    seo.description || genericFallbackDescription(lang, "product");
   const imageUrl =
     (product.image && typeof product.image.uri === "string" && product.image.uri) ||
     (Array.isArray(product.images) &&
@@ -1972,8 +1686,13 @@ function buildCategoryHead({
   origin,
   pathname,
   search,
+  cityLabel,
+  countryLabel,
+  productCount,
+  itemNames,
 }) {
   return buildShopEntityHead({
+    entityKind: "category",
     entity: category,
     altText: "Presentail category",
     imageDimensions,
@@ -1982,6 +1701,10 @@ function buildCategoryHead({
     origin,
     pathname,
     search,
+    cityLabel,
+    countryLabel,
+    productCount,
+    itemNames,
   });
 }
 
@@ -1993,8 +1716,13 @@ function buildOccasionHead({
   origin,
   pathname,
   search,
+  cityLabel,
+  countryLabel,
+  productCount,
+  itemNames,
 }) {
   return buildShopEntityHead({
+    entityKind: "occasion",
     entity: occasion,
     altText: "Presentail occasion",
     imageDimensions,
@@ -2003,10 +1731,15 @@ function buildOccasionHead({
     origin,
     pathname,
     search,
+    cityLabel,
+    countryLabel,
+    productCount,
+    itemNames,
   });
 }
 
 function buildShopEntityHead({
+  entityKind,
   entity,
   altText,
   imageDimensions,
@@ -2015,16 +1748,56 @@ function buildShopEntityHead({
   origin,
   pathname,
   search,
+  cityLabel,
+  countryLabel,
+  productCount,
+  itemNames,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
-  const title = rawName ? `${rawName} | Presentail` : "Presentail";
+  const seo =
+    entityKind === "occasion"
+      ? buildOccasionSeo({
+          lang,
+          occasionName: rawName,
+          city: cityLabel || "",
+          country: countryLabel || "",
+          productCount,
+        })
+      : buildCategorySeo({
+          lang,
+          categoryName: rawName,
+          city: cityLabel || "",
+          country: countryLabel || "",
+          productCount,
+        });
+  const title = rawName ? seo.title : "Presentail";
   const rawDesc = entity.description ? stripHtml(entity.description) : "";
   const description =
-    clampDescription(rawDesc) || genericFallbackDescription(lang, "shop");
+    clampDescription(rawDesc) ||
+    seo.description ||
+    genericFallbackDescription(lang, "shop");
+  // Mark genuinely empty listing pages (zero deliverable products) as
+  // noindex so search engines don't surface thin/empty results.
+  const robots = seo.robots === "noindex, follow" ? "noindex, follow" : undefined;
   const imageUrl =
     typeof entity.image === "string" && entity.image ? entity.image : null;
   // BreadcrumbList JSON-LD — Home > Shop > Category/Occasion Name.
   const locBase = localeBaseUrl(pathname, origin, basePath);
+  const extraLines = [
+    jsonLdTag(
+      buildBreadcrumbListSchema([
+        { name: "Home", url: locBase },
+        { name: "Shop", url: `${locBase}/shop` },
+        { name: rawName || altText },
+      ]),
+    ),
+  ];
+  // ItemList JSON-LD — first (≤10) product names on the listing page.
+  if (Array.isArray(itemNames) && itemNames.length > 0) {
+    extraLines.push(
+      jsonLdTag(buildItemListSchema(itemNames, rawName || altText)),
+    );
+  }
   const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
   return {
     ...buildEntityHead({
@@ -2040,15 +1813,8 @@ function buildShopEntityHead({
       pathname,
       search,
       lang,
-      extraLines: [
-        jsonLdTag(
-          buildBreadcrumbListSchema([
-            { name: "Home", url: locBase },
-            { name: "Shop", url: `${locBase}/shop` },
-            { name: rawName || altText },
-          ]),
-        ),
-      ],
+      robots,
+      extraLines,
     }),
     bodyHtml,
   };
@@ -2273,6 +2039,8 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     basePath: rest.basePath ?? "",
     origin: rest.origin ?? "",
     pathname: seoPathname,
+    cityLabel: generic.cityLabel,
+    countryLabel: generic.countryLabel,
   };
 
   let result = null;
@@ -2314,7 +2082,20 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     if (category) {
       const catImageUrl = typeof category.image === "string" && category.image ? category.image : null;
       const catImageDims = await fetchImageDimensions(catImageUrl);
-      result = buildCategoryHead({ category, imageDimensions: catImageDims, search: seoSearch, ...headOpts });
+      const listing = await fetchListingProductsForSeo({
+        kind: "category",
+        slug: categorySlug,
+        ...fetchOpts,
+      });
+      // Canonical for category clean paths drops any query string.
+      result = buildCategoryHead({
+        category,
+        imageDimensions: catImageDims,
+        search: "",
+        productCount: listing?.count,
+        itemNames: listing?.names ?? [],
+        ...headOpts,
+      });
     }
   } else if (occasionSlug) {
     const occasion = await fetchEntityForSeoCached("occasion", fetchOccasionForSeo, {
@@ -2324,7 +2105,20 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     if (occasion) {
       const occImageUrl = typeof occasion.image === "string" && occasion.image ? occasion.image : null;
       const occImageDims = await fetchImageDimensions(occImageUrl);
-      result = buildOccasionHead({ occasion, imageDimensions: occImageDims, search: seoSearch, ...headOpts });
+      const listing = await fetchListingProductsForSeo({
+        kind: "occasion",
+        slug: occasionSlug,
+        ...fetchOpts,
+      });
+      // Canonical for occasion clean paths drops any query string.
+      result = buildOccasionHead({
+        occasion,
+        imageDimensions: occImageDims,
+        search: "",
+        productCount: listing?.count,
+        itemNames: listing?.names ?? [],
+        ...headOpts,
+      });
     }
   } else if (brandsFilter) {
     const fetcher =

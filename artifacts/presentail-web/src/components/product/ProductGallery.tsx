@@ -50,7 +50,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
                 {img.uri ? (
                   <img
                     src={buildOsProxyUrl(img.uri, 160)}
-                    alt=""
+                    alt={`${productName} — image ${i + 1}`}
                     className="w-full h-full object-cover"
                   />
                 ) : (

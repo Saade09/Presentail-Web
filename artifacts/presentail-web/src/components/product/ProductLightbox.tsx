@@ -323,7 +323,7 @@ export function ProductLightbox({
                     aria-label={t("lightbox.showImage", { n: i + 1 })}
                     data-testid={`lightbox-thumb-${i}`}
                   >
-                    <img src={img.uri} alt="" className="w-full h-full object-cover" />
+                    <img src={img.uri} alt={`${productName} — image ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>

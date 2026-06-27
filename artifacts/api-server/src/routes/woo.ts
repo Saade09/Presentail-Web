@@ -595,14 +595,35 @@ router.get("/woo/category", (req, res) => {
   }
 
   const osCategories = getOsCategories();
-  const c = osCategories?.find((cat) => cat.slug === slug);
-  if (!c) return res.status(404).json({ ok: false, message: "Category not found" }); // i18n-ignore
+  let resolved: { id: string; slug: string; name: string } | null =
+    osCategories?.find((cat) => cat.slug === slug) ?? null;
+
+  // Fallback: when the global catalog-attributes categories cache is empty or
+  // uses a different slug than the canonical URL slug, derive the category from
+  // product-embedded categories (which carry the canonical slug + display name).
+  // Mirrors /woo/category-products, which already resolves products this way, so
+  // category SEO/meta works even when getOsCategories() returns null.
+  if (!resolved) {
+    const store = resolveStoreFromRequest(req);
+    const osProducts = getOsProducts(store.storeKey) ?? [];
+    for (const p of osProducts) {
+      const match = (p.categories ?? []).find((cat) => cat.slug === slug);
+      if (match) {
+        resolved = { id: match.slug, slug: match.slug, name: match.name };
+        break;
+      }
+    }
+  }
+
+  if (!resolved) {
+    return res.status(404).json({ ok: false, message: "Category not found" }); // i18n-ignore
+  }
   return res.json({
     ok: true,
     category: {
-      id: c.id,
-      name: c.name,
-      slug: c.slug,
+      id: resolved.id,
+      name: resolved.name,
+      slug: resolved.slug,
       description: "",
       image: null,
     },

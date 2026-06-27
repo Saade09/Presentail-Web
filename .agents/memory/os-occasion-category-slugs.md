@@ -42,10 +42,27 @@ Ask OS to (a) give every product at least one real category, and (b) standardise
 category slugs to the app's expected values (rename `hand-bouquet`→`hand-bouquets`,
 `gift-baskets`→`baskets`, `vases`→`flower-vases`).
 
+## getOsCategories() is frequently null → use product-embedded categories
+`getOsCategories()` (catalog-attributes categories cache) often returns null in
+practice: the categories fetch comes back empty so `cachedCategories` is never
+set, even while occasions/brands/products populate fine (look for a missing
+"categories refreshed" log line alongside present "occasions/brands refreshed").
+The reliable source for a category's display `name`+`slug` is the
+product-embedded `OSProductCategory` objects on `getOsProducts(storeKey)` (each
+has `id`/`slug`/`name`; real categories have numeric-string id < 10000,
+occasions >= 10000). `/woo/category` and `/woo/category-products` both resolve
+categories this way as a fallback so category pages/SEO work despite the empty
+attributes cache. **Why:** without the fallback, every category page renders a
+generic fallback (no title/ItemList) because the SEO injector skips the whole
+block when the category lookup 404s.
+
 ## Env quirk
 The api-server dev service runs `pnpm dev` = `build && start` (NO watch). Code
 edits do NOT hot-reload — the service must be rebuilt+restarted to take effect.
-Artifact dev services are children of the platform supervisor (pid2), are NOT
-`.replit` workflows, so `restart_workflow` can't target them, and bash-spawned
-daemons get cgroup-killed after each command. Verify catalog/transform logic
-with a standalone node script against live OS data instead of a running server.
+`restart_workflow "artifacts/api-server: API Server"` (the artifact dev service,
+NOT the redundant `.replit` "API Server" workflow which fails EADDRINUSE because
+the artifact already holds port 8080) DOES work and triggers a fresh build. The
+web dev service (`artifacts/presentail-web: web`) is plain Vite and DOES
+hot-reload on `seo-inject.mjs` changes — no restart needed. Bash-spawned daemons
+still get cgroup-killed after each command, so for pure catalog/transform logic
+prefer a standalone node script against live OS data.

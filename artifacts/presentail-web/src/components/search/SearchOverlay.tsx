@@ -299,7 +299,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         {brand.image ? (
                           <img
                             src={brand.image}
-                            alt=""
+                            alt={brand.name}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -339,7 +339,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                       {product.image?.uri ? (
                         <img
                           src={product.image.uri}
-                          alt=""
+                          alt={product.name}
                           className="h-14 w-14 rounded-xl object-cover shrink-0 bg-muted"
                         />
                       ) : (
