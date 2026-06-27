@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
 import { Elements, useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,10 +84,31 @@ function stripeDeclineMsg(
   return null;
 }
 
-// Currencies routed to the Gulf Stripe account. loadStripe is memoised per
-// key inside the Checkout wrapper so Stripe JS is only fetched once per key
-// for the lifetime of the page, not once per render.
+// Currencies routed to the Gulf Stripe account.
 const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
+
+// Module-level Stripe promise cache — keyed by account (standard vs gulf).
+// Lazily initialised via dynamic import so @stripe/stripe-js is NOT bundled
+// into the eagerly-evaluated checkout chunk, and js.stripe.com is NOT fetched
+// until a Stripe-dependent payment method is first selected.
+// Subsequent calls for the same account return the same cached promise.
+let _stripePromise: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
+let _stripeGulfPromise: Promise<import("@stripe/stripe-js").Stripe | null> | null = null;
+
+function getStripePromise(isGulf: boolean) {
+  if (isGulf) {
+    return (_stripeGulfPromise ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
+      loadStripe(
+        import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF ||
+          import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+          null,
+      ),
+    ));
+  }
+  return (_stripePromise ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
+    loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null),
+  ));
+}
 
 // The web checkout supports a subset of the shared payment-method catalog
 // (no Western Union). All availability / label / fallback decisions go
@@ -271,7 +291,7 @@ type CreateOrderResponse =
   | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
-function CheckoutForm() {
+function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
@@ -482,7 +502,14 @@ function CheckoutForm() {
       }
       return m;
     });
+    // Trigger Stripe initialisation immediately when the shopper explicitly
+    // picks a Stripe-backed method.  Mamo, PayPal, Whish, and Western Union
+    // never load Stripe.  onNeedStripe() is idempotent.
+    if (m === "card" || m === "apple_pay" || m === "google_pay") {
+      onNeedStripe();
+    }
   };
+
   const [noAddress, setNoAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
@@ -808,8 +835,16 @@ function CheckoutForm() {
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
     });
-    if (fallback !== paymentMethod) setPaymentMethodState(fallback);
-  }, [currencyCode, countryCode, paymentMethod]);
+    if (fallback !== paymentMethod) {
+      setPaymentMethodState(fallback);
+      // Ensure Stripe is initialised when the auto-fallback selects a
+      // Stripe-backed method (e.g. apple_pay → card when wallet is
+      // unavailable for the active currency).  onNeedStripe is idempotent.
+      if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
+        onNeedStripe();
+      }
+    }
+  }, [currencyCode, countryCode, paymentMethod, onNeedStripe]);
 
   // Stripe PaymentRequest object reused for both the canMakePayment probe
   // and the actual wallet submit (non-AED). Stored after canMakePayment()
@@ -1113,6 +1148,24 @@ function CheckoutForm() {
 
   const handleSubmit = async () => {
     try {
+      // Fallback: load Stripe if the user is submitting with a Stripe-backed
+      // method but never interacted with the payment tiles (e.g. default
+      // apple_pay selected, form filled out, submit clicked directly).
+      // If Stripe hasn't resolved yet we bail early so the user can retry
+      // once the Elements context re-renders with the live stripe instance.
+      if (paymentMethod === "card" || paymentMethod === "apple_pay" || paymentMethod === "google_pay") {
+        onNeedStripe();
+        if (!stripe) {
+          // Stripe is now loading; the component will re-render once the
+          // Elements context hydrates.  Ask the user to try once more.
+          toast({
+            title: t("checkout.toast.stripeInitTitle"),
+            description: t("checkout.toast.stripeInitDesc"),
+          });
+          return;
+        }
+      }
+
       // Fire-and-forget before any redirect so the address is saved even
       // for hosted-payment flows where we never return to this page.
       void maybeSaveNewAddress();
@@ -2172,17 +2225,25 @@ function CheckoutForm() {
 
 export default function Checkout() {
   const { currencyCode } = useDisplayCurrency();
-  const stripePromise = useMemo(() => {
-    const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
-    const key = isGulf
-      ? (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null)
-      : (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null);
-    return loadStripe(key);
-  }, [currencyCode]);
+  const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
+  const isGulfRef = useRef(isGulf);
+  isGulfRef.current = isGulf;
+
+  // Stripe promise starts null — js.stripe.com is NOT fetched until
+  // CheckoutForm signals that a Stripe-dependent payment method is active.
+  const [stripePromise, setStripePromise] = useState<
+    Promise<import("@stripe/stripe-js").Stripe | null> | null
+  >(null);
+
+  // Called by CheckoutForm when card / Apple Pay / Google Pay becomes active.
+  // Uses a ref so the callback identity is stable (no re-renders in CheckoutForm).
+  const handleNeedStripe = useCallback(() => {
+    setStripePromise((prev) => prev ?? getStripePromise(isGulfRef.current));
+  }, []);
 
   return (
     <Elements stripe={stripePromise} options={{ locale: "auto" }}>
-      <CheckoutForm />
+      <CheckoutForm onNeedStripe={handleNeedStripe} />
     </Elements>
   );
 }

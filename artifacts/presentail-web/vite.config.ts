@@ -4,6 +4,13 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+// rollup-plugin-visualizer: opt-in only. Set VITE_VISUALIZE=1 before running
+// `pnpm --filter @workspace/presentail-web run build` to emit dist/stats.html
+// for bundle composition auditing. Never runs during normal CI builds.
+// @ts-expect-error - plain ESM module (no bundled types)
+const visualizer = process.env.VITE_VISUALIZE
+  ? await import("rollup-plugin-visualizer").then((m) => m.visualizer({ filename: "dist/stats.html", open: false, gzipSize: true, brotliSize: true }))
+  : null;
 // @ts-expect-error - plain ESM module (no types).
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
 // @ts-expect-error - plain ESM module (no types).
@@ -317,6 +324,7 @@ export default defineConfig(async ({ command }) => {
             ),
           ]
         : []),
+      ...(visualizer ? [visualizer] : []),
     ],
     resolve: {
       alias: {
@@ -359,6 +367,14 @@ export default defineConfig(async ({ command }) => {
               id.includes("node_modules/embla-carousel-react")
             )
               return "vendor-embla";
+            if (
+              id.includes("node_modules/recharts/") ||
+              id.includes("node_modules/victory-vendor/")
+            )
+              return "vendor-recharts";
+            // QR code library is only used in Cart.tsx (on-demand) — split it
+            // so it never lands in the eagerly-evaluated instant vendor chunk.
+            if (id.includes("node_modules/qrcode.react/")) return "vendor-qrcode";
             if (id.includes("node_modules/")) return "vendor";
 
             // Collapse small app-level shared components into a single chunk so
@@ -390,6 +406,10 @@ export default defineConfig(async ({ command }) => {
             // It is tiny (~32 lines) so let it fall through into the entry bundle.
             if (id.endsWith("/src/components/ui/skeleton.tsx")) return "ui-skeleton";
             if (id.endsWith("/src/components/ui/tooltip.tsx")) return undefined;
+            // chart.tsx (recharts) is only used in the admin/debug funnel dashboard —
+            // exclude it from app-shared so recharts stays out of the entry preload
+            // graph. It falls into the route chunk that actually imports it.
+            if (id.endsWith("/src/components/ui/chart.tsx")) return undefined;
             if (id.includes("/src/components/ui/")) return "app-shared";
             const base = path.basename(id, path.extname(id));
             if (APP_SHARED_BASENAMES.has(base)) return "app-shared";

@@ -131,6 +131,8 @@ export const checkoutStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via isColdCache check in Checkout.tsx catch block
   "checkout.toast.catalogLoading": { en: "Our catalog is still loading — please wait a moment and try again.", ar: "جارٍ تحميل الكتالوج — يرجى الانتظار لحظة والمحاولة مجدداً." },
   "checkout.toast.storageError": { en: "Couldn't save your order details. Please disable private browsing or free up storage space and try again.", ar: "تعذّر حفظ تفاصيل طلبك. يرجى تعطيل التصفح الخاص أو تحرير مساحة التخزين والمحاولة مجدداً." },
+  "checkout.toast.stripeInitTitle": { en: "Payment loading…", ar: "جارٍ تحميل الدفع…" },
+  "checkout.toast.stripeInitDesc": { en: "Payment is initializing. Please try again in a moment.", ar: "يجري إعداد بوابة الدفع. يرجى المحاولة مجدداً بعد لحظة." },
   "checkout.useSavedAddress": { en: "Use a saved address", ar: "استخدم عنواناً محفوظاً" },
   "checkout.savedAddresses": { en: "Saved addresses", ar: "العناوين المحفوظة" },
   "checkout.defaultLabel": { en: "Default", ar: "افتراضي" },
@@ -272,6 +274,8 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.toast.networkTimeout": "Impossible de joindre le prestataire de paiement. Vérifiez votre connexion et réessayez.",
   "checkout.toast.catalogLoading": "Notre catalogue est en cours de chargement — veuillez patienter un instant et réessayer.",
   "checkout.toast.storageError": "Impossible d'enregistrer vos informations de commande. Désactivez la navigation privée ou libérez de l'espace de stockage, puis réessayez.",
+  "checkout.toast.stripeInitTitle": "Chargement du paiement…",
+  "checkout.toast.stripeInitDesc": "Le système de paiement s'initialise. Veuillez réessayer dans un instant.",
   "checkout.useSavedAddress": "Utiliser une adresse enregistrée",
   "checkout.savedAddresses": "Adresses enregistrées",
   "checkout.defaultLabel": "Par défaut",
