@@ -205,3 +205,97 @@ describe("serve.mjs — www → apex canonical redirect", () => {
     expect(location).toBeUndefined();
   });
 });
+
+/**
+ * A second server instance configured via the env overrides
+ * (WEB_CANONICAL_REDIRECT_FROM_HOST / WEB_CANONICAL_REDIRECT_TARGET_ORIGIN)
+ * to prove the canonical host + target are configurable without a code change.
+ */
+describe("serve.mjs — canonical redirect honours env overrides", () => {
+  let port: number;
+  let proc: ChildProcess;
+
+  beforeAll(async () => {
+    port = await getFreePort();
+    proc = spawn("node", [SERVE_MJS], {
+      env: {
+        ...process.env,
+        PORT: String(port),
+        BASE_PATH: "",
+        INTERNAL_API_BASE_URL: "http://127.0.0.1:0",
+        ALERTS_SLACK_WEBHOOK_URL: "",
+        NODE_ENV: "test",
+        WEB_CANONICAL_REDIRECT_FROM_HOST: "www.presentail.ae",
+        WEB_CANONICAL_REDIRECT_TARGET_ORIGIN: "https://presentail.ae",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    await waitForReady(port);
+  }, 20_000);
+
+  afterAll(() => {
+    proc?.kill("SIGTERM");
+  });
+
+  it("redirects the configured source host to the configured target origin", async () => {
+    const { status, location } = await get(port, "/en-ae/dubai/shop", {
+      host: "www.presentail.ae",
+    });
+    expect(status).toBe(301);
+    expect(location).toBe("https://presentail.ae/en-ae/dubai/shop");
+  });
+
+  it("matches the configured source host case-insensitively", async () => {
+    const { status, location } = await get(port, "/", {
+      host: "WWW.Presentail.AE",
+    });
+    expect(status).toBe(301);
+    expect(location).toBe("https://presentail.ae/");
+  });
+
+  it("does NOT redirect the old hardcoded host once overridden", async () => {
+    const { status, location } = await get(port, "/en-lb/beirut/shop", {
+      host: "www.presentail.com",
+    });
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+});
+
+/**
+ * A third server instance with the source host explicitly set to empty string,
+ * which must disable the redirect entirely.
+ */
+describe("serve.mjs — canonical redirect disabled when env override is empty", () => {
+  let port: number;
+  let proc: ChildProcess;
+
+  beforeAll(async () => {
+    port = await getFreePort();
+    proc = spawn("node", [SERVE_MJS], {
+      env: {
+        ...process.env,
+        PORT: String(port),
+        BASE_PATH: "",
+        INTERNAL_API_BASE_URL: "http://127.0.0.1:0",
+        ALERTS_SLACK_WEBHOOK_URL: "",
+        NODE_ENV: "test",
+        WEB_CANONICAL_REDIRECT_FROM_HOST: "",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    await waitForReady(port);
+  }, 20_000);
+
+  afterAll(() => {
+    proc?.kill("SIGTERM");
+  });
+
+  it("does NOT redirect the default www host when the source override is empty", async () => {
+    const { status, location } = await get(port, "/en-lb/beirut/shop", {
+      host: "www.presentail.com",
+    });
+    expect(status).toBe(200);
+    expect(location).toBeUndefined();
+  });
+});

@@ -50,9 +50,29 @@ const INTERNAL_API_BASE_URL =
 // Canonical-domain redirect. Requests arriving with this Host (or
 // X-Forwarded-Host) are 301-redirected to the same path on the apex domain so
 // there is a single canonical URL (avoids duplicate-content SEO penalties and
-// split sessions). Defined as a constant so it is easy to toggle or extend.
-const WWW_REDIRECT_HOST = "www.presentail.com";
-const WWW_REDIRECT_TARGET_ORIGIN = "https://presentail.com";
+// split sessions).
+//
+// Both the source host and the target origin are configurable via env vars so
+// the canonical domain can be changed (new TLD, staging apex, different market
+// domain) purely through deployment configuration — no code edit / redeploy.
+//   • WEB_CANONICAL_REDIRECT_FROM_HOST     — host that triggers the redirect
+//   • WEB_CANONICAL_REDIRECT_TARGET_ORIGIN — origin the redirect points at
+// When unset, the historical hardcoded values are used. Setting EITHER env var
+// to an explicit empty string disables the redirect entirely (e.g. for a
+// single-domain deploy that has no www → apex mapping).
+const DEFAULT_WWW_REDIRECT_HOST = "www.presentail.com"; // i18n-ignore — canonical domain, not UI copy
+const WWW_REDIRECT_HOST = (
+  process.env.WEB_CANONICAL_REDIRECT_FROM_HOST ?? DEFAULT_WWW_REDIRECT_HOST
+)
+  .trim()
+  .toLowerCase();
+const WWW_REDIRECT_TARGET_ORIGIN = (
+  process.env.WEB_CANONICAL_REDIRECT_TARGET_ORIGIN ?? "https://presentail.com"
+).trim();
+// Disabled when either side is empty: an empty source host can never match a
+// real request, and an empty target origin has no destination to point at.
+const WWW_REDIRECT_ENABLED =
+  WWW_REDIRECT_HOST !== "" && WWW_REDIRECT_TARGET_ORIGIN !== "";
 
 // ---------------------------------------------------------------------------
 // Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
@@ -755,9 +775,10 @@ const server = http.createServer(async (req, res) => {
         .split(":")[0]
         .toLowerCase();
     const isWwwHost =
-      normalizeHostHeader(req.headers["x-forwarded-host"]) ===
+      WWW_REDIRECT_ENABLED &&
+      (normalizeHostHeader(req.headers["x-forwarded-host"]) ===
         WWW_REDIRECT_HOST ||
-      normalizeHostHeader(req.headers.host) === WWW_REDIRECT_HOST;
+        normalizeHostHeader(req.headers.host) === WWW_REDIRECT_HOST);
     if (isWwwHost) {
       res.writeHead(301, {
         location: `${WWW_REDIRECT_TARGET_ORIGIN}${req.url ?? "/"}`,
