@@ -21,7 +21,7 @@
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
 
@@ -32,19 +32,38 @@ import { renderWithProviders } from "@/test-utils";
 
 const mockConfirmCardPayment = vi.fn();
 const mockHandleNextAction = vi.fn();
+
+// Controllable Stripe PaymentRequest (Apple Pay / Google Pay) mock.
+// canMakePayment resolves null by default so:
+//   • desktop card-flow tests keep auto-advancing to "card", and
+//   • the upfront wallet probe leaves paymentRequestRef empty — on mobile,
+//     handleSubmit then builds a fresh PaymentRequest on demand, which is the
+//     real wallet path the wallet suite below exercises.
+// pr.on(...) handlers are captured in mockPrEventHandlers so wallet tests can
+// fire the native sheet's "paymentmethod" / "cancel" events synthetically;
+// show()/update() are spies a test can configure (e.g. make show() throw).
+type PrHandler = (ev?: unknown) => void | Promise<void>;
+const mockCanMakePayment = vi.fn().mockResolvedValue(null);
+const mockPrShow = vi.fn();
+const mockPrUpdate = vi.fn();
+const mockPrEventHandlers: Record<string, PrHandler> = {};
+const mockPrOn = vi.fn((event: string, handler: PrHandler) => {
+  mockPrEventHandlers[event] = handler;
+});
+const mockPrOff = vi.fn((event: string) => {
+  delete mockPrEventHandlers[event];
+});
+const mockPaymentRequest = vi.fn(() => ({
+  canMakePayment: mockCanMakePayment,
+  update: mockPrUpdate,
+  show: mockPrShow,
+  on: mockPrOn,
+  off: mockPrOff,
+}));
 const mockStripe = {
   confirmCardPayment: mockConfirmCardPayment,
   handleNextAction: mockHandleNextAction,
-  // In jsdom there is no Apple Pay / Google Pay, so canMakePayment returns null.
-  // Desktop tests rely on the checkout's wallet-availability effect falling back
-  // to "card" as the selected payment method (see useIsMobile mock below).
-  paymentRequest: vi.fn(() => ({
-    canMakePayment: vi.fn().mockResolvedValue(null),
-    update: vi.fn(),
-    show: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-  })),
+  paymentRequest: mockPaymentRequest,
 };
 
 // useIsMobile controls whether wallet tiles are hidden on a null probe result.
@@ -157,8 +176,11 @@ vi.mock("@/lib/useNow", () => ({
   useNow: () => new Date("2025-06-05T10:00:00Z"),
 }));
 
+const mockTrackEvent = vi.fn();
 vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
+  // Wrap in a thunk so the factory (hoisted to the top of the file) does not
+  // read mockTrackEvent before its const initialiser has run.
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
@@ -715,5 +737,227 @@ describe("Checkout — mobile viewport wallet tile visibility", () => {
     // Tiles must be absent — the auto-advance effect removed them.
     expect(screen.queryByTestId("option-payment-apple_pay")).toBeNull();
     expect(screen.queryByTestId("option-payment-google_pay")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wallet (Apple Pay / Google Pay) native-sheet flow tests
+//
+// These cover the walletViaNativeSheet=true branch of handleSubmit — the path
+// the inline card suite above never reaches.  A regression here would silently
+// strand a mobile shopper after they tap the Apple Pay / Google Pay button:
+//
+//   1. Happy path: pr.paymentmethod fires → PaymentIntent created →
+//      confirmCardPayment succeeds → ev.complete("success") → redirect.
+//   2. Cancel: pr.cancel fires → no PI, no redirect, no error toast.
+//   3. PI failure: server returns ok:false → ev.complete("fail"), no card
+//      confirmation, no redirect.
+//   4. pr.show() throws → wallet state is reset and the selected method falls
+//      back to card so the shopper can retry.
+//
+// The wallet path only runs on mobile viewports (mockUseIsMobile=true): the
+// upfront canMakePayment probe resolves null, so handleSubmit builds a fresh
+// PaymentRequest on demand — exactly the documented mobile wallet behaviour.
+// ---------------------------------------------------------------------------
+
+describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () => {
+  let user: ReturnType<typeof userEvent.setup>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetLocation.mockClear();
+    // Wallet sheets only ever appear on mobile viewports.
+    mockUseIsMobile.mockReturnValue(true);
+    // Reset the controllable PaymentRequest mock to its default healthy state.
+    // vi.clearAllMocks() clears call history but not implementations, so we
+    // re-assert canMakePayment (null) and a non-throwing show() here, and clear
+    // any handlers captured by a previous test.
+    mockCanMakePayment.mockResolvedValue(null);
+    mockPrShow.mockImplementation(() => {});
+    for (const key of Object.keys(mockPrEventHandlers)) {
+      delete mockPrEventHandlers[key];
+    }
+    user = userEvent.setup();
+  });
+
+  afterEach(() => {
+    // Restore desktop default so other describe blocks are unaffected.
+    mockUseIsMobile.mockReturnValue(false);
+  });
+
+  /**
+   * Reach Step 2 with Apple Pay selected and Stripe ready.
+   *
+   * Clicking the Apple Pay tile calls triggerStripeLoad(), mounting the mocked
+   * StripeCheckoutSection which fires onStripeReady (stripe ≠ null).  The wallet
+   * probe runs only after stripe is set, so waiting for a canMakePayment call
+   * proves stripe is ready before we submit.
+   */
+  async function gotoWalletStep2() {
+    const noAddressSwitch = await screen.findByTestId("check-no-address");
+    await user.click(noAddressSwitch);
+    await user.type(screen.getByTestId("input-recipient-first-name"), "John");
+    await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
+    await user.click(screen.getByTestId("button-continue-to-payment"));
+    expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
+    await user.click(await screen.findByTestId("option-payment-apple_pay"));
+    await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
+  }
+
+  // ── 1. Wallet happy path ───────────────────────────────────────────────
+
+  it("happy path: pr.paymentmethod fires → PI created → confirmCardPayment succeeds → redirect", async () => {
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
+    mockConfirmCardPayment.mockResolvedValue({
+      paymentIntent: { id: "pi_wallet_ok", status: "succeeded" },
+    });
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    // The native sheet was opened and the paymentmethod handler registered.
+    await waitFor(() => {
+      expect(mockPrShow).toHaveBeenCalled();
+      expect(typeof mockPrEventHandlers.paymentmethod).toBe("function");
+    });
+
+    // Simulate the shopper authorising the wallet: Stripe fires paymentmethod
+    // with a generated PaymentMethod id.
+    const ev = { paymentMethod: { id: "pm_wallet_123" }, complete: vi.fn() };
+    await act(async () => {
+      await mockPrEventHandlers.paymentmethod(ev);
+    });
+
+    // A PaymentIntent was created server-side and confirmed with the wallet's
+    // PaymentMethod id (no 3DS handling needed for a succeeded intent).
+    expect(mockCreatePaymentIntentMutate).toHaveBeenCalled();
+    expect(mockConfirmCardPayment).toHaveBeenCalledWith(
+      PAYMENT_INTENT_RES.clientSecret,
+      { payment_method: "pm_wallet_123" },
+      { handleActions: false },
+    );
+    // The sheet is dismissed as a success and the shopper is redirected.
+    expect(ev.complete).toHaveBeenCalledWith("success");
+    await waitFor(() => {
+      expect(mockSetLocation).toHaveBeenCalledWith(
+        expect.stringContaining("/order-confirmed"),
+      );
+    });
+  });
+
+  // ── 2. Wallet cancelled ────────────────────────────────────────────────
+
+  it("cancel: pr.cancel fires → no PI created, no redirect, no error toast", async () => {
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    await waitFor(() => {
+      expect(mockPrShow).toHaveBeenCalled();
+      expect(typeof mockPrEventHandlers.cancel).toBe("function");
+    });
+
+    // The shopper dismissed the native sheet without paying.
+    await act(async () => {
+      await mockPrEventHandlers.cancel();
+    });
+
+    // Nothing happened: no charge attempt, no order, no redirect, and crucially
+    // no error toast (a cancel is not a failure).
+    expect(mockCreatePaymentIntentMutate).not.toHaveBeenCalled();
+    expect(mockConfirmCardPayment).not.toHaveBeenCalled();
+    expect(mockSetLocation).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  // ── 3. Wallet PaymentIntent creation fails server-side ─────────────────
+
+  it("PI failure: server returns ok:false → fail the sheet AND surface a visible card error", async () => {
+    // The server could not create a PaymentIntent (e.g. Stripe misconfigured).
+    mockCreatePaymentIntentMutate.mockResolvedValue({
+      ok: false,
+      message: "Stripe is not configured.",
+    });
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    await waitFor(() => {
+      expect(mockPrShow).toHaveBeenCalled();
+      expect(typeof mockPrEventHandlers.paymentmethod).toBe("function");
+    });
+
+    const ev = { paymentMethod: { id: "pm_wallet_fail" }, complete: vi.fn() };
+    await act(async () => {
+      await mockPrEventHandlers.paymentmethod(ev);
+    });
+
+    // The native sheet is told to fail and the card is never confirmed.
+    expect(ev.complete).toHaveBeenCalledWith("fail");
+    expect(mockConfirmCardPayment).not.toHaveBeenCalled();
+    expect(mockSetLocation).not.toHaveBeenCalled();
+
+    // Crucially the failure is NOT silent: handleSubmit switches the selected
+    // method to card so the inline error renders, otherwise a wallet shopper
+    // would just see the sheet dismiss with no explanation. The Apple Pay tile
+    // is no longer selected and the card fields (with the error) are visible.
+    await waitFor(() => {
+      expect(screen.getByTestId("stripe-card-fields")).toBeTruthy();
+    });
+    expect(screen.getByText("Stripe is not configured.")).toBeTruthy();
+  });
+
+  // ── 4. pr.show() throws → fall back to card ────────────────────────────
+
+  it("pr.show() throws → resets wallet state and falls back to the card path", async () => {
+    // The device refused to open the native sheet (e.g. another sheet already
+    // showing).  handleSubmit must reset wallet state, switch the selected
+    // method to card, record a fallback analytics event, and RETURN so the
+    // shopper can re-submit via the card fields.
+    mockPrShow.mockImplementation(() => {
+      throw new Error("cannot show payment sheet");
+    });
+    // Guard against the historical bug this fix closes: if execution fell
+    // through after the failed sheet it would reach finalizeOrderNow() and call
+    // createOrder, placing an UNPAID order. We resolve createOrder so that, if
+    // it were ever (incorrectly) reached, the test would catch a real redirect
+    // rather than silently swallowing the bug behind a rejected promise.
+    mockCreateOrderMutate.mockResolvedValue({ ok: true, orderId: "should-not-happen" });
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    // The sheet was attempted but threw.
+    await waitFor(() => expect(mockPrShow).toHaveBeenCalled());
+
+    // The selected method fell back to card, so the inline card fields appear.
+    await waitFor(() => {
+      expect(screen.getByTestId("stripe-card-fields")).toBeTruthy();
+    });
+
+    // A fallback analytics event was recorded.
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "payment_wallet_fallback",
+        errorCode: "show_failed",
+      }),
+    );
+
+    // Critical: handleSubmit must NOT fall through to the default order path.
+    // No PaymentIntent is created (the shopper hasn't entered card details yet),
+    // no order is finalised, and there is no redirect to the confirmation page.
+    // The shopper is simply shown the card fields to complete payment.
+    expect(mockCreatePaymentIntentMutate).not.toHaveBeenCalled();
+    expect(mockCreateOrderMutate).not.toHaveBeenCalled();
+    expect(mockSetLocation).not.toHaveBeenCalled();
   });
 });

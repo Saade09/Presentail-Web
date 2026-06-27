@@ -1311,7 +1311,6 @@ function CheckoutForm() {
           ? "card"
           : paymentMethod;
 
-      let walletShowFailed = false;
       if (walletViaNativeSheet && stripe) {
         // Guard against double-invocation while the sheet is already open.
         if (walletSheetOpenRef.current) return;
@@ -1330,19 +1329,22 @@ function CheckoutForm() {
           pr.show();
         } catch {
           // pr.show() threw synchronously (e.g. the device declined to open
-          // the sheet, or another sheet is already showing). Reset the state
-          // and silently fall back to the card path so the shopper can still
-          // complete checkout without seeing a dead-end error.
+          // the sheet, or another sheet is already showing). Reset the state,
+          // switch the selected method to card so the inline card fields render,
+          // and RETURN. Returning is essential: `payMethod` was resolved to
+          // "apple_pay" above (walletViaNativeSheet was true), so without this
+          // return execution would fall through every branch below to the
+          // default `finalizeOrderNow()` and place an UNPAID order. The shopper
+          // re-submits via the card fields that just became visible.
           walletSheetOpenRef.current = false;
           paymentRequestRef.current = null;
           setPaymentMethodState("card");
-          walletShowFailed = true;
           trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "show_failed" });
+          return;
         }
 
-        if (!walletShowFailed) {
-          trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: "wallet" });
-          await new Promise<void>((resolve) => {
+        trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: "wallet" });
+        await new Promise<void>((resolve) => {
           const cleanup = () => {
             walletSheetOpenRef.current = false;
             pr.off("paymentmethod", pmHandler);
@@ -1376,6 +1378,11 @@ function CheckoutForm() {
 
               if (!intentRes.ok || !intentRes.clientSecret) {
                 ev.complete("fail");
+                // Switch to the card tile so the inline error actually renders —
+                // StripeCheckoutSection only shows `cardError` while the card
+                // method is selected, otherwise the shopper sees the wallet
+                // sheet dismiss with no explanation.
+                setPaymentMethodState("card");
                 setStripeCardError((intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"));
                 resolve();
                 return;
@@ -1391,6 +1398,7 @@ function CheckoutForm() {
               if (stripeError) {
                 ev.complete("fail");
                 trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
+                setPaymentMethodState("card");
                 setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
                 resolve();
                 return;
@@ -1404,6 +1412,7 @@ function CheckoutForm() {
                 if (actionError) {
                   ev.complete("fail");
                   trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: actionError.code ?? undefined });
+                  setPaymentMethodState("card");
                   setStripeCardError(stripeDeclineMsg(actionError, t) ?? actionError.message ?? t("checkout.toast.cardPaymentFailed"));
                   resolve();
                   return;
@@ -1413,6 +1422,7 @@ function CheckoutForm() {
 
               if (finalIntent?.status !== "succeeded") {
                 ev.complete("fail");
+                setPaymentMethodState("card");
                 setStripeCardError(t("checkout.toast.cardPaymentFailed"));
                 resolve();
                 return;
@@ -1437,10 +1447,9 @@ function CheckoutForm() {
 
           pr.on("paymentmethod", pmHandler);
           pr.on("cancel", cancelHandler);
-          });
+        });
 
-          return;
-        }
+        return;
       }
 
       // Reserve the order ID from the server ONCE for non-wallet flows. Retries

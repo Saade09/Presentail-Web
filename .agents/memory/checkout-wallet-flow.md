@@ -1,0 +1,22 @@
+---
+name: Checkout wallet (Apple Pay / Google Pay) flow
+description: Durable rules for the web checkout wallet native-sheet branch — failure handling and how its errors reach the shopper.
+---
+
+# Web checkout wallet (Apple Pay / Google Pay) native-sheet branch
+
+The wallet path in the web checkout `handleSubmit` only runs for non-AED currency on mobile, where the upfront `canMakePayment()` probe returns null and a PaymentRequest is built on demand.
+
+## Rules / decisions
+
+- **A wallet failure must never fall through to the default order path.** The resolved `payMethod` stays `"apple_pay"` even after a wallet sheet fails, so any wallet failure branch must explicitly redirect to card and `return` — otherwise execution reaches the default `finalizeOrderNow()` and places an UNPAID order.
+  - **Why:** a real latent bug — `pr.show()` throwing silently created an unpaid order.
+  - **How to apply:** on `pr.show()` throw, and on every in-sheet payment failure, switch the selected method to card and stop; do not let control reach the non-wallet branches below.
+
+- **Wallet errors are invisible unless the card tile is selected.** The inline Stripe error only renders while the card method is active. After a wallet payment failure you must switch the selected method to card so the shopper actually sees the error; a wallet shopper otherwise just sees the sheet dismiss with no explanation. Note the card tile's onClick clears the error, but a programmatic method switch does not.
+
+## Testing the wallet branch
+
+- It only runs on mobile viewports — mock `useIsMobile` true and have the canMakePayment probe resolve null, then capture the `pr.on("paymentmethod"|"cancel", ...)` handlers and invoke them directly.
+- `vi.clearAllMocks()` clears call history but NOT implementations — re-assert `mockResolvedValue`/`mockImplementation` in `beforeEach`.
+- A `vi.mock` factory that needs a module-level `mock*` const must reference it lazily through a thunk (e.g. `trackEvent: (...a) => mockTrackEvent(...a)`); a direct reference is read during hoisting, before the const initialises, and throws.
