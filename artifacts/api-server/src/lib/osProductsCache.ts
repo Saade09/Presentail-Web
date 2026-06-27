@@ -103,6 +103,17 @@ let cachedCategories: OSProductCategory[] | null = null;
 let cachedBrands: OSProductBrand[] | null = null;
 let cachedOccasions: OSProductOccasion[] | null = null;
 
+/**
+ * Pre-computed per-brand in-stock product counts across all stores,
+ * deduplicated by product id. Updated after every successful fetch cycle
+ * so `/catalog/metadata` does not need to re-iterate over all store caches
+ * on each request.
+ *
+ * Keys are brand slugs; values are the count of distinct in-stock products
+ * associated with that brand across all stores.
+ */
+let cachedBrandProductCounts: Map<string, number> = new Map();
+
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
@@ -868,6 +879,27 @@ async function fetchAndStore(): Promise<void> {
       }
     }
 
+    // ── Per-brand in-stock product counts ────────────────────────────────
+    // Recompute after every cycle so the count stays in sync with the
+    // refreshed store caches. Deduplicate by product id so a product
+    // available in multiple regions is counted once.
+    {
+      const counts = new Map<string, number>();
+      const seenProductIds = new Set<string>();
+      for (const spec of OS_STORE_SPECS) {
+        const entry = storeCache.get(spec.storeKey);
+        if (!entry) continue;
+        for (const p of entry.products) {
+          if (!p.inStock || seenProductIds.has(p.id)) continue;
+          seenProductIds.add(p.id);
+          for (const b of p.brands ?? []) {
+            counts.set(b.slug, (counts.get(b.slug) ?? 0) + 1);
+          }
+        }
+      }
+      cachedBrandProductCounts = counts;
+    }
+
     // ── IndexNow: ping for new taxonomy and product slugs ─────────────────
     // Fires when any of categories, brands, occasions, or products were
     // successfully fetched this cycle. On the first fetch all current slugs
@@ -1006,6 +1038,21 @@ export function getOsBrands(): OSProductBrand[] | null {
  */
 export function getOsOccasions(): OSProductOccasion[] | null {
   return cachedOccasions;
+}
+
+/**
+ * Returns the pre-computed per-brand in-stock product count map.
+ *
+ * Keys are brand slugs; values are the count of distinct in-stock products
+ * associated with that brand across all stores (deduplicated by product id).
+ * The map is recomputed after every successful OS fetch cycle and is always
+ * consistent with the current store caches — callers do not need to iterate
+ * over store products themselves.
+ *
+ * Returns an empty map when the cache has not yet been populated.
+ */
+export function getOsBrandProductCounts(): ReadonlyMap<string, number> {
+  return cachedBrandProductCounts;
 }
 
 /**

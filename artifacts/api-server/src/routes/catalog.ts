@@ -10,11 +10,9 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrands, getOsCategories, getOsOccasions, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsOccasions } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
-
-const STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
 
 // ── Brand image proxy ─────────────────────────────────────────────────────────
 
@@ -212,21 +210,11 @@ router.get("/catalog/metadata", (_req, res) => {
     return occ;
   });
 
-  // Compute per-brand in-stock product count across all stores,
-  // deduplicating by product id so a product deliverable to multiple
-  // regions is only counted once.
-  const brandCountMap = new Map<string, number>();
-  const seenProductIds = new Set<string>();
-  for (const key of STORE_KEYS) {
-    const products = getOsProducts(key) ?? [];
-    for (const p of products) {
-      if (!p.inStock || seenProductIds.has(p.id)) continue;
-      seenProductIds.add(p.id);
-      for (const b of p.brands ?? []) {
-        brandCountMap.set(b.slug, (brandCountMap.get(b.slug) ?? 0) + 1);
-      }
-    }
-  }
+  // Use the pre-computed per-brand in-stock product counts from the cache.
+  // The cache layer recomputes counts after every OS refresh cycle, so this
+  // is always consistent with the current store caches without re-iterating
+  // over all products on every request.
+  const brandCountMap = getOsBrandProductCounts();
 
   const brands = osBrands
     ? osBrands.map((b) => ({
