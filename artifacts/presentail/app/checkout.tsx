@@ -2320,6 +2320,15 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     );
   };
 
+  const focusAndScroll = (
+    inputRef: React.RefObject<TextInput | null>,
+    viewRef: React.RefObject<View | null>,
+    delay = 50,
+  ) => {
+    inputRef.current?.focus();
+    setTimeout(() => scrollToRef(viewRef), delay);
+  };
+
   useImperativeHandle(ref, () => ({
     scrollToFirstError: () => {
       const phoneEmpty = !recipientPhone.trim();
@@ -2449,7 +2458,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         <View ref={recipientNamesRef} style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required error={showFieldErrors && !recipientFirst.trim()}
-              onSubmitEditing={() => recipientLastInputRef.current?.focus()} />
+              onSubmitEditing={() => focusAndScroll(recipientLastInputRef, recipientNamesRef)} />
           </View>
           <View style={{ flex: 1 }}>
             <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()}
@@ -2775,13 +2784,13 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
             <View style={{ flex: 1 }}>
               <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required error={showFieldErrors && !senderFirst.trim()}
                 inputRef={senderFirstInputRef}
-                onSubmitEditing={() => senderLastInputRef.current?.focus()} />
+                onSubmitEditing={() => focusAndScroll(senderLastInputRef, senderNamesRef)} />
             </View>
             <View style={{ flex: 1 }}>
               <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()}
                 inputRef={senderLastInputRef}
                 returnKeyType={hideSenderEmail ? "done" : "next"}
-                onSubmitEditing={hideSenderEmail ? undefined : () => senderEmailInputRef.current?.focus()} />
+                onSubmitEditing={hideSenderEmail ? undefined : () => focusAndScroll(senderEmailInputRef, senderEmailRef)} />
             </View>
           </View>
         ) : null}
