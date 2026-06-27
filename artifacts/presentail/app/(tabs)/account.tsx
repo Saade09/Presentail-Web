@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,8 +17,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
+import { PhoneField } from "@/components/PhoneField";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { phoneNumber, whatsappNumber } from "@/constants/contact";
+import { COUNTRY_DIAL_CODES, type CountryDialCode } from "@/data/countryCodes";
+import { validateNationalNumber } from "@/data/phoneLengths";
 import { API_BASE } from "@/lib/stripe";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -38,6 +41,22 @@ import {
 } from "@/services/notifications";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
+function splitPhone(raw: string | undefined | null): { country: CountryDialCode; local: string } {
+  const fallback = COUNTRY_DIAL_CODES[0];
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return { country: fallback, local: "" };
+  if (trimmed.startsWith("+")) {
+    const compact = trimmed.replace(/\s+/g, "");
+    const sorted = [...COUNTRY_DIAL_CODES].sort((a, b) => b.dial.length - a.dial.length);
+    const match = sorted.find((c) => compact.startsWith(c.dial));
+    if (match) {
+      const local = compact.slice(match.dial.length).replace(/^[\s-]+/, "");
+      return { country: match, local: local.replace(/^0+/, "") };
+    }
+  }
+  return { country: fallback, local: trimmed };
+}
+
 function AccountTab() {
   const colors = useColors();
   const headingFontMedium = useHeadingFont("500Medium");
@@ -55,6 +74,11 @@ function AccountTab() {
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [nameBusy, setNameBusy] = useState(false);
+  const [phoneEditOpen, setPhoneEditOpen] = useState(false);
+  const [editPhoneCountry, setEditPhoneCountry] = useState<CountryDialCode>(COUNTRY_DIAL_CODES[0]);
+  const [editPhoneLocal, setEditPhoneLocal] = useState("");
+  const [phoneSaveBusy, setPhoneSaveBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [loyaltyTierLabel, setLoyaltyTierLabel] = useState<string | null>(null);
@@ -656,6 +680,44 @@ function AccountTab() {
     setNameEditOpen(false);
   };
 
+  const openPhoneEdit = () => {
+    const split = splitPhone(user?.phone);
+    setEditPhoneCountry(split.country);
+    setEditPhoneLocal(split.local);
+    setPhoneError(null);
+    setPhoneEditOpen(true);
+  };
+
+  const onSavePhone = async () => {
+    setPhoneError(null);
+    const local = editPhoneLocal.trim();
+    const validation = validateNationalNumber(editPhoneCountry.code, local);
+    if (validation === "too_short") {
+      setPhoneError(t.piPhoneErrorTooShort);
+      return;
+    }
+    if (validation === "too_long") {
+      setPhoneError(t.piPhoneErrorTooLong);
+      return;
+    }
+    const normalizedLocal = local.replace(/^0+/, "");
+    const phoneValue = normalizedLocal ? `${editPhoneCountry.dial} ${normalizedLocal}`.trim() : "";
+    setPhoneSaveBusy(true);
+    const r = await updateProfile({ phone: phoneValue });
+    setPhoneSaveBusy(false);
+    if (!r.ok) {
+      Alert.alert(t.piErrorTitle, r.message || t.piErrorGeneric);
+      return;
+    }
+    setPhoneEditOpen(false);
+    Alert.alert(t.piUpdatedTitle, t.piPhoneUpdatedMsg);
+  };
+
+  const phoneSplit = useMemo(() => splitPhone(user?.phone), [user?.phone]);
+  const phoneDisplayValue = phoneSplit.local
+    ? `${phoneSplit.country.dial} ${phoneSplit.local}`
+    : t.piPhoneNotSet;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View
@@ -844,6 +906,14 @@ function AccountTab() {
             icon="user"
             label={t.personalInfoTitle}
             onPress={() => router.push("/personal-information" as never)}
+          />
+          <Divider colors={colors} />
+          <PhoneRow
+            colors={colors}
+            isRTL={isRTL}
+            label={t.piPhoneCardTitle}
+            value={phoneDisplayValue}
+            onPress={openPhoneEdit}
           />
           <Divider colors={colors} />
           <SettingsRow
@@ -1036,6 +1106,73 @@ function AccountTab() {
         </View>
       </BottomSheet>
 
+      {/* ── Phone edit sheet ── */}
+      <BottomSheet visible={phoneEditOpen} onClose={() => setPhoneEditOpen(false)}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
+          <AppText
+            style={{
+              fontFamily: headingFontMedium,
+              fontSize: 22,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+            }}
+          >
+            {t.piPhoneCardTitle}
+          </AppText>
+          <PhoneField
+            label={t.piPhoneCardTitle}
+            value={editPhoneLocal}
+            onChangeText={(v) => {
+              setEditPhoneLocal(v);
+              if (phoneError) setPhoneError(null);
+            }}
+            countryCode={editPhoneCountry.code}
+            onChangeCountry={(c) => {
+              setEditPhoneCountry(c);
+              if (phoneError) setPhoneError(null);
+            }}
+          />
+          {phoneError ? (
+            <AppText
+              style={{
+                fontFamily: "Inter_400Regular",
+                fontSize: 12,
+                color: "#c0392b",
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {phoneError}
+            </AppText>
+          ) : null}
+          <Pressable
+            onPress={onSavePhone}
+            disabled={phoneSaveBusy}
+            style={({ pressed }) => ({
+              backgroundColor: colors.primary,
+              borderRadius: 999,
+              paddingVertical: 16,
+              alignItems: "center",
+              opacity: phoneSaveBusy ? 0.6 : pressed ? 0.85 : 1,
+            })}
+          >
+            {phoneSaveBusy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <AppText
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  color: "#fff",
+                  fontSize: 14,
+                  letterSpacing: 1,
+                }}
+              >
+                {t.piUpdate}
+              </AppText>
+            )}
+          </Pressable>
+        </View>
+      </BottomSheet>
+
       <NotificationPermissionModal
         visible={notifModalOpen}
         onAllow={onNotifAllow}
@@ -1125,6 +1262,60 @@ function SettingsRow({ colors, isRTL, icon, label, onPress, value, hideChevron, 
           color={colors.mutedForeground}
         />
       )}
+    </Pressable>
+  );
+}
+
+function PhoneRow({
+  colors,
+  isRTL,
+  label,
+  value,
+  onPress,
+}: {
+  colors: Colors;
+  isRTL: boolean;
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: isRTL ? "row-reverse" : "row",
+        alignItems: "center",
+        gap: 14,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: pressed ? "#0001" : "#fff",
+      })}
+    >
+      <Feather name="phone" size={20} color={colors.primary} />
+      <View style={{ flex: 1 }}>
+        <AppText
+          style={{
+            fontFamily: "Inter_500Medium",
+            fontSize: 15,
+            color: colors.primary,
+            textAlign: isRTL ? "right" : "left",
+          }}
+        >
+          {label}
+        </AppText>
+        <AppText
+          style={{
+            fontFamily: "Inter_400Regular",
+            fontSize: 12,
+            color: colors.mutedForeground,
+            textAlign: isRTL ? "right" : "left",
+            marginTop: 1,
+          }}
+        >
+          {value}
+        </AppText>
+      </View>
+      <Feather name="edit-2" size={16} color={colors.mutedForeground} />
     </Pressable>
   );
 }
