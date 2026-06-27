@@ -108,12 +108,33 @@ export function SeoHead() {
     const description = t(`seo.${routeKey}.description`, params);
     const siteName = t("seo.siteName");
 
-    // Landing page uses distinct, shorter OG and Twitter copy.
+    // Landing and locale-prefixed home pages use distinct, shorter OG and
+    // Twitter copy. Other routes reuse the page title/description.
+    // Mirror the server's isUnknownSubRoute guard so soft-404 locale URLs
+    // (routeKey falls back to "home" with a non-empty rest) don't pick up the
+    // dedicated home copy and drift from the server-rendered metadata.
+    const isUnknownSubRoute =
+      Boolean(inLocale) &&
+      routeKey === "home" &&
+      parsed.rest !== "" &&
+      parsed.rest !== "/";
     const isLanding = routeKey === "landing";
-    const ogTitle = isLanding ? t("seo.landing.ogTitle") : title;
-    const ogDescription = isLanding ? t("seo.landing.ogDescription") : description;
-    const twitterTitle = isLanding ? t("seo.landing.twitterTitle") : title;
-    const twitterDescription = isLanding ? t("seo.landing.twitterDescription") : description;
+    const isHome = routeKey === "home" && Boolean(inLocale) && !isUnknownSubRoute;
+    let ogTitle = title;
+    let ogDescription = description;
+    let twitterTitle = title;
+    let twitterDescription = description;
+    if (isLanding) {
+      ogTitle = t("seo.landing.ogTitle");
+      ogDescription = t("seo.landing.ogDescription");
+      twitterTitle = t("seo.landing.twitterTitle");
+      twitterDescription = t("seo.landing.twitterDescription");
+    } else if (isHome) {
+      ogTitle = t("seo.home.ogTitle", params);
+      ogDescription = t("seo.home.ogDescription", params);
+      twitterTitle = t("seo.home.twitterTitle", params);
+      twitterDescription = t("seo.home.twitterDescription", params);
+    }
 
     document.title = title;
 

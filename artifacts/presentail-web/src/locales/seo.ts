@@ -10,6 +10,22 @@ export const seoStrings: Dict = {
     en: "Send luxury flowers, cakes and gifts in {city}, {country} with same-day delivery from Presentail.",
     ar: "أرسل الأزهار الفاخرة والكعك والهدايا في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
   },
+  "seo.home.ogTitle": {
+    en: "Flowers & Gifts in {city} | Presentail",
+    ar: "الأزهار والهدايا في {city} | Presentail",
+  },
+  "seo.home.ogDescription": {
+    en: "Send flowers, cakes and gifts in {city} with same-day delivery from Presentail.",
+    ar: "أرسل الأزهار والكعك والهدايا في {city} مع توصيل في نفس اليوم من Presentail.",
+  },
+  "seo.home.twitterTitle": {
+    en: "Flowers & Gifts in {city} | Presentail",
+    ar: "الأزهار والهدايا في {city} | Presentail",
+  },
+  "seo.home.twitterDescription": {
+    en: "Send flowers and gifts in {city} — same-day delivery by Presentail.",
+    ar: "أرسل الأزهار والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
+  },
   "seo.shop.title": {
     en: "Shop Flowers & Gifts in {city} | Presentail",
     ar: "تسوّق الأزهار والهدايا في {city} | Presentail",
@@ -192,6 +208,10 @@ export const seoStringsFr: Record<string, string> = {
   "seo.siteName": "Presentail", // no-translate — brand name, identical in every locale
   "seo.home.title": "Livraison de fleurs et cadeaux à {city} | Presentail",
   "seo.home.description": "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
+  "seo.home.ogTitle": "Fleurs et cadeaux à {city} | Presentail",
+  "seo.home.ogDescription": "Envoyez fleurs, gâteaux et cadeaux à {city} avec la livraison le jour même par Presentail.",
+  "seo.home.twitterTitle": "Fleurs et cadeaux à {city} | Presentail",
+  "seo.home.twitterDescription": "Envoyez fleurs et cadeaux à {city} — livraison le jour même par Presentail.",
   "seo.shop.title": "Boutique fleurs et cadeaux à {city} | Presentail",
   "seo.shop.description": "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
   "seo.product.title": "Livraison de cadeaux à {city} | Presentail",

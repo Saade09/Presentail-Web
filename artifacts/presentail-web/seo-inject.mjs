@@ -240,6 +240,39 @@ const LANDING_TWITTER = {
   },
 };
 
+// Separate OG and Twitter copy for the locale-prefixed homepage (routeKey
+// "home", e.g. /en-lb/beirut). Shorter, more share-friendly than the page
+// title/description. Uses {city} placeholders resolved via format().
+const HOME_OG = {
+  en: {
+    title: "Flowers & Gifts in {city} | Presentail",
+    description: "Send flowers, cakes and gifts in {city} with same-day delivery from Presentail.",
+  },
+  ar: {
+    title: "الأزهار والهدايا في {city} | Presentail",
+    description: "أرسل الأزهار والكعك والهدايا في {city} مع توصيل في نفس اليوم من Presentail.",
+  },
+  fr: {
+    title: "Fleurs et cadeaux à {city} | Presentail",
+    description: "Envoyez fleurs, gâteaux et cadeaux à {city} avec la livraison le jour même par Presentail.",
+  },
+};
+
+const HOME_TWITTER = {
+  en: {
+    title: "Flowers & Gifts in {city} | Presentail",
+    description: "Send flowers and gifts in {city} — same-day delivery by Presentail.",
+  },
+  ar: {
+    title: "الأزهار والهدايا في {city} | Presentail",
+    description: "أرسل الأزهار والهدايا في {city} — توصيل في نفس اليوم من Presentail.",
+  },
+  fr: {
+    title: "Fleurs et cadeaux à {city} | Presentail",
+    description: "Envoyez fleurs et cadeaux à {city} — livraison le jour même par Presentail.",
+  },
+};
+
 const DESCRIPTIONS = {
   en: {
     landing:
@@ -580,14 +613,29 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
       : origin;
   const canonicalHref = canonicalOrigin + cleanBase + canonicalPath;
 
-  // Landing page uses distinct, shorter OG and Twitter copy.
+  // Landing and locale-prefixed home pages use distinct, shorter OG and
+  // Twitter copy. Other routes reuse the page title/description.
   const isLanding = routeKey === "landing" && !inLocale;
-  const ogLang = LANDING_OG[lang] ?? LANDING_OG.en;
-  const twLang = LANDING_TWITTER[lang] ?? LANDING_TWITTER.en;
-  const ogTitle = isLanding ? ogLang.title : title;
-  const ogDescription = isLanding ? ogLang.description : description;
-  const twitterTitle = isLanding ? twLang.title : title;
-  const twitterDescription = isLanding ? twLang.description : description;
+  const isHome = routeKey === "home" && inLocale && !isUnknownSubRoute;
+  let ogTitle = title;
+  let ogDescription = description;
+  let twitterTitle = title;
+  let twitterDescription = description;
+  if (isLanding) {
+    const ogLang = LANDING_OG[lang] ?? LANDING_OG.en;
+    const twLang = LANDING_TWITTER[lang] ?? LANDING_TWITTER.en;
+    ogTitle = ogLang.title;
+    ogDescription = ogLang.description;
+    twitterTitle = twLang.title;
+    twitterDescription = twLang.description;
+  } else if (isHome) {
+    const ogLang = HOME_OG[lang] ?? HOME_OG.en;
+    const twLang = HOME_TWITTER[lang] ?? HOME_TWITTER.en;
+    ogTitle = format(ogLang.title, params);
+    ogDescription = format(ogLang.description, params);
+    twitterTitle = format(twLang.title, params);
+    twitterDescription = format(twLang.description, params);
+  }
 
   const siteUrl = `${origin}${cleanBase}`;
 
