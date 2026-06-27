@@ -25,7 +25,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-const WEB_BASE_URL = "https://new.presentail.com";
+const WEB_BASE_URL = "https://presentail.com";
 
 const CARD_GAP = 12;
 const HORIZONTAL_PADDING = 20;

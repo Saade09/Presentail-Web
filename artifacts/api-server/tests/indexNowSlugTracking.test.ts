@@ -130,7 +130,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     for (const lang of langs) {
       for (const [country, city] of countryCity) {
         expect(submittedUrls).toContain(
-          `https://new.presentail.com/${lang}-${country}/${city}/product/white-lilies`,
+          `https://presentail.com/${lang}-${country}/${city}/product/white-lilies`,
         );
       }
     }
@@ -158,10 +158,10 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     // 1 new category + 1 new occasion × 3 langs × 3 countries = 18 URLs
     expect(submittedUrls).toHaveLength(18);
     expect(submittedUrls).toContain(
-      "https://new.presentail.com/en-lb/beirut/category/plants",
+      "https://presentail.com/en-lb/beirut/category/plants",
     );
     expect(submittedUrls).toContain(
-      "https://new.presentail.com/ar-ae/dubai/occasion/wedding",
+      "https://presentail.com/ar-ae/dubai/occasion/wedding",
     );
   });
 
@@ -197,7 +197,7 @@ describe("detectAndSubmitNewTaxonomySlugs", () => {
     for (const lang of langs) {
       for (const [country, city] of countryCity) {
         expect(submittedUrls).toContain(
-          `https://new.presentail.com/${lang}-${country}/${city}/brand/lily-garden`,
+          `https://presentail.com/${lang}-${country}/${city}/brand/lily-garden`,
         );
       }
     }
@@ -339,7 +339,7 @@ describe("detectAndSubmitNewTaxonomySlugs — brands", () => {
     for (const lang of langs) {
       for (const [country, city] of countryCity) {
         expect(submittedUrls).toContain(
-          `https://new.presentail.com/${lang}-${country}/${city}/brand/tulip-house`,
+          `https://presentail.com/${lang}-${country}/${city}/brand/tulip-house`,
         );
       }
     }

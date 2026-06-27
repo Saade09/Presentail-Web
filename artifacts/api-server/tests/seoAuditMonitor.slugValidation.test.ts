@@ -73,7 +73,7 @@ function makeResponse(ok: boolean, body = ""): Response {
 
 const HEALTHY_HTML = `
 <html><head>
-<meta property="og:image" content="https://new.presentail.com/img/product-specific.jpg" />
+<meta property="og:image" content="https://presentail.com/img/product-specific.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="628" />
 </head><body></body></html>

@@ -514,7 +514,7 @@ describe("sendOrderEventEmail — tracking URL", () => {
     expect(body).toContain(`https://track.example.com/orders/${ORDER_ID}`);
   });
 
-  it("defaults to https://new.presentail.com/orders when SMS_TRACKING_URL_BASE is unset", async () => {
+  it("defaults to https://presentail.com/orders when SMS_TRACKING_URL_BASE is unset", async () => {
     setSmtpEnv();
     const result = await sendOrderEventEmail({
       state: "delivered",
@@ -523,6 +523,6 @@ describe("sendOrderEventEmail — tracking URL", () => {
     });
     expect(result.emailSent).toBe(true);
     const body = (sendMailMock.mock.calls[0][0] as Record<string, string>).text;
-    expect(body).toContain(`https://new.presentail.com/orders/${ORDER_ID}`);
+    expect(body).toContain(`https://presentail.com/orders/${ORDER_ID}`);
   });
 });

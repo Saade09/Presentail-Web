@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { logger } from "./logger";
 
-const APPLE_PAY_DOMAIN = "new.presentail.com";
+const APPLE_PAY_DOMAIN = "presentail.com";
 
 /**
  * Register the production domain with Stripe's Apple Pay registry.

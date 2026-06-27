@@ -11,7 +11,9 @@ On iOS 16+, `Share.share({ url, title })` does NOT display `title` in the share 
 **How to apply:** Any share action that needs the product/item name visible in the iOS share sheet must embed the name in the `message` string. Using only `url` + `title` is unreliable. Do NOT set both `message` (containing a URL) AND `url` — that triggers iOS "2 Items" mode which pastes the URL twice.
 
 ## WEB_BASE_URL
-`presentail.com` does NOT serve locale-prefixed routes (`/en-lb/beirut/product/...`) — these 404. The Replit deployment is at `new.presentail.com`. `WEB_BASE_URL` in `artifacts/presentail/app/product/[slug].tsx` must be `https://new.presentail.com`.
+The primary production domain is `presentail.com` (migrated from `new.presentail.com`). Share/canonical/SEO/sitemap/IndexNow/SMS-email-tracking URLs all use `https://presentail.com`. The cutover requires DNS + Apple/Stripe/Google verification of `presentail.com` to be done by the owner before/with the merge, or share/SEO links 404 until the new domain serves the app.
+
+**Why:** The bare `presentail.com` is now the deployed storefront serving locale-prefixed routes; the old `new.` subdomain is retired.
 
 ## SEO OG injection
 The `serve.mjs` for `presentail-web` calls `http://localhost:80/api/woo/product?slug=...` (via `INTERNAL_API_BASE_URL`). The `/api/woo/product` endpoint looks up products by the OS product `id` (which is the slug-like string, e.g. `gold-chrome-balloons`), NOT by the WooCommerce `slug` field (which is empty string on OS products). The slug in the share URL comes from `useLocalSearchParams()` in the product screen, which equals the OS product id.

@@ -9,7 +9,7 @@
  *   The IndexNow key is stored in the INDEXNOW_KEY environment variable and
  *   defaults to the committed value "5b84c9d17f3e4a8a9b6c2d1e5f7a3b2c".
  *   The matching verification file is served by the web artifact at:
- *     https://new.presentail.com/<key>.txt
+ *     https://presentail.com/<key>.txt
  *
  *   To rotate the key:
  *     1. Generate a new alphanumeric key (8–128 chars).
@@ -22,7 +22,7 @@
 import { logger } from "./logger";
 
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
-const WEB_HOST = "new.presentail.com";
+const WEB_HOST = "presentail.com";
 const DEFAULT_KEY = "5b84c9d17f3e4a8a9b6c2d1e5f7a3b2c";
 
 /** The IndexNow key to use. Falls back to the committed default. */
@@ -40,7 +40,7 @@ const BATCH_SIZE = 10_000;
  * - Batches requests at BATCH_SIZE to stay within the IndexNow limit.
  * - Failures are logged as warnings; they do not throw to callers.
  *
- * @param urls  Fully-qualified `https://new.presentail.com/…` URLs to submit.
+ * @param urls  Fully-qualified `https://presentail.com/…` URLs to submit.
  */
 export async function submitIndexNowUrls(urls: string[]): Promise<void> {
   if (process.env.INDEXNOW_ENABLED === "0") return;

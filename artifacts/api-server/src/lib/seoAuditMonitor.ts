@@ -100,7 +100,7 @@ export function buildKeyPages(): Array<{ label: string; url: string; locale: str
     { locale: "CY", enLang: "en", arLang: "ar", frLang: "fr", city: "nicosia", countrySlug: "cy" },
   ] as const;
 
-  const BASE = "https://new.presentail.com";
+  const BASE = "https://presentail.com";
 
   for (const { locale, city, countrySlug } of COUNTRIES) {
     const enBase = `${BASE}/en-${countrySlug}/${city}`;

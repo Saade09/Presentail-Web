@@ -6,7 +6,7 @@
  *
  * Usage:
  *   pnpm --filter @workspace/scripts run submit-sitemap
- *   SITEMAP_URL=https://new.presentail.com/sitemap.xml pnpm --filter @workspace/scripts run submit-sitemap
+ *   SITEMAP_URL=https://presentail.com/sitemap.xml pnpm --filter @workspace/scripts run submit-sitemap
  *
  * What it does:
  *   1. Pings Bing Webmaster Tools via their sitemap-ping endpoint.
@@ -17,16 +17,16 @@
  *      Pass --skip-indexnow to disable IndexNow submission.
  *
  * Environment variables:
- *   SITEMAP_URL     — override the sitemap URL (default: https://new.presentail.com/sitemap.xml)
+ *   SITEMAP_URL     — override the sitemap URL (default: https://presentail.com/sitemap.xml)
  *   INDEXNOW_KEY    — IndexNow API key (default: 5b84c9d17f3e4a8a9b6c2d1e5f7a3b2c)
  */
 
 const SITEMAP_URL =
-  process.env.SITEMAP_URL ?? "https://new.presentail.com/sitemap.xml";
+  process.env.SITEMAP_URL ?? "https://presentail.com/sitemap.xml";
 
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 const DEFAULT_INDEXNOW_KEY = "5b84c9d17f3e4a8a9b6c2d1e5f7a3b2c";
-const WEB_HOST = "new.presentail.com";
+const WEB_HOST = "presentail.com";
 const INDEXNOW_BATCH_SIZE = 10_000;
 
 // ── Bing sitemap ping ───────────────────────────────────────────────────────

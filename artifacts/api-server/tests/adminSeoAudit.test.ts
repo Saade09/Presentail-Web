@@ -47,9 +47,9 @@ const SAMPLE_SUMMARY: AuditSummary = {
   pages: [
     {
       label: "Homepage (EN)",
-      url: "https://new.presentail.com/en-lb/beirut",
+      url: "https://presentail.com/en-lb/beirut",
       status: "ok",
-      ogImage: "https://new.presentail.com/img/product-specific.jpg",
+      ogImage: "https://presentail.com/img/product-specific.jpg",
       ogImageReachable: true,
       ogImageSizeOk: true,
       fallbackUsed: false,
@@ -57,7 +57,7 @@ const SAMPLE_SUMMARY: AuditSummary = {
     },
     {
       label: "Product (EN)",
-      url: "https://new.presentail.com/en-lb/beirut/product/pink-roses",
+      url: "https://presentail.com/en-lb/beirut/product/pink-roses",
       status: "error",
       ogImage: null,
       ogImageReachable: null,

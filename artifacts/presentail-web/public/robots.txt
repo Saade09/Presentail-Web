@@ -17,8 +17,8 @@ Disallow: /*/favorites
 Disallow: /*/order-confirmed
 Disallow: /*/personal-information
 
-Sitemap: https://new.presentail.com/sitemap.xml
+Sitemap: https://presentail.com/sitemap.xml
 
 # AI crawler guidance — machine-readable content index (llmstxt.org)
-# https://new.presentail.com/llms.txt
-# https://new.presentail.com/llms-full.txt
+# https://presentail.com/llms.txt
+# https://presentail.com/llms-full.txt

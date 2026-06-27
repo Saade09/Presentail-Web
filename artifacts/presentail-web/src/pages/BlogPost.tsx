@@ -112,9 +112,9 @@ export default function BlogPost() {
       publisher: {
         "@type": "Organization",
         name: "Presentail",
-        url: "https://new.presentail.com",
+        url: "https://presentail.com",
       },
-      url: typeof window !== "undefined" ? window.location.href : `https://new.presentail.com/blog/${article.slug}`,
+      url: typeof window !== "undefined" ? window.location.href : `https://presentail.com/blog/${article.slug}`,
     });
 
     return () => {

@@ -211,7 +211,7 @@ router.get(
     // Stable, deterministic referral code derived from local customer ID.
     // Format: PT + base-36 representation of the ID, uppercased.
     const code = `PT${resolved.customerId.toString(36).toUpperCase()}`;
-    const shareUrl = `https://new.presentail.com/?ref=${code}`;
+    const shareUrl = `https://presentail.com/?ref=${code}`;
     res.json({ ok: true, code, shareUrl });
   },
 );

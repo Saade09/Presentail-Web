@@ -2,15 +2,15 @@
 // Share URLs always point to the production web storefront so iOS/Android
 // can resolve OG tags (product name, logo) for the share sheet preview.
 // EXPO_PUBLIC_DOMAIN is the API server domain — do NOT use it here.
-// presentail.com does not yet have locale-prefixed routes; new.presentail.com
-// is the deployed Replit storefront that serves them correctly.
-export const PRODUCT_SHARE_WEB_BASE_URL = "https://new.presentail.com";
+// presentail.com is the primary production storefront; the bare /product/<slug>
+// path is resolved server-side to the correct locale-prefixed route.
+export const PRODUCT_SHARE_WEB_BASE_URL = "https://presentail.com";
 
 /**
  * Builds the canonical shareable URL for a product.
  *
  * The URL format is:
- *   https://new.presentail.com/product/{encodedSlug}
+ *   https://presentail.com/product/{encodedSlug}
  *
  * The bare `/product/<slug>` path is the canonical share URL. The web server
  * has a redirect rule that resolves it to the correct locale-prefixed route,

@@ -571,35 +571,35 @@ const SEO_DEBUG_HTML = `<!doctype html>
   <div class="quick-section">
     <h2>Quick checks</h2>
     <div class="quick-list" id="quickList">
-      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut" data-label="Homepage">
+      <button class="quick-item" data-url="https://presentail.com/en-lb/beirut" data-label="Homepage">
         <span class="quick-label">Homepage</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/product/pink-roses" data-label="Product page">
+      <button class="quick-item" data-url="https://presentail.com/en-lb/beirut/product/pink-roses" data-label="Product page">
         <span class="quick-label">Product page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/brand/roses-only" data-label="Brand page">
+      <button class="quick-item" data-url="https://presentail.com/en-lb/beirut/brand/roses-only" data-label="Brand page">
         <span class="quick-label">Brand page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-lb/beirut/shop?category=flowers" data-label="Category page">
+      <button class="quick-item" data-url="https://presentail.com/en-lb/beirut/shop?category=flowers" data-label="Category page">
         <span class="quick-label">Category page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-ae/dubai/product/pink-roses" data-label="UAE Product page">
+      <button class="quick-item" data-url="https://presentail.com/en-ae/dubai/product/pink-roses" data-label="UAE Product page">
         <span class="quick-label">UAE Product page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-ae/dubai/brand/roses-only" data-label="UAE Brand page">
+      <button class="quick-item" data-url="https://presentail.com/en-ae/dubai/brand/roses-only" data-label="UAE Brand page">
         <span class="quick-label">UAE Brand page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-cy/nicosia/product/pink-roses" data-label="Cyprus Product page">
+      <button class="quick-item" data-url="https://presentail.com/en-cy/nicosia/product/pink-roses" data-label="Cyprus Product page">
         <span class="quick-label">Cyprus Product page</span>
         <span class="quick-badge"></span>
       </button>
-      <button class="quick-item" data-url="https://new.presentail.com/en-cy/nicosia/brand/roses-only" data-label="Cyprus Brand page">
+      <button class="quick-item" data-url="https://presentail.com/en-cy/nicosia/brand/roses-only" data-label="Cyprus Brand page">
         <span class="quick-label">Cyprus Brand page</span>
         <span class="quick-badge"></span>
       </button>
@@ -623,7 +623,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
   </div>
 
   <div class="controls">
-    <input id="url" type="text" placeholder="https://new.presentail.com/en-lb/beirut/p/pink-roses or /en-lb/..." autocomplete="off" spellcheck="false" />
+    <input id="url" type="text" placeholder="https://presentail.com/en-lb/beirut/p/pink-roses or /en-lb/..." autocomplete="off" spellcheck="false" />
     <button id="checkBtn">Check</button>
     <button id="auditBtn">Audit key pages</button>
     <button id="runAuditBtn">Run monitor audit now</button>
@@ -749,55 +749,55 @@ const SEO_DEBUG_HTML = `<!doctype html>
   // Default key pages — all active cities per market
   var DEFAULT_KEY_PAGES = [
     // ── Lebanon — city homepages ────────────────────────────────────────────
-    { market: 'Lebanon', label: 'Akkar', url: 'https://new.presentail.com/en-lb/akkar' },
-    { market: 'Lebanon', label: 'Aley', url: 'https://new.presentail.com/en-lb/aley' },
-    { market: 'Lebanon', label: 'Baabda', url: 'https://new.presentail.com/en-lb/baabda' },
-    { market: 'Lebanon', label: 'Baalbeck', url: 'https://new.presentail.com/en-lb/baalbeck' },
-    { market: 'Lebanon', label: 'Batroun', url: 'https://new.presentail.com/en-lb/batroun' },
-    { market: 'Lebanon', label: 'Bcharee', url: 'https://new.presentail.com/en-lb/bcharee' },
-    { market: 'Lebanon', label: 'Beirut', url: 'https://new.presentail.com/en-lb/beirut' },
-    { market: 'Lebanon', label: 'Bent Jbeil', url: 'https://new.presentail.com/en-lb/bent-jbeil' },
-    { market: 'Lebanon', label: 'Chouf', url: 'https://new.presentail.com/en-lb/chouf' },
-    { market: 'Lebanon', label: 'Hasbaya', url: 'https://new.presentail.com/en-lb/hasbaya' },
-    { market: 'Lebanon', label: 'Hermel', url: 'https://new.presentail.com/en-lb/hermel' },
-    { market: 'Lebanon', label: 'Jbail', url: 'https://new.presentail.com/en-lb/jbail' },
-    { market: 'Lebanon', label: 'Jezzine', url: 'https://new.presentail.com/en-lb/jezzine' },
-    { market: 'Lebanon', label: 'Kasserwan', url: 'https://new.presentail.com/en-lb/kasserwan' },
-    { market: 'Lebanon', label: 'Koura', url: 'https://new.presentail.com/en-lb/koura' },
-    { market: 'Lebanon', label: 'Marjayoun', url: 'https://new.presentail.com/en-lb/marjayoun' },
-    { market: 'Lebanon', label: 'Metn', url: 'https://new.presentail.com/en-lb/metn' },
-    { market: 'Lebanon', label: 'Minnieh-Dennaya', url: 'https://new.presentail.com/en-lb/minnieh-dennaya' },
-    { market: 'Lebanon', label: 'Nabatieh', url: 'https://new.presentail.com/en-lb/nabatieh' },
-    { market: 'Lebanon', label: 'Rechaya', url: 'https://new.presentail.com/en-lb/rechaya' },
-    { market: 'Lebanon', label: 'Saida', url: 'https://new.presentail.com/en-lb/saida' },
-    { market: 'Lebanon', label: 'Tripoli', url: 'https://new.presentail.com/en-lb/tripoli' },
-    { market: 'Lebanon', label: 'Tyre', url: 'https://new.presentail.com/en-lb/tyre' },
-    { market: 'Lebanon', label: 'West Bekaa', url: 'https://new.presentail.com/en-lb/west-bekaa' },
-    { market: 'Lebanon', label: 'Zahle', url: 'https://new.presentail.com/en-lb/zahle' },
-    { market: 'Lebanon', label: 'Zghorta', url: 'https://new.presentail.com/en-lb/zghorta' },
+    { market: 'Lebanon', label: 'Akkar', url: 'https://presentail.com/en-lb/akkar' },
+    { market: 'Lebanon', label: 'Aley', url: 'https://presentail.com/en-lb/aley' },
+    { market: 'Lebanon', label: 'Baabda', url: 'https://presentail.com/en-lb/baabda' },
+    { market: 'Lebanon', label: 'Baalbeck', url: 'https://presentail.com/en-lb/baalbeck' },
+    { market: 'Lebanon', label: 'Batroun', url: 'https://presentail.com/en-lb/batroun' },
+    { market: 'Lebanon', label: 'Bcharee', url: 'https://presentail.com/en-lb/bcharee' },
+    { market: 'Lebanon', label: 'Beirut', url: 'https://presentail.com/en-lb/beirut' },
+    { market: 'Lebanon', label: 'Bent Jbeil', url: 'https://presentail.com/en-lb/bent-jbeil' },
+    { market: 'Lebanon', label: 'Chouf', url: 'https://presentail.com/en-lb/chouf' },
+    { market: 'Lebanon', label: 'Hasbaya', url: 'https://presentail.com/en-lb/hasbaya' },
+    { market: 'Lebanon', label: 'Hermel', url: 'https://presentail.com/en-lb/hermel' },
+    { market: 'Lebanon', label: 'Jbail', url: 'https://presentail.com/en-lb/jbail' },
+    { market: 'Lebanon', label: 'Jezzine', url: 'https://presentail.com/en-lb/jezzine' },
+    { market: 'Lebanon', label: 'Kasserwan', url: 'https://presentail.com/en-lb/kasserwan' },
+    { market: 'Lebanon', label: 'Koura', url: 'https://presentail.com/en-lb/koura' },
+    { market: 'Lebanon', label: 'Marjayoun', url: 'https://presentail.com/en-lb/marjayoun' },
+    { market: 'Lebanon', label: 'Metn', url: 'https://presentail.com/en-lb/metn' },
+    { market: 'Lebanon', label: 'Minnieh-Dennaya', url: 'https://presentail.com/en-lb/minnieh-dennaya' },
+    { market: 'Lebanon', label: 'Nabatieh', url: 'https://presentail.com/en-lb/nabatieh' },
+    { market: 'Lebanon', label: 'Rechaya', url: 'https://presentail.com/en-lb/rechaya' },
+    { market: 'Lebanon', label: 'Saida', url: 'https://presentail.com/en-lb/saida' },
+    { market: 'Lebanon', label: 'Tripoli', url: 'https://presentail.com/en-lb/tripoli' },
+    { market: 'Lebanon', label: 'Tyre', url: 'https://presentail.com/en-lb/tyre' },
+    { market: 'Lebanon', label: 'West Bekaa', url: 'https://presentail.com/en-lb/west-bekaa' },
+    { market: 'Lebanon', label: 'Zahle', url: 'https://presentail.com/en-lb/zahle' },
+    { market: 'Lebanon', label: 'Zghorta', url: 'https://presentail.com/en-lb/zghorta' },
     // ── Lebanon — content pages (Beirut) ────────────────────────────────────
-    { market: 'Lebanon', label: 'Product page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/product/pink-roses' },
-    { market: 'Lebanon', label: 'Brand page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/brand/roses-only' },
-    { market: 'Lebanon', label: 'Category page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/shop?category=flowers' },
-    { market: 'Lebanon', label: 'Occasion page (Beirut)', url: 'https://new.presentail.com/en-lb/beirut/shop?occasion=birthday' },
+    { market: 'Lebanon', label: 'Product page (Beirut)', url: 'https://presentail.com/en-lb/beirut/product/pink-roses' },
+    { market: 'Lebanon', label: 'Brand page (Beirut)', url: 'https://presentail.com/en-lb/beirut/brand/roses-only' },
+    { market: 'Lebanon', label: 'Category page (Beirut)', url: 'https://presentail.com/en-lb/beirut/shop?category=flowers' },
+    { market: 'Lebanon', label: 'Occasion page (Beirut)', url: 'https://presentail.com/en-lb/beirut/shop?occasion=birthday' },
     // ── UAE — city homepages ─────────────────────────────────────────────────
-    { market: 'UAE', label: 'Dubai', url: 'https://new.presentail.com/en-ae/dubai' },
-    { market: 'UAE', label: 'Abu Dhabi', url: 'https://new.presentail.com/en-ae/abu-dhabi' },
+    { market: 'UAE', label: 'Dubai', url: 'https://presentail.com/en-ae/dubai' },
+    { market: 'UAE', label: 'Abu Dhabi', url: 'https://presentail.com/en-ae/abu-dhabi' },
     // ── UAE — content pages (Dubai) ──────────────────────────────────────────
-    { market: 'UAE', label: 'Product page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/product/pink-roses' },
-    { market: 'UAE', label: 'Brand page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/brand/roses-only' },
-    { market: 'UAE', label: 'Category page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/shop?category=flowers' },
-    { market: 'UAE', label: 'Occasion page (Dubai)', url: 'https://new.presentail.com/en-ae/dubai/shop?occasion=birthday' },
+    { market: 'UAE', label: 'Product page (Dubai)', url: 'https://presentail.com/en-ae/dubai/product/pink-roses' },
+    { market: 'UAE', label: 'Brand page (Dubai)', url: 'https://presentail.com/en-ae/dubai/brand/roses-only' },
+    { market: 'UAE', label: 'Category page (Dubai)', url: 'https://presentail.com/en-ae/dubai/shop?category=flowers' },
+    { market: 'UAE', label: 'Occasion page (Dubai)', url: 'https://presentail.com/en-ae/dubai/shop?occasion=birthday' },
     // ── Cyprus — city homepages ──────────────────────────────────────────────
-    { market: 'Cyprus', label: 'Larnaca', url: 'https://new.presentail.com/en-cy/larnaca' },
-    { market: 'Cyprus', label: 'Limassol', url: 'https://new.presentail.com/en-cy/limassol' },
-    { market: 'Cyprus', label: 'Nicosia', url: 'https://new.presentail.com/en-cy/nicosia' },
-    { market: 'Cyprus', label: 'Paphos', url: 'https://new.presentail.com/en-cy/paphos' },
+    { market: 'Cyprus', label: 'Larnaca', url: 'https://presentail.com/en-cy/larnaca' },
+    { market: 'Cyprus', label: 'Limassol', url: 'https://presentail.com/en-cy/limassol' },
+    { market: 'Cyprus', label: 'Nicosia', url: 'https://presentail.com/en-cy/nicosia' },
+    { market: 'Cyprus', label: 'Paphos', url: 'https://presentail.com/en-cy/paphos' },
     // ── Cyprus — content pages (Nicosia) ─────────────────────────────────────
-    { market: 'Cyprus', label: 'Product page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/product/pink-roses' },
-    { market: 'Cyprus', label: 'Brand page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/brand/roses-only' },
-    { market: 'Cyprus', label: 'Category page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/shop?category=flowers' },
-    { market: 'Cyprus', label: 'Occasion page (Nicosia)', url: 'https://new.presentail.com/en-cy/nicosia/shop?occasion=birthday' },
+    { market: 'Cyprus', label: 'Product page (Nicosia)', url: 'https://presentail.com/en-cy/nicosia/product/pink-roses' },
+    { market: 'Cyprus', label: 'Brand page (Nicosia)', url: 'https://presentail.com/en-cy/nicosia/brand/roses-only' },
+    { market: 'Cyprus', label: 'Category page (Nicosia)', url: 'https://presentail.com/en-cy/nicosia/shop?category=flowers' },
+    { market: 'Cyprus', label: 'Occasion page (Nicosia)', url: 'https://presentail.com/en-cy/nicosia/shop?occasion=birthday' },
   ];
 
   var selectedMarket = 'all';

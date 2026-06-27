@@ -38,10 +38,10 @@ type PageResult = Parameters<typeof classifyResult>[0];
 
 const base: PageResult = {
   label: "Homepage (LB)",
-  url: "https://new.presentail.com/en-lb/beirut",
+  url: "https://presentail.com/en-lb/beirut",
   ok: true,
   fetchFailed: false,
-  ogImage: "https://new.presentail.com/img/product.jpg",
+  ogImage: "https://presentail.com/img/product.jpg",
   ogImageReachable: true,
   ogImageSizeOk: true,
   fallbackUsed: false,
@@ -86,7 +86,7 @@ describe("classifyResult", () => {
   it("returns 'warn' when the fallback site-wide image is used (even if reachable and size ok)", () => {
     const r: PageResult = {
       ...base,
-      ogImage: "https://new.presentail.com/opengraph.jpg",
+      ogImage: "https://presentail.com/opengraph.jpg",
       ogImageReachable: true,
       ogImageSizeOk: true,
       fallbackUsed: true,
@@ -97,7 +97,7 @@ describe("classifyResult", () => {
   it("returns 'warn' when fallback is used and size is wrong (worst warn combo)", () => {
     const r: PageResult = {
       ...base,
-      ogImage: "https://new.presentail.com/opengraph.jpg",
+      ogImage: "https://presentail.com/opengraph.jpg",
       ogImageReachable: true,
       ogImageSizeOk: false,
       fallbackUsed: true,
@@ -140,7 +140,7 @@ describe("fallback og:image detection", () => {
     // site-wide fallback should still be flagged as "warn".
     const r: PageResult = {
       ...base,
-      ogImage: "https://new.presentail.com/opengraph.jpg",
+      ogImage: "https://presentail.com/opengraph.jpg",
       ogImageReachable: true,
       ogImageSizeOk: true,
       fallbackUsed: true,
@@ -162,7 +162,7 @@ describe("fallback og:image detection", () => {
   it("classifyResult: a page-specific image (not ending in /opengraph.jpg) with fallbackUsed=false is 'ok'", () => {
     const r: PageResult = {
       ...base,
-      ogImage: "https://new.presentail.com/img/pink-roses.jpg",
+      ogImage: "https://presentail.com/img/pink-roses.jpg",
       ogImageReachable: true,
       ogImageSizeOk: true,
       fallbackUsed: false,
@@ -178,7 +178,7 @@ describe("fallback og:image detection", () => {
 // because our fetch stub returns ok:true for HEAD requests.
 const HEALTHY_HTML = `
 <html><head>
-<meta property="og:image" content="https://new.presentail.com/img/product-specific.jpg" />
+<meta property="og:image" content="https://presentail.com/img/product-specific.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="628" />
 </head><body>hello</body></html>
@@ -240,7 +240,7 @@ describe("runOnce — deduplication guard", () => {
     // Make all pages serve the fallback og image so they all classify as "warn".
     const FALLBACK_HTML = `
 <html><head>
-<meta property="og:image" content="https://new.presentail.com/opengraph.jpg" />
+<meta property="og:image" content="https://presentail.com/opengraph.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="628" />
 </head><body>hello</body></html>

@@ -20,7 +20,7 @@
 //   SMS_NOTIFY_STATES    — Comma-separated OrderState values that trigger an
 //                          SMS (default: "out_for_delivery,delivered").
 //   SMS_TRACKING_URL_BASE — Base URL for the tracking deep-link included in
-//                          the message body (default: "https://new.presentail.com/orders").
+//                          the message body (default: "https://presentail.com/orders").
 
 import { db, analyticsEventsTable } from "@workspace/db";
 import { logger } from "./logger";
@@ -51,7 +51,7 @@ function senderForStore(storeKey: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 
 const TRACKING_URL_BASE = () =>
-  (process.env.SMS_TRACKING_URL_BASE ?? "https://new.presentail.com/orders").replace(/\/$/, "");
+  (process.env.SMS_TRACKING_URL_BASE ?? "https://presentail.com/orders").replace(/\/$/, "");
 
 function buildMessageBody(
   state: OrderState,

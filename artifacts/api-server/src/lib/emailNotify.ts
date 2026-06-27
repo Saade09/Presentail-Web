@@ -38,7 +38,7 @@ type EmailCopy = {
 };
 
 const TRACKING_URL_BASE = () =>
-  (process.env.SMS_TRACKING_URL_BASE ?? "https://new.presentail.com/orders").replace(/\/$/, "");
+  (process.env.SMS_TRACKING_URL_BASE ?? "https://presentail.com/orders").replace(/\/$/, "");
 
 // Format USD cents → human-readable string, e.g. 15000 → "$150.00"
 function formatUsd(cents: number): string {
