@@ -14,6 +14,12 @@ import {
   LLMS_PAGES,
   LLMS_PAGE_SECTIONS,
 } from "./llms-content.mjs";
+import {
+  SITEMAP_CITIES,
+  SITEMAP_LANGS,
+  escXml,
+  generateSitemap,
+} from "./sitemap.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -662,29 +668,10 @@ setTimeout(() => {
 // Dynamic sitemap.xml
 // ---------------------------------------------------------------------------
 
-// All cities per country — must mirror CITY_SLUGS_BY_COUNTRY in seo-inject.mjs.
-const SITEMAP_CITIES = {
-  lb: [
-    "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
-    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbail", "jezzine",
-    "kasserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
-    "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta",
-  ],
-  ae: ["abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah", "umm-al-quwain"],
-  cy: ["larnaca", "limassol", "nicosia", "paphos"],
-};
-const SITEMAP_LANGS = ["en", "ar", "fr"];
-// Representative city per country for product / brand canonical URLs.
-const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosia" };
-// Static sub-paths included for every lang / country / city combination.
-// /shop is intentionally omitted — category and occasion clean paths
-// (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
-// crawlers discover the canonical destinations without following a redirect.
-const SITEMAP_STATIC_PATHS = [
-  "/", "/brands", "/occasions", "/contact", "/faqs",
-  "/careers", "/blog", "/partner", "/weddings", "/corporate",
-  "/terms", "/privacy",
-];
+// Sitemap constants and generation live in ./sitemap.mjs so the
+// filtering / hreflang / lastmod logic can be unit-tested without booting the
+// HTTP server. SITEMAP_CITIES, SITEMAP_LANGS and escXml are imported above
+// because they are also used by the SPA route validation below.
 
 // ---------------------------------------------------------------------------
 // SPA route validation — mirrors the routes defined in src/App.tsx so the
@@ -813,15 +800,6 @@ async function generateLlmsFullTxt(origin, basePath) {
   );
 }
 
-function escXml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
 async function fetchSitemapJson(url) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 5000);
@@ -834,112 +812,6 @@ async function fetchSitemapJson(url) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function generateSitemap(origin, basePath) {
-  const cleanBase = basePath.replace(/\/$/, "");
-  // lastmod for all entries — today's date, refreshed with the sitemap cache.
-  // The catalog metadata / product / brand endpoints don't expose a reliable
-  // per-entity update timestamp, so a single daily date is used throughout.
-  const lastmod = new Date().toISOString().slice(0, 10);
-
-  // Plain <url> entry for un-prefixed, language-agnostic paths (root, llms.txt).
-  const urlEntry = (loc, priority, changefreq) =>
-    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
-
-  // <url> entry for a locale-prefixed path that also lists every language
-  // variant via <xhtml:link rel="alternate" hreflang>. `rest` is the path after
-  // the `/{lang}-{country}/{city}` prefix ("" for the home page, otherwise
-  // beginning with "/"). x-default points at the English variant.
-  const urlEntryWithAlternates = (priority, changefreq, country, city, rest) => {
-    const loc = origin + cleanBase + `/en-${country}/${city}${rest}`;
-    const alternates = SITEMAP_LANGS.map((altLang) => {
-      const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
-      const code = `${altLang}-${country.toUpperCase()}`;
-      return `    <xhtml:link rel="alternate" hreflang="${escXml(code)}" href="${escXml(href)}"/>`;
-    });
-    const xDefaultHref = origin + cleanBase + `/en-${country}/${city}${rest}`;
-    alternates.push(
-      `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(xDefaultHref)}"/>`,
-    );
-    return `  <url>\n    <loc>${escXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}\n  </url>`;
-  };
-
-  const urls = [];
-
-  // 0. Root landing page (un-prefixed, language-agnostic entry point).
-  urls.push(urlEntry("/", "1.0", "weekly"));
-
-  // 0a. LLMs.txt discovery — machine-readable content index for AI crawlers.
-  // Listed early so crawlers encounter them before the long locale-path block.
-  urls.push(urlEntry("/llms.txt", "0.5", "monthly"));
-  urls.push(urlEntry("/llms-full.txt", "0.5", "monthly"));
-
-  // 1. Static locale pages — one <url> per country × city, each carrying its
-  // language alternates (so the three languages collapse into a single block
-  // instead of three separate <url> entries).
-  for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
-    for (const city of cities) {
-      for (const subpath of SITEMAP_STATIC_PATHS) {
-        const rest = subpath === "/" ? "" : subpath;
-        const priority = subpath === "/" ? "0.9" : "0.7";
-        urls.push(urlEntryWithAlternates(priority, "weekly", country, city, rest));
-      }
-    }
-  }
-
-  // 2. Products — fetch once (LB store) then emit canonical-city URLs per country
-  // (each block carries all language alternates).
-  const [productsData, brandsData, catalogData] = await Promise.all([
-    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
-    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
-    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/catalog/metadata`),
-  ]);
-
-  for (const product of (productsData?.products ?? [])) {
-    if (!product?.slug) continue;
-    const encoded = encodeURIComponent(product.slug);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.8", "weekly", country, city, `/product/${encoded}`));
-    }
-  }
-
-  // 3. Brand pages — same canonical-city pattern.
-  for (const brand of (brandsData?.brands ?? [])) {
-    if (!brand?.slug) continue;
-    const encoded = encodeURIComponent(brand.slug);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.6", "monthly", country, city, `/brand/${encoded}`));
-    }
-  }
-
-  // 4. Occasion pages — canonical city per country × all languages. Skip any
-  // occasion with no in-stock products (count === 0) so crawlers never discover
-  // a thin/empty listing page.
-  for (const occasion of (catalogData?.occasions ?? [])) {
-    if (!occasion?.id) continue;
-    if ((occasion.count ?? 0) === 0) continue;
-    const encoded = encodeURIComponent(occasion.id);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
-    }
-  }
-
-  // 5. Category pages — canonical city per country × all languages. Skip any
-  // category with no in-stock products (count === 0).
-  for (const category of (catalogData?.categories ?? [])) {
-    if (!category?.id) continue;
-    if ((category.count ?? 0) === 0) continue;
-    const encoded = encodeURIComponent(category.id);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
-    }
-  }
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${urls.join("\n")}
-</urlset>`;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1011,7 +883,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/sitemap.xml") {
       const nowMs = Date.now();
       if (!sitemapCache || nowMs - sitemapCacheTsMs > SITEMAP_CACHE_TTL_MS) {
-        sitemapCache = await generateSitemap(origin, BASE_PATH);
+        sitemapCache = await generateSitemap(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL);
         sitemapCacheTsMs = nowMs;
       }
       const encoding = pickEncoding(req, ".xml");
