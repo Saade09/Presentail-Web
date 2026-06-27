@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -118,6 +118,26 @@ function PersonalInformationScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [bdayError, setBdayError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
+
+  // Re-sync form fields from the AuthContext user whenever the screen comes
+  // into focus. This handles the case where the user edited their profile on
+  // the account tab's inline sheet and then navigated to this screen: the
+  // component may already be mounted, so useState initial values are stale.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      setFirstName(user.firstName ?? "");
+      setLastName(user.lastName ?? "");
+      setGender(((user.gender as Gender | undefined) ?? "unspecified") as Gender);
+      const bd = (user.birthday ?? "").trim();
+      setBYear(bd ? bd.slice(0, 4) : "");
+      setBMonth(bd ? bd.slice(5, 7) : "");
+      setBDay(bd ? bd.slice(8, 10) : "");
+      const split = splitPhone(user.phone ?? "");
+      setPhoneCountry(split.country);
+      setPhoneLocal(split.local);
+    }, [user]),
+  );
 
   // Refresh from /auth/me on mount so the cached AuthUser (which may pre-date
   // gender/birthday fields being added to the response) gets the latest
