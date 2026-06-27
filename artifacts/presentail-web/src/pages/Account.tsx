@@ -301,6 +301,83 @@ function EditNameDialog({
   );
 }
 
+function EditPhoneDialog({
+  open,
+  onClose,
+  initialPhone,
+  onSaved,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialPhone: string;
+  onSaved: (phone: string) => void;
+  t: (k: string) => string;
+}) {
+  const { toast } = useToast();
+  const [phone, setPhone] = useState(initialPhone);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setPhone(initialPhone);
+      setPhoneError(null);
+    }
+  }, [open, initialPhone]);
+
+  const handleSave = async () => {
+    setPhoneError(null);
+    if (phone && !isValidPhoneNumber(phone)) {
+      setPhoneError(t("pi.phone.errorInvalid"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch("/auth/me", {
+        method: "PUT",
+        body: JSON.stringify({ phone: phone ?? "" }),
+      });
+      onSaved(phone);
+      toast({ title: t("pi.updated.title"), description: t("pi.phone.updatedMsg") });
+      onClose();
+    } catch (err: any) {
+      toast({ title: t("pi.error.title"), description: err?.message ?? t("pi.error.generic"), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl">{t("account.editPhone")}</DialogTitle>
+          <DialogDescription>{t("account.editPhone.desc")}</DialogDescription>
+        </DialogHeader>
+        <div className="py-2">
+          <WebPhoneField
+            label={t("account.phone")}
+            value={phone}
+            onChange={(v) => { setPhone(v); if (phoneError) setPhoneError(null); }}
+            showError={!!phoneError}
+            errorMessage={phoneError ?? t("pi.phone.errorInvalid")}
+            data-testid="edit-phone-input"
+          />
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+            {t("account.cancel")}
+          </Button>
+          <Button type="button" onClick={() => void handleSave()} disabled={busy} data-testid="edit-phone-save">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : t("pi.update")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProfilePanel({
   user,
   t,
@@ -312,6 +389,7 @@ function ProfilePanel({
   const [meUser, setMeUser] = useState<MeUser | null>(null);
   const [, setLocation] = useLocation();
   const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editPhoneOpen, setEditPhoneOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -351,6 +429,11 @@ function ProfilePanel({
     updateUser({ firstName, lastName });
   };
 
+  const handlePhoneSaved = (phone: string) => {
+    setMeUser((prev) => prev ? { ...prev, phone } : prev);
+    updateUser({ phone: phone || undefined });
+  };
+
   return (
     <>
       <SectionCard
@@ -383,7 +466,19 @@ function ProfilePanel({
           </div>
           <ProfileField label={t("account.lastName")} value={(displayUser as any).lastName} notAdded={notAdded} />
           <ProfileField label={t("account.email")} value={displayUser.email} notAdded={notAdded} />
-          <ProfileField label={t("account.phone")} value={(displayUser as any).phone} notAdded={notAdded} />
+          <div className="relative group">
+            <ProfileField label={t("account.phone")} value={(displayUser as any).phone} notAdded={notAdded} />
+            <button
+              type="button"
+              onClick={() => setEditPhoneOpen(true)}
+              className="absolute top-0 right-0 p-1 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              title={t("account.editPhone")}
+              data-testid="profile-edit-phone-btn"
+              aria-label={t("account.editPhone")}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <ProfileField
             label={t("account.dateOfBirth")}
             value={formatBirthday((meUser as any)?.birthday)}
@@ -402,6 +497,13 @@ function ProfilePanel({
         initialFirstName={(displayUser as any).firstName ?? ""}
         initialLastName={(displayUser as any).lastName ?? ""}
         onSaved={handleNameSaved}
+        t={t}
+      />
+      <EditPhoneDialog
+        open={editPhoneOpen}
+        onClose={() => setEditPhoneOpen(false)}
+        initialPhone={(displayUser as any).phone ?? ""}
+        onSaved={handlePhoneSaved}
         t={t}
       />
     </>
