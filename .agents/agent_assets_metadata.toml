@@ -144,6 +144,24 @@ uri = "file://artifacts/mockup-sandbox/public/images/bloom-eternal.png"
 type = "image"
 title = "Bloom Eternal Rose Bouquet"
 
+[[generated]]
+id = "m0hpd3wde558GWQASA17j"
+uri = "file://artifacts/presentail-web/public/blog/inside-spring-sourcing-trip.png"
+type = "image"
+title = "spring sourcing flowers"
+
+[[generated]]
+id = "xvKBVObZ5QZjzQ5g-5SdF"
+uri = "file://artifacts/presentail-web/public/blog/chocolatiers-behind-our-gift-boxes.png"
+type = "image"
+title = "artisan chocolatier gift box"
+
+[[generated]]
+id = "ro8KfhB90jlFSjoT-X-h7"
+uri = "file://artifacts/presentail-web/public/blog/what-to-send-when-there-are-no-words.png"
+type = "image"
+title = "sympathy flowers card"
+
 [[outputs]]
 id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"

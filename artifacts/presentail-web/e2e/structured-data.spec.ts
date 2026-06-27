@@ -409,6 +409,25 @@ test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/
     }
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
+
+  test("when the blog head resolves the post, the per-article OG image is emitted", () => {
+    if (!html.includes('"@type":"Article"')) {
+      test.skip(true, "blog head did not resolve an article — per-article OG image not expected");
+    }
+    // og:image / twitter:image point at the article-specific hero, not the
+    // site-wide opengraph.jpg fallback, and carry explicit dimensions so the
+    // preview renders as a large summary card.
+    expect(html).toContain("/blog/inside-spring-sourcing-trip.png");
+    expect(html).toMatch(
+      /<meta property="og:image" content="[^"]*\/blog\/inside-spring-sourcing-trip\.png"/,
+    );
+    expect(html).toContain('<meta property="og:image:width" content="1408" />');
+    expect(html).toContain('<meta property="og:image:height" content="768" />');
+    expect(html).toContain('"@type":"Article"');
+    expect(html).toMatch(
+      /"image":"[^"]*\/blog\/inside-spring-sourcing-trip\.png"/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

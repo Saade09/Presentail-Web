@@ -1595,6 +1595,17 @@ function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
   const cleanBase = basePath.replace(/\/$/, "");
   const canonicalHref = origin + cleanBase + pathname;
 
+  // Per-article hero image (src/data/blogPostsCopy.js) — a site-root-relative
+  // path resolved to an absolute URL here so crawlers get a self-contained
+  // og:image. Falls back to the site-wide default when an article has none.
+  const ogImage =
+    article.ogImage && typeof article.ogImage.url === "string"
+      ? article.ogImage
+      : null;
+  const imageUrl = ogImage ? `${origin}${cleanBase}${ogImage.url}` : null;
+  const imageWidth = ogImage ? ogImage.width : undefined;
+  const imageHeight = ogImage ? ogImage.height : undefined;
+
   const extraLines = [];
   extraLines.push(
     `<meta property="article:published_time" content="${escapeAttr(article.datePublished)}" />`,
@@ -1609,6 +1620,7 @@ function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
       headline: rawTitle,
       description: article.description,
       datePublished: article.datePublished,
+      ...(imageUrl ? { image: imageUrl } : {}),
       publisher: {
         "@type": "Organization",
         name: "Presentail",
@@ -1634,8 +1646,10 @@ function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
     ogType: "article",
     title,
     description,
-    imageUrl: null,
+    imageUrl,
     imageAlt: rawTitle || "Presentail",
+    imageWidth,
+    imageHeight,
     basePath,
     origin,
     pathname,
