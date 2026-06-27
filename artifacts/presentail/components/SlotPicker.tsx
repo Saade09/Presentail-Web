@@ -62,6 +62,10 @@ export function SlotPicker({
             onPress={() => {
               if (!past) onSelectSlot(s);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={hasHours ? `${fmtHour(s.startHour!)} to ${fmtHour(s.endHour!)}` : s.label}
+            accessibilityState={{ disabled: past, selected: active }}
+            accessibilityHint={past ? "This slot is no longer available" : active ? "Currently selected" : "Double-tap to select this time slot"}
             style={{
               paddingHorizontal: 14,
               paddingVertical: 9,

@@ -1674,7 +1674,7 @@ function Label({ children, colors, required }: any) {
   );
 }
 
-function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount, error, fieldRef }: any) {
+function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount, error, fieldRef, returnKeyType, onSubmitEditing, inputRef, accessibilityLabel }: any) {
   return (
     <View ref={fieldRef} style={{ gap: 4 }}>
       {label ? <Label colors={colors} required={required}>{label}</Label> : null}
@@ -1691,6 +1691,7 @@ function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboa
       >
         {prefix ? <AppText style={{ fontFamily: "Inter_500Medium", color: colors.primary, marginRight: 6 }}>{prefix}</AppText> : null}
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -1701,6 +1702,10 @@ function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboa
           autoCorrect={autoCorrect}
           multiline={multiline}
           maxLength={maxLength}
+          returnKeyType={returnKeyType ?? (multiline ? undefined : "next")}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={multiline ? true : !onSubmitEditing}
+          accessibilityLabel={accessibilityLabel ?? label}
           style={{
             flex: 1,
             paddingVertical: 12,

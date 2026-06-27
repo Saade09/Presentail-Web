@@ -28,6 +28,9 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
       <Pressable
         disabled={disabled}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={paying ? processingLabel : "Pay with Apple Pay"}
+        accessibilityState={{ disabled, busy: paying }}
         style={({ pressed }) => ({
           backgroundColor: "#000",
           paddingVertical: 16,
@@ -50,6 +53,9 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
       <Pressable
         disabled={disabled}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={paying ? processingLabel : "Pay with Google Pay"}
+        accessibilityState={{ disabled, busy: paying }}
         style={({ pressed }) => ({
           backgroundColor: "#fff",
           paddingVertical: 16,
@@ -74,6 +80,9 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
       <Pressable
         disabled={disabled}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={paying ? processingLabel : "Pay with PayPal"}
+        accessibilityState={{ disabled, busy: paying }}
         style={({ pressed }) => ({
           backgroundColor: "#0070BA",
           paddingVertical: 16,
@@ -102,6 +111,9 @@ export function PaymentSubmitButton({ payMethod, onPress, disabled, paying, proc
       <Pressable
         disabled={disabled}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={paying ? processingLabel : "Pay with Whish App"}
+        accessibilityState={{ disabled, busy: paying }}
         style={({ pressed }) => ({
           backgroundColor: "#D31F37",
           paddingVertical: 16,

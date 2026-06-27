@@ -150,6 +150,10 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
             <Pressable
               key={d.iso}
               onPress={() => !disabled && onSelectDate(d.iso)}
+              accessibilityRole="button"
+              accessibilityLabel={d.full ?? `${d.label} ${d.date}`}
+              accessibilityState={{ disabled, selected: active }}
+              accessibilityHint={disabled ? "This date is not available" : active ? "Currently selected" : "Double-tap to select this delivery date"}
               style={{
                 width: 56,
                 paddingVertical: 8,
@@ -187,6 +191,9 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
 
         <Pressable
           onPress={openCalendar}
+          accessibilityRole="button"
+          accessibilityLabel={moreLabel}
+          accessibilityHint="Opens a full-month calendar to pick any available date" // i18n-ignore
           style={{
             width: 56,
             paddingVertical: 8,
@@ -217,6 +224,7 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
         transparent
         animationType="fade"
         onRequestClose={() => setCalendarOpen(false)}
+        accessibilityViewIsModal
       >
         <Pressable
           style={{
@@ -254,11 +262,15 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
                 onPress={handlePrevMonth}
                 disabled={!canGoPrev}
                 hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Previous month" // i18n-ignore
+                accessibilityState={{ disabled: !canGoPrev }}
                 style={{ opacity: canGoPrev ? 1 : 0.25 }}
               >
                 <Feather name="chevron-left" size={20} color={colors.primary} />
               </Pressable>
               <AppText
+                accessibilityRole="header"
                 style={{
                   fontFamily: headingFontMedium,
                   fontSize: 15,
@@ -271,6 +283,9 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
                 onPress={handleNextMonth}
                 disabled={!canGoNext}
                 hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Next month" // i18n-ignore
+                accessibilityState={{ disabled: !canGoNext }}
                 style={{ opacity: canGoNext ? 1 : 0.25 }}
               >
                 <Feather name="chevron-right" size={20} color={colors.primary} />
@@ -314,6 +329,9 @@ export function DateStrip({ days, selectedDate, onSelectDate, colors, disabledDa
                       onSelectDate(iso);
                       setCalendarOpen(false);
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+                    accessibilityState={{ disabled: unavailable, selected: isSelected }}
                     style={{ width: cellSize, height: cellSize, alignItems: "center", justifyContent: "center" }}
                   >
                     <View

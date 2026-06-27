@@ -212,3 +212,83 @@ describe("DateStrip — navigation and correct ISO output", () => {
     expect(onSelectDate).toHaveBeenNthCalledWith(2, "2026-06-02");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests — accessibility props
+// ---------------------------------------------------------------------------
+
+describe("DateStrip — accessibility props", () => {
+  it("every day tile has accessibilityRole='button'", () => {
+    const days = makeDays();
+    const { tree } = render({ days });
+    const pressables = findAllNodes(tree, "Pressable") as { props: Record<string, unknown> }[];
+    // Day tiles + "More" button
+    expect(pressables.length).toBe(days.length + 1);
+    for (const tile of pressables) {
+      expect(tile.props.accessibilityRole).toBe("button");
+    }
+  });
+
+  it("selected day tile has accessibilityState.selected=true", () => {
+    const days = makeDays();
+    const { tree } = render({ days, selectedDate: "2026-06-02" });
+    const tomorrowTile = findPressableWithText(tree, "Tomorrow");
+    const state = tomorrowTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.selected).toBe(true);
+  });
+
+  it("unselected day tile has accessibilityState.selected=false", () => {
+    const days = makeDays();
+    const { tree } = render({ days, selectedDate: "2026-06-02" });
+    const todayTile = findPressableWithText(tree, "Today");
+    const state = todayTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.selected).toBe(false);
+  });
+
+  it("disabled day tile has accessibilityState.disabled=true", () => {
+    const days = makeDays();
+    const disabledDates = new Set(["2026-06-03"]);
+    const { tree } = render({ days, disabledDates });
+    const wedTile = findPressableWithText(tree, "Wed");
+    const state = wedTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.disabled).toBe(true);
+  });
+
+  it("enabled day tile has accessibilityState.disabled=false", () => {
+    const days = makeDays();
+    const { tree } = render({ days });
+    const tomorrowTile = findPressableWithText(tree, "Tomorrow");
+    const state = tomorrowTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.disabled).toBe(false);
+  });
+
+  it("each day tile has a non-empty accessibilityLabel", () => {
+    const days = makeDays();
+    const { tree } = render({ days });
+    const pressables = findAllNodes(tree, "Pressable") as { props: Record<string, unknown> }[];
+    for (const tile of pressables) {
+      expect(typeof tile.props.accessibilityLabel).toBe("string");
+      expect((tile.props.accessibilityLabel as string).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("the More button has a non-empty accessibilityLabel", () => {
+    const days = makeDays();
+    const { tree } = render({ days, moreLabel: "Pick date" });
+    const moreTile = findPressableWithText(tree, "Pick date");
+    expect(moreTile?.props.accessibilityLabel).toBe("Pick date");
+  });
+
+  it("disabled day tile does not call onSelectDate when pressed", () => {
+    const days = makeDays();
+    const onSelectDate = vi.fn();
+    const disabledDates = new Set(["2026-06-03"]);
+    const { tree } = render({ days, disabledDates, onSelectDate });
+
+    const wedTile = findPressableWithText(tree, "Wed");
+    act(() => {
+      (wedTile?.props.onPress as (() => void) | undefined)?.();
+    });
+    expect(onSelectDate).not.toHaveBeenCalled();
+  });
+});

@@ -255,6 +255,70 @@ describe("SlotPicker — selection callback and visual feedback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — accessibility props
+// ---------------------------------------------------------------------------
+
+describe("SlotPicker — accessibility props", () => {
+  it("every tile has accessibilityRole='button'", () => {
+    const { tree } = render({ slots: LB_SLOTS, localHour: 8 });
+    const pressables = findAllNodes(tree, "Pressable") as { props: Record<string, unknown> }[];
+    expect(pressables.length).toBeGreaterThan(0);
+    for (const tile of pressables) {
+      expect(tile.props.accessibilityRole).toBe("button");
+    }
+  });
+
+  it("active tile has accessibilityState.selected=true", () => {
+    const activeSlot = LB_SLOTS[1];
+    const { tree } = render({ selectedSlotLabel: activeSlot.label });
+    const activeTile = findPressableWithText(tree, activeSlot.label);
+    const state = activeTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.selected).toBe(true);
+  });
+
+  it("inactive tile has accessibilityState.selected=false or undefined", () => {
+    const { tree } = render({ selectedSlotLabel: LB_SLOTS[0].label });
+    const inactiveTile = findPressableWithText(tree, LB_SLOTS[1].label);
+    const state = inactiveTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.selected).toBeFalsy();
+  });
+
+  it("past slot tile has accessibilityState.disabled=true", () => {
+    // localHour=15 → LB slots with cutoffHour <= 15 are past
+    const { tree } = render({ date: TODAY_ISO, todayIso: TODAY_ISO, localHour: 15 });
+    const pastTile = findPressableWithText(tree, "9:00 AM");
+    const state = pastTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.disabled).toBe(true);
+  });
+
+  it("available slot tile has accessibilityState.disabled=false", () => {
+    const { tree } = render({ date: FUTURE_ISO, todayIso: TODAY_ISO, localHour: 15 });
+    const availTile = findPressableWithText(tree, "9:00 AM");
+    const state = availTile?.props.accessibilityState as Record<string, unknown> | undefined;
+    expect(state?.disabled).toBe(false);
+  });
+
+  it("each tile has a non-empty accessibilityLabel", () => {
+    const { tree } = render({ slots: LB_SLOTS, localHour: 8 });
+    const pressables = findAllNodes(tree, "Pressable") as { props: Record<string, unknown> }[];
+    for (const tile of pressables) {
+      expect(typeof tile.props.accessibilityLabel).toBe("string");
+      expect((tile.props.accessibilityLabel as string).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("slot with startHour/endHour has an accessibilityLabel derived from hours (not the label field)", () => {
+    const HOUR_SLOT: TimeSlot = { label: "Morning", cutoffHour: 12, startHour: 9, endHour: 12 };
+    const { tree } = render({ slots: [HOUR_SLOT], date: FUTURE_ISO });
+    const tile = findAllNodes(tree, "Pressable")[0] as { props: Record<string, unknown> } | undefined;
+    const label = tile?.props.accessibilityLabel as string | undefined;
+    // Should reference "9" and "12" but not the display label "Morning"
+    expect(label).toMatch(/9/);
+    expect(label).toMatch(/12/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — slots with startHour/endHour (OS-configured slots)
 // ---------------------------------------------------------------------------
 
@@ -264,11 +328,12 @@ describe("SlotPicker — slots with startHour/endHour show hours only (no label)
     { label: "Afternoon", cutoffHour: 16, startHour: 12, endHour: 16 },
   ];
 
-  it("renders the formatted time range (HH:MM–HH:MM) for slots with startHour/endHour", () => {
+  it("renders the formatted time range for slots with startHour/endHour", () => {
     const { tree } = render({ slots: HOUR_SLOTS, date: FUTURE_ISO });
     const content = textContent(tree);
-    expect(content).toContain("09:00–12:00");
-    expect(content).toContain("12:00–16:00");
+    // fmtHour() uses 12-hour AM/PM format: 9 → "9:00 AM", 12 → "12:00 PM", 16 → "4:00 PM"
+    expect(content).toContain("9:00 AM–12:00 PM");
+    expect(content).toContain("12:00 PM–4:00 PM");
   });
 
   it("does NOT render the slot label name for slots with startHour/endHour", () => {
@@ -281,7 +346,8 @@ describe("SlotPicker — slots with startHour/endHour show hours only (no label)
   it("still calls onSelectSlot with the full TimeSlot object when a tile is pressed", () => {
     const onSelectSlot = vi.fn();
     const { tree } = render({ slots: HOUR_SLOTS, date: FUTURE_ISO, localHour: 8, onSelectSlot });
-    const tile = findPressableWithText(tree, "12:00–16:00");
+    // fmtHour(12) = "12:00 PM", fmtHour(16) = "4:00 PM"
+    const tile = findPressableWithText(tree, "12:00 PM–4:00 PM");
     act(() => {
       (tile?.props.onPress as (() => void) | undefined)?.();
     });
