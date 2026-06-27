@@ -19,3 +19,15 @@ jobs:
 
       - name: Check Apple Pay domain association file on production
         run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs https://new.presentail.com
+
+  apple-sign-in-domain-production:
+    name: Apple Sign In domain verification file (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Apple Sign In domain verification file on production
+        run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs https://new.presentail.com
