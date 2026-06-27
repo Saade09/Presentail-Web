@@ -39,6 +39,9 @@ jobs:
       - name: Check public/ image budget (per-format; blog WebP-only ≤300 kB)
         run: pnpm --filter @workspace/presentail-web run check-public-image-budget
 
+      - name: Check blog hero responsive variants are present (480w/768w)
+        run: pnpm --filter @workspace/presentail-web run check-blog-hero-variants
+
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 
