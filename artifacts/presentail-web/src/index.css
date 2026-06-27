@@ -306,6 +306,13 @@
   a, a * {
     cursor: pointer;
   }
+  /* Global focus-visible safety net — ensures every interactive element shows
+     a 2-px ring matching the design system when navigated via keyboard.
+     Components that implement their own focus-visible styles will override this. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @keyframes shimmer {

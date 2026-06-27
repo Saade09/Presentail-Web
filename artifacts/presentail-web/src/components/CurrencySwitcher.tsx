@@ -69,7 +69,7 @@ export function CurrencySwitcher({ triggerClassName }: Props) {
           data-testid="currency-switcher"
           className={
             triggerClassName ??
-            "inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors outline-none"
+            "inline-flex items-center gap-2 bg-white text-primary px-3 py-2 rounded-md text-sm font-medium hover:bg-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           }
         >
           {CURRENCY_FLAG[currencyCode] && (

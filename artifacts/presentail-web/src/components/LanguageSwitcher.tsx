@@ -24,8 +24,8 @@ export function LanguageSwitcher({ className = "", variant = "default" }: Props)
   const align = dir === "rtl" ? "start" : "end";
   const isPill = variant === "pill";
   const triggerClass = isPill
-    ? `flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors outline-none ${className}`
-    : `flex items-center gap-1.5 hover:text-foreground transition-colors outline-none ${className}`;
+    ? `flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`
+    : `flex items-center gap-1.5 hover:text-foreground transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

@@ -39,7 +39,7 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
               id={`product-tab-${tabItem.id}`}
               onClick={() => setTab(tabItem.id)}
               className={cn(
-                "py-3 text-sm font-semibold uppercase tracking-[0.14em] -mb-px border-b-2",
+                "py-3 text-sm font-semibold uppercase tracking-[0.14em] -mb-px border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm",
                 active
                   ? "text-foreground border-foreground"
                   : "text-muted-foreground border-transparent hover:text-foreground/80",

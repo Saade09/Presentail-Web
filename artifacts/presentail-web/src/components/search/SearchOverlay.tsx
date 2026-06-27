@@ -118,7 +118,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                   aria-label={t("search.clearAria")}
                   className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full
                              bg-primary/[0.08] hover:bg-primary/15 text-primary/55
-                             transition-colors"
+                             transition-colors focus-visible:outline-none focus-visible:ring-2
+                             focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -130,7 +131,9 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                 onClick={() => { onClose(); setQ(""); }}
                 aria-label={t("search.closeAria")}
                 className="shrink-0 text-[11px] font-semibold text-primary/35
-                           hover:text-primary/60 tracking-[0.06em] transition-colors"
+                           hover:text-primary/60 tracking-[0.06em] transition-colors
+                           rounded focus-visible:outline-none focus-visible:ring-2
+                           focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 ESC
               </button>
@@ -154,7 +157,9 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                         onClick={() => { setQ(term); inputRef.current?.focus(); }}
                         className="inline-flex items-center gap-1.5 text-[13px] font-medium
                                    text-primary/65 bg-[#EDE9E3] hover:bg-[#E4DFD8]
-                                   rounded-full px-3.5 py-1.5 transition-colors"
+                                   rounded-full px-3.5 py-1.5 transition-colors
+                                   focus-visible:outline-none focus-visible:ring-2
+                                   focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
                         <TrendingUp className="w-3 h-3 text-primary/40" />
                         {term}
