@@ -1,0 +1,21 @@
+name: Apple Pay domain association – daily production check
+
+on:
+  schedule:
+    # Run every day at 07:00 UTC
+    - cron: "0 7 * * *"
+  # Allow manual runs for one-off checks (e.g. after rotating the secret)
+  workflow_dispatch:
+
+jobs:
+  apple-pay-domain-production:
+    name: Apple Pay domain association file (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Apple Pay domain association file on production
+        run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs https://new.presentail.com
