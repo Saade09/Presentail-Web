@@ -735,7 +735,7 @@ function generateLlmsTxt(origin, basePath) {
   return `# Presentail\n\n${LLMS_INTRO}\n\n## Pages\n\n${pagesList}\n`;
 }
 
-function generateLlmsFullTxt(origin, basePath) {
+async function generateLlmsFullTxt(origin, basePath) {
   const cleanBase = basePath.replace(/\/$/, "");
   const base = origin + cleanBase;
 
@@ -747,9 +747,33 @@ function generateLlmsFullTxt(origin, basePath) {
     .map(({ title, path, body }) => `### ${title} (${base}${path})\n\n${body}`)
     .join("\n\n");
 
+  // Fetch live catalog data to populate dynamic sections.
+  const [brandsData, catalogData] = await Promise.all([
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/catalog/metadata`),
+  ]);
+
+  const brandNames = (brandsData?.brands ?? [])
+    .map((b) => b.name)
+    .filter(Boolean);
+
+  const occasionNames = (catalogData?.occasions ?? [])
+    .map((o) => o.name)
+    .filter(Boolean);
+
+  const brandsSection = brandNames.length > 0
+    ? `## Brands\n\n${brandNames.map((n) => `- ${n}`).join("\n")}\n`
+    : `## Brands\n\n_Brand list not yet available._\n`;
+
+  const occasionsSection = occasionNames.length > 0
+    ? `## Occasions\n\n${occasionNames.map((n) => `- ${n}`).join("\n")}\n`
+    : `## Occasions\n\n_Occasion list not yet available._\n`;
+
   return (
     `# Presentail\n\n${LLMS_INTRO}\n\n` +
     `## Pages\n\n${pagesList}\n\n` +
+    `${brandsSection}\n` +
+    `${occasionsSection}\n` +
     `## Full content\n\n${fullContent}\n`
   );
 }
@@ -968,7 +992,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/llms-full.txt") {
       const nowMs = Date.now();
       if (!llmsFullTxtCache || nowMs - llmsFullTxtCacheTsMs > LLMS_TXT_CACHE_TTL_MS) {
-        llmsFullTxtCache = generateLlmsFullTxt(origin, BASE_PATH);
+        llmsFullTxtCache = await generateLlmsFullTxt(origin, BASE_PATH);
         llmsFullTxtCacheTsMs = nowMs;
       }
       const encoding = pickEncoding(req, ".txt");
