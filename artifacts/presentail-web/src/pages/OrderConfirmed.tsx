@@ -269,8 +269,11 @@ export default function OrderConfirmed() {
       onSuccess: (res) => {
         // Capture the order summary before removing the stash.
         const captured: ConfirmedOrder | null = parsed.payload ?? null;
-        sessionStorage.removeItem(PENDING_ORDER_KEY);
         if (res.ok) {
+          // Only clear the stashed payload once the order is confirmed created.
+          // On failure we keep it so a reload can retry — the shopper may
+          // already have been charged for a card payment.
+          sessionStorage.removeItem(PENDING_ORDER_KEY);
           clearCart();
           try { localStorage.removeItem("presentail_coupon_v1"); } catch { /* best-effort */ }
           // Funnel terminal: shoppers who completed a redirect-based
@@ -298,7 +301,8 @@ export default function OrderConfirmed() {
         }
       },
       onError: (err: any) => {
-        sessionStorage.removeItem(PENDING_ORDER_KEY);
+        // Keep the stashed payload so a reload can retry — the shopper may
+        // already have been charged for a card payment.
         setState({ kind: "failed", message: err?.message || t("order.fail.failed") });
       },
     });
