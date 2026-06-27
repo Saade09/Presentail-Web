@@ -36,8 +36,8 @@ jobs:
       - name: Build shared libs
         run: pnpm run typecheck:libs
 
-      - name: Check blog hero/OG image budget (WebP only, ≤300 kB)
-        run: pnpm --filter @workspace/presentail-web run check-blog-image-budget
+      - name: Check public/ image budget (per-format; blog WebP-only ≤300 kB)
+        run: pnpm --filter @workspace/presentail-web run check-public-image-budget
 
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test

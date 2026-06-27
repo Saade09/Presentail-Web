@@ -20,7 +20,7 @@
     "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public && node scripts/check-logo-preload.mjs dist/public",
     "check-logo-preload": "node scripts/check-logo-preload.mjs dist/public",
     "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public",
-    "check-blog-image-budget": "node scripts/check-blog-image-budget.mjs public/blog"
+    "check-public-image-budget": "node scripts/check-public-image-budget.mjs public"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
