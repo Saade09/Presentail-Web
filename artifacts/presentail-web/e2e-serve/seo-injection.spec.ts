@@ -432,7 +432,37 @@ describeEntityImageDimensions("category", "/en-lb/beirut/category/flowers");
 describeEntityImageDimensions("occasion", "/en-lb/beirut/occasion/birthday");
 
 // ---------------------------------------------------------------------------
-// 6. og:image:width / og:image:height on a shared wishlist hero image
+// 6. og:image:width / og:image:height on a resolved blog-post page
+//
+// The same per-request image-dimension path that runs for product / brand /
+// category / occasion entity pages also feeds blog-post pages: buildBlogPostHead
+// (artifacts/presentail-web/seo-inject.mjs) resolves the article from the shared
+// BLOG_POSTS source of truth and passes the hero image's dimensions through
+// buildEntityHead, which emits og:image:width / og:image:height. A regression
+// there — a dropped imageWidth/imageHeight pass-through, a buildEntityHead change,
+// or a stale/missing hero image — would silently ship badly-sized previews when a
+// shopper shares a blog link, yet sections 4–5 only cover the catalog entity
+// pages.
+//
+// Blog posts resolve from static data (no OS/blog API round-trip), and the hero
+// image is a local file served by serve.mjs (e.g. /blog/<slug>.png), so it is NOT
+// the static opengraph.jpg fallback. describeEntityImageDimensions therefore
+// fetches the og:image URL and asserts the dimension tags only when it is a
+// genuinely measurable image file; if the hero asset is unreachable or not a
+// measurable image, it degrades gracefully via test.skip — exactly like the
+// entity blocks above.
+//
+// The slug must exist in src/data/blogPostsCopy.js; an unknown slug falls through
+// to the generic head (no resolved blog image) and the assertions would skip.
+// ---------------------------------------------------------------------------
+
+describeEntityImageDimensions(
+  "blog post",
+  "/en-lb/beirut/blog/inside-spring-sourcing-trip",
+);
+
+// ---------------------------------------------------------------------------
+// 7. og:image:width / og:image:height on a shared wishlist hero image
 //
 // The shared-wishlist path (/favorites/share/:token) has its own dedicated
 // dimension-resolution branch in seo-inject.mjs: when the token resolves real
