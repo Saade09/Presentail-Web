@@ -1,0 +1,53 @@
+Here is a prompt you can send to Replit:
+
+```text
+Improve the homepage SEO metadata so Google search results look stronger and clearer, similar to the screenshot.
+
+Goal:
+When users search for Presentail, the homepage result should show a clean title, clear description, and strong keywords around flower delivery, gift delivery, and express same-day delivery.
+
+Please update the homepage SEO tags for presentail.com as follows:
+
+Page title:
+Online Flower & Gift Delivery | Presentail | Express Delivery
+
+Meta description:
+Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.
+
+Also make sure the homepage includes proper SEO tags:
+1. `<title>` tag
+2. `<meta name="description">`
+3. Open Graph title and description
+4. Twitter title and description
+5. Canonical URL pointing to https://presentail.com
+6. Proper favicon / logo preview if missing
+7. JSON-LD structured data for Organization and Website
+
+Use this SEO content:
+
+SEO title:
+Online Flower & Gift Delivery | Presentail | Express Delivery
+
+SEO description:
+Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.
+
+Open Graph title:
+Online Flower & Gift Delivery | Presentail
+
+Open Graph description:
+Order flowers, cakes, balloons and gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.
+
+Twitter title:
+Online Flower & Gift Delivery | Presentail
+
+Twitter description:
+Send flowers and gifts online with Presentail. Express same-day delivery in Lebanon, UAE, and Cyprus.
+
+Important:
+- Do not make the title too long.
+- Keep the meta description under 160 characters if possible.
+- Make sure the metadata is server-rendered or available in the page HTML, not only added client-side after load.
+- Make sure Google can crawl it.
+- Do not change the visual homepage design unless needed for SEO.
+- After implementation, check the homepage HTML source and confirm all SEO tags are present.
+```
