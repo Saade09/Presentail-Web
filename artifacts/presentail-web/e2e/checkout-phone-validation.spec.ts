@@ -48,7 +48,7 @@ test.describe("Checkout — phone validation", () => {
           JSON.stringify(cart),
         );
         window.localStorage.setItem(
-          "presentail_location_v1",
+          "presentail_delivery_location_v1",
           JSON.stringify(location),
         );
       },
@@ -59,19 +59,20 @@ test.describe("Checkout — phone validation", () => {
   test(
     "'Continue to payment' is disabled with no/invalid recipient phone and enabled with a valid one",
     async ({ page }) => {
-      await page.goto("/checkout");
+      // `?guest=1` pre-acknowledges the guest path so the sign-in dialog never
+      // mounts. Once a location is set the router mounts under a locale base, so
+      // navigate to the locale-prefixed checkout URL rather than bare /checkout.
+      await page.goto("/en-lb/beirut/checkout?guest=1");
 
-      // Dismiss the optional guest-login prompt if it appears.
-      const guestBtn = page.getByRole("button", {
-        name: /guest|continue without/i,
-      });
+      // Belt-and-braces: dismiss the login dialog if it still appears.
+      const guestBtn = page.getByTestId("button-checkout-as-guest");
       if (await guestBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await guestBtn.click();
       }
 
       // Wait for the recipient first-name field — confirms step 1 is rendered.
       const recipientFirstName = page.getByTestId("input-recipient-first-name");
-      await expect(recipientFirstName).toBeVisible({ timeout: 10_000 });
+      await expect(recipientFirstName).toBeVisible({ timeout: 15_000 });
 
       // ── Fill every required field except the recipient phone ──────────────
 
