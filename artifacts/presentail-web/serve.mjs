@@ -770,6 +770,12 @@ async function generateLlmsFullTxt(origin, basePath) {
     ? `## Occasions\n\n${occasionNames.map((n) => `- ${n}`).join("\n")}\n`
     : `## Occasions\n\n_Occasion list not yet available._\n`;
 
+  const occasionSlugToName = Object.fromEntries(
+    (catalogData?.occasions ?? [])
+      .filter((o) => o.slug && o.name)
+      .map((o) => [o.slug, o.name])
+  );
+
   const FEATURED_LIMIT = 50;
   const allProducts = (productsData?.products ?? [])
     .filter((p) => Boolean(p.name))
@@ -780,9 +786,13 @@ async function generateLlmsFullTxt(origin, basePath) {
       featuredProducts.map((p) => {
         const brand = (p.brandNames ?? [])[0] ?? null;
         const priceUsd = typeof p.priceValue === "number" ? `~$${Math.round(p.priceValue)}` : null;
+        const resolvedOccasions = (p.occasions ?? [])
+          .map((slug) => occasionSlugToName[slug] ?? slug)
+          .filter(Boolean);
         const parts = [p.name];
         if (brand) parts.push(`by ${brand}`);
         if (priceUsd) parts.push(`(${priceUsd})`);
+        if (resolvedOccasions.length > 0) parts.push(`— ${resolvedOccasions.join(", ")}`);
         return `- ${parts.join(" ")}`;
       }).join("\n") + "\n"
     : "";
