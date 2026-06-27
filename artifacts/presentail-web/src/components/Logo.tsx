@@ -48,6 +48,7 @@ export function Logo({ height, className, inverse = false }: LogoProps) {
         style={style}
         className={className}
         draggable={false}
+        fetchPriority="high"
       />
     </picture>
   );

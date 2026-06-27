@@ -52,6 +52,62 @@ function seoInjectPlugin(basePath: string): Plugin {
 }
 
 /**
+ * Inject a <link rel="preload" as="image"> for the primary English WebP logo
+ * into the built index.html. Reads the Vite manifest to resolve the
+ * content-hashed asset filename, then splices the tag into <head> right after
+ * the existing font preloads. Runs only at build time.
+ */
+// Source filename (without path) of the primary English WebP logo imported by
+// Logo.tsx. Update this constant if the asset is ever renamed.
+const LOGO_EN_WEBP_BASENAME = "Presentail_PNG-01_1777795626872.webp";
+
+function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
+  // Normalise basePath: strip trailing slash so we can append "/" + file safely.
+  const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+
+  return {
+    name: "presentail-logo-preload",
+    apply: "build",
+    async closeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      const manifestPath = path.join(outDir, ".vite", "manifest.json");
+      if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
+
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<
+        string,
+        { file: string }
+      >;
+
+      // Prefer a manifest key match (source path ends with the basename) over
+      // scanning output filenames, so the lookup survives content-hash changes.
+      const logoEntry =
+        Object.entries(manifest).find(([key]) =>
+          key.endsWith(LOGO_EN_WEBP_BASENAME)
+        )?.[1] ??
+        // Fallback: scan output filenames in case the alias resolves to an
+        // absolute path that doesn't appear as a relative key.
+        Object.values(manifest).find(
+          (entry) =>
+            entry.file.includes(
+              LOGO_EN_WEBP_BASENAME.replace(".webp", "")
+            ) && entry.file.endsWith(".webp")
+        );
+      if (!logoEntry) return;
+
+      // Prefix with basePath so the hint is correct under any deployment subpath.
+      const href = `${base}/${logoEntry.file}`;
+      const preloadTag = `<link rel="preload" as="image" type="image/webp" href="${href}">`;
+      const html = fs.readFileSync(htmlPath, "utf8");
+      // Insert immediately before </head> so it sits near the font preloads.
+      const patched = html.replace("</head>", `  ${preloadTag}\n  </head>`);
+      if (patched === html) return; // guard: no </head> found
+      fs.writeFileSync(htmlPath, patched, "utf8");
+      console.log(`[logo-preload] Injected preload for ${href}`);
+    },
+  };
+}
+
+/**
  * Inline critical (above-the-fold) CSS and load the full stylesheet
  * non-blocking using Google's `critters` library. Runs only at build time so
  * it never slows down dev-server restarts.
@@ -122,6 +178,7 @@ export default defineConfig(async ({ command }) => {
       tailwindcss(),
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
+      logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined
