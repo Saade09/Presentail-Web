@@ -1,16 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import type { Value as PhoneValue } from "react-phone-number-input";
 
-type Props = {
+export type Props = {
   value: string;
   onChange: (value: string) => void;
   defaultCountry?: string;
-  label: string;
+  /** Rendered as a `<label>` above the input. Omit (or pass "") to skip the label element entirely — useful when an external heading already provides the label. */
+  label?: string;
   required?: boolean;
   showError?: boolean;
   errorMessage?: string | null;
   "data-testid"?: string;
+  /**
+   * Called whenever the phone validity changes. Receives `true` when the
+   * current value is non-empty AND passes libphonenumber validation;
+   * `false` when the value is empty or invalid. Use this instead of
+   * importing `isValidPhoneNumber` in the parent so the phone library
+   * stays inside this module's dynamic code-split boundary.
+   */
+  onValidityChange?: (isNonEmptyAndValid: boolean) => void;
 };
 
 export function WebPhoneField({
@@ -22,6 +31,7 @@ export function WebPhoneField({
   showError,
   errorMessage,
   "data-testid": testId,
+  onValidityChange,
 }: Props) {
   const [touched, setTouched] = useState(false);
   // hasTyped tracks whether the user has actually typed into the text field.
@@ -34,12 +44,20 @@ export function WebPhoneField({
   const isInvalid = !!value && !isValidPhoneNumber(value);
   const showInlineError = (showError || (touched && hasTyped)) && isInvalid && !!errorMessage;
 
+  const isNonEmptyAndValid = !!value && isValidPhoneNumber(value);
+  // Notify parent whenever validity changes. onValidityChange is treated like
+  // onChange — stable reference not required in deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { onValidityChange?.(isNonEmptyAndValid); }, [isNonEmptyAndValid]);
+
   return (
     <div>
-      <label className="text-sm font-medium block mb-1.5">
-        {label}
-        {required ? <span className="text-destructive ms-0.5"> *</span> : null}
-      </label>
+      {label ? (
+        <label className="text-sm font-medium block mb-1.5">
+          {label}
+          {required ? <span className="text-destructive ms-0.5"> *</span> : null}
+        </label>
+      ) : null}
       {/* dir="ltr" keeps the picker LTR even inside RTL page layouts.
           React's synthetic onBlur bubbles from child inputs, so placing it
           on the wrapper fires whenever the phone input or country select

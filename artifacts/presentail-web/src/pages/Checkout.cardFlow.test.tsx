@@ -217,6 +217,34 @@ vi.mock("@/components/WebPhoneField", () => ({
   ),
 }));
 
+// LazyWebPhoneField bypasses Suspense in tests and exposes the same simple
+// text input. Also fires onValidityChange(true) for any non-empty value so
+// the parent's validity state (which replaced the static isValidPhoneNumber
+// call) reflects a valid phone without needing the real libphonenumber-js.
+vi.mock("@/components/LazyWebPhoneField", () => ({
+  LazyWebPhoneField: ({
+    value,
+    onChange,
+    onValidityChange,
+    "data-testid": testId,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    onValidityChange?: (valid: boolean) => void;
+    "data-testid"?: string;
+    [k: string]: unknown;
+  }) => (
+    <input
+      data-testid={testId ?? "input-recipient-phone"}
+      value={value ?? ""}
+      onChange={(e) => {
+        onChange(e.target.value);
+        onValidityChange?.(e.target.value.trim().length > 0);
+      }}
+    />
+  ),
+}));
+
 vi.mock("@/components/Logo", () => ({
   Logo: () => <div data-testid="logo" />,
 }));

@@ -6,8 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { isValidPhoneNumber } from "react-phone-number-input";
-import { WebPhoneField } from "@/components/WebPhoneField";
+import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Textarea } from "@/components/ui/textarea";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
 import {
@@ -514,6 +513,8 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
   const [saveAddress, setSaveAddress] = useState(false);
   const [identitySecret, setIdentitySecret] = useState(false);
   const [phoneSubmitAttempted, setPhoneSubmitAttempted] = useState(false);
+  const [recipientPhoneValid, setRecipientPhoneValid] = useState(false);
+  const [senderPhoneValid, setSenderPhoneValid] = useState(false);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
 
   // Coupon / gift card — seeded from localStorage so a code entered on the
@@ -1762,7 +1763,7 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
                   </div>
 
                   <div className="mb-4">
-                    <WebPhoneField
+                    <LazyWebPhoneField
                       label={t("checkout.phoneNumber")}
                       value={recipient.phone}
                       onChange={(v) => setRecipient({ ...recipient, phone: v })}
@@ -1771,6 +1772,7 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
                       showError={phoneSubmitAttempted}
                       errorMessage={t("checkout.phoneInvalidNumber")}
                       data-testid="input-recipient-phone"
+                      onValidityChange={setRecipientPhoneValid}
                     />
                   </div>
 
@@ -1879,7 +1881,7 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
 
                   {!hasProfilePhone && (
                     <div className="mb-4">
-                      <WebPhoneField
+                      <LazyWebPhoneField
                         label={t("checkout.phoneNumber")}
                         value={sender.phone}
                         onChange={(v) => setSender({ ...sender, phone: v })}
@@ -1888,6 +1890,7 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
                         showError={phoneSubmitAttempted}
                         errorMessage={t("checkout.phoneInvalidNumber")}
                         data-testid="input-sender-phone"
+                        onValidityChange={setSenderPhoneValid}
                       />
                     </div>
                   )}
@@ -1953,12 +1956,12 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
                     style={{ backgroundColor: "hsl(var(--primary))" }}
                     onClick={() => {
                       setPhoneSubmitAttempted(true);
-                      const recipientPhoneOk = !!recipient.phone && isValidPhoneNumber(recipient.phone);
-                      const senderPhoneOk = hasProfilePhone || (!!sender.phone && isValidPhoneNumber(sender.phone));
+                      const recipientPhoneOk = recipientPhoneValid;
+                      const senderPhoneOk = hasProfilePhone || senderPhoneValid;
                       if (!recipientPhoneOk || !senderPhoneOk) return;
                       setStep(2);
                     }}
-                    disabled={!recipient.firstName || !isValidPhoneNumber(recipient.phone) || (!noAddress && !recipient.district) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
+                    disabled={!recipient.firstName || !recipientPhoneValid || (!noAddress && !recipient.district) || (!noAddress && !recipient.address) || (!isSignedIn && (!sender.firstName || !sender.email)) || (!hasProfilePhone && !sender.phone.trim())}
                     data-testid="button-continue-to-payment"
                   >
                     {t("checkout.continuePayment")}

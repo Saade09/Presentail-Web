@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, Loader2, Trash2 } from "lucide-react";
-import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
-import type { Value as PhoneValue } from "react-phone-number-input";
-import "react-phone-number-input/style.css";
+import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +75,8 @@ export default function PersonalInformation() {
   const [bYear, setBYear] = useState("");
   const [bdayError, setBdayError] = useState<string | null>(null);
 
-  const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
+  const [phone, setPhone] = useState("");
+  const [phoneValid, setPhoneValid] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -94,7 +93,7 @@ export default function PersonalInformation() {
     setFirstName(shimUser.firstName ?? "");
     setLastName(shimUser.lastName ?? "");
     setEmail(shimUser.email ?? "");
-    setPhone((shimUser.phone ?? "") as PhoneValue || undefined);
+    setPhone(shimUser.phone ?? "");
     (async () => {
       try {
         const data = await apiFetch<MeResponse>("/auth/me");
@@ -117,7 +116,7 @@ export default function PersonalInformation() {
         setBYear(bd ? bd.slice(0, 4) : "");
         setBMonth(bd ? bd.slice(5, 7) : "");
         setBDay(bd ? bd.slice(8, 10) : "");
-        setPhone((u.phone ?? "") as PhoneValue || undefined);
+        setPhone(u.phone ?? "");
       } catch {
         if (!cancelled) setHydrateFailed(false);
       } finally {
@@ -174,7 +173,7 @@ export default function PersonalInformation() {
 
   const onSavePhone = async () => {
     setPhoneError(null);
-    if (phone && !isValidPhoneNumber(phone)) {
+    if (phone && !phoneValid) {
       setPhoneError(t("pi.phone.errorInvalid"));
       return;
     }
@@ -365,28 +364,19 @@ export default function PersonalInformation() {
             {phone ? phone : t("pi.phone.notSet")}
           </p>
 
-          <div dir="ltr" className="pi-phone-wrap">
-            <PhoneInput
-              international
-              defaultCountry="LB"
-              value={phone}
-              onChange={(v) => {
-                setPhone(v);
-                if (phoneError) setPhoneError(null);
-              }}
-              placeholder={t("pi.phone.placeholder")}
-              data-testid="pi-phone-input"
-            />
-          </div>
-
-          {phoneError ? (
-            <p
-              className="text-sm text-destructive mt-3"
-              data-testid="pi-phone-error"
-            >
-              {phoneError}
-            </p>
-          ) : null}
+          <LazyWebPhoneField
+            label=""
+            defaultCountry="LB"
+            value={phone}
+            onChange={(v) => {
+              setPhone(v);
+              if (phoneError) setPhoneError(null);
+            }}
+            onValidityChange={setPhoneValid}
+            showError={!!phoneError}
+            errorMessage={phoneError}
+            data-testid="pi-phone-input"
+          />
 
           <div className="mt-5">
             <Button

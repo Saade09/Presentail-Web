@@ -394,6 +394,15 @@ export default defineConfig(async ({ command }) => {
             // QR code library is only used in Cart.tsx (on-demand) — split it
             // so it never lands in the eagerly-evaluated instant vendor chunk.
             if (id.includes("node_modules/qrcode.react/")) return "vendor-qrcode";
+            // Phone input libraries are loaded lazily via LazyWebPhoneField
+            // (React.lazy + dynamic import). Give them a dedicated chunk so they
+            // never get folded into the statically-evaluated vendor catch-all.
+            if (
+              id.includes("node_modules/react-phone-number-input/") ||
+              id.includes("node_modules/libphonenumber-js/") ||
+              id.includes("node_modules/country-flag-icons/")
+            )
+              return "vendor-phone";
             if (id.includes("node_modules/")) return "vendor";
 
             // Collapse small app-level shared components into a single chunk so

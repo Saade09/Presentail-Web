@@ -36,8 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { WebPhoneField } from "@/components/WebPhoneField";
-import { isValidPhoneNumber } from "react-phone-number-input";
+import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 import { Link } from "wouter";
 
 const SUPPORTED_COUNTRIES = [
@@ -316,6 +315,7 @@ function EditPhoneDialog({
 }) {
   const { toast } = useToast();
   const [phone, setPhone] = useState(initialPhone);
+  const [phoneValid, setPhoneValid] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -328,7 +328,7 @@ function EditPhoneDialog({
 
   const handleSave = async () => {
     setPhoneError(null);
-    if (phone && !isValidPhoneNumber(phone)) {
+    if (phone && !phoneValid) {
       setPhoneError(t("pi.phone.errorInvalid"));
       return;
     }
@@ -356,13 +356,14 @@ function EditPhoneDialog({
           <DialogDescription>{t("account.editPhone.desc")}</DialogDescription>
         </DialogHeader>
         <div className="py-2">
-          <WebPhoneField
+          <LazyWebPhoneField
             label={t("account.phone")}
             value={phone}
             onChange={(v) => { setPhone(v); if (phoneError) setPhoneError(null); }}
             showError={!!phoneError}
             errorMessage={phoneError ?? t("pi.phone.errorInvalid")}
             data-testid="edit-phone-input"
+            onValidityChange={setPhoneValid}
           />
         </div>
         <DialogFooter>
@@ -767,6 +768,7 @@ function AddAddressModal({
   const [busy, setBusy] = useState(false);
   const isEdit = !!editAddress;
   const { data: deliveryLocations } = useDeliveryLocations();
+  const [recipientPhoneValid, setRecipientPhoneValid] = useState(false);
 
   const [form, setForm] = useState(() => buildEmptyForm(defaultCountryCode));
 
@@ -832,7 +834,7 @@ function AddAddressModal({
       return;
     }
     const trimmedPhone = form.recipientPhone.trim();
-    if (!trimmedPhone || !isValidPhoneNumber(trimmedPhone)) {
+    if (!recipientPhoneValid) {
       toast({ title: "A valid recipient phone number is required", variant: "destructive" });
       return;
     }
@@ -978,12 +980,13 @@ function AddAddressModal({
             />
           </div>
 
-          <WebPhoneField
+          <LazyWebPhoneField
             label={t("account.addresses.recipientPhone")}
             required
             value={form.recipientPhone}
             onChange={(v) => set("recipientPhone", v)}
             defaultCountry={form.countryCode}
+            onValidityChange={setRecipientPhoneValid}
           />
 
 

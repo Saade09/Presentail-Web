@@ -104,6 +104,29 @@ vi.mock("@/components/CountryFlag", () => ({
 vi.mock("@/components/WebPhoneField", () => ({
   WebPhoneField: () => null,
 }));
+vi.mock("@/components/LazyWebPhoneField", () => ({
+  LazyWebPhoneField: ({
+    onValidityChange,
+    value,
+    onChange,
+    "data-testid": testId,
+  }: {
+    onValidityChange?: (v: boolean) => void;
+    value: string;
+    onChange: (v: string) => void;
+    "data-testid"?: string;
+    [k: string]: unknown;
+  }) => (
+    <input
+      data-testid={testId ?? "phone-input"}
+      value={value ?? ""}
+      onChange={(e) => {
+        onChange(e.target.value);
+        onValidityChange?.(e.target.value.trim().length > 0);
+      }}
+    />
+  ),
+}));
 vi.mock("react-phone-number-input", () => ({
   isValidPhoneNumber: vi.fn(() => true),
 }));

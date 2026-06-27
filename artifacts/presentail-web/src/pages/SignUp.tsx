@@ -8,9 +8,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
-import PhoneInput from "react-phone-number-input";
-import type { Value as PhoneValue } from "react-phone-number-input";
-import "react-phone-number-input/style.css";
+import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
 
 type Step = "name-password" | "phone";
 
@@ -63,7 +61,7 @@ export default function SignUpPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState<PhoneValue | undefined>(undefined);
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -295,32 +293,26 @@ export default function SignUpPage() {
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="signup-phone">
-                  {t("auth.phoneLabel")} <span className="text-destructive">*</span>
-                </label>
-                <div className="pi-phone-wrap">
-                  <PhoneInput
-                    international
-                    defaultCountry="LB"
-                    value={phone}
-                    onChange={(v) => {
-                      setPhone(v);
-                      if (errors.phone) setErrors((p) => ({ ...p, phone: "" }));
-                    }}
-                    placeholder="+961 70 000 000"
-                    data-testid="input-signup-phone"
-                  />
-                </div>
-                {errors.phone && (
-                  <p className="text-xs text-destructive">{errors.phone}</p>
-                )}
+                <LazyWebPhoneField
+                  label={t("auth.phoneLabel")}
+                  required
+                  defaultCountry="LB"
+                  value={phone}
+                  onChange={(v) => {
+                    setPhone(v);
+                    if (errors.phone) setErrors((p) => ({ ...p, phone: "" }));
+                  }}
+                  showError={!!errors.phone}
+                  errorMessage={errors.phone}
+                  data-testid="input-signup-phone"
+                />
               </div>
 
               <Button
                 size="lg"
                 className="w-full h-12 rounded-xl mt-2"
                 onClick={() => void onCreateAccountWithPhone()}
-                disabled={busy || !phone}
+                disabled={busy || !phone.trim()}
                 data-testid="button-signup-create"
               >
                 {busy ? t("checkout.processing") : t("auth.createAccount")}
