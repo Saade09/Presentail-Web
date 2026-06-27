@@ -240,6 +240,73 @@ describe("OrderConfirmed — stale (expired) payload", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 2c. Stale redirect payment — hosted return (Mamo / PayPal / Stripe) with a
+//     payment reference on the URL but no inline ?ref=. A shopper who paid via
+//     a redirect, backgrounded the tab, and returned hours later must not have
+//     the expired payload silently replayed into a real (abandoned) order.
+// ---------------------------------------------------------------------------
+
+describe("OrderConfirmed — stale redirect payment (hosted return)", () => {
+  it("skips order creation and shows the failure state when the redirect returns with a stale payload", async () => {
+    // Hosted redirect shape: success + a payment reference (session_id), but no
+    // inline ?ref=, so the page would normally finalize from the stash.
+    mockUseSearch.mockReturnValue("?status=success&session_id=cs_test_stalehosted");
+    // Stash is one millisecond past the expiry window → treated as missing.
+    seedSessionStorage(PENDING_PAYLOAD, Date.now() - PENDING_ORDER_MAX_AGE_MS - 1);
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // The shopper lands on the graceful failure screen.
+    await screen.findByTestId("icon-failed");
+
+    // The WC order is never (re)created and the cart is left intact.
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockClearCart).not.toHaveBeenCalled();
+  });
+
+  it("finalizes the order when the same redirect returns with a fresh payload and forwards the payment reference", async () => {
+    mockUseSearch.mockReturnValue("?status=success&session_id=cs_test_freshhosted");
+    mockMutate.mockImplementation(
+      (
+        _payload: unknown,
+        { onSuccess }: { onSuccess: (res: unknown) => void },
+      ) => {
+        onSuccess({ ok: true, wcOrderId: 55555 });
+      },
+    );
+    // One minute inside the expiry window → still considered fresh.
+    seedSessionStorage(PENDING_PAYLOAD, Date.now() - PENDING_ORDER_MAX_AGE_MS + 60_000);
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // createOrder runs with the stashed payload, enriched with the URL payment ref.
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+    });
+    const submittedPayload = mockMutate.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(submittedPayload).toMatchObject({
+      totalUsd: 80,
+      currencyCode: "USD",
+      paymentMethod: "card",
+      paymentRef: "cs_test_freshhosted",
+    });
+
+    // Success screen is shown and the queue is cleared.
+    await screen.findByTestId("icon-success");
+    expect(screen.getByTestId("text-order-ref").textContent).toContain("55555");
+    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).toBeNull();
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3. createOrder failure — payload retained for retry
 // ---------------------------------------------------------------------------
 
