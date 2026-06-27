@@ -772,6 +772,7 @@ function CardPreviewDialog({
         height={1024}
         className="absolute inset-0 h-full w-full"
         style={{ objectFit: "fill" }}
+        loading="lazy"
       />
       {/* Crisp logo overlay — replaces the pixelated logo baked into the stationery image */}
       <div
@@ -786,6 +787,7 @@ function CardPreviewDialog({
           height={dir === "rtl" ? 792 : 2383}
           style={{ height: "38%", width: "auto", objectFit: "contain" }}
           draggable={false}
+          loading="lazy"
         />
       </div>
       {/* Content positioned within the stationery's writable area:

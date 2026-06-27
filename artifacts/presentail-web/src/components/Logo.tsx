@@ -14,9 +14,10 @@ type LogoProps = {
   height?: number;
   className?: string;
   inverse?: boolean;
+  fetchpriority?: "high" | "low" | "auto";
 };
 
-export function Logo({ height, className, inverse = false }: LogoProps) {
+export function Logo({ height, className, inverse = false, fetchpriority }: LogoProps) {
   const { language, t } = useLocale();
   const isArabic = language === "ar";
 
@@ -48,7 +49,7 @@ export function Logo({ height, className, inverse = false }: LogoProps) {
         style={style}
         className={className}
         draggable={false}
-        fetchPriority="high"
+        fetchPriority={fetchpriority}
       />
     </picture>
   );
