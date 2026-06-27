@@ -40,6 +40,29 @@ export function buildUnsplashSrcset(url: string): { srcset: string; sizes: strin
 }
 
 /**
+ * Builds a `srcset` string for a locally-hosted image that has pre-generated
+ * width variants following the `<base>-<width>.webp` naming convention
+ * (e.g. `/blog/post.webp` → `/blog/post-480.webp`, `/blog/post-768.webp`).
+ *
+ * The variant widths are emitted first, then the original `url` at its
+ * intrinsic `intrinsicWidth` as the largest descriptor so the browser can pick
+ * the full-resolution file on high-DPI displays. Widths greater than or equal
+ * to `intrinsicWidth` are skipped to avoid up-scaled (and pointlessly larger)
+ * descriptors.
+ *
+ * The original `url` must stay the `<img src>` so non-srcset consumers (old
+ * browsers, link-preview crawlers) and the canonical og:image are unaffected.
+ */
+export function buildSrcSet(url: string, variantWidths: number[], intrinsicWidth: number): string {
+  const base = url.replace(/\.webp$/i, "");
+  const entries = variantWidths
+    .filter((w) => w < intrinsicWidth)
+    .map((w) => `${base}-${w}.webp ${w}w`);
+  entries.push(`${url} ${intrinsicWidth}w`);
+  return entries.join(", ");
+}
+
+/**
  * Returns true when the given URL points to an OS storage image that can be
  * served via the `/api/img/proxy` endpoint.
  */
