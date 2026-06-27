@@ -64,7 +64,7 @@ function AccountTab() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
-  const { ready, user, token, logout, deleteAccount, updateProfile } = useAuth();
+  const { ready, user, token, logout, deleteAccount, updateProfile, refreshUser } = useAuth();
   const { currencyCode, isManualOverride, setCurrency, clearManualCurrency, list: currencyList } = useCurrency();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
@@ -116,6 +116,12 @@ function AccountTab() {
     useCallback(() => {
       refreshNotifStatus();
     }, [refreshNotifStatus])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+    }, [refreshUser])
   );
 
   const onNotifRowPress = async () => {

@@ -57,6 +57,7 @@ export type AuthState = {
     birthday?: string | null;
     birthdayShareMonthDay?: boolean;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
+  refreshUser: () => Promise<void>;
 };
 
 const TOKEN_KEY = "presentail.auth.token";
@@ -242,6 +243,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, token, persist]);
 
+  const refreshUser: AuthState["refreshUser"] = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}`, ...getStoredStoreHeaders() },
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (data?.user) {
+        setUser(data.user);
+        await persist(token, data.user);
+      }
+    } catch {
+      // Network error — keep existing cached user, don't sign out
+    }
+  }, [token, persist]);
+
   const value = useMemo<AuthState>(() => ({
     ready,
     user,
@@ -252,7 +270,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     deleteAccount,
     updateProfile,
-  }), [ready, user, token, login, register, applySession, logout, deleteAccount, updateProfile]);
+    refreshUser,
+  }), [ready, user, token, login, register, applySession, logout, deleteAccount, updateProfile, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

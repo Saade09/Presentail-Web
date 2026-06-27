@@ -75,6 +75,7 @@ export const DEFAULT_AUTH: AuthState = {
   logout: async () => {},
   deleteAccount: async () => ({ ok: false, message: "mocked" }),
   updateProfile: async () => ({ ok: false, message: "mocked" }),
+  refreshUser: async () => {},
 };
 
 export const DEFAULT_LANGUAGE = {
