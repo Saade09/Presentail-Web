@@ -140,13 +140,21 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
 
         {!isLoading && tabs.length > 0 && (
           <div className="px-6 pt-4 shrink-0">
-            <div className="flex gap-6 overflow-x-auto pb-3 -mx-2 px-2 scrollbar-none">
+            <div
+              role="tablist"
+              aria-label={t("cart.upsells.tabsLabel")}
+              className="flex gap-6 overflow-x-auto pb-3 -mx-2 px-2 scrollbar-none"
+            >
               {tabs.map((tab) => {
                 const isActive = tab.id === activeId;
                 return (
                   <button
                     key={tab.id}
+                    id={`upsell-modal-tab-btn-${tab.id}`}
                     type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls="upsell-modal-panel"
                     onClick={() => {
                       setActiveId(tab.id);
                       trackEvent({
@@ -155,7 +163,6 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
                         action: tab.id,
                       });
                     }}
-                    aria-pressed={isActive}
                     data-testid={`upsell-modal-tab-${tab.id}`}
                     className={`relative whitespace-nowrap pb-2 text-sm transition-colors ${
                       isActive
@@ -174,7 +181,12 @@ export function AddToCartUpsellModal({ open, onClose }: Props) {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+        <div
+          id="upsell-modal-panel"
+          role="tabpanel"
+          aria-labelledby={activeId ? `upsell-modal-tab-btn-${activeId}` : undefined}
+          className="flex-1 overflow-y-auto px-6 py-4 min-h-0"
+        >
           {isLoading ? (
             <div className="grid grid-cols-3 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (

@@ -84,7 +84,11 @@ export function SuggestedMessagesDialog({
 
         {/* Language toggle */}
         <div className="px-6 pb-3">
-          <div className="flex gap-1 rounded-full bg-muted p-1">
+          <div
+            role="group"
+            aria-label={t("suggestedMessages.langLabel")}
+            className="flex gap-1 rounded-full bg-muted p-1"
+          >
             {(["en", "ar", "fr"] as const).map((l) => {
               const active = activeLang === l;
               return (
@@ -92,6 +96,7 @@ export function SuggestedMessagesDialog({
                   key={l}
                   type="button"
                   onClick={() => setActiveLang(l)}
+                  aria-pressed={active}
                   className={cn(
                     "flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors",
                     active
@@ -109,13 +114,21 @@ export function SuggestedMessagesDialog({
 
         {/* Category tabs */}
         <div className="px-6 border-b" dir={isAr ? "rtl" : "ltr"}>
-          <div className="flex gap-5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          <div
+            role="tablist"
+            aria-label={t("suggestedMessages.catLabel")}
+            className="flex gap-5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin"
+          >
             {SUGGESTED_MESSAGE_CATEGORIES.map((id) => {
               const active = activeCategory === id;
               return (
                 <button
                   key={id}
+                  id={`suggested-msg-cat-btn-${id}`}
                   type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls="suggested-msg-panel"
                   onClick={() => setActiveCategory(id)}
                   className={cn(
                     "whitespace-nowrap text-sm pb-2 -mb-px transition-colors border-b-2",
@@ -134,6 +147,9 @@ export function SuggestedMessagesDialog({
 
         {/* Messages list */}
         <div
+          id="suggested-msg-panel"
+          role="tabpanel"
+          aria-labelledby={`suggested-msg-cat-btn-${activeCategory}`}
           className="px-6 py-4 space-y-3 max-h-[60vh] overflow-y-auto"
           dir={isAr ? "rtl" : "ltr"}
         >

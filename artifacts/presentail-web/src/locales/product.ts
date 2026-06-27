@@ -35,6 +35,7 @@ export const productStrings: Dict = {
   "product.benefit.tracking.sub": { en: "You will receive real-time updates.", ar: "ستتلقى تحديثات فورية." },
   "product.tab.description": { en: "Description", ar: "الوصف" },
   "product.tab.careTips": { en: "Care Tips", ar: "نصائح العناية" },
+  "product.tabs.aria": { en: "Product information tabs", ar: "تبويبات معلومات المنتج" },
   "product.bouquetIncludes": { en: "Bouquet Includes:", ar: "محتويات الباقة:" },
 };
 
@@ -73,5 +74,6 @@ export const productStringsFr: Record<string, string> = {
   "product.benefit.tracking.sub": "Vous recevrez des mises à jour en temps réel.",
   "product.tab.description": "Description",
   "product.tab.careTips": "Conseils d'entretien",
+  "product.tabs.aria": "Onglets d'information produit",
   "product.bouquetIncludes": "Le bouquet comprend :",
 };

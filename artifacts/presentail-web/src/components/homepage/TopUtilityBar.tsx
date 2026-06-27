@@ -52,13 +52,14 @@ export function TopUtilityBar() {
           <button
             type="button"
             onClick={() => openPicker()}
+            aria-label={t("utility.changeLocationAria")}
             className="flex items-center gap-1.5 rounded-full bg-white/70 hover:bg-white px-3 py-1 text-foreground transition-colors cursor-pointer"
             data-testid="button-country-selector"
           >
             {country ? (
-              <CountryFlag code={country.code} className="w-[18px] aspect-[3/2] shrink-0" />
+              <CountryFlag code={country.code} className="w-[18px] aspect-[3/2] shrink-0" aria-hidden="true" />
             ) : (
-              <span className="text-base leading-none">🌍</span>
+              <span className="text-base leading-none" aria-hidden="true">🌍</span>
             )}
             <span className="font-medium">
               {city
@@ -67,7 +68,7 @@ export function TopUtilityBar() {
                   ? countryName(country.code, country.name)
                   : t("locationPicker.selectCountryLabel")}
             </span>
-            <ChevronDown className="w-3 h-3 opacity-70" />
+            <ChevronDown className="w-3 h-3 opacity-70" aria-hidden="true" />
           </button>
 
           <LanguageSwitcher variant="pill" />

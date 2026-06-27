@@ -57,10 +57,11 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
       <button
         type="button"
         onClick={handleClick}
+        aria-label={displayText ? `${displayText} — ${t("delivery.row.change")}` : t("delivery.row.selectDate")}
         className={`w-full flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 ${className}`}
         data-testid="delivery-date-row"
       >
-        <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+        <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <span className="flex-1 text-sm">
           {displayText ?? (
             <span className="text-muted-foreground">
@@ -73,7 +74,7 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
             {t("delivery.row.change")}
           </span>
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         )}
       </button>
 

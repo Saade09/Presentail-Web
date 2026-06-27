@@ -15,6 +15,7 @@ export const cartStrings: Dict = {
   "cart.decreaseAria": { en: "Decrease quantity", ar: "تقليل الكمية" },
   "cart.increaseAria": { en: "Increase quantity", ar: "زيادة الكمية" },
   "cart.upsells.title": { en: "Make it perfect", ar: "اجعلها مثالية" },
+  "cart.upsells.tabsLabel": { en: "Product categories", ar: "فئات المنتجات" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "cart.upsells.tab.recommended": { en: "Recommended", ar: "موصى به" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -77,6 +78,7 @@ export const cartStringsFr: Record<string, string> = {
   "cart.decreaseAria": "Diminuer la quantité",
   "cart.increaseAria": "Augmenter la quantité",
   "cart.upsells.title": "Rendez-le parfait",
+  "cart.upsells.tabsLabel": "Catégories de produits",
   "cart.upsells.tab.recommended": "Recommandé",
   "cart.upsells.tab.singleBalloons": "Ballons",
   "cart.upsells.tab.balloonBundles": "Bouquets de ballons",

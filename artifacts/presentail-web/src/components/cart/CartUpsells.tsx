@@ -112,15 +112,22 @@ export function CartUpsells() {
     >
       <h2 className="text-2xl font-serif mb-6">{t("cart.upsells.title")}</h2>
 
-      <div className="flex gap-6 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none">
+      <div
+        role="tablist"
+        aria-label={t("cart.upsells.tabsLabel")}
+        className="flex gap-6 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none"
+      >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId;
           return (
             <button
               key={tab.id}
+              id={`cart-upsells-tab-btn-${tab.id}`}
               type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="cart-upsells-panel"
               onClick={() => setActiveId(tab.id)}
-              aria-pressed={isActive}
               data-testid={`cart-upsells-tab-${tab.id}`}
               className={`relative whitespace-nowrap pb-2 text-sm transition-colors ${
                 isActive
@@ -137,7 +144,12 @@ export function CartUpsells() {
         })}
       </div>
 
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div
+        id="cart-upsells-panel"
+        role="tabpanel"
+        aria-labelledby={`cart-upsells-tab-btn-${activeId}`}
+        className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+      >
         {active.products.map((product) => {
           return (
             <div

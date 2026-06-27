@@ -22,13 +22,21 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
 
   return (
     <div className="mt-12" data-testid="product-tabs">
-      <div className="flex gap-8 border-b border-border">
+      <div
+        role="tablist"
+        aria-label={t("product.tabs.aria")}
+        className="flex gap-8 border-b border-border"
+      >
         {tabs.map((tabItem) => {
           const active = tab === tabItem.id;
           return (
             <button
               key={tabItem.id}
               type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={`product-tab-panel-${tabItem.id}`}
+              id={`product-tab-${tabItem.id}`}
               onClick={() => setTab(tabItem.id)}
               className={cn(
                 "py-3 text-sm font-semibold uppercase tracking-[0.14em] -mb-px border-b-2",
@@ -44,7 +52,13 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
         })}
       </div>
 
-      <div className="pt-6">
+      <div
+        role="tabpanel"
+        id={`product-tab-panel-${tab}`}
+        aria-labelledby={`product-tab-${tab}`}
+        tabIndex={0}
+        className="pt-6 outline-none"
+      >
         {tab === "description" ? (
           <div className="space-y-5">
             {description && bouquetIncludes.length === 0 && (
@@ -72,7 +86,7 @@ export function ProductTabs({ description, bouquetIncludes, careTips }: Props) {
           <ul className="space-y-3">
             {careTips.map((c) => (
               <li key={c} className="flex gap-3 text-sm text-foreground">
-                <Flower2 className="w-4 h-4 text-gold mt-0.5 shrink-0" />
+                <Flower2 className="w-4 h-4 text-gold mt-0.5 shrink-0" aria-hidden="true" />
                 <span className="flex-1 leading-6">{c}</span>
               </li>
             ))}
