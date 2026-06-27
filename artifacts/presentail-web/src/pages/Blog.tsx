@@ -4,11 +4,18 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 
+type OgImage = {
+  url: string;
+  width: number;
+  height: number;
+};
+
 type Story = {
   slug: string;
   eyebrow: string;
   title: string;
   excerpt: string;
+  ogImage?: OgImage;
 };
 
 type Article = {
@@ -16,6 +23,7 @@ type Article = {
   eyebrow: string;
   title: string;
   description: string;
+  ogImage?: OgImage;
 };
 
 type Copy = {
@@ -36,7 +44,7 @@ const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
 function getStories(language: Language): Story[] {
   return Object.keys(ARTICLES).map((slug) => {
     const a = ARTICLES[slug][language] ?? ARTICLES[slug].en;
-    return { slug, eyebrow: a.eyebrow, title: a.title, excerpt: a.description };
+    return { slug, eyebrow: a.eyebrow, title: a.title, excerpt: a.description, ogImage: a.ogImage };
   });
 }
 
@@ -110,7 +118,21 @@ export default function Blog() {
               className="rounded-lg border border-border bg-card flex flex-col overflow-hidden"
               data-testid="blog-story-card"
             >
-              <Link href={`/blog/${s.slug}`} className="flex flex-col flex-1 p-6 group">
+              <Link href={`/blog/${s.slug}`} className="flex flex-col flex-1 group">
+                {s.ogImage && (
+                  <div className="overflow-hidden aspect-[16/9]">
+                    <img
+                      src={s.ogImage.url}
+                      width={s.ogImage.width}
+                      height={s.ogImage.height}
+                      alt={s.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      data-testid="blog-story-card-image"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-col flex-1 p-6">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">
                   {s.eyebrow}
                 </p>
@@ -124,6 +146,7 @@ export default function Blog() {
                   {c.readArticle}
                   <ArrowRight className="w-3 h-3" />
                 </span>
+                </div>
               </Link>
             </article>
           ))}

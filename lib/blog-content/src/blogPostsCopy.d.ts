@@ -9,6 +9,13 @@ export interface BlogSection {
   body: string;
 }
 
+/** Hero / Open Graph image for an article. Dimensions match the source file. */
+export interface BlogOgImage {
+  url: string;
+  width: number;
+  height: number;
+}
+
 export interface BlogPostContent {
   slug: string;
   eyebrow: string;
@@ -16,6 +23,7 @@ export interface BlogPostContent {
   description: string;
   /** ISO date string, e.g. "2025-03-15". */
   datePublished: string;
+  ogImage?: BlogOgImage;
   sections: BlogSection[];
 }
 

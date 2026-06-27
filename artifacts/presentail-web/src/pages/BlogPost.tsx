@@ -10,12 +10,19 @@ type Section = {
   body: string;
 };
 
+type OgImage = {
+  url: string;
+  width: number;
+  height: number;
+};
+
 type Article = {
   slug: string;
   eyebrow: string;
   title: string;
   description: string;
   datePublished: string;
+  ogImage?: OgImage;
   sections: Section[];
 };
 
@@ -71,6 +78,14 @@ export default function BlogPost() {
     upsertMeta("og:description", "property", article.description);
     upsertMeta("og:type", "property", "article");
     upsertMeta("article:published_time", "property", article.datePublished);
+    if (article.ogImage) {
+      const absolute = typeof window !== "undefined"
+        ? new URL(article.ogImage.url, window.location.origin).href
+        : `https://new.presentail.com${article.ogImage.url}`;
+      upsertMeta("og:image", "property", absolute);
+      upsertMeta("og:image:width", "property", String(article.ogImage.width));
+      upsertMeta("og:image:height", "property", String(article.ogImage.height));
+    }
 
     const schemaId = "blog-post-schema";
     let schema = document.getElementById(schemaId);
@@ -86,6 +101,14 @@ export default function BlogPost() {
       headline: article.title,
       description: article.description,
       datePublished: article.datePublished,
+      ...(article.ogImage
+        ? {
+            image:
+              typeof window !== "undefined"
+                ? new URL(article.ogImage.url, window.location.origin).href
+                : `https://new.presentail.com${article.ogImage.url}`,
+          }
+        : {}),
       publisher: {
         "@type": "Organization",
         name: "Presentail",
@@ -116,6 +139,19 @@ export default function BlogPost() {
       </div>
 
       <article className="container mx-auto px-4 pb-16 max-w-3xl" itemScope itemType="https://schema.org/Article">
+        {article.ogImage && (
+          <div className="mb-10 overflow-hidden rounded-lg">
+            <img
+              src={article.ogImage.url}
+              width={article.ogImage.width}
+              height={article.ogImage.height}
+              alt={article.title}
+              className="w-full h-auto object-cover"
+              itemProp="image"
+              data-testid="blog-post-hero-image"
+            />
+          </div>
+        )}
         <header className="mb-10">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
             {article.eyebrow}
