@@ -33,6 +33,19 @@ async function registerDomainOnAccount(key: string, label: string): Promise<void
 }
 
 export async function registerStripeApplePayDomains(): Promise<void> {
+  // Warn early if the web server's domain association secret is missing.
+  // The file at /.well-known/apple-developer-merchantid-domain-association is
+  // served by the presentail-web server using this env var; without it the
+  // endpoint returns 404 and Apple Pay is silently disabled for all shoppers.
+  if (!process.env.STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION) {
+    logger.warn(
+      "STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — " +
+        "the web server will return 404 for " +
+        "/.well-known/apple-developer-merchantid-domain-association " +
+        "and Apple Pay will be disabled for all shoppers",
+    );
+  }
+
   const mainKey = process.env.STRIPE_SECRET_KEY;
   if (!mainKey) {
     logger.info("STRIPE_SECRET_KEY not set — skipping Stripe Apple Pay domain registration");

@@ -529,6 +529,28 @@ await warnStartupFile(
 );
 
 // ---------------------------------------------------------------------------
+// Check STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION — required so that
+// /.well-known/apple-developer-merchantid-domain-association is served and
+// Stripe can verify the domain for Apple Pay in the browser.  Without it the
+// endpoint returns 404 and Apple Pay is silently disabled for all shoppers.
+// Non-fatal: logs WARN + Slack alert in production and continues.
+// ---------------------------------------------------------------------------
+if (!process.env.STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION) {
+  console.warn(
+    "WARN: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — " +
+      "/.well-known/apple-developer-merchantid-domain-association will return 404 " +
+      "and Apple Pay will be disabled for all shoppers",
+  );
+  if (process.env.NODE_ENV === "production") {
+    sendSlackAlert(
+      ":warning: *presentail-web: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set*\n" +
+        "`/.well-known/apple-developer-merchantid-domain-association` will return 404 — " +
+        "Apple Pay is disabled for all shoppers until this secret is set and the server is restarted.",
+    ).catch(() => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sidecar (.br / .gz) existence cache
 // ---------------------------------------------------------------------------
 // Pre-compressed sidecars are build-time artifacts written by compress-assets.mjs.

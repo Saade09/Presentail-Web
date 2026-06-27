@@ -51,6 +51,9 @@ jobs:
           PORT: 19234
           BASE_PATH: /
           NODE_ENV: production
+          # Synthetic token — long enough to pass the blob validity check in
+          # check-apple-pay-domain.mjs without exposing any real secret.
+          STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 
       - name: Wait for server to be ready
         run: npx --yes wait-on http://localhost:19234/ --timeout 30000
@@ -60,6 +63,9 @@ jobs:
 
       - name: Check sidecar blocking (.br/.gz paths return 404)
         run: node artifacts/presentail-web/scripts/check-sidecar-blocking.mjs http://localhost:19234
+
+      - name: Check Apple Pay domain association endpoint (serve logic)
+        run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs http://localhost:19234
 
       - name: Upload dist for chunk-budget job
         uses: actions/upload-artifact@v4
@@ -98,3 +104,18 @@ jobs:
 
       - name: Chunk budget report (instant vs on-demand, ≤200 kB brotli per chunk)
         run: node artifacts/presentail-web/scripts/check-chunk-budget.mjs artifacts/presentail-web/dist/public
+
+  apple-pay-domain-production:
+    name: Apple Pay domain association file (production)
+    runs-on: ubuntu-latest
+    # Run on pushes to main only — PRs cannot affect the production secret so
+    # checking production from a PR would only generate noise.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Apple Pay domain association file on production
+        run: node artifacts/presentail-web/scripts/check-apple-pay-domain.mjs https://new.presentail.com
