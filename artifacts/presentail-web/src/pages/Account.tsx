@@ -207,6 +207,100 @@ function ProfileField({
   );
 }
 
+function EditNameDialog({
+  open,
+  onClose,
+  initialFirstName,
+  initialLastName,
+  onSaved,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialFirstName: string;
+  initialLastName: string;
+  onSaved: (firstName: string, lastName: string) => void;
+  t: (k: string) => string;
+}) {
+  const { toast } = useToast();
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [lastName, setLastName] = useState(initialLastName);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setFirstName(initialFirstName);
+      setLastName(initialLastName);
+    }
+  }, [open, initialFirstName, initialLastName]);
+
+  const handleSave = async () => {
+    if (!firstName.trim()) {
+      toast({ title: t("pi.error.title"), description: t("pi.error.nameRequired"), variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch("/auth/me", {
+        method: "PUT",
+        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
+      });
+      onSaved(firstName.trim(), lastName.trim());
+      toast({ title: t("pi.updated.title"), description: t("pi.updated.msg") });
+      onClose();
+    } catch (err: any) {
+      toast({ title: t("pi.error.title"), description: err?.message ?? t("pi.error.generic"), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl">{t("account.editName")}</DialogTitle>
+          <DialogDescription>{t("account.editName.desc")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              {t("pi.firstName")} <span className="text-primary">*</span>
+            </Label>
+            <Input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder={t("pi.firstNamePlaceholder")}
+              data-testid="edit-name-first"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              {t("pi.lastName")}
+            </Label>
+            <Input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder={t("pi.lastNamePlaceholder")}
+              data-testid="edit-name-last"
+              onKeyDown={(e) => e.key === "Enter" && void handleSave()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+            {t("account.cancel")}
+          </Button>
+          <Button type="button" onClick={() => void handleSave()} disabled={busy} data-testid="edit-name-save">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : t("pi.update")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProfilePanel({
   user,
   t,
@@ -214,8 +308,10 @@ function ProfilePanel({
   user: { firstName?: string; lastName?: string; email: string; phone?: string };
   t: (k: string) => string;
 }) {
+  const { updateUser } = useAuth();
   const [meUser, setMeUser] = useState<MeUser | null>(null);
   const [, setLocation] = useLocation();
+  const [editNameOpen, setEditNameOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,38 +346,65 @@ function ProfilePanel({
     return g === "female" ? t("pi.gender.female") : t("pi.gender.male");
   };
 
+  const handleNameSaved = (firstName: string, lastName: string) => {
+    setMeUser((prev) => prev ? { ...prev, firstName, lastName } : prev);
+    updateUser({ firstName, lastName });
+  };
+
   return (
-    <SectionCard
-      title={t("account.profile")}
-      action={
-        <button
-          type="button"
-          onClick={() => setLocation("/account/personal-information")}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          data-testid="account-edit-personal-information"
-        >
-          {t("account.editPersonalInfo")}
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      }
-    >
-      <div className="grid sm:grid-cols-2 gap-5">
-        <ProfileField label={t("account.firstName")} value={(displayUser as any).firstName} notAdded={notAdded} />
-        <ProfileField label={t("account.lastName")} value={(displayUser as any).lastName} notAdded={notAdded} />
-        <ProfileField label={t("account.email")} value={displayUser.email} notAdded={notAdded} />
-        <ProfileField label={t("account.phone")} value={(displayUser as any).phone} notAdded={notAdded} />
-        <ProfileField
-          label={t("account.dateOfBirth")}
-          value={formatBirthday((meUser as any)?.birthday)}
-          notAdded={notAdded}
-        />
-        <ProfileField
-          label={t("account.gender")}
-          value={genderLabel((meUser as any)?.gender)}
-          notAdded={notAdded}
-        />
-      </div>
-    </SectionCard>
+    <>
+      <SectionCard
+        title={t("account.profile")}
+        action={
+          <button
+            type="button"
+            onClick={() => setLocation("/account/personal-information")}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            data-testid="account-edit-personal-information"
+          >
+            {t("account.editPersonalInfo")}
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        }
+      >
+        <div className="grid sm:grid-cols-2 gap-5">
+          <div className="relative group">
+            <ProfileField label={t("account.firstName")} value={(displayUser as any).firstName} notAdded={notAdded} />
+            <button
+              type="button"
+              onClick={() => setEditNameOpen(true)}
+              className="absolute top-0 right-0 p-1 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              title={t("account.editName")}
+              data-testid="profile-edit-name-btn"
+              aria-label={t("account.editName")}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <ProfileField label={t("account.lastName")} value={(displayUser as any).lastName} notAdded={notAdded} />
+          <ProfileField label={t("account.email")} value={displayUser.email} notAdded={notAdded} />
+          <ProfileField label={t("account.phone")} value={(displayUser as any).phone} notAdded={notAdded} />
+          <ProfileField
+            label={t("account.dateOfBirth")}
+            value={formatBirthday((meUser as any)?.birthday)}
+            notAdded={notAdded}
+          />
+          <ProfileField
+            label={t("account.gender")}
+            value={genderLabel((meUser as any)?.gender)}
+            notAdded={notAdded}
+          />
+        </div>
+      </SectionCard>
+      <EditNameDialog
+        open={editNameOpen}
+        onClose={() => setEditNameOpen(false)}
+        initialFirstName={(displayUser as any).firstName ?? ""}
+        initialLastName={(displayUser as any).lastName ?? ""}
+        onSaved={handleNameSaved}
+        t={t}
+      />
+    </>
   );
 }
 
