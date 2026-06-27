@@ -68,6 +68,7 @@
     "@typescript-eslint/parser": "^8.34.0",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/blog-content": "workspace:*",
     "@workspace/clerk-types": "workspace:*",
     "@workspace/delivery": "workspace:*",
     "@workspace/display-currency": "workspace:*",

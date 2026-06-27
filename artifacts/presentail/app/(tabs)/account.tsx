@@ -461,6 +461,14 @@ function AccountTab() {
             <SettingsRow
               colors={colors}
               isRTL={isRTL}
+              icon="book-open"
+              label={t.journal}
+              onPress={() => router.push("/journal")}
+            />
+            <Divider colors={colors} />
+            <SettingsRow
+              colors={colors}
+              isRTL={isRTL}
               icon="help-circle"
               label={t.faq}
               onPress={() => router.push("/faq")}

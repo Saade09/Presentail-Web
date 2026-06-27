@@ -641,6 +641,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/blog-content':
+        specifier: workspace:*
+        version: link:../../lib/blog-content
       '@workspace/catalog-data':
         specifier: workspace:*
         version: link:../../lib/catalog-data
@@ -960,6 +963,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/blog-content':
+        specifier: workspace:*
+        version: link:../../lib/blog-content
       '@workspace/clerk-types':
         specifier: workspace:*
         version: link:../../lib/clerk-types
@@ -1095,6 +1101,8 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+
+  lib/blog-content: {}
 
   lib/catalog-data: {}
 

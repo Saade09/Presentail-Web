@@ -4,7 +4,7 @@
 // alternates already present in the initial document (no JS required).
 
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
-import { BLOG_POSTS } from "./src/data/blogPostsCopy.js";
+import { BLOG_POSTS } from "@workspace/blog-content";
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
@@ -1583,7 +1583,7 @@ function buildProductHead({
 
 /**
  * Per-article blog post head. Reads from the shared BLOG_POSTS source of truth
- * (src/data/blogPostsCopy.js) — the same module the BlogPost page renders from —
+ * (@workspace/blog-content) — the same module the BlogPost page renders from —
  * so the server-side link preview and the live article can never disagree.
  */
 function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {

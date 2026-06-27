@@ -33,6 +33,7 @@
     "@typescript-eslint/parser": "^8.34.0",
     "@ungap/structured-clone": "^1.3.0",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/blog-content": "workspace:*",
     "@workspace/catalog-data": "workspace:*",
     "@workspace/delivery": "workspace:*",
     "@workspace/display-currency": "workspace:*",

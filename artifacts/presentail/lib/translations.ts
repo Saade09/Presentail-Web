@@ -331,6 +331,10 @@ const EN = {
   notifCatDropsDesc: "New collections, limited drops and the occasional treat — no spam.",
   // ── FAQ page ──
   faqPageSubtitle: "Answers to common questions",
+  journal: "The Atelier Journal",
+  journalSubtitle: "Notes on flowers, makers, and the craft of giving",
+  journalReadArticle: "Read article",
+  journalNotFound: "Article not found",
   faqStillTitle: "Still have questions?",
   faqStillBody: "Our team is available every day from 8 AM to 10 PM Lebanon time.",
   faqContactBtn: "Contact Us",
@@ -1172,6 +1176,10 @@ const AR: typeof EN = {
   notifCatDropsDesc: "مجموعات جديدة، إصدارات محدودة ولفتات بين الحين والآخر — بلا إزعاج.",
   // ── FAQ page ──
   faqPageSubtitle: "إجابات على الأسئلة الشائعة",
+  journal: "مجلّة الأتيليه",
+  journalSubtitle: "ملاحظات عن الأزهار والصنّاع وفنّ الإهداء",
+  journalReadArticle: "اقرأ المقال",
+  journalNotFound: "المقال غير موجود",
   faqStillTitle: "هل لا تزال لديك أسئلة؟",
   faqStillBody: "فريقنا متاح كل يوم من 8 صباحاً حتى 10 مساءً بتوقيت لبنان.",
   faqContactBtn: "اتصل بنا",
@@ -2007,6 +2015,10 @@ const FR: typeof EN = {
   notifCatDropsDesc: "Nouvelles collections, éditions limitées et attentions occasionnelles — sans spam.",
   // ── FAQ page ──
   faqPageSubtitle: "Réponses aux questions fréquentes",
+  journal: "Le Journal de l'Atelier",
+  journalSubtitle: "Notes sur les fleurs, les artisans et l'art d'offrir",
+  journalReadArticle: "Lire l'article",
+  journalNotFound: "Article introuvable",
   faqStillTitle: "Encore des questions ?",
   faqStillBody: "Notre équipe est disponible tous les jours de 8 h à 22 h, heure du Liban.",
   faqContactBtn: "Nous contacter",

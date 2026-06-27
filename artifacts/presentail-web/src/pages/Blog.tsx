@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { BLOG_POSTS } from "@/data/blogPostsCopy.js";
+import { BLOG_POSTS } from "@workspace/blog-content";
 
 type Story = {
   slug: string;

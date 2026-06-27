@@ -361,7 +361,7 @@ test.describe("Structured data — locale-prefixed blog index /en-lb/beirut/blog
 // 8. Locale-prefixed blog post /en-lb/beirut/blog/<slug>
 //
 // Individual blog posts resolve from the shared BLOG_POSTS source of truth
-// (src/data/blogPostsCopy.js) — the same module the BlogPost page renders from —
+// (@workspace/blog-content) — the same module the BlogPost page renders from —
 // so buildBlogPostHead() emits a per-article title/description, og:type=article,
 // Article JSON-LD and a BreadcrumbList. Organization JSON-LD + OG/Twitter tags +
 // meta description are always present. A regression here would silently ship
