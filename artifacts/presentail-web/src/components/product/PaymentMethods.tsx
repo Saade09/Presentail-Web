@@ -69,7 +69,7 @@ export function PaymentMethods({
 
   return (
     <div
-      className={className ?? "flex flex-row items-center gap-3"}
+      className={className ?? "flex flex-row items-start gap-3"}
       data-testid="payment-methods"
     >
       {resolvedLabel ? (
@@ -83,7 +83,7 @@ export function PaymentMethods({
         </p>
       ) : null}
 
-      <div className="flex flex-1 flex-nowrap items-center justify-center gap-1.5 sm:gap-[5px]">
+      <div className="flex flex-1 flex-nowrap max-[359px]:flex-wrap items-center justify-center gap-1.5 sm:gap-[5px]">
         {logos.map((logo) => (
           <span
             key={logo.name}
