@@ -748,9 +748,10 @@ async function generateLlmsFullTxt(origin, basePath) {
     .join("\n\n");
 
   // Fetch live catalog data to populate dynamic sections.
-  const [brandsData, catalogData] = await Promise.all([
+  const [brandsData, catalogData, productsData] = await Promise.all([
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/catalog/metadata`),
+    fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
   ]);
 
   const brandNames = (brandsData?.brands ?? [])
@@ -769,11 +770,29 @@ async function generateLlmsFullTxt(origin, basePath) {
     ? `## Occasions\n\n${occasionNames.map((n) => `- ${n}`).join("\n")}\n`
     : `## Occasions\n\n_Occasion list not yet available._\n`;
 
+  const FEATURED_LIMIT = 50;
+  const allProducts = (productsData?.products ?? [])
+    .filter((p) => Boolean(p.name))
+    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  const featuredProducts = allProducts.slice(0, FEATURED_LIMIT);
+  const featuredSection = featuredProducts.length > 0
+    ? `## Featured Products\n\n` +
+      featuredProducts.map((p) => {
+        const brand = (p.brandNames ?? [])[0] ?? null;
+        const priceUsd = typeof p.priceValue === "number" ? `~$${Math.round(p.priceValue)}` : null;
+        const parts = [p.name];
+        if (brand) parts.push(`by ${brand}`);
+        if (priceUsd) parts.push(`(${priceUsd})`);
+        return `- ${parts.join(" ")}`;
+      }).join("\n") + "\n"
+    : "";
+
   return (
     `# Presentail\n\n${LLMS_INTRO}\n\n` +
     `## Pages\n\n${pagesList}\n\n` +
     `${brandsSection}\n` +
     `${occasionsSection}\n` +
+    (featuredSection ? `${featuredSection}\n` : "") +
     `## Full content\n\n${fullContent}\n`
   );
 }
