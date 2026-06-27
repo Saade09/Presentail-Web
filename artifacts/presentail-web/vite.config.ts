@@ -7,7 +7,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 // @ts-expect-error - plain ESM module (no types).
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
 // @ts-expect-error - plain ESM module (no types).
-import { LOGO_EN_WEBP_BASENAME, LOGO_AR_WEBP_BASENAME } from "./logo-assets.mjs";
+import { LOGO_EN_WEBP_BASENAME, LOGO_AR_WEBP_BASENAME, LOGO_EN_WHITE_WEBP_BASENAME, LOGO_AR_WHITE_WEBP_BASENAME } from "./logo-assets.mjs";
 
 /**
  * Inject locale-aware SEO tags (title, meta description, OG, hreflang,
@@ -95,8 +95,10 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
 
       const enEntry = findLogoEntry(LOGO_EN_WEBP_BASENAME);
       const arEntry = findLogoEntry(LOGO_AR_WEBP_BASENAME);
+      const enWhiteEntry = findLogoEntry(LOGO_EN_WHITE_WEBP_BASENAME);
+      const arWhiteEntry = findLogoEntry(LOGO_AR_WHITE_WEBP_BASENAME);
 
-      // Require at least the English logo; Arabic is best-effort.
+      // Require at least the English logo; all others are best-effort.
       // Hard error instead of silent skip: if the EN logo is missing from the
       // manifest the preload would be silently omitted and LCP would regress
       // without any CI signal. Fail the build so the rename is caught early.
@@ -109,27 +111,42 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
 
       const enHref = `${base}/${enEntry.file}`;
       const arHref = arEntry ? `${base}/${arEntry.file}` : null;
+      const enWhiteHref = enWhiteEntry ? `${base}/${enWhiteEntry.file}` : null;
+      const arWhiteHref = arWhiteEntry ? `${base}/${arWhiteEntry.file}` : null;
 
-      // Both preload tags are emitted with IDs so the inline script can remove
-      // the one that is not needed for the current locale.
+      // All four preload tags are emitted with IDs so the inline script can
+      // remove the two that are not needed for the current locale.
       const enTag = `<link rel="preload" as="image" type="image/webp" href="${enHref}" id="preload-logo-en">`;
       const arTag = arHref
         ? `<link rel="preload" as="image" type="image/webp" href="${arHref}" id="preload-logo-ar">`
         : null;
+      const enWhiteTag = enWhiteHref
+        ? `<link rel="preload" as="image" type="image/webp" href="${enWhiteHref}" id="preload-logo-en-white">`
+        : null;
+      const arWhiteTag = arWhiteHref
+        ? `<link rel="preload" as="image" type="image/webp" href="${arWhiteHref}" id="preload-logo-ar-white">`
+        : null;
 
       // Inline script: strip the base path prefix, extract the first URL
-      // segment, and remove whichever preload tag is not needed.
+      // segment, and remove whichever preload tags are not needed for the
+      // current locale (both normal and white variants for the unused locale).
+      // Additionally, the white-logo preloads are only useful on routes where
+      // the inverse logo is above-the-fold (checkout, order-confirmed).  On
+      // every other route the current-locale white tag is also pruned so we
+      // never emit unnecessary preload hints.
       // The URL pattern is /{basePath}/{lang}-{country}/{city}/...
       // A segment starting with "ar-" means Arabic locale.
       const cleanBase = base || "";
-      const localeScript = arTag
-        ? `<script>(function(){var p=location.pathname;${
-            cleanBase ? `if(p.indexOf(${JSON.stringify(cleanBase)})===0)p=p.slice(${JSON.stringify(cleanBase).length});` : ""
-          }var seg=(p.split("/").filter(Boolean)[0]||"");var id=seg.startsWith("ar-")?"preload-logo-en":"preload-logo-ar";var el=document.getElementById(id);if(el)el.parentNode.removeChild(el);}());</script>`
+      // Emit the pruning script whenever any preload tag exists (normal or white).
+      const hasAnyTag = arTag || enWhiteTag || arWhiteTag;
+      const localeScript = hasAnyTag
+        ? `<script>(function(){var p=location.pathname.replace(/\\/+$/,"");${
+            cleanBase ? `if(p.indexOf(${JSON.stringify(cleanBase)})===0)p=p.slice(${cleanBase.length});` : ""
+          }var seg=(p.split("/").filter(Boolean)[0]||"");var isAr=seg.startsWith("ar-");var isDark=p.endsWith("/checkout")||p.endsWith("/order-confirmed");var ids=isAr?["preload-logo-en","preload-logo-en-white"]:["preload-logo-ar","preload-logo-ar-white"];if(!isDark)ids.push(isAr?"preload-logo-ar-white":"preload-logo-en-white");ids.forEach(function(id){var el=document.getElementById(id);if(el)el.parentNode.removeChild(el);});}());</script>`
         : null;
 
       const html = fs.readFileSync(htmlPath, "utf8");
-      const injection = [enTag, arTag, localeScript]
+      const injection = [enTag, arTag, enWhiteTag, arWhiteTag, localeScript]
         .filter(Boolean)
         .map((t) => `  ${t}`)
         .join("\n");
@@ -138,6 +155,8 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
       fs.writeFileSync(htmlPath, patched, "utf8");
       console.log(`[logo-preload] Injected EN preload for ${enHref}`);
       if (arHref) console.log(`[logo-preload] Injected AR preload for ${arHref}`);
+      if (enWhiteHref) console.log(`[logo-preload] Injected EN-white preload for ${enWhiteHref}`);
+      if (arWhiteHref) console.log(`[logo-preload] Injected AR-white preload for ${arWhiteHref}`);
     },
   };
 }
