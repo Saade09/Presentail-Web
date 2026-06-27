@@ -96,7 +96,7 @@ import {
   nextPayMethodForCurrency,
   type PayMethodId,
 } from "@workspace/pay-methods";
-import { CardField, useStripe, PlatformPay } from "@stripe/stripe-react-native";
+import { CardField, CardFieldInput, useStripe, PlatformPay } from "@stripe/stripe-react-native";
 import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -3000,6 +3000,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   const { currencyCode } = useCurrency();
   const t = useT();
   const cardErrorViewRef = useRef<View>(null);
+  const cardFieldRef = useRef<CardFieldInput.Methods>(null);
 
   useEffect(() => {
     if (!cardError || !cardErrorViewRef.current || !scrollViewRef?.current) return;
@@ -3023,7 +3024,18 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   // a valid default when currency/country changes).
   const supports = (m: PayMethodId) =>
     isPayMethodSupported(m, currencyCode, { country });
-  const tap = (m: PayMethodId) => setPayMethod(m);
+  const tap = (m: PayMethodId) => {
+    setPayMethod(m);
+    if (m === "card") {
+      // CardField is a native UIKit/Android view and is not in the RN Tab-key
+      // focus order.  When a keyboard-only shopper activates the "Pay by card"
+      // row (Space/Return), we programmatically focus the field so they can
+      // start typing card details without needing to touch the screen.
+      // A short delay lets React finish rendering the conditionally-shown
+      // CardField before the native focus() call is made.
+      setTimeout(() => cardFieldRef.current?.focus(), 150);
+    }
+  };
 
   return (
     <View style={{ gap: 18 }}>
@@ -3116,6 +3128,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                       directly; no local state needed. The field stays mounted
                       after a decline so shoppers can correct details in place. */}
                   <CardField
+                    ref={cardFieldRef}
                     postalCodeEnabled={false}
                     style={{ height: 50, width: "100%" }}
                     cardStyle={{
