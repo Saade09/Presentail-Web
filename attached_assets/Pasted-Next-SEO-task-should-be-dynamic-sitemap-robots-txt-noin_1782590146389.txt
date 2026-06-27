@@ -1,0 +1,154 @@
+Next SEO task should be **dynamic sitemap + robots.txt + noindex rules**.
+
+Now that each page has SEO metadata, Google needs to discover the right pages and avoid indexing bad pages like cart, checkout, account, filters, and empty pages.
+
+Send this to Replit:
+
+```text
+Now that the dynamic SEO metadata system is done, please implement the next SEO task: dynamic sitemap.xml, robots.txt, and correct index/noindex rules.
+
+Goal:
+Make sure Google can discover all important public pages and avoid indexing low-value or private pages.
+
+Please implement the following:
+
+1. Dynamic sitemap.xml
+
+Create or update /sitemap.xml so it dynamically includes only indexable public pages:
+
+Include:
+- Homepage
+- City homepages, for example:
+  /en-lb/beirut
+  /en-ae/dubai
+  /en-ae/abu-dhabi
+- Category pages, for example:
+  /en-lb/beirut/category/plants
+  /en-lb/beirut/category/hand-bouquets
+  /en-lb/beirut/category/flower-boxes
+- Occasion pages, for example:
+  /en-lb/beirut/occasion/birthday
+  /en-lb/beirut/occasion/love-romance
+  /en-lb/beirut/occasion/condolences
+- Product pages
+- Important static pages:
+  About
+  Contact
+  FAQ
+  Privacy Policy
+  Terms
+
+Exclude:
+- Cart
+- Checkout
+- Login
+- Register
+- Account
+- Profile
+- Orders
+- Payment pages
+- Search pages
+- Admin/internal pages
+- API routes
+- Filtered URLs
+- Sort URLs
+- Empty category pages
+- Empty occasion pages
+- Duplicate URLs with query parameters
+
+2. Sitemap requirements
+
+Each sitemap URL should include:
+- loc
+- lastmod if available
+- hreflang alternates if the page exists in English, Arabic, and French
+
+If the sitemap becomes too large later, structure it into:
+- /sitemap.xml
+- /sitemap-products.xml
+- /sitemap-categories.xml
+- /sitemap-occasions.xml
+- /sitemap-static.xml
+
+But for now, one sitemap is fine if the site is still small.
+
+3. Dynamic robots.txt
+
+Create or update /robots.txt with:
+
+Allow:
+- Public pages
+- Product pages
+- Category pages
+- Occasion pages
+- City pages
+
+Disallow:
+- /cart
+- /checkout
+- /account
+- /login
+- /register
+- /profile
+- /orders
+- /admin
+- /api
+- URLs with query parameters for filters/sorting if applicable
+
+Also include:
+Sitemap: https://presentail.com/sitemap.xml
+
+4. Correct noindex rules
+
+Make sure the following pages have:
+<meta name="robots" content="noindex, follow">
+
+Apply noindex to:
+- Cart
+- Checkout
+- Login
+- Register
+- Account
+- Profile
+- Orders
+- Search results
+- Empty category pages
+- Empty occasion pages
+- Filtered pages
+- Sort pages
+- Payment confirmation/failure pages
+
+Important:
+Do not block these pages only with robots.txt if they already exist publicly. They should also have noindex meta tags where appropriate.
+
+5. Canonical cleanup
+
+Make sure filtered or sorted category pages canonicalize back to the clean category URL.
+
+Example:
+Clean page:
+https://presentail.com/en-lb/beirut/category/plants
+
+Filtered/sorted versions should canonicalize to:
+https://presentail.com/en-lb/beirut/category/plants
+
+6. Testing
+
+After implementation, please test and confirm:
+
+- /sitemap.xml loads correctly in browser
+- /robots.txt loads correctly in browser
+- Sitemap contains homepage, city, category, occasion, and product URLs
+- Sitemap does not contain cart, checkout, account, login, or search pages
+- Cart page has noindex
+- Checkout page has noindex
+- Product page is index, follow
+- Category page with products is index, follow
+- Empty category page is noindex
+- Canonical URLs are correct
+- No duplicate URLs with query parameters are included in sitemap
+
+Please return a summary of what was implemented and list the exact URLs tested.
+```
+
+After that, the next task should be **structured data/schema testing** for Product, BreadcrumbList, Organization, and Website.
