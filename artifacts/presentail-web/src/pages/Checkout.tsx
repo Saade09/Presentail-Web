@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
-import { Elements, useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js";
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment, lazy, Suspense } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -17,7 +16,6 @@ import {
   usePaypalPayment,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { StripeCardFields } from "@/components/StripeCardFields";
 import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -65,6 +63,13 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+
+// Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
+// never bundled into the instant checkout chunk and are only fetched when the
+// user picks a Stripe-backed payment method (card / Apple Pay / Google Pay).
+const LazyStripeSection = lazy(() =>
+  import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
+);
 
 // Maps known Stripe decline codes to plain-language, actionable messages.
 // Returns null for unrecognised codes so the caller falls back to the
@@ -290,9 +295,7 @@ type CreateOrderResponse =
   | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
-function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
-  const stripe = useStripe();
-  const elements = useElements();
+function CheckoutForm() {
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -311,6 +314,40 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
   const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
+
+  // ── Lazy Stripe state ──────────────────────────────────────────────────────
+  // @stripe/react-stripe-js is dynamically imported via LazyStripeSection so
+  // js.stripe.com is never fetched for Mamo, PayPal, Whish, or Western Union.
+  // stripeNeeded becomes true (and stays true) the first time a Stripe-backed
+  // payment method (card / Apple Pay / Google Pay) is selected, which triggers
+  // the dynamic import and mounts LazyStripeSection.  Once mounted it calls
+  // onStripeReady with the resolved Stripe instance so we can run the wallet
+  // probe and confirm card payments without needing the hooks in this component.
+  const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
+  const isGulfRef = useRef(isGulf);
+  isGulfRef.current = isGulf;
+
+  const [stripePromise, setStripePromise] = useState<
+    Promise<import("@stripe/stripe-js").Stripe | null> | null
+  >(null);
+  const [stripe, setStripe] = useState<import("@stripe/stripe-js").Stripe | null>(null);
+  const [elements, setElements] = useState<import("@stripe/stripe-js").StripeElements | null>(null);
+  // Stays true once set so LazyStripeSection is never unmounted after first load.
+  const [stripeNeeded, setStripeNeeded] = useState(false);
+
+  const triggerStripeLoad = useCallback(() => {
+    setStripePromise((prev) => prev ?? getStripePromise(isGulfRef.current));
+    setStripeNeeded(true);
+  }, []);
+
+  const handleStripeReady = useCallback(
+    (s: import("@stripe/stripe-js").Stripe | null, e: import("@stripe/stripe-js").StripeElements | null) => {
+      setStripe(s);
+      setElements(e);
+    },
+    [],
+  );
+  // ──────────────────────────────────────────────────────────────────────────
   const createOrder = useCreateOrder();
   const stripeSession = useStripeCheckoutSession();
   const createPaymentIntent = useCreateCheckoutPaymentIntent();
@@ -503,9 +540,9 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
     });
     // Trigger Stripe initialisation immediately when the shopper explicitly
     // picks a Stripe-backed method.  Mamo, PayPal, Whish, and Western Union
-    // never load Stripe.  onNeedStripe() is idempotent.
+    // never load Stripe.  triggerStripeLoad() is idempotent.
     if (m === "card" || m === "apple_pay" || m === "google_pay") {
-      onNeedStripe();
+      triggerStripeLoad();
     }
   };
 
@@ -840,12 +877,12 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
       setPaymentMethodState(fallback);
       // Ensure Stripe is initialised when the auto-fallback selects a
       // Stripe-backed method (e.g. apple_pay → card when wallet is
-      // unavailable for the active currency).  onNeedStripe is idempotent.
+      // unavailable for the active currency).  triggerStripeLoad is idempotent.
       if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
-        onNeedStripe();
+        triggerStripeLoad();
       }
     }
-  }, [currencyCode, countryCode, paymentMethod, onNeedStripe]);
+  }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad]);
 
   // Stripe PaymentRequest object reused for both the canMakePayment probe
   // and the actual wallet submit (non-AED). Stored after canMakePayment()
@@ -1153,9 +1190,9 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
       // method but never interacted with the payment tiles (e.g. default
       // apple_pay selected, form filled out, submit clicked directly).
       // If Stripe hasn't resolved yet we bail early so the user can retry
-      // once the Elements context re-renders with the live stripe instance.
+      // once LazyStripeSection re-renders with the live stripe instance.
       if (paymentMethod === "card" || paymentMethod === "apple_pay" || paymentMethod === "google_pay") {
-        onNeedStripe();
+        triggerStripeLoad();
         if (!stripe) {
           // Stripe is now loading; the component will re-render once the
           // Elements context hydrates.  Ask the user to try once more.
@@ -1401,7 +1438,7 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
 
         // Step 2: Confirm the card payment on the client. Stripe validates
         // the card details from Elements and charges the PaymentIntent.
-        const cardElement = elements.getElement(CardNumberElement);
+        const cardElement = elements.getElement("cardNumber");
         if (!cardElement) {
           setStripeCardError("Card fields could not be found. Please refresh and try again.");
           return;
@@ -2054,16 +2091,25 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
                           {paymentMethod === m.id && offlineDesc && (
                             <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{offlineDesc}</p>
                           )}
-                          {paymentMethod === m.id && m.id === "card" && (
-                            <StripeCardFields
-                              error={stripeCardError}
-                              disabled={isProcessing}
-                            />
-                          )}
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* Stripe card fields — only mounted when a Stripe payment method is active.
+                      @stripe/react-stripe-js is dynamically imported so js.stripe.com is never
+                      fetched for Mamo, PayPal, Whish, or Western Union flows. */}
+                  {stripeNeeded && (
+                    <Suspense fallback={null}>
+                      <LazyStripeSection
+                        stripePromise={stripePromise}
+                        onStripeReady={handleStripeReady}
+                        showCardFields={paymentMethod === "card"}
+                        cardError={stripeCardError}
+                        disabled={isProcessing}
+                      />
+                    </Suspense>
+                  )}
                 </div>
 
                 <div className="flex gap-3 mb-4">
@@ -2226,28 +2272,9 @@ function CheckoutForm({ onNeedStripe }: { onNeedStripe: () => void }) {
   );
 }
 
+// Stripe state and the LazyStripeSection dynamic import are now fully
+// managed inside CheckoutForm — no Elements wrapper needed here.
 export default function Checkout() {
-  const { currencyCode } = useDisplayCurrency();
-  const isGulf = GULF_STRIPE_CURRENCIES.includes(currencyCode);
-  const isGulfRef = useRef(isGulf);
-  isGulfRef.current = isGulf;
-
-  // Stripe promise starts null — js.stripe.com is NOT fetched until
-  // CheckoutForm signals that a Stripe-dependent payment method is active.
-  const [stripePromise, setStripePromise] = useState<
-    Promise<import("@stripe/stripe-js").Stripe | null> | null
-  >(null);
-
-  // Called by CheckoutForm when card / Apple Pay / Google Pay becomes active.
-  // Uses a ref so the callback identity is stable (no re-renders in CheckoutForm).
-  const handleNeedStripe = useCallback(() => {
-    setStripePromise((prev) => prev ?? getStripePromise(isGulfRef.current));
-  }, []);
-
-  return (
-    <Elements stripe={stripePromise} options={{ locale: "auto" }}>
-      <CheckoutForm onNeedStripe={handleNeedStripe} />
-    </Elements>
-  );
+  return <CheckoutForm />;
 }
 

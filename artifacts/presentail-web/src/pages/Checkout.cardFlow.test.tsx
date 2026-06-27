@@ -190,7 +190,42 @@ vi.mock("@/components/product/useDeliveryConfig", () => ({
 // Component stubs — replace heavy sub-components with lightweight test doubles
 // ---------------------------------------------------------------------------
 
-// StripeCardFields renders the error so the test can assert it is visible.
+// StripeCheckoutSection is the lazy-loaded wrapper that provides the Elements
+// context.  We mock it here so the test:
+//   1. Immediately calls onStripeReady with the mockStripe/mockCardElement so
+//      CheckoutForm.stripe / CheckoutForm.elements state is populated (no async
+//      Suspense boundary needed in jsdom).
+//   2. Renders a lightweight stand-in for the card fields when showCardFields=true.
+vi.mock("@/components/StripeCheckoutSection", () => ({
+  StripeCheckoutSection: ({
+    onStripeReady,
+    showCardFields,
+    cardError,
+  }: {
+    onStripeReady: (
+      stripe: typeof mockStripe | null,
+      elements: { getElement: () => typeof mockCardElement } | null,
+    ) => void;
+    showCardFields: boolean;
+    cardError: string | null;
+    disabled: boolean;
+    stripePromise: unknown;
+  }) => {
+    React.useEffect(() => {
+      onStripeReady(mockStripe, { getElement: () => mockCardElement });
+    }, [onStripeReady]);
+    if (!showCardFields) return null;
+    return (
+      <div data-testid="stripe-card-fields">
+        {cardError ? <p data-testid="stripe-card-error">{cardError}</p> : null}
+      </div>
+    );
+  },
+}));
+
+// StripeCardFields is imported by StripeCheckoutSection (real code path), but
+// since StripeCheckoutSection itself is mocked above, this stub is only needed
+// to satisfy vitest's module resolution during transform — it is never rendered.
 vi.mock("@/components/StripeCardFields", () => ({
   StripeCardFields: ({ error }: { error?: string | null }) => (
     <div data-testid="stripe-card-fields">
