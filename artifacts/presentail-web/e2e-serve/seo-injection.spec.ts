@@ -207,3 +207,70 @@ test.describe("Production SEO — OG/Twitter tags on a product entity page", () 
     expect(content!.trim().length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 4. og:image:width / og:image:height on an entity page with a real image
+//
+// When injectSeoTagsAsync() resolves an entity against the OS API and the
+// entity carries a real image, buildEntityHead() measures the image's pixel
+// dimensions (per-request fetch + L1/L2 PostgreSQL cache in serve.mjs) and
+// emits numeric og:image:width / og:image:height tags. Crawlers that receive
+// an og:image WITHOUT those dimensions may downgrade the rich preview card to
+// a small thumbnail — so a regression in the dimension-resolution path (or in
+// the buildEntityHead branch that prints the tags) would silently ship
+// badly-sized previews for every shared product link.
+//
+// The generic / unresolved fallback emits the OG image as
+// `<origin><basePath>/opengraph.jpg` together with hard-coded 1280x720
+// dimensions, so the presence of the fallback image URL tells us the OS API
+// did NOT resolve a real entity image. In that case the test degrades
+// gracefully via test.skip (mirroring the entity-resolution skips in
+// e2e/structured-data.spec.ts) — the dimension path is only meaningful when a
+// real image was resolved. When a real image IS resolved we assert that both
+// dimension tags are present and parse to positive integers.
+// ---------------------------------------------------------------------------
+
+test.describe("Production SEO — og:image dimensions on a resolved entity image", () => {
+  let html: string;
+  let ogImage: string | null;
+  let realImageResolved: boolean;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/product/rose-bouquet");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+    ogImage = findMetaContent(html, "property", "og:image");
+    // The unresolved fallback always points at the static opengraph.jpg asset.
+    // Any other absolute URL means the OS API resolved a real entity image.
+    realImageResolved =
+      !!ogImage &&
+      /^https?:\/\//.test(ogImage) &&
+      !ogImage.split("?")[0].endsWith("/opengraph.jpg");
+  });
+
+  test("og:image:width is present and a positive integer", () => {
+    if (!realImageResolved) {
+      test.skip(
+        true,
+        `OS API did not resolve a real entity image (og:image="${ogImage}") — dimension assertion not applicable`,
+      );
+    }
+    const width = findMetaContent(html, "property", "og:image:width");
+    expect(width, 'meta[property="og:image:width"] not found').toBeTruthy();
+    expect(width!).toMatch(/^\d+$/);
+    expect(Number(width)).toBeGreaterThan(0);
+  });
+
+  test("og:image:height is present and a positive integer", () => {
+    if (!realImageResolved) {
+      test.skip(
+        true,
+        `OS API did not resolve a real entity image (og:image="${ogImage}") — dimension assertion not applicable`,
+      );
+    }
+    const height = findMetaContent(html, "property", "og:image:height");
+    expect(height, 'meta[property="og:image:height"] not found').toBeTruthy();
+    expect(height!).toMatch(/^\d+$/);
+    expect(Number(height)).toBeGreaterThan(0);
+  });
+});
