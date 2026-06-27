@@ -14,6 +14,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { storeLocationsFromWebhook, getLocations, resetCacheForTesting, fetchAndStoreForTesting } from "./osLocationsCache";
 import type { OSLocationsResponse, OSCountry, OSCity } from "@workspace/presentail-os";
 
+// Mock the alerts module so Slack sends are captured without real HTTP.
+vi.mock("./alerts", () => ({
+  sendAlert: vi.fn().mockResolvedValue(undefined),
+}));
+import { sendAlert } from "./alerts";
+
 // Mock the OS locations fetcher so fetch-error tests don't make real HTTP calls.
 vi.mock("@workspace/presentail-os", async (importOriginal) => {
   const original = await importOriginal<typeof import("@workspace/presentail-os")>();
@@ -374,6 +380,79 @@ describe("osLocationsCache — country absent from OS", () => {
     const cyprus = getLocations().find((c) => c.code === "CY");
     expect(cyprus, "Cyprus should be appended from hardcoded data").toBeTruthy();
     expect(cyprus!.cities.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: express-omission warning (Bug 1 follow-up)
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — express-omission warning", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+    vi.mocked(sendAlert).mockClear();
+  });
+
+  it("emits no warning when expressAvailable is explicitly set in the webhook", () => {
+    // Seed an express-enabled city.
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true })]);
+
+    // Second webhook also includes expressAvailable explicitly — no omission.
+    const warnSpy = vi.spyOn(console, "warn");
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true })]);
+    warnSpy.mockRestore();
+
+    // No Slack alert should have been sent.
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+  });
+
+  it("emits no warning when prior cache had expressAvailable=false and webhook omits it", () => {
+    // Seed with express disabled (default).
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: false })]);
+
+    // Second webhook omits expressAvailable — prior was false, so no alarm.
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut" })]);
+
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+  });
+
+  it("preserves expressAvailable=true and does NOT fire a Slack alert below the threshold", () => {
+    // Seed with express enabled.
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true })]);
+
+    // Second webhook omits expressAvailable entirely — simulate a partial OS payload
+    // that has no express_available key. Cast via unknown to bypass makeCity defaults.
+    const partialCity = { id: 1, slug: "beirut", name: "Beirut", timeSlots: [] } as OSCity;
+    const cities = loadLbCities([partialCity]);
+
+    const beirut = cities.find((c) => c.id === "lb-beirut");
+    // Prior value of true must be retained despite the omission.
+    expect(beirut?.expressAvailable).toBe(true);
+
+    // Slack alert not yet fired (only 1 omission, threshold is 3).
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+  });
+
+  it("sends exactly one Slack alert when omission count reaches the default threshold (3)", () => {
+    // Seed with express enabled.
+    loadLbCities([makeCity({ id: 1, slug: "beirut", name: "Beirut", expressAvailable: true })]);
+
+    // Partial webhook city with no expressAvailable field at all.
+    const partial = [{ id: 1, slug: "beirut", name: "Beirut", timeSlots: [] } as OSCity];
+
+    // Two omissions — below threshold of 3.
+    loadLbCities(partial);
+    loadLbCities(partial);
+    expect(vi.mocked(sendAlert)).not.toHaveBeenCalled();
+
+    // Third omission — should fire the Slack alert.
+    loadLbCities(partial);
+    expect(vi.mocked(sendAlert)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendAlert).mock.calls[0]![0].title).toMatch(/express_available/i);
+
+    // Fourth omission — alert already sent for this day; should NOT fire again.
+    loadLbCities(partial);
+    expect(vi.mocked(sendAlert)).toHaveBeenCalledTimes(1);
   });
 });
 

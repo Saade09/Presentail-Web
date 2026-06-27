@@ -33,6 +33,7 @@ import {
 } from "@workspace/catalog-data";
 import { resolveDeliveryConfig } from "../data/deliveryConfig";
 import { logger } from "./logger";
+import { sendAlert } from "./alerts";
 
 // Mirrors lib/delivery EXPRESS_CLOSE_HOUR. Using a local constant avoids
 // adding @workspace/delivery as a runtime dep of api-server.
@@ -120,6 +121,56 @@ let fetching = false;
 /** Change-detection: tracks key delivery fields across OS polls. */
 let lastLocationsSignature: string | null = null;
 let locationsChangedFlag = false;
+
+// ── Express-omission tracking ───────────────────────────────────────────────
+//
+// Counts webhook payloads per UTC day where a city was express-enabled in the
+// prior cache but omitted express_available in the incoming payload. When the
+// daily count first reaches EXPRESS_OMISSION_ALERT_THRESHOLD a single Slack
+// alert is fired so ops can investigate whether OS is sending partial payloads.
+
+const EXPRESS_OMISSION_ALERT_THRESHOLD = (() => {
+  const raw = Number(process.env.EXPRESS_OMISSION_ALERT_COUNT);
+  if (!Number.isFinite(raw) || raw < 1) return 3;
+  return Math.floor(raw);
+})();
+
+/** ISO date string (YYYY-MM-DD) of the UTC day we are currently counting. */
+let expressOmissionDay: string | null = null;
+/** Number of omissions recorded so far on expressOmissionDay. */
+let expressOmissionCount = 0;
+/** True once the Slack alert for the current day has been sent. */
+let expressOmissionAlertSent = false;
+
+/**
+ * Record a single express-omission event. Resets the counter at UTC-day
+ * boundaries. Sends exactly one Slack alert per UTC day when the count
+ * reaches EXPRESS_OMISSION_ALERT_THRESHOLD.
+ */
+function recordExpressOmission(cityId: string, countryCode: string): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (expressOmissionDay !== today) {
+    expressOmissionDay = today;
+    expressOmissionCount = 0;
+    expressOmissionAlertSent = false;
+  }
+  expressOmissionCount += 1;
+
+  if (!expressOmissionAlertSent && expressOmissionCount >= EXPRESS_OMISSION_ALERT_THRESHOLD) {
+    expressOmissionAlertSent = true;
+    sendAlert({
+      title: "Delivery webhook omitting express_available for express-enabled cities",
+      body:
+        `${expressOmissionCount} webhook payloads today omitted \`express_available\` for cities whose prior cache had \`expressAvailable=true\`. ` +
+        `The prior value is being preserved automatically, but this may indicate OS is sending partial/incomplete delivery_config.updated payloads. ` +
+        `Latest city: ${cityId} (${countryCode}). Check the OS webhook payload for completeness.`,
+      severity: "warn",
+      source: "osLocationsCache",
+    }).catch(() => {
+      // Swallow — Slack send failure is already logged inside sendAlert.
+    });
+  }
+}
 
 /** Stable digest of the fields that matter for delivery rate / availability changes. */
 function locationsSignature(countries: CachedCountry[]): string {
@@ -340,6 +391,25 @@ function transformOsResponse(
             "osLocationsCache: mapped OS city slug to canonical id",
           );
         }
+        // Look up the prior cached city once so we can both preserve its
+        // expressAvailable and detect incomplete payloads.
+        const priorCity = previousCountries
+          ?.find((p) => p.code === code)
+          ?.cities.find((pc) => pc.id === canonicalId);
+
+        // Warn when a webhook payload omits express_available for a city
+        // that was previously express-enabled. The prior value is preserved
+        // automatically (see the expressAvailable assignment below), but ops
+        // need visibility to determine whether OS is sending partial payloads
+        // or the city genuinely lost express support.
+        if (c.expressAvailable === undefined && priorCity?.expressAvailable === true) {
+          logger.warn(
+            { cityId: canonicalId, countryCode: code },
+            "osLocationsCache: delivery webhook omitted express_available for an express-enabled city — retaining prior cached value (true); verify the OS delivery_config.updated payload is complete",
+          );
+          recordExpressOmission(canonicalId, code);
+        }
+
         return {
           id: canonicalId,
           name: displayName,
@@ -360,10 +430,7 @@ function transformOsResponse(
           // Fall back to false only when there is genuinely no prior record.
           expressAvailable:
             c.expressAvailable ??
-            previousCountries
-              ?.find((p) => p.code === code)
-              ?.cities.find((pc) => pc.id === canonicalId)
-              ?.expressAvailable ??
+            priorCity?.expressAvailable ??
             false,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
@@ -777,6 +844,9 @@ export function resetCacheForTesting(): void {
   cityIndex = new Map();
   lastLocationsSignature = null;
   locationsChangedFlag = false;
+  expressOmissionDay = null;
+  expressOmissionCount = 0;
+  expressOmissionAlertSent = false;
 }
 
 /**
