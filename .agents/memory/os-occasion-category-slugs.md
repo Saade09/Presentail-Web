@@ -56,6 +56,17 @@ attributes cache. **Why:** without the fallback, every category page renders a
 generic fallback (no title/ItemList) because the SEO injector skips the whole
 block when the category lookup 404s.
 
+## Sitemap empty-page filtering depends on slug agreement
+`/catalog/metadata` now exposes a `count` per category/occasion (computed in
+osProductsCache alongside brand counts, deduped across all stores by product id).
+The web sitemap (`serve.mjs` generateSitemap) drops any category/occasion with
+`count === 0`. **Why this is fragile:** the count is keyed by the product-embedded
+`OSProductCategory.slug` / `OSProductOccasion.slug`, while the metadata entity id
+comes from the hardcoded list (occasions) or catalog-attributes (categories). If
+those slugs diverge (the Bug-2 pattern above), a page that really has products
+gets count 0 and is silently excluded from the sitemap. If real pages vanish from
+sitemap.xml, suspect a slug mismatch, not a counting bug.
+
 ## Env quirk
 The api-server dev service runs `pnpm dev` = `build && start` (NO watch). Code
 edits do NOT hot-reload — the service must be rebuilt+restarted to take effect.

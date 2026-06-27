@@ -13,4 +13,6 @@ export interface CatalogOccasion {
   icon: string;
   description?: string;
   image?: CatalogImageRef | null;
+  /** Number of in-stock products tagged with this occasion across all supported countries. */
+  count: number;
 }

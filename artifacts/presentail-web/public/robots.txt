@@ -10,6 +10,12 @@ Disallow: /*/cart
 Disallow: /*/checkout
 Disallow: /*/auth
 Disallow: /*/account
+Disallow: /*/sign-in
+Disallow: /*/sign-up
+Disallow: /*/reset-password
+Disallow: /*/favorites
+Disallow: /*/order-confirmed
+Disallow: /*/personal-information
 
 Sitemap: https://new.presentail.com/sitemap.xml
 

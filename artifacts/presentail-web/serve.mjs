@@ -838,8 +838,32 @@ async function fetchSitemapJson(url) {
 
 async function generateSitemap(origin, basePath) {
   const cleanBase = basePath.replace(/\/$/, "");
+  // lastmod for all entries — today's date, refreshed with the sitemap cache.
+  // The catalog metadata / product / brand endpoints don't expose a reliable
+  // per-entity update timestamp, so a single daily date is used throughout.
+  const lastmod = new Date().toISOString().slice(0, 10);
+
+  // Plain <url> entry for un-prefixed, language-agnostic paths (root, llms.txt).
   const urlEntry = (loc, priority, changefreq) =>
-    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+    `  <url><loc>${escXml(origin + cleanBase + loc)}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+
+  // <url> entry for a locale-prefixed path that also lists every language
+  // variant via <xhtml:link rel="alternate" hreflang>. `rest` is the path after
+  // the `/{lang}-{country}/{city}` prefix ("" for the home page, otherwise
+  // beginning with "/"). x-default points at the English variant.
+  const urlEntryWithAlternates = (priority, changefreq, country, city, rest) => {
+    const loc = origin + cleanBase + `/en-${country}/${city}${rest}`;
+    const alternates = SITEMAP_LANGS.map((altLang) => {
+      const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
+      const code = `${altLang}-${country.toUpperCase()}`;
+      return `    <xhtml:link rel="alternate" hreflang="${escXml(code)}" href="${escXml(href)}"/>`;
+    });
+    const xDefaultHref = origin + cleanBase + `/en-${country}/${city}${rest}`;
+    alternates.push(
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${escXml(xDefaultHref)}"/>`,
+    );
+    return `  <url>\n    <loc>${escXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n${alternates.join("\n")}\n  </url>`;
+  };
 
   const urls = [];
 
@@ -851,21 +875,21 @@ async function generateSitemap(origin, basePath) {
   urls.push(urlEntry("/llms.txt", "0.5", "monthly"));
   urls.push(urlEntry("/llms-full.txt", "0.5", "monthly"));
 
-  // 1. Static locale pages — all lang × country × city combinations.
+  // 1. Static locale pages — one <url> per country × city, each carrying its
+  // language alternates (so the three languages collapse into a single block
+  // instead of three separate <url> entries).
   for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
     for (const city of cities) {
-      for (const lang of SITEMAP_LANGS) {
-        const pfx = `/${lang}-${country}/${city}`;
-        for (const subpath of SITEMAP_STATIC_PATHS) {
-          const loc = pfx + (subpath === "/" ? "" : subpath);
-          const priority = subpath === "/" ? "0.9" : "0.7";
-          urls.push(urlEntry(loc, priority, "weekly"));
-        }
+      for (const subpath of SITEMAP_STATIC_PATHS) {
+        const rest = subpath === "/" ? "" : subpath;
+        const priority = subpath === "/" ? "0.9" : "0.7";
+        urls.push(urlEntryWithAlternates(priority, "weekly", country, city, rest));
       }
     }
   }
 
-  // 2. Products — fetch once (LB store) then emit canonical-city URLs per language × country.
+  // 2. Products — fetch once (LB store) then emit canonical-city URLs per country
+  // (each block carries all language alternates).
   const [productsData, brandsData, catalogData] = await Promise.all([
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/products?lang=en&countryCode=LB`),
     fetchSitemapJson(`${INTERNAL_API_BASE_URL}/api/woo/brands`),
@@ -876,9 +900,7 @@ async function generateSitemap(origin, basePath) {
     if (!product?.slug) continue;
     const encoded = encodeURIComponent(product.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      for (const lang of SITEMAP_LANGS) {
-        urls.push(urlEntry(`/${lang}-${country}/${city}/product/${encoded}`, "0.8", "weekly"));
-      }
+      urls.push(urlEntryWithAlternates("0.8", "weekly", country, city, `/product/${encoded}`));
     }
   }
 
@@ -887,36 +909,35 @@ async function generateSitemap(origin, basePath) {
     if (!brand?.slug) continue;
     const encoded = encodeURIComponent(brand.slug);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      for (const lang of SITEMAP_LANGS) {
-        urls.push(urlEntry(`/${lang}-${country}/${city}/brand/${encoded}`, "0.6", "monthly"));
-      }
+      urls.push(urlEntryWithAlternates("0.6", "monthly", country, city, `/brand/${encoded}`));
     }
   }
 
-  // 4. Occasion pages — canonical city per country × all languages.
+  // 4. Occasion pages — canonical city per country × all languages. Skip any
+  // occasion with no in-stock products (count === 0) so crawlers never discover
+  // a thin/empty listing page.
   for (const occasion of (catalogData?.occasions ?? [])) {
     if (!occasion?.id) continue;
+    if ((occasion.count ?? 0) === 0) continue;
     const encoded = encodeURIComponent(occasion.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      for (const lang of SITEMAP_LANGS) {
-        urls.push(urlEntry(`/${lang}-${country}/${city}/occasion/${encoded}`, "0.7", "weekly"));
-      }
+      urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/occasion/${encoded}`));
     }
   }
 
-  // 5. Category pages — canonical city per country × all languages.
+  // 5. Category pages — canonical city per country × all languages. Skip any
+  // category with no in-stock products (count === 0).
   for (const category of (catalogData?.categories ?? [])) {
     if (!category?.id) continue;
+    if ((category.count ?? 0) === 0) continue;
     const encoded = encodeURIComponent(category.id);
     for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      for (const lang of SITEMAP_LANGS) {
-        urls.push(urlEntry(`/${lang}-${country}/${city}/category/${encoded}`, "0.7", "weekly"));
-      }
+      urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
     }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${urls.join("\n")}
 </urlset>`;
 }

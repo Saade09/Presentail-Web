@@ -2749,10 +2749,14 @@ components:
         description:
           type: string
           nullable: true
+        count:
+          type: integer
+          description: Number of in-stock products in this category across all supported countries.
       required:
         - id
         - name
         - icon
+        - count
     CatalogOccasion:
       type: object
       properties:
@@ -2768,10 +2772,14 @@ components:
           oneOf:
             - $ref: "#/components/schemas/CatalogImageRef"
             - type: "null"
+        count:
+          type: integer
+          description: Number of in-stock products tagged with this occasion across all supported countries.
       required:
         - id
         - name
         - icon
+        - count
     CatalogBrand:
       type: object
       properties:

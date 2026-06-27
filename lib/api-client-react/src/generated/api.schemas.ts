@@ -930,6 +930,8 @@ export interface CatalogCategory {
   icon: string;
   image?: CatalogImageRef | null;
   description?: string | null;
+  /** Number of in-stock products in this category across all supported countries. */
+  count: number;
 }
 
 export interface CatalogOccasion {
@@ -938,6 +940,8 @@ export interface CatalogOccasion {
   icon: string;
   description?: string;
   image?: CatalogImageRef | null;
+  /** Number of in-stock products tagged with this occasion across all supported countries. */
+  count: number;
 }
 
 export interface CatalogBrand {

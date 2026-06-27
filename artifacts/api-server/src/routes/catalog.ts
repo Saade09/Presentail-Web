@@ -10,7 +10,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsOccasions } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -195,26 +195,32 @@ router.get("/catalog/metadata", (_req, res) => {
     (osOccasions ?? []).map((o) => [o.slug, o]),
   );
 
+  // Use the pre-computed per-brand / per-category / per-occasion in-stock
+  // product counts from the cache. The cache layer recomputes counts after
+  // every OS refresh cycle, so this is always consistent with the current
+  // store caches without re-iterating over all products on every request.
+  const brandCountMap = getOsBrandProductCounts();
+  const categoryCountMap = getOsCategoryProductCounts();
+  const occasionCountMap = getOsOccasionProductCounts();
+
   // Merge OS images into hardcoded occasions. The hardcoded list provides icons,
   // descriptions, and stable slugs; OS provides real photos. When OS has an image
   // for a slug, replace the bundled asset reference with a proxy URI so the browser
-  // never needs to supply the API key.
+  // never needs to supply the API key. `count` is the number of in-stock products
+  // tagged with this occasion across all stores — consumers (e.g. the sitemap)
+  // use it to skip empty pages.
   const mergedOccasions = occasions.map((occ) => {
     const osOcc = osOccasionBySlug.get(occ.id); // hardcoded id === slug
+    const count = occasionCountMap.get(occ.id) ?? 0;
     if (osOcc?.image) {
       return {
         ...occ,
         image: { uri: `/api/catalog/occasion-image/${osOcc.id}` },
+        count,
       };
     }
-    return occ;
+    return { ...occ, count };
   });
-
-  // Use the pre-computed per-brand in-stock product counts from the cache.
-  // The cache layer recomputes counts after every OS refresh cycle, so this
-  // is always consistent with the current store caches without re-iterating
-  // over all products on every request.
-  const brandCountMap = getOsBrandProductCounts();
 
   const brands = osBrands
     ? osBrands.map((b) => ({
@@ -253,13 +259,17 @@ router.get("/catalog/metadata", (_req, res) => {
   // hardcoded entry.
   let mergedCategories;
   if (osCategories === null) {
-    mergedCategories = [...categories];
+    mergedCategories = categories.map((c) => ({
+      ...c,
+      count: categoryCountMap.get(c.id) ?? 0,
+    }));
   } else {
     const osCategorySlugs = new Set(osCategories.map((c) => c.slug));
     const osCategoryBySlug = new Map(osCategories.map((c) => [c.slug, c]));
     const filteredHardcoded = categories.filter((c) => osCategorySlugs.has(c.id)).map((c) => ({
       ...c,
       description: osCategoryBySlug.get(c.id)?.description ?? null,
+      count: categoryCountMap.get(c.id) ?? 0,
     }));
     const filteredSlugs = new Set(filteredHardcoded.map((c) => c.id));
     const extraOsCategories = osCategories
@@ -270,6 +280,7 @@ router.get("/catalog/metadata", (_req, res) => {
         icon: OS_CATEGORY_ICONS[c.slug] ?? "tag",
         image: null,
         description: c.description ?? null,
+        count: categoryCountMap.get(c.slug) ?? 0,
       }));
     mergedCategories = [...filteredHardcoded, ...extraOsCategories];
   }

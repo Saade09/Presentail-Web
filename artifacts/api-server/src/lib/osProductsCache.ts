@@ -114,6 +114,16 @@ let cachedOccasions: OSProductOccasion[] | null = null;
  */
 let cachedBrandProductCounts: Map<string, number> = new Map();
 
+/**
+ * Pre-computed per-category and per-occasion in-stock product counts across
+ * all stores, deduplicated by product id. Same rationale as
+ * `cachedBrandProductCounts`: `/catalog/metadata` reads these directly so it
+ * never re-iterates over every store cache per request. Keys are category /
+ * occasion slugs; values are the count of distinct in-stock products.
+ */
+let cachedCategoryProductCounts: Map<string, number> = new Map();
+let cachedOccasionProductCounts: Map<string, number> = new Map();
+
 let timer: NodeJS.Timeout | null = null;
 let fetching = false;
 
@@ -338,6 +348,8 @@ export function __resetBrandFilterStateForTest(): void {
   storeCache.clear();
   cachedBrands = null;
   cachedBrandProductCounts = new Map();
+  cachedCategoryProductCounts = new Map();
+  cachedOccasionProductCounts = new Map();
 }
 
 /**
@@ -903,6 +915,8 @@ async function fetchAndStore(): Promise<void> {
     // available in multiple regions is counted once.
     {
       const counts = new Map<string, number>();
+      const categoryCounts = new Map<string, number>();
+      const occasionCounts = new Map<string, number>();
       const seenProductIds = new Set<string>();
       for (const spec of OS_STORE_SPECS) {
         const entry = storeCache.get(spec.storeKey);
@@ -913,9 +927,17 @@ async function fetchAndStore(): Promise<void> {
           for (const b of p.brands ?? []) {
             counts.set(b.slug, (counts.get(b.slug) ?? 0) + 1);
           }
+          for (const c of p.categories ?? []) {
+            categoryCounts.set(c.slug, (categoryCounts.get(c.slug) ?? 0) + 1);
+          }
+          for (const o of p.occasions ?? []) {
+            occasionCounts.set(o.slug, (occasionCounts.get(o.slug) ?? 0) + 1);
+          }
         }
       }
       cachedBrandProductCounts = counts;
+      cachedCategoryProductCounts = categoryCounts;
+      cachedOccasionProductCounts = occasionCounts;
     }
 
     // ── Filter zero-product brands from cachedBrands ──────────────────────
@@ -1083,6 +1105,22 @@ export function getOsOccasions(): OSProductOccasion[] | null {
  */
 export function getOsBrandProductCounts(): ReadonlyMap<string, number> {
   return cachedBrandProductCounts;
+}
+
+/**
+ * Returns the pre-computed per-category in-stock product counts (slug → count),
+ * deduplicated by product id across all stores. Empty until the cache is warm.
+ */
+export function getOsCategoryProductCounts(): ReadonlyMap<string, number> {
+  return cachedCategoryProductCounts;
+}
+
+/**
+ * Returns the pre-computed per-occasion in-stock product counts (slug → count),
+ * deduplicated by product id across all stores. Empty until the cache is warm.
+ */
+export function getOsOccasionProductCounts(): ReadonlyMap<string, number> {
+  return cachedOccasionProductCounts;
 }
 
 /**

@@ -1415,6 +1415,11 @@ export const GetCatalogMetadataResponse = zod.object({
         ])
         .optional(),
       description: zod.string().nullish(),
+      count: zod
+        .number()
+        .describe(
+          "Number of in-stock products in this category across all supported countries.",
+        ),
     }),
   ),
   occasions: zod.array(
@@ -1436,6 +1441,11 @@ export const GetCatalogMetadataResponse = zod.object({
           zod.null(),
         ])
         .optional(),
+      count: zod
+        .number()
+        .describe(
+          "Number of in-stock products tagged with this occasion across all supported countries.",
+        ),
     }),
   ),
   brands: zod.array(
