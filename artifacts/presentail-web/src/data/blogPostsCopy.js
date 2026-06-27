@@ -20,7 +20,7 @@ export const BLOG_POSTS = {
       description:
         "How our florists pick the season's best peonies, ranunculi, and garden roses — and what to look for when a bloom is at its peak.",
       datePublished: "2025-03-15",
-      ogImage: { url: "/blog/inside-spring-sourcing-trip.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/inside-spring-sourcing-trip.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Every spring, our lead florists travel to wholesale markets and grower farms across Lebanon, the Netherlands, and Turkey to select the stems that will fill our arrangements through April and May. It is not simply a buying trip — it is a long negotiation with the season itself.",
@@ -50,7 +50,7 @@ export const BLOG_POSTS = {
       description:
         "كيف يختار منسّقو الأزهار لدينا أفضل أزهار الفاوانيا والحوذان وورود الحدائق — وما الذي يدلّ على ذروة جمال الزهرة.",
       datePublished: "2025-03-15",
-      ogImage: { url: "/blog/inside-spring-sourcing-trip.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/inside-spring-sourcing-trip.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "كلّ ربيع، يتنقّل منسّقو الأزهار الرئيسيون لدينا بين أسواق الجملة ومزارع المنتجين في لبنان وهولندا وتركيا، لاختيار الأزهار التي ستملأ تشكيلاتنا طوال أبريل ومايو. إنها ليست رحلة شراء بالمعنى المعتاد، بل هي تفاوض طويل مع الموسم نفسه.",
@@ -80,7 +80,7 @@ export const BLOG_POSTS = {
       description:
         "Comment nos fleuristes choisissent les plus belles pivoines, renoncules et roses de jardin — et comment reconnaître une fleur à son apogée.",
       datePublished: "2025-03-15",
-      ogImage: { url: "/blog/inside-spring-sourcing-trip.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/inside-spring-sourcing-trip.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Chaque printemps, nos fleuristes principaux se rendent dans des marchés de gros et des fermes de producteurs au Liban, aux Pays-Bas et en Turquie pour sélectionner les tiges qui garniront nos compositions d'avril à mai. Ce n'est pas simplement un voyage d'achat — c'est une longue négociation avec la saison elle-même.",
@@ -113,7 +113,7 @@ export const BLOG_POSTS = {
       description:
         "We sit down with the family-run ateliers we partner with across Beirut, Dubai, and Limassol to talk craft, cocoa, and patience.",
       datePublished: "2025-04-02",
-      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Every Presentail gift box that includes chocolate has a story behind the chocolate itself. We don't buy from wholesale confectionery distributors. We source from small-batch ateliers — most of them family businesses in their second or third generation — who still temper by hand and source their cocoa with care.",
@@ -147,7 +147,7 @@ export const BLOG_POSTS = {
       description:
         "نجلس مع الأتيليهات العائلية التي نتعاون معها في بيروت ودبي وليماسول للحديث عن الحرفة والكاكاو والصبر.",
       datePublished: "2025-04-02",
-      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "كلّ علبة هدايا من Presentail تحتوي على شوكولاتة، تحمل قصةً خلف تلك الشوكولاتة بالذات. نحن لا نشتري من موزّعي الحلويات بالجملة. نحن نصادر من أتيليهات الإنتاج الصغير — معظمها مشاريع عائلية في الجيل الثاني أو الثالث — لا تزال تُعدّل الشوكولاتة يدويًا وتختار حبوب الكاكاو بعناية.",
@@ -181,7 +181,7 @@ export const BLOG_POSTS = {
       description:
         "Nous rencontrons les ateliers familiaux de Beyrouth, Dubaï et Limassol avec qui nous travaillons pour parler savoir-faire, cacao et patience.",
       datePublished: "2025-04-02",
-      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/chocolatiers-behind-our-gift-boxes.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Chaque coffret cadeau Presentail qui contient du chocolat a une histoire derrière ce chocolat. Nous n'achetons pas auprès de distributeurs de confiserie en gros. Nous nous approvisionnons auprès d'ateliers artisanaux — la plupart des entreprises familiales à leur deuxième ou troisième génération — qui tempèrent encore à la main et sourcent leur cacao avec soin.",
@@ -218,7 +218,7 @@ export const BLOG_POSTS = {
       description:
         "A short guide to thoughtful sympathy gifts — and how to write a card that actually helps.",
       datePublished: "2025-04-18",
-      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Grief is one of the few occasions where most gifting rules dissolve. The instinct to send something — flowers, food, a small gesture of presence — is right, but the execution can feel impossible. What follows is a short, practical guide we have assembled from conversations with our florists and many years of watching what people choose to send, and why.",
@@ -252,7 +252,7 @@ export const BLOG_POSTS = {
       description:
         "دليل قصير لهدايا التعازي المدروسة — وكيف تكتب بطاقة تُواسي فعلاً.",
       datePublished: "2025-04-18",
-      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "الحزن هو من المناسبات القليلة التي تتلاشى فيها معظم قواعد الإهداء. الدافع لإرسال شيء ما — أزهار، طعام، لفتة بسيطة تدلّ على الحضور — هو دافع صحيح، لكن التنفيذ قد يبدو مستحيلاً. ما يلي هو دليل موجز وعملي جمعناه من محادثات مع منسّقي الأزهار لدينا وسنوات طويلة من مراقبة ما يختار الناس إرساله، ولماذا.",
@@ -286,7 +286,7 @@ export const BLOG_POSTS = {
       description:
         "Un court guide des cadeaux de condoléances réfléchis — et comment écrire une carte qui réconforte vraiment.",
       datePublished: "2025-04-18",
-      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.png", width: 1408, height: 768 },
+      ogImage: { url: "/blog/what-to-send-when-there-are-no-words.webp", width: 1408, height: 768 },
       sections: [
         {
           body: "Le deuil est l'une des rares occasions où la plupart des règles d'offrir des cadeaux s'effacent. L'instinct d'envoyer quelque chose — des fleurs, de la nourriture, un petit geste de présence — est juste, mais l'exécution peut sembler impossible. Ce qui suit est un guide court et pratique que nous avons rassemblé à partir de conversations avec nos fleuristes et de nombreuses années à observer ce que les gens choisissent d'envoyer, et pourquoi.",

@@ -417,15 +417,15 @@ test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/
     // og:image / twitter:image point at the article-specific hero, not the
     // site-wide opengraph.jpg fallback, and carry explicit dimensions so the
     // preview renders as a large summary card.
-    expect(html).toContain("/blog/inside-spring-sourcing-trip.png");
+    expect(html).toContain("/blog/inside-spring-sourcing-trip.webp");
     expect(html).toMatch(
-      /<meta property="og:image" content="[^"]*\/blog\/inside-spring-sourcing-trip\.png"/,
+      /<meta property="og:image" content="[^"]*\/blog\/inside-spring-sourcing-trip\.webp"/,
     );
     expect(html).toContain('<meta property="og:image:width" content="1408" />');
     expect(html).toContain('<meta property="og:image:height" content="768" />');
     expect(html).toContain('"@type":"Article"');
     expect(html).toMatch(
-      /"image":"[^"]*\/blog\/inside-spring-sourcing-trip\.png"/,
+      /"image":"[^"]*\/blog\/inside-spring-sourcing-trip\.webp"/,
     );
   });
 });
