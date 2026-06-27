@@ -28,7 +28,6 @@ import {
   loadFooter,
 } from "@/lib/pageLoaders";
 import { isUserType, canShop } from "@workspace/clerk-types";
-import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -82,6 +81,9 @@ const HomepageHeader = lazy(() =>
 );
 const Footer = lazy(() =>
   loadFooter().then((m) => ({ default: m.Footer })),
+);
+const Toaster = lazy(() =>
+  import("@/components/ui/toaster").then((m) => ({ default: m.Toaster })),
 );
 
 const Landing = lazy(() => import("@/pages/Landing"));
@@ -465,7 +467,9 @@ function App() {
                       <FbPixelTracker />
                       <SeoHead />
                       <RootRouter />
-                      <Toaster />
+                      <Suspense fallback={null}>
+                        <Toaster />
+                      </Suspense>
                     </DeliverySelectionProvider>
                   </FavoritesProvider>
                 </CartProvider>

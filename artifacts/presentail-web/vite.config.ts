@@ -178,7 +178,6 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
   const ALWAYS_NEEDED_CHUNKS = new Set([
     "vendor-framer",
     "vendor-embla",
-    "app-shared",
   ]);
 
   return {
@@ -371,17 +370,26 @@ export default defineConfig(async ({ command }) => {
             // chain via app-shared → ProductCard → framer-motion.  Leave it out
             // so the vendor-framer chunk is only fetched when a lazy page chunk
             // that uses ProductCard is actually executed.
+            // Only include pure UI primitives here. Business components that
+            // import from contexts (AuthContext, LocaleContext, etc.) must NOT
+            // be listed — they would pull those context modules into app-shared,
+            // forcing the entry bundle to statically depend on app-shared and
+            // adding ~40 kB to every page's startup cost.
             const APP_SHARED_BASENAMES = new Set([
-              "PageBreadcrumb", "dialog", "input", "label",
-              "select", "textarea", "useNow", "LoyaltyTiersInfo", "LegalPage",
-              "ScheduleInlinePanel", "DeleteAccountDialog",
+              "dialog", "input", "label", "select", "textarea", "useNow",
             ]);
             // ui/skeleton is the only ui component the skeleton fallbacks import
             // statically (skeletons are imported by App.tsx as Suspense fallbacks).
             // Keeping skeleton in app-shared would drag the entire 40+ kB chunk
             // into the entry's static modulepreload graph.  Give it its own tiny
             // chunk so the rest of app-shared can be deferred.
+            //
+            // ui/tooltip (TooltipProvider) is imported statically by App.tsx as a
+            // top-level context provider.  Keeping it in app-shared would drag the
+            // entire 40+ kB chunk into the entry's static modulepreload graph.
+            // It is tiny (~32 lines) so let it fall through into the entry bundle.
             if (id.endsWith("/src/components/ui/skeleton.tsx")) return "ui-skeleton";
+            if (id.endsWith("/src/components/ui/tooltip.tsx")) return undefined;
             if (id.includes("/src/components/ui/")) return "app-shared";
             const base = path.basename(id, path.extname(id));
             if (APP_SHARED_BASENAMES.has(base)) return "app-shared";
