@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
+import { AuthOverrideContext } from "@/contexts/AuthContext";
 
 export type CartItem = {
   product: Product;
@@ -21,6 +22,7 @@ export type CartContextType = {
 export const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useContext(AuthOverrideContext);
   const [items, setItems] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -77,6 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       content_type: "product",
       value: product.priceValue,
       currency: "USD",
+      ...(user?.email ? { userData: { em: user.email } } : {}),
     });
   };
 
