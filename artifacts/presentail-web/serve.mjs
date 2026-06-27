@@ -529,6 +529,28 @@ await warnStartupFile(
 );
 
 // ---------------------------------------------------------------------------
+// Check APPLE_DOMAIN_VERIFICATION_TOKEN — required so that
+// /.well-known/apple-developer-domain-association is served and Apple can
+// verify the domain for Sign In with Apple.  Without it the endpoint returns
+// 404 and Apple Sign In is silently broken for all shoppers.
+// Non-fatal: logs WARN + Slack alert in production and continues.
+// ---------------------------------------------------------------------------
+if (!process.env.APPLE_DOMAIN_VERIFICATION_TOKEN) {
+  console.warn(
+    "WARN: APPLE_DOMAIN_VERIFICATION_TOKEN is not set — " +
+      "/.well-known/apple-developer-domain-association will return 404 " +
+      "and Sign In with Apple will be disabled for all shoppers",
+  );
+  if (process.env.NODE_ENV === "production") {
+    sendSlackAlert(
+      ":warning: *presentail-web: APPLE_DOMAIN_VERIFICATION_TOKEN is not set*\n" +
+        "`/.well-known/apple-developer-domain-association` will return 404 — " +
+        "Sign In with Apple is disabled for all shoppers until this secret is set and the server is restarted.",
+    ).catch(() => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Check STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION — required so that
 // /.well-known/apple-developer-merchantid-domain-association is served and
 // Stripe can verify the domain for Apple Pay in the browser.  Without it the
