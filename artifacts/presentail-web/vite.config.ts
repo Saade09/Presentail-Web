@@ -403,6 +403,15 @@ export default defineConfig(async ({ command }) => {
               id.includes("node_modules/country-flag-icons/")
             )
               return "vendor-phone";
+            // Stripe libraries are loaded lazily (StripeCheckoutSection is a
+            // React.lazy import; @stripe/stripe-js is a dynamic import inside
+            // getStripePromise). Give them a dedicated chunk so they never get
+            // folded into the statically-evaluated instant vendor catch-all.
+            if (
+              id.includes("node_modules/@stripe/") ||
+              id.includes("node_modules/stripe/")
+            )
+              return "vendor-stripe";
             if (id.includes("node_modules/")) return "vendor";
 
             // Collapse small app-level shared components into a single chunk so
