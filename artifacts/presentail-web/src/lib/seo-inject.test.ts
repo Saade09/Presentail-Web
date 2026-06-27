@@ -592,6 +592,133 @@ describe("buildSeoHead — city slug allowlist", () => {
   });
 });
 
+describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
+  const ORIGIN_OPTS = { origin: "https://presentail.test", basePath: "" };
+
+  // Extract the content of a single <meta> tag by its property/name selector.
+  function getMeta(head: string, selector: string): string | null {
+    const re = new RegExp(`<meta ${selector} content="([^"]*)"`);
+    const m = head.match(re);
+    return m ? m[1] : null;
+  }
+
+  beforeEach(() => {
+    // buildSeoHead memoizes by (pathname, basePath, origin); clear between
+    // cases so each assertion exercises a fresh compute.
+    genericSeoCache.clear();
+  });
+
+  it("landing (/) uses the dedicated short landing OG/Twitter copy, not the long page title", () => {
+    const { headSnippet, title } = buildSeoHead("/", ORIGIN_OPTS);
+    expect(title).toBe(
+      "Online Flower & Gift Delivery | Presentail | Express Delivery",
+    );
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "Online Flower &amp; Gift Delivery | Presentail",
+    );
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "Order flowers, cakes, balloons and gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
+      "Online Flower &amp; Gift Delivery | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "Send flowers and gifts online with Presentail. Express same-day delivery in Lebanon, UAE, and Cyprus.",
+    );
+  });
+
+  it("EN locale home (/en-lb/beirut) uses the dedicated home OG/Twitter copy with {city} resolved", () => {
+    const { headSnippet, title } = buildSeoHead("/en-lb/beirut", ORIGIN_OPTS);
+    // The page <title> keeps the longer template…
+    expect(title).toBe("Flower & Gift Delivery in Beirut | Presentail");
+    // …while og:/twitter: use the dedicated shorter home copy.
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "Flowers &amp; Gifts in Beirut | Presentail",
+    );
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "Send flowers, cakes and gifts in Beirut with same-day delivery from Presentail.",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
+      "Flowers &amp; Gifts in Beirut | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "Send flowers and gifts in Beirut — same-day delivery by Presentail.",
+    );
+  });
+
+  it("AR locale home (/ar-lb/beirut) uses the Arabic home copy with the Arabic city name", () => {
+    const { headSnippet } = buildSeoHead("/ar-lb/beirut", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "الأزهار والهدايا في بيروت | Presentail",
+    );
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "أرسل الأزهار والكعك والهدايا في بيروت مع توصيل في نفس اليوم من Presentail.",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
+      "الأزهار والهدايا في بيروت | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "أرسل الأزهار والهدايا في بيروت — توصيل في نفس اليوم من Presentail.",
+    );
+  });
+
+  it("FR locale home (/fr-lb/beirut) uses the French home copy with the French city name", () => {
+    const { headSnippet } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "Fleurs et cadeaux à Beyrouth | Presentail",
+    );
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "Envoyez fleurs, gâteaux et cadeaux à Beyrouth avec la livraison le jour même par Presentail.",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
+      "Fleurs et cadeaux à Beyrouth | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "Envoyez fleurs et cadeaux à Beyrouth — livraison le jour même par Presentail.",
+    );
+  });
+
+  it("soft-404 sub-route (/en-lb/beirut/<unknown>) falls back to the page title/description, NOT the dedicated home copy", () => {
+    const { headSnippet, title } = buildSeoHead(
+      "/en-lb/beirut/some-unknown-route",
+      ORIGIN_OPTS,
+    );
+    // detectRouteKey falls back to "home" but isUnknownSubRoute disables the
+    // dedicated home OG copy, so og:/twitter: mirror the page title/description.
+    expect(title).toBe("Flower & Gift Delivery in Beirut | Presentail");
+    const expectedTitle = "Flower &amp; Gift Delivery in Beirut | Presentail";
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(expectedTitle);
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(expectedTitle);
+    // It must NOT use the dedicated home share title.
+    expect(getMeta(headSnippet, 'property="og:title"')).not.toBe(
+      "Flowers &amp; Gifts in Beirut | Presentail",
+    );
+    const expectedDesc =
+      "Send luxury flowers, cakes and gifts in Beirut, Lebanon with same-day delivery from Presentail.";
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(expectedDesc);
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      expectedDesc,
+    );
+  });
+
+  it("non-home route (/en-lb/beirut/shop) reuses the page title/description for og:/twitter:", () => {
+    const { headSnippet, title } = buildSeoHead(
+      "/en-lb/beirut/shop",
+      ORIGIN_OPTS,
+    );
+    expect(title).toBe("Shop Flowers & Gifts in Beirut | Presentail");
+    const expectedTitle = "Shop Flowers &amp; Gifts in Beirut | Presentail";
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(expectedTitle);
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(expectedTitle);
+    const expectedDesc =
+      "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in Beirut, Lebanon.";
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(expectedDesc);
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      expectedDesc,
+    );
+  });
+});
+
 describe("buildSeoHead — OG image dimensions and alt tags on generic pages", () => {
   it("always emits og:image pointing to /opengraph.jpg on a landing-page path", () => {
     const { headSnippet } = buildSeoHead("/", {
