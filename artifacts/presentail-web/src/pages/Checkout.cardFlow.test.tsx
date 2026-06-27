@@ -815,6 +815,13 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     renderCheckout();
     await gotoWalletStep2();
 
+    // The wallet sheet only opens once the PaymentIntent has been pre-created
+    // for the current cart, so wait for the debounced pre-creation to run.
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
+
     await user.click(screen.getByTestId("button-submit-payment"));
 
     // The native sheet was opened and the paymentmethod handler registered.
@@ -830,9 +837,9 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
       await mockPrEventHandlers.paymentmethod(ev);
     });
 
-    // A PaymentIntent was created server-side and confirmed with the wallet's
-    // PaymentMethod id (no 3DS handling needed for a succeeded intent).
-    expect(mockCreatePaymentIntentMutate).toHaveBeenCalled();
+    // The pre-created PaymentIntent is reused (no second creation) and confirmed
+    // with the wallet's PaymentMethod id (no 3DS for a succeeded intent).
+    expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1);
     expect(mockConfirmCardPayment).toHaveBeenCalledWith(
       PAYMENT_INTENT_RES.clientSecret,
       { payment_method: "pm_wallet_123" },
@@ -847,13 +854,74 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     });
   });
 
+  // ── 1b. Pre-created PaymentIntent: sheet shows server amount, intent reused ─
+
+  it("pre-creates the PaymentIntent so the sheet shows the server amount and reuses it on tap", async () => {
+    // Server returns an amount that deliberately differs from any client-side
+    // estimate so we can prove the sheet total comes from the server.
+    const SERVER_PI = {
+      ok: true,
+      clientSecret: "pi_prefetched_secret",
+      orderId: "web-order-prefetched",
+      amount: 5137,
+      currency: "USD",
+    };
+    mockCreatePaymentIntentMutate.mockResolvedValue(SERVER_PI);
+    mockConfirmCardPayment.mockResolvedValue({
+      paymentIntent: { id: "pi_wallet_ok", status: "succeeded" },
+    });
+
+    renderCheckout();
+    await gotoWalletStep2();
+
+    // Selecting the wallet method triggers the debounced pre-creation effect,
+    // which creates the PaymentIntent ahead of the tap.
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
+
+    await user.click(screen.getByTestId("button-submit-payment"));
+
+    // The PaymentRequest used for the native sheet was built with the server's
+    // exact amount and currency — not a client estimate.
+    await waitFor(() => expect(mockPrShow).toHaveBeenCalled());
+    expect(mockPaymentRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: "usd",
+        total: expect.objectContaining({ amount: 5137 }),
+      }),
+    );
+
+    const ev = { paymentMethod: { id: "pm_wallet_123" }, complete: vi.fn() };
+    await act(async () => {
+      await mockPrEventHandlers.paymentmethod(ev);
+    });
+
+    // The pre-created intent is reused: confirmCardPayment uses its clientSecret
+    // and NO second PaymentIntent is created in the handler.
+    expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1);
+    expect(mockConfirmCardPayment).toHaveBeenCalledWith(
+      "pi_prefetched_secret",
+      { payment_method: "pm_wallet_123" },
+      { handleActions: false },
+    );
+    expect(ev.complete).toHaveBeenCalledWith("success");
+  });
+
   // ── 2. Wallet cancelled ────────────────────────────────────────────────
 
-  it("cancel: pr.cancel fires → no PI created, no redirect, no error toast", async () => {
+  it("cancel: pr.cancel fires → no charge, no redirect, no error toast", async () => {
     mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
 
     renderCheckout();
     await gotoWalletStep2();
+
+    // The PaymentIntent is pre-created so the sheet shows the exact total.
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
 
     await user.click(screen.getByTestId("button-submit-payment"));
 
@@ -867,9 +935,10 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
       await mockPrEventHandlers.cancel();
     });
 
-    // Nothing happened: no charge attempt, no order, no redirect, and crucially
-    // no error toast (a cancel is not a failure).
-    expect(mockCreatePaymentIntentMutate).not.toHaveBeenCalled();
+    // A cancel is not a failure: no card confirmation, no order, no redirect,
+    // and no error toast. The pre-created intent is left orphaned (safe — it is
+    // paymentRef-keyed and expires server-side) and no SECOND intent is created.
+    expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1);
     expect(mockConfirmCardPayment).not.toHaveBeenCalled();
     expect(mockSetLocation).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
@@ -877,8 +946,10 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
 
   // ── 3. Wallet PaymentIntent creation fails server-side ─────────────────
 
-  it("PI failure: server returns ok:false → fail the sheet AND surface a visible card error", async () => {
-    // The server could not create a PaymentIntent (e.g. Stripe misconfigured).
+  it("PI pre-creation fails: wallet stays disabled and the sheet never opens with an estimate", async () => {
+    // The server could not pre-create a PaymentIntent (e.g. Stripe
+    // misconfigured). Because the sheet must NEVER open with a client estimate,
+    // the wallet button stays disabled and the native sheet is never shown.
     mockCreatePaymentIntentMutate.mockResolvedValue({
       ok: false,
       message: "Stripe is not configured.",
@@ -887,31 +958,24 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     renderCheckout();
     await gotoWalletStep2();
 
-    await user.click(screen.getByTestId("button-submit-payment"));
+    // The debounced pre-creation runs and fails (server ok:false).
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
 
-    await waitFor(() => {
-      expect(mockPrShow).toHaveBeenCalled();
-      expect(typeof mockPrEventHandlers.paymentmethod).toBe("function");
-    });
+    // The wallet submit button is disabled while the (failed) intent prep keeps
+    // it in the "preparing" state, so it cannot open the sheet.
+    const submitBtn = screen.getByTestId("button-submit-payment") as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(true);
 
-    const ev = { paymentMethod: { id: "pm_wallet_fail" }, complete: vi.fn() };
-    await act(async () => {
-      await mockPrEventHandlers.paymentmethod(ev);
-    });
-
-    // The native sheet is told to fail and the card is never confirmed.
-    expect(ev.complete).toHaveBeenCalledWith("fail");
+    // Even if a click is dispatched, the native sheet is never opened and no
+    // card confirmation or redirect happens — exactness is preserved over
+    // falling back to an estimated total.
+    await user.click(submitBtn);
+    expect(mockPrShow).not.toHaveBeenCalled();
     expect(mockConfirmCardPayment).not.toHaveBeenCalled();
     expect(mockSetLocation).not.toHaveBeenCalled();
-
-    // Crucially the failure is NOT silent: handleSubmit switches the selected
-    // method to card so the inline error renders, otherwise a wallet shopper
-    // would just see the sheet dismiss with no explanation. The Apple Pay tile
-    // is no longer selected and the card fields (with the error) are visible.
-    await waitFor(() => {
-      expect(screen.getByTestId("stripe-card-fields")).toBeTruthy();
-    });
-    expect(screen.getByText("Stripe is not configured.")).toBeTruthy();
   });
 
   // ── 4. pr.show() throws → fall back to card ────────────────────────────
@@ -930,9 +994,17 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     // it were ever (incorrectly) reached, the test would catch a real redirect
     // rather than silently swallowing the bug behind a rejected promise.
     mockCreateOrderMutate.mockResolvedValue({ ok: true, orderId: "should-not-happen" });
+    mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
 
     renderCheckout();
     await gotoWalletStep2();
+
+    // The PaymentIntent is pre-created so the button becomes ready and the sheet
+    // can be opened with the exact total.
+    await waitFor(
+      () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+      { timeout: 3000 },
+    );
 
     await user.click(screen.getByTestId("button-submit-payment"));
 
@@ -953,10 +1025,10 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     );
 
     // Critical: handleSubmit must NOT fall through to the default order path.
-    // No PaymentIntent is created (the shopper hasn't entered card details yet),
-    // no order is finalised, and there is no redirect to the confirmation page.
-    // The shopper is simply shown the card fields to complete payment.
-    expect(mockCreatePaymentIntentMutate).not.toHaveBeenCalled();
+    // Only the pre-creation intent exists (called once); no order is finalised
+    // and there is no redirect to the confirmation page. The shopper is simply
+    // shown the card fields to complete payment.
+    expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1);
     expect(mockCreateOrderMutate).not.toHaveBeenCalled();
     expect(mockSetLocation).not.toHaveBeenCalled();
   });

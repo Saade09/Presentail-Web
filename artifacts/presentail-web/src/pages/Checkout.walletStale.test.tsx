@@ -436,6 +436,14 @@ async function driveWalletSuccess(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByTestId("option-payment-apple_pay"));
   await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
 
+  // The wallet sheet only opens once the PaymentIntent has been pre-created for
+  // the current cart (so the native sheet shows the server's exact total), so
+  // wait for the debounced pre-creation to run before tapping the button.
+  await waitFor(
+    () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(1),
+    { timeout: 3000 },
+  );
+
   await user.click(screen.getByTestId("button-submit-payment"));
   await waitFor(() => {
     expect(mockPrShow).toHaveBeenCalled();

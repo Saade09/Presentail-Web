@@ -14,10 +14,9 @@ import {
   useStripeCheckoutSession,
   useMamoPayment,
   usePaypalPayment,
-  useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
-import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
+import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,7 +63,6 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
-import { toStripeMinorUnits } from "@/lib/stripeMinorUnits";
 
 // Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
 // never bundled into the instant checkout chunk and are only fetched when the
@@ -131,6 +129,10 @@ type PaymentSubmitButtonProps = {
   onClick: () => void;
   disabled: boolean;
   isProcessing: boolean;
+  // True while the wallet PaymentIntent is still being pre-created. The wallet
+  // buttons show a spinner and stay disabled so the native sheet is never opened
+  // with a client-estimated total.
+  walletPreparing?: boolean;
 };
 
 // Brand-name string constants for the payment submit button.
@@ -142,22 +144,26 @@ const LABEL_PAY_PAYPAL = "Pay with PayPal"; // i18n-ignore
 const ALT_WHISH = "Whish"; // i18n-ignore
 const LABEL_PAY_WHISH = "Pay with Whish App"; // i18n-ignore
 
-function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProcessing }: PaymentSubmitButtonProps) {
+function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProcessing, walletPreparing }: PaymentSubmitButtonProps) {
   const { t } = useLocale();
   const base = "flex-1 h-14 flex items-center justify-center gap-2 transition-opacity disabled:opacity-60 cursor-pointer select-none";
+  // While the wallet PaymentIntent is being prepared, keep the button disabled
+  // and show a spinner so the shopper can't open the native sheet before the
+  // server amount is known.
+  const showWalletSpinner = isProcessing || walletPreparing;
 
   if (paymentMethod === "apple_pay") {
     return (
       <button
         type="button"
         onClick={onClick}
-        disabled={disabled}
+        disabled={disabled || walletPreparing}
         data-testid="button-submit-payment"
         className={`${base} rounded-full px-6`}
         style={{ backgroundColor: "#000" }}
       >
-        {isProcessing
-          ? <span className="text-white text-sm font-medium">{t("checkout.processing")}</span>
+        {showWalletSpinner
+          ? <Loader2 className="h-5 w-5 animate-spin text-white" />
           : <img src={applePayLogo} alt={ALT_APPLE_PAY} style={{ height: 22, width: "auto", filter: "brightness(0) invert(1)" }} draggable={false} />}
       </button>
     );
@@ -168,13 +174,13 @@ function PaymentSubmitButton({ paymentMethod, total, onClick, disabled, isProces
       <button
         type="button"
         onClick={onClick}
-        disabled={disabled}
+        disabled={disabled || walletPreparing}
         data-testid="button-submit-payment"
         className={`${base} rounded-xl border border-gray-300 px-6`}
         style={{ backgroundColor: "#fff", color: "#3c4043" }}
       >
-        {isProcessing
-          ? <span className="text-sm font-medium">{t("checkout.processing")}</span>
+        {showWalletSpinner
+          ? <Loader2 className="h-5 w-5 animate-spin text-[#3c4043]" />
           : <img src={googlePayLogo} alt={ALT_GOOGLE_PAY} style={{ height: 26, width: "auto" }} draggable={false} />}
       </button>
     );
@@ -297,6 +303,32 @@ type CreateOrderResponse =
   | { ok: true; wcOrderId: number | null; osOrderId?: string | null; orderKey?: string; couponDiscount: number }
   | { ok: false; message?: string; code?: string; queued?: boolean };
 
+// Stable signature of the inputs that determine the server-computed wallet
+// charge. Used to decide whether a pre-created PaymentIntent is still valid for
+// the current cart/delivery/coupon state. Only fields that affect the charged
+// amount are included (the `district` string is omitted — the server charges
+// the client-supplied delivery fee, not the district label).
+type WalletPiSignatureInput = {
+  items: { wcId?: number; osSlug?: string; quantity: number }[];
+  currency: string;
+  email?: string;
+  deliveryFeeUsd: number;
+  expressDelivery: boolean;
+  noAddress: boolean;
+  couponCode?: string;
+};
+function walletPiSignature(input: WalletPiSignatureInput): string {
+  return JSON.stringify({
+    items: input.items.map((i) => ({ w: i.wcId ?? 0, s: i.osSlug ?? "", q: i.quantity })),
+    currency: input.currency,
+    email: input.email ?? "",
+    deliveryFeeUsd: Math.round(input.deliveryFeeUsd * 100) / 100,
+    expressDelivery: input.expressDelivery,
+    noAddress: input.noAddress,
+    couponCode: input.couponCode ?? "",
+  });
+}
+
 function CheckoutForm() {
   const { items, subtotal, clearCart, itemCount, isHydrated } = useCart();
   const { user, isLoading: authLoading } = useAuth();
@@ -316,7 +348,6 @@ function CheckoutForm() {
   const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
-  const { data: fxData } = useFxRates();
 
   // ── Lazy Stripe state ──────────────────────────────────────────────────────
   // @stripe/react-stripe-js is dynamically imported via LazyStripeSection so
@@ -915,6 +946,32 @@ function CheckoutForm() {
   // sheet is showing". Cleared in both the paymentmethod and cancel handlers.
   const walletSheetOpenRef = useRef(false);
 
+  // Pre-created PaymentIntent for the wallet (Apple Pay / Google Pay) sheet.
+  // The native sheet total MUST equal the server's authoritative charge exactly.
+  // Safari requires pr.show() to run synchronously inside the click gesture (no
+  // await beforehand), so we cannot create the PaymentIntent inside the click
+  // handler and still know its amount before opening the sheet. Instead we
+  // create it ahead of time (the effect below) whenever a wallet method is
+  // selected and the amount-affecting inputs are stable, caching the server
+  // amount + clientSecret keyed by a signature of those inputs. handleSubmit
+  // then builds the PaymentRequest with the cached server amount and reuses the
+  // same PaymentIntent for confirmation — so display and charge are byte-for-
+  // byte identical. The wallet Pay button stays in a "preparing" (disabled)
+  // state until a PaymentIntent matching the current inputs is ready, so the
+  // native sheet is NEVER opened with a client estimate — the displayed total
+  // always equals the server charge.
+  const walletIntentRef = useRef<{
+    signature: string;
+    clientSecret: string;
+    amount: number;
+    currency: string;
+    orderId: string;
+  } | null>(null);
+  // Mirror of walletIntentRef.current?.signature in state so the render can
+  // reactively know whether the prepared intent matches the current inputs
+  // (refs don't trigger re-renders). Drives the wallet button's preparing state.
+  const [walletReadySig, setWalletReadySig] = useState<string | null>(null);
+
   // Tracks whether the current viewport is mobile (≤ 767 px). Used to decide
   // whether a null canMakePayment() probe result should hide the wallet tiles
   // or leave them visible (mobile browsers probe unreliably at page load).
@@ -988,6 +1045,140 @@ function CheckoutForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripe]);
 
+  // Pre-create the wallet PaymentIntent so the Apple Pay / Google Pay sheet can
+  // display the server's exact charge (see walletIntentRef above). Runs whenever
+  // a wallet method is selected and an amount-affecting input changes; debounced
+  // so rapid edits (e.g. typing an email) don't spawn a PaymentIntent per
+  // keystroke. The result is cached in walletIntentRef keyed by a signature of
+  // the inputs; handleSubmit consumes it synchronously on tap.
+  useEffect(() => {
+    const isWallet = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
+    const activeCur = activeCurrencyForCountry(countryCode ?? "LB");
+    // AED checkout routes wallets through Mamo's hosted page, not Stripe, so no
+    // Stripe PaymentIntent is created for it.
+    if (
+      !isWallet ||
+      !stripe ||
+      !walletSupported ||
+      activeCur === "AED" ||
+      currencyCode === "AED" ||
+      !isHydrated ||
+      itemCount === 0
+    ) {
+      // Not a Stripe-wallet context: drop any prepared intent so the button
+      // never shows "ready" for stale inputs.
+      if (walletReadySig !== null) setWalletReadySig(null);
+      return;
+    }
+
+    // Recompute the delivery fee from the same inputs calcCheckoutFees uses
+    // after the early returns, so the signature and the charged amount match.
+    const sCity = selectedCityData;
+    const osCountry = locations?.countries.find((c) => c.code === countryCode);
+    const thr = sCity?.freeDeliveryThresholdUsd ?? osCountry?.freeDeliveryThresholdUsd;
+    const en = sCity?.freeDeliveryEnabled ?? osCountry?.freeDeliveryEnabled;
+    const fees = calcCheckoutFees({
+      subtotal,
+      countryCode: countryCode ?? "LB",
+      noAddress,
+      cityFee: sCity?.fee ?? 0,
+      deliveryMode,
+      timeSlots,
+      deliverySlot,
+      freeDeliveryThresholdUsd: thr,
+      freeDeliveryEnabled: en,
+    });
+    const deliveryFeeUsd = fees.districtFee + fees.expressFee + fees.slotFee;
+    const couponCode = couponApplied && couponInput.trim() ? couponInput.trim() : undefined;
+    const mappedItems = items.map((i) => ({
+      wcId: i.product.wcId,
+      osSlug: i.product.id,
+      quantity: i.quantity,
+    }));
+    const sig = walletPiSignature({
+      items: mappedItems,
+      currency: currencyCode,
+      email: sender.email || undefined,
+      deliveryFeeUsd,
+      expressDelivery: deliveryMode === "express",
+      noAddress,
+      couponCode,
+    });
+
+    // A fresh PaymentIntent for these exact inputs already exists — make sure
+    // the button reflects readiness and stop.
+    if (walletIntentRef.current?.signature === sig) {
+      if (walletReadySig !== sig) setWalletReadySig(sig);
+      return;
+    }
+
+    // Inputs changed since the last prepared intent: it no longer matches the
+    // amount we'd charge, so mark the button "preparing" until the new intent
+    // lands. This is what prevents the sheet from ever opening with a stale or
+    // estimated total.
+    if (walletReadySig !== null) setWalletReadySig(null);
+
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      try {
+        const orderId = await ensureOrderId();
+        const res = await createPaymentIntent.mutateAsync({
+          data: {
+            items: mappedItems,
+            orderId,
+            currency: currencyCode,
+            email: sender.email || undefined,
+            deliveryFeeUsd,
+            district: recipient.district || undefined,
+            expressDelivery: deliveryMode === "express",
+            noAddress,
+            ...(couponCode ? { couponCode } : {}),
+          } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
+        });
+        if (cancelled) return;
+        if (res.ok && res.clientSecret && typeof res.amount === "number" && res.currency) {
+          walletIntentRef.current = {
+            signature: sig,
+            clientSecret: res.clientSecret,
+            amount: res.amount,
+            currency: res.currency.toLowerCase(),
+            orderId,
+          };
+          setWalletReadySig(sig);
+        }
+      } catch {
+        // Best-effort: leave the button in its "preparing" state. The shopper
+        // can retry; a later input change or re-render re-runs this effect.
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    paymentMethod,
+    stripe,
+    walletSupported,
+    countryCode,
+    currencyCode,
+    isHydrated,
+    itemCount,
+    subtotal,
+    selectedCityData,
+    locations,
+    noAddress,
+    deliveryMode,
+    timeSlots,
+    deliverySlot,
+    couponApplied,
+    couponInput,
+    sender.email,
+    recipient.district,
+    items,
+  ]);
+
   if (showLoginGate) {
     return (
       <>
@@ -1044,29 +1235,29 @@ function CheckoutForm() {
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
 
-  // The Stripe PaymentRequest (Apple Pay / Google Pay) sheet must display the
-  // total in the shopper's actual display currency, not USD. `total` above is
-  // a USD amount, so convert it with the live FX rate and express it in the
-  // currency's correct smallest unit. The authoritative charge is always the
-  // server-created PaymentIntent (which receives `currencyCode` below); this
-  // only controls what the native wallet sheet shows the shopper.
-  //
-  // PaymentRequest currency is immutable after construction, so the lowercase
-  // currency string here must match the currency the PaymentIntent is created
-  // in — both derive from `currencyCode`.
-  // Plain computation (not a hook) — it is declared after the component's
-  // early returns, so it must not be a useMemo. `total` is only available here
-  // anyway, and the inputs are cheap to recompute on every render.
-  const walletSheet = (() => {
-    const rate =
-      currencyCode === "USD" ? 1 : Number(fxData?.rates?.[currencyCode] ?? 0);
-    const effectiveRate = rate > 0 ? rate : 1;
-    const converted = total * effectiveRate;
-    return {
-      currency: currencyCode.toLowerCase(),
-      amount: toStripeMinorUnits(converted, currencyCode),
-    };
-  })();
+  // Signature of the current amount-affecting inputs, matching the one the
+  // pre-creation effect computes. A wallet PaymentIntent is "ready" only when a
+  // prepared intent for this exact signature exists — in which case the native
+  // sheet can be opened showing the server's exact amount. Until then the
+  // wallet button shows a "preparing" state and is disabled, so the sheet is
+  // never opened with a client estimate.
+  const currentWalletSig = walletPiSignature({
+    items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+    currency: currencyCode,
+    email: sender.email || undefined,
+    deliveryFeeUsd: districtFee + expressFee + slotFee,
+    expressDelivery: deliveryMode === "express",
+    noAddress,
+    couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
+  });
+  const isWalletMethodSelected =
+    paymentMethod === "apple_pay" || paymentMethod === "google_pay";
+  // Wallet methods routed through Mamo (AED) do not pre-create a Stripe intent,
+  // so they are never gated on readiness.
+  const walletNeedsStripeIntent =
+    isWalletMethodSelected && activeCurrencyForCountry(countryCode ?? "LB") !== "AED" && currencyCode !== "AED";
+  const walletIntentReady = walletReadySig === currentWalletSig;
+  const walletPreparing = walletNeedsStripeIntent && !walletIntentReady;
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
@@ -1265,6 +1456,37 @@ function CheckoutForm() {
 
       const isWalletMethod = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
 
+      // Resolve the pre-created PaymentIntent (see walletIntentRef) for the
+      // current cart/delivery/coupon state. When present, the native wallet
+      // sheet shows — and the charge uses — the server's exact amount. The
+      // signature is rebuilt here from the final values so it matches the one
+      // the pre-creation effect computed.
+      const walletSig = walletPiSignature({
+        items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
+        currency: currencyCode,
+        email: sender.email || undefined,
+        deliveryFeeUsd: districtFee + expressFee + slotFee,
+        expressDelivery: deliveryMode === "express",
+        noAddress,
+        couponCode: couponApplied && couponInput.trim() ? couponInput.trim() : undefined,
+      });
+      const prefetchedIntent =
+        walletIntentRef.current && walletIntentRef.current.signature === walletSig
+          ? walletIntentRef.current
+          : null;
+
+      // The native wallet sheet MUST show the server's exact charge, never a
+      // client estimate. If the pre-created PaymentIntent for the current inputs
+      // isn't ready yet, do NOT open the sheet. The wallet button is already
+      // disabled while preparing (walletPreparing), so this is a defensive
+      // guard against a race (e.g. inputs changed between render and tap). We
+      // simply return — the pre-creation effect re-runs and the button becomes
+      // tappable again once the matching intent lands. No estimate is ever
+      // shown, and wallet availability is unaffected (the tiles stay visible).
+      if (isWalletMethod && activeCurrency !== "AED" && !prefetchedIntent) {
+        return;
+      }
+
       // Always create a FRESH PaymentRequest for the actual wallet checkout.
       // The probe PR created in the canMakePayment() effect is constructed with
       // currency "usd" purely to detect wallet availability — and a
@@ -1272,20 +1494,23 @@ function CheckoutForm() {
       // pr.update() can never change the currency shown in the Apple Pay /
       // Google Pay sheet. Reusing the probe PR would therefore always display
       // USD even when the shopper selected EUR / GBP / etc. We build a new PR
-      // here with the shopper's display currency (walletSheet.currency) and the
-      // converted total in that currency's smallest unit (walletSheet.amount).
+      // here with the server-computed amount and currency from the pre-created
+      // PaymentIntent, so the sheet matches the charge byte-for-byte.
       //
       // This mirrors the previous mobile-only on-demand path: creating a fresh
       // PR and calling pr.show() synchronously (without re-running the async
       // canMakePayment() probe on this instance) works in production — the
       // upfront probe already confirmed the device has a wallet on desktop, and
       // on mobile the native sheet opens fine even when the probe raced to null.
-      if (isWalletMethod && activeCurrency !== "AED" && stripe && !walletSheetOpenRef.current) {
+      if (isWalletMethod && activeCurrency !== "AED" && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
         try {
           paymentRequestRef.current = stripe.paymentRequest({
             country: "US",
-            currency: walletSheet.currency,
-            total: { label: t("checkout.payment.orderTitle"), amount: walletSheet.amount },
+            currency: prefetchedIntent.currency,
+            total: {
+              label: t("checkout.payment.orderTitle"),
+              amount: prefetchedIntent.amount,
+            },
             requestPayerName: false,
             requestPayerEmail: false,
             disableWallets: ["link", "browserCard"],
@@ -1357,40 +1582,19 @@ function CheckoutForm() {
           const pmHandler = async (ev: any) => {
             cleanup();
             try {
-              // Reserve (or reuse) the order ID here — inside the async
-              // paymentmethod handler — so it is NOT called before pr.show()
-              // and does not break the synchronous gesture-context requirement.
-              const orderId = await ensureOrderId();
-
-              const intentRes = await createPaymentIntent.mutateAsync({
-                data: {
-                  items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
-                  orderId,
-                  currency: currencyCode,
-                  email: sender.email || undefined,
-                  deliveryFeeUsd: districtFee + expressFee + slotFee,
-                  district: _selectedDistrict,
-                  expressDelivery: deliveryMode === "express",
-                  noAddress,
-                  ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
-                } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
-              });
-
-              if (!intentRes.ok || !intentRes.clientSecret) {
-                ev.complete("fail");
-                // Switch to the card tile so the inline error actually renders —
-                // StripeCheckoutSection only shows `cardError` while the card
-                // method is selected, otherwise the shopper sees the wallet
-                // sheet dismiss with no explanation.
-                setPaymentMethodState("card");
-                setStripeCardError((intentRes as { message?: string }).message || t("checkout.toast.cardUnavailableDesc"));
-                resolve();
-                return;
-              }
+              // The sheet was opened only after the PaymentIntent for this exact
+              // cart was pre-created (see the !prefetchedIntent guard above), so
+              // it is guaranteed present here. Reusing it makes the charge equal
+              // the displayed total byte-for-byte.
+              const orderId = prefetchedIntent!.orderId;
+              const clientSecret = prefetchedIntent!.clientSecret;
+              // Consume it so a later attempt re-creates a fresh intent.
+              walletIntentRef.current = null;
+              setWalletReadySig(null);
 
               const { error: stripeError, paymentIntent: confirmedIntent } =
                 await stripe.confirmCardPayment(
-                  intentRes.clientSecret,
+                  clientSecret,
                   { payment_method: ev.paymentMethod.id },
                   { handleActions: false },
                 );
@@ -1407,7 +1611,7 @@ function CheckoutForm() {
               let finalIntent: import("@stripe/stripe-js").PaymentIntent | undefined = confirmedIntent ?? undefined;
               if (confirmedIntent?.status === "requires_action") {
                 const { error: actionError, paymentIntent: actionIntent } = await stripe.handleNextAction({
-                  clientSecret: intentRes.clientSecret,
+                  clientSecret,
                 });
                 if (actionError) {
                   ev.complete("fail");
@@ -2185,7 +2389,7 @@ function CheckoutForm() {
 
                 <div className="flex gap-3 mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
-                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} />
+                  <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
