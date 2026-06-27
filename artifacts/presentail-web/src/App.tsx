@@ -24,6 +24,8 @@ import {
   loadBrands,
   loadBrandDetail,
   loadAllOccasions,
+  loadHomepageHeader,
+  loadFooter,
 } from "@/lib/pageLoaders";
 import { isUserType, canShop } from "@workspace/clerk-types";
 import { Toaster } from "@/components/ui/toaster";
@@ -49,8 +51,6 @@ import {
   type CountrySlug,
   type Lang,
 } from "@/lib/locale-route";
-import { HomepageHeader } from "@/components/homepage/HomepageHeader";
-import { Footer } from "@/components/Footer";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
 import { SeoHead } from "@/components/SeoHead";
 import { CheckoutErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
@@ -60,6 +60,7 @@ import { ShopPageSkeleton } from "@/components/skeletons/ShopPageSkeleton";
 import { ProductDetailSkeleton } from "@/components/skeletons/ProductDetailSkeleton";
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
+import { HeaderSkeleton } from "@/components/skeletons/HeaderSkeleton";
 
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
@@ -75,6 +76,13 @@ function withSuspense<P extends object>(
   WithSuspense.displayName = `WithSuspense(${Component.displayName ?? Component.name})`;
   return WithSuspense;
 }
+
+const HomepageHeader = lazy(() =>
+  loadHomepageHeader().then((m) => ({ default: m.HomepageHeader })),
+);
+const Footer = lazy(() =>
+  loadFooter().then((m) => ({ default: m.Footer })),
+);
 
 const Landing = lazy(() => import("@/pages/Landing"));
 const Home = lazy(loadHome);
@@ -212,7 +220,11 @@ function ShopShell() {
     <LocationPickerGate>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
-        {!isCheckoutPage && <HomepageHeader />}
+        {!isCheckoutPage && (
+          <Suspense fallback={<HeaderSkeleton />}>
+            <HomepageHeader />
+          </Suspense>
+        )}
         <main className="flex-1">
           <RouteErrorBoundary>
           <Switch>
@@ -264,7 +276,11 @@ function ShopShell() {
           </Switch>
           </RouteErrorBoundary>
         </main>
-        {!isCheckoutPage && <Footer />}
+        {!isCheckoutPage && (
+          <Suspense fallback={null}>
+            <Footer />
+          </Suspense>
+        )}
       </div>
     </LocationPickerGate>
   );
@@ -401,6 +417,8 @@ function CurrencyDataLoader() {
 }
 
 const IDLE_PREFETCH = [
+  loadHomepageHeader,
+  loadFooter,
   loadHome,
   loadShop,
   loadProductDetail,

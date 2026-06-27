@@ -135,6 +135,76 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
 }
 
 /**
+ * After the Vite build, read the manifest and inject `<link rel="modulepreload">`
+ * tags for named chunks that are lazy-loaded but will always be needed on the
+ * first page view (HomepageHeader → vendor-framer, app-shared, etc.).
+ *
+ * Rationale: Vite only auto-injects modulepreload for *statically* imported
+ * chunks. By making HomepageHeader and Footer lazy we removed vendor-framer
+ * from the automatic preload list (which reduces the initial render-blocking
+ * chain). But we still want those chunks to be fetched in parallel while the
+ * entry JS is executing, not in a second waterfall after it runs. This plugin
+ * bridges the gap: it adds explicit preloads for the most critical lazy chunks
+ * so browsers can fetch them from the HTML without waiting for JS discovery.
+ */
+function lazyChunkPreloadPlugin(outDir: string): Plugin {
+  const ALWAYS_NEEDED_CHUNKS = new Set([
+    "vendor-framer",
+    "vendor-embla",
+    "app-shared",
+  ]);
+
+  return {
+    name: "presentail-lazy-chunk-preload",
+    apply: "build",
+    async closeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      const manifestPath = path.join(outDir, ".vite", "manifest.json");
+      if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
+
+      type ManifestChunk = { file: string; name?: string; isEntry?: boolean };
+      const manifest: Record<string, ManifestChunk> = JSON.parse(
+        fs.readFileSync(manifestPath, "utf8"),
+      );
+
+      const preloadFiles: string[] = [];
+      for (const chunk of Object.values(manifest)) {
+        if (chunk.name && ALWAYS_NEEDED_CHUNKS.has(chunk.name) && chunk.file) {
+          preloadFiles.push(chunk.file);
+        }
+      }
+
+      if (preloadFiles.length === 0) return;
+
+      const html = fs.readFileSync(htmlPath, "utf8");
+
+      // Only inject hints for chunks Vite did NOT already preload so we never
+      // emit a duplicate <link> in the built HTML.
+      const newFiles = preloadFiles.filter((f) => !html.includes(`/${f}"`));
+      if (newFiles.length === 0) {
+        console.log(
+          "[lazy-chunk-preload] All target chunks already have modulepreload hints from Vite — skipping.",
+        );
+        return;
+      }
+
+      const linkTags = newFiles
+        .map((f) => `  <link rel="modulepreload" href="/${f}" crossorigin>`)
+        .join("\n");
+
+      // Inject before the closing </head> tag so these hints ship in the
+      // first HTML response alongside the entry modulepreload tags that Vite
+      // already injects.
+      const updated = html.replace("</head>", `${linkTags}\n</head>`);
+      fs.writeFileSync(htmlPath, updated, "utf8");
+      console.log(
+        `[lazy-chunk-preload] Injected ${preloadFiles.length} modulepreload hint(s) for: ${preloadFiles.join(", ")}`,
+      );
+    },
+  };
+}
+
+/**
  * Inline critical (above-the-fold) CSS and load the full stylesheet
  * non-blocking using Google's `critters` library. Runs only at build time so
  * it never slows down dev-server restarts.
@@ -206,6 +276,7 @@ export default defineConfig(async ({ command }) => {
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
+      lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined
@@ -268,11 +339,22 @@ export default defineConfig(async ({ command }) => {
             // they are fetched in one request instead of 10+ tiny parallel ones.
             // This eliminates the 3rd-waterfall level Lighthouse flags as a
             // ~4 s delay: lazy page chunk loads → discovers shared deps → 3rd fetch.
+            // ProductCard imports framer-motion and is only used by lazy pages,
+            // so keeping it here would pull vendor-framer into the static preload
+            // chain via app-shared → ProductCard → framer-motion.  Leave it out
+            // so the vendor-framer chunk is only fetched when a lazy page chunk
+            // that uses ProductCard is actually executed.
             const APP_SHARED_BASENAMES = new Set([
-              "PageBreadcrumb", "ProductCard", "dialog", "input", "label",
+              "PageBreadcrumb", "dialog", "input", "label",
               "select", "textarea", "useNow", "LoyaltyTiersInfo", "LegalPage",
               "ScheduleInlinePanel", "DeleteAccountDialog",
             ]);
+            // ui/skeleton is the only ui component the skeleton fallbacks import
+            // statically (skeletons are imported by App.tsx as Suspense fallbacks).
+            // Keeping skeleton in app-shared would drag the entire 40+ kB chunk
+            // into the entry's static modulepreload graph.  Give it its own tiny
+            // chunk so the rest of app-shared can be deferred.
+            if (id.endsWith("/src/components/ui/skeleton.tsx")) return "ui-skeleton";
             if (id.includes("/src/components/ui/")) return "app-shared";
             const base = path.basename(id, path.extname(id));
             if (APP_SHARED_BASENAMES.has(base)) return "app-shared";

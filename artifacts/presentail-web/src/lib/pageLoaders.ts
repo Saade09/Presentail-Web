@@ -1,3 +1,7 @@
+export const loadHomepageHeader = () =>
+  import("@/components/homepage/HomepageHeader");
+export const loadFooter = () => import("@/components/Footer");
+
 export const loadHome = () => import("@/pages/Home");
 export const loadShop = () => import("@/pages/Shop");
 export const loadProductDetail = () => import("@/pages/ProductDetail");
