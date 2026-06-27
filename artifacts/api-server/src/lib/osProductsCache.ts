@@ -332,6 +332,24 @@ export function __resetFirstPopulatedForTest(): void {
 }
 
 /**
+ * Reset brand-filter state to blank. Only call from tests.
+ */
+export function __resetBrandFilterStateForTest(): void {
+  storeCache.clear();
+  cachedBrands = null;
+  cachedBrandProductCounts = new Map();
+}
+
+/**
+ * Call fetchAndStore directly (bypasses the startup timer and interval).
+ * Use in tests to drive the full brand-assembly + count-recomputation path
+ * with mocked OS fetchers. Only call from tests.
+ */
+export async function fetchAndStoreForTesting(): Promise<void> {
+  return fetchAndStore();
+}
+
+/**
  * Simulate the first-populated event in tests without a real OS fetch.
  * Fires the registered callback (if any) exactly once and marks the state
  * as having fired.
@@ -898,6 +916,18 @@ async function fetchAndStore(): Promise<void> {
         }
       }
       cachedBrandProductCounts = counts;
+    }
+
+    // ── Filter zero-product brands from cachedBrands ──────────────────────
+    // Remove brands that have no in-stock products in any store. This prevents
+    // zero-product brands from leaking into search metadata and brand listings.
+    // freshBrands retains the full unfiltered list so IndexNow slug tracking
+    // still fires for brand slugs that were newly added to the OS catalog even
+    // before products are linked to them.
+    if (cachedBrands !== null) {
+      cachedBrands = cachedBrands.filter(
+        (b) => (cachedBrandProductCounts.get(b.slug) ?? 0) > 0,
+      );
     }
 
     // ── IndexNow: ping for new taxonomy and product slugs ─────────────────
