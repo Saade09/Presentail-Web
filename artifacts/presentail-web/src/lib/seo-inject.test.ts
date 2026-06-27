@@ -4234,6 +4234,10 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     expect(product.url).toBe(
       "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
     );
+    // Offer carries shippingDetails + hasMerchantReturnPolicy so the listing
+    // qualifies for Google's enhanced/free merchant results. Price 89.50 is just
+    // below the AE free-delivery threshold (89.84) so it shows the AE standard
+    // delivery surcharge (4.90).
     expect(product.offers).toEqual({
       "@type": "Offer",
       price: "89.50",
@@ -4241,6 +4245,84 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
       url: "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "4.90",
+          currency: "USD",
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "AE",
+        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "AE",
+        returnPolicyCategory:
+          "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 7,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
+      },
+    });
+  });
+
+  it("emits free shipping in shippingDetails when the price clears the free-delivery threshold (LB)", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Grand Luxe Hamper",
+        description: "An opulent gift hamper.",
+        image: { uri: "https://cdn.test/hamper.jpg" },
+        priceValue: 150,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/grand-luxe-hamper",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.offers.shippingDetails).toEqual({
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: "0.00",
+        currency: "USD",
+      },
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: "LB",
+      },
+    });
+    // Below-threshold LB products fall back to the LB standard surcharge (15).
+    expect(product.offers.hasMerchantReturnPolicy.applicableCountry).toBe("LB");
+  });
+
+  it("shows the LB standard delivery surcharge for below-threshold products", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Single Stem Rose",
+        description: "A single long-stem rose.",
+        image: { uri: "https://cdn.test/rose.jpg" },
+        priceValue: 25,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-lb/beirut/product/single-stem-rose",
+      OPTS,
+    );
+    const product = byType(extractJsonLd(out), "Product");
+    expect(product.offers.shippingDetails.shippingRate).toEqual({
+      "@type": "MonetaryAmount",
+      value: "15.00",
+      currency: "USD",
     });
   });
 

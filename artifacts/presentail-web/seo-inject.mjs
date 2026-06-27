@@ -5,6 +5,16 @@
 
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
 import { BLOG_POSTS } from "@workspace/blog-content";
+import {
+  freeDeliveryThresholdUsd,
+  expressSurchargeForCountry,
+} from "@workspace/delivery";
+
+// Returns window (days) for the merchant return policy in the Product offer.
+// Mirrors the "Send us a photo within 7 days" satisfaction-guarantee window
+// documented on the /faqs page (src/data/faqsCopy.js) and /terms page. Kept as
+// a single constant so the JSON-LD and the on-page copy can't silently drift.
+const RETURN_WINDOW_DAYS = 7;
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
@@ -1631,6 +1641,62 @@ function genericFallbackDescription(lang, key) {
   return tpl.replace(/\{(?:city|country)\}/g, "").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Build the `shippingDetails` + `hasMerchantReturnPolicy` fields for a Product
+ * Offer so the listing qualifies for Google's enhanced/free merchant results.
+ *
+ * - shippingDetails: region is the page's recipient country (defaults to LB).
+ *   The shipping rate is derived from the shared delivery rules
+ *   (@workspace/delivery): orders at/above the country's free-delivery
+ *   threshold ship free (rate 0); below the threshold we surface the country's
+ *   standard delivery surcharge — both values come straight from the shared
+ *   lib, never hardcoded here.
+ * - hasMerchantReturnPolicy: reflects the real 100% Satisfaction Guarantee —
+ *   a finite 7-day, free-of-charge return window (see RETURN_WINDOW_DAYS).
+ *
+ * Returns `{}` when the price is unusable so we never emit a malformed offer.
+ */
+function buildOfferDeliveryAndReturns({ countryCode, priceValue }) {
+  const country = (countryCode || "LB").toUpperCase();
+  if (
+    typeof priceValue !== "number" ||
+    !Number.isFinite(priceValue) ||
+    priceValue <= 0
+  ) {
+    return {};
+  }
+
+  const thresholdUsd = freeDeliveryThresholdUsd(country);
+  const qualifiesForFree = priceValue >= thresholdUsd;
+  const shippingRateUsd = qualifiesForFree
+    ? 0
+    : expressSurchargeForCountry(country);
+
+  return {
+    shippingDetails: {
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: shippingRateUsd.toFixed(2),
+        currency: "USD",
+      },
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: country,
+      },
+    },
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: country,
+      returnPolicyCategory:
+        "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: RETURN_WINDOW_DAYS,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn",
+    },
+  };
+}
+
 function buildProductHead({
   product,
   imageDimensions,
@@ -1640,6 +1706,7 @@ function buildProductHead({
   pathname,
   cityLabel,
   countryLabel,
+  countryCode,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const rawDesc =
@@ -1690,6 +1757,17 @@ function buildProductHead({
         ? product.id
         : "";
 
+  // Shipping + return policy enrichment for the Offer. Both are required for
+  // Google's enhanced/free merchant listings; without them the Rich Results
+  // Test reports "missing field" warnings on shippingDetails and
+  // hasMerchantReturnPolicy. Values are derived from the shared delivery rules
+  // (@workspace/delivery) and the documented returns window so the schema can
+  // never drift from the real policy.
+  const offerExtras = buildOfferDeliveryAndReturns({
+    countryCode,
+    priceValue: product.priceValue,
+  });
+
   // Schema.org Product JSON-LD for Google rich results.
   // Currency is USD because all prices are stored in the WC/OS USD base and the
   // server-rendered HTML (what crawlers index) shows the USD figure — display
@@ -1722,6 +1800,7 @@ function buildProductHead({
               : "https://schema.org/OutOfStock",
             itemCondition: "https://schema.org/NewCondition",
             url: canonicalUrl,
+            ...offerExtras,
           },
         }
       : {}),
@@ -2391,6 +2470,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     pathname: seoPathname,
     cityLabel: generic.cityLabel,
     countryLabel: generic.countryLabel,
+    countryCode,
   };
 
   let result = null;
