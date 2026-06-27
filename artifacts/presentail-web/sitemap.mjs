@@ -188,3 +188,65 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl) {
     lastmod,
   });
 }
+
+// After a regeneration failure the cache timestamp is rewound so the route
+// retries the upstream after this short window instead of on every request —
+// a totally-down catalog must not turn into a per-request retry storm.
+export const SITEMAP_RETRY_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Resolve the value to serve for /sitemap.xml, applying the route's
+ * stale-while-revalidate + cold-cache fallback policy. Pure with respect to its
+ * inputs (the only side effects are the injected `generateFull` / `generateStatic`
+ * builders and the optional `onError` logger) so it can be unit-tested without
+ * booting the HTTP server. Mirrors resolveLlmsFullTxt in llms.mjs.
+ *
+ * Policy:
+ *  - Warm, fresh cache (within TTL): reused as-is, no regeneration.
+ *  - Stale or missing cache: attempt `generateFull()`.
+ *    - Success: cache the new value with a full TTL.
+ *    - Failure with a prior cached value: keep it (stale-while-revalidate) and
+ *      rewind the timestamp to retry after SITEMAP_RETRY_WINDOW_MS.
+ *    - Failure with a cold cache: fall back to the static, catalog-free
+ *      `generateStatic()` sitemap (root + locale pages only) and rewind the
+ *      timestamp the same way.
+ *  Never returns an empty/undefined value, so the route never serves a blank
+ *  body or a 500 — crawlers always receive a valid, non-empty sitemap.
+ *
+ * @param {object} args
+ * @param {{ value: (string|null), tsMs: number }} args.cache - current cache state
+ * @param {number} args.nowMs   - current time (Date.now())
+ * @param {number} args.ttlMs   - cache TTL in ms
+ * @param {() => Promise<string>} args.generateFull   - builds the full catalog sitemap
+ * @param {() => string} args.generateStatic          - builds the static fallback sitemap
+ * @param {(err: unknown, mode: "stale"|"static-fallback") => void} [args.onError]
+ * @returns {Promise<{ value: string, tsMs: number, mode: "fresh"|"regenerated"|"stale"|"static-fallback" }>}
+ */
+export async function resolveSitemap({
+  cache,
+  nowMs,
+  ttlMs,
+  generateFull,
+  generateStatic,
+  onError,
+}) {
+  const hasFreshCache = Boolean(cache?.value) && nowMs - cache.tsMs <= ttlMs;
+  if (hasFreshCache) {
+    return { value: cache.value, tsMs: cache.tsMs, mode: "fresh" };
+  }
+
+  try {
+    const value = await generateFull();
+    return { value, tsMs: nowMs, mode: "regenerated" };
+  } catch (err) {
+    // Rewind the timestamp so the next attempt happens after the retry window
+    // rather than on the very next request.
+    const tsMs = nowMs - ttlMs + SITEMAP_RETRY_WINDOW_MS;
+    if (cache?.value) {
+      onError?.(err, "stale");
+      return { value: cache.value, tsMs, mode: "stale" };
+    }
+    onError?.(err, "static-fallback");
+    return { value: generateStatic(), tsMs, mode: "static-fallback" };
+  }
+}

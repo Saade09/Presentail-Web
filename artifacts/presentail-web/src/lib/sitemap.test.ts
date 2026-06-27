@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
 
 // @ts-expect-error - mjs module without type declarations.
-import { buildSitemapXml, generateSitemap } from "../../sitemap.mjs";
+import {
+  buildSitemapXml,
+  generateSitemap,
+  resolveSitemap,
+  SITEMAP_RETRY_WINDOW_MS,
+} from "../../sitemap.mjs";
 
 const { DOMParser } = new JSDOM().window;
 
@@ -148,5 +153,167 @@ describe("generateSitemap", () => {
     expect(parse(xml).documentElement?.nodeName).toBe("urlset");
     expect(xml).not.toContain("/category/");
     expect(xml).not.toContain("/product/");
+  });
+});
+
+describe("resolveSitemap — /sitemap.xml route resilience", () => {
+  const TTL = 15 * 60 * 1000; // 15min, matches SITEMAP_CACHE_TTL_MS in serve.mjs
+  const NOW = 1_700_000_000_000;
+  const FULL = '<?xml version="1.0"?><urlset>FULL-CATALOG</urlset>';
+
+  // The real cold-cache fallback: a catalog-free sitemap that still emits the
+  // root + static locale pages, so it is always valid, non-empty XML.
+  const staticBuilder = () => buildSitemapXml({ origin: ORIGIN, basePath: "/" });
+  const fullOk = async () => FULL;
+  const fullThrows = async () => {
+    throw new Error("catalog upstream 503");
+  };
+
+  it("reuses a warm, fresh cache without calling the generator", async () => {
+    let calls = 0;
+    const result = await resolveSitemap({
+      cache: { value: "CACHED-SITEMAP", tsMs: NOW - 1000 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: async () => {
+        calls += 1;
+        return FULL;
+      },
+      generateStatic: staticBuilder,
+    });
+    expect(result.mode).toBe("fresh");
+    expect(result.value).toBe("CACHED-SITEMAP");
+    expect(result.tsMs).toBe(NOW - 1000); // timestamp unchanged
+    expect(calls).toBe(0); // generator never invoked
+  });
+
+  it("regenerates and caches with a full TTL when the cache is cold", async () => {
+    const result = await resolveSitemap({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateStatic: staticBuilder,
+    });
+    expect(result.mode).toBe("regenerated");
+    expect(result.value).toBe(FULL);
+    expect(result.tsMs).toBe(NOW); // fresh TTL window
+  });
+
+  it("regenerates when the cache is stale (past TTL)", async () => {
+    const result = await resolveSitemap({
+      cache: { value: "OLD", tsMs: NOW - TTL - 1 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateStatic: staticBuilder,
+    });
+    expect(result.mode).toBe("regenerated");
+    expect(result.value).toBe(FULL);
+    expect(result.tsMs).toBe(NOW);
+  });
+
+  it("reuses a warm cache (stale-while-revalidate) when regeneration throws", async () => {
+    const warnings: Array<[unknown, string]> = [];
+    const result = await resolveSitemap({
+      cache: { value: "WARM-SITEMAP", tsMs: NOW - TTL - 1 }, // stale → triggers regen attempt
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateStatic: staticBuilder,
+      onError: (err, mode) => warnings.push([err, mode]),
+    });
+    expect(result.mode).toBe("stale");
+    expect(result.value).toBe("WARM-SITEMAP"); // last good copy reused, not empty
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0][1]).toBe("stale");
+  });
+
+  it("serves a valid, non-empty static sitemap on a cold-cache failure", async () => {
+    const warnings: Array<[unknown, string]> = [];
+    const result = await resolveSitemap({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateStatic: staticBuilder,
+      onError: (err, mode) => warnings.push([err, mode]),
+    });
+    expect(result.mode).toBe("static-fallback");
+    // Never empty / never throws — and the fallback is itself well-formed XML
+    // carrying the root + static locale pages (no catalog entries).
+    expect(result.value.length).toBeGreaterThan(0);
+    const doc = parse(result.value);
+    expect(doc.documentElement?.nodeName).toBe("urlset");
+    expect(doc.getElementsByTagName("parsererror").length).toBe(0);
+    expect(doc.getElementsByTagName("url").length).toBeGreaterThan(0);
+    // Catalog-derived URLs are absent in the static fallback.
+    expect(result.value).not.toContain("/product/");
+    expect(result.value).not.toContain("/category/");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0][1]).toBe("static-fallback");
+  });
+
+  it("applies the short retry window after a failure (no per-request retry storm)", async () => {
+    // After a failure the timestamp is rewound so the entry is treated as fresh
+    // for exactly SITEMAP_RETRY_WINDOW_MS, then becomes stale again.
+    const failed = await resolveSitemap({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateStatic: staticBuilder,
+    });
+    expect(failed.tsMs).toBe(NOW - TTL + SITEMAP_RETRY_WINDOW_MS);
+
+    // Within the retry window the cache is still fresh → no regeneration attempt.
+    let regenCalls = 0;
+    const withinWindow = await resolveSitemap({
+      cache: { value: failed.value, tsMs: failed.tsMs },
+      nowMs: NOW + SITEMAP_RETRY_WINDOW_MS - 1,
+      ttlMs: TTL,
+      generateFull: async () => {
+        regenCalls += 1;
+        return FULL;
+      },
+      generateStatic: staticBuilder,
+    });
+    expect(withinWindow.mode).toBe("fresh");
+    expect(regenCalls).toBe(0);
+
+    // Just past the retry window the entry is stale again → it retries upstream.
+    const afterWindow = await resolveSitemap({
+      cache: { value: failed.value, tsMs: failed.tsMs },
+      nowMs: NOW + SITEMAP_RETRY_WINDOW_MS + 1,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateStatic: staticBuilder,
+    });
+    expect(afterWindow.mode).toBe("regenerated");
+    expect(afterWindow.value).toBe(FULL);
+  });
+
+  it("recovers to the full catalog sitemap once the upstream returns after a fallback", async () => {
+    // Cold-cache failure → static fallback.
+    const fallback = await resolveSitemap({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateStatic: staticBuilder,
+    });
+    expect(fallback.mode).toBe("static-fallback");
+
+    // Past the retry window, upstream recovers → full sitemap is served and cached.
+    const recovered = await resolveSitemap({
+      cache: { value: fallback.value, tsMs: fallback.tsMs },
+      nowMs: NOW + SITEMAP_RETRY_WINDOW_MS + 1,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateStatic: staticBuilder,
+    });
+    expect(recovered.mode).toBe("regenerated");
+    expect(recovered.value).toBe(FULL);
+    expect(recovered.tsMs).toBe(NOW + SITEMAP_RETRY_WINDOW_MS + 1);
   });
 });

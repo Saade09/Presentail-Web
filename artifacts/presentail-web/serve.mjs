@@ -14,6 +14,8 @@ import {
   SITEMAP_LANGS,
   escXml,
   generateSitemap,
+  buildSitemapXml,
+  resolveSitemap,
 } from "./sitemap.mjs";
 import {
   generateLlmsTxt,
@@ -850,12 +852,29 @@ const server = http.createServer(async (req, res) => {
 
     // Dynamic sitemap — intercept before file lookup so a missing
     // dist/public/sitemap.xml doesn't fall through to the SPA shell.
+    // The cache has a TTL (SITEMAP_CACHE_TTL_MS) so catalog data stays current
+    // without a server restart. On regeneration failure the previous cached
+    // value is retained (stale-while-revalidate); on a cold-cache failure a
+    // static, catalog-free sitemap (root + locale pages) is served so crawlers
+    // never receive an empty body or a 500.
     if (pathname === "/sitemap.xml") {
-      const nowMs = Date.now();
-      if (!sitemapCache || nowMs - sitemapCacheTsMs > SITEMAP_CACHE_TTL_MS) {
-        sitemapCache = await generateSitemap(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL);
-        sitemapCacheTsMs = nowMs;
-      }
+      const resolved = await resolveSitemap({
+        cache: { value: sitemapCache, tsMs: sitemapCacheTsMs },
+        nowMs: Date.now(),
+        ttlMs: SITEMAP_CACHE_TTL_MS,
+        generateFull: () =>
+          generateSitemap(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL),
+        generateStatic: () => buildSitemapXml({ origin, basePath: BASE_PATH }),
+        onError: (err, mode) => {
+          // Log so ops can tell when regeneration is consistently failing.
+          console.warn("[sitemap.xml] regeneration failed; serving %s. Error: %s",
+            mode === "stale" ? "stale cache" : "static fallback",
+            err?.message ?? err,
+          );
+        },
+      });
+      sitemapCache = resolved.value;
+      sitemapCacheTsMs = resolved.tsMs;
       const encoding = pickEncoding(req, ".xml");
       const body = await compressBuffer(sitemapCache, encoding);
       const headers = {
