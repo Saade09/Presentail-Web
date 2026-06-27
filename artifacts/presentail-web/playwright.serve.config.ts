@@ -11,8 +11,12 @@ import { defineConfig, devices } from "@playwright/test";
  * be pointed at a built `serve.mjs` instance via PLAYWRIGHT_BASE_URL — the
  * "Web serve checks" workflow builds + starts serve.mjs and runs them there.
  *
- * The specs use only Playwright's APIRequestContext (the `request` fixture), so
- * no browser is launched; the chromium project is kept purely for parity.
+ * Most specs use only Playwright's APIRequestContext (the `request` fixture),
+ * but some (e.g. blog-image-perf.spec.ts) launch a real browser via the `page`
+ * fixture to assert React-rendered markup and the browser's srcset candidate
+ * selection against the production build — so the chromium project is a real
+ * browser, not just parity. The "Web serve checks" workflow installs the
+ * chromium browser before running this config.
  */
 
 const executablePath =
