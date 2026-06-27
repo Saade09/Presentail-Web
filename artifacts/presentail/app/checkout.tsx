@@ -3060,7 +3060,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
   };
 
   return (
-    <View style={{ gap: 18 }}>
+    <View testID="payment-options" style={{ gap: 18 }}>
       <Card colors={colors} title={t.noteForTeamTitle}>
         <Field colors={colors} label={t.orderNotesLabel} value={orderNotes} onChangeText={setOrderNotes} placeholder={t.anySpecialRequests} multiline />
       </Card>
