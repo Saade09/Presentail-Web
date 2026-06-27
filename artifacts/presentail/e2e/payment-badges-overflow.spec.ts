@@ -163,6 +163,41 @@ test.describe("Payment badges — no horizontal overflow at 375 px", () => {
   // 1. CardIcons row (Amex + Mastercard + Visa) — most likely to overflow
   // -------------------------------------------------------------------------
 
+  test("WalletIcons row (Apple Pay + Google Pay) does not overflow at 375 px", async ({
+    page,
+    context,
+  }) => {
+    // Force walletSupported=true before React boots so the wallet rows are
+    // rendered even though isPlatformPaySupported() always returns false in
+    // the browser/Expo-web environment used by these tests.
+    await context.addInitScript(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ = true;
+    });
+
+    await page.goto("/checkout");
+    await fillToPaymentStep(page);
+
+    // The WalletIcons row (Apple Pay + Google Pay badges) must now be visible.
+    const walletIcons = page.getByTestId("payment-wallet-icons");
+    await expect(walletIcons).toBeVisible({ timeout: 10_000 });
+
+    const rowOverflows = await elementOverflowsViewport(
+      page,
+      "payment-wallet-icons",
+    );
+    expect(
+      rowOverflows,
+      "WalletIcons row must not bleed past the right viewport edge at 375 px",
+    ).toBe(false);
+
+    const pageOverflows = await pageHasHorizontalOverflow(page);
+    expect(
+      pageOverflows,
+      "page must have no horizontal scrollbar at 375 px when wallet icons are shown",
+    ).toBe(false);
+  });
+
   test("CardIcons row (Amex/Mastercard/Visa) does not overflow at 375 px", async ({
     page,
   }) => {

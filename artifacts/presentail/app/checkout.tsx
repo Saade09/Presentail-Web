@@ -706,6 +706,18 @@ function CheckoutScreen() {
   useEffect(() => {
     if (walletProbedRef.current) return;
     walletProbedRef.current = true;
+    // Test-only escape hatch: `addInitScript` sets this before React boots so
+    // the probe is bypassed and walletSupported resolves to true.  The flag is
+    // never set in production builds (no pk_live_ key is absent in prod, but
+    // more importantly the window property simply doesn't exist).
+    if (
+      typeof window !== "undefined" &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ === true
+    ) {
+      setWalletSupported(true);
+      return;
+    }
     const isTestEnv = !getStripePublishableKey(currencyCode).startsWith("pk_live_");
     isPlatformPaySupported(
       Platform.OS === "android"
