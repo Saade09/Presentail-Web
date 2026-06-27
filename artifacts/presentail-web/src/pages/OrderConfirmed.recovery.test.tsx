@@ -85,6 +85,9 @@ import OrderConfirmed from "./OrderConfirmed";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
+// Must match PENDING_ORDER_MAX_AGE_MS in OrderConfirmed.tsx.
+const PENDING_ORDER_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
 const PENDING_PAYLOAD = {
   totalUsd: 80,
   currencyCode: "USD",
@@ -92,10 +95,13 @@ const PENDING_PAYLOAD = {
   paymentMethod: "card",
 };
 
-function seedSessionStorage(payload: Record<string, unknown> = PENDING_PAYLOAD) {
+function seedSessionStorage(
+  payload: Record<string, unknown> = PENDING_PAYLOAD,
+  createdAt: number = Date.now(),
+) {
   sessionStorage.setItem(
     PENDING_ORDER_KEY,
-    JSON.stringify({ payload, createdAt: Date.now() }),
+    JSON.stringify({ payload, createdAt }),
   );
 }
 
@@ -183,6 +189,53 @@ describe("OrderConfirmed — missing payload", () => {
 
     // createOrder must not run when there is no payload to submit.
     expect(mockMutate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2b. Stale payload — expired stash is treated as missing
+// ---------------------------------------------------------------------------
+
+describe("OrderConfirmed — stale (expired) payload", () => {
+  beforeEach(() => {
+    mockUseSearch.mockReturnValue("?status=success");
+  });
+
+  it("ignores a payload older than the max age and never calls createOrder", async () => {
+    // One millisecond past the expiry window → must be treated as missing.
+    seedSessionStorage(PENDING_PAYLOAD, Date.now() - PENDING_ORDER_MAX_AGE_MS - 1);
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // Graceful failure screen, no createOrder call.
+    await screen.findByTestId("icon-failed");
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockClearCart).not.toHaveBeenCalled();
+  });
+
+  it("still finalizes a payload just inside the expiry window", async () => {
+    mockMutate.mockImplementation(
+      (
+        _payload: unknown,
+        { onSuccess }: { onSuccess: (res: unknown) => void },
+      ) => {
+        onSuccess({ ok: true, wcOrderId: 12345 });
+      },
+    );
+
+    // One minute inside the window → still considered fresh.
+    seedSessionStorage(PENDING_PAYLOAD, Date.now() - PENDING_ORDER_MAX_AGE_MS + 60_000);
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+    });
+    await screen.findByTestId("icon-success");
   });
 });
 

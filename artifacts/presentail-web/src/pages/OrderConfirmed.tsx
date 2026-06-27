@@ -12,6 +12,12 @@ import { FormattedPrice } from "@/components/FormattedPrice";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 
+// A stashed pending-order payload older than this is treated as missing. This
+// stops a stale tab (or a bookmarked /order-confirmed URL) left open for hours
+// or days from silently replaying an abandoned payload into createOrder. The
+// stash carries a `createdAt` timestamp written by Checkout at every write site.
+const PENDING_ORDER_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 type FinalizeState =
   | { kind: "idle" }
   | { kind: "finalizing" }
@@ -33,15 +39,33 @@ type ConfirmedOrder = {
   paymentMethod?: string;
 };
 
-function parseStashedOrder(): ConfirmedOrder | null {
+type StashedEntry = { payload: ConfirmedOrder; createdAt: number };
+
+// Single source of truth for reading the pending-order stash. Returns null when
+// the entry is missing, unparseable, malformed, or older than
+// PENDING_ORDER_MAX_AGE_MS — so every caller (display and recovery) treats a
+// stale payload as if it were never there.
+function readStashedEntry(): StashedEntry | null {
   try {
     const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
     if (!stashed) return null;
-    const parsed = JSON.parse(stashed) as { payload?: ConfirmedOrder };
-    return parsed?.payload ?? null;
+    const parsed = JSON.parse(stashed) as {
+      payload?: ConfirmedOrder;
+      createdAt?: number;
+    };
+    if (!parsed || typeof parsed !== "object" || !parsed.payload) return null;
+    const createdAt = typeof parsed.createdAt === "number" ? parsed.createdAt : 0;
+    if (!createdAt || Date.now() - createdAt > PENDING_ORDER_MAX_AGE_MS) {
+      return null;
+    }
+    return { payload: parsed.payload, createdAt };
   } catch {
     return null;
   }
+}
+
+function parseStashedOrder(): ConfirmedOrder | null {
+  return readStashedEntry()?.payload ?? null;
 }
 
 function formatDeliveryDate(iso: string, language: string): string {
@@ -188,8 +212,9 @@ export default function OrderConfirmed() {
   const initial: FinalizeState = (() => {
     if (status !== "success") return { kind: "failed" };
     if (refFromUrl) return { kind: "success", ref: refFromUrl };
-    const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
-    if (!stashed) return { kind: "failed", message: t("order.fail.cantFind") };
+    // A missing OR stale (expired) stash short-circuits to a graceful failure so
+    // we never enter the finalizing state and call createOrder for an old payload.
+    if (!readStashedEntry()) return { kind: "failed", message: t("order.fail.cantFind") };
     return { kind: "finalizing" };
   })();
 
@@ -241,22 +266,20 @@ export default function OrderConfirmed() {
     if (state.kind !== "finalizing" || triedRef.current) return;
     triedRef.current = true;
 
-    const stashed = sessionStorage.getItem(PENDING_ORDER_KEY);
-    if (!stashed) {
+    // Treats missing, unparseable, AND expired payloads as missing — a stale
+    // payload must never be replayed into createOrder. We drop the stash so a
+    // reload cannot keep retrying an order we have deliberately abandoned.
+    const entry = readStashedEntry();
+    if (!entry) {
       setState({ kind: "failed", message: t("order.fail.missing") });
-      return;
-    }
-
-    let parsed: { payload: any; createdAt: number };
-    try {
-      parsed = JSON.parse(stashed);
-    } catch {
-      setState({ kind: "failed", message: t("order.fail.couldntRead") });
       sessionStorage.removeItem(PENDING_ORDER_KEY);
       return;
     }
 
-    const payload = { ...parsed.payload, ...(paymentRef ? { paymentRef } : {}) };
+    const parsed = entry;
+    // The runtime payload carries fields (orderId, currencyCode, …) beyond the
+    // display-only ConfirmedOrder shape; keep it loosely typed for createOrder.
+    const payload = { ...(parsed.payload as any), ...(paymentRef ? { paymentRef } : {}) };
 
     const chosenMethod = payload?.paymentMethod as
       | "card"
