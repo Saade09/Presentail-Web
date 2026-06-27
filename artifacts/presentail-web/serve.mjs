@@ -18,6 +18,7 @@ import {
 import {
   generateLlmsTxt,
   generateLlmsFullTxt,
+  resolveLlmsFullTxt,
 } from "./llms.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
@@ -896,30 +897,23 @@ const server = http.createServer(async (req, res) => {
     // is retained (stale-while-revalidate); on a cold-cache failure a minimal
     // placeholder is served so the route never crashes.
     if (pathname === "/llms-full.txt") {
-      const nowMs = Date.now();
-      if (!llmsFullTxtCache || nowMs - llmsFullTxtCacheTsMs > LLMS_TXT_CACHE_TTL_MS) {
-        try {
-          llmsFullTxtCache = await generateLlmsFullTxt(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL);
-          llmsFullTxtCacheTsMs = nowMs;
-        } catch (err) {
+      const resolved = await resolveLlmsFullTxt({
+        cache: { value: llmsFullTxtCache, tsMs: llmsFullTxtCacheTsMs },
+        nowMs: Date.now(),
+        ttlMs: LLMS_TXT_CACHE_TTL_MS,
+        generateFull: () =>
+          generateLlmsFullTxt(origin, BASE_PATH, fetchSitemapJson, INTERNAL_API_BASE_URL),
+        generateIndex: () => generateLlmsTxt(origin, BASE_PATH),
+        onError: (err, mode) => {
           // Log so ops can tell when regeneration is consistently failing.
           console.warn("[llms-full.txt] regeneration failed; serving %s. Error: %s",
-            llmsFullTxtCache ? "stale cache" : "index-only fallback",
+            mode === "stale" ? "stale cache" : "index-only fallback",
             err?.message ?? err,
           );
-          if (!llmsFullTxtCache) {
-            // Cold cache — serve the lightweight index so the route never
-            // crashes, and schedule a retry in 5 minutes rather than on every
-            // request so a totally-down upstream doesn't cause a retry storm.
-            llmsFullTxtCache = generateLlmsTxt(origin, BASE_PATH);
-            llmsFullTxtCacheTsMs = nowMs - LLMS_TXT_CACHE_TTL_MS + 5 * 60 * 1000;
-          } else {
-            // Stale cache is still rich — back off 5 minutes before retrying
-            // again so a flapping upstream doesn't spam the API on every hit.
-            llmsFullTxtCacheTsMs = nowMs - LLMS_TXT_CACHE_TTL_MS + 5 * 60 * 1000;
-          }
-        }
-      }
+        },
+      });
+      llmsFullTxtCache = resolved.value;
+      llmsFullTxtCacheTsMs = resolved.tsMs;
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(llmsFullTxtCache, encoding);
       const headers = {

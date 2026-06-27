@@ -5,6 +5,8 @@ import {
   generateLlmsTxt,
   buildLlmsFullTxt,
   generateLlmsFullTxt,
+  resolveLlmsFullTxt,
+  LLMS_FULL_TXT_RETRY_WINDOW_MS,
   FEATURED_LIMIT,
 } from "../../llms.mjs";
 
@@ -184,5 +186,158 @@ describe("generateLlmsFullTxt", () => {
     expect(txt).not.toContain("## Featured Products");
     expect(txt).toContain("## Pages");
     expect(txt).toContain("## Full content");
+  });
+});
+
+describe("resolveLlmsFullTxt — /llms-full.txt route resilience", () => {
+  const TTL = 60 * 60 * 1000; // 1h, matches LLMS_TXT_CACHE_TTL_MS in serve.mjs
+  const NOW = 1_700_000_000_000;
+  const FULL = "FULL-INDEX-BODY";
+  const INDEX = "STATIC-INDEX-ONLY";
+
+  const fullOk = async () => FULL;
+  const fullThrows = async () => {
+    throw new Error("catalog upstream 503");
+  };
+  const indexBuilder = () => INDEX;
+
+  it("reuses a warm, fresh cache without calling the generator", async () => {
+    let calls = 0;
+    const result = await resolveLlmsFullTxt({
+      cache: { value: "CACHED-RICH", tsMs: NOW - 1000 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: async () => {
+        calls += 1;
+        return FULL;
+      },
+      generateIndex: indexBuilder,
+    });
+    expect(result.mode).toBe("fresh");
+    expect(result.value).toBe("CACHED-RICH");
+    expect(result.tsMs).toBe(NOW - 1000); // timestamp unchanged
+    expect(calls).toBe(0); // generator never invoked
+  });
+
+  it("regenerates and caches with a full TTL when the cache is cold", async () => {
+    const result = await resolveLlmsFullTxt({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateIndex: indexBuilder,
+    });
+    expect(result.mode).toBe("regenerated");
+    expect(result.value).toBe(FULL);
+    expect(result.tsMs).toBe(NOW); // fresh TTL window
+  });
+
+  it("regenerates when the cache is stale (past TTL)", async () => {
+    const result = await resolveLlmsFullTxt({
+      cache: { value: "OLD", tsMs: NOW - TTL - 1 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateIndex: indexBuilder,
+    });
+    expect(result.mode).toBe("regenerated");
+    expect(result.value).toBe(FULL);
+    expect(result.tsMs).toBe(NOW);
+  });
+
+  it("reuses a warm cache (stale-while-revalidate) when regeneration throws", async () => {
+    const warnings: Array<[unknown, string]> = [];
+    const result = await resolveLlmsFullTxt({
+      cache: { value: "WARM-RICH", tsMs: NOW - TTL - 1 }, // stale → triggers regen attempt
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateIndex: indexBuilder,
+      onError: (err, mode) => warnings.push([err, mode]),
+    });
+    expect(result.mode).toBe("stale");
+    expect(result.value).toBe("WARM-RICH"); // last good copy reused, not empty
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0][1]).toBe("stale");
+  });
+
+  it("serves the static index-only fallback on a cold-cache failure", async () => {
+    const warnings: Array<[unknown, string]> = [];
+    const result = await resolveLlmsFullTxt({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateIndex: indexBuilder,
+      onError: (err, mode) => warnings.push([err, mode]),
+    });
+    expect(result.mode).toBe("index-fallback");
+    expect(result.value).toBe(INDEX); // never empty / never throws
+    expect(result.value.length).toBeGreaterThan(0);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0][1]).toBe("index-fallback");
+  });
+
+  it("applies the short retry window after a failure (no per-request retry storm)", async () => {
+    // After a failure the timestamp is rewound so the entry is treated as fresh
+    // for exactly LLMS_FULL_TXT_RETRY_WINDOW_MS, then becomes stale again.
+    const failed = await resolveLlmsFullTxt({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateIndex: indexBuilder,
+    });
+    expect(failed.tsMs).toBe(NOW - TTL + LLMS_FULL_TXT_RETRY_WINDOW_MS);
+
+    // Within the retry window the cache is still fresh → no regeneration attempt.
+    let regenCalls = 0;
+    const withinWindow = await resolveLlmsFullTxt({
+      cache: { value: failed.value, tsMs: failed.tsMs },
+      nowMs: NOW + LLMS_FULL_TXT_RETRY_WINDOW_MS - 1,
+      ttlMs: TTL,
+      generateFull: async () => {
+        regenCalls += 1;
+        return FULL;
+      },
+      generateIndex: indexBuilder,
+    });
+    expect(withinWindow.mode).toBe("fresh");
+    expect(regenCalls).toBe(0);
+
+    // Just past the retry window the entry is stale again → it retries upstream.
+    const afterWindow = await resolveLlmsFullTxt({
+      cache: { value: failed.value, tsMs: failed.tsMs },
+      nowMs: NOW + LLMS_FULL_TXT_RETRY_WINDOW_MS + 1,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateIndex: indexBuilder,
+    });
+    expect(afterWindow.mode).toBe("regenerated");
+    expect(afterWindow.value).toBe(FULL);
+  });
+
+  it("recovers to the rich full index once the upstream returns after a fallback", async () => {
+    // Cold-cache failure → index fallback.
+    const fallback = await resolveLlmsFullTxt({
+      cache: { value: null, tsMs: 0 },
+      nowMs: NOW,
+      ttlMs: TTL,
+      generateFull: fullThrows,
+      generateIndex: indexBuilder,
+    });
+    expect(fallback.value).toBe(INDEX);
+
+    // Past the retry window, upstream recovers → full index is served and cached.
+    const recovered = await resolveLlmsFullTxt({
+      cache: { value: fallback.value, tsMs: fallback.tsMs },
+      nowMs: NOW + LLMS_FULL_TXT_RETRY_WINDOW_MS + 1,
+      ttlMs: TTL,
+      generateFull: fullOk,
+      generateIndex: indexBuilder,
+    });
+    expect(recovered.mode).toBe("regenerated");
+    expect(recovered.value).toBe(FULL);
+    expect(recovered.tsMs).toBe(NOW + LLMS_FULL_TXT_RETRY_WINDOW_MS + 1);
   });
 });
