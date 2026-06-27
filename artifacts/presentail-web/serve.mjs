@@ -811,6 +811,11 @@ async function generateSitemap(origin, basePath) {
   // 0. Root landing page (un-prefixed, language-agnostic entry point).
   urls.push(urlEntry("/", "1.0", "weekly"));
 
+  // 0a. LLMs.txt discovery — machine-readable content index for AI crawlers.
+  // Listed early so crawlers encounter them before the long locale-path block.
+  urls.push(urlEntry("/llms.txt", "0.5", "monthly"));
+  urls.push(urlEntry("/llms-full.txt", "0.5", "monthly"));
+
   // 1. Static locale pages — all lang × country × city combinations.
   for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
     for (const city of cities) {

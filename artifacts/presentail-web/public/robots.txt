@@ -3,5 +3,6 @@ Allow: /
 
 Sitemap: https://new.presentail.com/sitemap.xml
 
-# AI crawler guidance
+# AI crawler guidance — machine-readable content index (llmstxt.org)
 # https://new.presentail.com/llms.txt
+# https://new.presentail.com/llms-full.txt
