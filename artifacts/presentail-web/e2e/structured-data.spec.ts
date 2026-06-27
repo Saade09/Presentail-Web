@@ -448,3 +448,45 @@ test.describe("Structured data — shared wishlist path /favorites/share/:token 
     assertDescription(html);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 10. Locale-prefixed FAQ page /en-lb/beirut/faqs
+//
+// /faqs is the one generic (non-OS-entity) route that emits FAQPage JSON-LD so
+// Google can render the Q&A rich result. computeSeoHead() detects routeKey
+// "faqs" and walks FAQ_COPY (src/data/faqsCopy.js) to emit a FAQPage block with
+// one Question per FAQ item. Like the other generic suites, Organization
+// JSON-LD + OG/Twitter tags + meta description are always present. The FAQPage
+// + Question assertions guard against a regression in either the JSON-LD
+// builder or the FAQ copy source silently dropping the rich result.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed FAQ page /en-lb/beirut/faqs", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/faqs");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+
+  test('JSON-LD block with "@type":"FAQPage" is present', () => {
+    expect(html).toContain('"@type":"FAQPage"');
+  });
+
+  test('FAQPage JSON-LD contains at least one "@type":"Question"', () => {
+    expect(html).toContain('"@type":"Question"');
+  });
+});
