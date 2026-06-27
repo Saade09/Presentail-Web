@@ -2,12 +2,14 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
@@ -43,12 +45,16 @@ function AccountTab() {
   const insets = useSafeAreaInsets();
   const t = useT();
   const { lang, setLang, isRTL } = useLanguage();
-  const { ready, user, token, logout, deleteAccount } = useAuth();
+  const { ready, user, token, logout, deleteAccount, updateProfile } = useAuth();
   const { currencyCode, isManualOverride, setCurrency, clearManualCurrency, list: currencyList } = useCurrency();
   const [busy, setBusy] = useState(false);
   const [careOpen, setCareOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [nameBusy, setNameBusy] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotificationStatus>("not_determined");
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [loyaltyTierLabel, setLoyaltyTierLabel] = useState<string | null>(null);
@@ -626,6 +632,30 @@ function AccountTab() {
     );
   };
 
+  const openNameEdit = () => {
+    setEditFirstName(user?.firstName ?? "");
+    setEditLastName(user?.lastName ?? "");
+    setNameEditOpen(true);
+  };
+
+  const onSaveName = async () => {
+    if (!editFirstName.trim()) {
+      Alert.alert(t.piErrorTitle, t.piErrorNameRequired);
+      return;
+    }
+    setNameBusy(true);
+    const r = await updateProfile({
+      firstName: editFirstName.trim(),
+      lastName: editLastName.trim(),
+    });
+    setNameBusy(false);
+    if (!r.ok) {
+      Alert.alert(t.piErrorTitle, r.message || t.piErrorGeneric);
+      return;
+    }
+    setNameEditOpen(false);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View
@@ -643,15 +673,17 @@ function AccountTab() {
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 120 }}>
         {/* Polished header card */}
-        <View
-          style={{
+        <Pressable
+          onPress={openNameEdit}
+          style={({ pressed }) => ({
             backgroundColor: colors.primary,
             borderRadius: 20,
             padding: 20,
             flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "center",
             gap: 16,
-          }}
+            opacity: pressed ? 0.92 : 1,
+          })}
         >
           {/* Avatar initial */}
           <View
@@ -726,7 +758,22 @@ function AccountTab() {
               </View>
             ) : null}
           </View>
-        </View>
+
+          {/* Edit icon */}
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Feather name="edit-2" size={14} color="#fff" />
+          </View>
+        </Pressable>
 
         {/* 2×2 Shortcut cards */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
@@ -907,6 +954,87 @@ function AccountTab() {
       </BottomSheet>
 
       {renderCurrencySheet()}
+
+      {/* ── Name edit sheet ── */}
+      <BottomSheet visible={nameEditOpen} onClose={() => setNameEditOpen(false)}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
+          <AppText
+            style={{
+              fontFamily: headingFontMedium,
+              fontSize: 22,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+            }}
+          >
+            {t.piName}
+          </AppText>
+          <TextInput
+            value={editFirstName}
+            onChangeText={setEditFirstName}
+            placeholder={t.piFirstNamePlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            style={{
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 13,
+              fontFamily: "Inter_400Regular",
+              fontSize: 15,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+              backgroundColor: "#fff",
+            }}
+            returnKeyType="next"
+          />
+          <TextInput
+            value={editLastName}
+            onChangeText={setEditLastName}
+            placeholder={t.piLastNamePlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            style={{
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 13,
+              fontFamily: "Inter_400Regular",
+              fontSize: 15,
+              color: colors.primary,
+              textAlign: isRTL ? "right" : "left",
+              backgroundColor: "#fff",
+            }}
+            returnKeyType="done"
+            onSubmitEditing={onSaveName}
+          />
+          <Pressable
+            onPress={onSaveName}
+            disabled={nameBusy}
+            style={({ pressed }) => ({
+              backgroundColor: colors.primary,
+              borderRadius: 999,
+              paddingVertical: 16,
+              alignItems: "center",
+              opacity: nameBusy ? 0.6 : pressed ? 0.85 : 1,
+            })}
+          >
+            {nameBusy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <AppText
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  color: "#fff",
+                  fontSize: 14,
+                  letterSpacing: 1,
+                }}
+              >
+                {t.piUpdate}
+              </AppText>
+            )}
+          </Pressable>
+        </View>
+      </BottomSheet>
 
       <NotificationPermissionModal
         visible={notifModalOpen}
