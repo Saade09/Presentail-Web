@@ -48,6 +48,13 @@ const BASE_PATH = (process.env.BASE_PATH ?? "/").replace(/\/$/, "");
 const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ?? "http://localhost:80";
 
+// Canonical-domain redirect. Requests arriving with this Host (or
+// X-Forwarded-Host) are 301-redirected to the same path on the apex domain so
+// there is a single canonical URL (avoids duplicate-content SEO penalties and
+// split sessions). Defined as a constant so it is easy to toggle or extend.
+const WWW_REDIRECT_HOST = "www.presentail.com";
+const WWW_REDIRECT_TARGET_ORIGIN = "https://presentail.com";
+
 // ---------------------------------------------------------------------------
 // Slack alert helper (mirrors artifacts/api-server/src/lib/alerts.ts)
 // ---------------------------------------------------------------------------
@@ -818,6 +825,31 @@ const server = http.createServer(async (req, res) => {
   try {
     const proto =
       (req.headers["x-forwarded-proto"]?.toString().split(",")[0] ?? "http").trim();
+    // Canonical-domain redirect: send www.presentail.com → presentail.com with a
+    // 301 before any file serving, SEO injection, or URL parsing so it is always
+    // fast and unaffected by an unusual (e.g. comma-separated) host header. Both
+    // the Host and X-Forwarded-Host headers are checked independently (logical
+    // OR) — each is normalised (first comma-separated token, trimmed, lowercased,
+    // and stripped of any :port suffix) so the redirect fires whenever either
+    // header names the www host. The original path + query string (req.url) is
+    // preserved verbatim on the redirect target.
+    const normalizeHostHeader = (value) =>
+      (value?.toString().split(",")[0] ?? "")
+        .trim()
+        .split(":")[0]
+        .toLowerCase();
+    const isWwwHost =
+      normalizeHostHeader(req.headers["x-forwarded-host"]) ===
+        WWW_REDIRECT_HOST ||
+      normalizeHostHeader(req.headers.host) === WWW_REDIRECT_HOST;
+    if (isWwwHost) {
+      res.writeHead(301, {
+        location: `${WWW_REDIRECT_TARGET_ORIGIN}${req.url ?? "/"}`,
+      });
+      res.end();
+      return;
+    }
+
     const host = req.headers["x-forwarded-host"]?.toString() ?? req.headers.host ?? "localhost";
     const url = new URL(req.url ?? "/", `${proto}://${host}`);
     const origin = `${proto}://${host}`;
