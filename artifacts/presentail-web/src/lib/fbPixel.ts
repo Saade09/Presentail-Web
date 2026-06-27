@@ -74,6 +74,8 @@ export type FbPixelParams = {
   currency?: string;
   num_items?: number;
   event_id?: string;
+  /** Plain-text email — hashed server-side before being sent to Meta. Never logged. */
+  userData?: { em?: string };
 };
 
 function postPixelEvent(
@@ -102,6 +104,7 @@ function postPixelEvent(
   if (params?.content_ids) body.contentIds = params.content_ids;
   if (params?.content_name) body.contentName = params.content_name;
   if (params?.num_items != null) body.numItems = params.num_items;
+  if (params?.userData?.em) body.userData = { em: params.userData.em };
 
   fetch("/api/pixel/event", {
     method: "POST",

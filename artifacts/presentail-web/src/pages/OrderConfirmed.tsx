@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Loader2, CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
@@ -171,6 +172,7 @@ export default function OrderConfirmed() {
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   const [, setLocation] = useLocation();
   const { t, language } = useLocale();
+  const { user, isLoading: authLoading } = useAuth();
 
   const status = searchParams.get("status") || "success";
   const refFromUrl = searchParams.get("ref");
@@ -202,13 +204,15 @@ export default function OrderConfirmed() {
     return parseStashedOrder();
   });
 
-  // Fire Purchase immediately for the inline-payment success path: Checkout.tsx
-  // sets ?ref=<orderRef> on the URL and redirects here without going through the
-  // createOrder.mutate flow, so state initialises directly to { kind: "success" }.
-  // Read real total/currency from the stashed payload when available; fall back to
-  // safe zeros so the event is always sent. purchaseFiredRef prevents double-fire.
+  // Fire Purchase for the inline-payment success path: Checkout.tsx sets ?ref=<orderRef>
+  // on the URL and redirects here without going through the createOrder.mutate flow, so
+  // state initialises directly to { kind: "success" }.
+  // We gate on `authLoading` so that on a full-page reload (redirect-based payments) the
+  // session has time to hydrate before we send the event — this ensures user.email is
+  // available for signed-in shoppers. purchaseFiredRef prevents double-fire once auth settles.
   useEffect(() => {
     if (state.kind !== "success") return;
+    if (authLoading) return;
     if (purchaseFiredRef.current) return;
     purchaseFiredRef.current = true;
     let value = 0;
@@ -225,9 +229,13 @@ export default function OrderConfirmed() {
       value,
       currency,
       event_id: `fbpurchase-${state.ref}`,
+      ...(user?.email ? { userData: { em: user.email } } : {}),
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // state is included so the effect re-runs if the FinalizeState reference changes.
+  // authLoading/user are included so the event fires after session hydration on
+  // full-page reloads (redirect-based payment returns). purchaseFiredRef prevents
+  // the event from being sent more than once.
+  }, [state, authLoading, user]);
 
   useEffect(() => {
     if (state.kind !== "finalizing" || triedRef.current) return;
@@ -280,6 +288,7 @@ export default function OrderConfirmed() {
               value: typeof payload.totalUsd === "number" ? payload.totalUsd : 0,
               currency: (payload.currencyCode as string | undefined) ?? "USD",
               event_id: `fbpurchase-${orderRef}`,
+              ...(user?.email ? { userData: { em: user.email } } : {}),
             });
           }
           setConfirmedOrder(captured);

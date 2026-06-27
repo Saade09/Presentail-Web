@@ -676,7 +676,7 @@ function CheckoutForm() {
     if (checkoutStartedRef.current) return;
     checkoutStartedRef.current = true;
     trackEvent({ name: "checkout_started", surface: "checkout" });
-    trackFbEvent("InitiateCheckout");
+    trackFbEvent("InitiateCheckout", user?.email ? { userData: { em: user.email } } : undefined);
   }, [authLoading, showLoginGate]);
 
   // Reflect any in-checkout edits to the delivery mode / date / slot back
