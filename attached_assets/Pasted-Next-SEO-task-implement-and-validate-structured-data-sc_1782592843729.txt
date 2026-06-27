@@ -1,0 +1,157 @@
+Next SEO task: implement and validate structured data/schema markup across the Presentail website.
+
+Goal:
+Help Google better understand Presentail pages, products, breadcrumbs, and business information so we become eligible for richer search results.
+
+Please implement structured data using JSON-LD. It must be server-rendered or included in the initial HTML source.
+
+Required schema by page type:
+
+1. Homepage
+
+Add:
+- Organization schema
+- WebSite schema
+
+Organization schema should include:
+- name: Presentail
+- url: https://presentail.com
+- logo
+- sameAs links if available, such as Instagram, Facebook, TikTok, LinkedIn
+- description: Online flower and gift delivery company offering flowers, cakes, balloons, plants, chocolates, and gifts.
+
+WebSite schema should include:
+- name: Presentail
+- url: https://presentail.com
+- potentialAction SearchAction only if the website has a real working search page.
+
+Important:
+Only add SearchAction if search URLs are crawlable and work correctly.
+
+2. City homepage pages
+
+Example:
+/en-lb/beirut
+/en-ae/dubai
+
+Add:
+- Organization schema
+- LocalBusiness or Florist schema if appropriate
+- BreadcrumbList schema
+
+The city page should communicate that Presentail provides flower and gift delivery in that city.
+
+3. Category pages
+
+Example:
+/en-lb/beirut/category/plants
+/en-lb/beirut/category/hand-bouquets
+
+Add:
+- BreadcrumbList schema
+- ItemList schema
+
+ItemList should include the products shown on the category page.
+
+Each item should include:
+- position
+- product name
+- product URL
+- product image if available
+
+4. Occasion pages
+
+Example:
+/en-lb/beirut/occasion/birthday
+/en-lb/beirut/occasion/love-romance
+
+Add:
+- BreadcrumbList schema
+- ItemList schema
+
+ItemList should include the products shown on the occasion page.
+
+5. Product pages
+
+Add:
+- Product schema
+- BreadcrumbList schema
+
+Product schema should include:
+- name
+- image
+- description
+- sku or product ID if available
+- brand: Presentail
+- offers:
+  - price
+  - priceCurrency
+  - availability
+  - url
+  - itemCondition: NewCondition
+
+Important:
+Only include aggregateRating or review schema if real customer reviews exist. Do not create fake ratings.
+
+For availability:
+- In-stock products should use: https://schema.org/InStock
+- Out-of-stock products should use: https://schema.org/OutOfStock
+
+6. Breadcrumb schema
+
+Add BreadcrumbList schema to:
+- City pages
+- Category pages
+- Occasion pages
+- Product pages
+- Static content pages where relevant
+
+Example breadcrumb path:
+Home > Beirut > Plants > Snake Plant
+
+7. Static pages
+
+For pages like About, Contact, FAQ, Terms, Privacy:
+
+- About page: Organization schema
+- FAQ page: FAQPage schema only if the page has real visible FAQ questions and answers
+- Contact page: Organization or ContactPage schema
+- Terms and Privacy: WebPage schema
+
+8. Validation rules
+
+Please make sure:
+- JSON-LD is valid JSON
+- No duplicate conflicting schema appears on the same page
+- Product schema only appears on product pages
+- ItemList schema only appears on listing pages
+- FAQ schema only appears when FAQ content is visible to users
+- Prices match the visible product price
+- Currency matches the selected country/currency
+- Canonical URL and schema URL match
+- Schema URLs use the clean canonical URL, not URLs with query parameters
+
+9. Test these pages
+
+Please test structured data on the following page types:
+
+- Homepage
+- City homepage
+- Category page with products
+- Occasion page with products
+- Product page
+- About page
+- FAQ page if it exists
+- Cart page
+- Checkout page
+
+Cart and checkout should not include Product schema or indexable SEO schema.
+
+10. Deliverable
+
+After implementation, please return:
+- What schema types were added
+- Which page types were updated
+- Which URLs were tested
+- Any pages where schema was intentionally skipped
+- Any warnings or limitations
