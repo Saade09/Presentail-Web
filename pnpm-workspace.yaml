@@ -26,7 +26,7 @@ catalog:
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   tsx: ^4.21.0
-  vite: ^7.3.2
+  vite: ^7.3.5
   zod: ^3.25.76
 
 minimumReleaseAge: 1440
@@ -34,6 +34,10 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
+  - esbuild
+  - form-data
+  - undici
+  - vite
 
 onlyBuiltDependencies:
   - '@swc/core'
@@ -64,7 +68,7 @@ overrides:
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc': '-'
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-x64-msvc': '-'
   brace-expansion@2: '>=2.0.3'
-  esbuild: 0.27.3
+  esbuild: 0.28.1
   esbuild>@esbuild/aix-ppc64: '-'
   esbuild>@esbuild/android-arm: '-'
   esbuild>@esbuild/android-arm64: '-'
@@ -133,19 +137,33 @@ overrides:
   uuid: '>=14.0.0'
   yaml: '>=2.8.3'
   # Security vulnerability fixes
-  '@xmldom/xmldom': '>=0.8.0'
-  ajv@8: '>=8.17.1'
-  brace-expansion@5: '>=5.0.6'
-  'minimatch@9>brace-expansion': '>=5.0.6'
-  diff: '>=8.0.3'
-  fast-uri@3: '>=3.1.2'
-  ip-address@10: '>=10.2.0'
-  js-cookie@3: '>=3.0.6'
-  minimatch@5: '>=5.1.6'
-  node-forge: '>=1.4.0'
-  qs: '>=6.15.2'
-  tar@7: '>=7.5.8'
-  ws@8: '>=8.20.1'
+  '@babel/core@7': '^7.29.6'
+  '@xmldom/xmldom': '^0.8.0'
+  ajv@8: '^8.17.1'
+  brace-expansion@5: '^5.0.6'
+  'minimatch@9>brace-expansion': '^5.0.6'
+  diff: '^8.0.3'
+  fast-uri@3: '^3.1.2'
+  form-data@2: '^2.5.6'
+  form-data@4: '^4.0.6'
+  ip-address@10: '^10.2.0'
+  joi@17: '^17.13.4'
+  js-cookie@3: '^3.0.6'
+  js-yaml@3: '^4.2.0'
+  js-yaml@4: '^4.2.0'
+  markdown-it@14: '^14.2.0'
+  minimatch@5: '^5.1.6'
+  node-forge: '^1.4.0'
+  qs: '^6.15.2'
+  shell-quote: '^1.8.4'
+  tar@7: '^7.5.16'
+  ts-deepmerge@6: '^8.0.0'
+  undici@6: '^6.27.0'
+  undici@7: '^7.28.0'
+  vite@7: '^7.3.5'
+  ws@6: '^6.2.4'
+  ws@7: '^7.5.11'
+  ws@8: '^8.20.1'
 
 patchedDependencies:
   react-native-country-picker-modal@2.0.0: patches/react-native-country-picker-modal@2.0.0.patch

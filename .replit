@@ -32,6 +32,10 @@ args = "check-hardcoded-mobile-strings"
 task = "workflow.run"
 args = "check-api-compression"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
 author = "agent"
@@ -75,6 +79,18 @@ args = "bash -c 'set -e; HEADERS=$(curl -sf -D - --compressed -o /dev/null http:
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
 
 [agent]
 stack = "PNPM_WORKSPACE"
