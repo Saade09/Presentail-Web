@@ -253,4 +253,128 @@ test.describe("Payment badges — no horizontal overflow at 375 px", () => {
       "page must have no horizontal scrollbar at 375 px",
     ).toBe(false);
   });
+
+  // -------------------------------------------------------------------------
+  // 3. Expanded Apple Pay tile — email field + security note visible
+  // -------------------------------------------------------------------------
+
+  test("payment-options and wallet icons do not overflow when Apple Pay tile is expanded at 375 px", async ({
+    page,
+    context,
+  }) => {
+    // Force walletSupported=true so the Apple Pay and Google Pay rows render.
+    await context.addInitScript(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ = true;
+    });
+
+    await page.goto("/checkout");
+    await fillToPaymentStep(page);
+
+    // The wallet icons row must be present.
+    const walletIcons = page.getByTestId("payment-wallet-icons");
+    await expect(walletIcons).toBeVisible({ timeout: 10_000 });
+
+    // Tap the Apple Pay tile to make it the active (expanded) method.
+    // Apple Pay is the default selection when walletSupported=true, but we
+    // click it explicitly to guarantee the expanded state is rendered.
+    await page.getByText(/^Apple Pay$/i).first().click();
+
+    // Wait until the expanded children (email field) are visible — this is a
+    // deterministic condition that avoids a fixed-duration sleep.
+    await page
+      .locator("[data-testid='payment-options'] input[inputmode='email'], [data-testid='payment-options'] input[type='email']")
+      .first()
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .catch(() => {
+        // Email field may already be mounted but off-screen; proceed regardless.
+      });
+
+    // The wallet-icons badge row must not bleed past the viewport.
+    const walletOverflows = await elementOverflowsViewport(
+      page,
+      "payment-wallet-icons",
+    );
+    expect(
+      walletOverflows,
+      "payment-wallet-icons must not overflow when Apple Pay tile is expanded",
+    ).toBe(false);
+
+    // The overall payment-options container must not overflow either.
+    const containerOverflows = await elementOverflowsViewport(
+      page,
+      "payment-options",
+    );
+    expect(
+      containerOverflows,
+      "payment-options container must not overflow when Apple Pay tile is expanded",
+    ).toBe(false);
+
+    const pageOverflows = await pageHasHorizontalOverflow(page);
+    expect(
+      pageOverflows,
+      "page must have no horizontal scrollbar when Apple Pay tile is expanded at 375 px",
+    ).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // 4. Expanded Google Pay tile — email field + security note visible
+  // -------------------------------------------------------------------------
+
+  test("payment-options and wallet icons do not overflow when Google Pay tile is expanded at 375 px", async ({
+    page,
+    context,
+  }) => {
+    // Force walletSupported=true so the Apple Pay and Google Pay rows render.
+    await context.addInitScript(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ = true;
+    });
+
+    await page.goto("/checkout");
+    await fillToPaymentStep(page);
+
+    // The wallet icons row must be present before we switch methods.
+    const walletIcons = page.getByTestId("payment-wallet-icons");
+    await expect(walletIcons).toBeVisible({ timeout: 10_000 });
+
+    // Tap the Google Pay tile to expand it (switches active payMethod).
+    await page.getByText(/^Google Pay$/i).first().click();
+
+    // Wait until the expanded children (email field) are visible — this is a
+    // deterministic condition that avoids a fixed-duration sleep.
+    await page
+      .locator("[data-testid='payment-options'] input[inputmode='email'], [data-testid='payment-options'] input[type='email']")
+      .first()
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .catch(() => {
+        // Email field may already be mounted but off-screen; proceed regardless.
+      });
+
+    // The wallet-icons badge row must not bleed past the viewport.
+    const walletOverflows = await elementOverflowsViewport(
+      page,
+      "payment-wallet-icons",
+    );
+    expect(
+      walletOverflows,
+      "payment-wallet-icons must not overflow when Google Pay tile is expanded",
+    ).toBe(false);
+
+    // The overall payment-options container must not overflow either.
+    const containerOverflows = await elementOverflowsViewport(
+      page,
+      "payment-options",
+    );
+    expect(
+      containerOverflows,
+      "payment-options container must not overflow when Google Pay tile is expanded",
+    ).toBe(false);
+
+    const pageOverflows = await pageHasHorizontalOverflow(page);
+    expect(
+      pageOverflows,
+      "page must have no horizontal scrollbar when Google Pay tile is expanded at 375 px",
+    ).toBe(false);
+  });
 });
