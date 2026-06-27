@@ -19,13 +19,18 @@
  * MUST be pointed at a built serve.mjs instance via PLAYWRIGHT_BASE_URL. The
  * "Web serve checks" CI workflow builds + starts serve.mjs and runs it there.
  *
- * It asserts, for a locale-prefixed path ("/en-lb/beirut/"):
- *   1. Exactly one <link rel="alternate" hreflang="X-LB"> for each supported
- *      language (en-LB, ar-LB, fr-LB) — no more, no fewer.
+ * It asserts, for one locale-prefixed path per country (LB "/en-lb/beirut/",
+ * AE "/en-ae/dubai/", CY "/en-cy/nicosia/"):
+ *   1. Exactly one <link rel="alternate" hreflang="X-YY"> for each supported
+ *      language (en / ar / fr) of that country — no more, no fewer.
  *   2. Exactly one <link rel="alternate" hreflang="x-default">.
  *   3. Every alternate href is absolute and on the request origin.
  *   4. Every alternate href reflects the page's city, and the per-language
  *      alternates carry their own language prefix (x-default points at English).
+ *
+ * UAE and Cyprus are first-class markets: the country suffix in each hreflang is
+ * derived from the request path, so a wrong-suffix or missing-variant regression
+ * on AE/CY would slip past a Lebanon-only test.
  *
  * Uses Playwright's APIRequestContext so the tests exercise the real HTTP layer
  * (serve.mjs) without a browser — exactly the initial HTML crawlers receive.
@@ -64,67 +69,97 @@ function findAlternateLinks(html: string): AlternateLink[] {
 }
 
 // ---------------------------------------------------------------------------
-// Locale-prefixed hreflang alternates on "/en-lb/beirut/"
+// Locale-prefixed hreflang alternates per country
+//
+// LB, AE, and CY are all first-class markets. The country code in each
+// `hreflang="X-YY"` is derived from the request path, so an AE or CY regression
+// (wrong country suffix, missing language variant) would NOT be caught by a
+// Lebanon-only test. Run the identical guard against one page per country.
 // ---------------------------------------------------------------------------
 
-test.describe("Production SEO — hreflang alternates on /en-lb/beirut/", () => {
-  let html: string;
-  let origin: string;
+interface CountryCase {
+  /** Two-letter country code as it appears (lowercase) in URL paths. */
+  country: string;
+  /** A supported city slug for that country. */
+  city: string;
+}
 
-  test.beforeAll(async ({ request }) => {
-    const response = await request.get("/en-lb/beirut/");
-    expect(response.status()).toBe(200);
-    origin = new URL(response.url()).origin;
-    html = await response.text();
-  });
+const COUNTRY_CASES: CountryCase[] = [
+  { country: "lb", city: "beirut" },
+  { country: "ae", city: "dubai" },
+  { country: "cy", city: "nicosia" },
+];
 
-  test("emits exactly one alternate per supported language for the country", () => {
-    const links = findAlternateLinks(html);
-    const byLang = links.filter((l) => l.hreflang !== "x-default");
-    const codes = byLang.map((l) => l.hreflang).sort();
-    expect(
-      codes,
-      `expected exactly en-LB, ar-LB, fr-LB once each, got ${JSON.stringify(codes)}`,
-    ).toEqual(["ar-LB", "en-LB", "fr-LB"]);
-  });
+for (const { country, city } of COUNTRY_CASES) {
+  const path = `/en-${country}/${city}/`;
+  const CC = country.toUpperCase();
+  const expectedCodes = [`ar-${CC}`, `en-${CC}`, `fr-${CC}`];
 
-  test("emits exactly one x-default alternate", () => {
-    const links = findAlternateLinks(html);
-    const xDefaults = links.filter((l) => l.hreflang === "x-default");
-    expect(
-      xDefaults.length,
-      `expected exactly one x-default, found ${xDefaults.length}: ${JSON.stringify(
-        xDefaults,
-      )}`,
-    ).toBe(1);
-  });
+  test.describe(`Production SEO — hreflang alternates on ${path}`, () => {
+    let html: string;
+    let origin: string;
 
-  test("every alternate href is absolute and on the request origin", () => {
-    const links = findAlternateLinks(html);
-    expect(links.length).toBeGreaterThan(0);
-    for (const { hreflang, href } of links) {
-      expect(href, `${hreflang} href must be absolute, got "${href}"`).toMatch(
-        /^https?:\/\//,
-      );
+    test.beforeAll(async ({ request }) => {
+      const response = await request.get(path);
+      expect(response.status()).toBe(200);
+      origin = new URL(response.url()).origin;
+      html = await response.text();
+    });
+
+    test("emits exactly one alternate per supported language for the country", () => {
+      const links = findAlternateLinks(html);
+      const byLang = links.filter((l) => l.hreflang !== "x-default");
+      const codes = byLang.map((l) => l.hreflang).sort();
       expect(
-        new URL(href).origin,
-        `${hreflang} href origin must equal the request origin`,
-      ).toBe(origin);
-    }
+        codes,
+        `expected exactly ${expectedCodes.join(", ")} once each, got ${JSON.stringify(codes)}`,
+      ).toEqual(expectedCodes);
+    });
+
+    test("emits exactly one x-default alternate", () => {
+      const links = findAlternateLinks(html);
+      const xDefaults = links.filter((l) => l.hreflang === "x-default");
+      expect(
+        xDefaults.length,
+        `expected exactly one x-default, found ${xDefaults.length}: ${JSON.stringify(
+          xDefaults,
+        )}`,
+      ).toBe(1);
+    });
+
+    test("every alternate href is absolute and on the request origin", () => {
+      const links = findAlternateLinks(html);
+      expect(links.length).toBeGreaterThan(0);
+      for (const { hreflang, href } of links) {
+        expect(href, `${hreflang} href must be absolute, got "${href}"`).toMatch(
+          /^https?:\/\//,
+        );
+        expect(
+          new URL(href).origin,
+          `${hreflang} href origin must equal the request origin`,
+        ).toBe(origin);
+      }
+    });
+
+    test("each alternate href reflects the page city and its own language", () => {
+      const links = findAlternateLinks(html);
+      const byCode = new Map(links.map((l) => [l.hreflang, l.href]));
+
+      // Per-language alternates must carry their own language prefix + the city.
+      expect(new URL(byCode.get(`en-${CC}`)!).pathname).toContain(
+        `/en-${country}/${city}`,
+      );
+      expect(new URL(byCode.get(`ar-${CC}`)!).pathname).toContain(
+        `/ar-${country}/${city}`,
+      );
+      expect(new URL(byCode.get(`fr-${CC}`)!).pathname).toContain(
+        `/fr-${country}/${city}`,
+      );
+
+      // x-default must point at the English variant.
+      expect(new URL(byCode.get("x-default")!).pathname).toContain(
+        `/en-${country}/${city}`,
+      );
+    });
   });
-
-  test("each alternate href reflects the page city and its own language", () => {
-    const links = findAlternateLinks(html);
-    const byCode = new Map(links.map((l) => [l.hreflang, l.href]));
-
-    // Per-language alternates must carry their own language prefix + the city.
-    expect(new URL(byCode.get("en-LB")!).pathname).toContain("/en-lb/beirut");
-    expect(new URL(byCode.get("ar-LB")!).pathname).toContain("/ar-lb/beirut");
-    expect(new URL(byCode.get("fr-LB")!).pathname).toContain("/fr-lb/beirut");
-
-    // x-default must point at the English variant.
-    expect(new URL(byCode.get("x-default")!).pathname).toContain(
-      "/en-lb/beirut",
-    );
-  });
-});
+}
