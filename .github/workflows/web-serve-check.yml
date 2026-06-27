@@ -54,10 +54,16 @@ jobs:
       - name: Check logo preload tag survives critters rewrite
         run: node artifacts/presentail-web/scripts/check-logo-preload.mjs artifacts/presentail-web/dist/public
 
+      # The SEO entity fixture API also stands in for the shared-wishlist
+      # resolution path (/api/favorites/share/<token> + the hero product), so
+      # section 7 of e2e-serve/seo-injection.spec.ts (resolved-wishlist
+      # og:image dimensions) actually runs instead of degrading to test.skip
+      # because no live API + OS backend exists in this workflow.
       - name: Start SEO entity fixture API
         run: node artifacts/presentail-web/e2e-serve/seo-entity-fixture-server.mjs &
         env:
           SEO_FIXTURE_PORT: 19235
+          WISHLIST_SHARE_TOKEN: ci-wishlist-share-token
 
       - name: Wait for fixture API to be ready
         run: npx --yes wait-on http://localhost:19235/healthz --timeout 30000
@@ -68,10 +74,11 @@ jobs:
           PORT: 19234
           BASE_PATH: /
           NODE_ENV: production
-          # Point serve.mjs's SEO entity resolution (product/brand/category/
-          # occasion) at the stateless fixture API above so the og:image
-          # dimension specs resolve real, measurable hero images in CI instead
-          # of test.skip-ing on the unreachable Presentail OS upstreams.
+          # Point serve.mjs's SEO entity + shared-wishlist resolution
+          # (product/brand/category/occasion + /api/favorites/share) at the
+          # stateless fixture API above so the og:image dimension specs resolve
+          # real, measurable hero images in CI instead of test.skip-ing on the
+          # unreachable Presentail OS upstreams.
           INTERNAL_API_BASE_URL: http://localhost:19235
           # Synthetic token — long enough to pass the blob validity check in
           # check-apple-pay-domain.mjs without exposing any real secret.
@@ -102,10 +109,11 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
           # Fixture share token answered by seo-entity-fixture-server.mjs's
-          # /api/favorites/share/<token> handler. Lets the shared-wishlist
-          # og:image dimension group resolve a real, measurable hero image
-          # instead of test.skip-ing on the unreachable favorites upstream.
-          WISHLIST_SHARE_TOKEN: seo-fixture-wishlist-token
+          # /api/favorites/share/<token> handler. Must match the token passed to
+          # the fixture API start step above so the shared-wishlist og:image
+          # dimension group resolves a real, measurable hero image instead of
+          # test.skip-ing on the unreachable favorites upstream.
+          WISHLIST_SHARE_TOKEN: ci-wishlist-share-token
 
       - name: Upload Playwright report
         if: failure()

@@ -19,6 +19,13 @@
  * fetchImageDimensions() AND the spec's isMeasurableImage() probe resolve a
  * genuine `image/png` response with positive integer dimensions.
  *
+ * It also stands in for the shared-wishlist resolution path so section 7 of
+ * the same spec (resolved-wishlist og:image dimensions) actually runs instead
+ * of degrading to test.skip: it answers GET /api/favorites/share/<token> for
+ * the configured WISHLIST_SHARE_TOKEN by returning a single favorite that
+ * references the `rose-bouquet` fixture product, whose hero image is the same
+ * measurable PNG served for every other entity.
+ *
  * Shapes mirror what seo-inject.mjs consumes:
  *   - product:  { ok, product:  { name, description, priceValue, inStock,
  *                                 image: { uri } } }
@@ -36,8 +43,10 @@
  * serve.mjs degrades to its generic head exactly as it would in production when
  * an entity does not resolve — keeping the fixture's blast radius minimal.
  *
- * Port comes from SEO_FIXTURE_PORT (default 19235). Logs a ready line on listen
- * so the workflow's wait-on step can proceed.
+ * Port comes from SEO_FIXTURE_PORT (default 19235). The resolvable wishlist
+ * token comes from WISHLIST_SHARE_TOKEN (default below) and must match the
+ * value the Playwright run passes to section 7. Logs a ready line on listen so
+ * the workflow's wait-on step can proceed.
  */
 
 import http from "node:http";
@@ -45,6 +54,9 @@ import zlib from "node:zlib";
 
 const PORT = Number(process.env.SEO_FIXTURE_PORT ?? 19235);
 const ORIGIN = `http://localhost:${PORT}`;
+const WISHLIST_SHARE_TOKEN = (
+  process.env.WISHLIST_SHARE_TOKEN ?? "ci-wishlist-share-token"
+).trim();
 
 // ---------------------------------------------------------------------------
 // PNG generation — a real, valid PNG of the requested dimensions so the image
@@ -119,12 +131,12 @@ const OCCASIONS = {
 
 // ---------------------------------------------------------------------------
 // Shared-wishlist fixture. The "Web serve checks" workflow exports
-// WISHLIST_SHARE_TOKEN with this exact value so the shared-wishlist og:image
-// dimension group in seo-injection.spec.ts resolves a real, measurable hero
-// image instead of test.skip-ing on the unreachable /api/favorites/share
-// upstream. The favorites point at the existing measurable "rose-bouquet"
-// product, whose hero image is served by /fixtures/hero.png above.
-const WISHLIST_SHARE_TOKEN = "seo-fixture-wishlist-token";
+// WISHLIST_SHARE_TOKEN (see the env-driven const near the top of this file) so
+// the shared-wishlist og:image dimension group in seo-injection.spec.ts
+// resolves a real, measurable hero image instead of test.skip-ing on the
+// unreachable /api/favorites/share upstream. The favorites point at the
+// existing measurable "rose-bouquet" product, whose hero image is served by
+// /fixtures/hero.png above.
 const SHARED_FAVORITES = [{ productSlug: "rose-bouquet", countryCode: "LB" }];
 
 function sendJson(res, status, body) {
