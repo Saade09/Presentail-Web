@@ -236,3 +236,110 @@ describe("OrderConfirmed — createOrder failure keeps the payload", () => {
     expect(mockClearCart).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 4. Retry action — replay the stashed payload from the failure screen
+// ---------------------------------------------------------------------------
+
+describe("OrderConfirmed — retry from the failure screen", () => {
+  beforeEach(() => {
+    mockUseSearch.mockReturnValue("?status=success");
+    seedSessionStorage();
+  });
+
+  it("shows a Retry CTA (not return-to-checkout) when a pending payload remains", async () => {
+    mockMutate.mockImplementation(
+      (_payload: unknown, { onError }: { onError: (err: unknown) => void }) => {
+        onError(new Error("Network failure"));
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await screen.findByTestId("icon-failed");
+
+    // The retry CTA is surfaced and the default return-to-checkout primary CTA
+    // is replaced by it.
+    expect(screen.getByTestId("button-retry-order")).toBeTruthy();
+    expect(screen.queryByTestId("button-confirmation-cta")).toBeNull();
+  });
+
+  it("re-attempts createOrder, shows success, and clears sessionStorage on a successful retry", async () => {
+    // First attempt fails, second (retry) succeeds.
+    mockMutate
+      .mockImplementationOnce(
+        (
+          _payload: unknown,
+          { onError }: { onError: (err: unknown) => void },
+        ) => {
+          onError(new Error("Network failure"));
+        },
+      )
+      .mockImplementationOnce(
+        (
+          _payload: unknown,
+          { onSuccess }: { onSuccess: (res: unknown) => void },
+        ) => {
+          onSuccess({ ok: true, wcOrderId: 67890 });
+        },
+      );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // First finalize attempt fails.
+    await screen.findByTestId("icon-failed");
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+
+    // Trigger the retry.
+    screen.getByTestId("button-retry-order").click();
+
+    // The stashed payload is replayed through createOrder a second time.
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(2);
+    });
+    const retryPayload = mockMutate.mock.calls[1][0] as Record<string, unknown>;
+    expect(retryPayload).toMatchObject({
+      totalUsd: 80,
+      currencyCode: "USD",
+      paymentMethod: "card",
+    });
+
+    // Success screen replaces the failure screen.
+    await screen.findByTestId("icon-success");
+    expect(screen.getByTestId("text-order-ref").textContent).toContain("67890");
+
+    // The pending queue is cleared so it cannot be replayed again.
+    expect(sessionStorage.getItem(PENDING_ORDER_KEY)).toBeNull();
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the return-to-checkout CTA when no pending payload remains", async () => {
+    // ok:false with the payload manually cleared mimics a state where nothing
+    // is left to retry — the screen must offer the standard checkout CTA.
+    mockMutate.mockImplementation(
+      (
+        _payload: unknown,
+        { onSuccess }: { onSuccess: (res: unknown) => void },
+      ) => {
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
+        onSuccess({ ok: false, message: "Gone" });
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await screen.findByTestId("icon-failed");
+
+    // No payload → no retry CTA, the standard return-to-checkout CTA is shown.
+    expect(screen.queryByTestId("button-retry-order")).toBeNull();
+    const cta = screen.getByTestId("button-confirmation-cta");
+    cta.click();
+    expect(mockSetLocation).toHaveBeenCalledWith("/checkout");
+  });
+});

@@ -325,6 +325,21 @@ export default function OrderConfirmed() {
   const isSuccess = state.kind === "success";
   const ref = state.kind === "success" ? state.ref : "—";
 
+  // A failed finalize keeps the stashed payload so the shopper — who may already
+  // have been charged — can replay it without losing the order. Surface a retry
+  // CTA whenever a pending payload is still present; otherwise fall back to the
+  // "return to checkout" CTA.
+  const canRetry =
+    state.kind === "failed" && sessionStorage.getItem(PENDING_ORDER_KEY) !== null;
+
+  const handleRetry = () => {
+    // Re-arm the finalize effect: resetting triedRef lets it run again, and
+    // moving back to "finalizing" re-renders the loading screen and replays
+    // the stashed payload through createOrder.
+    triedRef.current = false;
+    setState({ kind: "finalizing" });
+  };
+
   return (
     <div className="min-h-screen pt-8 pb-8 sm:pt-32 sm:pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
       <div className="max-w-md w-full text-center space-y-3 sm:space-y-6 animate-in zoom-in-95 duration-500">
@@ -359,15 +374,39 @@ export default function OrderConfirmed() {
           <OrderSummary order={confirmedOrder} t={t} language={language} />
         )}
 
-        <div className="pt-2 sm:pt-4">
-          <Button
-            size="lg"
-            className="rounded-full px-8"
-            onClick={() => setLocation(isSuccess ? "/shop" : "/checkout")}
-            data-testid="button-confirmation-cta"
-          >
-            {isSuccess ? t("order.continueShopping") : t("order.returnCheckout")}
-          </Button>
+        <div className="pt-2 sm:pt-4 space-y-3">
+          {canRetry ? (
+            <Button
+              size="lg"
+              className="rounded-full px-8"
+              onClick={handleRetry}
+              data-testid="button-retry-order"
+            >
+              {t("order.retry")}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className="rounded-full px-8"
+              onClick={() => setLocation(isSuccess ? "/shop" : "/checkout")}
+              data-testid="button-confirmation-cta"
+            >
+              {isSuccess ? t("order.continueShopping") : t("order.returnCheckout")}
+            </Button>
+          )}
+
+          {canRetry && (
+            <div className="text-sm text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setLocation("/checkout")}
+                className="hover:text-primary underline-offset-4 hover:underline"
+                data-testid="button-return-checkout"
+              >
+                {t("order.returnCheckout")}
+              </button>
+            </div>
+          )}
         </div>
 
         {!isSuccess && (
