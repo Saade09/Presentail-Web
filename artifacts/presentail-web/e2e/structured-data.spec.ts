@@ -316,3 +316,42 @@ test.describe("Structured data — locale-prefixed occasion path /en-lb/beirut/o
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 7. Shared wishlist path /favorites/share/:token
+//
+// injectSeoTagsAsync() has a dedicated, non-locale-prefixed code path for
+// /favorites/share/:token (fetchSharedFavoritesForSeo + buildWishlistHead).
+// When the token does not resolve (fetch returns null), wishlistResult stays
+// null and execution falls through to the generic head, which always emits
+// Organization JSON-LD + OG/Twitter tags. This guards against a regression in
+// that path (e.g. broken Accept-Language handling or a cache eviction bug)
+// silently producing a blank OG preview every time a shopper shares a wishlist.
+//
+// We use a token that is guaranteed not to exist so the assertion holds in any
+// environment regardless of whether the API/OS upstreams are reachable.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — shared wishlist path /favorites/share/:token (unresolved token)", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(
+      "/favorites/share/test-token-that-does-not-exist",
+    );
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+});
