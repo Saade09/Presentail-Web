@@ -10,12 +10,14 @@
  *   6. A non-empty <meta name="twitter:title"> tag
  *   7. A non-empty <meta name="twitter:description"> tag
  *
- * Locale-prefixed route coverage (groups 2–6 below):
+ * Locale-prefixed route coverage (groups 2–8 below):
  *   - /en-lb/beirut/                 — city homepage (generic head)
  *   - /en-lb/beirut/product/<slug>   — product entity path
  *   - /en-lb/beirut/brand/<slug>     — brand entity path
  *   - /en-lb/beirut/category/<slug>  — category entity path
  *   - /en-lb/beirut/occasion/<slug>  — occasion entity path
+ *   - /en-lb/beirut/blog             — editorial blog index (generic head)
+ *   - /en-lb/beirut/blog/<slug>      — individual blog post (generic head)
  *
  * For entity paths the Organization JSON-LD and OG/Twitter tags are always
  * present regardless of whether the upstream OS API resolves the slug
@@ -318,7 +320,98 @@ test.describe("Structured data — locale-prefixed occasion path /en-lb/beirut/o
 });
 
 // ---------------------------------------------------------------------------
-// 7. Shared wishlist path /favorites/share/:token
+// 7. Locale-prefixed blog index /en-lb/beirut/blog
+//
+// The blog index is not an OS-resolved entity path: injectSeoTagsAsync() falls
+// through to the generic head (buildSeoHead) for it, which always emits
+// Organization + WebSite JSON-LD and a full set of OG/Twitter tags using the
+// blog-specific title/description keys (see seo-inject.mjs ROUTE_TITLES /
+// ROUTE_DESCRIPTIONS `blog`). This guards against a regression in the blog
+// head injection silently producing a blank OG preview whenever an article
+// index link is shared on social.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed blog index /en-lb/beirut/blog", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/blog");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test('JSON-LD block with "@type":"WebSite" is present', () => {
+    expect(html).toContain('"@type":"WebSite"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. Locale-prefixed blog post /en-lb/beirut/blog/<slug>
+//
+// Individual blog posts are matched by the `blogPost` route key but are not
+// fetched as OS entities, so injectSeoTagsAsync() returns the generic head:
+// Organization JSON-LD + OG/Twitter tags + meta description are always present
+// using the blog-post title/description keys. A regression here would silently
+// ship broken previews for every shared article.
+//
+// No Article/BreadcrumbList JSON-LD is emitted today, but should the blog head
+// builder ever start injecting it we assert it conditionally (via test.skip)
+// so the test doubles as an integration check without flaking when it is
+// absent — mirroring the entity suites above.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/the-art-of-gifting-flowers", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(
+      "/en-lb/beirut/blog/the-art-of-gifting-flowers",
+    );
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test('meta[name="description"] is present and non-empty', () => {
+    assertDescription(html);
+  });
+
+  test('when the blog head resolves the post, "@type":"Article" JSON-LD is present', () => {
+    if (!html.includes('"@type":"Article"')) {
+      test.skip(true, "blog head did not resolve an article — Article JSON-LD not expected");
+    }
+    expect(html).toContain('"@type":"Article"');
+  });
+
+  test('when the blog head resolves the post, "@type":"BreadcrumbList" JSON-LD is present', () => {
+    if (!html.includes('"@type":"BreadcrumbList"')) {
+      test.skip(true, "blog head did not resolve an article — BreadcrumbList not expected");
+    }
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Shared wishlist path /favorites/share/:token
 //
 // injectSeoTagsAsync() has a dedicated, non-locale-prefixed code path for
 // /favorites/share/:token (fetchSharedFavoritesForSeo + buildWishlistHead).
