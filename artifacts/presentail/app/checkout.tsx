@@ -90,7 +90,7 @@ import {
   type TimeSlot,
 } from "@workspace/delivery";
 import { useDeliveryConfig } from "@/hooks/useDeliveryConfig";
-import { createMamoPayment, createPayPalOrder } from "@/lib/payments";
+import { createMamoPayment, createPayPalOrder, finalizeHostedPayment } from "@/lib/payments";
 import {
   isPayMethodSupported,
   nextPayMethodForCurrency,
@@ -956,8 +956,42 @@ function CheckoutScreen() {
     // After a successful payment, await WC order creation. On failure,
     // navigate to the result screen with status=failed so the customer
     // sees a retry/contact-support state — not a generic confirmation.
-    const finishAfterPayment = async (paymentRef?: string) => {
-      const ok = await submitWooOrder(orderId, paymentRef);
+    //
+    // `deferredStartedAt` is supplied only by redirect (Mamo / PayPal / Stripe
+    // hosted fallback) flows — it's the timestamp captured right before the
+    // hosted browser opened. A backgrounded app can resume that browser session
+    // and return "success" long after the shopper abandoned it; when the
+    // deferred payment is stale we must NOT create the order — we route to the
+    // failure screen instead so an abandoned redirect never becomes a real
+    // order. Inline flows (card / native wallet / Whish / Western Union) pass no
+    // timestamp and are therefore never gated. The gate itself lives in the
+    // pure, unit-tested `finalizeHostedPayment` helper.
+    const finishAfterPayment = async (
+      paymentRef?: string,
+      deferredStartedAt?: number,
+    ) => {
+      await finalizeHostedPayment({
+        deferredStartedAt,
+        createOrder: () => submitWooOrder(orderId, paymentRef),
+        onStale: async () => {
+          // The shopper has already been charged (a deferred redirect always
+          // carries a paymentRef), so stash the exact order payload — the
+          // failure screen can replay it through createWooOrder without
+          // forcing a re-charge — then route to the failure state.
+          if (paymentRef) {
+            await savePendingOrder({
+              payload: { ...buildWooPayload(orderId), paymentRef },
+              authToken,
+              filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+            });
+          }
+          router.replace(buildResultPath("failed", paymentRef));
+        },
+        onSettled: (ok) => finishAfterPaymentSettled(ok, paymentRef),
+      });
+    };
+
+    const finishAfterPaymentSettled = async (ok: boolean, paymentRef?: string) => {
       if (ok) {
         // CartContext.clear() also clears the persisted delivery selection
         // via the onClear listener registered in DeliverySelectionContext, so
@@ -1219,9 +1253,10 @@ function CheckoutScreen() {
           storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
         });
         if (session.ok) {
+          const deferredStartedAt = Date.now();
           const outcome = await runHostedCheckout(session.url, deeplinkBase);
           if (outcome === "success") {
-            await finishAfterPayment(session.id);
+            await finishAfterPayment(session.id, deferredStartedAt);
           } else {
             Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledStripe);
           }
@@ -1310,9 +1345,10 @@ function CheckoutScreen() {
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
+        const deferredStartedAt = Date.now();
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
         if (outcome === "success") {
-          await finishAfterPayment(session.id);
+          await finishAfterPayment(session.id, deferredStartedAt);
         } else {
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
@@ -1342,9 +1378,10 @@ function CheckoutScreen() {
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
       });
       if (session.ok) {
+        const deferredStartedAt = Date.now();
         const outcome = await runHostedCheckout(session.url, deeplinkBase);
         if (outcome === "success") {
-          await finishAfterPayment(session.id);
+          await finishAfterPayment(session.id, deferredStartedAt);
         } else {
           Alert.alert(t.checkoutPaymentCancelledTitle, t.checkoutPaymentCancelledGeneric);
         }
