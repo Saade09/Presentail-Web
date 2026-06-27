@@ -69,17 +69,8 @@ const BLOG_DISALLOWED_RASTER_EXTS = new Set([".png", ".bmp", ".tiff", ".tif"]);
 /**
  * Documented exceptions — reported but never fail the build.  Paths are
  * relative to publicDir and use forward slashes.
- *
- * hero-bouquet*.png are legacy, currently-unreferenced hero exports left over
- * from an earlier homepage design (no `hero-bouquet` reference exists anywhere
- * in src/).  They should be deleted or re-encoded to WebP rather than kept;
- * until then they are allowlisted so this guard can stay strict for everything
- * else.
  */
-const ALLOWLIST = new Set([
-  "hero-bouquet.png",
-  "hero-bouquet-nobg.png",
-]);
+const ALLOWLIST = new Set([]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = process.argv[2]
