@@ -370,6 +370,109 @@ describe("OrderConfirmed — retry from the failure screen", () => {
     expect(mockClearCart).toHaveBeenCalledTimes(1);
   });
 
+  it("caps Retry after repeated failures and escalates to contact-us", async () => {
+    // Every attempt fails — the shopper would otherwise loop on Retry forever.
+    mockMutate.mockImplementation(
+      (_payload: unknown, { onError }: { onError: (err: unknown) => void }) => {
+        onError(new Error("Permanently rejected payload"));
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // Attempt 1 (initial finalize) fails — Retry is still offered.
+    await screen.findByTestId("icon-failed");
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("button-retry-order")).toBeTruthy();
+
+    // Attempt 2 fails — Retry still offered.
+    screen.getByTestId("button-retry-order").click();
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("button-retry-order")).toBeTruthy();
+
+    // Attempt 3 fails — cap reached, Retry must be withdrawn.
+    screen.getByTestId("button-retry-order").click();
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("button-retry-order")).toBeNull();
+    });
+
+    // The escalation message is shown instead of just re-offering Retry.
+    expect(
+      screen.getByTestId("text-confirmation-message").textContent,
+    ).toContain("order.fail.exhausted");
+
+    // The standard return-to-checkout CTA is offered as the way forward.
+    const cta = screen.getByTestId("button-confirmation-cta");
+    cta.click();
+    expect(mockSetLocation).toHaveBeenCalledWith("/checkout");
+  });
+
+  it("shows the payment reference in the escalation when one is on the URL", async () => {
+    mockUseSearch.mockReturnValue("?status=success&session_id=cs_test_abc123");
+    mockMutate.mockImplementation(
+      (_payload: unknown, { onError }: { onError: (err: unknown) => void }) => {
+        onError(new Error("Permanently rejected payload"));
+      },
+    );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    await screen.findByTestId("icon-failed");
+    // Drive past the cap.
+    screen.getByTestId("button-retry-order").click();
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2));
+    screen.getByTestId("button-retry-order").click();
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("text-payment-ref").textContent).toContain(
+        "cs_test_abc123",
+      );
+    });
+  });
+
+  it("resets the failure counter after a successful retry so Retry stays available", async () => {
+    // Fail twice, then succeed — the counter must reset so a later failure does
+    // not inherit the prior count and prematurely cap Retry.
+    mockMutate
+      .mockImplementationOnce(
+        (_p: unknown, { onError }: { onError: (e: unknown) => void }) =>
+          onError(new Error("fail 1")),
+      )
+      .mockImplementationOnce(
+        (_p: unknown, { onError }: { onError: (e: unknown) => void }) =>
+          onError(new Error("fail 2")),
+      )
+      .mockImplementationOnce(
+        (_p: unknown, { onSuccess }: { onSuccess: (r: unknown) => void }) =>
+          onSuccess({ ok: true, wcOrderId: 999 }),
+      );
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    // Attempt 1 fails.
+    await screen.findByTestId("icon-failed");
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+
+    // Attempt 2 fails — Retry still available (under the cap).
+    screen.getByTestId("button-retry-order").click();
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("button-retry-order")).toBeTruthy();
+
+    // Attempt 3 succeeds — success screen and the counter resets.
+    screen.getByTestId("button-retry-order").click();
+    await screen.findByTestId("icon-success");
+    expect(screen.getByTestId("text-order-ref").textContent).toContain("999");
+  });
+
   it("falls back to the return-to-checkout CTA when no pending payload remains", async () => {
     // ok:false with the payload manually cleared mimics a state where nothing
     // is left to retry — the screen must offer the standard checkout CTA.

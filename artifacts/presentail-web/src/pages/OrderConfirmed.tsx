@@ -18,6 +18,11 @@ const PENDING_ORDER_KEY = "presentail_pending_order_v1";
 // stash carries a `createdAt` timestamp written by Checkout at every write site.
 const PENDING_ORDER_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+// After this many consecutive failed finalize attempts we stop re-offering the
+// Retry CTA and escalate the shopper to "contact us with your payment reference"
+// so a permanently-rejected payload can't loop them forever.
+const MAX_FINALIZE_ATTEMPTS = 3;
+
 type FinalizeState =
   | { kind: "idle" }
   | { kind: "finalizing" }
@@ -219,6 +224,7 @@ export default function OrderConfirmed() {
   })();
 
   const [state, setState] = useState<FinalizeState>(initial);
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const triedRef = useRef(false);
   const purchaseFiredRef = useRef(false);
 
@@ -317,15 +323,19 @@ export default function OrderConfirmed() {
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
           }
+          // Order created — clear the consecutive-failure counter.
+          setFailedAttempts(0);
           setConfirmedOrder(captured);
           setState({ kind: "success", ref: orderRef });
         } else {
+          setFailedAttempts((c) => c + 1);
           setState({ kind: "failed", message: res.message || t("order.fail.couldntCreate") });
         }
       },
       onError: (err: any) => {
         // Keep the stashed payload so a reload can retry — the shopper may
         // already have been charged for a card payment.
+        setFailedAttempts((c) => c + 1);
         setState({ kind: "failed", message: err?.message || t("order.fail.failed") });
       },
     });
@@ -348,12 +358,19 @@ export default function OrderConfirmed() {
   const isSuccess = state.kind === "success";
   const ref = state.kind === "success" ? state.ref : "—";
 
+  // After too many consecutive failed finalize attempts we stop re-offering
+  // Retry — a permanently-rejected payload would otherwise loop the shopper
+  // forever. Escalate them to "contact us with your payment reference" instead.
+  const retriesExhausted = failedAttempts >= MAX_FINALIZE_ATTEMPTS;
+
   // A failed finalize keeps the stashed payload so the shopper — who may already
   // have been charged — can replay it without losing the order. Surface a retry
-  // CTA whenever a pending payload is still present; otherwise fall back to the
-  // "return to checkout" CTA.
+  // CTA whenever a pending payload is still present and we haven't hit the cap;
+  // otherwise fall back to the "return to checkout" CTA / escalation message.
   const canRetry =
-    state.kind === "failed" && sessionStorage.getItem(PENDING_ORDER_KEY) !== null;
+    state.kind === "failed" &&
+    !retriesExhausted &&
+    sessionStorage.getItem(PENDING_ORDER_KEY) !== null;
 
   const handleRetry = () => {
     // Re-arm the finalize effect: resetting triedRef lets it run again, and
@@ -378,10 +395,15 @@ export default function OrderConfirmed() {
           {isSuccess ? t("order.confirmed") : t("order.failed")}
         </h1>
 
-        <p className="text-muted-foreground text-base sm:text-lg">
+        <p
+          className="text-muted-foreground text-base sm:text-lg"
+          data-testid="text-confirmation-message"
+        >
           {isSuccess
             ? t("order.thanks")
-            : (state.kind === "failed" && state.message) || t("order.failGeneric")}
+            : retriesExhausted
+              ? t("order.fail.exhausted")
+              : (state.kind === "failed" && state.message) || t("order.failGeneric")}
         </p>
 
         {isSuccess && (
@@ -389,6 +411,20 @@ export default function OrderConfirmed() {
             <div>
               <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
               <p className="font-mono text-xl font-medium tracking-wider" data-testid="text-order-ref">{ref}</p>
+            </div>
+          </div>
+        )}
+
+        {!isSuccess && retriesExhausted && paymentRef && (
+          <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-8 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">{t("order.reference")}</p>
+              <p
+                className="font-mono text-xl font-medium tracking-wider break-all"
+                data-testid="text-payment-ref"
+              >
+                {paymentRef}
+              </p>
             </div>
           </div>
         )}
