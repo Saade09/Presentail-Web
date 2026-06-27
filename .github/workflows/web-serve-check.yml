@@ -51,12 +51,25 @@ jobs:
       - name: Check logo preload tag survives critters rewrite
         run: node artifacts/presentail-web/scripts/check-logo-preload.mjs artifacts/presentail-web/dist/public
 
+      - name: Start SEO entity fixture API
+        run: node artifacts/presentail-web/e2e-serve/seo-entity-fixture-server.mjs &
+        env:
+          SEO_FIXTURE_PORT: 19235
+
+      - name: Wait for fixture API to be ready
+        run: npx --yes wait-on http://localhost:19235/healthz --timeout 30000
+
       - name: Start serve.mjs
         run: node artifacts/presentail-web/serve.mjs &
         env:
           PORT: 19234
           BASE_PATH: /
           NODE_ENV: production
+          # Point serve.mjs's SEO entity resolution (product/brand/category/
+          # occasion) at the stateless fixture API above so the og:image
+          # dimension specs resolve real, measurable hero images in CI instead
+          # of test.skip-ing on the unreachable Presentail OS upstreams.
+          INTERNAL_API_BASE_URL: http://localhost:19235
           # Synthetic token — long enough to pass the blob validity check in
           # check-apple-pay-domain.mjs without exposing any real secret.
           STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
