@@ -10,7 +10,13 @@
  *   - Raw size, Brotli-compressed size, and whether the chunk exceeds the budget
  *
  * Budget: no single JS chunk may exceed BUDGET_KB kB Brotli-compressed.
- * Exits 0 on PASS, 1 on FAIL (over-budget chunks found).
+ *
+ * Lazy-only guard: chunks listed in MUST_BE_LAZY must NOT appear in the
+ * instant (statically-reachable) set.  A regression (e.g. accidentally
+ * importing a lazy component statically) causes an immediate FAIL so CI
+ * catches the ~42 kB regression before it ships.
+ *
+ * Exits 0 on PASS, 1 on FAIL (over-budget or lazy-guard violations found).
  *
  * Usage:
  *   node artifacts/presentail-web/scripts/check-chunk-budget.mjs [distDir]
@@ -23,6 +29,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BUDGET_KB = 200;
+
+/**
+ * Chunk names (manualChunks keys) that must NEVER appear in the instant
+ * (statically-reachable) set.  Any chunk here is expected to be loaded only
+ * via a dynamic import; a static-import path is a performance regression.
+ *
+ * vendor-phone: react-phone-number-input / libphonenumber-js / country-flag-icons
+ *   lazily loaded via LazyWebPhoneField (React.lazy).  Ending up in the instant
+ *   set would add ~42 kB Brotli to every first page load.
+ */
+const MUST_BE_LAZY = new Set(["vendor-phone"]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = process.argv[2]
@@ -49,6 +66,8 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
 /** @type {Map<string, string>} manifestKey → output filename (relative to distDir) */
 const keyToFile = new Map();
+/** @type {Map<string, string>} manifestKey → chunk name (manualChunks key) */
+const keyToName = new Map();
 /** @type {Map<string, string[]>} manifestKey → static-import manifest keys */
 const staticImports = new Map();
 /** @type {Map<string, string[]>} manifestKey → dynamic-import manifest keys */
@@ -58,6 +77,7 @@ const entryKeys = new Set();
 
 for (const [key, entry] of Object.entries(manifest)) {
   keyToFile.set(key, entry.file);
+  if (entry.name) keyToName.set(key, entry.name);
   staticImports.set(key, entry.imports ?? []);
   dynamicImports.set(key, entry.dynamicImports ?? []);
   if (entry.isEntry) entryKeys.add(key);
@@ -78,6 +98,39 @@ while (queue.length > 0) {
   for (const dep of staticImports.get(key) ?? []) {
     if (!instantKeys.has(dep)) queue.push(dep);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lazy-only guard: assert that MUST_BE_LAZY chunks are not in the instant set.
+// ---------------------------------------------------------------------------
+
+/** @type {Array<{ name: string, file: string }>} chunks that violated the guard */
+const lazyViolations = [];
+
+for (const key of instantKeys) {
+  const name = keyToName.get(key);
+  if (name && MUST_BE_LAZY.has(name)) {
+    lazyViolations.push({ name, file: keyToFile.get(key) ?? key });
+  }
+}
+
+if (lazyViolations.length > 0) {
+  console.error("\nLAZY-ONLY GUARD VIOLATIONS:");
+  for (const v of lazyViolations) {
+    console.error(
+      `  ❌  "${v.name}" (${v.file}) is statically reachable from the entry chunk.`
+    );
+    console.error(
+      `      It must only be loaded via a dynamic import (React.lazy / import()).`
+    );
+    console.error(
+      `      Check for a static import of the component that uses this chunk.`
+    );
+  }
+  console.error(
+    `\nFAIL  ${lazyViolations.length} chunk(s) that must be lazy are in the instant (eager) bundle.\n`
+  );
+  process.exit(1);
 }
 
 // ---------------------------------------------------------------------------
