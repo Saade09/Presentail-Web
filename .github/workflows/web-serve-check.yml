@@ -101,6 +101,11 @@ jobs:
         run: pnpm --filter @workspace/presentail-web run test:e2e:serve
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
+          # Fixture share token answered by seo-entity-fixture-server.mjs's
+          # /api/favorites/share/<token> handler. Lets the shared-wishlist
+          # og:image dimension group resolve a real, measurable hero image
+          # instead of test.skip-ing on the unreachable favorites upstream.
+          WISHLIST_SHARE_TOKEN: seo-fixture-wishlist-token
 
       - name: Upload Playwright report
         if: failure()

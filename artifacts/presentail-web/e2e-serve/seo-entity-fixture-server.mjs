@@ -27,6 +27,10 @@
  *   - occasion: { ok, occasion: { name, image } }
  *   - category-products: { ok, products: [{ name }], count }
  *   - occasion-products: { ok, groups: [{ count, products: [{ name }] }], total }
+ *   - favorites/share: { ok, favorites: [{ productSlug, countryCode }] }
+ *     (consumed by fetchSharedFavoritesForSeo — the hero product slug is then
+ *     resolved through the /api/woo/product endpoint above, so the fixture
+ *     favorites simply point at the existing measurable "rose-bouquet" product)
  *
  * Unknown slugs and unrelated endpoints (banners, sitemap, etc.) return 404 so
  * serve.mjs degrades to its generic head exactly as it would in production when
@@ -113,6 +117,16 @@ const OCCASIONS = {
   birthday: { name: "Birthday", image: HERO_IMAGE_URL },
 };
 
+// ---------------------------------------------------------------------------
+// Shared-wishlist fixture. The "Web serve checks" workflow exports
+// WISHLIST_SHARE_TOKEN with this exact value so the shared-wishlist og:image
+// dimension group in seo-injection.spec.ts resolves a real, measurable hero
+// image instead of test.skip-ing on the unreachable /api/favorites/share
+// upstream. The favorites point at the existing measurable "rose-bouquet"
+// product, whose hero image is served by /fixtures/hero.png above.
+const WISHLIST_SHARE_TOKEN = "seo-fixture-wishlist-token";
+const SHARED_FAVORITES = [{ productSlug: "rose-bouquet", countryCode: "LB" }];
+
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -144,6 +158,18 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/healthz") {
     sendJson(res, 200, { ok: true });
     return;
+  }
+
+  // Shared-wishlist resolution: /api/favorites/share/<token>. The token is a
+  // path segment (not a ?slug= query param), so match it before the switch.
+  // Only the known fixture token resolves; any other token 404s so serve.mjs
+  // degrades to its generic head exactly as it would for an unresolved token.
+  const shareMatch = url.pathname.match(/^\/api\/favorites\/share\/(.+)$/);
+  if (shareMatch) {
+    const token = decodeURIComponent(shareMatch[1]);
+    return token === WISHLIST_SHARE_TOKEN
+      ? sendJson(res, 200, { ok: true, favorites: SHARED_FAVORITES })
+      : notFound(res);
   }
 
   switch (url.pathname) {
