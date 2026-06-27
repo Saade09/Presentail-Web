@@ -1023,11 +1023,34 @@ const server = http.createServer(async (req, res) => {
     // /llms-full.txt — extended llmstxt.org variant: same index as /llms.txt
     // plus full body copy for each key static page, so LLM-powered tools can
     // ingest the entire site in a single fetch (max-age=3600, same as /llms.txt).
+    // The cache has a TTL (LLMS_TXT_CACHE_TTL_MS) so product data stays current
+    // without a server restart. On regeneration failure the previous cached value
+    // is retained (stale-while-revalidate); on a cold-cache failure a minimal
+    // placeholder is served so the route never crashes.
     if (pathname === "/llms-full.txt") {
       const nowMs = Date.now();
       if (!llmsFullTxtCache || nowMs - llmsFullTxtCacheTsMs > LLMS_TXT_CACHE_TTL_MS) {
-        llmsFullTxtCache = await generateLlmsFullTxt(origin, BASE_PATH);
-        llmsFullTxtCacheTsMs = nowMs;
+        try {
+          llmsFullTxtCache = await generateLlmsFullTxt(origin, BASE_PATH);
+          llmsFullTxtCacheTsMs = nowMs;
+        } catch (err) {
+          // Log so ops can tell when regeneration is consistently failing.
+          console.warn("[llms-full.txt] regeneration failed; serving %s. Error: %s",
+            llmsFullTxtCache ? "stale cache" : "index-only fallback",
+            err?.message ?? err,
+          );
+          if (!llmsFullTxtCache) {
+            // Cold cache — serve the lightweight index so the route never
+            // crashes, and schedule a retry in 5 minutes rather than on every
+            // request so a totally-down upstream doesn't cause a retry storm.
+            llmsFullTxtCache = generateLlmsTxt(origin, BASE_PATH);
+            llmsFullTxtCacheTsMs = nowMs - LLMS_TXT_CACHE_TTL_MS + 5 * 60 * 1000;
+          } else {
+            // Stale cache is still rich — back off 5 minutes before retrying
+            // again so a flapping upstream doesn't spam the API on every hit.
+            llmsFullTxtCacheTsMs = nowMs - LLMS_TXT_CACHE_TTL_MS + 5 * 60 * 1000;
+          }
+        }
       }
       const encoding = pickEncoding(req, ".txt");
       const body = await compressBuffer(llmsFullTxtCache, encoding);
