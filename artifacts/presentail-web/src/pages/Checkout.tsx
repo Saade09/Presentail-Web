@@ -579,6 +579,23 @@ function CheckoutForm() {
   // a shopper who retries after a card decline reuses the same order ID.
   const orderIdRef = useRef<string | null>(null);
 
+  // Refs for Return-key focus chaining between checkout text fields.
+  const recipientFirstNameRef = useRef<HTMLInputElement>(null);
+  const recipientLastNameRef = useRef<HTMLInputElement>(null);
+  const senderFirstNameRef = useRef<HTMLInputElement>(null);
+  const senderLastNameRef = useRef<HTMLInputElement>(null);
+  const senderEmailRef = useRef<HTMLInputElement>(null);
+  const continueToPaymentRef = useRef<HTMLButtonElement>(null);
+
+  const focusNextOnEnter = (
+    nextRef: React.RefObject<HTMLElement | null>,
+  ) => (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      nextRef.current?.focus();
+    }
+  };
+
   const ensureOrderId = async (): Promise<string> => {
     if (orderIdRef.current) return orderIdRef.current;
     const res = await apiFetch<{ ok: boolean; orderId: string }>("/orders/next-id", {
@@ -1791,11 +1808,21 @@ function CheckoutForm() {
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
+                      <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                      <Input value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
+                      <Input ref={recipientLastNameRef} value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          // PhoneInput renders the <input> with data-testid directly on it.
+                          // Fall back to querying the first input inside the wrapper if needed.
+                          const phoneInput =
+                            document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"]') ??
+                            document.querySelector<HTMLElement>('[data-testid="input-recipient-phone"] input');
+                          phoneInput?.focus();
+                        }
+                      }} placeholder={t("checkout.lastNamePh")} data-testid="input-recipient-last-name" />
                     </div>
                   </div>
 
@@ -1902,16 +1929,21 @@ function CheckoutForm() {
                       <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} data-testid="input-sender-first-name" />
+                          <Input ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
-                          <Input value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} data-testid="input-sender-last-name" />
+                          <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" />
                         </div>
                       </div>
                       <div className="space-y-1.5 mb-4">
                         <label className="text-sm font-medium">{t("checkout.emailAddress")}<span className="text-destructive ms-0.5">*</span></label>
-                        <Input type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} data-testid="input-sender-email" />
+                        <Input ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            continueToPaymentRef.current?.focus();
+                          }
+                        }} data-testid="input-sender-email" />
                       </div>
                     </>
                   )}
@@ -1988,6 +2020,7 @@ function CheckoutForm() {
                 <div className="flex gap-3">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setLocation("/cart")} data-testid="button-back-to-cart-from-delivery">{t("checkout.back")}</Button>
                   <Button
+                    ref={continueToPaymentRef}
                     size="lg"
                     className="flex-1 h-14 rounded-xl text-white font-semibold"
                     style={{ backgroundColor: "hsl(var(--primary))" }}
