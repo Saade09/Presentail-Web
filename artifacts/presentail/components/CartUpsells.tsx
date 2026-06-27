@@ -31,6 +31,7 @@ import {
 import { trackEvent } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 function tabLabel(t: ReturnType<typeof useT>, id: UpsellTabId): string {
   switch (id) {
@@ -61,6 +62,7 @@ export function CartUpsells() {
   const { add } = useCart();
   const { selectedCountry } = useDeliveryLocation();
   const { currencyCode } = useCurrency();
+  const { user } = useAuth();
 
   const tabs = React.useMemo<ResolvedUpsellTab[]>(
     () => resolveUpsellTabs(products),
@@ -148,11 +150,12 @@ export function CartUpsells() {
           value:
             Number.isFinite(Number(priceValue)) ? Number(priceValue) : undefined,
           currency: currencyCode,
+          email: user?.email || undefined,
         });
       }
       showToast(`${productName} · ${t.cartUpsellsAddedToast}`);
     },
-    [add, activeId, showToast, t.cartUpsellsAddedToast, selectedCountry, currencyCode, products],
+    [add, activeId, showToast, t.cartUpsellsAddedToast, selectedCountry, currencyCode, products, user],
   );
 
   if (tabs.length === 0 || !activeId) return null;

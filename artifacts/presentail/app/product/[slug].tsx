@@ -399,6 +399,7 @@ function ProductDetail() {
                 contentIds: [product.id],
                 value: Number.isFinite(Number(product.priceValue)) ? Number(product.priceValue) : 0,
                 currency: currencyCode,
+                email: user?.email || undefined,
               });
             }
           }}
