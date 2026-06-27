@@ -28,6 +28,7 @@ export const DEFAULT_AUTH: AuthContextValue = {
   userType: null,
   provider: null,
   login: () => {},
+  updateUser: () => {},
 };
 
 export const DEFAULT_CART: CartContextType = {

@@ -56,7 +56,7 @@ function isValidBirthday(y: string, m: string, d: string): boolean {
 }
 
 export default function PersonalInformation() {
-  const { user: shimUser, isLoading, provider } = useAuth();
+  const { user: shimUser, isLoading, provider, updateUser } = useAuth();
   const [, setLocation] = useLocation();
   const { t, dir } = useLocale();
   const { toast } = useToast();
@@ -156,6 +156,7 @@ export default function PersonalInformation() {
           birthday,
         }),
       });
+      updateUser({ firstName: firstName.trim(), lastName: lastName.trim() });
       toast({
         title: t("pi.updated.title"),
         description: t("pi.updated.msg"),
@@ -183,6 +184,7 @@ export default function PersonalInformation() {
         method: "PUT",
         body: JSON.stringify({ phone: phone ?? "" }),
       });
+      updateUser({ phone: phone ?? undefined });
       toast({
         title: t("pi.updated.title"),
         description: t("pi.phone.updatedMsg"),

@@ -24,6 +24,7 @@ export type AuthContextValue = {
   userType: string | null;
   provider: string | null;
   login: (token: string, user: ShimUser, provider?: string) => void;
+  updateUser: (fields: Partial<Pick<ShimUser, "firstName" | "lastName" | "phone">>) => void;
 };
 
 const TOKEN_KEY = "presentail_web_token";
@@ -39,6 +40,7 @@ const GUEST_AUTH_VALUE: AuthContextValue = {
   userType: null,
   provider: null,
   login: () => {},
+  updateUser: () => {},
 };
 
 export const AuthOverrideContext =
@@ -153,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(TOKEN_KEY);
   };
 
+  const updateUser = (fields: Partial<Pick<ShimUser, "firstName" | "lastName" | "phone">>) => {
+    setUser((prev) => (prev ? { ...prev, ...fields } : prev));
+  };
+
   const value: AuthContextValue = {
     user,
     token,
@@ -163,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userType: user ? "customer" : null,
     provider,
     login,
+    updateUser,
   };
 
   return (
