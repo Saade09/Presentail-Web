@@ -2052,7 +2052,7 @@ function CardPreviewModal({
   );
 }
 
-function QrLinkField({ colors, value, onChangeText }: { colors: any; value: string; onChangeText: (v: string) => void }) {
+function QrLinkField({ colors, value, onChangeText, inputRef }: { colors: any; value: string; onChangeText: (v: string) => void; inputRef?: React.RefObject<TextInput | null> }) {
   const t = useT();
   const [error, setError] = useState<string | null>(null);
   const isValid = (url: string) => {
@@ -2080,6 +2080,8 @@ function QrLinkField({ colors, value, onChangeText }: { colors: any; value: stri
         keyboardType="url"
         autoCapitalize="none"
         autoCorrect={false}
+        inputRef={inputRef}
+        returnKeyType="done"
       />
       {error ? (
         <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#dc2626", paddingHorizontal: 2 }}>
@@ -2094,9 +2096,12 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
   const t = useT();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
+  const cardFromInputRef = useRef<TextInput>(null);
+  const qrLinkInputRef = useRef<TextInput>(null);
   return (
     <Card colors={colors} title={t.cardMessageTitle}>
-      <Field colors={colors} label={t.toLabel} value={cardTo} onChangeText={setCardTo} placeholder="" />
+      <Field colors={colors} label={t.toLabel} value={cardTo} onChangeText={setCardTo} placeholder=""
+        onSubmitEditing={() => cardFromInputRef.current?.focus()} />
       <Field
         colors={colors}
         label={t.cardMessageTitle}
@@ -2169,12 +2174,14 @@ function CustomizeStep({ colors, cardTo, setCardTo, cardMessage, setCardMessage,
         maxLength={400}
       />
 
-      <Field colors={colors} label={t.fromLabel} value={cardFrom} onChangeText={setCardFrom} placeholder="" />
+      <Field colors={colors} label={t.fromLabel} value={cardFrom} onChangeText={setCardFrom} placeholder=""
+        inputRef={cardFromInputRef}
+        onSubmitEditing={() => qrLinkInputRef.current?.focus()} />
 
       <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
         {t.qrLinkHint}
       </AppText>
-      <QrLinkField colors={colors} value={qrLink} onChangeText={setQrLink} />
+      <QrLinkField colors={colors} value={qrLink} onChangeText={setQrLink} inputRef={qrLinkInputRef} />
 
       {qrLink && /^https?:\/\/.+/.test(qrLink.trim()) ? (
         <View style={{ alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
@@ -2284,6 +2291,11 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
   const senderNamesRef = useRef<View>(null);
   const senderPhoneRef = useRef<View>(null);
   const senderEmailRef = useRef<View>(null);
+
+  const recipientLastInputRef = useRef<TextInput>(null);
+  const senderFirstInputRef = useRef<TextInput>(null);
+  const senderLastInputRef = useRef<TextInput>(null);
+  const senderEmailInputRef = useRef<TextInput>(null);
 
   const scrollToRef = (fieldRef: React.RefObject<View | null>) => {
     if (!fieldRef.current || !scrollViewRef?.current) return;
@@ -2424,10 +2436,13 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         </Modal>
         <View ref={recipientNamesRef} style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required error={showFieldErrors && !recipientFirst.trim()} />
+            <Field colors={colors} label={t.firstNameLabel} value={recipientFirst} onChangeText={setRecipientFirst} placeholder="" required error={showFieldErrors && !recipientFirst.trim()}
+              onSubmitEditing={() => recipientLastInputRef.current?.focus()} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()} />
+            <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()}
+              inputRef={recipientLastInputRef}
+              returnKeyType="done" />
           </View>
         </View>
         <View ref={recipientPhoneRef}>
@@ -2746,10 +2761,15 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         {!hideSenderName ? (
           <View ref={senderNamesRef} style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required error={showFieldErrors && !senderFirst.trim()} />
+              <Field colors={colors} label={t.firstNameLabel} value={senderFirst} onChangeText={setSenderFirst} placeholder="" required error={showFieldErrors && !senderFirst.trim()}
+                inputRef={senderFirstInputRef}
+                onSubmitEditing={() => senderLastInputRef.current?.focus()} />
             </View>
             <View style={{ flex: 1 }}>
-              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()} />
+              <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()}
+                inputRef={senderLastInputRef}
+                returnKeyType={hideSenderEmail ? "done" : "next"}
+                onSubmitEditing={hideSenderEmail ? undefined : () => senderEmailInputRef.current?.focus()} />
             </View>
           </View>
         ) : null}
@@ -2768,7 +2788,9 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           </View>
         ) : null}
         {!hideSenderEmail ? (
-          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" error={showFieldErrors && !senderEmail.trim()} fieldRef={senderEmailRef} />
+          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" error={showFieldErrors && !senderEmail.trim()} fieldRef={senderEmailRef}
+            inputRef={senderEmailInputRef}
+            returnKeyType="done" />
         ) : null}
 
         <Pressable
@@ -3079,7 +3101,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
           {payMethod === "apple_pay" ? (
             <View style={{ gap: 12 }}>
-              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
               <SecurityNote colors={colors} />
             </View>
           ) : null}
@@ -3095,7 +3117,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
           {payMethod === "google_pay" ? (
             <View style={{ gap: 12 }}>
-              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
               <SecurityNote colors={colors} />
             </View>
           ) : null}
@@ -3151,7 +3173,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                       </AppText>
                     </View>
                   ) : null}
-                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
+                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
