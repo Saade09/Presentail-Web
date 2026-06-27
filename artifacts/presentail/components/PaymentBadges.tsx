@@ -112,7 +112,7 @@ export function WesternUnionBadge() {
 
 export function CardIcons() {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <AmexBadge />
       <MastercardBadge />
       <VisaBadge />
@@ -122,7 +122,7 @@ export function CardIcons() {
 
 export function WalletIcons() {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <ApplePayBadge />
       <GooglePayBadge />
     </View>
