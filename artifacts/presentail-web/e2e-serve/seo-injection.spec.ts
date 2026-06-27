@@ -546,3 +546,28 @@ test.describe("Production SEO — og:image dimensions on a shared wishlist hero 
     expect(Number(height)).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. og:image:width / og:image:height on a resolved BARE /product/<slug> page
+//
+// Sections 4–5 only exercise the locale-prefixed /en-lb/beirut/product/<slug>
+// route. The locale-less "bare" fallback in seo-inject.mjs (the bareImageDims =
+// await fetchImageDimensions(bareImageUrl) branch around line 2052) handles
+// /product/<slug> links shared before the locale-prefix fix, from external
+// integrations, or from mobile app shares. It resolves the product against the
+// OS API (countryCode LB, cityId lb-beirut), measures the hero image's pixel
+// dimensions, and passes them into buildProductHead which emits og:image:width /
+// og:image:height. A regression there — a dropped imageDimensions pass-through
+// or a broken fetch — would silently ship badly-sized previews for every bare
+// product link shared from the mobile app, yet section 4 only covers the
+// locale-prefixed path.
+//
+// The bare branch resolves the same kind of OS image as the locale-prefixed
+// product page, so describeEntityImageDimensions applies unchanged: it fetches
+// the og:image URL and asserts the dimension tags only when a genuinely
+// measurable image file is resolved, otherwise it degrades gracefully via
+// test.skip (out-of-stock / unresolved products fall through to the generic
+// /opengraph.jpg head). The slug mirrors the section-4 product page.
+// ---------------------------------------------------------------------------
+
+describeEntityImageDimensions("bare product", "/product/rose-bouquet");
