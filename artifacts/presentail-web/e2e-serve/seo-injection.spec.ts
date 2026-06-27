@@ -571,3 +571,27 @@ test.describe("Production SEO — og:image dimensions on a shared wishlist hero 
 // ---------------------------------------------------------------------------
 
 describeEntityImageDimensions("bare product", "/product/rose-bouquet");
+
+// ---------------------------------------------------------------------------
+// 9. og:image:width / og:image:height on a resolved BARE /blog/<slug> page
+//
+// Section 6 only exercises the locale-prefixed /en-lb/beirut/blog/<slug> route.
+// The locale-less "bare" fallback in seo-inject.mjs (the bareBlogSlug =
+// extractBlogPostSlug(pathname) branch around line 2074) handles /blog/<slug>
+// links shared before the locale-prefix fix or from external integrations. It
+// resolves the article from the shared BLOG_POSTS source of truth and passes
+// the hero image's dimensions through buildBlogPostHead, which emits
+// og:image:width / og:image:height. A regression there — a dropped
+// imageWidth/imageHeight pass-through into buildBlogPostHead or a broken hero
+// image — would silently ship badly-sized previews for every bare blog link
+// shared externally, yet section 6 only covers the locale-prefixed path.
+//
+// The bare branch resolves the same kind of static hero image as the
+// locale-prefixed blog page, so describeEntityImageDimensions applies
+// unchanged: it fetches the og:image URL and asserts the dimension tags only
+// when a genuinely measurable image file is resolved, otherwise it degrades
+// gracefully via test.skip. The slug mirrors the section-6 blog page and must
+// exist in src/data/blogPostsCopy.js.
+// ---------------------------------------------------------------------------
+
+describeEntityImageDimensions("bare blog post", "/blog/inside-spring-sourcing-trip");
