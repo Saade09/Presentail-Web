@@ -399,3 +399,89 @@ test.describe("Production SEO — og:image dimensions on a resolved entity image
 describeEntityImageDimensions("brand", "/en-lb/beirut/brand/roses");
 describeEntityImageDimensions("category", "/en-lb/beirut/category/flowers");
 describeEntityImageDimensions("occasion", "/en-lb/beirut/occasion/birthday");
+
+// ---------------------------------------------------------------------------
+// 6. og:image:width / og:image:height on a shared wishlist hero image
+//
+// The shared-wishlist path (/favorites/share/:token) has its own dedicated
+// dimension-resolution branch in seo-inject.mjs: when the token resolves real
+// favorites, injectSeoTagsAsync() fetches the hero product, measures the hero
+// image's pixel dimensions (fetchImageDimensions, per-request fetch + cache)
+// and passes imageWidth/imageHeight into buildWishlistHead so the social card
+// renders as a banner (summary_large_image) rather than a small thumbnail. A
+// regression in this branch — a broken fetchImageDimensions call, a dropped
+// imageWidth/imageHeight pass-through, or a buildWishlistHead change — would
+// silently ship undersized previews for every shared wishlist.
+//
+// e2e/structured-data.spec.ts group 9 only covers the UNRESOLVED-token
+// fallback (generic head). This serve-backed spec covers the RESOLVED path.
+//
+// A resolvable token is environment-specific, so it is supplied via the
+// WISHLIST_SHARE_TOKEN env var (the "Web serve checks" workflow can seed one
+// against a known wishlist). When the token resolves a real hero image, the
+// emitted og:image is NOT the static opengraph.jpg fallback — exactly the same
+// resolution signal group 4 uses for entity pages. If WISHLIST_SHARE_TOKEN is
+// unset, the API/OS upstreams are unreachable, or the token does not resolve a
+// real hero image (favorites empty, image-less product, or dimension fetch
+// failed → og:image falls back to opengraph.jpg with hard-coded 1280x720),
+// the test degrades gracefully via test.skip, mirroring the entity-resolution
+// skips above and in e2e/structured-data.spec.ts.
+// ---------------------------------------------------------------------------
+
+test.describe("Production SEO — og:image dimensions on a shared wishlist hero image", () => {
+  const shareToken = process.env.WISHLIST_SHARE_TOKEN?.trim();
+  let html: string | null = null;
+  let ogImage: string | null = null;
+  let realImageResolved = false;
+
+  test.beforeAll(async ({ request }) => {
+    if (!shareToken) return;
+    const response = await request.get(
+      `/favorites/share/${encodeURIComponent(shareToken)}`,
+    );
+    // serve.mjs always returns 200 for the SPA shell even when the token does
+    // not resolve (it falls through to the generic head), so a non-200 here
+    // means the serve instance itself is unreachable — leave realImageResolved
+    // false so the assertions skip.
+    if (response.status() !== 200) return;
+    html = await response.text();
+    ogImage = findMetaContent(html, "property", "og:image");
+    // A resolved hero image yields any absolute URL other than the static
+    // opengraph.jpg fallback (emitted for unresolved tokens and image-less
+    // wishlists alike).
+    realImageResolved =
+      !!ogImage &&
+      /^https?:\/\//.test(ogImage) &&
+      !ogImage.split("?")[0].endsWith("/opengraph.jpg");
+  });
+
+  test("og:image:width is present and a positive integer", () => {
+    if (!realImageResolved) {
+      test.skip(
+        true,
+        shareToken
+          ? `wishlist token did not resolve a real hero image (og:image="${ogImage}") — dimension assertion not applicable`
+          : "WISHLIST_SHARE_TOKEN not set — resolved-wishlist dimension assertion not applicable",
+      );
+    }
+    const width = findMetaContent(html!, "property", "og:image:width");
+    expect(width, 'meta[property="og:image:width"] not found').toBeTruthy();
+    expect(width!).toMatch(/^\d+$/);
+    expect(Number(width)).toBeGreaterThan(0);
+  });
+
+  test("og:image:height is present and a positive integer", () => {
+    if (!realImageResolved) {
+      test.skip(
+        true,
+        shareToken
+          ? `wishlist token did not resolve a real hero image (og:image="${ogImage}") — dimension assertion not applicable`
+          : "WISHLIST_SHARE_TOKEN not set — resolved-wishlist dimension assertion not applicable",
+      );
+    }
+    const height = findMetaContent(html!, "property", "og:image:height");
+    expect(height, 'meta[property="og:image:height"] not found').toBeTruthy();
+    expect(height!).toMatch(/^\d+$/);
+    expect(Number(height)).toBeGreaterThan(0);
+  });
+});
