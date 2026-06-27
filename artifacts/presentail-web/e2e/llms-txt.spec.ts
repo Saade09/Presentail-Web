@@ -4,8 +4,10 @@
  * Verifies that:
  *   1. HTML page responses carry a `Link: <…/llms.txt>; rel="describedby"` header
  *      so AI crawlers can auto-discover the machine-readable site index.
- *   2. GET /llms.txt returns HTTP 200 with a non-empty body.
- *   3. GET /llms-full.txt returns HTTP 200 with a non-empty body.
+ *   2. HTML page responses also carry a `Link: <…/llms-full.txt>; rel="describedby"`
+ *      header so AI crawlers can discover the extended variant too.
+ *   3. GET /llms.txt returns HTTP 200 with a non-empty body.
+ *   4. GET /llms-full.txt returns HTTP 200 with a non-empty body.
  *
  * These tests use Playwright's built-in APIRequestContext so they exercise the
  * real HTTP layer (serve.mjs) without a browser page, making them fast and
@@ -23,6 +25,16 @@ test.describe("/llms.txt discoverability", () => {
 
     const linkHeader = response.headers()["link"] ?? "";
     expect(linkHeader).toMatch(/llms\.txt.*rel="describedby"/);
+  });
+
+  test("HTML page response includes Link header pointing to /llms-full.txt", async ({
+    request,
+  }) => {
+    const response = await request.get("/");
+    expect(response.status()).toBe(200);
+
+    const linkHeader = response.headers()["link"] ?? "";
+    expect(linkHeader).toMatch(/llms-full\.txt.*rel="describedby"/);
   });
 
   test("GET /llms.txt returns 200 with non-empty body", async ({ request }) => {
