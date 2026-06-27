@@ -1092,6 +1092,7 @@ const server = http.createServer(async (req, res) => {
             : "no-cache",
           "expires": "0",
           "vary": "Accept-Encoding",
+          "link": `<${origin}/llms.txt>; rel="describedby"`,
         };
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);
@@ -1218,6 +1219,7 @@ const server = http.createServer(async (req, res) => {
         : "no-cache",
       "expires": "0",
       "vary": "Accept-Encoding",
+      "link": `<${origin}/llms.txt>; rel="describedby"`,
     };
     if (encoding) headers["content-encoding"] = encoding;
     res.writeHead(200, headers);
