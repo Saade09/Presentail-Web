@@ -81,6 +81,107 @@ function findMetaContent(
   return m ? m[1] : null;
 }
 
+/**
+ * Decide whether an og:image URL points at a real, measurable image file.
+ *
+ * The og:image dimension tags are only emitted when serve.mjs successfully
+ * measured the image's pixel size (see fetchImageDimensions in seo-inject.mjs).
+ * Two cases legitimately produce an og:image WITHOUT dimensions, and the
+ * dimension assertions must NOT fire for either:
+ *
+ *   1. The unresolved / no-image fallback, which points at the static
+ *      `<origin><basePath>/opengraph.jpg` asset (handled by the caller via an
+ *      endsWith check, mirroring the product block).
+ *   2. A resolved entity whose image_url is an OS SPA route rather than a real
+ *      file (see .agents/memory/os-brand-images.md) — brand/category/occasion
+ *      image URLs can be `/objects/<user>/uploads/<id>` style routes that
+ *      return JSON / an auth error instead of image bytes, so the server's
+ *      dimension fetch returns null even though the entity itself resolved.
+ *
+ * To distinguish case 2 from a genuinely measurable CDN image, we fetch the
+ * og:image URL the same way serve.mjs does (a small Range request) and treat
+ * it as measurable only when the response succeeds AND carries an `image/*`
+ * content type. Anything else (auth error, JSON SPA route, network failure)
+ * means the dimension path is not applicable and the test degrades via skip.
+ */
+async function isMeasurableImage(
+  request: import("@playwright/test").APIRequestContext,
+  url: string,
+): Promise<boolean> {
+  try {
+    const res = await request.get(url, {
+      headers: { Range: "bytes=0-4095" },
+    });
+    if (!res.ok() && res.status() !== 206) return false;
+    const contentType = (res.headers()["content-type"] ?? "").toLowerCase();
+    return contentType.startsWith("image/");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Register the og:image:width / og:image:height assertions for a resolved
+ * entity page (brand / category / occasion), mirroring the product block in
+ * section 4. Each degrades gracefully via test.skip when the OS API does not
+ * resolve a real entity image (fallback opengraph.jpg) OR when the resolved
+ * image URL is not a measurable image file (e.g. an OS SPA route).
+ */
+function describeEntityImageDimensions(label: string, path: string): void {
+  test.describe(
+    `Production SEO — og:image dimensions on a resolved ${label} image`,
+    () => {
+      let html: string;
+      let ogImage: string | null;
+      let realImageResolved = false;
+
+      test.beforeAll(async ({ request }) => {
+        const response = await request.get(path);
+        expect(response.status()).toBe(200);
+        html = await response.text();
+        ogImage = findMetaContent(html, "property", "og:image");
+        // The unresolved fallback always points at the static opengraph.jpg
+        // asset; any other absolute URL means the OS API resolved an entity
+        // image. We then verify it is a genuinely measurable image file (not
+        // an OS SPA route) before asserting the dimension tags.
+        const isCandidate =
+          !!ogImage &&
+          /^https?:\/\//.test(ogImage) &&
+          !ogImage.split("?")[0].endsWith("/opengraph.jpg");
+        if (isCandidate) {
+          realImageResolved = await isMeasurableImage(request, ogImage!);
+        }
+      });
+
+      test("og:image:width is present and a positive integer", () => {
+        if (!realImageResolved) {
+          test.skip(
+            true,
+            `OS API did not resolve a measurable ${label} image (og:image="${ogImage}") — dimension assertion not applicable`,
+          );
+        }
+        const width = findMetaContent(html, "property", "og:image:width");
+        expect(width, 'meta[property="og:image:width"] not found').toBeTruthy();
+        expect(width!).toMatch(/^\d+$/);
+        expect(Number(width)).toBeGreaterThan(0);
+      });
+
+      test("og:image:height is present and a positive integer", () => {
+        if (!realImageResolved) {
+          test.skip(
+            true,
+            `OS API did not resolve a measurable ${label} image (og:image="${ogImage}") — dimension assertion not applicable`,
+          );
+        }
+        const height = findMetaContent(html, "property", "og:image:height");
+        expect(height, 'meta[property="og:image:height"] not found').toBeTruthy();
+        expect(height!).toMatch(/^\d+$/);
+        expect(Number(height)).toBeGreaterThan(0);
+      });
+    },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 1. Absolute canonical on the root path "/"
 // ---------------------------------------------------------------------------
@@ -274,3 +375,27 @@ test.describe("Production SEO — og:image dimensions on a resolved entity image
     expect(Number(height)).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 5. og:image:width / og:image:height on resolved brand / category / occasion
+//    entity pages.
+//
+// The same per-request image-dimension path that runs for product pages
+// (buildEntityHead via buildBrandHead / buildShopEntityHead in seo-inject.mjs)
+// also runs for brand, category, and occasion entity pages. A regression in
+// dimension resolution for those entity kinds would silently ship badly-sized
+// rich previews when a shopper shares a brand / category / occasion link, yet
+// section 4 above only covers product pages.
+//
+// These blocks mirror the product assertion but additionally tolerate the OS
+// SPA-route image quirk (see .agents/memory/os-brand-images.md): a brand /
+// category / occasion can resolve while its image_url is an unparseable SPA
+// route, so the server cannot measure dimensions. describeEntityImageDimensions
+// fetches the og:image URL and only asserts dimensions when it is a genuinely
+// measurable image file, otherwise it degrades gracefully via test.skip — the
+// same way the product block skips the static /opengraph.jpg fallback.
+// ---------------------------------------------------------------------------
+
+describeEntityImageDimensions("brand", "/en-lb/beirut/brand/roses");
+describeEntityImageDimensions("category", "/en-lb/beirut/category/flowers");
+describeEntityImageDimensions("occasion", "/en-lb/beirut/occasion/birthday");
