@@ -4,8 +4,6 @@ import {
   Alert,
   Modal,
   Pressable,
-  ScrollView,
-  Text,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -18,6 +16,7 @@ import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { DateStrip } from "@/components/DateStrip";
 import {
   dayLabels,
   firstAvailableDay,
@@ -334,54 +333,16 @@ export function RescheduleDeliverySheet({
               borderColor: colors.border,
             }}
           >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
-            >
-              {days.map((d) => {
-                const active = d.iso === date;
-                return (
-                  <Pressable
-                    key={d.iso}
-                    onPress={() => {
-                      setDate(d.iso);
-                      setSlotLabel(null);
-                    }}
-                    style={{
-                      width: 56,
-                      paddingVertical: 8,
-                      borderRadius: 12,
-                      alignItems: "center",
-                      backgroundColor: active ? colors.primary : "#fff",
-                      borderWidth: 1,
-                      borderColor: active ? colors.primary : colors.border,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontFamily: "Inter_500Medium",
-                        fontSize: 10,
-                        color: active ? colors.goldSoft : colors.mutedForeground,
-                        letterSpacing: 1,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {d.label}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontFamily: headingFontMedium,
-                        fontSize: 16,
-                        color: active ? "#fff" : colors.primary,
-                      }}
-                    >
-                      {d.date}
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <DateStrip
+              days={days}
+              selectedDate={date}
+              onSelectDate={(iso) => {
+                setDate(iso);
+                setSlotLabel(null);
+              }}
+              colors={colors}
+              moreLabel={t.dateStripMoreLabel}
+            />
 
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {timeSlots.map((s: TimeSlot) => {
