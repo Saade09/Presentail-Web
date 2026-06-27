@@ -208,10 +208,42 @@ const TITLES = {
   },
 };
 
+// Separate OG and Twitter copy for the landing page only.
+// All other routes reuse the page title/description for og:/twitter: tags.
+const LANDING_OG = {
+  en: {
+    title: "Online Flower & Gift Delivery | Presentail",
+    description: "Order flowers, cakes, balloons and gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
+  },
+  ar: {
+    title: "توصيل الزهور والهدايا أونلاين | Presentail",
+    description: "اطلب الزهور والكعك والبالونات والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
+  },
+  fr: {
+    title: "Livraison de fleurs et cadeaux en ligne | Presentail",
+    description: "Commandez fleurs, gâteaux, ballons et cadeaux en ligne avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
+  },
+};
+
+const LANDING_TWITTER = {
+  en: {
+    title: "Online Flower & Gift Delivery | Presentail",
+    description: "Send flowers and gifts online with Presentail. Express same-day delivery in Lebanon, UAE, and Cyprus.",
+  },
+  ar: {
+    title: "توصيل الزهور والهدايا أونلاين | Presentail",
+    description: "أرسل الزهور والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
+  },
+  fr: {
+    title: "Livraison de fleurs et cadeaux en ligne | Presentail",
+    description: "Envoyez fleurs et cadeaux en ligne avec Presentail. Livraison express le jour même au Liban, aux Émirats et à Chypre.",
+  },
+};
+
 const DESCRIPTIONS = {
   en: {
     landing:
-      "Send luxury flowers, gifts, cakes, and curated arrangements across the GCC with Presentail. Same-day delivery available in selected cities.",
+      "Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
     home: "Send luxury flowers, cakes and gifts in {city}, {country} with same-day delivery from Presentail.",
     shop: "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
     product: "Order this gift for delivery in {city}, {country} with Presentail.",
@@ -243,7 +275,7 @@ const DESCRIPTIONS = {
   },
   ar: {
     landing:
-      "أرسل أزهاراً وهدايا وكعكاً وتشكيلات منتقاة في دول الخليج مع Presentail. توصيل في اليوم ذاته متاح في مدن مختارة.",
+      "أرسل الزهور والكعك والبالونات والنباتات والشوكولاتة والمزيد من الهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
     home: "أرسل الأزهار الفاخرة والكعك والهدايا في {city}، {country} مع توصيل في نفس اليوم من Presentail.",
     shop: "تصفّح باقات Presentail المنتقاة والكعك والهدايا الفاخرة للتوصيل في {city}، {country}.",
     product: "اطلب هذه الهدية للتوصيل في {city}، {country} مع Presentail.",
@@ -274,7 +306,7 @@ const DESCRIPTIONS = {
   },
   fr: {
     landing:
-      "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
+      "Envoyez des fleurs, des gâteaux, des ballons, des plantes, des chocolats et plus encore avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
     home: "Envoyez des fleurs de luxe, des gâteaux et des cadeaux à {city}, {country} avec la livraison le jour même par Presentail.",
     shop: "Parcourez les bouquets, gâteaux et cadeaux de luxe Presentail pour livraison à {city}, {country}.",
     product: "Commandez ce cadeau pour livraison à {city}, {country} avec Presentail.",
@@ -539,14 +571,32 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     : inLocale
       ? buildLocalePath({ lang: parsed.lang, country: parsed.country, city: parsed.city, rest: "" })
       : "/";
-  const canonicalHref = origin + cleanBase + canonicalPath;
+  // For the root landing path (no locale prefix), CANONICAL_ORIGIN overrides
+  // the request origin so the canonical tag points at the primary domain
+  // (e.g. https://presentail.com) rather than the deployment hostname.
+  const canonicalOrigin =
+    routeKey === "landing" && !inLocale && process.env?.CANONICAL_ORIGIN
+      ? process.env.CANONICAL_ORIGIN.replace(/\/$/, "")
+      : origin;
+  const canonicalHref = canonicalOrigin + cleanBase + canonicalPath;
+
+  // Landing page uses distinct, shorter OG and Twitter copy.
+  const isLanding = routeKey === "landing" && !inLocale;
+  const ogLang = LANDING_OG[lang] ?? LANDING_OG.en;
+  const twLang = LANDING_TWITTER[lang] ?? LANDING_TWITTER.en;
+  const ogTitle = isLanding ? ogLang.title : title;
+  const ogDescription = isLanding ? ogLang.description : description;
+  const twitterTitle = isLanding ? twLang.title : title;
+  const twitterDescription = isLanding ? twLang.description : description;
+
+  const siteUrl = `${origin}${cleanBase}`;
 
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
-  lines.push(`<meta property="og:title" content="${escapeAttr(title)}" />`);
+  lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
   lines.push(
-    `<meta property="og:description" content="${escapeAttr(description)}" />`,
+    `<meta property="og:description" content="${escapeAttr(ogDescription)}" />`,
   );
   lines.push(`<meta property="og:type" content="website" />`);
   lines.push(`<meta property="og:site_name" content="Presentail" />`);
@@ -555,9 +605,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
   lines.push(`<meta name="twitter:card" content="summary_large_image" />`);
-  lines.push(`<meta name="twitter:title" content="${escapeAttr(title)}" />`);
+  lines.push(`<meta name="twitter:title" content="${escapeAttr(twitterTitle)}" />`);
   lines.push(
-    `<meta name="twitter:description" content="${escapeAttr(description)}" />`,
+    `<meta name="twitter:description" content="${escapeAttr(twitterDescription)}" />`,
   );
   // Default OG / Twitter image for generic (non-entity) pages.
   const defaultImage = `${origin}${cleanBase}/opengraph.jpg`;
@@ -568,8 +618,9 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
-  // Organization JSON-LD on every generic page.
-  lines.push(jsonLdTag(buildOrganizationSchema(`${origin}${cleanBase}`)));
+  // Organization + WebSite JSON-LD on every generic page.
+  lines.push(jsonLdTag(buildOrganizationSchema(siteUrl)));
+  lines.push(jsonLdTag(buildWebSiteSchema(siteUrl)));
 
   // FAQPage JSON-LD: emit structured Q&A markup for the /faqs route so search
   // engines and AI crawlers can reliably understand the page as a Q&A resource.
@@ -1420,6 +1471,23 @@ function buildOrganizationSchema(siteUrl) {
     name: "Presentail",
     url: siteUrl,
     logo: `${siteUrl}/opengraph.jpg`,
+  };
+}
+
+function buildWebSiteSchema(siteUrl) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Presentail",
+    url: siteUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl}/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 }
 

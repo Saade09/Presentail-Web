@@ -95,8 +95,24 @@ export const seoStrings: Dict = {
     ar: "توصيل الأزهار والهدايا أونلاين | Presentail | توصيل سريع",
   },
   "seo.landing.description": {
-    en: "Send luxury flowers, gifts, cakes, and curated arrangements across the GCC with Presentail. Same-day delivery available in selected cities.",
-    ar: "أرسل أزهاراً وهدايا وكعكاً وتشكيلات منتقاة في دول الخليج مع Presentail. توصيل في اليوم ذاته متاح في مدن مختارة.",
+    en: "Send flowers, cakes, balloons, plants, chocolates and more gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
+    ar: "أرسل الزهور والكعك والبالونات والنباتات والشوكولاتة والمزيد من الهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
+  },
+  "seo.landing.ogTitle": {
+    en: "Online Flower & Gift Delivery | Presentail",
+    ar: "توصيل الزهور والهدايا أونلاين | Presentail",
+  },
+  "seo.landing.ogDescription": {
+    en: "Order flowers, cakes, balloons and gifts online with Presentail. Express same-day delivery available in Lebanon, UAE, and Cyprus.",
+    ar: "اطلب الزهور والكعك والبالونات والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
+  },
+  "seo.landing.twitterTitle": {
+    en: "Online Flower & Gift Delivery | Presentail",
+    ar: "توصيل الزهور والهدايا أونلاين | Presentail",
+  },
+  "seo.landing.twitterDescription": {
+    en: "Send flowers and gifts online with Presentail. Express same-day delivery in Lebanon, UAE, and Cyprus.",
+    ar: "أرسل الزهور والهدايا أونلاين مع Presentail. توصيل سريع في اليوم نفسه في لبنان والإمارات وقبرص.",
   },
   "seo.blog.title": {
     en: "The Atelier Journal | Presentail",
@@ -197,7 +213,11 @@ export const seoStringsFr: Record<string, string> = {
   "seo.account.title": "Mon compte | Presentail",
   "seo.account.description": "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
   "seo.landing.title": "Livraison de fleurs et cadeaux en ligne | Presentail | Livraison express",
-  "seo.landing.description": "Envoyez des fleurs, cadeaux, gâteaux et compositions florales à travers le Golfe avec Presentail. Livraison le jour même disponible dans certaines villes.",
+  "seo.landing.description": "Envoyez des fleurs, des gâteaux, des ballons, des plantes, des chocolats et plus encore avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
+  "seo.landing.ogTitle": "Livraison de fleurs et cadeaux en ligne | Presentail",
+  "seo.landing.ogDescription": "Commandez fleurs, gâteaux, ballons et cadeaux en ligne avec Presentail. Livraison express le jour même disponible au Liban, aux Émirats et à Chypre.",
+  "seo.landing.twitterTitle": "Livraison de fleurs et cadeaux en ligne | Presentail",
+  "seo.landing.twitterDescription": "Envoyez fleurs et cadeaux en ligne avec Presentail. Livraison express le jour même au Liban, aux Émirats et à Chypre.",
   "seo.blog.title": "Le Journal de l'Atelier | Presentail",
   "seo.blog.description": "Histoires sur les fleurs de saison, les artisans derrière nos coffrets cadeaux, et l'art d'offrir avec soin — depuis l'atelier Presentail.",
   "seo.careers.title": "Carrières chez Presentail",

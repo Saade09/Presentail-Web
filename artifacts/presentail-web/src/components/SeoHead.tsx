@@ -108,6 +108,13 @@ export function SeoHead() {
     const description = t(`seo.${routeKey}.description`, params);
     const siteName = t("seo.siteName");
 
+    // Landing page uses distinct, shorter OG and Twitter copy.
+    const isLanding = routeKey === "landing";
+    const ogTitle = isLanding ? t("seo.landing.ogTitle") : title;
+    const ogDescription = isLanding ? t("seo.landing.ogDescription") : description;
+    const twitterTitle = isLanding ? t("seo.landing.twitterTitle") : title;
+    const twitterDescription = isLanding ? t("seo.landing.twitterDescription") : description;
+
     document.title = title;
 
     // Clean up previously managed tags before re-adding.
@@ -122,12 +129,12 @@ export function SeoHead() {
     );
     setMeta(
       'meta[property="og:title"]',
-      { property: "og:title", content: title },
+      { property: "og:title", content: ogTitle },
       head,
     );
     setMeta(
       'meta[property="og:description"]',
-      { property: "og:description", content: description },
+      { property: "og:description", content: ogDescription },
       head,
     );
     setMeta(
@@ -152,12 +159,12 @@ export function SeoHead() {
     );
     setMeta(
       'meta[name="twitter:title"]',
-      { name: "twitter:title", content: title },
+      { name: "twitter:title", content: twitterTitle },
       head,
     );
     setMeta(
       'meta[name="twitter:description"]',
-      { name: "twitter:description", content: description },
+      { name: "twitter:description", content: twitterDescription },
       head,
     );
 
@@ -168,18 +175,24 @@ export function SeoHead() {
     ).replace(/\/$/, "");
     const search = typeof window !== "undefined" ? window.location.search : "";
 
-    const canonicalPath = inLocale ? path : "/";
-    const canonicalHref = origin + basePrefix + canonicalPath + search;
-    setMeta(
-      'link[rel="canonical"]',
-      { rel: "canonical", href: canonicalHref },
-      head,
-    );
-    setMeta(
-      'meta[property="og:url"]',
-      { property: "og:url", content: canonicalHref },
-      head,
-    );
+    // For the root landing page the server injects canonical using CANONICAL_ORIGIN
+    // (which may differ from window.location.origin in production). Skip the
+    // client-side rewrite so we don't accidentally revert the canonical to the
+    // deployment hostname after hydration. The server-rendered value is correct.
+    if (!isLanding) {
+      const canonicalPath = inLocale ? path : "/";
+      const canonicalHref = origin + basePrefix + canonicalPath + search;
+      setMeta(
+        'link[rel="canonical"]',
+        { rel: "canonical", href: canonicalHref },
+        head,
+      );
+      setMeta(
+        'meta[property="og:url"]',
+        { property: "og:url", content: canonicalHref },
+        head,
+      );
+    }
 
     const defaultOgImage = `${origin}${basePrefix}/opengraph.jpg`;
     const defaultOgImageAlt = "Presentail — Luxury Flower & Gift Delivery";
