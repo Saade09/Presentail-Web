@@ -341,6 +341,25 @@ export default defineConfig(async ({ command }) => {
       minify: "esbuild",
       manifest: true,
       modulePreload: { polyfill: true },
+      // Never inline logo WebP files as base64 data URLs — they need to be
+      // separate assets in the Vite manifest so logoPreloadPlugin can inject
+      // <link rel="preload"> tags for all four variants (EN, AR, EN-white,
+      // AR-white).  Without this, small logos (<4 kB default threshold) would
+      // be inlined, skipped by the manifest lookup, and silently omitted from
+      // the preload tags — causing a missed LCP hint for Arabic-white pages.
+      assetsInlineLimit: (filePath: string) => {
+        if (
+          [
+            LOGO_EN_WEBP_BASENAME,
+            LOGO_AR_WEBP_BASENAME,
+            LOGO_EN_WHITE_WEBP_BASENAME,
+            LOGO_AR_WHITE_WEBP_BASENAME,
+          ].some((basename) => filePath.endsWith(basename))
+        ) {
+          return 0; // force separate file — never inline
+        }
+        return 4096; // Vite default
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {
