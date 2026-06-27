@@ -75,6 +75,22 @@ jobs:
       - name: Check Apple Sign In domain verification endpoint (serve logic)
         run: node artifacts/presentail-web/scripts/check-apple-sign-in-domain.mjs http://localhost:19234
 
+      - name: Install Playwright browsers
+        run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
+
+      - name: Run serve-backed e2e tests (llms.txt discoverability) against serve.mjs
+        run: pnpm --filter @workspace/presentail-web run test:e2e:serve
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:19234
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serve-playwright-report
+          path: artifacts/presentail-web/playwright-report/
+          retention-days: 7
+
       - name: Upload dist for chunk-budget job
         uses: actions/upload-artifact@v4
         with:

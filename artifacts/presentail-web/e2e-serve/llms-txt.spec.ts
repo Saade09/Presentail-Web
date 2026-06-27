@@ -18,6 +18,14 @@
  * These tests use Playwright's built-in APIRequestContext so they exercise the
  * real HTTP layer (serve.mjs) without a browser page, making them fast and
  * immune to JS-runtime issues.
+ *
+ * IMPORTANT: the asserted behaviour (Link header + /llms.txt routes) exists ONLY
+ * in the production Node server (serve.mjs) — the Vite dev server has no such
+ * middleware. So this spec lives in ./e2e-serve (run via playwright.serve.config.ts)
+ * and MUST be pointed at a built serve.mjs instance via PLAYWRIGHT_BASE_URL. The
+ * "Web serve checks" CI workflow builds + starts serve.mjs and runs it there. It
+ * is deliberately excluded from the ./e2e suite (Vite dev server) where it would
+ * fail the Link-header checks and pass the route checks for the wrong reason.
  */
 
 import { test, expect } from "@playwright/test";

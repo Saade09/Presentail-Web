@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "sh -c 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium 2>/dev/null)}\" playwright test'",
+    "test:e2e:serve": "sh -c 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium 2>/dev/null)}\" playwright test --config playwright.serve.config.ts'",
     "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public && node scripts/check-logo-preload.mjs dist/public",
     "check-logo-preload": "node scripts/check-logo-preload.mjs dist/public",
     "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public"
