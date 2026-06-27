@@ -4192,7 +4192,14 @@ function extractJsonLd(html: string): any[] {
   while ((m = re.exec(html)) !== null) {
     // Reverse the </script> escaping applied by jsonLdTag before parsing.
     const raw = m[1].replace(/<\\\/script>/gi, "</script>");
-    out.push(JSON.parse(raw));
+    const parsed = JSON.parse(raw);
+    // Flatten @graph blocks so byType() can find nodes grouped into a single
+    // <script> (the seo-inject pipeline groups multi-schema pages this way).
+    if (parsed && Array.isArray(parsed["@graph"])) {
+      for (const node of parsed["@graph"]) out.push(node);
+    } else {
+      out.push(parsed);
+    }
   }
   return out;
 }
@@ -4220,19 +4227,24 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     const blocks = extractJsonLd(out);
     const product = byType(blocks, "Product");
     expect(product).toBeTruthy();
-    expect(product["@context"]).toBe("https://schema.org");
+    expect(product["@type"]).toBe("Product");
     expect(product.name).toBe("Velvet Rose Bouquet");
     expect(product.image).toBe("https://cdn.test/velvet.jpg");
     expect(product.brand).toEqual({ "@type": "Brand", name: "Presentail" });
+    expect(product.url).toBe(
+      "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
+    );
     expect(product.offers).toEqual({
       "@type": "Offer",
       price: "89.50",
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+      url: "https://presentail.test/en-ae/dubai/product/velvet-rose-bouquet",
     });
   });
 
-  it("emits a Home > Shop > Product BreadcrumbList alongside the Product", async () => {
+  it("emits a Home > City > Product BreadcrumbList alongside the Product", async () => {
     mockFetchOnce({
       ok: true,
       product: {
@@ -4250,19 +4262,20 @@ describe("JSON-LD — Product rich result on /product/<slug>", () => {
     );
     const crumb = byType(extractJsonLd(out), "BreadcrumbList");
     expect(crumb).toBeTruthy();
+    // No category on this product fixture, so the trail is Home > City > Product.
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
-      "Shop",
+      "Dubai",
       "Velvet Rose Bouquet",
     ]);
     // Positions are 1-based and the leading crumbs carry an absolute item URL.
     expect(crumb.itemListElement[0]).toMatchObject({
       position: 1,
-      item: "https://presentail.test/en-ae/dubai",
+      item: "https://presentail.test",
     });
     expect(crumb.itemListElement[1]).toMatchObject({
       position: 2,
-      item: "https://presentail.test/en-ae/dubai/shop",
+      item: "https://presentail.test/en-ae/dubai",
     });
     // The current page (last crumb) omits the item URL per schema.org guidance.
     expect(crumb.itemListElement[2].item).toBeUndefined();
@@ -4285,7 +4298,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     ]);
   });
 
-  it("emits Home > Shop > Category and an ItemList on a category page", async () => {
+  it("emits Home > City > Category and an ItemList on a category page", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/category-products")) {
@@ -4309,7 +4322,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     const crumb = byType(blocks, "BreadcrumbList");
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
-      "Shop",
+      "Dubai",
       "Roses",
     ]);
     const list = byType(blocks, "ItemList");
@@ -4321,7 +4334,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     ]);
   });
 
-  it("emits Home > Shop > Occasion on an occasion page", async () => {
+  it("emits Home > City > Occasion on an occasion page", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       const u = String(url);
       if (u.includes("/api/woo/occasion")) {
@@ -4337,7 +4350,7 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     const crumb = byType(extractJsonLd(out), "BreadcrumbList");
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
-      "Shop",
+      "Dubai",
       "Birthday",
     ]);
   });
@@ -4357,19 +4370,84 @@ describe("JSON-LD — Organization / WebSite / Store on the homepage", () => {
     expect(Array.isArray(org.sameAs)).toBe(true);
     const site = byType(blocks, "WebSite");
     expect(site).toBeTruthy();
-    expect(site.potentialAction["@type"]).toBe("SearchAction");
+    // No SearchAction: the storefront has no crawlable /search results page,
+    // only a client-side search overlay, so a sitelinks search box would point
+    // at a non-existent URL.
+    expect(site.potentialAction).toBeUndefined();
   });
 
-  it("emits a Florist (LocalBusiness/Store) anchored to the city on a city homepage", () => {
+  it("emits a Florist (LocalBusiness/Store) and a Home > City breadcrumb on a city homepage", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
     });
-    const florist = byType(extractJsonLd(`<head>${headSnippet}</head>`), "Florist");
+    const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+    const florist = byType(blocks, "Florist");
     expect(florist).toBeTruthy();
     expect(florist.name).toBe("Presentail");
     expect(florist.address["@type"]).toBe("PostalAddress");
     expect(florist.address.addressLocality).toBe("Beirut");
+    const crumb = byType(blocks, "BreadcrumbList");
+    expect(crumb).toBeTruthy();
+    expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
+      "Home",
+      "Beirut",
+    ]);
+    expect(crumb.itemListElement[0].item).toBe("https://presentail.test");
+    // The current page (last crumb) omits the item URL per schema.org guidance.
+    expect(crumb.itemListElement[1].item).toBeUndefined();
+  });
+
+  it("emits Organization but no WebSite on a non-home content page", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/shop", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+    expect(byType(blocks, "Organization")).toBeTruthy();
+    // WebSite belongs only on the homepage, not on every content page.
+    expect(byType(blocks, "WebSite")).toBeUndefined();
+  });
+});
+
+describe("JSON-LD — excluded on cart / checkout / order-confirmed", () => {
+  it.each(["cart", "checkout", "order-confirmed"])(
+    "emits no JSON-LD on /%s",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-ae/dubai/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      expect(extractJsonLd(`<head>${headSnippet}</head>`)).toHaveLength(0);
+    },
+  );
+});
+
+describe("JSON-LD — WebPage / ContactPage on static pages", () => {
+  it("emits a WebPage on /terms and /privacy", () => {
+    for (const route of ["terms", "privacy"]) {
+      const { headSnippet } = buildSeoHead(`/en-ae/dubai/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const blocks = extractJsonLd(`<head>${headSnippet}</head>`);
+      const page = byType(blocks, "WebPage");
+      expect(page, route).toBeTruthy();
+      expect(typeof page.name).toBe("string");
+      expect(page.url).toBe(`https://presentail.test/en-ae/dubai/${route}`);
+      expect(page.isPartOf["@type"]).toBe("WebSite");
+    }
+  });
+
+  it("emits a ContactPage on /contact", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/contact", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const page = byType(extractJsonLd(`<head>${headSnippet}</head>`), "ContactPage");
+    expect(page).toBeTruthy();
+    expect(page.url).toBe("https://presentail.test/en-ae/dubai/contact");
+    expect(page.isPartOf["@type"]).toBe("WebSite");
   });
 });
 
@@ -4408,9 +4486,12 @@ describe("JSON-LD — every emitted block is valid JSON", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    // extractJsonLd throws if any block is not valid JSON.
+    // extractJsonLd throws if any block is not valid JSON. Product + Breadcrumb
+    // are now grouped into one @graph block; extractJsonLd flattens it, and the
+    // per-node @context is stripped (it lives once at the @graph root), so each
+    // flattened node is asserted to carry a valid @type instead.
     const blocks = extractJsonLd(out);
     expect(blocks.length).toBeGreaterThanOrEqual(2);
-    for (const b of blocks) expect(b["@context"]).toBe("https://schema.org");
+    for (const b of blocks) expect(typeof b["@type"]).toBe("string");
   });
 });

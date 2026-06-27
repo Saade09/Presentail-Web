@@ -386,32 +386,74 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
-  // Organization + WebSite JSON-LD on every generic page.
-  lines.push(jsonLdTag(buildOrganizationSchema(siteUrl)));
-  lines.push(jsonLdTag(buildWebSiteSchema(siteUrl)));
+  // Structured data (JSON-LD). Non-public / transactional routes (cart,
+  // checkout, order confirmation, auth, account, favorites) intentionally
+  // carry NO structured data — see NONINDEX_ROUTE_KEYS.
+  const emitJsonLd = !NONINDEX_ROUTE_KEYS.has(routeKey);
 
-  // LocalBusiness (Florist) JSON-LD on city homepages — anchors the brand to
-  // the served city/country for local search visibility.
-  if (routeKey === "home" && hasValidCity) {
+  // Collect every JSON-LD node for this page, then emit them in ONE <script>
+  // block (as a @graph when there is more than one). Grouping avoids duplicate
+  // entities (e.g. a second Organization) and keeps the head tidy.
+  const jsonLdNodes = [];
+
+  if (emitJsonLd) {
+    // Organization is the brand entity — emit on every public, indexable page.
+    jsonLdNodes.push(buildOrganizationSchema(siteUrl));
+    // WebSite identifies the site as a whole and belongs only on the homepage
+    // (root landing + locale/city home), not on every content page.
+    if (isLanding || isHome) {
+      jsonLdNodes.push(buildWebSiteSchema(siteUrl));
+    }
+  }
+
+  // LocalBusiness (Florist) + Home > {City} breadcrumb on city homepages —
+  // anchors the brand to the served city/country for local search visibility.
+  if (emitJsonLd && routeKey === "home" && hasValidCity) {
     const countryPlain = parsed.country
       ? COUNTRY_PLAIN_NAMES[lang]?.[parsed.country] ??
         COUNTRY_PLAIN_NAMES.en[parsed.country] ??
         countryLabel
       : countryLabel;
-    lines.push(
-      jsonLdTag(
-        buildLocalBusinessSchema({
-          siteUrl,
-          cityName: cityLabel,
-          countryName: countryPlain,
-        }),
-      ),
+    jsonLdNodes.push(
+      buildLocalBusinessSchema({
+        siteUrl,
+        cityName: cityLabel,
+        countryName: countryPlain,
+      }),
+    );
+    jsonLdNodes.push(
+      buildBreadcrumbListSchema([
+        { name: "Home", url: siteUrl },
+        { name: cityLabel },
+      ]),
+    );
+  }
+
+  // WebPage (Terms / Privacy) and ContactPage (Contact) lightweight schema.
+  if (emitJsonLd && (routeKey === "terms" || routeKey === "privacy")) {
+    jsonLdNodes.push(
+      buildWebPageSchema({
+        siteUrl,
+        url: canonicalHref,
+        name: title,
+        description,
+      }),
+    );
+  }
+  if (emitJsonLd && routeKey === "contact") {
+    jsonLdNodes.push(
+      buildContactPageSchema({
+        siteUrl,
+        url: canonicalHref,
+        name: title,
+        description,
+      }),
     );
   }
 
   // FAQPage JSON-LD: emit structured Q&A markup for the /faqs route so search
   // engines and AI crawlers can reliably understand the page as a Q&A resource.
-  if (routeKey === "faqs") {
+  if (emitJsonLd && routeKey === "faqs") {
     const faqLangData = FAQ_COPY[lang] ?? FAQ_COPY.en;
     const mainEntity = (faqLangData.groups ?? []).flatMap((g) => g.items).map(({ q, a }) => ({
       "@type": "Question",
@@ -419,14 +461,18 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
       acceptedAnswer: { "@type": "Answer", text: a },
     }));
     if (mainEntity.length > 0) {
-      lines.push(
-        jsonLdTag({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          mainEntity,
-        }),
-      );
+      jsonLdNodes.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity,
+      });
     }
+  }
+
+  if (jsonLdNodes.length === 1) {
+    lines.push(jsonLdTag(jsonLdNodes[0]));
+  } else if (jsonLdNodes.length > 1) {
+    lines.push(jsonLdGraphTag(jsonLdNodes));
   }
 
   if (inLocale) {
@@ -1243,31 +1289,40 @@ async function fetchListingProductsForSeo({ kind, slug, lang, countryCode, cityI
     if (!res.ok) return null;
     const body = await res.json();
     if (!body || body.ok !== true) return null;
+    // Normalise a transformProduct-shaped record into the minimal
+    // `{ name, slug, image }` an ItemList ListItem needs. `id` is the product
+    // slug (see transformProduct) and `image` is `{ uri }`.
+    const toItem = (p) => {
+      const name = p && typeof p.name === "string" ? p.name.trim() : "";
+      if (!name) return null;
+      const slug = typeof p.id === "string" && p.id ? p.id : "";
+      const image =
+        (p.image && typeof p.image.uri === "string" && p.image.uri) || "";
+      return { name, slug, image };
+    };
     if (kind === "occasion") {
       const groups = Array.isArray(body.groups) ? body.groups : [];
-      const names = [];
+      const items = [];
       for (const g of groups) {
         for (const p of g.products ?? []) {
-          if (p && typeof p.name === "string" && p.name.trim()) {
-            names.push(p.name.trim());
-            if (names.length >= 10) break;
+          const it = toItem(p);
+          if (it) {
+            items.push(it);
+            if (items.length >= 10) break;
           }
         }
-        if (names.length >= 10) break;
+        if (items.length >= 10) break;
       }
       const count =
         typeof body.total === "number"
           ? body.total
           : groups.reduce((s, g) => s + (g.count ?? 0), 0);
-      return { count, names };
+      return { count, items };
     }
     const products = Array.isArray(body.products) ? body.products : [];
-    const names = products
-      .map((p) => (p && typeof p.name === "string" ? p.name.trim() : ""))
-      .filter(Boolean)
-      .slice(0, 10);
+    const items = products.map(toItem).filter(Boolean).slice(0, 10);
     const count = typeof body.count === "number" ? body.count : products.length;
-    return { count, names };
+    return { count, items };
   } catch {
     return null;
   } finally {
@@ -1306,7 +1361,78 @@ function clampDescription(s, max = 300) {
  * Escapes </script> sequences in the JSON to prevent XSS.
  */
 function jsonLdTag(schema) {
+  validateJsonLd(schema);
   return `<script type="application/ld+json">${JSON.stringify(schema).replace(/<\/script>/gi, "<\\/script>")}</script>`;
+}
+
+/**
+ * Emit several related schemas as a single `<script>` block using a top-level
+ * `@graph` array (the schema.org idiom for grouping multiple nodes on one
+ * page). Each node is validated individually, then its per-node `@context` is
+ * stripped because the context lives once at the top level of the graph. Nodes
+ * that are null/undefined are skipped; an empty graph returns "".
+ */
+function jsonLdGraphTag(nodes) {
+  const graph = (Array.isArray(nodes) ? nodes : [])
+    .filter((n) => n && typeof n === "object")
+    .map((n) => {
+      validateJsonLd(n);
+      const { ["@context"]: _ctx, ...rest } = n;
+      return rest;
+    });
+  if (graph.length === 0) return "";
+  const doc = { "@context": "https://schema.org", "@graph": graph };
+  return `<script type="application/ld+json">${JSON.stringify(doc).replace(/<\/script>/gi, "<\\/script>")}</script>`;
+}
+
+// Required top-level fields per schema.org @type. Used by validateJsonLd to
+// catch missing data during local development / tests before it ships.
+const JSON_LD_REQUIRED_FIELDS = {
+  Organization: ["name", "url"],
+  WebSite: ["name", "url"],
+  Florist: ["name", "url"],
+  WebPage: ["name", "url"],
+  ContactPage: ["name", "url"],
+  Product: ["name"],
+  BreadcrumbList: ["itemListElement"],
+  ItemList: ["itemListElement"],
+  FAQPage: ["mainEntity"],
+};
+
+/**
+ * Dev/test-only guardrail: warn (never throw) when a JSON-LD object is missing
+ * a required field for its @type, so a missing price/url/name surfaces as a
+ * console warning locally rather than silent bad schema in production. No-op
+ * in production so it never adds request-path overhead.
+ */
+function validateJsonLd(obj) {
+  if (process.env?.NODE_ENV === "production") return obj;
+  try {
+    if (!obj || typeof obj !== "object" || obj["@graph"]) return obj;
+    const type = obj["@type"];
+    const warn = (msg) =>
+      console.warn(`WARN: JSON-LD ${type ?? "(no @type)"}: ${msg}`);
+    const required = JSON_LD_REQUIRED_FIELDS[type];
+    if (required) {
+      for (const field of required) {
+        const v = obj[field];
+        if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) {
+          warn(`missing required field "${field}"`);
+        }
+      }
+    }
+    // Product offers, when present, must carry price + currency + availability.
+    if (type === "Product" && obj.offers) {
+      for (const field of ["price", "priceCurrency", "availability"]) {
+        if (obj.offers[field] == null || obj.offers[field] === "") {
+          warn(`offer missing "${field}"`);
+        }
+      }
+    }
+  } catch {
+    // Never let validation break HTML generation.
+  }
+  return obj;
 }
 
 function buildOrganizationSchema(siteUrl) {
@@ -1346,36 +1472,69 @@ function buildLocalBusinessSchema({ siteUrl, cityName, countryName }) {
 
 /**
  * ItemList JSON-LD for category / occasion listing pages — emits the first
- * (≤10) product names so search engines understand the page lists products.
+ * (≤10) products with position, name, canonical product URL and image so
+ * search engines understand the page lists products and can deep-link each one.
+ * `items` is an array of `{ name, slug, image }`; `locBase` is the locale+city
+ * base URL used to build each product's clean URL (`{locBase}/product/{slug}`).
  */
-function buildItemListSchema(names, listName) {
+function buildItemListSchema(items, listName, locBase) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     ...(listName ? { name: listName } : {}),
-    numberOfItems: names.length,
-    itemListElement: names.map((name, i) => ({
+    numberOfItems: items.length,
+    itemListElement: items.map((it, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      name,
+      name: it.name,
+      ...(it.slug && locBase
+        ? { url: `${locBase}/product/${encodeURIComponent(it.slug)}` }
+        : {}),
+      ...(it.image ? { image: it.image } : {}),
     })),
   };
 }
 
 function buildWebSiteSchema(siteUrl) {
+  // No `potentialAction` SearchAction: the storefront has no dedicated,
+  // crawlable search results page (search is a client-side overlay only), so
+  // emitting a SearchAction would point Google's sitelinks search box at a
+  // non-existent URL. Add one here only if a real `/search` route is shipped.
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Presentail",
     url: siteUrl,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-      },
-      "query-input": "required name=search_term_string",
-    },
+  };
+}
+
+/**
+ * Generic WebPage JSON-LD for lightweight static content pages (Terms,
+ * Privacy). Anchored to the WebSite so crawlers understand the page is part of
+ * the wider site.
+ */
+function buildWebPageSchema({ siteUrl, url, name, description }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name,
+    url,
+    ...(description ? { description } : {}),
+    isPartOf: { "@type": "WebSite", name: "Presentail", url: siteUrl },
+  };
+}
+
+/**
+ * ContactPage JSON-LD for the /contact route.
+ */
+function buildContactPageSchema({ siteUrl, url, name, description }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name,
+    url,
+    ...(description ? { description } : {}),
+    isPartOf: { "@type": "WebSite", name: "Presentail", url: siteUrl },
   };
 }
 
@@ -1516,19 +1675,43 @@ function buildProductHead({
     extraLines.push(`<meta property="product:price:currency" content="USD" />`);
   }
 
+  // Canonical product URL (no query string) — reused for the Product `url`,
+  // the offer `url`, and as the breadcrumb leaf reference.
+  const cleanBase = basePath.replace(/\/$/, "");
+  const siteRoot = `${origin}${cleanBase}`;
+  const canonicalUrl = `${siteRoot}${pathname}`;
+  const locBase = localeBaseUrl(pathname, origin, basePath);
+
+  // Stable identifier: prefer the numeric OS/WC id, fall back to the slug.
+  const sku =
+    typeof product.wcId === "number" && product.wcId > 0
+      ? String(product.wcId)
+      : typeof product.id === "string" && product.id
+        ? product.id
+        : "";
+
   // Schema.org Product JSON-LD for Google rich results.
-  // availability mirrors the page: out-of-stock products show a dead-end view,
-  // so we never emit InStock for them.
+  // Currency is USD because all prices are stored in the WC/OS USD base and the
+  // server-rendered HTML (what crawlers index) shows the USD figure — display
+  // currency is a client-only conversion applied after hydration via
+  // CurrencyContext, so it is not present in the crawlable markup. This keeps
+  // the price number and currency code internally consistent and matches the
+  // existing `product:price` OG meta. availability mirrors the page: out-of-
+  // stock products show a dead-end view, so we never emit InStock for them.
+  const hasPrice =
+    typeof product.priceValue === "number" &&
+    Number.isFinite(product.priceValue) &&
+    product.priceValue > 0;
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: rawName || "Presentail",
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
     ...(imageUrl ? { image: imageUrl } : {}),
+    ...(sku ? { sku } : {}),
+    url: canonicalUrl,
     brand: { "@type": "Brand", name: "Presentail" },
-    ...(typeof product.priceValue === "number" &&
-    Number.isFinite(product.priceValue) &&
-    product.priceValue > 0
+    ...(hasPrice
       ? {
           offers: {
             "@type": "Offer",
@@ -1537,22 +1720,43 @@ function buildProductHead({
             availability: inStock
               ? "https://schema.org/InStock"
               : "https://schema.org/OutOfStock",
+            itemCondition: "https://schema.org/NewCondition",
+            url: canonicalUrl,
           },
         }
       : {}),
   };
-  extraLines.push(jsonLdTag(productSchema));
 
-  // BreadcrumbList JSON-LD — Home > Shop > Product Name.
-  const locBase = localeBaseUrl(pathname, origin, basePath);
+  // BreadcrumbList JSON-LD — Home > {City} > {Category} > {Product}. The city
+  // crumb is dropped when no city is in the path, and the category crumb when
+  // the product has no resolvable category, so the trail never shows an empty
+  // or dead segment.
+  const categorySlug =
+    Array.isArray(product.categories) &&
+    typeof product.categories[0] === "string" &&
+    product.categories[0]
+      ? product.categories[0]
+      : "";
+  const categoryName = categorySlug
+    ? categorySlug
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+  const crumbItems = [{ name: "Home", url: siteRoot }];
+  if (cityLabel && locBase !== siteRoot) {
+    crumbItems.push({ name: cityLabel, url: locBase });
+  }
+  if (categorySlug) {
+    crumbItems.push({
+      name: categoryName,
+      url: `${locBase}/category/${encodeURIComponent(categorySlug)}`,
+    });
+  }
+  crumbItems.push({ name: rawName || "Product" });
+
+  // Product + BreadcrumbList emitted together in a single @graph block.
   extraLines.push(
-    jsonLdTag(
-      buildBreadcrumbListSchema([
-        { name: "Home", url: locBase },
-        { name: "Shop", url: `${locBase}/shop` },
-        { name: rawName || "Product" },
-      ]),
-    ),
+    jsonLdGraphTag([productSchema, buildBreadcrumbListSchema(crumbItems)]),
   );
 
   const bodyHtml = buildProductBodyHtml(product, {
@@ -1772,7 +1976,7 @@ function buildCategoryHead({
   cityLabel,
   countryLabel,
   productCount,
-  itemNames,
+  items,
 }) {
   return buildShopEntityHead({
     entityKind: "category",
@@ -1787,7 +1991,7 @@ function buildCategoryHead({
     cityLabel,
     countryLabel,
     productCount,
-    itemNames,
+    items,
   });
 }
 
@@ -1802,7 +2006,7 @@ function buildOccasionHead({
   cityLabel,
   countryLabel,
   productCount,
-  itemNames,
+  items,
 }) {
   return buildShopEntityHead({
     entityKind: "occasion",
@@ -1817,7 +2021,7 @@ function buildOccasionHead({
     cityLabel,
     countryLabel,
     productCount,
-    itemNames,
+    items,
   });
 }
 
@@ -1834,7 +2038,7 @@ function buildShopEntityHead({
   cityLabel,
   countryLabel,
   productCount,
-  itemNames,
+  items,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
   const seo =
@@ -1864,23 +2068,24 @@ function buildShopEntityHead({
   const robots = seo.robots === "noindex, follow" ? "noindex, follow" : undefined;
   const imageUrl =
     typeof entity.image === "string" && entity.image ? entity.image : null;
-  // BreadcrumbList JSON-LD — Home > Shop > Category/Occasion Name.
+  // BreadcrumbList + ItemList JSON-LD, emitted together in one @graph block.
+  // Breadcrumb: Home > {City} > {Category/Occasion}. "Home" is the site root,
+  // "{City}" is the locale/city homepage; the city crumb is dropped when no
+  // city is in the path so the trail never shows an empty label.
+  const cleanBase = basePath.replace(/\/$/, "");
+  const siteRoot = `${origin}${cleanBase}`;
   const locBase = localeBaseUrl(pathname, origin, basePath);
-  const extraLines = [
-    jsonLdTag(
-      buildBreadcrumbListSchema([
-        { name: "Home", url: locBase },
-        { name: "Shop", url: `${locBase}/shop` },
-        { name: rawName || altText },
-      ]),
-    ),
-  ];
-  // ItemList JSON-LD — first (≤10) product names on the listing page.
-  if (Array.isArray(itemNames) && itemNames.length > 0) {
-    extraLines.push(
-      jsonLdTag(buildItemListSchema(itemNames, rawName || altText)),
-    );
+  const crumbItems = [{ name: "Home", url: siteRoot }];
+  if (cityLabel && locBase !== siteRoot) {
+    crumbItems.push({ name: cityLabel, url: locBase });
   }
+  crumbItems.push({ name: rawName || altText });
+  const graphNodes = [buildBreadcrumbListSchema(crumbItems)];
+  // ItemList — first (≤10) products (name + URL + image) on the listing page.
+  if (Array.isArray(items) && items.length > 0) {
+    graphNodes.push(buildItemListSchema(items, rawName || altText, locBase));
+  }
+  const extraLines = [jsonLdGraphTag(graphNodes)];
   const bodyHtml = buildSimpleEntityBodyHtml(entity, { title, description, localeBase: locBase });
   return {
     ...buildEntityHead({
@@ -2238,7 +2443,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         imageDimensions: catImageDims,
         search: "",
         productCount: listing?.count,
-        itemNames: listing?.names ?? [],
+        items: listing?.items ?? [],
         ...headOpts,
       });
     }
@@ -2261,7 +2466,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         imageDimensions: occImageDims,
         search: "",
         productCount: listing?.count,
-        itemNames: listing?.names ?? [],
+        items: listing?.items ?? [],
         ...headOpts,
       });
     }

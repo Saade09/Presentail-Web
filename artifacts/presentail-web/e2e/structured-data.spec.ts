@@ -3,7 +3,8 @@
  *
  * Verifies that the server-side SEO injection in seo-inject.mjs produces:
  *   1. A JSON-LD <script> block with "@type":"Organization"
- *   2. A JSON-LD <script> block with "@type":"WebSite" (with SearchAction)
+ *   2. A JSON-LD <script> block with "@type":"WebSite" (no SearchAction — the
+ *      storefront has no crawlable /search results page)
  *   3. A non-empty <meta name="description"> tag
  *   4. A non-empty <meta property="og:title"> tag
  *   5. A non-empty <meta property="og:description"> tag
@@ -85,8 +86,8 @@ test.describe("Structured data — initial HTML response for /", () => {
     expect(html).toContain('"@type":"WebSite"');
   });
 
-  test('WebSite JSON-LD block includes a SearchAction', () => {
-    expect(html).toContain('"@type":"SearchAction"');
+  test('WebSite JSON-LD block does NOT include a SearchAction', () => {
+    expect(html).not.toContain('"@type":"SearchAction"');
   });
 
   test('meta[name="description"] is present and non-empty', () => {
@@ -146,8 +147,12 @@ test.describe("Structured data — locale-prefixed city homepage /en-lb/beirut/"
     expect(html).toContain('"@type":"WebSite"');
   });
 
-  test('WebSite JSON-LD block includes a SearchAction', () => {
-    expect(html).toContain('"@type":"SearchAction"');
+  test('WebSite JSON-LD block does NOT include a SearchAction', () => {
+    expect(html).not.toContain('"@type":"SearchAction"');
+  });
+
+  test('Home > City BreadcrumbList JSON-LD is present', () => {
+    expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
   test("meta[name=\"description\"] is present and non-empty", () => {
@@ -249,7 +254,7 @@ test.describe("Structured data — locale-prefixed brand path /en-lb/beirut/bran
 // 5. Locale-prefixed category path /en-lb/beirut/category/flowers
 //
 // buildCategoryHead() (via buildShopEntityHead()) injects Organization +
-// BreadcrumbList (Home > Shop > Category Name) when the entity resolves.
+// BreadcrumbList (Home > City > Category Name) when the entity resolves.
 // Organization + OG/Twitter are always present regardless.
 // ---------------------------------------------------------------------------
 
@@ -286,7 +291,7 @@ test.describe("Structured data — locale-prefixed category path /en-lb/beirut/c
 // 6. Locale-prefixed occasion path /en-lb/beirut/occasion/birthday
 //
 // buildOccasionHead() (via buildShopEntityHead()) injects Organization +
-// BreadcrumbList (Home > Shop > Occasion Name) when the entity resolves.
+// BreadcrumbList (Home > City > Occasion Name) when the entity resolves.
 // Organization + OG/Twitter are always present regardless.
 // ---------------------------------------------------------------------------
 
