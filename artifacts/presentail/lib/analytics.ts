@@ -21,7 +21,9 @@ type AnalyticsEventName =
   | "fx_rates_fallback"
   | "mobile_ttid"
   | "payment_error"
-  | "signup_step_completed";
+  | "signup_step_completed"
+  | "payment_wallet_opened"
+  | "payment_wallet_fallback";
 
 type AnalyticsSurface =
   | "cart"

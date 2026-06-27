@@ -1156,6 +1156,7 @@ function CheckoutForm() {
           // Fall through: paymentRequestRef stays null, walletViaNativeSheet
           // will be false, and payMethod resolves to "card" below so the card
           // path runs automatically without any error toast.
+          trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "constructor_failed" });
         }
       }
 
@@ -1199,9 +1200,11 @@ function CheckoutForm() {
           paymentRequestRef.current = null;
           setPaymentMethodState("card");
           walletShowFailed = true;
+          trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "show_failed" });
         }
 
         if (!walletShowFailed) {
+          trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: "wallet" });
           await new Promise<void>((resolve) => {
           const cleanup = () => {
             walletSheetOpenRef.current = false;

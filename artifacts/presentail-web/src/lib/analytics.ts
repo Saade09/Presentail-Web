@@ -14,7 +14,9 @@ type AnalyticsEventName =
   | "seo_entity_fetch_failed"
   | "web_vital"
   | "payment_error"
-  | "signup_step_completed";
+  | "signup_step_completed"
+  | "payment_wallet_opened"
+  | "payment_wallet_fallback";
 
 type AnalyticsSurface =
   | "cart"

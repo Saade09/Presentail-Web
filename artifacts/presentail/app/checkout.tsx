@@ -1163,6 +1163,7 @@ function CheckoutScreen() {
         // Native wallet not available on this device (e.g. no Apple Pay card set up,
         // or Google Pay not configured). Fall back to the Stripe hosted checkout so
         // the shopper can still pay via a browser-based wallet flow.
+        trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: Platform.OS === "ios" ? "apple_pay" : "google_pay", errorCode: "not_available" });
         const session = await createStripeCheckoutSession({
           items: detailed
             .filter(({ product }) => product.wcId != null)
@@ -1228,6 +1229,7 @@ function CheckoutScreen() {
         },
       };
 
+      trackEvent({ name: "payment_wallet_opened", surface: "checkout", action: Platform.OS === "ios" ? "apple_pay" : "google_pay" });
       const { paymentIntent: walletIntent, error: walletError } =
         await confirmPlatformPayPayment(intentResult.clientSecret, walletParams);
 

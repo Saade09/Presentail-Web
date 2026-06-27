@@ -205,6 +205,18 @@ USD prices. The `geoCurrencyFallbackMonitor` counts these events
 per hour and fires a Slack alert when the count exceeds the
 configured threshold.
 
+`payment_wallet_opened` is emitted when the native wallet sheet
+(Apple Pay / Google Pay) successfully opens on web or mobile. The
+`action` field carries `apple_pay` or `google_pay` on mobile and
+`wallet` on web (browser determines which wallet is active).
+
+`payment_wallet_fallback` is emitted when the wallet sheet could
+not be opened and the checkout silently falls back to the card
+form. The `errorCode` field carries the reason:
+`constructor_failed` (web — PaymentRequest constructor threw),
+`show_failed` (web — pr.show() threw synchronously), or
+`not_available` (mobile — isPlatformPaySupported returned false).
+
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEventName)[keyof typeof AnalyticsEventName];
@@ -233,6 +245,8 @@ export const AnalyticsEventName = {
   payment_error: "payment_error",
   geo_currency_fallback: "geo_currency_fallback",
   signup_step_completed: "signup_step_completed",
+  payment_wallet_opened: "payment_wallet_opened",
+  payment_wallet_fallback: "payment_wallet_fallback",
 } as const;
 
 /**
