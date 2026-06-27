@@ -6,6 +6,8 @@ import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 // @ts-expect-error - plain ESM module (no types).
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
+// @ts-expect-error - plain ESM module (no types).
+import { LOGO_EN_WEBP_BASENAME, LOGO_AR_WEBP_BASENAME } from "./logo-assets.mjs";
 
 /**
  * Inject locale-aware SEO tags (title, meta description, OG, hreflang,
@@ -58,12 +60,10 @@ function seoInjectPlugin(basePath: string): Plugin {
  * before </head>. A tiny inline <script> immediately removes the unused tag
  * based on the URL's lang segment (URL pattern: /{lang}-{country}/{city}/...)
  * so neither locale incurs an extra network hit. Runs only at build time.
+ *
+ * Logo basenames are imported from logo-assets.mjs (the single source of
+ * truth shared with scripts/check-logo-preload.mjs).
  */
-// Source filenames (without path) of the WebP logos imported by Logo.tsx.
-// Update these constants if the assets are ever renamed.
-const LOGO_EN_WEBP_BASENAME = "Presentail_PNG-01_1777795626872.webp";
-const LOGO_AR_WEBP_BASENAME = "Presentail-Arabic-Logo.webp";
-
 function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
   // Normalise basePath: strip trailing slash so we can append "/" + file safely.
   const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
@@ -97,7 +97,15 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
       const arEntry = findLogoEntry(LOGO_AR_WEBP_BASENAME);
 
       // Require at least the English logo; Arabic is best-effort.
-      if (!enEntry) return;
+      // Hard error instead of silent skip: if the EN logo is missing from the
+      // manifest the preload would be silently omitted and LCP would regress
+      // without any CI signal. Fail the build so the rename is caught early.
+      if (!enEntry) {
+        this.error(
+          `[logo-preload] EN logo asset "${LOGO_EN_WEBP_BASENAME}" was not found in the Vite manifest. ` +
+          `Update LOGO_EN_WEBP_BASENAME in artifacts/presentail-web/logo-assets.mjs to match the current source filename.`,
+        );
+      }
 
       const enHref = `${base}/${enEntry.file}`;
       const arHref = arEntry ? `${base}/${arEntry.file}` : null;

@@ -24,8 +24,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Must match LOGO_EN_WEBP_BASENAME in vite.config.ts. Update here if renamed.
-const LOGO_EN_WEBP_BASENAME = "Presentail_PNG-01_1777795626872.webp";
+// Single source of truth — defined in logo-assets.mjs and shared with vite.config.ts.
+import { LOGO_EN_WEBP_BASENAME } from "../logo-assets.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = process.argv[2]
@@ -75,7 +75,7 @@ if (!logoEntry) {
   console.error(
     `check-logo-preload: FAIL — logo asset "${LOGO_EN_WEBP_BASENAME}" was not found in the Vite manifest.\n` +
       `  This means the asset was not processed by the build pipeline.\n` +
-      `  Fix: check that LOGO_EN_WEBP_BASENAME in vite.config.ts matches the actual source filename.`
+      `  Fix: update LOGO_EN_WEBP_BASENAME in artifacts/presentail-web/logo-assets.mjs to match the actual source filename.`
   );
   process.exit(1);
 }
