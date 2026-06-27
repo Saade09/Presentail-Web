@@ -44,7 +44,7 @@ export function escXml(s) {
  * synchronous so it can be unit-tested with mock data.
  *
  * @param {object} args
- * @param {string} args.origin       - e.g. "https://new.presentail.com"
+ * @param {string} args.origin       - e.g. "https://presentail.com"
  * @param {string} args.basePath     - deploy prefix, e.g. "/" or "/web"
  * @param {Array}  [args.products]   - [{ slug }]
  * @param {Array}  [args.brands]     - [{ slug }]

@@ -37,7 +37,7 @@ name: iOS – Promote TestFlight build to App Store
 #
 # Optional secrets (sitemap / IndexNow ping — only runs in submit mode):
 #   SITEMAP_URL  – full URL of the sitemap to submit to search engines.
-#                  Falls back to https://new.presentail.com/sitemap.xml
+#                  Falls back to https://presentail.com/sitemap.xml
 #                  when unset.
 #   INDEXNOW_KEY – IndexNow API key for instant URL indexing. Falls back
 #                  to the built-in default key when unset.

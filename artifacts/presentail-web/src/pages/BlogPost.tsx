@@ -82,7 +82,7 @@ export default function BlogPost() {
     if (article.ogImage) {
       const absolute = typeof window !== "undefined"
         ? new URL(article.ogImage.url, window.location.origin).href
-        : `https://new.presentail.com${article.ogImage.url}`;
+        : `https://presentail.com${article.ogImage.url}`;
       upsertMeta("og:image", "property", absolute);
       upsertMeta("og:image:width", "property", String(article.ogImage.width));
       upsertMeta("og:image:height", "property", String(article.ogImage.height));
@@ -107,7 +107,7 @@ export default function BlogPost() {
             image:
               typeof window !== "undefined"
                 ? new URL(article.ogImage.url, window.location.origin).href
-                : `https://new.presentail.com${article.ogImage.url}`,
+                : `https://presentail.com${article.ogImage.url}`,
           }
         : {}),
       publisher: {

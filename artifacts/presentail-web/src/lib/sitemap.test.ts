@@ -6,7 +6,7 @@ import { buildSitemapXml, generateSitemap } from "../../sitemap.mjs";
 
 const { DOMParser } = new JSDOM().window;
 
-const ORIGIN = "https://new.presentail.com";
+const ORIGIN = "https://presentail.com";
 
 // Minimal mock catalog: one entity of each type that has stock and one that is
 // empty, so the count filter can be asserted in both directions.

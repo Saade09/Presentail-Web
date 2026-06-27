@@ -149,7 +149,7 @@ jobs:
       # that shipped alongside this release is indexed promptly.
       # Secrets used here (optional — script falls back to built-in defaults):
       #   SITEMAP_URL  – full URL of the sitemap; defaults to
-      #                  https://new.presentail.com/sitemap.xml when unset.
+      #                  https://presentail.com/sitemap.xml when unset.
       #   INDEXNOW_KEY – IndexNow API key; defaults to the built-in key
       #                  when unset.
       - name: Submit sitemap to search engines

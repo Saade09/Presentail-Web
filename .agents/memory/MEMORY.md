@@ -1,4 +1,4 @@
-- [iOS product share](share-product-ios.md) — title param invisible in iOS 16+ share sheet; use message format; WEB_BASE_URL must be new.presentail.com not presentail.com
+- [iOS product share](share-product-ios.md) — title param invisible in iOS 16+ share sheet; use message format; share/SEO base domain is presentail.com (old new. subdomain retired)
 - [react-test-renderer + vitest (RN)](rtr-vitest-compat.md) — RNTL breaks in vitest; use react-test-renderer + act() + toJSON() traversal instead
 - [Web native auth](web-native-auth.md) — Clerk replaced by localStorage JWT auth on web; key design decisions documented
 - [API server test mocking patterns](api-server-test-patterns.md) — key patterns for mocking app.ts, routes, and pino-http in clerkShim-style tests

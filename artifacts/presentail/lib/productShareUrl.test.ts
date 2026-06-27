@@ -15,7 +15,7 @@ describe("buildProductShareUrl", () => {
   it("uses https://presentail.com as the origin (never the old new. subdomain)", () => {
     const url = buildProductShareUrl("roses");
     expect(url.startsWith("https://presentail.com/")).toBe(true);
-    expect(url).not.toContain("://new.presentail.com");
+    expect(url).not.toContain("://new.presentail.com"); // allow-legacy-domain
   });
 
   it("always includes /product/ path segment — no locale or city prefix", () => {

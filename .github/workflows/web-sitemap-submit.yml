@@ -29,7 +29,7 @@ name: Web – Submit sitemap after deploy
 #
 # Required secrets (GitHub → Settings → Secrets and variables → Actions):
 #   SITEMAP_URL    — override the sitemap URL (optional; default:
-#                   https://new.presentail.com/sitemap.xml).  Set this secret
+#                   https://presentail.com/sitemap.xml).  Set this secret
 #                   only if the production URL ever changes.
 #   INDEXNOW_KEY   — IndexNow API key.  Defaults to the committed key in
 #                   scripts/src/submitSitemap.ts when the secret is absent;

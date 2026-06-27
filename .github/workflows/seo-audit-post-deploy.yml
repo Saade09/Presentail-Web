@@ -33,8 +33,8 @@ name: SEO – Post-deploy OG image audit
 #   PUSH_ADMIN_TOKEN         — must match PUSH_ADMIN_TOKEN on the production
 #                              API server.
 #   PROD_API_BASE_URL        — production API base URL, e.g.
-#                              https://new.presentail.com  (no trailing slash).
-#                              Defaults to https://new.presentail.com when the
+#                              https://presentail.com  (no trailing slash).
+#                              Defaults to https://presentail.com when the
 #                              secret is absent.
 #
 # Optional inputs (workflow_dispatch / workflow_call only):
@@ -141,7 +141,7 @@ jobs:
         env:
           PUSH_ADMIN_TOKEN: ${{ secrets.PUSH_ADMIN_TOKEN }}
           # Fall back to the canonical prod domain when the secret is not set.
-          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL || 'https://new.presentail.com' }}
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL || 'https://presentail.com' }}
         run: |
           echo "Calling POST ${PROD_API_BASE_URL}/api/admin/seo-audit/run …"
 

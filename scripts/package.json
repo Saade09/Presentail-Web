@@ -21,6 +21,7 @@
     "check-hardcoded-web-strings": "tsx ./src/checkHardcodedWebStrings.ts",
     "check-hardcoded-mobile-strings": "tsx ./src/checkHardcodedMobileStrings.ts",
     "check-hardcoded-api-strings": "tsx ./src/checkHardcodedApiStrings.ts",
+    "check-legacy-domain": "tsx ./src/checkLegacyDomain.ts",
     "check-translations": "tsx ./src/checkTranslations.ts",
     "audit-wc-customers": "tsx ./src/auditWcCustomers.ts",
     "backup-before-migration": "tsx ./src/backupBeforeMigration.ts",

@@ -14,6 +14,7 @@ on:
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/src/checkHardcodedMobileStrings.ts"
       - "scripts/src/checkHardcodedApiStrings.ts"
+      - "scripts/src/checkLegacyDomain.ts"
       - "scripts/package.json"
       - ".github/workflows/check-translations.yml"
   pull_request:
@@ -28,6 +29,7 @@ on:
       - "scripts/src/checkHardcodedWebStrings.ts"
       - "scripts/src/checkHardcodedMobileStrings.ts"
       - "scripts/src/checkHardcodedApiStrings.ts"
+      - "scripts/src/checkLegacyDomain.ts"
       - "scripts/package.json"
       - ".github/workflows/check-translations.yml"
   # Smoke-test trigger: manually validate that the path-filter outputs are
@@ -124,6 +126,7 @@ jobs:
               - 'artifacts/api-server/src/**/*.ts'
               - 'scripts/src/checkTranslations.ts'
               - 'scripts/src/checkHardcodedApiStrings.ts'
+              - 'scripts/src/checkLegacyDomain.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
             libs:
@@ -132,6 +135,7 @@ jobs:
               - 'scripts/src/checkHardcodedMobileStrings.ts'
               - 'scripts/src/checkHardcodedWebStrings.ts'
               - 'scripts/src/checkHardcodedApiStrings.ts'
+              - 'scripts/src/checkLegacyDomain.ts'
               - 'scripts/package.json'
               - '.github/workflows/check-translations.yml'
 
@@ -296,6 +300,9 @@ jobs:
 
       - name: Run unit tests for translation checker logic
         run: pnpm --filter @workspace/scripts run test
+
+      - name: Guard against the retired legacy web domain
+        run: pnpm --filter @workspace/scripts run check-legacy-domain
 
       - name: Run unified translation check
         id: check
