@@ -1,0 +1,63 @@
+name: Web accessibility scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/**"
+      - ".github/workflows/web-a11y.yml"
+  pull_request:
+    paths:
+      - "artifacts/presentail-web/**"
+      - "lib/**"
+      - ".github/workflows/web-a11y.yml"
+
+jobs:
+  a11y:
+    name: axe-core — WCAG 2.1 AA scan (critical + serious)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libs
+        run: pnpm run typecheck:libs
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
+
+      - name: Start Vite dev server
+        run: pnpm --filter @workspace/presentail-web run dev &
+        env:
+          PORT: 5173
+
+      - name: Wait for dev server
+        run: npx --yes wait-on http://localhost:5173 --timeout 60000
+
+      - name: Run accessibility scan
+        run: pnpm --filter @workspace/presentail-web exec playwright test e2e/a11y.spec.ts --reporter=list
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-playwright-report
+          path: artifacts/presentail-web/playwright-report/
+          retention-days: 7
