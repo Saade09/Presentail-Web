@@ -14,7 +14,8 @@ import {
 // Mirrors the "Send us a photo within 7 days" satisfaction-guarantee window
 // documented on the /faqs page (src/data/faqsCopy.js) and /terms page. Kept as
 // a single constant so the JSON-LD and the on-page copy can't silently drift.
-const RETURN_WINDOW_DAYS = 7;
+// Exported so returns-window-sync.test.ts can assert the FAQ/terms copy agrees.
+export const RETURN_WINDOW_DAYS = 7;
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
