@@ -10,11 +10,12 @@
  *   6. A non-empty <meta name="twitter:title"> tag
  *   7. A non-empty <meta name="twitter:description"> tag
  *
- * Locale-prefixed route coverage (groups 2–5 below):
+ * Locale-prefixed route coverage (groups 2–6 below):
  *   - /en-lb/beirut/                 — city homepage (generic head)
  *   - /en-lb/beirut/product/<slug>   — product entity path
  *   - /en-lb/beirut/brand/<slug>     — brand entity path
  *   - /en-lb/beirut/category/<slug>  — category entity path
+ *   - /en-lb/beirut/occasion/<slug>  — occasion entity path
  *
  * For entity paths the Organization JSON-LD and OG/Twitter tags are always
  * present regardless of whether the upstream OS API resolves the slug
@@ -274,6 +275,43 @@ test.describe("Structured data — locale-prefixed category path /en-lb/beirut/c
   test('when OS API resolves the category, "@type":"BreadcrumbList" JSON-LD is present', () => {
     if (!html.includes('"@type":"BreadcrumbList"')) {
       test.skip(true, "OS API did not resolve the category slug — BreadcrumbList not expected");
+    }
+    expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. Locale-prefixed occasion path /en-lb/beirut/occasion/birthday
+//
+// buildOccasionHead() (via buildShopEntityHead()) injects Organization +
+// BreadcrumbList (Home > Shop > Occasion Name) when the entity resolves.
+// Organization + OG/Twitter are always present regardless.
+// ---------------------------------------------------------------------------
+
+test.describe("Structured data — locale-prefixed occasion path /en-lb/beirut/occasion/birthday", () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get("/en-lb/beirut/occasion/birthday");
+    expect(response.status()).toBe(200);
+    html = await response.text();
+  });
+
+  test('JSON-LD block with "@type":"Organization" is present', () => {
+    expect(html).toContain('"@type":"Organization"');
+  });
+
+  test("OG and Twitter Card tags are present and non-empty", () => {
+    assertOgTwitter(html);
+  });
+
+  test("meta[name=\"description\"] is present and non-empty", () => {
+    assertDescription(html);
+  });
+
+  test('when OS API resolves the occasion, "@type":"BreadcrumbList" JSON-LD is present', () => {
+    if (!html.includes('"@type":"BreadcrumbList"')) {
+      test.skip(true, "OS API did not resolve the occasion slug — BreadcrumbList not expected");
     }
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
