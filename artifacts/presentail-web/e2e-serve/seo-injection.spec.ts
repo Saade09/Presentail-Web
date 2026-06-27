@@ -23,7 +23,10 @@
  *   1. Exactly one absolute <link rel="canonical"> pointing at the request
  *      origin on the root path ("/").
  *   2. Exactly one absolute <link rel="canonical"> pointing at the request
- *      origin on a locale-prefixed path ("/en-lb/beirut/").
+ *      origin on a locale-prefixed path, for one page per first-class market
+ *      (LB "/en-lb/beirut/", AE "/en-ae/dubai/", CY "/en-cy/nicosia/"). The
+ *      country/city suffix is derived from the request path, so a wrong-suffix
+ *      or origin-less canonical on an AE/CY page would slip past a LB-only test.
  *   3. og:title / og:image / twitter:card are present and non-empty on an
  *      entity page (a locale-prefixed product path).
  *
@@ -227,43 +230,71 @@ test.describe("Production SEO — absolute canonical on /", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Absolute canonical on a locale-prefixed path "/en-lb/beirut/"
+// 2. Absolute canonical on a locale-prefixed path, per country
 //
 // Locale-prefixed paths are never subject to the CANONICAL_ORIGIN override, so
 // the canonical must always be the request origin + the locale path.
+//
+// LB, AE, and CY are all first-class markets. The country/city suffix in the
+// canonical is derived from the request path (see canonicalPath in
+// seo-inject.mjs), so a wrong-suffix or origin-less canonical on an AE or CY
+// page would NOT be caught by a Lebanon-only test. Mirror the parameterized
+// COUNTRY_CASES approach used in hreflang-injection.spec.ts and run the
+// identical guard against one page per country.
 // ---------------------------------------------------------------------------
 
-test.describe("Production SEO — absolute canonical on /en-lb/beirut/", () => {
-  let html: string;
-  let origin: string;
+interface CanonicalCountryCase {
+  /** Two-letter country code as it appears (lowercase) in URL paths. */
+  country: string;
+  /** A supported city slug for that country. */
+  city: string;
+}
 
-  test.beforeAll(async ({ request }) => {
-    const response = await request.get("/en-lb/beirut/");
-    expect(response.status()).toBe(200);
-    origin = new URL(response.url()).origin;
-    html = await response.text();
-  });
+const CANONICAL_COUNTRY_CASES: CanonicalCountryCase[] = [
+  { country: "lb", city: "beirut" },
+  { country: "ae", city: "dubai" },
+  { country: "cy", city: "nicosia" },
+];
 
-  test("exactly one <link rel=\"canonical\"> is present", () => {
-    const hrefs = findCanonicalHrefs(html);
-    expect(
-      hrefs.length,
-      `expected exactly one canonical tag, found ${hrefs.length}: ${JSON.stringify(hrefs)}`,
-    ).toBe(1);
-  });
+for (const { country, city } of CANONICAL_COUNTRY_CASES) {
+  const path = `/en-${country}/${city}/`;
 
-  test("the canonical is absolute and uses the request origin", () => {
-    const hrefs = findCanonicalHrefs(html);
-    expect(hrefs.length).toBe(1);
-    const href = hrefs[0];
-    expect(href, `canonical must be absolute, got "${href}"`).toMatch(
-      /^https?:\/\//,
-    );
-    expect(new URL(href).origin).toBe(origin);
-    // Sanity: the canonical reflects the locale path, not a bare "/".
-    expect(href).toContain("/en-lb/beirut");
+  test.describe(`Production SEO — absolute canonical on ${path}`, () => {
+    let html: string;
+    let origin: string;
+
+    test.beforeAll(async ({ request }) => {
+      const response = await request.get(path);
+      expect(response.status()).toBe(200);
+      origin = new URL(response.url()).origin;
+      html = await response.text();
+    });
+
+    test("exactly one <link rel=\"canonical\"> is present", () => {
+      const hrefs = findCanonicalHrefs(html);
+      expect(
+        hrefs.length,
+        `expected exactly one canonical tag, found ${hrefs.length}: ${JSON.stringify(hrefs)}`,
+      ).toBe(1);
+    });
+
+    test("the canonical is absolute and uses the request origin", () => {
+      const hrefs = findCanonicalHrefs(html);
+      expect(hrefs.length).toBe(1);
+      const href = hrefs[0];
+      expect(href, `canonical must be absolute, got "${href}"`).toMatch(
+        /^https?:\/\//,
+      );
+      expect(new URL(href).origin).toBe(origin);
+      // Sanity: the canonical reflects this country's locale path + city, not a
+      // bare "/" and not a different country's suffix.
+      expect(
+        new URL(href).pathname,
+        `canonical for ${path} must reflect /en-${country}/${city}`,
+      ).toContain(`/en-${country}/${city}`);
+    });
   });
-});
+}
 
 // ---------------------------------------------------------------------------
 // 3. OG / Twitter tags on an entity page
