@@ -14,6 +14,7 @@ import {
   useStripeCheckoutSession,
   useMamoPayment,
   usePaypalPayment,
+  useFxRates,
 } from "@/lib/queries";
 import { useCreateCheckoutPaymentIntent } from "@workspace/api-client-react";
 import { ArrowLeft, Check, MapPin, BookUser, ChevronDown, Tag } from "lucide-react";
@@ -63,6 +64,7 @@ import {
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
 import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+import { toStripeMinorUnits } from "@/lib/stripeMinorUnits";
 
 // Lazily loaded — @stripe/react-stripe-js (and therefore js.stripe.com) are
 // never bundled into the instant checkout chunk and are only fetched when the
@@ -314,6 +316,7 @@ function CheckoutForm() {
   const { t, dir, cityName } = useLocale();
   const { countryCode, country, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
+  const { data: fxData } = useFxRates();
 
   // ── Lazy Stripe state ──────────────────────────────────────────────────────
   // @stripe/react-stripe-js is dynamically imported via LazyStripeSection so
@@ -955,9 +958,13 @@ function CheckoutForm() {
     }
     pr.canMakePayment().then((result) => {
       if (result) {
-        // Browser has a wallet configured (Apple Pay / Google Pay).
-        // Store the PR object so handleSubmit can call pr.show() synchronously.
-        paymentRequestRef.current = pr;
+        // Browser has a wallet configured (Apple Pay / Google Pay). We do NOT
+        // store this probe PR for reuse: it was constructed with currency
+        // "usd" and a PaymentRequest's currency is immutable, so reusing it
+        // would force the wallet sheet to display USD. handleSubmit creates a
+        // fresh PR in the shopper's display currency right before pr.show().
+        // Leaving the tiles visible (walletSupported stays true) is all the
+        // probe needs to do on success.
       } else if (!isMobileRef.current) {
         // Desktop only: browser reported no wallet available — hide the rows
         // and advance the selection so the shopper is never left on a tile
@@ -1036,6 +1043,30 @@ function CheckoutForm() {
     freeDeliveryThresholdUsd: effectiveFreeDeliveryThresholdUsd,
     freeDeliveryEnabled: effectiveFreeDeliveryEnabled,
   });
+
+  // The Stripe PaymentRequest (Apple Pay / Google Pay) sheet must display the
+  // total in the shopper's actual display currency, not USD. `total` above is
+  // a USD amount, so convert it with the live FX rate and express it in the
+  // currency's correct smallest unit. The authoritative charge is always the
+  // server-created PaymentIntent (which receives `currencyCode` below); this
+  // only controls what the native wallet sheet shows the shopper.
+  //
+  // PaymentRequest currency is immutable after construction, so the lowercase
+  // currency string here must match the currency the PaymentIntent is created
+  // in — both derive from `currencyCode`.
+  // Plain computation (not a hook) — it is declared after the component's
+  // early returns, so it must not be a useMemo. `total` is only available here
+  // anyway, and the inputs are cheap to recompute on every render.
+  const walletSheet = (() => {
+    const rate =
+      currencyCode === "USD" ? 1 : Number(fxData?.rates?.[currencyCode] ?? 0);
+    const effectiveRate = rate > 0 ? rate : 1;
+    const converted = total * effectiveRate;
+    return {
+      currency: currencyCode.toLowerCase(),
+      amount: toStripeMinorUnits(converted, currencyCode),
+    };
+  })();
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
@@ -1232,38 +1263,39 @@ function CheckoutForm() {
       const returnUrl = `${origin}${base}/order-confirmed?status=success`;
       const failureUrl = `${origin}${base}/order-confirmed?status=failed`;
 
-      // For non-AED wallet: the Stripe Payment Request flow is used when
-      // paymentRequestRef holds the probe-confirmed PR object. If the probe
-      // hasn't resolved yet (rare race before submit), fall back to card.
       const isWalletMethod = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
 
-      // Mobile-only: if the upfront probe returned null (paymentRequestRef is
-      // empty) try to create a fresh PaymentRequest on demand. On mobile
-      // browsers the probe often races against device initialisation and can
-      // return null even when the native Apple Pay / Google Pay sheet works
-      // fine when actually invoked. We surface a toast if creation itself
-      // throws so the shopper is never left with a silent failure.
-      if (
-        isWalletMethod &&
-        activeCurrency !== "AED" &&
-        paymentRequestRef.current === null &&
-        isMobile &&
-        stripe
-      ) {
+      // Always create a FRESH PaymentRequest for the actual wallet checkout.
+      // The probe PR created in the canMakePayment() effect is constructed with
+      // currency "usd" purely to detect wallet availability — and a
+      // PaymentRequest's currency is immutable after construction, so calling
+      // pr.update() can never change the currency shown in the Apple Pay /
+      // Google Pay sheet. Reusing the probe PR would therefore always display
+      // USD even when the shopper selected EUR / GBP / etc. We build a new PR
+      // here with the shopper's display currency (walletSheet.currency) and the
+      // converted total in that currency's smallest unit (walletSheet.amount).
+      //
+      // This mirrors the previous mobile-only on-demand path: creating a fresh
+      // PR and calling pr.show() synchronously (without re-running the async
+      // canMakePayment() probe on this instance) works in production — the
+      // upfront probe already confirmed the device has a wallet on desktop, and
+      // on mobile the native sheet opens fine even when the probe raced to null.
+      if (isWalletMethod && activeCurrency !== "AED" && stripe && !walletSheetOpenRef.current) {
         try {
           paymentRequestRef.current = stripe.paymentRequest({
             country: "US",
-            currency: "usd",
-            total: { label: t("checkout.payment.orderTitle"), amount: Math.round(total * 100) },
+            currency: walletSheet.currency,
+            total: { label: t("checkout.payment.orderTitle"), amount: walletSheet.amount },
             requestPayerName: false,
             requestPayerEmail: false,
             disableWallets: ["link", "browserCard"],
           });
         } catch {
           // paymentRequest() constructor failed — wallet not available.
-          // Fall through: paymentRequestRef stays null, walletViaNativeSheet
-          // will be false, and payMethod resolves to "card" below so the card
-          // path runs automatically without any error toast.
+          // Leave paymentRequestRef null so walletViaNativeSheet is false and
+          // payMethod resolves to "card" below; the card path then runs
+          // automatically without any error toast.
+          paymentRequestRef.current = null;
           trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "constructor_failed" });
         }
       }
@@ -1282,15 +1314,12 @@ function CheckoutForm() {
       let walletShowFailed = false;
       if (walletViaNativeSheet && stripe) {
         // Guard against double-invocation while the sheet is already open.
-        // If the sheet is open a second tap would throw "cannot update Payment
-        // Request options while the payment sheet is showing".
         if (walletSheetOpenRef.current) return;
 
         const pr = paymentRequestRef.current!;
 
-        // Update the displayed total before opening the native sheet so the
-        // shopper sees the correct order amount (amount is in USD cents).
-        pr.update({ total: { label: t("checkout.payment.orderTitle"), amount: Math.round(total * 100) } });
+        // No pr.update() is needed: the PR was just constructed above with the
+        // correct display currency and converted total.
 
         // pr.show() MUST be called synchronously within the click-handler
         // context with NO await before it. Any await beforehand removes the
@@ -1335,7 +1364,7 @@ function CheckoutForm() {
                 data: {
                   items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
                   orderId,
-                  currency: "USD",
+                  currency: currencyCode,
                   email: sender.email || undefined,
                   deliveryFeeUsd: districtFee + expressFee + slotFee,
                   district: _selectedDistrict,
@@ -1438,7 +1467,7 @@ function CheckoutForm() {
           data: {
             items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
             orderId,
-            currency: "USD",
+            currency: currencyCode,
             email: sender.email || undefined,
             deliveryFeeUsd: districtFee + expressFee + slotFee,
             district: _selectedDistrict,
@@ -1541,7 +1570,7 @@ function CheckoutForm() {
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
-          currency: "USD",
+          currency: currencyCode,
           returnUrl,
           cancelUrl: failureUrl,
           orderId,
@@ -1584,7 +1613,7 @@ function CheckoutForm() {
           district: _selectedDistrict,
           expressDelivery: deliveryMode === "express",
           noAddress,
-          currency: "USD",
+          currency: currencyCode,
           title: t("checkout.payment.orderTitle"),
           description: t("checkout.payment.orderDesc", { name: `${sender.firstName} ${sender.lastName}`.trim() }),
           email: sender.email,
