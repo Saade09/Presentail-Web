@@ -26,6 +26,10 @@ export const analyticsEventsTable = pgTable(
     appOrderId: text("app_order_id"),
     wcOrderId: text("wc_order_id"),
     metricValue: doublePrecision("metric_value"),
+    bannerId: text("banner_id"),
+    linkKind: text("link_kind"),
+    linkSlug: text("link_slug"),
+    linkUrl: text("link_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

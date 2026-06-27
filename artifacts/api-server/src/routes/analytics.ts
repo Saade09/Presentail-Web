@@ -49,7 +49,7 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId, metricValue } = parsed.data;
+    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -66,6 +66,10 @@ router.post(
     const clippedState = clip(state, 64);
     const clippedAppOrderId = clip(appOrderId, 64);
     const clippedWcOrderId = clip(wcOrderId, 64);
+    const clippedBannerId = clip(bannerId, 64);
+    const clippedLinkKind = clip(linkKind, 32);
+    const clippedLinkSlug = clip(linkSlug, 128);
+    const clippedLinkUrl = clip(linkUrl, 512);
 
     // Clamp metric values to [0, 60000] — CLS ratios are tiny, timing
     // metrics max out well below 60 s in practice.
@@ -89,6 +93,10 @@ router.post(
         appOrderId: clippedAppOrderId,
         wcOrderId: clippedWcOrderId,
         metricValue: clampedMetricValue,
+        bannerId: clippedBannerId,
+        linkKind: clippedLinkKind,
+        linkSlug: clippedLinkSlug,
+        linkUrl: clippedLinkUrl,
         userId,
         signedIn: Boolean(userId),
       },
@@ -113,6 +121,10 @@ router.post(
         appOrderId: clippedAppOrderId ?? null,
         wcOrderId: clippedWcOrderId ?? null,
         metricValue: clampedMetricValue,
+        bannerId: clippedBannerId ?? null,
+        linkKind: clippedLinkKind ?? null,
+        linkSlug: clippedLinkSlug ?? null,
+        linkUrl: clippedLinkUrl ?? null,
         userId: userId ?? null,
         signedIn: Boolean(userId),
       })

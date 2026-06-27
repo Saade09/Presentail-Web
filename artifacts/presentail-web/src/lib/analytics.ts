@@ -16,7 +16,8 @@ type AnalyticsEventName =
   | "payment_error"
   | "signup_step_completed"
   | "payment_wallet_opened"
-  | "payment_wallet_fallback";
+  | "payment_wallet_fallback"
+  | "banner_clicked";
 
 type AnalyticsSurface =
   | "cart"
@@ -75,6 +76,11 @@ export type AnalyticsEvent = {
   metricValue?: number;
   /** Optional platform override. When set, takes precedence over the default "web" value added by trackEvent. */
   platform?: string;
+  /** banner_clicked fields */
+  bannerId?: string;
+  linkKind?: string;
+  linkSlug?: string;
+  linkUrl?: string;
 };
 
 function generateSessionId(): string {

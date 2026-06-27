@@ -103,4 +103,37 @@ carried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside
 [0, 60000] are clamped server-side before storage.
  */
   metricValue?: number;
+  /**
+   * For `banner_clicked` events: the unique id of the banner the
+shopper clicked. Sourced from the OS banner response, not user
+input.
+
+   * @maxLength 64
+   */
+  bannerId?: string;
+  /**
+   * For `banner_clicked` events: the structured link type
+(`category` or `occasion`) when the banner has a structured
+link. Null/absent for legacy `linkUrl`-only banners.
+
+   * @maxLength 32
+   */
+  linkKind?: string;
+  /**
+   * For `banner_clicked` events: the slug of the linked category
+or occasion (matches the structured link slug stored on the
+banner). Null/absent when `linkKind` is absent.
+
+   * @maxLength 128
+   */
+  linkSlug?: string;
+  /**
+   * For `banner_clicked` events: the raw destination URL when the
+banner has a legacy `linkUrl` (internal path or external URL).
+Null/absent for structured-link banners where `linkKind` is
+set.
+
+   * @maxLength 512
+   */
+  linkUrl?: string;
 }

@@ -1784,6 +1784,7 @@ components:
         - signup_step_completed
         - payment_wallet_opened
         - payment_wallet_fallback
+        - banner_clicked
     AnalyticsEventRequest:
       type: object
       properties:
@@ -1925,6 +1926,35 @@ components:
             in milliseconds. CLS is a unitless ratio. The metric name is
             carried in `action` (LCP, INP, CLS, TTFB, FCP). Values outside
             [0, 60000] are clamped server-side before storage.
+        bannerId:
+          type: string
+          maxLength: 64
+          description: |
+            For `banner_clicked` events: the unique id of the banner the
+            shopper clicked. Sourced from the OS banner response, not user
+            input.
+        linkKind:
+          type: string
+          maxLength: 32
+          description: |
+            For `banner_clicked` events: the structured link type
+            (`category` or `occasion`) when the banner has a structured
+            link. Null/absent for legacy `linkUrl`-only banners.
+        linkSlug:
+          type: string
+          maxLength: 128
+          description: |
+            For `banner_clicked` events: the slug of the linked category
+            or occasion (matches the structured link slug stored on the
+            banner). Null/absent when `linkKind` is absent.
+        linkUrl:
+          type: string
+          maxLength: 512
+          description: |
+            For `banner_clicked` events: the raw destination URL when the
+            banner has a legacy `linkUrl` (internal path or external URL).
+            Null/absent for structured-link banners where `linkKind` is
+            set.
       required:
         - name
     AnalyticsEventResponse:

@@ -79,4 +79,5 @@ export const AnalyticsEventName = {
   signup_step_completed: "signup_step_completed",
   payment_wallet_opened: "payment_wallet_opened",
   payment_wallet_fallback: "payment_wallet_fallback",
+  banner_clicked: "banner_clicked",
 } as const;

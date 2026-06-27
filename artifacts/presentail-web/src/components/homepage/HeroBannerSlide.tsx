@@ -6,6 +6,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { buildLocalePath, cityIdToSlug, isSupportedCountrySlug } from "@/lib/locale-route";
 import type { Lang, CountrySlug } from "@/lib/locale-route";
+import { trackEvent } from "@/lib/analytics";
 
 type Props = {
   banner: HomepageBanner;
@@ -63,6 +64,16 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
     ? buildOsProxyUrl(mediaUrl, isMobile ? 800 : 1200)
     : mediaUrl;
 
+  function handleClick() {
+    trackEvent({
+      name: "banner_clicked",
+      bannerId: banner.id,
+      linkKind: banner.linkKind ?? undefined,
+      linkSlug: banner.linkSlug ?? undefined,
+      linkUrl: banner.linkUrl ?? undefined,
+    });
+  }
+
   return (
     <a
       href={link?.href ?? undefined}
@@ -70,6 +81,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
       className="block relative w-full h-full"
       data-testid={`slide-${banner.id}`}
       tabIndex={active ? 0 : -1}
+      onClick={handleClick}
     >
       <div className="absolute inset-0 overflow-hidden">
         {mediaType === "video" ? (
