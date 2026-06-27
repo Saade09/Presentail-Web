@@ -726,6 +726,12 @@ const LLMS_TXT_CACHE_TTL_MS = 60 * 60 * 1000;
 let llmsFullTxtCache = null;
 let llmsFullTxtCacheTsMs = 0;
 
+// generateLlmsTxt is intentionally static: LLMS_INTRO is a fixed service
+// description and LLMS_PAGES is a fixed navigation index. Neither requires live
+// catalog data — brand names, occasion names, and featured products are already
+// included in /llms-full.txt, which uses a TTL-based live-fetch pattern. If the
+// page list or intro copy ever needs to embed live counts or names, apply the
+// same async + TTL pattern used in generateLlmsFullTxt below.
 function generateLlmsTxt(origin, basePath) {
   const cleanBase = basePath.replace(/\/$/, "");
   const base = origin + cleanBase;

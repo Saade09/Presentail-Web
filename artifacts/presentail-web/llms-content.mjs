@@ -23,6 +23,14 @@
  *                        `body`  is the verbatim Markdown body for that section.
  */
 
+// LLMS_INTRO and LLMS_PAGES are intentionally static. They describe the service
+// and list key navigational URLs — neither depends on live catalog state.
+// Live catalog content (brand names, occasion names, featured products) is
+// already woven into /llms-full.txt via a TTL-based async fetch in serve.mjs
+// (generateLlmsFullTxt). If LLMS_INTRO ever needs to embed a live figure (e.g.
+// "over N brands") or LLMS_PAGES ever needs a dynamically-discovered URL, port
+// the /llms.txt route to the same async + TTL + stale-fallback pattern used by
+// /llms-full.txt rather than regenerating on every request.
 export const LLMS_INTRO =
   "Luxury flower and gift delivery across Lebanon, UAE, and Cyprus.\n" +
   "Same-day and scheduled delivery. Shop online or via the mobile app.";
