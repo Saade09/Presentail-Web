@@ -1,6 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { sanitize, todayIso } from "./deliverySelectionSanitize";
+
+// ---------------------------------------------------------------------------
+// Fixed clock
+// ---------------------------------------------------------------------------
+// These tests depend on the wall-clock time: `todayIso()`, past/future date
+// comparisons, and the Beirut-hour slot cutoff all read the current time.
+// Pin the clock to a deterministic instant so the suite passes regardless of
+// when (or in which timezone) it runs. 06:00 UTC on 2025-06-15 is 09:00 in
+// Beirut (summer DST, UTC+3), early enough that LB still has open slots today,
+// and shares the same calendar date in both UTC and Beirut.
+const FIXED_NOW = new Date("2025-06-15T06:00:00.000Z");
+
+beforeAll(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(FIXED_NOW);
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
