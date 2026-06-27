@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { logger } from "./logger";
 
 const GRAPH_API_VERSION = "v19.0";
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
@@ -233,6 +234,82 @@ export async function sendCapiEventByPixelId(
     userData: params.userData,
     eventSourceUrl: params.eventSourceUrl,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Startup validation
+// ---------------------------------------------------------------------------
+
+type PixelCountryHealth = {
+  country: CountryKey;
+  pixelIdConfigured: boolean;
+  accessTokenConfigured: boolean;
+  ok: boolean;
+};
+
+/**
+ * Returns the pixel configuration health for all supported countries (LB, AE).
+ * Used by both the startup validator and the admin diagnostics endpoint.
+ */
+export function getPixelConfigHealth(): PixelCountryHealth[] {
+  const countries: CountryKey[] = ["lb", "ae"];
+  return countries.map((country) => {
+    const cfg = configForCountry(country);
+    const pixelIdVar =
+      country === "lb"
+        ? (process.env.FACEBOOK_PIXEL_ID_LB ?? process.env.VITE_FB_PIXEL_ID_LB)
+        : (process.env.FACEBOOK_PIXEL_ID_AE ?? process.env.VITE_FB_PIXEL_ID_AE);
+    const tokenVar =
+      country === "lb"
+        ? (process.env.FB_CONVERSIONS_TOKEN_LB ?? process.env.FACEBOOK_ACCESS_TOKEN)
+        : (process.env.FB_CONVERSIONS_TOKEN_AE ?? process.env.FACEBOOK_ACCESS_TOKEN);
+    return {
+      country,
+      pixelIdConfigured: Boolean(pixelIdVar),
+      accessTokenConfigured: Boolean(tokenVar),
+      ok: cfg !== null,
+    };
+  });
+}
+
+/**
+ * Call at API server startup. Logs a structured WARN for each country whose
+ * pixel ID or Conversions API access token env var is absent. The log entry
+ * names the exact missing variables so ops can fix them without reading source.
+ * Silent no-ops for a country are expected in development but should never
+ * occur in production, where every missing var means zero CAPI events are sent.
+ */
+export function validateFbPixelEnv(): void {
+  const health = getPixelConfigHealth();
+  const missing = health.filter((h) => !h.ok);
+  if (missing.length === 0) {
+    logger.info(
+      { countries: health.map((h) => h.country) },
+      "fbConversions: all pixel configs present",
+    );
+    return;
+  }
+  for (const h of missing) {
+    const vars: string[] = [];
+    if (!h.pixelIdConfigured) {
+      vars.push(
+        h.country === "lb"
+          ? "FACEBOOK_PIXEL_ID_LB (or VITE_FB_PIXEL_ID_LB)"
+          : "FACEBOOK_PIXEL_ID_AE (or VITE_FB_PIXEL_ID_AE)",
+      );
+    }
+    if (!h.accessTokenConfigured) {
+      vars.push(
+        h.country === "lb"
+          ? "FB_CONVERSIONS_TOKEN_LB (or FACEBOOK_ACCESS_TOKEN)"
+          : "FB_CONVERSIONS_TOKEN_AE (or FACEBOOK_ACCESS_TOKEN)",
+      );
+    }
+    logger.warn(
+      { country: h.country, missingVars: vars },
+      `fbConversions: pixel config incomplete for ${h.country.toUpperCase()} — CAPI events will be silently dropped. Missing: ${vars.join(", ")}`,
+    );
+  }
 }
 
 type CAPIPurchaseParams = {

@@ -34,6 +34,7 @@ import fbRouter from "./fb";
 import productsRouter from "./products";
 import ordersRouter from "./orders";
 import couponsRouter from "./coupons";
+import adminPixelDiagnosticsRouter from "./adminPixelDiagnostics";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(fbRouter);
 router.use(productsRouter);
 router.use(ordersRouter);
 router.use(couponsRouter);
+router.use(adminPixelDiagnosticsRouter);
 
 export default router;

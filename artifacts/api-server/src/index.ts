@@ -20,6 +20,7 @@ import { startSeoAuditMonitor } from "./lib/seoAuditMonitor";
 import { startWebVitalsMonitor } from "./lib/webVitalsMonitor";
 import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonitor";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
+import { validateFbPixelEnv } from "./lib/fbConversions";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
 // process. pg emits these when a connection is terminated unexpectedly (e.g. a
 // database restart or transient network drop). The pool will automatically
@@ -59,6 +60,7 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   void registerStripeApplePayDomains();
   validateOsEnv();
+  validateFbPixelEnv();
   startOsLocationSync();
   startOsProductsSync();
   startReconcileWorker();
