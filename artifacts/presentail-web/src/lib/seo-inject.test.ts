@@ -717,6 +717,57 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
       expectedDesc,
     );
   });
+
+  it("category fallback (/en-lb/beirut/category/<slug>) uses the dedicated short category OG/Twitter copy", () => {
+    // buildSeoHead returns the generic head used when the per-entity category
+    // lookup is unavailable; it must carry the shorter generic category copy
+    // rather than the long page title/description.
+    const { headSnippet, title } = buildSeoHead(
+      "/en-lb/beirut/category/roses",
+      ORIGIN_OPTS,
+    );
+    // The page <title> keeps the longer template…
+    expect(title).toBe("Gift Delivery in Beirut | Presentail");
+    // …while og:/twitter: use the dedicated shorter category copy.
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "Shop Gifts by Category in Beirut | Presentail",
+    );
+    expect(getMeta(headSnippet, 'property="og:description"')).toBe(
+      "Browse Presentail's gift categories in Beirut with same-day delivery.",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
+      "Shop Gifts by Category in Beirut | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "Browse gifts by category in Beirut — same-day delivery by Presentail.",
+    );
+  });
+
+  it("AR category fallback (/ar-lb/beirut/category/<slug>) uses the Arabic category copy", () => {
+    const { headSnippet } = buildSeoHead(
+      "/ar-lb/beirut/category/roses",
+      ORIGIN_OPTS,
+    );
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "تسوّق الهدايا حسب الفئة في بيروت | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "تصفّح الهدايا حسب الفئة في بيروت — توصيل في نفس اليوم من Presentail.",
+    );
+  });
+
+  it("FR category fallback (/fr-lb/beirut/category/<slug>) uses the French category copy", () => {
+    const { headSnippet } = buildSeoHead(
+      "/fr-lb/beirut/category/roses",
+      ORIGIN_OPTS,
+    );
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
+      "Acheter des cadeaux par catégorie à Beyrouth | Presentail",
+    );
+    expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
+      "Parcourez les cadeaux par catégorie à Beyrouth — livraison le jour même par Presentail.",
+    );
+  });
 });
 
 describe("buildSeoHead — OG image dimensions and alt tags on generic pages", () => {

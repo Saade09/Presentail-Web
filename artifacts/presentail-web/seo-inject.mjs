@@ -274,8 +274,12 @@ const HOME_TWITTER = {
 };
 
 // Separate OG and Twitter copy for the generic browse routes (Shop, Brands,
-// All Occasions). Shorter, more share-friendly than the page title/description.
-// Keyed by routeKey, then lang. Uses {city} placeholders resolved via format().
+// All Occasions, Category). Shorter, more share-friendly than the page
+// title/description. Keyed by routeKey, then lang. Uses {city} placeholders
+// resolved via format(). The "category" entry only applies when the per-entity
+// category lookup fails and computeSeoHead falls back to the generic head —
+// category routes always carry a slug, so the success path uses
+// buildCategoryHead with entity-specific copy.
 const GENERIC_OG = {
   shop: {
     en: {
@@ -317,6 +321,20 @@ const GENERIC_OG = {
     fr: {
       title: "Acheter par occasion à {city} | Presentail",
       description: "Trouvez le cadeau idéal pour chaque occasion à {city} avec la livraison le jour même par Presentail.",
+    },
+  },
+  category: {
+    en: {
+      title: "Shop Gifts by Category in {city} | Presentail",
+      description: "Browse Presentail's gift categories in {city} with same-day delivery.",
+    },
+    ar: {
+      title: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
+      description: "تصفّح فئات الهدايا من Presentail في {city} مع توصيل في نفس اليوم.",
+    },
+    fr: {
+      title: "Acheter des cadeaux par catégorie à {city} | Presentail",
+      description: "Parcourez les catégories de cadeaux Presentail à {city} avec la livraison le jour même.",
     },
   },
 };
@@ -362,6 +380,20 @@ const GENERIC_TWITTER = {
     fr: {
       title: "Acheter par occasion à {city} | Presentail",
       description: "Des cadeaux pour chaque occasion à {city} — livraison le jour même par Presentail.",
+    },
+  },
+  category: {
+    en: {
+      title: "Shop Gifts by Category in {city} | Presentail",
+      description: "Browse gifts by category in {city} — same-day delivery by Presentail.",
+    },
+    ar: {
+      title: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
+      description: "تصفّح الهدايا حسب الفئة في {city} — توصيل في نفس اليوم من Presentail.",
+    },
+    fr: {
+      title: "Acheter des cadeaux par catégorie à {city} | Presentail",
+      description: "Parcourez les cadeaux par catégorie à {city} — livraison le jour même par Presentail.",
     },
   },
 };
@@ -707,8 +739,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const canonicalHref = canonicalOrigin + cleanBase + canonicalPath;
 
   // Landing, locale-prefixed home, and the generic browse routes (Shop,
-  // Brands, All Occasions) use distinct, shorter OG and Twitter copy. Other
-  // routes reuse the page title/description.
+  // Brands, All Occasions, and the Category fallback) use distinct, shorter OG
+  // and Twitter copy. Other routes reuse the page title/description.
   const isLanding = routeKey === "landing" && !inLocale;
   const isHome = routeKey === "home" && inLocale && !isUnknownSubRoute;
   const hasGenericShareCopy = inLocale && Boolean(GENERIC_OG[routeKey]);

@@ -114,6 +114,27 @@ export const seoStrings: Dict = {
     en: "Shop this brand's full collection for delivery in {city}, {country} on Presentail.",
     ar: "تسوّق المجموعة الكاملة لهذه العلامة للتوصيل في {city}، {country} عبر Presentail.",
   },
+  // Category share copy. Category routes are entity pages (the SPA treats
+  // /category/:slug as `entityPage` and the server injects entity-specific
+  // metadata), so these keys back the generic fallback used when the per-entity
+  // category lookup is unavailable — mirroring GENERIC_OG/GENERIC_TWITTER.category
+  // in seo-inject.mjs.
+  "seo.category.ogTitle": {
+    en: "Shop Gifts by Category in {city} | Presentail",
+    ar: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
+  },
+  "seo.category.ogDescription": {
+    en: "Browse Presentail's gift categories in {city} with same-day delivery.",
+    ar: "تصفّح فئات الهدايا من Presentail في {city} مع توصيل في نفس اليوم.",
+  },
+  "seo.category.twitterTitle": {
+    en: "Shop Gifts by Category in {city} | Presentail",
+    ar: "تسوّق الهدايا حسب الفئة في {city} | Presentail",
+  },
+  "seo.category.twitterDescription": {
+    en: "Browse gifts by category in {city} — same-day delivery by Presentail.",
+    ar: "تصفّح الهدايا حسب الفئة في {city} — توصيل في نفس اليوم من Presentail.",
+  },
   "seo.cart.title": {
     en: "Your Cart | Presentail",
     ar: "سلتك | Presentail",
@@ -282,6 +303,10 @@ export const seoStringsFr: Record<string, string> = {
   "seo.brands.twitterDescription": "Explorez nos marques partenaires à {city} — livrées par Presentail.",
   "seo.brand.title": "Collection de la marque à {city} | Presentail",
   "seo.brand.description": "Achetez la collection complète de cette marque pour livraison à {city}, {country} sur Presentail.",
+  "seo.category.ogTitle": "Acheter des cadeaux par catégorie à {city} | Presentail",
+  "seo.category.ogDescription": "Parcourez les catégories de cadeaux Presentail à {city} avec la livraison le jour même.",
+  "seo.category.twitterTitle": "Acheter des cadeaux par catégorie à {city} | Presentail",
+  "seo.category.twitterDescription": "Parcourez les cadeaux par catégorie à {city} — livraison le jour même par Presentail.",
   "seo.cart.title": "Votre panier | Presentail",
   "seo.cart.description": "Revoyez votre panier Presentail et passez au paiement sécurisé.",
   "seo.checkout.title": "Paiement | Presentail",

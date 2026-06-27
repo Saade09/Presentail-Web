@@ -122,6 +122,11 @@ export function SeoHead() {
     const isHome = routeKey === "home" && Boolean(inLocale) && !isUnknownSubRoute;
     // Generic browse routes (Shop, Brands, All Occasions) also get dedicated,
     // shorter share copy. Only applies within a locale prefix.
+    // Category (/category/:slug) is intentionally excluded here: it is an
+    // `entityPage` and bails out above (server injection supplies sharp,
+    // entity-specific metadata). Its generic fallback copy lives server-side in
+    // seo-inject.mjs (GENERIC_OG/GENERIC_TWITTER.category) with the matching
+    // seo.category.* strings kept in the catalogue for parity.
     const hasGenericShareCopy =
       Boolean(inLocale) &&
       (routeKey === "shop" ||
