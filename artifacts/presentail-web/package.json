@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public"
+    "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public",
+    "check-logo-preload": "node scripts/check-logo-preload.mjs dist/public"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

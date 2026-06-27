@@ -45,6 +45,9 @@ jobs:
       - name: Verify dist is present and fresh
         run: node artifacts/presentail-web/scripts/check-dist-fresh.mjs artifacts/presentail-web/dist/public
 
+      - name: Check logo preload tag survives critters rewrite
+        run: node artifacts/presentail-web/scripts/check-logo-preload.mjs artifacts/presentail-web/dist/public
+
       - name: Start serve.mjs
         run: node artifacts/presentail-web/serve.mjs &
         env:
