@@ -4,6 +4,7 @@
 // alternates already present in the initial document (no JS required).
 
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
+import { BLOG_POSTS } from "./src/data/blogPostsCopy.js";
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"];
 const SUPPORTED_COUNTRY_SLUGS = ["ae", "lb", "cy"];
@@ -1004,6 +1005,10 @@ function extractBrandSlug(rest) {
   return extractSlugFor("/brand", rest);
 }
 
+function extractBlogPostSlug(rest) {
+  return extractSlugFor("/blog", rest);
+}
+
 function extractCategorySlugFromSearch(search) {
   if (!search) return null;
   const s = search.startsWith("?") ? search.slice(1) : search;
@@ -1576,6 +1581,70 @@ function buildProductHead({
   };
 }
 
+/**
+ * Per-article blog post head. Reads from the shared BLOG_POSTS source of truth
+ * (src/data/blogPostsCopy.js) — the same module the BlogPost page renders from —
+ * so the server-side link preview and the live article can never disagree.
+ */
+function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
+  const rawTitle = typeof article.title === "string" ? article.title.trim() : "";
+  const title = rawTitle ? `${rawTitle} | Presentail` : "Presentail";
+  const description =
+    clampDescription(article.description) ||
+    genericFallbackDescription(lang, "blogPost");
+  const cleanBase = basePath.replace(/\/$/, "");
+  const canonicalHref = origin + cleanBase + pathname;
+
+  const extraLines = [];
+  extraLines.push(
+    `<meta property="article:published_time" content="${escapeAttr(article.datePublished)}" />`,
+  );
+
+  // Article JSON-LD — mirrors the client-side schema in BlogPost.tsx so the
+  // crawler-facing markup and the rendered page stay in lockstep.
+  extraLines.push(
+    jsonLdTag({
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: rawTitle,
+      description: article.description,
+      datePublished: article.datePublished,
+      publisher: {
+        "@type": "Organization",
+        name: "Presentail",
+        url: `${origin}${cleanBase}`,
+      },
+      url: canonicalHref,
+    }),
+  );
+
+  // BreadcrumbList JSON-LD — Home > Journal > Article Title.
+  const locBase = localeBaseUrl(pathname, origin, basePath);
+  extraLines.push(
+    jsonLdTag(
+      buildBreadcrumbListSchema([
+        { name: "Home", url: locBase },
+        { name: "Journal", url: `${locBase}/blog` },
+        { name: rawTitle || "Article" },
+      ]),
+    ),
+  );
+
+  return buildEntityHead({
+    ogType: "article",
+    title,
+    description,
+    imageUrl: null,
+    imageAlt: rawTitle || "Presentail",
+    basePath,
+    origin,
+    pathname,
+    search: "",
+    lang,
+    extraLines,
+  });
+}
+
 const BRANDS_FILTER_TITLES = {
   en: "{name} Brands in {city} | Presentail",
   ar: "علامات {name} في {city} | Presentail",
@@ -1984,6 +2053,43 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         });
       }
     }
+
+    // Fallback: handle bare /blog/<slug> paths (links shared before the
+    // locale-prefix fix, or external integrations). Language resolves the same
+    // way as the bare product path above.
+    const bareBlogSlug = extractBlogPostSlug(pathname);
+    if (bareBlogSlug) {
+      const articlesByLang = BLOG_POSTS[bareBlogSlug];
+      if (articlesByLang) {
+        const bareBlogLangFromQuery = (() => {
+          if (!search) return null;
+          const s = search.startsWith("?") ? search.slice(1) : search;
+          const v = new URLSearchParams(s).get("lang")?.trim().toLowerCase();
+          return v && SUPPORTED_LANGS.includes(v) ? v : null;
+        })();
+        const bareBlogLang =
+          hintLang ??
+          bareBlogLangFromQuery ??
+          pickLangFromAcceptLanguage(acceptLanguage) ??
+          "en";
+        const article = articlesByLang[bareBlogLang] ?? articlesByLang.en;
+        if (article) {
+          const result = buildBlogPostHead({
+            article,
+            lang: bareBlogLang,
+            basePath: rest.basePath ?? "",
+            origin: rest.origin ?? "",
+            pathname,
+          });
+          return assembleHtml(html, {
+            lang: bareBlogLang,
+            dir: bareBlogLang === "ar" ? "rtl" : "ltr",
+            headSnippet: result.headSnippet,
+            titleTag: `<title>${escapeHtml(result.title)}</title>`,
+          });
+        }
+      }
+    }
     return assembleHtml(html, generic);
   }
 
@@ -2002,6 +2108,31 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
   const occasionSlug = occasionSlugFromPath ?? occasionSlugFromSearch;
   const brandsFilter =
     parsed.rest === "/brands" ? extractBrandsFilterFromSearch(search) : null;
+
+  // Individual blog posts resolve from the shared BLOG_POSTS source of truth
+  // (no upstream fetch needed) so the preview head always matches the article.
+  // Unknown slugs fall through to the generic head, matching the SPA's redirect
+  // of unknown blog slugs back to /blog.
+  const blogPostSlug = extractBlogPostSlug(parsed.rest);
+  if (blogPostSlug) {
+    const articlesByLang = BLOG_POSTS[blogPostSlug];
+    const article = articlesByLang?.[generic.lang] ?? articlesByLang?.en;
+    if (article) {
+      const result = buildBlogPostHead({
+        article,
+        lang: generic.lang,
+        basePath: rest.basePath ?? "",
+        origin: rest.origin ?? "",
+        pathname,
+      });
+      return assembleHtml(html, {
+        lang: generic.lang,
+        dir: generic.dir,
+        headSnippet: result.headSnippet,
+        titleTag: `<title>${escapeHtml(result.title)}</title>`,
+      });
+    }
+  }
   // For legacy query-param paths, compute the canonical clean path so search
   // engines are guided to the new URLs even before they follow the client-side redirect.
   const seoPathname =

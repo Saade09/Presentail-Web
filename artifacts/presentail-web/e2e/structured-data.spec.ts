@@ -360,24 +360,25 @@ test.describe("Structured data — locale-prefixed blog index /en-lb/beirut/blog
 // ---------------------------------------------------------------------------
 // 8. Locale-prefixed blog post /en-lb/beirut/blog/<slug>
 //
-// Individual blog posts are matched by the `blogPost` route key but are not
-// fetched as OS entities, so injectSeoTagsAsync() returns the generic head:
-// Organization JSON-LD + OG/Twitter tags + meta description are always present
-// using the blog-post title/description keys. A regression here would silently
-// ship broken previews for every shared article.
+// Individual blog posts resolve from the shared BLOG_POSTS source of truth
+// (src/data/blogPostsCopy.js) — the same module the BlogPost page renders from —
+// so buildBlogPostHead() emits a per-article title/description, og:type=article,
+// Article JSON-LD and a BreadcrumbList. Organization JSON-LD + OG/Twitter tags +
+// meta description are always present. A regression here would silently ship
+// broken (or drifting) previews for every shared article.
 //
-// No Article/BreadcrumbList JSON-LD is emitted today, but should the blog head
-// builder ever start injecting it we assert it conditionally (via test.skip)
-// so the test doubles as an integration check without flaking when it is
-// absent — mirroring the entity suites above.
+// We use a real article slug so the Article/BreadcrumbList assertions exercise
+// the per-article path; they remain conditional (via test.skip) so the suite
+// still passes in environments where the server falls back to the generic head
+// (e.g. no API base URL configured) — mirroring the entity suites above.
 // ---------------------------------------------------------------------------
 
-test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/the-art-of-gifting-flowers", () => {
+test.describe("Structured data — locale-prefixed blog post /en-lb/beirut/blog/inside-spring-sourcing-trip", () => {
   let html: string;
 
   test.beforeAll(async ({ request }) => {
     const response = await request.get(
-      "/en-lb/beirut/blog/the-art-of-gifting-flowers",
+      "/en-lb/beirut/blog/inside-spring-sourcing-trip",
     );
     expect(response.status()).toBe(200);
     html = await response.text();

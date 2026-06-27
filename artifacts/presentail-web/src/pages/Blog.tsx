@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { BLOG_POSTS } from "@/data/blogPostsCopy.js";
 
 type Story = {
   slug: string;
@@ -10,17 +11,34 @@ type Story = {
   excerpt: string;
 };
 
+type Article = {
+  slug: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+};
+
 type Copy = {
   eyebrow: string;
   title: string;
   intro: string;
   storiesHeading: string;
-  stories: Story[];
   ctaHeading: string;
   ctaBody: string;
   ctaShop: string;
   readArticle: string;
 };
+
+const ARTICLES = BLOG_POSTS as Record<string, Record<Language, Article>>;
+
+// Story cards are derived from the shared blog source of truth so the index can
+// never drift from the article pages or the server-side link previews.
+function getStories(language: Language): Story[] {
+  return Object.keys(ARTICLES).map((slug) => {
+    const a = ARTICLES[slug][language] ?? ARTICLES[slug].en;
+    return { slug, eyebrow: a.eyebrow, title: a.title, excerpt: a.description };
+  });
+}
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -29,29 +47,6 @@ const COPY: Record<Language, Copy> = {
     intro:
       "Notes on craft, the season's blooms, the makers we love, and the small details that turn a delivery into a moment.",
     storiesHeading: "Recent stories",
-    stories: [
-      {
-        slug: "inside-spring-sourcing-trip",
-        eyebrow: "Seasonal sourcing",
-        title: "Inside our spring sourcing trip",
-        excerpt:
-          "How our florists pick the season's best peonies, ranunculi, and garden roses — and what to look for when a bloom is at its peak.",
-      },
-      {
-        slug: "chocolatiers-behind-our-gift-boxes",
-        eyebrow: "Maker spotlight",
-        title: "The chocolatiers behind our gift boxes",
-        excerpt:
-          "We sit down with the family-run ateliers we partner with across Beirut, Dubai, and Limassol to talk craft, cocoa, and patience.",
-      },
-      {
-        slug: "what-to-send-when-there-are-no-words",
-        eyebrow: "Gifting guide",
-        title: "What to send when there are no words",
-        excerpt:
-          "A short guide to thoughtful sympathy gifts — and how to write a card that actually helps.",
-      },
-    ],
     ctaHeading: "Send something beautiful",
     ctaBody: "Browse the season's collection or pick from our best sellers.",
     ctaShop: "Shop the collection",
@@ -63,29 +58,6 @@ const COPY: Record<Language, Copy> = {
     intro:
       "ملاحظات عن الحرفة، وأزهار الموسم، والصنّاع الذين نحبّهم، والتفاصيل الصغيرة التي تحوّل التوصيل إلى لحظة.",
     storiesHeading: "أحدث الحكايات",
-    stories: [
-      {
-        slug: "inside-spring-sourcing-trip",
-        eyebrow: "مصادر موسمية",
-        title: "داخل رحلة مصادر الربيع",
-        excerpt:
-          "كيف يختار منسّقو الأزهار لدينا أفضل أزهار الفاوانيا والحوذان وورود الحدائق — وما الذي يدلّ على ذروة جمال الزهرة.",
-      },
-      {
-        slug: "chocolatiers-behind-our-gift-boxes",
-        eyebrow: "تعريف بصانع",
-        title: "صنّاع الشوكولاتة وراء علب هدايانا",
-        excerpt:
-          "نجلس مع الأتيليهات العائلية التي نتعاون معها في بيروت ودبي وليماسول للحديث عن الحرفة والكاكاو والصبر.",
-      },
-      {
-        slug: "what-to-send-when-there-are-no-words",
-        eyebrow: "دليل الإهداء",
-        title: "ماذا ترسل حين تعجز الكلمات",
-        excerpt:
-          "دليل قصير لهدايا التعازي المدروسة — وكيف تكتب بطاقة تُواسي فعلاً.",
-      },
-    ],
     ctaHeading: "أرسل شيئاً جميلاً",
     ctaBody: "تصفّح مجموعة الموسم أو اختر من أكثر منتجاتنا مبيعاً.",
     ctaShop: "تسوّق المجموعة",
@@ -97,29 +69,6 @@ const COPY: Record<Language, Copy> = {
     intro:
       "Notes sur le savoir-faire, les fleurs de saison, les artisans que nous aimons, et les petits détails qui transforment une livraison en moment.",
     storiesHeading: "Histoires récentes",
-    stories: [
-      {
-        slug: "inside-spring-sourcing-trip",
-        eyebrow: "Sourcing de saison",
-        title: "Dans les coulisses de notre sourcing de printemps",
-        excerpt:
-          "Comment nos fleuristes choisissent les plus belles pivoines, renoncules et roses de jardin — et comment reconnaître une fleur à son apogée.",
-      },
-      {
-        slug: "chocolatiers-behind-our-gift-boxes",
-        eyebrow: "Portrait d'artisan",
-        title: "Les chocolatiers derrière nos coffrets cadeaux",
-        excerpt:
-          "Nous rencontrons les ateliers familiaux de Beyrouth, Dubaï et Limassol avec qui nous travaillons pour parler savoir-faire, cacao et patience.",
-      },
-      {
-        slug: "what-to-send-when-there-are-no-words",
-        eyebrow: "Guide cadeau",
-        title: "Quoi envoyer quand les mots manquent",
-        excerpt:
-          "Un court guide des cadeaux de condoléances réfléchis — et comment écrire une carte qui réconforte vraiment.",
-      },
-    ],
     ctaHeading: "Envoyez quelque chose de beau",
     ctaBody:
       "Parcourez la collection de la saison ou choisissez parmi nos meilleures ventes.",
@@ -131,6 +80,7 @@ const COPY: Record<Language, Copy> = {
 export default function Blog() {
   const { language } = useLocale();
   const c = COPY[language] ?? COPY.en;
+  const stories = getStories(language);
 
   return (
     <div className="bg-background" data-testid="blog-page" lang={language}>
@@ -154,7 +104,7 @@ export default function Blog() {
           {c.storiesHeading}
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
-          {c.stories.map((s) => (
+          {stories.map((s) => (
             <article
               key={s.slug}
               className="rounded-lg border border-border bg-card flex flex-col overflow-hidden"
