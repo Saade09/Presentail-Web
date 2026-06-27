@@ -126,12 +126,12 @@ vi.mock("@/contexts/LocationContext", async (importOriginal) => {
 
 vi.mock("@/contexts/DeliverySelectionContext", () => ({
   useDeliverySelection: () => ({
-    date: "",
+    date: "2025-06-06",
     mode: "schedule",
     slotLabel: null,
-    setDate: vi.fn(),
-    setMode: vi.fn(),
-    setSlotLabel: vi.fn(),
+    hasSelection: true,
+    setSelection: vi.fn(),
+    clear: vi.fn(),
   }),
   DeliverySelectionProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));
@@ -417,6 +417,12 @@ function renderCheckout() {
  *
  * Uses noAddress mode to avoid the delivery-address input.
  * The signed-in user already has a phone, so the sender section is hidden.
+ *
+ * After reaching Step 2, clicks the "Card" payment tile so that Stripe is
+ * lazily loaded (triggerStripeLoad → LazyStripeSection mounts → onStripeReady
+ * fires with the mock Stripe instance).  Without this click the Stripe
+ * instance is null at submit time and handleSubmit returns early after
+ * showing a "Stripe loading" toast instead of running the payment logic.
  */
 async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
   // Enable "Ask recipient for address" so the street-address field is not required.
@@ -437,6 +443,17 @@ async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
 
   // Verify we reached step 2 (the submit button is visible).
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
+
+  // Click the Card payment tile.  This calls setPaymentMethod("card") →
+  // triggerStripeLoad() which sets stripeNeeded=true, causing LazyStripeSection
+  // to mount.  The StripeCheckoutSection mock then fires onStripeReady with
+  // the mockStripe instance so stripe is non-null before handleSubmit runs.
+  const cardTile = await screen.findByTestId("option-payment-card");
+  await user.click(cardTile);
+
+  // Wait until the stripe card fields stub is visible — this confirms that
+  // LazyStripeSection has mounted and onStripeReady has been called (stripe ≠ null).
+  await screen.findByTestId("stripe-card-fields");
 }
 
 // ---------------------------------------------------------------------------
@@ -459,11 +476,15 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
   it("happy path (no 3DS, like 4000000000003220): creates order and redirects on succeeded PI", async () => {
     // confirmCardPayment resolves immediately with status="succeeded".
     // This mirrors the 4000000000003220 test card which does not trigger 3DS.
+    //
+    // Architecture note: Checkout no longer calls createOrder directly for the
+    // card path.  On success it stashes the order payload in sessionStorage and
+    // redirects to /order-confirmed, which finalises the order server-side.
+    // The createOrderMutate hook is therefore NOT expected to be called here.
     mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
     mockConfirmCardPayment.mockResolvedValue({
       paymentIntent: { id: "pi_direct_abc", status: "succeeded" },
     });
-    mockCreateOrderMutate.mockResolvedValue(ORDER_SUCCESS_RES);
 
     renderCheckout();
     await navigateToStep2(user);
@@ -492,14 +513,7 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     });
 
     await waitFor(() => {
-      // Order was created with the PI id as the paymentRef.
-      expect(mockCreateOrderMutate).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentRef: "pi_direct_abc" }),
-      );
-    });
-
-    await waitFor(() => {
-      // Shopper redirected to the order confirmed page.
+      // Shopper redirected to the order confirmed page (order is finalised there).
       expect(mockSetLocation).toHaveBeenCalledWith(
         expect.stringContaining("/order-confirmed"),
       );
@@ -508,8 +522,13 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
 
   // ── 2. 3DS required path: requires_action → auth succeeds ──────────────
 
-  it("3DS path (like 4000002760003184): calls handleNextAction and creates order when auth succeeds", async () => {
+  it("3DS path (like 4000002760003184): calls handleNextAction and redirects when auth succeeds", async () => {
     // confirmCardPayment returns requires_action first (3DS challenge needed).
+    //
+    // Architecture note: Checkout no longer calls createOrder directly for the
+    // card path.  On success it stashes the order payload in sessionStorage and
+    // redirects to /order-confirmed, which finalises the order server-side.
+    // The createOrderMutate hook is therefore NOT expected to be called here.
     mockCreatePaymentIntentMutate.mockResolvedValue(PAYMENT_INTENT_RES);
     mockConfirmCardPayment.mockResolvedValue({
       paymentIntent: { id: "pi_3ds_abc", status: "requires_action" },
@@ -518,7 +537,6 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     mockHandleNextAction.mockResolvedValue({
       paymentIntent: { id: "pi_3ds_abc", status: "succeeded" },
     });
-    mockCreateOrderMutate.mockResolvedValue(ORDER_SUCCESS_RES);
 
     renderCheckout();
     await navigateToStep2(user);
@@ -534,13 +552,7 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     });
 
     await waitFor(() => {
-      // Order was created after 3DS succeeded.
-      expect(mockCreateOrderMutate).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentRef: "pi_3ds_abc" }),
-      );
-    });
-
-    await waitFor(() => {
+      // Shopper redirected to the order confirmed page (order is finalised there).
       expect(mockSetLocation).toHaveBeenCalledWith(
         expect.stringContaining("/order-confirmed"),
       );
