@@ -297,7 +297,10 @@ function CheckoutScreen() {
   // so we measure it directly rather than inferring it from cart_viewed.
   useEffect(() => {
     trackEvent({ name: "checkout_started", surface: "checkout" });
-    trackFbMobileEvent("InitiateCheckout", { countryCode: effectiveCountry });
+    trackFbMobileEvent("InitiateCheckout", {
+      countryCode: effectiveCountry,
+      email: authUser?.email || undefined,
+    });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 1 — Customize / Card Message
