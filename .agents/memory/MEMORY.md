@@ -11,4 +11,5 @@
 - [OS order productId must be numeric DB PK](os-order-product-id.md) — OS /api/orders rejects slug as productId; must use osNumericId from cache; slug caused every order to 500 since launch
 - [OS occasion pages empty](os-occasion-category-slugs.md) — 0 products on occasion/category pages: fallback /woo/products occasions:[], OCCASION_TYPE_CATEGORIES slug mismatch, + OS products with no category
 - [Checkout wallet flow](checkout-wallet-flow.md) — web Apple/Google Pay native-sheet branch: mobile-only on-demand PR; show()-throws falls through to finalizeOrderNow; PI-fail error invisible behind wallet tile
+- [PhoneField focus on mobile](phonefield-focus.md) — RN phone-number-input PhoneInput is a class with no focus(); reach inner TextInput by passing a ref through textInputProps
 - [app-shared manualChunks rules](app-shared-chunk-rules.md) — only pure UI primitives (no context imports) belong in APP_SHARED_BASENAMES; context-importing components pull contexts into the shared chunk and force the entry to statically import it

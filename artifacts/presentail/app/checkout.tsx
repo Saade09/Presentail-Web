@@ -2322,8 +2322,10 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
   const senderEmailRef = useRef<View>(null);
 
   const recipientLastInputRef = useRef<TextInput>(null);
+  const recipientPhoneInputRef = useRef<TextInput>(null);
   const senderFirstInputRef = useRef<TextInput>(null);
   const senderLastInputRef = useRef<TextInput>(null);
+  const senderPhoneInputRef = useRef<TextInput>(null);
   const senderEmailInputRef = useRef<TextInput>(null);
 
   const scrollToRef = (fieldRef: React.RefObject<View | null>) => {
@@ -2480,7 +2482,8 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           <View style={{ flex: 1 }}>
             <Field colors={colors} label={t.lastNameLabel} value={recipientLast} onChangeText={setRecipientLast} placeholder="" required error={showFieldErrors && !recipientLast.trim()}
               inputRef={recipientLastInputRef}
-              returnKeyType="done" />
+              returnKeyType="next"
+              onSubmitEditing={() => focusAndScroll(recipientPhoneInputRef, recipientPhoneRef)} />
           </View>
         </View>
         <View ref={recipientPhoneRef}>
@@ -2492,6 +2495,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
             onChangeCountry={setRecipientCountry}
             required
             showError={recipientPhoneShowError || (showFieldErrors && !recipientPhone.trim())}
+            focusRef={recipientPhoneInputRef}
           />
         </View>
         <View
@@ -2806,8 +2810,14 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
             <View style={{ flex: 1 }}>
               <Field colors={colors} label={t.lastNameLabel} value={senderLast} onChangeText={setSenderLast} placeholder="" required error={showFieldErrors && !senderLast.trim()}
                 inputRef={senderLastInputRef}
-                returnKeyType={hideSenderEmail ? "done" : "next"}
-                onSubmitEditing={hideSenderEmail ? undefined : () => focusAndScroll(senderEmailInputRef, senderEmailRef)} />
+                returnKeyType={!hideSenderPhone || !hideSenderEmail ? "next" : "done"}
+                onSubmitEditing={
+                  !hideSenderPhone
+                    ? () => focusAndScroll(senderPhoneInputRef, senderPhoneRef)
+                    : !hideSenderEmail
+                      ? () => focusAndScroll(senderEmailInputRef, senderEmailRef)
+                      : undefined
+                } />
             </View>
           </View>
         ) : null}
@@ -2822,6 +2832,9 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
               placeholder="3000000"
               required
               showError={showFieldErrors && !senderWhatsapp.trim()}
+              focusRef={senderPhoneInputRef}
+              returnKeyType={hideSenderEmail ? "done" : "next"}
+              onSubmitEditing={hideSenderEmail ? undefined : () => focusAndScroll(senderEmailInputRef, senderEmailRef)}
             />
           </View>
         ) : null}

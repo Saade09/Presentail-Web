@@ -8,7 +8,7 @@ import {
 } from "libphonenumber-js";
 import phoneExamples from "libphonenumber-js/examples.mobile.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { View, type TextInput, type TextInputProps } from "react-native";
 import PhoneInput from "react-native-phone-number-input";
 import { AppText } from "@/components/AppText";
 
@@ -44,6 +44,9 @@ type Props = {
   onChangeCountry: (c: CountryDialCode) => void;
   placeholder?: string;
   showError?: boolean;
+  focusRef?: React.RefObject<TextInput | null>;
+  returnKeyType?: TextInputProps["returnKeyType"];
+  onSubmitEditing?: TextInputProps["onSubmitEditing"];
 };
 
 export function PhoneField({
@@ -55,6 +58,9 @@ export function PhoneField({
   onChangeCountry,
   placeholder,
   showError,
+  focusRef,
+  returnKeyType,
+  onSubmitEditing,
 }: Props) {
   const colors = useColors();
   const t = useT();
@@ -161,7 +167,11 @@ export function PhoneField({
           placeholderTextColor: colors.mutedForeground,
           onBlur: () => setTouched(true),
           selectionColor: colors.primary,
-        }}
+          returnKeyType,
+          onSubmitEditing,
+          blurOnSubmit: !onSubmitEditing,
+          ...(focusRef ? { ref: focusRef } : {}),
+        } as TextInputProps}
         countryPickerProps={{
           countryCodes: COUNTRY_DIAL_CODES.map((c) => c.code),
           withCloseButton: false,
