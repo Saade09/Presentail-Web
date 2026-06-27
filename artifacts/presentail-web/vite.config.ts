@@ -52,14 +52,17 @@ function seoInjectPlugin(basePath: string): Plugin {
 }
 
 /**
- * Inject a <link rel="preload" as="image"> for the primary English WebP logo
- * into the built index.html. Reads the Vite manifest to resolve the
- * content-hashed asset filename, then splices the tag into <head> right after
- * the existing font preloads. Runs only at build time.
+ * Inject <link rel="preload" as="image"> tags for both the English and Arabic
+ * WebP logos into the built index.html. Reads the Vite manifest to resolve the
+ * content-hashed asset filenames, then splices the tags into <head> right
+ * before </head>. A tiny inline <script> immediately removes the unused tag
+ * based on the URL's lang segment (URL pattern: /{lang}-{country}/{city}/...)
+ * so neither locale incurs an extra network hit. Runs only at build time.
  */
-// Source filename (without path) of the primary English WebP logo imported by
-// Logo.tsx. Update this constant if the asset is ever renamed.
+// Source filenames (without path) of the WebP logos imported by Logo.tsx.
+// Update these constants if the assets are ever renamed.
 const LOGO_EN_WEBP_BASENAME = "Presentail_PNG-01_1777795626872.webp";
+const LOGO_AR_WEBP_BASENAME = "Presentail-Arabic-Logo.webp";
 
 function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
   // Normalise basePath: strip trailing slash so we can append "/" + file safely.
@@ -78,31 +81,55 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
         { file: string }
       >;
 
-      // Prefer a manifest key match (source path ends with the basename) over
-      // scanning output filenames, so the lookup survives content-hash changes.
-      const logoEntry =
-        Object.entries(manifest).find(([key]) =>
-          key.endsWith(LOGO_EN_WEBP_BASENAME)
-        )?.[1] ??
-        // Fallback: scan output filenames in case the alias resolves to an
-        // absolute path that doesn't appear as a relative key.
-        Object.values(manifest).find(
-          (entry) =>
-            entry.file.includes(
-              LOGO_EN_WEBP_BASENAME.replace(".webp", "")
-            ) && entry.file.endsWith(".webp")
+      /** Look up a logo by its source basename in the Vite manifest. */
+      function findLogoEntry(basename: string) {
+        return (
+          Object.entries(manifest).find(([key]) => key.endsWith(basename))?.[1] ??
+          Object.values(manifest).find(
+            (entry) =>
+              entry.file.includes(basename.replace(".webp", "")) &&
+              entry.file.endsWith(".webp")
+          )
         );
-      if (!logoEntry) return;
+      }
 
-      // Prefix with basePath so the hint is correct under any deployment subpath.
-      const href = `${base}/${logoEntry.file}`;
-      const preloadTag = `<link rel="preload" as="image" type="image/webp" href="${href}">`;
+      const enEntry = findLogoEntry(LOGO_EN_WEBP_BASENAME);
+      const arEntry = findLogoEntry(LOGO_AR_WEBP_BASENAME);
+
+      // Require at least the English logo; Arabic is best-effort.
+      if (!enEntry) return;
+
+      const enHref = `${base}/${enEntry.file}`;
+      const arHref = arEntry ? `${base}/${arEntry.file}` : null;
+
+      // Both preload tags are emitted with IDs so the inline script can remove
+      // the one that is not needed for the current locale.
+      const enTag = `<link rel="preload" as="image" type="image/webp" href="${enHref}" id="preload-logo-en">`;
+      const arTag = arHref
+        ? `<link rel="preload" as="image" type="image/webp" href="${arHref}" id="preload-logo-ar">`
+        : null;
+
+      // Inline script: strip the base path prefix, extract the first URL
+      // segment, and remove whichever preload tag is not needed.
+      // The URL pattern is /{basePath}/{lang}-{country}/{city}/...
+      // A segment starting with "ar-" means Arabic locale.
+      const cleanBase = base || "";
+      const localeScript = arTag
+        ? `<script>(function(){var p=location.pathname;${
+            cleanBase ? `if(p.indexOf(${JSON.stringify(cleanBase)})===0)p=p.slice(${JSON.stringify(cleanBase).length});` : ""
+          }var seg=(p.split("/").filter(Boolean)[0]||"");var id=seg.startsWith("ar-")?"preload-logo-en":"preload-logo-ar";var el=document.getElementById(id);if(el)el.parentNode.removeChild(el);}());</script>`
+        : null;
+
       const html = fs.readFileSync(htmlPath, "utf8");
-      // Insert immediately before </head> so it sits near the font preloads.
-      const patched = html.replace("</head>", `  ${preloadTag}\n  </head>`);
+      const injection = [enTag, arTag, localeScript]
+        .filter(Boolean)
+        .map((t) => `  ${t}`)
+        .join("\n");
+      const patched = html.replace("</head>", `${injection}\n  </head>`);
       if (patched === html) return; // guard: no </head> found
       fs.writeFileSync(htmlPath, patched, "utf8");
-      console.log(`[logo-preload] Injected preload for ${href}`);
+      console.log(`[logo-preload] Injected EN preload for ${enHref}`);
+      if (arHref) console.log(`[logo-preload] Injected AR preload for ${arHref}`);
     },
   };
 }
