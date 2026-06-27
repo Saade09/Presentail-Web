@@ -60,6 +60,15 @@ export default defineConfig({
         : {}),
     },
   },
+  // Both projects share `testDir: "./e2e"`, so every spec runs at both a
+  // desktop (1280×720) and a mobile (390×844) viewport. The mobile project is
+  // important for the checkout flow specifically: on small screens the layout
+  // shifts (accordions collapse, fields reorder), so Tab/Return focus chains in
+  // `keyboard-nav.spec.ts` can break differently than on desktop. Running that
+  // suite under "Mobile Chrome" guards the mobile keyboard flow. All keyboard-nav
+  // focus-chain assertions currently hold at 390×844 — if a future layout change
+  // breaks one only on mobile, skip it with `test.skip(isMobile, "<reason>")`
+  // rather than weakening the desktop assertion.
   projects: [
     {
       name: "chromium",
