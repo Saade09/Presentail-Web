@@ -1,0 +1,49 @@
+I need you to improve the mobile PageSpeed Insights issue: “Reduce unused JavaScript.”
+
+Current PageSpeed diagnostic shows estimated savings of ~233 KiB:
+- Stripe third-party script: /dahlia/stripe.js from js.stripe.com
+  - Transfer size: ~230 KiB
+  - Estimated unused savings: ~168 KiB
+- First-party vendor bundle: /assets/vendor-CgeCAmEb.js
+  - Transfer size: ~118 KiB
+  - Estimated unused savings: ~65 KiB
+
+Please inspect the app and make safe performance improvements without breaking cart or checkout functionality.
+
+Main goals:
+
+1. Defer Stripe JavaScript
+   - Do not load Stripe on initial cart/page load unless it is immediately required.
+   - Load Stripe only when the user reaches the payment step, selects card payment, opens the payment form, or otherwise shows payment intent.
+   - Use dynamic loading, such as dynamic import, lazy initialization, or conditional script injection.
+   - Make sure Stripe is initialized once and reused safely.
+   - Preserve all existing checkout/payment behavior.
+
+2. Reduce the first-party vendor bundle
+   - Inspect what is inside the vendor bundle.
+   - Identify large dependencies being loaded on the initial page that are not needed immediately.
+   - Code-split route-level and component-level JavaScript where possible.
+   - Lazy-load non-critical components such as modals, maps, date pickers, carousels, analytics helpers, rich UI widgets, admin-only code, or checkout-only code.
+   - Remove unused imports and unused packages.
+   - Replace broad imports with smaller tree-shakeable imports where applicable.
+   - Avoid barrel imports if they cause unnecessary code to be bundled.
+
+3. Improve build configuration
+   - If the app uses Vite/Rollup/Webpack/Next/etc., check the current bundling setup.
+   - Add or use a bundle analyzer if helpful.
+   - Ensure production build uses tree-shaking, minification, and code splitting correctly.
+   - Avoid moving critical functionality out of the initial bundle if it causes layout shifts or interaction delays.
+
+4. Verification
+   - Run the app locally and confirm cart and checkout still work.
+   - Confirm Stripe still works when the user reaches the payment stage.
+   - Confirm Stripe is no longer loaded during initial page load unless the payment form is visible.
+   - Run the production build and check bundle sizes before and after.
+   - Report exactly what changed, which files were modified, and how much JavaScript was reduced.
+
+Acceptance criteria:
+- Stripe JS should not be part of the initial page load for the cart page unless payment is immediately visible.
+- Initial JavaScript payload should be reduced.
+- The vendor bundle should be smaller or split into smaller lazy-loaded chunks.
+- Cart, checkout, and payment flows must continue working.
+- No visual or functional regressions.
