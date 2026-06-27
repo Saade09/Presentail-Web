@@ -161,3 +161,57 @@ export function countryFromLocale(locale: string | null | undefined): string | n
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Stripe smallest-unit conversion — SINGLE SOURCE OF TRUTH
+// ---------------------------------------------------------------------------
+//
+// The number of decimals a currency is charged in, and the conversion of a
+// already-converted amount into Stripe's smallest unit, live here so the
+// Expo mobile app, the Vite web storefront, AND the Express API server all
+// share one implementation. Previously these were duplicated in
+// `artifacts/api-server/src/lib/fx.ts` (server) and
+// `artifacts/presentail-web/src/lib/stripeMinorUnits.ts` (web), which meant the
+// Apple Pay / Google Pay wallet sheet total (computed client-side) could drift
+// from the server-created PaymentIntent amount whenever one map was edited and
+// the other was not. Both now re-export from here, so they can never diverge.
+
+/** Decimals each currency is charged/displayed in. Falls back to 2 for unknown codes. */
+export const CURRENCY_DECIMALS: Record<string, number> = {
+  USD: 2,
+  AED: 2,
+  EUR: 2,
+  GBP: 2,
+  CAD: 2,
+  AUD: 2,
+  QAR: 2,
+  SAR: 2,
+  KWD: 3,
+  OMR: 3,
+  CHF: 2,
+  LBP: 0,
+};
+
+/** Decimals for a currency code (case-insensitive); defaults to 2 for unknown codes. */
+export function currencyDecimals(currency: string): number {
+  return CURRENCY_DECIMALS[currency.toUpperCase()] ?? 2;
+}
+
+/**
+ * Convert an amount already expressed in `currency` into the smallest unit
+ * Stripe expects. Handles three-decimal currencies (KWD/OMR), which Stripe
+ * requires to be rounded to the nearest 10 minor units, and zero-decimal
+ * currencies (LBP).
+ */
+export function toStripeMinorUnits(convertedAmount: number, currency: string): number {
+  const decimals = currencyDecimals(currency);
+  if (decimals === 3) {
+    // Stripe requires three-decimal currencies to be rounded to nearest 10.
+    const minor = Math.round(convertedAmount * 1000);
+    return Math.round(minor / 10) * 10;
+  }
+  if (decimals === 0) {
+    return Math.round(convertedAmount);
+  }
+  return Math.round(convertedAmount * 100);
+}

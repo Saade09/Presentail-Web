@@ -1,4 +1,9 @@
 import { logger } from "./logger";
+import {
+  CURRENCY_DECIMALS,
+  currencyDecimals,
+  toStripeMinorUnits as sharedToStripeMinorUnits,
+} from "@workspace/display-currency";
 
 // Single source of truth for currency conversion across the server.
 //
@@ -70,22 +75,12 @@ const FALLBACK_RATES: Record<SupportedCurrency, number> = {
   LBP: 89_500,
 };
 
-// Number of decimals we charge in for each currency. Mirrors the WC display
-// convention and matches Stripe's smallest-unit handling below.
-export const CURRENCY_DECIMALS: Record<SupportedCurrency, number> = {
-  USD: 2,
-  AED: 2,
-  EUR: 2,
-  GBP: 2,
-  CAD: 2,
-  AUD: 2,
-  QAR: 2,
-  SAR: 2,
-  KWD: 3,
-  OMR: 3,
-  CHF: 2,
-  LBP: 0,
-};
+// Number of decimals we charge in for each currency and the Stripe smallest-unit
+// conversion both live in `@workspace/display-currency` — the single source of
+// truth shared with the web storefront and mobile app — so the Apple Pay /
+// Google Pay wallet sheet total (computed client-side) can never drift from the
+// server-created PaymentIntent amount. Re-exported here for existing callers.
+export { CURRENCY_DECIMALS };
 
 type RateCache = {
   base: "USD";
@@ -300,30 +295,21 @@ export async function convertFromUsd(
 
 /** Round a converted amount to the currency's display decimals. */
 export function roundForCurrency(amount: number, currency: SupportedCurrency): number {
-  const decimals = CURRENCY_DECIMALS[currency];
+  const decimals = currencyDecimals(currency);
   const factor = Math.pow(10, decimals);
   return Math.round(amount * factor) / factor;
 }
 
 /**
  * Convert a USD amount into the smallest unit Stripe expects for the given
- * currency. Handles three-decimal currencies (KWD/OMR) which must be rounded
- * to the nearest 10 minor units per Stripe's rules.
+ * currency. Delegates to the shared `@workspace/display-currency` helper so the
+ * server and clients use identical rounding (KWD/OMR nearest-10, LBP 0-decimal).
  */
 export function toStripeMinorUnits(
   convertedAmount: number,
   currency: SupportedCurrency,
 ): number {
-  const decimals = CURRENCY_DECIMALS[currency];
-  if (decimals === 3) {
-    // Stripe requires three-decimal currencies to be rounded to nearest 10.
-    const minor = Math.round(convertedAmount * 1000);
-    return Math.round(minor / 10) * 10;
-  }
-  if (decimals === 0) {
-    return Math.round(convertedAmount);
-  }
-  return Math.round(convertedAmount * 100);
+  return sharedToStripeMinorUnits(convertedAmount, currency);
 }
 
 // PayPal supports a fixed list of presentment currencies. Anything outside

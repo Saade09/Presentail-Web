@@ -24,6 +24,7 @@
     "@workspace/catalog-data": "workspace:*",
     "@workspace/clerk-types": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/display-currency": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "@workspace/presentail-os": "workspace:*",
     "compression": "^1.8.1",

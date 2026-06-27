@@ -14,3 +14,4 @@
 - [PhoneField focus on mobile](phonefield-focus.md) — RN phone-number-input PhoneInput is a class with no focus(); reach inner TextInput by passing a ref through textInputProps
 - [app-shared manualChunks rules](app-shared-chunk-rules.md) — only pure UI primitives (no context imports) belong in APP_SHARED_BASENAMES; context-importing components pull contexts into the shared chunk and force the entry to statically import it
 - [Playwright executablePath + checkout e2e seeding](playwright-executable-path.md) — executablePath must be under use.launchOptions; web checkout e2e needs delivery_location key, locale-prefixed URL, ?guest=1
+- [Stripe minor-units single source](stripe-minor-units-divergence.md) — decimals map + toStripeMinorUnits live in @workspace/display-currency (server+web re-export); wallet sheet vs PaymentIntent divergence is bounded, KWD/OMR step is 10
