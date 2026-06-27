@@ -19,7 +19,8 @@
     "test:e2e:serve": "sh -c 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium 2>/dev/null)}\" playwright test --config playwright.serve.config.ts'",
     "check-chunk-budget": "node scripts/check-chunk-budget.mjs dist/public && node scripts/check-logo-preload.mjs dist/public",
     "check-logo-preload": "node scripts/check-logo-preload.mjs dist/public",
-    "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public"
+    "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public",
+    "check-blog-image-budget": "node scripts/check-blog-image-budget.mjs public/blog"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
