@@ -1405,6 +1405,7 @@ const JSON_LD_REQUIRED_FIELDS = {
   WebPage: ["name", "url"],
   ContactPage: ["name", "url"],
   Product: ["name"],
+  Article: ["headline", "image", "datePublished", "url"],
   BreadcrumbList: ["itemListElement"],
   ItemList: ["itemListElement"],
   FAQPage: ["mainEntity"],
@@ -1909,7 +1910,13 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
     article.ogImage && typeof article.ogImage.url === "string"
       ? article.ogImage
       : null;
-  const imageUrl = ogImage ? `${origin}${cleanBase}${ogImage.url}` : null;
+  // Always resolve to an absolute image URL — fall back to the site-wide
+  // opengraph.jpg when the article has no custom hero so the Article JSON-LD
+  // block always carries the required `image` field (Google rejects Article
+  // rich results that omit it).
+  const imageUrl = ogImage
+    ? `${origin}${cleanBase}${ogImage.url}`
+    : `${origin}${cleanBase}/opengraph.jpg`;
   const imageWidth = ogImage ? ogImage.width : undefined;
   const imageHeight = ogImage ? ogImage.height : undefined;
 
@@ -1927,7 +1934,7 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
       headline: rawTitle,
       description: article.description,
       datePublished: article.datePublished,
-      ...(imageUrl ? { image: imageUrl } : {}),
+      image: imageUrl,
       publisher: {
         "@type": "Organization",
         name: "Presentail",

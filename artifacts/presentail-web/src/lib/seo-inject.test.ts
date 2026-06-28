@@ -4851,8 +4851,89 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(byType(blocks, "FAQPage")).toBeTruthy();
   });
 
+  it("brand page emits a BreadcrumbList with all required fields", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            brand: {
+              name: "Bloom Studio",
+              description: "Handcrafted floral arrangements.",
+              image: "https://cdn.test/bloom-studio.jpg",
+            },
+          }),
+        };
+      }
+      // Image dimensions fetch.
+      return { ok: true, status: 206, arrayBuffer: async () => makePngBuffer(800, 600) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/brand/bloom-studio-guardrail",
+      OPTS,
+    );
+    const blocks = assertAllJsonLdValid(out, "brand page");
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+  });
+
+  it("blog post page emits an Article + BreadcrumbList with all required fields", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    // Blog posts resolve from the shared BLOG_POSTS source of truth — no fetch needed.
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/blog/inside-spring-sourcing-trip",
+      OPTS,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const blocks = assertAllJsonLdValid(out, "blog post page");
+    const article = byType(blocks, "Article");
+    expect(article).toBeTruthy();
+    expect(article.headline).toBeTruthy();
+    expect(article.image).toBeTruthy();
+    expect(article.datePublished).toBeTruthy();
+    expect(article.url).toBeTruthy();
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+  });
+
   // Negative tests: the guardrail must actually FAIL (not just warn) when a
   // required field is missing — otherwise the assertions above prove nothing.
+  it("collectJsonLdProblems flags an Article missing image, datePublished, or url", () => {
+    expect(
+      collectJsonLdProblems({
+        "@type": "Article",
+        headline: "A great story",
+        datePublished: "2025-03-15",
+        url: "https://presentail.test/en-ae/dubai/blog/a-great-story",
+        // image intentionally omitted
+      }) as string[],
+    ).toEqual(['missing required field "image"']);
+
+    expect(
+      collectJsonLdProblems({
+        "@type": "Article",
+        headline: "A great story",
+        image: "https://presentail.test/blog/hero.webp",
+        url: "https://presentail.test/en-ae/dubai/blog/a-great-story",
+        // datePublished intentionally omitted
+      }) as string[],
+    ).toEqual(['missing required field "datePublished"']);
+
+    expect(
+      collectJsonLdProblems({
+        "@type": "Article",
+        headline: "A great story",
+        image: "https://presentail.test/blog/hero.webp",
+        datePublished: "2025-03-15",
+        // url intentionally omitted
+      }) as string[],
+    ).toEqual(['missing required field "url"']);
+  });
+
   it("collectJsonLdProblems flags a Product whose offer lost its price/currency/availability", () => {
     expect(
       collectJsonLdProblems({
