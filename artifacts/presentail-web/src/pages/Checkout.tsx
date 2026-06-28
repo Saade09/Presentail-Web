@@ -2021,7 +2021,7 @@ function CheckoutForm() {
             {step === 1 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h1>
+                  <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h2>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
                 </div>
 
@@ -2349,7 +2349,7 @@ function CheckoutForm() {
             {step === 2 && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step3.title")}</h1>
+                  <h2 className="text-2xl font-serif text-primary mb-1">{t("checkout.step3.title")}</h2>
                   <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
                 </div>
 

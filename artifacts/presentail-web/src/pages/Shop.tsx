@@ -413,7 +413,7 @@ export default function Shop() {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="hidden md:block w-64 shrink-0 space-y-8">
             <div>
-              <h3 className="font-serif text-lg mb-4">{t("shop.categoriesTitle")}</h3>
+              <h2 className="font-serif text-lg mb-4">{t("shop.categoriesTitle")}</h2>
               <ul className="space-y-3">
                 {CATEGORIES.map((c) => (
                   <li key={c.slug}>
@@ -429,7 +429,7 @@ export default function Shop() {
               </ul>
             </div>
             <div>
-              <h3 className="font-serif text-lg mb-4">{t("shop.occasionsTitle")}</h3>
+              <h2 className="font-serif text-lg mb-4">{t("shop.occasionsTitle")}</h2>
               <ul className="space-y-3">
                 {OCCASIONS.map((o) => (
                   <li key={o.slug}>
