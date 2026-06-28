@@ -181,6 +181,18 @@ function describeEntityImageDimensions(label: string, path: string): void {
         expect(height!).toMatch(/^\d+$/);
         expect(Number(height)).toBeGreaterThan(0);
       });
+
+      test("no JSON-LD node has missing required schema.org fields", () => {
+        const nodes = findAllJsonLdNodes(html);
+        const problems: string[] = [];
+        for (const node of nodes) {
+          problems.push(...collectJsonLdProblemsLocal(node));
+        }
+        expect(
+          problems,
+          `Resolved ${label} page emitted JSON-LD with missing required fields:\n${problems.join("\n")}`,
+        ).toHaveLength(0);
+      });
     },
   );
 }
@@ -338,6 +350,18 @@ test.describe("Production SEO — OG/Twitter tags on a product entity page", () 
     expect(content, 'meta[name="twitter:card"] not found').toBeTruthy();
     expect(content!.trim().length).toBeGreaterThan(0);
   });
+
+  test("no JSON-LD node has missing required schema.org fields", () => {
+    const nodes = findAllJsonLdNodes(html);
+    const problems: string[] = [];
+    for (const node of nodes) {
+      problems.push(...collectJsonLdProblemsLocal(node));
+    }
+    expect(
+      problems,
+      `Resolved product page emitted JSON-LD with missing required fields:\n${problems.join("\n")}`,
+    ).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -404,6 +428,18 @@ test.describe("Production SEO — og:image dimensions on a resolved entity image
     expect(height, 'meta[property="og:image:height"] not found').toBeTruthy();
     expect(height!).toMatch(/^\d+$/);
     expect(Number(height)).toBeGreaterThan(0);
+  });
+
+  test("no JSON-LD node has missing required schema.org fields", () => {
+    const nodes = findAllJsonLdNodes(html);
+    const problems: string[] = [];
+    for (const node of nodes) {
+      problems.push(...collectJsonLdProblemsLocal(node));
+    }
+    expect(
+      problems,
+      `Resolved product entity page emitted JSON-LD with missing required fields:\n${problems.join("\n")}`,
+    ).toHaveLength(0);
   });
 });
 
