@@ -55,7 +55,6 @@ import {
   type Lang,
 } from "@/lib/locale-route";
 import { LocationPickerGate } from "@/components/LocationPickerGate";
-import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 import { SeoHead } from "@/components/SeoHead";
 import { CheckoutErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/PageLoader";
@@ -237,11 +236,6 @@ function ShopShell() {
           <Suspense fallback={<HeaderSkeleton />}>
             <HomepageHeader />
           </Suspense>
-        )}
-        {isCheckoutPage && (
-          <header className="border-b px-4 py-2 flex items-center justify-end bg-white">
-            <CurrencySwitcher />
-          </header>
         )}
         <main className="flex-1">
           <RouteErrorBoundary>
