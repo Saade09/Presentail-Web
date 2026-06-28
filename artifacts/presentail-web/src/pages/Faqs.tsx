@@ -1,4 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import {
   Accordion,
   AccordionContent,
@@ -19,7 +21,15 @@ const COPY = FAQ_COPY as Record<Language, Copy>;
 
 export default function Faqs() {
   const { language } = useLocale();
+  const { cityId } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
+  const cityDisplay = cityId
+    ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
+    : "";
+  const h1 = formatTemplate(
+    (TITLES[language] ?? TITLES.en).faqs,
+    { city: cityDisplay },
+  ).split(" | ")[0];
 
   return (
     <div className="bg-background" data-testid="faqs-page" lang={language}>
@@ -31,7 +41,7 @@ export default function Faqs() {
           className="text-4xl md:text-5xl font-serif leading-tight mb-6"
           data-testid="faqs-title"
         >
-          {c.title}
+          {h1}
         </h1>
         <p className="text-lg text-muted-foreground leading-relaxed">{c.intro}</p>
       </section>

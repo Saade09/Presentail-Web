@@ -37,7 +37,9 @@ export const ENTITY_TITLES: EntityTemplateMap;
 export const ENTITY_TITLES_NO_CITY: EntityTemplateMap;
 export const ENTITY_DESCRIPTIONS: EntityTemplateMap;
 export const ENTITY_DESCRIPTIONS_NO_CITY: EntityTemplateMap;
+export const STATIC_PAGE_GROUP: { A: Set<string>; B: Set<string> };
 export const NONINDEX_ROUTE_KEYS: Set<string>;
+export function isGroupAStaticPage(routeKey: string): boolean;
 
 export function formatTemplate(
   template: string,

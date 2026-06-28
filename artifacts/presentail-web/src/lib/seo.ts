@@ -29,6 +29,7 @@ export {
   ENTITY_TITLES_NO_CITY,
   ENTITY_DESCRIPTIONS,
   ENTITY_DESCRIPTIONS_NO_CITY,
+  STATIC_PAGE_GROUP,
   NONINDEX_ROUTE_KEYS,
   formatTemplate,
   buildHomepageSeo,
@@ -40,4 +41,5 @@ export {
   buildStaticSeo,
   buildNonIndexableSeo,
   isNonIndexableRouteKey,
+  isGroupAStaticPage,
 } from "./seo.mjs";

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import { Mail, MessageCircle, Phone, MapPin, ArrowRight, ExternalLink } from "lucide-react";
 
 type Copy = {
@@ -147,9 +149,17 @@ function useBeirutOpen() {
 
 export default function Contact() {
   const { language } = useLocale();
+  const { cityId } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const isOpen = useBeirutOpen();
   const isRtl = language === "ar";
+  const cityDisplay = cityId
+    ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
+    : "";
+  const h1 = formatTemplate(
+    (TITLES[language] ?? TITLES.en).contact,
+    { city: cityDisplay },
+  ).split(" | ")[0];
 
   return (
     <div className="bg-background" data-testid="contact-page" lang={language}>
@@ -192,7 +202,7 @@ export default function Contact() {
             className="text-4xl md:text-6xl font-serif leading-tight mb-6"
             data-testid="contact-title"
           >
-            {c.title}
+            {h1}
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">
             {c.intro}

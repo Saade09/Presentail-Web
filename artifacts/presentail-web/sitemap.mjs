@@ -24,10 +24,12 @@ export const SITEMAP_CANONICAL_CITIES = { lb: "beirut", ae: "dubai", cy: "nicosi
 // /shop is intentionally omitted — category and occasion clean paths
 // (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
 // crawlers discover the canonical destinations without following a redirect.
+// Group A pages (city-specific, indexable) are included per city × lang.
+// Group B pages (privacy, terms, careers, partner, blog) are noindex and
+// excluded from the sitemap entirely to avoid wasting crawl budget.
 export const SITEMAP_STATIC_PATHS = [
   "/", "/brands", "/occasions", "/contact", "/faqs",
-  "/careers", "/blog", "/partner", "/weddings", "/corporate",
-  "/terms", "/privacy",
+  "/weddings", "/corporate",
 ];
 
 export function escXml(s) {

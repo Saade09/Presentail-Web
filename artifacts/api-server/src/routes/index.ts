@@ -35,6 +35,7 @@ import productsRouter from "./products";
 import ordersRouter from "./orders";
 import couponsRouter from "./coupons";
 import adminPixelDiagnosticsRouter from "./adminPixelDiagnostics";
+import seoQaRouter from "./seoQa";
 
 const router: IRouter = Router();
 
@@ -74,5 +75,6 @@ router.use(productsRouter);
 router.use(ordersRouter);
 router.use(couponsRouter);
 router.use(adminPixelDiagnosticsRouter);
+router.use(seoQaRouter);
 
 export default router;

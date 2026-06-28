@@ -77,6 +77,7 @@ import {
   OG_LOCALE,
   SEO_SOCIAL_LINKS,
   NONINDEX_ROUTE_KEYS,
+  STATIC_PAGE_GROUP,
   buildProductSeo,
   buildCategorySeo,
   buildOccasionSeo,
@@ -321,7 +322,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   const isUnknownSubRoute =
     inLocale && routeKey === "home" && parsed.rest !== "" && parsed.rest !== "/";
   const canonicalPath = inLocale && !isUnknownSubRoute
-    ? pathname
+    ? (pathname.replace(/\/$/, "") || "/")
     : inLocale
       ? buildLocalePath({ lang: parsed.lang, country: parsed.country, city: parsed.city, rest: "" })
       : "/";
@@ -401,10 +402,14 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
   lines.push(`<meta property="og:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
   lines.push(`<meta name="twitter:image" content="${escapeAttr(defaultImage)}" />`);
   lines.push(`<meta name="twitter:image:alt" content="${escapeAttr(defaultImageAlt)}" />`);
-  // Structured data (JSON-LD). Non-public / transactional routes (cart,
-  // checkout, order confirmation, auth, account, favorites) intentionally
-  // carry NO structured data — see NONINDEX_ROUTE_KEYS.
-  const emitJsonLd = !NONINDEX_ROUTE_KEYS.has(routeKey);
+  // Structured data (JSON-LD). Truly transactional / private routes (cart,
+  // checkout, order confirmation, auth, account, favorites) carry NO structured
+  // data because they are user-specific and non-public. Group B static content
+  // pages (terms, privacy, careers, partner, blog) are noindex but still public
+  // content — they keep their schema markup (WebPage etc.) since Googlebot may
+  // still crawl them even without indexing.
+  const emitJsonLd =
+    !NONINDEX_ROUTE_KEYS.has(routeKey) || STATIC_PAGE_GROUP.B.has(routeKey);
 
   // Collect every JSON-LD node for this page, then emit them in ONE <script>
   // block (as a @graph when there is more than one). Grouping avoids duplicate

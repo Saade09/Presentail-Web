@@ -1,4 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 
 type Copy = {
@@ -133,8 +135,16 @@ const COPY: Record<Language, Copy> = {
 
 export default function Corporate() {
   const { language } = useLocale();
+  const { cityId } = useLocationSelection();
   const c = COPY[language] ?? COPY.en;
   const mailto = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(c.ctaSubject)}`;
+  const cityDisplay = cityId
+    ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
+    : "";
+  const h1 = formatTemplate(
+    (TITLES[language] ?? TITLES.en).corporate,
+    { city: cityDisplay },
+  ).split(" | ")[0];
 
   return (
     <div className="bg-background" data-testid="corporate-page" lang={language}>
@@ -146,7 +156,7 @@ export default function Corporate() {
           className="text-4xl md:text-5xl font-serif leading-tight mb-6"
           data-testid="corporate-title"
         >
-          {c.title}
+          {h1}
         </h1>
         <p className="text-lg text-muted-foreground leading-relaxed">{c.intro}</p>
       </section>

@@ -855,6 +855,26 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
+    // Trailing-slash redirect: 301 any path that ends with "/" (other than the
+    // root "/" itself and /.well-known/* paths) to the equivalent clean URL.
+    // This eliminates the duplicate-content penalty caused by crawlers following
+    // both /en-lb/beirut/faqs and /en-lb/beirut/faqs/ as separate URLs.
+    // Applied after BASE_PATH stripping so the redirect target is correct.
+    if (
+      pathname.length > 1 &&
+      pathname.endsWith("/") &&
+      !pathname.startsWith("/.well-known") &&
+      !pathname.startsWith("/api")
+    ) {
+      const cleanPath = BASE_PATH + pathname.slice(0, -1);
+      res.writeHead(301, {
+        location: cleanPath + (url.search || ""),
+        "cache-control": "public, max-age=31536000, immutable",
+      });
+      res.end();
+      return;
+    }
+
     // Apple Sign In domain verification file.
     // Apple requires this file to be served at
     // /.well-known/apple-developer-domain-association before it will let you
@@ -1069,6 +1089,7 @@ const server = http.createServer(async (req, res) => {
         const out = injectModulePreloads(injectFontPreloads(seoOut));
         const encoding = pickEncoding(req, ".html");
         const body = await compressBuffer(out, encoding);
+        const canonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
         const headers = {
           "content-type": MIME[".html"],
           // Override any upstream X-Robots-Tag (e.g. Replit's default for
@@ -1083,7 +1104,10 @@ const server = http.createServer(async (req, res) => {
             : "no-cache",
           "expires": "0",
           "vary": "Accept-Encoding",
-          "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
+          // HTTP Link header mirrors the <link rel="canonical"> injected into
+          // the HTML by seo-inject.mjs so HTTP-level crawlers and preload
+          // scanners see the canonical URL without parsing the body.
+          "link": `<${canonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
         };
         if (encoding) headers["content-encoding"] = encoding;
         res.writeHead(200, headers);
@@ -1202,6 +1226,7 @@ const server = http.createServer(async (req, res) => {
     const out = injectModulePreloads(injectFontPreloads(seoOut));
     const encoding = pickEncoding(req, ".html");
     const body = await compressBuffer(out, encoding);
+    const spaCanonicalHref = `${origin}${pathname.replace(/\/$/, "") || "/"}`;
     const headers = {
       "content-type": MIME[".html"],
       "x-robots-tag": "index, follow",
@@ -1210,7 +1235,7 @@ const server = http.createServer(async (req, res) => {
         : "no-cache",
       "expires": "0",
       "vary": "Accept-Encoding",
-      "link": `<${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
+      "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby"`,
     };
     if (encoding) headers["content-encoding"] = encoding;
     res.writeHead(200, headers);

@@ -129,13 +129,13 @@ export const TITLES = {
     auth: "Sign In | Presentail",
     account: "My Account | Presentail",
     favorites: "My Favorites | Presentail",
-    careers: "Careers at Presentail",
+    careers: "Careers at Presentail | Flower & Gift Delivery Jobs",
     blog: "The Atelier Journal | Presentail",
-    partner: "Partner With Presentail | Brand Collaborations",
-    weddings: "Weddings & Florals by Presentail",
-    corporate: "Corporate Gifting | Presentail",
-    contact: "Contact Presentail | Concierge",
-    faqs: "FAQs | Presentail",
+    partner: "Partner with Presentail | Brand & Supplier Partnerships",
+    weddings: "Wedding Flowers & Event Styling in {city} | Presentail",
+    corporate: "Corporate Gifting in {city} | Presentail",
+    contact: "Contact Presentail in {city} | Flower & Gift Delivery Support",
+    faqs: "Flower Delivery FAQs in {city} | Presentail",
     terms: "Terms of Use | Presentail",
     privacy: "Privacy Policy | Presentail",
   },
@@ -158,13 +158,13 @@ export const TITLES = {
     account: "حسابي | Presentail",
     favorites: "مفضّلاتي | Presentail",
     about: "عن بريزانتيل | الأزهار والهدايا الفاخرة",
-    careers: "الوظائف في بريزانتيل",
+    careers: "الوظائف في بريزانتيل | وظائف توصيل الأزهار والهدايا",
     blog: "يوميّات الأتيليه | Presentail",
-    partner: "كن شريكاً مع Presentail | تعاون العلامات",
-    weddings: "الأعراس والتنسيقات الزهرية | Presentail",
-    corporate: "الإهداء للشركات | Presentail",
-    contact: "تواصل مع Presentail | الكونسيرج",
-    faqs: "الأسئلة الشائعة | Presentail",
+    partner: "كن شريكاً مع Presentail | شراكات العلامات والموردين",
+    weddings: "أزهار الأعراس وتنسيق الفعاليات في {city} | Presentail",
+    corporate: "الإهداء للشركات في {city} | Presentail",
+    contact: "تواصل مع Presentail في {city} | دعم توصيل الأزهار والهدايا",
+    faqs: "أسئلة توصيل الزهور في {city} | Presentail",
     terms: "شروط الاستخدام | Presentail",
     privacy: "سياسة الخصوصية | Presentail",
   },
@@ -187,13 +187,13 @@ export const TITLES = {
     account: "Mon compte | Presentail",
     favorites: "Mes favoris | Presentail",
     about: "À propos de Presentail | Fleurs et cadeaux de luxe",
-    careers: "Carrières chez Presentail",
+    careers: "Carrières chez Presentail | Emplois livraison fleurs et cadeaux",
     blog: "Le Journal de l'Atelier | Presentail",
-    partner: "Devenir partenaire de Presentail | Collaborations de marques",
-    weddings: "Mariages et compositions florales | Presentail",
-    corporate: "Cadeaux d'entreprise | Presentail",
-    contact: "Contacter Presentail | Conciergerie",
-    faqs: "FAQ | Presentail",
+    partner: "Partenaire de Presentail | Partenariats marques et fournisseurs",
+    weddings: "Fleurs de mariage et décoration événements à {city} | Presentail",
+    corporate: "Cadeaux d'entreprise à {city} | Presentail",
+    contact: "Contacter Presentail à {city} | Assistance livraison fleurs et cadeaux",
+    faqs: "FAQ livraison de fleurs à {city} | Presentail",
     terms: "Conditions d'utilisation | Presentail",
     privacy: "Politique de confidentialité | Presentail",
   },
@@ -333,13 +333,13 @@ export const DESCRIPTIONS = {
     account: "Manage your Presentail profile, orders and saved addresses.",
     favorites: "View and manage your saved Presentail gifts and favorites.",
     about: "Presentail is a luxury flower and gift atelier delivering across Lebanon, the UAE and Cyprus. Meet the team and the craft behind every send.",
-    careers: "Join Presentail — we're hiring florists, designers, and engineers to build the most thoughtful gifting experience in the region.",
+    careers: "Join the Presentail team — we're hiring florists, designers, and engineers to build the most thoughtful gifting experience across Lebanon, the UAE and Cyprus.",
     blog: "Notes from the Presentail studio: seasonal sourcing, partner makers, and gifting guides for life's most meaningful moments.",
-    partner: "Partner with Presentail to bring your brand to luxury gifting customers across Lebanon, the UAE and Cyprus.",
-    weddings: "Bespoke floral design and styling for weddings and private events by the Presentail atelier.",
-    corporate: "Corporate gifting programs from Presentail — curated client and team gifts at scale, delivered region-wide.",
-    contact: "Get in touch with the Presentail concierge for orders, partnerships and support.",
-    faqs: "Answers to the most common questions about Presentail orders, delivery, payment and accounts.",
+    partner: "Partner with Presentail to bring your brand to luxury gifting customers across Lebanon, the UAE and Cyprus — florists, chocolatiers and lifestyle ateliers welcome.",
+    weddings: "Bespoke floral design and styling for weddings and private events in {city} by the Presentail atelier, with same-day guest gift delivery.",
+    corporate: "Corporate gifting programmes from Presentail in {city} — curated client and team gifts at scale, with branded packaging and consolidated invoicing.",
+    contact: "Contact the Presentail concierge in {city} for order support, delivery tracking, custom requests, and partnership enquiries.",
+    faqs: "Answers to common questions about Presentail flower and gift delivery in {city}, including delivery windows, payment options, cancellations and returns.",
     terms: "The Terms of Use that govern your purchase and use of the Presentail website, mobile apps and services.",
     privacy: "How Presentail collects, uses and protects your personal information across our website, mobile apps and social channels.",
   },
@@ -365,13 +365,13 @@ export const DESCRIPTIONS = {
     account: "أدر بيانات حساب Presentail والطلبات والعناوين المحفوظة.",
     favorites: "اعرض وأدر هدايا Presentail المحفوظة ومفضّلاتك.",
     about: "بريزانتيل أتيليه فاخر للأزهار والهدايا، يوصّل في لبنان والإمارات وقبرص. تعرّف على الفريق والحرفة وراء كل هدية.",
-    careers: "انضم إلى بريزانتيل — نوظّف منسّقي أزهار ومصمّمين ومهندسين لبناء أكثر تجارب الإهداء عناية في المنطقة.",
+    careers: "انضم إلى فريق بريزانتيل — نوظّف منسّقي أزهار ومصمّمين ومهندسين لبناء أكثر تجارب الإهداء عناية في لبنان والإمارات وقبرص.",
     blog: "ملاحظات من استوديو بريزانتيل: مصادر موسمية، صنّاع شركاء، وأدلّة إهداء لأهمّ لحظات الحياة.",
-    partner: "كن شريكاً مع بريزانتيل لتقديم علامتك إلى عملاء الإهداء الفاخر في لبنان والإمارات وقبرص.",
-    weddings: "تصميم وتنسيق زهور بريزانتيل المخصّص للأعراس والمناسبات الخاصّة.",
-    corporate: "برامج الإهداء للشركات من بريزانتيل — هدايا منتقاة للعملاء والفِرَق على نطاق واسع.",
-    contact: "تواصل مع كونسيرج بريزانتيل للطلبات والشراكات والدعم.",
-    faqs: "إجابات على أكثر الأسئلة شيوعاً حول طلبات بريزانتيل والتوصيل والدفع والحسابات.",
+    partner: "كن شريكاً مع بريزانتيل لتقديم علامتك إلى عملاء الإهداء الفاخر في لبنان والإمارات وقبرص — منسّقو أزهار وصنّاع شوكولاتة وأتيليهات نمط حياة.",
+    weddings: "تصميم وتنسيق زهور بريزانتيل المخصّص للأعراس والمناسبات الخاصّة في {city}، مع توصيل هدايا الضيوف في نفس اليوم.",
+    corporate: "برامج الإهداء للشركات من بريزانتيل في {city} — هدايا منتقاة للعملاء والفِرَق على نطاق واسع مع تغليف مخصّص وفوترة موحّدة.",
+    contact: "تواصل مع كونسيرج Presentail في {city} لدعم الطلبات وتتبع التوصيل والطلبات الخاصة واستفسارات الشراكة.",
+    faqs: "إجابات على أبرز الأسئلة حول توصيل الأزهار والهدايا من Presentail في {city}، تشمل مواعيد التوصيل وخيارات الدفع والإلغاء والمرتجعات.",
     terms: "شروط الاستخدام التي تحكم شراءك واستخدامك لموقع بريزانتيل وتطبيقاته وخدماته.",
     privacy: "كيف تجمع بريزانتيل معلوماتك الشخصية وتستخدمها وتحميها عبر الموقع والتطبيقات والقنوات الاجتماعية.",
   },
@@ -398,13 +398,13 @@ export const DESCRIPTIONS = {
     account: "Gérez votre profil Presentail, vos commandes et vos adresses enregistrées.",
     favorites: "Consultez et gérez vos cadeaux et favoris Presentail enregistrés.",
     about: "Presentail est un atelier de fleurs et cadeaux de luxe livrant au Liban, aux Émirats arabes unis et à Chypre. Découvrez l'équipe et le savoir-faire derrière chaque envoi.",
-    careers: "Rejoignez Presentail — nous recrutons fleuristes, designers et ingénieurs pour bâtir la plus belle expérience cadeau de la région.",
+    careers: "Rejoignez l'équipe Presentail — nous recrutons fleuristes, designers et ingénieurs pour bâtir la plus belle expérience cadeau au Liban, aux Émirats et à Chypre.",
     blog: "Notes du studio Presentail : sourcing de saison, artisans partenaires et guides cadeaux pour les moments qui comptent.",
-    partner: "Devenez partenaire de Presentail pour présenter votre marque aux clients du cadeau de luxe au Liban, aux Émirats arabes unis et à Chypre.",
-    weddings: "Design et stylisme floraux sur mesure pour mariages et événements privés par l'atelier Presentail.",
-    corporate: "Programmes de cadeaux d'entreprise Presentail — sélections raffinées pour clients et équipes, livrées dans toute la région.",
-    contact: "Contactez la conciergerie Presentail pour vos commandes, partenariats et questions.",
-    faqs: "Réponses aux questions les plus fréquentes sur les commandes, la livraison, le paiement et les comptes Presentail.",
+    partner: "Devenez partenaire de Presentail pour présenter votre marque aux clients du cadeau de luxe au Liban, aux Émirats et à Chypre — fleuristes, chocolatiers et ateliers bienvenus.",
+    weddings: "Design et stylisme floraux sur mesure pour mariages et événements privés à {city} par l'atelier Presentail, avec livraison cadeaux invités le jour J.",
+    corporate: "Programmes de cadeaux d'entreprise Presentail à {city} — sélections raffinées pour clients et équipes, emballage de marque et facturation consolidée.",
+    contact: "Contactez la conciergerie Presentail à {city} pour le suivi de commande, les livraisons, les demandes sur mesure et les partenariats.",
+    faqs: "Réponses aux questions fréquentes sur la livraison de fleurs et cadeaux Presentail à {city} — délais, paiement, annulations et retours.",
     terms: "Les Conditions d'utilisation qui régissent vos achats et votre utilisation du site, des applications et des services Presentail.",
     privacy: "Comment Presentail collecte, utilise et protège vos informations personnelles sur le site, les applications et les canaux sociaux.",
   },
@@ -475,7 +475,24 @@ export const ENTITY_DESCRIPTIONS_NO_CITY = {
   },
 };
 
-// Route keys that must never be indexed (transactional / private / auth).
+// Classify static pages into two groups.
+//
+// Group A: city-specific and indexable. Each city URL is genuinely unique
+//   because the title, description, and H1 include the city name.
+// Group B: non-city, noindex-or-single-canonical. These pages have no
+//   city-specific content and must not be indexed at the per-city level.
+export const STATIC_PAGE_GROUP = {
+  A: new Set(["contact", "faqs", "corporate", "weddings"]),
+  B: new Set(["privacy", "terms", "careers", "partner", "blog"]),
+};
+
+/** True when routeKey is a Group A static page (city-specific, indexable). */
+export function isGroupAStaticPage(routeKey) {
+  return STATIC_PAGE_GROUP.A.has(routeKey);
+}
+
+// Route keys that must never be indexed (transactional / private / auth /
+// Group B static pages that carry no city-specific content).
 export const NONINDEX_ROUTE_KEYS = new Set([
   "cart",
   "checkout",
@@ -483,6 +500,12 @@ export const NONINDEX_ROUTE_KEYS = new Set([
   "auth",
   "account",
   "favorites",
+  // Group B static pages: accessible but not indexed at the city URL level.
+  "privacy",
+  "terms",
+  "careers",
+  "partner",
+  "blog",
 ]);
 
 const ROBOTS_INDEX = "index, follow";

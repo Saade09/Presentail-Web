@@ -5185,3 +5185,122 @@ describe("Non-product JSON-LD — Breadcrumb/FAQ/Org/Article rich-result require
     for (const node of nodes) expect(mod.validateNode(node)).toEqual([]);
   });
 });
+
+describe("Group B static pages — noindex on city-prefixed URLs", () => {
+  const GROUP_B = ["careers", "privacy", "terms", "partner", "blog"] as const;
+
+  it.each(GROUP_B)(
+    "%s emits noindex even when accessed via a city-prefixed URL",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-lb/beirut/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      expect(headSnippet).toContain('name="robots"');
+      expect(headSnippet).toContain("noindex");
+    },
+  );
+
+  it.each(GROUP_B)(
+    "%s still emits WebPage JSON-LD (public content; noindex does not strip schema)",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-lb/beirut/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      expect(headSnippet).toContain("application/ld+json");
+    },
+  );
+});
+
+describe("Group A static pages — city-aware title and description", () => {
+  const GROUP_A = ["faqs", "contact", "corporate", "weddings"] as const;
+  const opts = { origin: "https://presentail.test", basePath: "" };
+
+  it.each(GROUP_A)(
+    "%s title contains a city name when a city is in the URL",
+    (route) => {
+      const result = buildSeoHead(`/en-lb/beirut/${route}`, opts);
+      expect(result.title).toContain("Beirut");
+      expect(result.title).not.toContain("{city}");
+    },
+  );
+
+  it.each(GROUP_A)(
+    "%s description contains a city name when a city is in the URL",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-lb/beirut/${route}`, opts);
+      expect(headSnippet).not.toContain("{city}");
+      const descMatch = headSnippet.match(
+        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i,
+      );
+      expect(descMatch).not.toBeNull();
+      expect(descMatch![1]).toContain("Beirut");
+    },
+  );
+
+  it.each(GROUP_A)(
+    "%s does NOT emit noindex",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-lb/beirut/${route}`, opts);
+      expect(headSnippet).not.toContain("noindex");
+    },
+  );
+
+  it.each(GROUP_A)(
+    "%s city name differs between Beirut and Dubai URLs",
+    (route) => {
+      const beirutTitle = buildSeoHead(`/en-lb/beirut/${route}`, opts).title;
+      const dubaiTitle = buildSeoHead(`/en-ae/dubai/${route}`, opts).title;
+      expect(beirutTitle).toContain("Beirut");
+      expect(dubaiTitle).toContain("Dubai");
+      expect(beirutTitle).not.toBe(dubaiTitle);
+    },
+  );
+});
+
+describe("Canonical tag — trailing-slash stripping", () => {
+  it("canonical does not have a trailing slash even when the path ends with /", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut/faqs", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const canonicalMatch = headSnippet.match(
+      /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']*)["']/i,
+    );
+    expect(canonicalMatch).not.toBeNull();
+    const href = canonicalMatch![1];
+    expect(href).not.toMatch(/\/$/);
+  });
+});
+
+describe("STATIC_PAGE_GROUP exports", () => {
+  it("Group A contains exactly contact, faqs, corporate, weddings", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
+    expect(STATIC_PAGE_GROUP.A.has("contact")).toBe(true);
+    expect(STATIC_PAGE_GROUP.A.has("faqs")).toBe(true);
+    expect(STATIC_PAGE_GROUP.A.has("corporate")).toBe(true);
+    expect(STATIC_PAGE_GROUP.A.has("weddings")).toBe(true);
+    expect(STATIC_PAGE_GROUP.A.size).toBe(4);
+  });
+
+  it("Group B contains exactly privacy, terms, careers, partner, blog", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
+    expect(STATIC_PAGE_GROUP.B.has("privacy")).toBe(true);
+    expect(STATIC_PAGE_GROUP.B.has("terms")).toBe(true);
+    expect(STATIC_PAGE_GROUP.B.has("careers")).toBe(true);
+    expect(STATIC_PAGE_GROUP.B.has("partner")).toBe(true);
+    expect(STATIC_PAGE_GROUP.B.has("blog")).toBe(true);
+    expect(STATIC_PAGE_GROUP.B.size).toBe(5);
+  });
+
+  it("NONINDEX_ROUTE_KEYS includes all Group B keys", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { NONINDEX_ROUTE_KEYS, STATIC_PAGE_GROUP } = await import("../../src/lib/seo.mjs");
+    for (const key of STATIC_PAGE_GROUP.B) {
+      expect(NONINDEX_ROUTE_KEYS.has(key)).toBe(true);
+    }
+  });
+});
