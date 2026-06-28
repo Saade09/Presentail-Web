@@ -2564,11 +2564,11 @@ function CheckoutForm() {
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{t("checkout.deliveryLabel")}</span>
-                      <span><FormattedPrice usdValue={districtFee} /></span>
+                      <span>{districtFee === 0 ? t("checkout.deliveryFree") : <FormattedPrice usdValue={districtFee} />}</span>
                     </div>
                     {expressFee > 0 && (
                       <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
-                        <span>{t("checkout.expressDeliveryLabel")}</span>
+                        <span>{t("checkout.expressUpgradeLabel")}</span>
                         <span><FormattedPrice usdValue={expressFee} /></span>
                       </div>
                     )}

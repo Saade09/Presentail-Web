@@ -3478,7 +3478,7 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                 highlight={fees.districtFee === 0}
               />
               {fees.expressFee > 0 ? (
-                <SummaryRow label={t.checkoutExpressDeliveryLabel} value={formatPrice(fees.expressFee)} colors={colors} />
+                <SummaryRow label={t.checkoutExpressUpgradeLabel} value={formatPrice(fees.expressFee)} colors={colors} />
               ) : null}
             </>
           ) : null}
