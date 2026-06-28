@@ -390,6 +390,48 @@ export async function fetchOsOccasions(
 }
 
 /**
+ * Fetch the live status of a single order from Presentail OS.
+ *
+ * Uses a short 3-second timeout so a slow or unavailable OS does not block
+ * the order-history response. Returns `null` on any failure so the caller
+ * can fall back to the stored state.
+ *
+ * @param osOrderId  UUID assigned by OS when the order was created.
+ */
+export async function fetchOsOrderStatus(
+  config: PresentailOsConfig,
+  osOrderId: string,
+): Promise<{ status: string } | null> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL, workspace = DEFAULT_WORKSPACE } = config;
+
+  if (!apiKey || !osOrderId) return null;
+
+  try {
+    const url = new URL(`${baseUrl}/api/orders/${encodeURIComponent(osOrderId)}`);
+    url.searchParams.set("workspace", workspace);
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "PresentailApp/1.0",
+        Authorization: `Bearer ${apiKey}`,
+        "x-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as
+      | { status?: string; state?: string }
+      | null;
+    if (!body) return null;
+    const status = body.status ?? body.state;
+    if (typeof status !== "string" || !status) return null;
+    return { status };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Submit a new order to Presentail OS.
  *
  * The API key is sent in the `x-api-key` header. The workspace slug is sent

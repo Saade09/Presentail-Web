@@ -4,6 +4,7 @@ import { db, appOrdersTable } from "@workspace/db";
 import { authenticate } from "../lib/auth";
 import { requireUserType } from "../lib/requireUserType";
 import { getCustomerById, getCustomerByWcId } from "../lib/customers";
+import { fetchOsOrderStatus } from "@workspace/presentail-os";
 
 const router: IRouter = Router();
 
@@ -94,35 +95,74 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     .where(eq(appOrdersTable.customerId, resolved.customerId))
     .orderBy(desc(appOrdersTable.createdAt));
 
+  const osConfig = {
+    apiKey: process.env.PRESENTAIL_OS_API_KEY ?? "",
+    baseUrl: process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com",
+    workspace: process.env.PRESENTAIL_OS_WORKSPACE ?? "presentail",
+  };
+
   // Best-effort enrichment from WooCommerce so the list can show status,
   // total and item summaries. WC failures are swallowed per-row — the local
   // app_orders data is still returned.
   const wcMap = new Map<number, WcOrder>();
   const store = resolveStoreFromRequest(req);
-  if (store.consumerKey) {
-    const wcIds = Array.from(
-      new Set(
-        rows
-          .map((r) => r.wcOrderId)
-          .filter((id): id is number => typeof id === "number" && id > 0),
-      ),
-    );
-    await Promise.all(
-      wcIds.map(async (id) => {
-        try {
-          const r = await wcFetch(`/orders/${id}`, {}, req);
-          if (!r.ok) return;
-          const data = (await r.json().catch(() => null)) as WcOrder | null;
-          if (data) wcMap.set(id, data);
-        } catch (err: any) {
-          req.log?.warn?.(
-            { err: err?.message, wcOrderId: id },
-            "me.orders: WC fetch failed (non-fatal)",
-          );
-        }
-      }),
-    );
-  }
+
+  // Live OS status map: osOrderId → live status string (fetched in parallel
+  // with a 3-second timeout per order; null when unavailable).
+  const osStatusMap = new Map<string, string>();
+
+  const osOrderIds = Array.from(
+    new Set(
+      rows
+        .map((r) => r.osOrderId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  );
+
+  await Promise.all([
+    // WooCommerce enrichment (existing path)
+    (async () => {
+      if (!store.consumerKey) return;
+      const wcIds = Array.from(
+        new Set(
+          rows
+            .map((r) => r.wcOrderId)
+            .filter((id): id is number => typeof id === "number" && id > 0),
+        ),
+      );
+      await Promise.all(
+        wcIds.map(async (id) => {
+          try {
+            const r = await wcFetch(`/orders/${id}`, {}, req);
+            if (!r.ok) return;
+            const data = (await r.json().catch(() => null)) as WcOrder | null;
+            if (data) wcMap.set(id, data);
+          } catch (err: any) {
+            req.log?.warn?.(
+              { err: err?.message, wcOrderId: id },
+              "me.orders: WC fetch failed (non-fatal)",
+            );
+          }
+        }),
+      );
+    })(),
+    // Live OS status enrichment (new path)
+    (async () => {
+      if (!osConfig.apiKey || osOrderIds.length === 0) return;
+      await Promise.all(
+        osOrderIds.map(async (osOrderId) => {
+          const result = await fetchOsOrderStatus(osConfig, osOrderId);
+          if (result) osStatusMap.set(osOrderId, result.status);
+          else {
+            req.log?.warn?.(
+              { osOrderId },
+              "me.orders: OS status fetch failed (non-fatal, using stored state)",
+            );
+          }
+        }),
+      );
+    })(),
+  ]);
 
   const orders = rows.map((r) => {
     const wc = r.wcOrderId ? wcMap.get(r.wcOrderId) ?? null : null;
@@ -137,12 +177,14 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
       return {
         appOrderId: r.appOrderId,
         wcOrderId: r.wcOrderId,
+        osOrderId: r.osOrderId ?? null,
         state: r.state,
         recipientName: r.recipientName,
         deliveryDate: r.deliveryDate,
         deliverySlot: r.deliverySlot,
         createdAt: r.createdAt.toISOString(),
         status: wc.status ?? null,
+        liveStatus: false,
         total: wc.total ?? null,
         currency: wc.currency ?? null,
         itemsCount: items.reduce((sum, it) => sum + (it.quantity || 0), 0) || items.length,
@@ -150,7 +192,11 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
       };
     }
 
-    // OS-native order (no wcOrderId or WC fetch failed): enrich from stored fields.
+    // OS-native order (no wcOrderId or WC fetch failed): use live status when
+    // available, falling back to the stored state column.
+    const liveOsStatus = r.osOrderId ? (osStatusMap.get(r.osOrderId) ?? null) : null;
+    const hasLiveStatus = liveOsStatus !== null;
+
     let items: { name: string; quantity: number; image: null }[] = [];
     if (r.lineItemsJson) {
       try {
@@ -175,12 +221,14 @@ router.get("/me/orders", requireUserType(["customer", "team"]), async (req, res)
     return {
       appOrderId: r.appOrderId,
       wcOrderId: r.wcOrderId,
+      osOrderId: r.osOrderId ?? null,
       state: r.state,
       recipientName: r.recipientName,
       deliveryDate: r.deliveryDate,
       deliverySlot: r.deliverySlot,
       createdAt: r.createdAt.toISOString(),
-      status: r.state ?? null,
+      status: liveOsStatus ?? r.state ?? null,
+      liveStatus: hasLiveStatus,
       total,
       currency: total !== null ? "USD" : null,
       itemsCount: items.reduce((sum, it) => sum + (it.quantity || 0), 0) || items.length,
