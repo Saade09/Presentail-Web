@@ -80,4 +80,51 @@ describe("POST /api/pixel/event route — userData.em adapter", () => {
     expect(res.body.ok).toBe(false);
     expect(mockSendCapiEventByPixelId).not.toHaveBeenCalled();
   });
+
+  it("forwards eventName, pixelId, value, currency, and eventId to the CAPI helper", async () => {
+    const res = await request(app)
+      .post("/pixel/event")
+      .send({
+        eventName: "Purchase",
+        pixelId: "1234567890",
+        value: 120.5,
+        currency: "USD",
+        eventId: "evt-abc-123",
+        userData: { em: "buyer@example.com" },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(mockSendCapiEventByPixelId).toHaveBeenCalledOnce();
+
+    const callArg = mockSendCapiEventByPixelId.mock.calls[0][0] as {
+      eventName: string;
+      pixelId: string;
+      value: number;
+      currency: string;
+      eventId: string;
+      userData?: { email?: string };
+    };
+    expect(callArg.eventName).toBe("Purchase");
+    expect(callArg.pixelId).toBe("1234567890");
+    expect(callArg.value).toBe(120.5);
+    expect(callArg.currency).toBe("USD");
+    expect(callArg.eventId).toBe("evt-abc-123");
+  });
+
+  it("returns 200 gracefully when the CAPI helper rejects (missing/invalid access token)", async () => {
+    mockSendCapiEventByPixelId.mockRejectedValueOnce(new Error("invalid access token"));
+
+    const res = await request(app)
+      .post("/pixel/event")
+      .send({
+        eventName: "Purchase",
+        pixelId: "1234567890",
+        value: 50.0,
+        currency: "USD",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+  });
 });

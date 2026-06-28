@@ -342,5 +342,25 @@ describe("sendCapiEventByPixelId (POST /api/pixel/event path)", () => {
 
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it("forwards the caller-supplied eventId to the Meta API payload (deduplication key)", async () => {
+    process.env.VITE_FB_PIXEL_ID_LB = "1234567890";
+    process.env.FB_CONVERSIONS_TOKEN_LB = "test-token-lb";
+
+    await sendCapiEventByPixelId({
+      eventName: "Purchase",
+      pixelId: "1234567890",
+      value: 80.0,
+      currency: "USD",
+      eventId: "dedup-id-xyz",
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      data: Array<{ event_id: string }>;
+    };
+    expect(body.data[0].event_id).toBe("dedup-id-xyz");
+  });
 });
 
