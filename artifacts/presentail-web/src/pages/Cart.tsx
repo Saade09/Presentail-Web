@@ -350,15 +350,17 @@ export default function Cart() {
                 className="flex items-center gap-3 px-5 py-3"
               >
                 {/* Thumbnail — 72 px square, slightly rounded */}
-                <div className="w-[72px] h-[72px] bg-secondary/50 rounded-xl overflow-hidden shrink-0">
+                <Link href={`/product/${item.product.id}`} className="w-[72px] h-[72px] bg-secondary/50 rounded-xl overflow-hidden shrink-0 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60">
                   {item.product.image?.uri && (
                     <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
                   )}
-                </div>
+                </Link>
 
                 {/* Name + compact stepper */}
                 <div className="flex flex-col flex-1 min-w-0 gap-2">
-                  <h3 className="font-serif text-sm leading-snug line-clamp-2">{item.product.name}</h3>
+                  <Link href={`/product/${item.product.id}`} className="cursor-pointer">
+                    <h3 className="font-serif text-sm leading-snug line-clamp-2 hover:opacity-70 transition-opacity">{item.product.name}</h3>
+                  </Link>
                   <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
                     <button
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}

@@ -84,9 +84,11 @@ function CartItemRow({ product, qty, lineTotal, colors, router, setQty, remove }
         </View>
       </Pressable>
       <View style={{ flex: 1, gap: 4 }}>
-        <AppText numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
-          {product.name}
-        </AppText>
+        <Pressable onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: product.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+          <AppText numberOfLines={2} style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.primary }}>
+            {product.name}
+          </AppText>
+        </Pressable>
         <Price
           value={lineTotal}
           style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
