@@ -423,6 +423,10 @@ export const useMyOrders = (enabled: boolean) => {
     enabled,
     staleTime: 0,
     refetchOnWindowFocus: true,
+    refetchInterval: () =>
+      typeof document !== "undefined" && document.visibilityState === "visible"
+        ? 60_000
+        : false,
   });
 };
 

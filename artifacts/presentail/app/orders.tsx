@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -108,6 +108,17 @@ function OrdersScreen() {
   useEffect(() => {
     if (ready) load();
   }, [ready, load]);
+
+  const initialFocusFired = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!initialFocusFired.current) {
+        initialFocusFired.current = true;
+        return;
+      }
+      if (ready && token) load(true);
+    }, [ready, token, load]),
+  );
 
   useEffect(() => {
     if (ready && !user) router.replace("/(tabs)/account");
