@@ -6,6 +6,10 @@
 import { FAQ_COPY } from "./src/data/faqsCopy.js";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import {
+  buildBlogArticleJsonLd,
+  BLOG_OG_FALLBACK_IMAGE_PATH,
+} from "./blog-article-schema.mjs";
+import {
   freeDeliveryThresholdUsd,
   expressSurchargeForCountry,
 } from "@workspace/delivery";
@@ -1914,9 +1918,11 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
   // opengraph.jpg when the article has no custom hero so the Article JSON-LD
   // block always carries the required `image` field (Google rejects Article
   // rich results that omit it).
+  // BLOG_OG_FALLBACK_IMAGE_PATH is the canonical fallback path shared with the
+  // client-side BlogPost.tsx so both callers use the same fallback.
   const imageUrl = ogImage
     ? `${origin}${cleanBase}${ogImage.url}`
-    : `${origin}${cleanBase}/opengraph.jpg`;
+    : `${origin}${cleanBase}${BLOG_OG_FALLBACK_IMAGE_PATH}`;
   const imageWidth = ogImage ? ogImage.width : undefined;
   const imageHeight = ogImage ? ogImage.height : undefined;
 
@@ -1925,23 +1931,20 @@ export function buildBlogPostHead({ article, lang, basePath, origin, pathname })
     `<meta property="article:published_time" content="${escapeAttr(article.datePublished)}" />`,
   );
 
-  // Article JSON-LD — mirrors the client-side schema in BlogPost.tsx so the
-  // crawler-facing markup and the rendered page stay in lockstep.
+  // Article JSON-LD — built by the shared buildBlogArticleJsonLd() from
+  // blog-article-schema.mjs so server-side and client-side (BlogPost.tsx)
+  // schemas can never silently diverge.
   extraLines.push(
-    jsonLdTag({
-      "@context": "https://schema.org",
-      "@type": "Article",
-      headline: rawTitle,
-      description: article.description,
-      datePublished: article.datePublished,
-      image: imageUrl,
-      publisher: {
-        "@type": "Organization",
-        name: "Presentail",
-        url: `${origin}${cleanBase}`,
-      },
-      url: canonicalHref,
-    }),
+    jsonLdTag(
+      buildBlogArticleJsonLd({
+        headline: rawTitle,
+        description: article.description,
+        datePublished: article.datePublished,
+        image: imageUrl,
+        publisherUrl: `${origin}${cleanBase}`,
+        url: canonicalHref,
+      }),
+    ),
   );
 
   // BreadcrumbList JSON-LD — Home > Journal > Article Title.

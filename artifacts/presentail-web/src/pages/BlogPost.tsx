@@ -6,6 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
 import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
+import {
+  buildBlogArticleJsonLd,
+  BLOG_OG_FALLBACK_IMAGE_PATH,
+} from "../../blog-article-schema.mjs";
 
 type Section = {
   heading?: string;
@@ -97,27 +101,25 @@ export default function BlogPost() {
       schema.id = schemaId;
       document.head.appendChild(schema);
     }
-    schema.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Article",
-      headline: article.title,
-      description: article.description,
-      datePublished: article.datePublished,
-      ...(article.ogImage
-        ? {
-            image:
-              typeof window !== "undefined"
-                ? new URL(article.ogImage.url, window.location.origin).href
-                : `https://presentail.com${article.ogImage.url}`,
-          }
-        : {}),
-      publisher: {
-        "@type": "Organization",
-        name: "Presentail",
-        url: "https://presentail.com",
-      },
-      url: typeof window !== "undefined" ? window.location.href : `https://presentail.com/blog/${article.slug}`,
-    });
+    // Resolve the article image to an absolute URL; fall back to the site-wide
+    // OG image (BLOG_OG_FALLBACK_IMAGE_PATH) so `image` is always present —
+    // Google rejects Article rich results that omit it.
+    const imageUrl = article.ogImage
+      ? new URL(article.ogImage.url, window.location.origin).href
+      : new URL(BLOG_OG_FALLBACK_IMAGE_PATH, window.location.origin).href;
+    // Use buildBlogArticleJsonLd — the shared builder from blog-article-schema.mjs
+    // that seo-inject.mjs also calls, so server-rendered and JS-patched schemas
+    // can never silently diverge.
+    schema.textContent = JSON.stringify(
+      buildBlogArticleJsonLd({
+        headline: article.title.trim(),
+        description: article.description,
+        datePublished: article.datePublished,
+        image: imageUrl,
+        publisherUrl: window.location.origin,
+        url: window.location.href,
+      }),
+    );
 
     return () => {
       document.head.querySelectorAll("[data-seo-blog]").forEach((el) => el.remove());
