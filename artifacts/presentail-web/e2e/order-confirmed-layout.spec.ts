@@ -634,3 +634,163 @@ test.describe("OrderConfirmed — Arabic RTL visual layout at Mobile Chrome (390
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Page-level scrollbar guard — h-screen overflow-hidden constraint
+//
+// The OrderConfirmed page wraps all content in `h-screen overflow-hidden`.
+// This viewport-lock ensures the browser never shows a page-level scrollbar.
+// A future accidental revert to `min-h-screen` or removal of `overflow-hidden`
+// would silently reintroduce a scrollbar without any JS error.
+//
+// These tests verify:
+//   1. No page-level scrollbar at common desktop/tablet viewport heights
+//      (768 px, 1024 px) — documentElement.scrollHeight must not exceed the
+//      viewport height.
+//   2. The inner `max-h-screen overflow-y-auto` content div IS scrollable when
+//      the viewport is very short (480 px tall) — proving internal scroll works
+//      as the intended escape valve when content taller than the screen.
+//
+// Both tests use the inline-success path (?ref=…) so no createOrder API call
+// is made.  sessionStorage is seeded with the full SAMPLE_ORDER payload so the
+// order-summary box (the tallest content block) renders, maximising the chance
+// of overflow at very short viewports.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 768 px viewport height — no page-level scrollbar
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — no page-level scrollbar at 768px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 768 } });
+
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+    await seedSessionData(page, SAMPLE_ORDER);
+  });
+
+  test("documentElement and body do not overflow the viewport at 768px", async ({ page }) => {
+    await page.goto(`/en-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    // Confirm order-summary rendered so content is fully present.
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    // With `h-screen overflow-hidden` the document must not scroll beyond the
+    // viewport height.  A regression to `min-h-screen` would push scrollHeight
+    // above innerHeight, silently reintroducing a page-level scrollbar.
+    const { docScrollHeight, bodyScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+
+    expect(
+      docScrollHeight,
+      `768px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    expect(
+      bodyScrollHeight,
+      `768px: body.scrollHeight (${bodyScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1024 px viewport height — no page-level scrollbar
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — no page-level scrollbar at 1024px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 1024 } });
+
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+    await seedSessionData(page, SAMPLE_ORDER);
+  });
+
+  test("documentElement and body do not overflow the viewport at 1024px", async ({ page }) => {
+    await page.goto(`/en-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    const { docScrollHeight, bodyScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+
+    expect(
+      docScrollHeight,
+      `1024px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    expect(
+      bodyScrollHeight,
+      `1024px: body.scrollHeight (${bodyScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 480 px viewport height — inner content area must be scrollable
+//
+// At very short screen heights the order-summary content (items + card
+// message + delivery + totals + CTA) overflows the viewport height.
+// The outer `h-screen overflow-hidden` wrapper must suppress the page scroll,
+// while the inner `max-h-screen overflow-y-auto` div becomes the scroll
+// container so shoppers can still reach every part of the confirmation.
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — inner content area is scrollable at 480px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 480 } });
+
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+    await seedSessionData(page, SAMPLE_ORDER);
+  });
+
+  test("inner overflow-y-auto div scrollHeight exceeds clientHeight at 480px", async ({ page }) => {
+    await page.goto(`/en-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    // Find the inner scroll container via its stable data-testid attribute.
+    // OrderConfirmed.tsx marks the `max-h-screen overflow-y-auto` inner div with
+    // data-testid="order-confirmed-scroll-container" so this selector cannot
+    // accidentally match an unrelated auto-overflow element earlier in the DOM.
+    const result = await page.evaluate(() => {
+      const scrollDiv = document.querySelector(
+        '[data-testid="order-confirmed-scroll-container"]',
+      ) as HTMLElement | null;
+
+      if (!scrollDiv) {
+        return {
+          found: false,
+          reason: 'No element with data-testid="order-confirmed-scroll-container" found — the inner scroll container may be missing or the testid was removed',
+          scrollHeight: 0,
+          clientHeight: 0,
+        };
+      }
+
+      return {
+        found: true,
+        reason: "",
+        scrollHeight: scrollDiv.scrollHeight,
+        clientHeight: scrollDiv.clientHeight,
+      };
+    });
+
+    expect(
+      result.found,
+      result.reason,
+    ).toBe(true);
+
+    // At 480 px the content is taller than the screen, so scrollHeight must
+    // exceed clientHeight — confirming the inner div is the active scroll
+    // container and content is not silently clipped.
+    expect(
+      result.scrollHeight,
+      `Inner scroll container scrollHeight (${result.scrollHeight}) should exceed clientHeight (${result.clientHeight}) at 480px viewport — content should be reachable by scrolling`,
+    ).toBeGreaterThan(result.clientHeight);
+  });
+});
