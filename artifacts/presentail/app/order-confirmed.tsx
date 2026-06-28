@@ -55,8 +55,10 @@ function OrderConfirmed() {
   const [retainedOrder, setRetainedOrder] = React.useState<PendingOrder | null>(null);
   const [retrying, setRetrying] = React.useState(false);
 
-  // Prevents the conversion from firing more than once per screen mount even
-  // if the component re-renders (strict mode, foreground/background cycles).
+  // In-process guard: prevents concurrent async checks during the same mount
+  // (strict mode double-invoke, rapid re-renders, foreground/background within
+  // the same JS instance). The AsyncStorage guard below handles cross-mount
+  // deduplication (screen unmount+remount, app resume after eviction).
   const purchaseFiredRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -71,23 +73,36 @@ function OrderConfirmed() {
   }, [status]);
 
   // Fire Google Ads purchase conversion on the initial success path.
-  // The checkout screen routes here with status=success after a confirmed
-  // order — we fire exactly once using purchaseFiredRef as a guard.
+  // Two-layer deduplication:
+  //   1. purchaseFiredRef — fast in-process guard for re-renders / strict mode.
+  //   2. AsyncStorage key — durable guard that survives screen unmount/remount,
+  //      app resume after backgrounding, and Expo Router re-navigation to the
+  //      same screen with the same orderId.
   // `currency` comes from the nav param set by checkout.tsx (buildResultPath).
   React.useEffect(() => {
     if (localStatus === "failed") return;
     if (purchaseFiredRef.current) return;
     purchaseFiredRef.current = true;
-    void loadStoredGclid().then((gclid) => {
-      fireAdsPurchaseConversion({
-        transactionId: String(orderId),
-        value: Number(total) || 0,
-        currency: currency ?? "USD",
-        ...(gclid ? { gclid } : {}),
-      });
-    });
-  // orderId, total, currency, and localStatus are all stable after mount;
-  // purchaseFiredRef ensures this fires at most once even on re-renders.
+
+    const storageKey = `@presentail/ads_conversion_v1:${orderId}`;
+    void (async () => {
+      try {
+        const alreadyFired = await AsyncStorage.getItem(storageKey);
+        if (alreadyFired) return;
+        const gclid = await loadStoredGclid();
+        fireAdsPurchaseConversion({
+          transactionId: String(orderId),
+          value: Number(total) || 0,
+          currency: currency ?? "USD",
+          ...(gclid ? { gclid } : {}),
+        });
+        await AsyncStorage.setItem(storageKey, "1");
+      } catch {
+        // Storage errors must never block the success UI.
+      }
+    })();
+  // orderId, total, currency, and localStatus are stable after mount;
+  // purchaseFiredRef + AsyncStorage ensure this fires at most once per order.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -120,16 +135,22 @@ function OrderConfirmed() {
           action: retainedOrder.payload.paymentMethod as AnalyticsEvent["action"],
         });
         // Fire Google Ads conversion for the recovered order. The mount effect
-        // exited early (localStatus was "failed") and did not set purchaseFiredRef,
-        // so this is the first and only conversion call for this order.
-        void loadStoredGclid().then((gclid) => {
-          fireAdsPurchaseConversion({
-            transactionId: String(orderId),
-            value: Number(total) || 0,
-            currency: currency ?? "USD",
-            ...(gclid ? { gclid } : {}),
+        // exited early (localStatus was "failed") and did not set purchaseFiredRef.
+        // Guard with AsyncStorage so a re-navigate after a successful retry doesn't
+        // double-fire (the key is the same one checked by the mount effect).
+        const storageKey = `@presentail/ads_conversion_v1:${orderId}`;
+        const alreadyFired = await AsyncStorage.getItem(storageKey).catch(() => null);
+        if (!alreadyFired) {
+          void loadStoredGclid().then(async (gclid) => {
+            fireAdsPurchaseConversion({
+              transactionId: String(orderId),
+              value: Number(total) || 0,
+              currency: currency ?? "USD",
+              ...(gclid ? { gclid } : {}),
+            });
+            await AsyncStorage.setItem(storageKey, "1").catch(() => {});
           });
-        });
+        }
         setRetainedOrder(null);
         setLocalStatus("success");
       } else {
