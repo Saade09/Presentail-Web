@@ -56,12 +56,33 @@ async function sendAdsConversionPing(
         { status: res.status, transactionId },
         "ads-conversion: non-OK response from Google",
       );
+      void db
+        .insert(analyticsEventsTable)
+        .values({ name: "ads_conversion_ping_failed", errorCode: String(res.status) })
+        .catch((dbErr: unknown) => {
+          log.warn(
+            { err: dbErr instanceof Error ? dbErr.message : String(dbErr) },
+            "ads-conversion: failed to record ping failure event",
+          );
+        });
     }
   } catch (err) {
     log.warn(
       { err: err instanceof Error ? err.message : String(err), transactionId },
       "ads-conversion: ping failed",
     );
+    void db
+      .insert(analyticsEventsTable)
+      .values({
+        name: "ads_conversion_ping_failed",
+        errorCode: err instanceof Error ? err.message.slice(0, 64) : "unknown",
+      })
+      .catch((dbErr: unknown) => {
+        log.warn(
+          { err: dbErr instanceof Error ? dbErr.message : String(dbErr) },
+          "ads-conversion: failed to record ping failure event",
+        );
+      });
   }
 }
 

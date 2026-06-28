@@ -19,6 +19,7 @@ import { startFxRatesFallbackMonitor } from "./lib/fxRatesFallbackMonitor";
 import { startSeoAuditMonitor } from "./lib/seoAuditMonitor";
 import { startWebVitalsMonitor } from "./lib/webVitalsMonitor";
 import { startGeoCurrencyFallbackMonitor } from "./lib/geoCurrencyFallbackMonitor";
+import { startGoogleAdsConversionMonitor } from "./lib/googleAdsConversionMonitor";
 import { registerStripeApplePayDomains } from "./lib/stripeApplePayDomains";
 import { validateFbPixelEnv } from "./lib/fbConversions";
 // Prevent unhandled 'error' events on idle pg pool clients from crashing the
@@ -80,4 +81,5 @@ app.listen(port, (err) => {
   startSeoAuditMonitor();
   startWebVitalsMonitor();
   startGeoCurrencyFallbackMonitor();
+  startGoogleAdsConversionMonitor();
 });
