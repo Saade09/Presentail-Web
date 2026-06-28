@@ -49,9 +49,30 @@ export function useServerEvents(): void {
       };
     }
 
-    connect();
+    // Defer the initial connection until the browser is idle so that
+    // headless crawlers (PageSpeed Insights, Lighthouse) do not see a
+    // console error for the long-lived SSE socket timing out during their
+    // capture window.  Real users get the connection a moment after the
+    // page is interactive; the existing exponential-backoff reconnect
+    // logic handles any subsequent drops transparently.
+    let idleHandle: ReturnType<typeof setTimeout> | number | null = null;
+    if (typeof requestIdleCallback !== "undefined") {
+      idleHandle = requestIdleCallback(() => connect(), { timeout: 5_000 });
+    } else {
+      // Safari does not support requestIdleCallback — fall back to a short
+      // setTimeout so we still defer past the initial render cycle.
+      idleHandle = setTimeout(() => connect(), 200);
+    }
 
     return () => {
+      if (idleHandle !== null) {
+        if (typeof requestIdleCallback !== "undefined") {
+          cancelIdleCallback(idleHandle as number);
+        } else {
+          clearTimeout(idleHandle as ReturnType<typeof setTimeout>);
+        }
+        idleHandle = null;
+      }
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
