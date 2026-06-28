@@ -343,8 +343,8 @@ export default function OrderConfirmed() {
 
   if (state.kind === "finalizing") {
     return (
-      <div className="min-h-screen pt-8 pb-8 sm:pt-32 sm:pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
-        <div className="max-w-md w-full text-center space-y-6 animate-in fade-in">
+      <div className="h-screen overflow-hidden flex items-center justify-center container mx-auto max-w-content px-4">
+        <div className="max-h-screen overflow-y-auto max-w-md w-full text-center space-y-6 animate-in fade-in py-8">
           <div className="flex justify-center">
             <Loader2 className="w-16 h-16 text-primary animate-spin" />
           </div>
@@ -381,8 +381,8 @@ export default function OrderConfirmed() {
   };
 
   return (
-    <div className="min-h-screen pt-8 pb-8 sm:pt-32 sm:pb-24 flex items-center justify-center container mx-auto max-w-content px-4">
-      <div className="max-w-md w-full text-center space-y-3 sm:space-y-6 animate-in zoom-in-95 duration-500">
+    <div className="h-screen overflow-hidden flex items-center justify-center container mx-auto max-w-content px-4">
+      <div className="max-h-screen overflow-y-auto max-w-md w-full text-center space-y-3 sm:space-y-6 animate-in zoom-in-95 duration-500 py-8 sm:py-16">
         <div className="flex justify-center">
           {isSuccess ? (
             <CheckCircle2 className="w-14 h-14 sm:w-24 sm:h-24 text-primary" data-testid="icon-success" />
