@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { Feather } from "@expo/vector-icons";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  Text,
   View,
 } from "react-native";
 import { AppText } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CountryFlag } from "@/components/CountryFlag";
+import { CityList } from "@/components/location/CityList";
 
 import type { DeliveryCity, DeliveryCountry } from "@/constants/deliveryLocations";
 import { useCart } from "@/contexts/CartContext";
@@ -20,13 +21,10 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useT } from "@/hooks/useT";
 import { useTypography } from "@/hooks/useTypography";
 
+type Step = "country" | "city";
+
 function activeCountries(list: DeliveryCountry[]): DeliveryCountry[] {
   return list.filter((c) => c.isActive);
-}
-
-function allCities(country: DeliveryCountry | null): DeliveryCity[] {
-  if (!country) return [];
-  return country.cities;
 }
 
 function defaultCityFor(country: DeliveryCountry | null): DeliveryCity | null {
@@ -57,28 +55,23 @@ export function OnboardingLocationScreen() {
 
   const countries = useMemo(() => activeCountries(deliveryLocations), [deliveryLocations]);
 
+  const [step, setStep] = useState<Step>("country");
   const [draftCountry, setDraftCountry] = useState<DeliveryCountry | null>(null);
   const [draftCity, setDraftCity] = useState<DeliveryCity | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Pre-select the first country + its first city as soon as the list loads.
-  useEffect(() => {
-    if (draftCountry || countries.length === 0) return;
-    const first = countries[0];
-    setDraftCountry(first);
-    setDraftCity(defaultCityFor(first));
-  }, [countries, draftCountry]);
-
-  const cities = useMemo(() => allCities(draftCountry), [draftCountry]);
-
   const handlePickCountry = (country: DeliveryCountry) => {
-    if (country.id === draftCountry?.id) return;
     setDraftCountry(country);
     setDraftCity(defaultCityFor(country));
+    setStep("city");
   };
 
   const handlePickCity = (city: DeliveryCity) => {
     setDraftCity(city);
+  };
+
+  const handleChangeCountry = () => {
+    setStep("country");
   };
 
   const canContinue = !!(draftCountry && draftCity) && !submitting;
@@ -87,14 +80,7 @@ export function OnboardingLocationScreen() {
     if (!draftCountry || !draftCity || submitting) return;
     setSubmitting(true);
     try {
-      // Single atomic write — avoids the back-to-back selectCountry +
-      // selectCity race where the second persist would read a stale
-      // selectedCountry from closure state and clobber storage with an
-      // undefined country on a fresh install.
       await setManualLocation(draftCountry, draftCity);
-      // The picker reappears once per day; clear the cart at the same moment
-      // so a stale cart from a previous day (potentially with a different
-      // delivery country / pricing) doesn't carry over silently.
       clearCart();
       await completeOnboarding();
     } finally {
@@ -112,127 +98,10 @@ export function OnboardingLocationScreen() {
           contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
-            <AppText
-              style={{
-                fontFamily: headingFontMedium,
-                fontSize: 22,
-                color: colors.primary,
-                textAlign: isRTL ? "right" : "left",
-              }}
-            >
-              {t.onboardingSelectCountry}
-            </AppText>
-          </View>
-
-          {isLoading && countries.length === 0 ? (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 48,
-              }}
-            >
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : countries.length === 0 ? (
-            // Either a transport error (show "unable to load") or an empty
-            // active-country set (show "none available"). Both branches
-            // offer a retry so the shopper is never stuck on a dead-end
-            // blank screen.
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 48,
-                paddingHorizontal: 24,
-                gap: 12,
-              }}
-            >
-              <AppText
-                style={{
-                  fontFamily: typo.medium,
-                  fontSize: 14,
-                  color: colors.mutedForeground,
-                  textAlign: "center",
-                }}
-              >
-                {error ? t.deliveryUnableToLoad : t.deliveryNoneAvailable}
-              </AppText>
-              <Pressable
-                onPress={() => {
-                  refreshDeliveryLocations().catch(() => {});
-                }}
-                style={{
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                  backgroundColor: colors.primary,
-                }}
-              >
-                <AppText
-                  style={{
-                    fontFamily: typo.semibold,
-                    fontSize: 13,
-                    color: colors.primaryForeground,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {t.deliveryRetry}
-                </AppText>
-              </Pressable>
-            </View>
-          ) : (
+          {/* ── Country step ── */}
+          {step === "country" && (
             <>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                  gap: 12,
-                  flexDirection: isRTL ? "row-reverse" : "row",
-                }}
-              >
-                {countries.map((country) => {
-                  const selected = country.id === draftCountry?.id;
-                  return (
-                    <Pressable
-                      key={country.id}
-                      onPress={() => handlePickCountry(country)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      style={{
-                        width: 110,
-                        paddingVertical: 12,
-                        paddingHorizontal: 8,
-                        borderRadius: 14,
-                        borderWidth: 2,
-                        borderColor: selected ? colors.teal600 : colors.border,
-                        backgroundColor: colors.card,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <CountryFlag code={country.code} width={36} height={24} />
-                      <AppText
-                        numberOfLines={2}
-                        style={{
-                          fontFamily: typo.semibold,
-                          fontSize: 12,
-                          color: selected ? colors.primary : colors.text,
-                          textAlign: "center",
-                        }}
-                      >
-                        {country.name}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
-              <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8 }}>
+              <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
                 <AppText
                   style={{
                     fontFamily: headingFontMedium,
@@ -241,74 +110,217 @@ export function OnboardingLocationScreen() {
                     textAlign: isRTL ? "right" : "left",
                   }}
                 >
-                  {t.onboardingSelectCity}
+                  {t.onboardingSelectCountry}
                 </AppText>
               </View>
 
-              <View style={{ paddingHorizontal: 16 }}>
-                {cities.map((city) => {
-                  const selected = city.id === draftCity?.id;
-                  const inactive = city.isActive === false;
-                  return (
-                    <Pressable
-                      key={city.id}
-                      onPress={inactive ? undefined : () => handlePickCity(city)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected, disabled: inactive }}
+              {isLoading && countries.length === 0 ? (
+                <View
+                  style={{
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 48,
+                  }}
+                >
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : countries.length === 0 ? (
+                <View
+                  style={{
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 48,
+                    paddingHorizontal: 24,
+                    gap: 12,
+                  }}
+                >
+                  <AppText
+                    style={{
+                      fontFamily: typo.medium,
+                      fontSize: 14,
+                      color: colors.mutedForeground,
+                      textAlign: "center",
+                    }}
+                  >
+                    {error ? t.deliveryUnableToLoad : t.deliveryNoneAvailable}
+                  </AppText>
+                  <Pressable
+                    onPress={() => {
+                      refreshDeliveryLocations().catch(() => {});
+                    }}
+                    style={{
+                      paddingHorizontal: 18,
+                      paddingVertical: 10,
+                      borderRadius: 999,
+                      backgroundColor: colors.primary,
+                    }}
+                  >
+                    <AppText
                       style={{
-                        flexDirection: isRTL ? "row-reverse" : "row",
-                        alignItems: "center",
-                        paddingHorizontal: 14,
-                        paddingVertical: 14,
-                        borderRadius: 12,
-                        borderWidth: selected ? 2 : 1,
-                        borderColor: inactive
-                          ? colors.border
-                          : selected
-                            ? colors.teal600
-                            : colors.border,
-                        backgroundColor: inactive
-                          ? "rgba(0,0,0,0.015)"
-                          : colors.card,
-                        marginVertical: 4,
-                        gap: 12,
+                        fontFamily: typo.semibold,
+                        fontSize: 13,
+                        color: colors.primaryForeground,
+                        letterSpacing: 0.5,
                       }}
                     >
-                      <View style={{ flex: 1, flexDirection: "column", gap: 2 }}>
+                      {t.deliveryRetry}
+                    </AppText>
+                  </Pressable>
+                </View>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    gap: 12,
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                  }}
+                >
+                  {countries.map((country) => {
+                    const selected = country.id === draftCountry?.id;
+                    return (
+                      <Pressable
+                        key={country.id}
+                        onPress={() => handlePickCountry(country)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        style={{
+                          width: 110,
+                          paddingVertical: 12,
+                          paddingHorizontal: 8,
+                          borderRadius: 14,
+                          borderWidth: 2,
+                          borderColor: selected ? colors.teal600 : colors.border,
+                          backgroundColor: colors.card,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <CountryFlag code={country.code} width={36} height={24} />
                         <AppText
+                          numberOfLines={2}
                           style={{
-                            fontFamily: selected && !inactive ? typo.semibold : typo.medium,
-                            fontSize: 15,
-                            color: inactive
-                              ? "rgba(0,0,0,0.35)"
-                              : selected
-                                ? colors.primary
-                                : colors.text,
-                            textAlign: isRTL ? "right" : "left",
+                            fontFamily: typo.semibold,
+                            fontSize: 12,
+                            color: selected ? colors.primary : colors.text,
+                            textAlign: "center",
                           }}
                         >
-                          {city.name}
+                          {country.name}
                         </AppText>
-                        {inactive && (
-                          <AppText
-                            style={{
-                              fontSize: 12,
-                              color: "rgba(0,0,0,0.3)",
-                              textAlign: isRTL ? "right" : "left",
-                            }}
-                          >
-                            {t.deliveryCityUnavailable}
-                          </AppText>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </>
+          )}
+
+          {/* ── City step ── */}
+          {step === "city" && draftCountry && (
+            <>
+              {/* Back link */}
+              <Pressable
+                onPress={handleChangeCountry}
+                accessibilityRole="button"
+                style={{
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  alignItems: "center",
+                  paddingHorizontal: 20,
+                  paddingTop: 20,
+                  paddingBottom: 4,
+                  gap: 4,
+                  alignSelf: isRTL ? "flex-end" : "flex-start",
+                }}
+              >
+                <Feather
+                  name={isRTL ? "chevron-right" : "chevron-left"}
+                  size={16}
+                  color={colors.teal600}
+                />
+                <AppText
+                  style={{
+                    fontFamily: typo.semibold,
+                    fontSize: 13,
+                    color: colors.teal600,
+                  }}
+                >
+                  {t.deliveryChangeCountry}
+                </AppText>
+              </Pressable>
+
+              {/* Country header block */}
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginTop: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: colors.card,
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <CountryFlag code={draftCountry.code} width={32} height={22} />
+                <AppText
+                  style={{
+                    fontFamily: typo.semibold,
+                    fontSize: 16,
+                    color: colors.primary,
+                    textAlign: isRTL ? "right" : "left",
+                    flex: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {draftCountry.name}
+                </AppText>
+              </View>
+
+              {/* "Choose delivery city" subtitle */}
+              <View style={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 4 }}>
+                <AppText
+                  style={{
+                    fontFamily: typo.medium,
+                    fontSize: 12,
+                    letterSpacing: 1.8,
+                    textTransform: "uppercase",
+                    color: colors.mutedForeground,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {t.deliverySelectCity}
+                </AppText>
+              </View>
+
+              {/* Thin divider */}
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginBottom: 4,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                }}
+              />
+
+              {/* City list */}
+              <View style={{ paddingHorizontal: 4 }}>
+                <CityList
+                  cities={draftCountry.cities}
+                  onSelect={handlePickCity}
+                  selectedId={draftCity?.id ?? null}
+                  trailingIcon="chevron"
+                />
               </View>
             </>
           )}
         </ScrollView>
 
+        {/* Continue button */}
         <View
           style={{
             paddingHorizontal: 20,

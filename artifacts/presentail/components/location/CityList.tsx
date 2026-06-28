@@ -12,9 +12,10 @@ type Props = {
   cities: DeliveryCity[];
   onSelect: (city: DeliveryCity) => void;
   selectedId?: string | null;
+  trailingIcon?: "check" | "chevron";
 };
 
-export function CityList({ cities, onSelect, selectedId }: Props) {
+export function CityList({ cities, onSelect, selectedId, trailingIcon = "check" }: Props) {
   const colors = useColors();
   const { isRTL } = useLanguage();
   const t = useT();
@@ -67,7 +68,13 @@ export function CityList({ cities, onSelect, selectedId }: Props) {
                 </Text>
               )}
             </View>
-            {isSelected && !inactive ? (
+            {trailingIcon === "chevron" && !inactive ? (
+              <Feather
+                name={isRTL ? "chevron-left" : "chevron-right"}
+                size={18}
+                color={colors.mutedForeground}
+              />
+            ) : trailingIcon === "check" && isSelected && !inactive ? (
               <Feather name="check" size={20} color={colors.teal600} />
             ) : null}
           </Pressable>
