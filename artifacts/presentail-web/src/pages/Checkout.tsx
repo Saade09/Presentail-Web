@@ -2017,7 +2017,7 @@ function CheckoutForm() {
 
             {/* ── STEP 1 · Delivery Details ── */}
             {step === 1 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
                 <div className="mb-6">
                   <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step.deliveryDetails")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step1.desc")}</p>
@@ -2320,7 +2320,7 @@ function CheckoutForm() {
                   )}
                 </div>
 
-                <div className="flex gap-3">
+                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setLocation("/cart")} data-testid="button-back-to-cart-from-delivery">{t("checkout.back")}</Button>
                   <Button
                     ref={continueToPaymentRef}
@@ -2345,7 +2345,7 @@ function CheckoutForm() {
 
             {/* ── STEP 2 · Payment ── */}
             {step === 2 && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-24 lg:pb-0">
                 <div className="mb-6">
                   <h1 className="text-2xl font-serif text-primary mb-1">{t("checkout.step3.title")}</h1>
                   <p className="text-sm text-muted-foreground">{t("checkout.step3.desc")}</p>
@@ -2457,7 +2457,7 @@ function CheckoutForm() {
                   )}
                 </div>
 
-                <div className="flex gap-3 mb-4">
+                <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0 lg:mb-4">
                   <Button variant="outline" size="lg" className="h-14 rounded-xl px-8" onClick={() => setStep(1)} data-testid="button-back-to-sender">{t("checkout.back")}</Button>
                   <PaymentSubmitButton paymentMethod={paymentMethod} total={total} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                 </div>
