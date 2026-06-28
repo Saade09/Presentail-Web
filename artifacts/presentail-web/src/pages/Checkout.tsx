@@ -2512,32 +2512,33 @@ function CheckoutForm() {
                           {paymentMethod === m.id && offlineDesc && (
                             <p className="mt-2 ms-8 text-sm text-muted-foreground leading-relaxed">{offlineDesc}</p>
                           )}
+                          {/* Stripe card fields — rendered inside the card tile so they expand
+                              inline directly below the card option row. stripeNeeded stays true
+                              once set, keeping LazyStripeSection mounted even when mamo is
+                              selected (showCardFields=false), so Stripe remains initialised
+                              without unmounting the Elements provider. */}
+                          {stripeNeeded && m.id === "card" && (
+                            <Suspense fallback={null}>
+                              <LazyStripeSection
+                                stripePromise={stripePromise}
+                                onStripeReady={handleStripeReady}
+                                showCardFields={paymentMethod === "card"}
+                                cardError={stripeCardError}
+                                disabled={isProcessing}
+                                isAuthenticated={isSignedIn}
+                                saveCard={saveCard}
+                                onSaveCardChange={setSaveCard}
+                                savedPaymentMethods={savedPaymentMethods}
+                                selectedSavedCardId={selectedSavedCardId}
+                                onSelectSavedCard={setSelectedSavedCardId}
+                                onRemoveSavedCard={handleRemoveSavedCard}
+                              />
+                            </Suspense>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-
-                  {/* Stripe card fields — only mounted when a Stripe payment method is active.
-                      @stripe/react-stripe-js is dynamically imported so js.stripe.com is never
-                      fetched for Mamo, PayPal, Whish, or Western Union flows. */}
-                  {stripeNeeded && (
-                    <Suspense fallback={null}>
-                      <LazyStripeSection
-                        stripePromise={stripePromise}
-                        onStripeReady={handleStripeReady}
-                        showCardFields={paymentMethod === "card"}
-                        cardError={stripeCardError}
-                        disabled={isProcessing}
-                        isAuthenticated={isSignedIn}
-                        saveCard={saveCard}
-                        onSaveCardChange={setSaveCard}
-                        savedPaymentMethods={savedPaymentMethods}
-                        selectedSavedCardId={selectedSavedCardId}
-                        onSelectSavedCard={setSelectedSavedCardId}
-                        onRemoveSavedCard={handleRemoveSavedCard}
-                      />
-                    </Suspense>
-                  )}
                 </div>
 
                 <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 py-3 border-t border-gray-100 shadow-md flex gap-3 lg:relative lg:bottom-auto lg:inset-x-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:border-none lg:shadow-none lg:px-0 lg:py-0 lg:mb-4">
