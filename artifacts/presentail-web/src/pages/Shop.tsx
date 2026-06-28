@@ -312,9 +312,9 @@ export default function Shop() {
   };
 
   return (
-    <div className="min-h-screen pt-6 pb-24 bg-white">
+    <div className="min-h-screen pt-2 md:pt-6 pb-24 bg-white">
       {breadcrumbCrumbs.length > 0 && (
-        <div className="container mx-auto max-w-content px-page pt-4">
+        <div className="container mx-auto max-w-content px-page pt-2 md:pt-4">
           <PageBreadcrumb crumbs={breadcrumbCrumbs} />
         </div>
       )}
