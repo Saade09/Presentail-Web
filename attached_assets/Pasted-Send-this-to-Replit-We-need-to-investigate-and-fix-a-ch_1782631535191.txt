@@ -1,0 +1,71 @@
+Send this to Replit:
+
+---
+
+We need to investigate and fix a checkout payment method bug.
+
+**Issue:**
+On the checkout page, when the user selects **Google Pay**, the Google Pay option becomes selected, but the checkout still behaves as if **Credit / Debit Card** is selected because the card input fields appear/open.
+
+**Expected behavior:**
+When the user clicks **Google Pay**:
+
+1. Google Pay should become the active selected payment method.
+2. The card fields should **not** appear.
+3. The bottom CTA should change to a Google Pay button / Google Pay checkout action.
+4. The payment flow should trigger Google Pay directly, not card entry.
+5. Credit / Debit Card fields should only appear when **Credit / Debit Card** is selected.
+
+**Current behavior shown in screenshots:**
+
+* When **Credit / Debit Card** is selected, card fields show correctly.
+* When **Google Pay** is selected, the card fields / card payment behavior still seem to open or remain active.
+* This suggests the checkout may be reusing the card payment component or Stripe Payment Element incorrectly when Google Pay is selected.
+
+Please investigate the checkout payment method state handling.
+
+Check for the following possible causes:
+
+1. **Payment method selection state bug**
+
+   * Confirm that selecting Google Pay updates the selected payment method state to something like `google_pay`.
+   * Confirm no logic is defaulting back to `card` after selection.
+   * Confirm the selected method is not being overwritten by Stripe availability checks or component re-renders.
+
+2. **Conditional rendering bug**
+
+   * Card fields should only render when selected method is `card`.
+   * Google Pay should render only the Google Pay CTA / wallet payment flow.
+   * Apple Pay and Google Pay should not mount the regular card input fields.
+
+3. **Stripe Payment Element / Express Checkout Element usage**
+
+   * If we are using Stripe’s Payment Element, verify whether it is configured to show multiple payment methods internally.
+   * If Google Pay is handled through Stripe Express Checkout Element, make sure it is separated from the card fields.
+   * Do not show the card payment element when a wallet method is selected.
+   * Google Pay should use the proper Stripe wallet confirmation flow.
+
+4. **Button behavior**
+
+   * When Google Pay is selected, clicking the bottom Google Pay button should call the Google Pay / Express Checkout flow.
+   * It should not call the normal card `confirmPayment` flow that expects card fields.
+   * The button label and action should be tied to the selected method.
+
+5. **Autofill / browser confusion**
+
+   * The card fields currently show an Autofill button, which confirms the card form is active.
+   * Ensure browser autofill card fields are not mounted unless card is selected.
+
+6. **Regression test all payment methods**
+
+   * Apple Pay selected → no card fields.
+   * Google Pay selected → no card fields.
+   * Credit / Debit Card selected → card fields appear.
+   * PayPal selected → no card fields.
+   * Whish Money selected → no card fields.
+   * Switching between methods should cleanly hide/show the correct UI without stale fields.
+
+**Important UX requirement:**
+The checkout should feel like one payment method at a time. Selecting Google Pay should not visually or functionally expose credit card entry.
+
+Please inspect the payment method component, the selected payment state, Stripe initialization, and the place order button handler. Then fix the issue and test by switching between all payment methods.
