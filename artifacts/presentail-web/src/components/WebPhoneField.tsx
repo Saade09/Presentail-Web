@@ -53,7 +53,7 @@ export function WebPhoneField({
   return (
     <div>
       {label ? (
-        <label className="text-sm font-medium block mb-1.5">
+        <label className="text-sm font-medium block mb-2">
           {label}
           {required ? <span className="text-destructive ms-0.5"> *</span> : null}
         </label>

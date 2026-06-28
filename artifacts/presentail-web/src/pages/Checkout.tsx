@@ -2111,11 +2111,11 @@ function CheckoutForm() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
                       <Input ref={recipientFirstNameRef} value={recipient.firstName} onChange={(e) => setRecipient({ ...recipient, firstName: e.target.value })} onKeyDown={focusNextOnEnter(recipientLastNameRef)} placeholder={t("checkout.firstNamePh")} data-testid="input-recipient-first-name" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
                       <Input ref={recipientLastNameRef} value={recipient.lastName} onChange={(e) => setRecipient({ ...recipient, lastName: e.target.value })} onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -2232,16 +2232,16 @@ function CheckoutForm() {
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <label className="text-sm font-medium">{t("checkout.firstName")}<span className="text-destructive ms-0.5">*</span></label>
                           <Input ref={senderFirstNameRef} value={sender.firstName} onChange={(e) => setSender({ ...sender, firstName: e.target.value })} onKeyDown={focusNextOnEnter(senderLastNameRef)} data-testid="input-sender-first-name" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <label className="text-sm font-medium">{t("checkout.lastName")}<span className="text-destructive ms-0.5">*</span></label>
                           <Input ref={senderLastNameRef} value={sender.lastName} onChange={(e) => setSender({ ...sender, lastName: e.target.value })} onKeyDown={focusNextOnEnter(senderEmailRef)} data-testid="input-sender-last-name" />
                         </div>
                       </div>
-                      <div className="space-y-1.5 mb-4">
+                      <div className="space-y-2 mb-4">
                         <label className="text-sm font-medium">{t("checkout.emailAddress")}<span className="text-destructive ms-0.5">*</span></label>
                         <Input ref={senderEmailRef} type="email" value={sender.email} onChange={(e) => setSender({ ...sender, email: e.target.value })} onKeyDown={(e) => {
                           if (e.key === "Enter") {
