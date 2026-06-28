@@ -39,6 +39,7 @@ type MyOrder = {
   deliverySlot: string | null;
   createdAt: string;
   status: string | null;
+  liveStatus: boolean;
   total: string | null;
   currency: string | null;
   itemsCount: number;
@@ -376,6 +377,33 @@ function OrderCard({
                 }}
               >
                 {order.status}
+              </AppText>
+            </View>
+          ) : null}
+          {order.liveStatus ? (
+            <View
+              style={{
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: "#10b981",
+                }}
+              />
+              <AppText
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 10,
+                  color: "#059669",
+                }}
+              >
+                {t.ordersLive}
               </AppText>
             </View>
           ) : null}

@@ -21,6 +21,7 @@ export const accountStrings: Dict = {
   "account.orders.itemsCount": { en: "items", ar: "عناصر" },
   "account.orders.itemCount": { en: "item", ar: "عنصر" },
   "account.orders.trackOrder": { en: "Track order", ar: "تتبّع الطلب" },
+  "account.orders.liveStatus": { en: "Live", ar: "مباشر" },
   "account.editPersonalInfo": {
     en: "Edit personal information",
     ar: "تعديل المعلومات الشخصية",
@@ -310,6 +311,7 @@ export const accountStringsFr: Record<string, string> = {
   "account.orders.itemsCount": "articles",
   "account.orders.itemCount": "article",
   "account.orders.trackOrder": "Suivre la commande",
+  "account.orders.liveStatus": "Live", // no-translate — English loan word used in French UI
   "account.editPersonalInfo": "Modifier mes informations personnelles",
   "account.editName": "Modifier le nom",
   "account.editName.desc": "Mettez à jour votre prénom et votre nom.",

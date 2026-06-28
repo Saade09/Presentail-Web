@@ -690,6 +690,7 @@ const EN = {
   ordersItems: "items",
   ordersTrackOrder: "Track order",
   ordersHistoryEmpty: "Your order history will appear here.",
+  ordersLive: "Live", // no-translate — same in all locales; short loan word
 
   // ── Brand page ──
 
@@ -1538,6 +1539,7 @@ const AR: typeof EN = {
   ordersItems: "عناصر",
   ordersTrackOrder: "تتبّع الطلب",
   ordersHistoryEmpty: "سيظهر سجل طلباتك هنا.",
+  ordersLive: "مباشر",
 
   // ── Brand page ──
 
@@ -2389,6 +2391,7 @@ const FR: typeof EN = {
   ordersItems: "articles",
   ordersTrackOrder: "Suivre la commande",
   ordersHistoryEmpty: "Votre historique de commandes apparaîtra ici.",
+  ordersLive: "Live", // no-translate — English loan word used in French UI
 
   // ── Brand page ──
 

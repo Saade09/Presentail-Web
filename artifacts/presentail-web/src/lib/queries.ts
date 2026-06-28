@@ -406,6 +406,7 @@ export type MyOrder = {
   deliverySlot: string | null;
   createdAt: string;
   status: string | null;
+  liveStatus: boolean;
   total: string | null;
   currency: string | null;
   itemsCount: number;

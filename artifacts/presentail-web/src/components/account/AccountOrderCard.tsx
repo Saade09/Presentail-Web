@@ -91,6 +91,15 @@ export function AccountOrderCard({
               {statusLabel}
             </span>
           )}
+          {order.liveStatus && (
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"
+              title={t("account.orders.liveStatus")}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {t("account.orders.liveStatus")}
+            </span>
+          )}
         </div>
       </div>
 
