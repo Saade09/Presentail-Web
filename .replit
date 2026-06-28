@@ -38,10 +38,6 @@ args = "API Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Web Serve"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "e2e-serve-blog"
 
 [[workflows.workflow]]
@@ -99,17 +95,6 @@ outputType = "console"
 task = "shell.exec"
 args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
 waitForPort = 8080
-
-[[workflows.workflow]]
-name = "Web Serve"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=5173 BASE_PATH=/ node artifacts/presentail-web/serve.mjs"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow]]
 name = "e2e-serve-blog"

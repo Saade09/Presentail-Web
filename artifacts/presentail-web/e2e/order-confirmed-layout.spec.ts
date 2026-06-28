@@ -280,6 +280,12 @@ test.describe("OrderConfirmed summary box — no scroll, all items visible", () 
 // ---------------------------------------------------------------------------
 
 test.describe("OrderConfirmed summary box — Arabic RTL layout (ar-lb)", () => {
+  // Explicitly target the Mobile Chrome viewport (390×844) so this suite
+  // exercises the narrow-width RTL layout regardless of which Playwright
+  // project executes it.  At 390 px the item-name column is much tighter
+  // and long Arabic strings can clip or wrap differently than at 1280 px.
+  test.use({ viewport: { width: 390, height: 844 } });
+
   test.beforeEach(async ({ page }) => {
     await installStubs(page);
     // Use Arabic item names so the RTL bidi text engine and the flex row
@@ -350,6 +356,13 @@ test.describe("OrderConfirmed summary box — Arabic RTL layout (ar-lb)", () => 
 // ---------------------------------------------------------------------------
 
 test.describe("OrderConfirmed summary box — French layout (fr-lb)", () => {
+  // Explicitly target the Mobile Chrome viewport (390×844) so this suite
+  // exercises the narrow-width layout with long French strings regardless of
+  // which Playwright project executes it.  At 390 px the item-name column
+  // is much tighter and long translated strings can clip or overflow
+  // differently than at the 1280 px desktop width.
+  test.use({ viewport: { width: 390, height: 844 } });
+
   test.beforeEach(async ({ page }) => {
     await installStubs(page);
     // Use long French item names to stress overflow/truncation handling in
