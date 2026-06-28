@@ -854,23 +854,33 @@ router.post("/woo/order", async (req, res) => {
     // Hoist the verified prices so attemptCreateOsOrder can use them directly.
     snapshotItems = intent.snapshot.items;
 
-    if (!process.env.STRIPE_SECRET_KEY) {
+    // Resolve the Stripe secret key for the account that created this session.
+    // Gulf payments (KWD, OMR, AED) are created on STRIPE_SECRET_KEY_GULF;
+    // verifying them with the main key returns 404 from Stripe and causes
+    // paymentVerified to stay false, blocking the order. Fall back to the
+    // main key if the Gulf key is absent (same degradation path as checkout).
+    const stripeKey =
+      intent.stripeAccount === "gulf"
+        ? (process.env.STRIPE_SECRET_KEY_GULF ?? process.env.STRIPE_SECRET_KEY)
+        : process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeKey) {
       req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: STRIPE_SECRET_KEY not configured, recording order without set_paid",
+        { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
+        "woo.order: Stripe key not configured, recording order without set_paid",
       );
     } else {
       // Layer 2: Verify with Stripe. PaymentIntent IDs start with "pi_"
       // (inline Elements flow); Checkout Session IDs start with "cs_"
       // (hosted redirect flow). Route to the correct verification function.
       if (paymentRef.startsWith("pi_")) {
-        paymentVerified = await verifyStripePaymentIntentPaid(paymentRef, body.orderId);
+        paymentVerified = await verifyStripePaymentIntentPaid(paymentRef, body.orderId, stripeKey);
       } else {
-        paymentVerified = await verifyStripePayment(paymentRef, body.orderId);
+        paymentVerified = await verifyStripePayment(paymentRef, body.orderId, stripeKey);
       }
       if (!paymentVerified) {
         req.log?.warn?.(
-          { appOrderId: body.orderId, paymentRef },
+          { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
           "woo.order: Stripe payment not confirmed — rejecting order",
         );
         return res.status(402).json({

@@ -186,6 +186,7 @@ router.post("/checkout/session", async (req, res) => {
       orderId,
       paymentRef: session.id,
       provider: "stripe",
+      stripeAccount: isGulfCurrency(currency) ? "gulf" : "main",
       totalUsd: catalogResult.subtotalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({
@@ -434,6 +435,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       orderId,
       paymentRef: paymentIntent.id,
       provider: "stripe",
+      stripeAccount: gulf ? "gulf" : "main",
       totalUsd,
       snapshot: {
         items: catalogResult.items.map((i) => ({

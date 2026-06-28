@@ -248,11 +248,16 @@ export async function resolveCartItems(
 // expected orderId. The orderId is embedded in session.metadata by the server
 // when creating the session; a matching value proves this session was not
 // created for a different (cheaper) order and replayed here.
+//
+// stripeKey must be the secret key for the Stripe account that created the
+// session — the main key for most currencies, the Gulf key for KWD/OMR/AED.
+// Using the wrong key causes Stripe to return 404, making verification fail.
 export async function verifyStripePayment(
   sessionId: string,
   expectedOrderId: string,
+  stripeKey?: string,
 ): Promise<boolean> {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = stripeKey ?? process.env.STRIPE_SECRET_KEY;
   if (!key || !sessionId) return false;
   try {
     const encoded = Buffer.from(`${key}:`).toString("base64");
@@ -275,11 +280,15 @@ export async function verifyStripePayment(
 // for the expected orderId (stored in metadata). Used by the inline Elements
 // card flow (paymentRef starts with "pi_") in contrast to verifyStripePayment
 // which checks hosted Checkout sessions (paymentRef starts with "cs_").
+//
+// stripeKey must be the secret key for the Stripe account that created the
+// PaymentIntent — the main key for most currencies, the Gulf key for KWD/OMR/AED.
 export async function verifyStripePaymentIntentPaid(
   paymentIntentId: string,
   expectedOrderId: string,
+  stripeKey?: string,
 ): Promise<boolean> {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = stripeKey ?? process.env.STRIPE_SECRET_KEY;
   if (!key || !paymentIntentId) return false;
   try {
     const encoded = Buffer.from(`${key}:`).toString("base64");

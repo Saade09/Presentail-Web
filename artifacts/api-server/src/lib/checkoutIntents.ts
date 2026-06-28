@@ -40,6 +40,10 @@ export type PaymentIntent = {
   orderId: string;
   paymentRef: string;
   provider: "stripe" | "mamo" | "paypal";
+  // Which Stripe account was used to create this session/intent. "gulf" means
+  // STRIPE_SECRET_KEY_GULF (used for KWD, OMR, AED); "main" means
+  // STRIPE_SECRET_KEY. Undefined for non-Stripe providers.
+  stripeAccount?: "main" | "gulf";
   // Canonical total in USD that the provider was instructed to charge.
   // For Stripe: product subtotal only (delivery is outside the session).
   // For Mamo/PayPal: product subtotal + district fee + express surcharge.
@@ -71,6 +75,7 @@ export function storePaymentIntent(params: {
   orderId: string;
   paymentRef: string;
   provider: "stripe" | "mamo" | "paypal";
+  stripeAccount?: "main" | "gulf";
   totalUsd: number;
   snapshot: CartSnapshot;
 }): void {
