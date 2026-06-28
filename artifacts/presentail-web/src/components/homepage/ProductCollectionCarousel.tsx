@@ -78,7 +78,7 @@ export function ProductCollectionCarousel({
   if (!isLoading && !isError && products.length === 0) return null;
 
   return (
-    <section className="py-10 md:py-14 px-4 md:px-0" data-testid={testId}>
+    <section className="py-6 md:py-10 px-4 md:px-0" data-testid={testId}>
       <div className="flex items-end justify-between mb-6 md:mb-8">
         <h2 className="font-serif text-2xl md:text-4xl text-primary">{title}</h2>
         <div className="flex items-center gap-3 md:gap-4">
