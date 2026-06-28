@@ -583,17 +583,6 @@ function FavoritesSection({ t }: { t: (k: string) => string }) {
   return (
     <SectionCard
       title={t("account.favorites")}
-      action={
-        favorites.size > 6 ? (
-          <Link
-            href="/favorites"
-            className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1"
-          >
-            {t("account.favorites.view")}
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        ) : null
-      }
     >
       {!isLoaded || (isLoading && favorites.size > 0) ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -610,7 +599,6 @@ function FavoritesSection({ t }: { t: (k: string) => string }) {
           icon={Heart}
           title={t("account.favorites.empty")}
           description={t("account.favorites.emptyDesc")}
-          cta={{ label: t("account.favorites.view"), href: "/favorites" }}
         />
       ) : (
         <>
@@ -619,17 +607,6 @@ function FavoritesSection({ t }: { t: (k: string) => string }) {
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
-          {favorites.size > 0 && (
-            <div className="mt-5 pt-4 border-t border-border/50 text-center">
-              <Link
-                href="/favorites"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                {t("account.favorites.view")}
-                <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          )}
         </>
       )}
     </SectionCard>
