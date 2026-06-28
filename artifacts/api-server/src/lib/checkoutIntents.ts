@@ -59,13 +59,20 @@ export type PaymentIntent = {
 // keyed by paymentRef (provider session/link/order ID)
 const store = new Map<string, PaymentIntent>();
 
+// Secondary index: orderId → paymentRef, so we can look up the existing
+// PaymentIntent for a given order without scanning the full store.
+const orderIndex = new Map<string, string>();
+
 const TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 // Remove entries that have expired. Called lazily on write.
 function sweep(): void {
   const now = Date.now();
   for (const [key, intent] of store) {
-    if (intent.expiresAt < now) store.delete(key);
+    if (intent.expiresAt < now) {
+      store.delete(key);
+      orderIndex.delete(intent.orderId);
+    }
   }
 }
 
@@ -80,11 +87,35 @@ export function storePaymentIntent(params: {
   snapshot: CartSnapshot;
 }): void {
   sweep();
+  // If there was a previous paymentRef for this orderId (e.g. the PI was
+  // updated and Stripe issued a new id, or a prior intent is being replaced),
+  // remove the old store entry before writing the new one.
+  const prevRef = orderIndex.get(params.orderId);
+  if (prevRef && prevRef !== params.paymentRef) {
+    store.delete(prevRef);
+  }
   store.set(params.paymentRef, {
     ...params,
     expiresAt: Date.now() + TTL_MS,
     consumed: false,
   });
+  orderIndex.set(params.orderId, params.paymentRef);
+}
+
+// Return the paymentRef stored for a given orderId, or undefined when none
+// exists. Used by the /checkout/payment-intent route to implement idempotency:
+// if a PI was already created for this orderId, retrieve and potentially reuse
+// it instead of unconditionally calling stripe.paymentIntents.create.
+export function getPaymentIntentForOrder(orderId: string): string | undefined {
+  const paymentRef = orderIndex.get(orderId);
+  if (!paymentRef) return undefined;
+  const intent = store.get(paymentRef);
+  if (!intent || intent.expiresAt < Date.now()) {
+    orderIndex.delete(orderId);
+    if (intent) store.delete(paymentRef);
+    return undefined;
+  }
+  return paymentRef;
 }
 
 // Verify and atomically consume a payment intent.

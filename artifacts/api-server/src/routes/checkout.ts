@@ -7,7 +7,7 @@ import {
   toStripeMinorUnits,
 } from "../lib/fx";
 import { resolveCartItems } from "../lib/catalog";
-import { storePaymentIntent } from "../lib/checkoutIntents";
+import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
 import { validateCoupon } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
@@ -408,6 +408,89 @@ router.post("/checkout/payment-intent", async (req, res) => {
     const totalMinorUnits = Math.max(0, subtotalMinorUnits + deliveryFeeMinorUnits - couponDiscountMinorUnits);
 
     const stripe = new Stripe(key);
+
+    // Idempotency: if a PaymentIntent was already created for this orderId,
+    // retrieve it and reuse or update it rather than calling create again.
+    // This prevents duplicate "Incomplete" PI entries in the Stripe dashboard
+    // when the wallet pre-creation effect fires multiple times per session.
+    const existingRef = getPaymentIntentForOrder(orderId);
+    if (existingRef) {
+      try {
+        const existing = await stripe.paymentIntents.retrieve(existingRef);
+        const reusableStatuses = ["requires_payment_method", "requires_confirmation"];
+        if (reusableStatuses.includes(existing.status)) {
+          if (existing.amount === totalMinorUnits && existing.currency === stripeCurrency) {
+            // Same amount and currency — return the existing clientSecret without
+            // hitting stripe.paymentIntents.create at all.
+            // Refresh the stored entry so the snapshot reflects the current
+            // cart (items may have changed even though the total is the same)
+            // and so the TTL is extended for the continued session.
+            storePaymentIntent({
+              orderId,
+              paymentRef: existingRef,
+              provider: "stripe",
+              stripeAccount: gulf ? "gulf" : "main",
+              totalUsd,
+              snapshot: {
+                items: catalogResult.items.map((i) => ({
+                  wcId: i.wcId,
+                  osSlug: i.osSlug,
+                  quantity: i.quantity,
+                  priceUsd: i.priceUsd,
+                })),
+                district: district ?? "Beirut",
+                expressDelivery: expressDelivery === true,
+                noAddress: noAddress === true,
+              },
+            });
+            return res.json({
+              ok: true,
+              clientSecret: existing.client_secret,
+              orderId,
+              amount: totalMinorUnits,
+              currency,
+            });
+          }
+          // Amount or currency changed (e.g. shopper switched delivery country) —
+          // update the existing PI in place so the client_secret stays stable.
+          const updated = await stripe.paymentIntents.update(existingRef, {
+            amount: totalMinorUnits,
+            currency: stripeCurrency,
+          });
+          storePaymentIntent({
+            orderId,
+            paymentRef: updated.id,
+            provider: "stripe",
+            stripeAccount: gulf ? "gulf" : "main",
+            totalUsd,
+            snapshot: {
+              items: catalogResult.items.map((i) => ({
+                wcId: i.wcId,
+                osSlug: i.osSlug,
+                quantity: i.quantity,
+                priceUsd: i.priceUsd,
+              })),
+              district: district ?? "Beirut",
+              expressDelivery: expressDelivery === true,
+              noAddress: noAddress === true,
+            },
+          });
+          return res.json({
+            ok: true,
+            clientSecret: updated.client_secret,
+            orderId,
+            amount: totalMinorUnits,
+            currency,
+          });
+        }
+        // PI is in a terminal / non-reusable status (succeeded, canceled,
+        // processing) — fall through to create a fresh one below.
+      } catch {
+        // PI could not be retrieved (e.g. deleted in the Stripe dashboard) —
+        // fall through and create a new one.
+      }
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalMinorUnits,
       currency: stripeCurrency,
