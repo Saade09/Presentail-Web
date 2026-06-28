@@ -38,7 +38,7 @@ export const DISTRICT_FEES: Record<string, number> = {
   Tyre: 39,
   "West Bekaa": 39,
   Zahle: 29,
-  Zghorta: 39,
+  Zgharta: 39,
   Dubai: 13.61,
   "Ras Al Khaimah": 13.61,
   "Umm Al Quwain": 13.61,

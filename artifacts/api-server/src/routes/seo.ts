@@ -774,7 +774,7 @@ const SEO_DEBUG_HTML = `<!doctype html>
     { market: 'Lebanon', label: 'Tyre', url: 'https://presentail.com/en-lb/tyre' },
     { market: 'Lebanon', label: 'West Bekaa', url: 'https://presentail.com/en-lb/west-bekaa' },
     { market: 'Lebanon', label: 'Zahle', url: 'https://presentail.com/en-lb/zahle' },
-    { market: 'Lebanon', label: 'Zghorta', url: 'https://presentail.com/en-lb/zghorta' },
+    { market: 'Lebanon', label: 'Zgharta', url: 'https://presentail.com/en-lb/zghorta' },
     // ── Lebanon — content pages (Beirut) ────────────────────────────────────
     { market: 'Lebanon', label: 'Product page (Beirut)', url: 'https://presentail.com/en-lb/beirut/product/pink-roses' },
     { market: 'Lebanon', label: 'Brand page (Beirut)', url: 'https://presentail.com/en-lb/beirut/brand/roses-only' },

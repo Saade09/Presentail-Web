@@ -369,15 +369,14 @@ function transformOsResponse(
           code,
           hardcoded?.cities ?? [],
         );
-        // When the canonical id differs from the OS slug (i.e. an explicit
-        // override was applied), prefer the hardcoded city's display name
-        // so the name matches the canonical spelling the web router expects
-        // (e.g. "Minnieh-Dennaya" not "Minnieh-Dennaye"). Fall back to the
-        // OS-supplied name when no hardcoded entry exists (future-proofing).
-        const hardcodedCity =
-          canonicalId !== osSlug
-            ? (hardcoded?.cities ?? []).find((hc) => hc.id === canonicalId)
-            : undefined;
+        // Always prefer the hardcoded city's display name when a match exists.
+        // This ensures canonical casing and spelling ("West Bekaa", "Zgharta",
+        // etc.) regardless of how the OS API cashes them (e.g. "west bekaa").
+        // Falls back to the OS-supplied name for cities not in the hardcoded
+        // list (future-proofing for cities added to OS before hardcoded list).
+        const hardcodedCity = (hardcoded?.cities ?? []).find(
+          (hc) => hc.id === canonicalId,
+        );
         const displayName = hardcodedCity?.name ?? c.name;
         if (canonicalId !== osSlug) {
           logger.debug(
@@ -419,10 +418,13 @@ function transformOsResponse(
               ?.isActive ??
             true,
           // deliveryFee is in country display currency — convert to USD.
+          // Use the canonical displayName (from hardcoded list) for the fee
+          // lookup so OS spelling variants (e.g. "Zghorta") still resolve to
+          // the correct fee row keyed under the canonical name ("Zgharta").
           fee:
             c.deliveryFee != null
               ? getUsdAmount(c.deliveryFee, currency)
-              : feeForDistrict(code, c.name),
+              : feeForDistrict(code, displayName),
           // When OS omits expressAvailable, check the prior cache for this
           // city before defaulting to false. This prevents a partial webhook
           // (e.g. slot-only or free-delivery-threshold update that omits

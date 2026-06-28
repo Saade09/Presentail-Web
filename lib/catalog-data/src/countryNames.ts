@@ -116,7 +116,7 @@ export const CITY_NAMES_FR: Record<string, string> = {
   "lb-tyre": "Tyr",
   "lb-west-bekaa": "Bekaa-Ouest",
   "lb-zahle": "Zahlé",
-  "lb-zghorta": "Zghorta",
+  "lb-zghorta": "Zgharta",
   "lb-byblos": "Byblos",
   "ae-dubai": "Dubaï",
   "ae-abu-dhabi": "Abou Dhabi",

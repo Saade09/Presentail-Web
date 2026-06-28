@@ -149,6 +149,55 @@ describe("osLocationsCache — inactive city supplementation", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: display name always comes from the hardcoded list when matched
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — canonical display name override", () => {
+  it("uses hardcoded display name 'West Bekaa' even when OS returns lowercase 'west bekaa'", () => {
+    const cities = loadLbCities([
+      makeCity({ id: 1, slug: "west-bekaa", name: "west bekaa" }),
+    ]);
+    const city = cities.find((c) => c.id === "lb-west-bekaa");
+    expect(city, "lb-west-bekaa must be present").toBeTruthy();
+    expect(city!.name).toBe("West Bekaa");
+  });
+
+  it("uses hardcoded display name 'Zgharta' even when OS city name is the old spelling 'Zghorta'", () => {
+    const cities = loadLbCities([
+      makeCity({ id: 1, slug: "zghorta", name: "Zghorta" }),
+    ]);
+    const city = cities.find((c) => c.id === "lb-zghorta");
+    expect(city, "lb-zghorta must be present").toBeTruthy();
+    expect(city!.name).toBe("Zgharta");
+  });
+
+  it("uses hardcoded display name 'Beirut' even when OS returns 'beirut' (lowercase)", () => {
+    const cities = loadLbCities([
+      makeCity({ id: 1, slug: "beirut", name: "beirut" }),
+    ]);
+    const city = cities.find((c) => c.id === "lb-beirut");
+    expect(city!.name).toBe("Beirut");
+  });
+
+  it("resolves the correct delivery fee ($39) when OS sends old Zghorta spelling and no deliveryFee", () => {
+    // OS returns the old spelling "Zghorta" with no deliveryFee field.
+    // The fee fallback must use the canonical display name "Zgharta" to hit
+    // the correct fee row — not the OS raw name which would cause a miss and
+    // default to $39 only by coincidence (the default is also $39). Verify
+    // the match is by name lookup, not the unknwon-district default.
+    const cities = loadLbCities([
+      makeCity({ id: 1, slug: "zghorta", name: "Zghorta" }),
+    ]);
+    const city = cities.find((c) => c.id === "lb-zghorta");
+    expect(city, "lb-zghorta must be present").toBeTruthy();
+    // $39 is the hardcoded fee for Zgharta. fee === 39 (or undefined when
+    // feeForDistrict returns 0 on a miss). Asserting > 0 confirms the lookup
+    // succeeded rather than silently returning 0.
+    expect(city!.fee, "Zgharta fee must be 39, not 0 (which would indicate a name-lookup miss)").toBe(39);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: slug resolution strategies (resolveOsCityId via integration)
 // ---------------------------------------------------------------------------
 

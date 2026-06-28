@@ -40,7 +40,7 @@ export const DELIVERY_COUNTRIES: DeliveryCountryData[] = [
       { id: "lb-tyre", name: "Tyre", isActive: true },
       { id: "lb-west-bekaa", name: "West Bekaa", isActive: true },
       { id: "lb-zahle", name: "Zahle", isActive: true },
-      { id: "lb-zghorta", name: "Zghorta", isActive: true },
+      { id: "lb-zghorta", name: "Zgharta", isActive: true },
     ],
   },
   {

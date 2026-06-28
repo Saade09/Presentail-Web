@@ -26,7 +26,7 @@ export const LB_DISTRICTS: District[] = [
   { name: "Tyre", fee: 39 },
   { name: "West Bekaa", fee: 39 },
   { name: "Zahle", fee: 29 },
-  { name: "Zghorta", fee: 39 },
+  { name: "Zgharta", fee: 39 },
 ];
 
 export const AE_DISTRICTS: District[] = [
