@@ -1735,12 +1735,34 @@ function CheckoutForm() {
               void maybeSaveNewAddress();
               void maybeSaveProfilePhone();
               const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
+              // Try to stash for OrderConfirmed's seamless display. If storage
+              // is unavailable (Safari private, quota exceeded, iOS app-state
+              // kill), fall back to submitting directly with the payload we
+              // already have — items are still in state until clearCart() below.
+              let walletStashed = false;
               try {
                 sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({ payload, createdAt: Date.now() }));
-              } catch { /* best-effort: sessionStorage full */ }
-              clearCart();
-              try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
-              setLocation(`/order-confirmed?status=success`);
+                walletStashed = true;
+              } catch { /* storage unavailable */ }
+              if (walletStashed) {
+                clearCart();
+                try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+                setLocation(`/order-confirmed?status=success`);
+              } else {
+                // Storage failed — call the order API directly. The payload
+                // has the correct orderId from prefetchedIntent. On success we
+                // navigate with ?ref so OrderConfirmed shows the summary without
+                // re-submitting. On failure we stay on checkout so the shopper
+                // can contact support (payment is captured — ops will reconcile).
+                try {
+                  const r = await createOrder.mutateAsync(payload) as CreateOrderResponse;
+                  clearCart();
+                  try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
+                  if (r.ok) {
+                    setLocation(`/order-confirmed?status=success&ref=${encodeURIComponent(payload.orderId)}`);
+                  }
+                } catch { /* network failure — stay on checkout */ }
+              }
             } catch {
               ev.complete("fail");
             } finally {
@@ -1879,18 +1901,14 @@ function CheckoutForm() {
           return;
         }
 
-        // Payment confirmed — stash the order and navigate to the confirmation
-        // page immediately. OrderConfirmed finalizes the order against the server
-        // so the user is never stranded on checkout after a successful Stripe charge.
+        // Payment confirmed — submit the order while we're still on the
+        // checkout page. Using finalizeOrderNow directly (rather than the
+        // stash+navigate pattern) guarantees the order reaches OS even when
+        // sessionStorage is unavailable (Safari private mode, quota exceeded,
+        // iOS app-state kills). finalizeOrderNow handles clearCart and navigate.
         void maybeSaveNewAddress();
         void maybeSaveProfilePhone();
-        const payload = buildOrderPayload({ paymentRef: finalIntent.id, orderId });
-        try {
-          sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({ payload, createdAt: Date.now() }));
-        } catch { /* best-effort: sessionStorage full */ }
-        clearCart();
-        try { localStorage.removeItem(COUPON_STORAGE_KEY); } catch { /* best-effort */ }
-        setLocation(`/order-confirmed?status=success`);
+        await finalizeOrderNow(finalIntent.id);
         return;
       }
 

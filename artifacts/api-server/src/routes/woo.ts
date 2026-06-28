@@ -822,72 +822,120 @@ router.post("/woo/order", async (req, res) => {
     // Layer 1: Verify orderId↔paymentRef binding from the checkout intent.
     // This prevents replaying a paid session for a different order.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
+
     if (!intent) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid payment intent found for this paymentRef+orderId pair",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "payment_intent_invalid",
-        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
-      });
-    }
-
-    // Layer 1b: Verify the submitted cart matches the canonical cart snapshot
-    // stored when the payment session was created. This closes the cart-
-    // substitution gap: a client cannot pay for a cheap cart and submit a more
-    // expensive one to /woo/order — the wcId+quantity pairs must match exactly.
-    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot);
-    if (cartMismatch) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
-        "woo.order: submitted cart does not match paid-for cart snapshot — rejecting",
-      );
-      return res.status(402).json({
-        ok: false,
-        code: "cart_mismatch",
-        message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
-      });
-    }
-
-    // Hoist the verified prices so attemptCreateOsOrder can use them directly.
-    snapshotItems = intent.snapshot.items;
-
-    // Resolve the Stripe secret key for the account that created this session.
-    // Gulf payments (KWD, OMR, AED) are created on STRIPE_SECRET_KEY_GULF;
-    // verifying them with the main key returns 404 from Stripe and causes
-    // paymentVerified to stay false, blocking the order. Fall back to the
-    // main key if the Gulf key is absent (same degradation path as checkout).
-    const stripeKey =
-      intent.stripeAccount === "gulf"
-        ? (process.env.STRIPE_SECRET_KEY_GULF ?? process.env.STRIPE_SECRET_KEY)
-        : process.env.STRIPE_SECRET_KEY;
-
-    if (!stripeKey) {
-      req.log?.warn?.(
-        { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
-        "woo.order: Stripe key not configured, recording order without set_paid",
-      );
-    } else {
-      // Layer 2: Verify with Stripe. PaymentIntent IDs start with "pi_"
-      // (inline Elements flow); Checkout Session IDs start with "cs_"
-      // (hosted redirect flow). Route to the correct verification function.
+      // The in-memory store is cleared on every server restart and entries
+      // expire after 24 h. If a customer completes Stripe payment just as the
+      // server restarts (or submits hours later), their intent is gone and the
+      // original code returned 402 — silently dropping a captured payment.
+      //
+      // Recovery path for pi_ refs: probe Stripe directly (trying both the
+      // main and Gulf keys, since we no longer have the stored account hint).
+      // verifyStripePaymentIntentPaid checks both status === "succeeded" AND
+      // metadata.orderId === body.orderId, so anti-replay guarantees hold.
+      // Without the snapshot we fall back to the OS-cache price path (same as
+      // the reconcile worker). snapshotItems stays undefined.
       if (paymentRef.startsWith("pi_")) {
-        paymentVerified = await verifyStripePaymentIntentPaid(paymentRef, body.orderId, stripeKey);
+        const stripeKeysFallback = [
+          process.env.STRIPE_SECRET_KEY,
+          process.env.STRIPE_SECRET_KEY_GULF,
+        ].filter((k): k is string => !!k);
+        let recoveredFromStripe = false;
+        for (const k of stripeKeysFallback) {
+          if (await verifyStripePaymentIntentPaid(paymentRef, body.orderId, k)) {
+            recoveredFromStripe = true;
+            break;
+          }
+        }
+        if (recoveredFromStripe) {
+          req.log?.warn?.(
+            { appOrderId: body.orderId, paymentRef },
+            "woo.order: intent not in store (server restart / expiry) — verified directly with Stripe; proceeding without cart snapshot",
+          );
+          paymentVerified = true;
+          // snapshotItems remains undefined — attemptCreateOsOrder will use
+          // the OS products cache for price lookup (same path as the
+          // reconcile worker). preVerifiedItems is not passed.
+        } else {
+          req.log?.warn?.(
+            { appOrderId: body.orderId, paymentRef },
+            "woo.order: no valid payment intent found for this paymentRef+orderId pair",
+          );
+          return res.status(402).json({
+            ok: false,
+            code: "payment_intent_invalid",
+            message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+          });
+        }
       } else {
-        paymentVerified = await verifyStripePayment(paymentRef, body.orderId, stripeKey);
-      }
-      if (!paymentVerified) {
         req.log?.warn?.(
-          { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
-          "woo.order: Stripe payment not confirmed — rejecting order",
+          { appOrderId: body.orderId, paymentRef },
+          "woo.order: no valid payment intent found for this paymentRef+orderId pair",
         );
         return res.status(402).json({
           ok: false,
-          code: "payment_not_confirmed",
-          message: "Payment could not be confirmed with Stripe. Please complete payment before placing the order.", // i18n-ignore
+          code: "payment_intent_invalid",
+          message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
         });
+      }
+    } else {
+      // Intent found — verify cart snapshot and hoist verified prices.
+      //
+      // Layer 1b: Verify the submitted cart matches the canonical cart snapshot
+      // stored when the payment session was created. This closes the cart-
+      // substitution gap: a client cannot pay for a cheap cart and submit a
+      // more expensive one to /woo/order — the wcId+quantity pairs must match.
+      const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot);
+      if (cartMismatch) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+          "woo.order: submitted cart does not match paid-for cart snapshot — rejecting",
+        );
+        return res.status(402).json({
+          ok: false,
+          code: "cart_mismatch",
+          message: "The submitted cart does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
+        });
+      }
+
+      // Hoist the verified prices so attemptCreateOsOrder can use them directly.
+      snapshotItems = intent.snapshot.items;
+
+      // Resolve the Stripe secret key for the account that created this session.
+      // Gulf payments (KWD, OMR, AED) are created on STRIPE_SECRET_KEY_GULF;
+      // verifying them with the main key returns 404 from Stripe and causes
+      // paymentVerified to stay false, blocking the order. Fall back to the
+      // main key if the Gulf key is absent (same degradation path as checkout).
+      const stripeKey =
+        intent.stripeAccount === "gulf"
+          ? (process.env.STRIPE_SECRET_KEY_GULF ?? process.env.STRIPE_SECRET_KEY)
+          : process.env.STRIPE_SECRET_KEY;
+
+      if (!stripeKey) {
+        req.log?.warn?.(
+          { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
+          "woo.order: Stripe key not configured, recording order without set_paid",
+        );
+      } else {
+        // Layer 2: Verify with Stripe. PaymentIntent IDs start with "pi_"
+        // (inline Elements flow); Checkout Session IDs start with "cs_"
+        // (hosted redirect flow). Route to the correct verification function.
+        if (paymentRef.startsWith("pi_")) {
+          paymentVerified = await verifyStripePaymentIntentPaid(paymentRef, body.orderId, stripeKey);
+        } else {
+          paymentVerified = await verifyStripePayment(paymentRef, body.orderId, stripeKey);
+        }
+        if (!paymentVerified) {
+          req.log?.warn?.(
+            { appOrderId: body.orderId, paymentRef, stripeAccount: intent.stripeAccount },
+            "woo.order: Stripe payment not confirmed — rejecting order",
+          );
+          return res.status(402).json({
+            ok: false,
+            code: "payment_not_confirmed",
+            message: "Payment could not be confirmed with Stripe. Please complete payment before placing the order.", // i18n-ignore
+          });
+        }
       }
     }
   } else if (body.paymentMethod === "mamo") {
