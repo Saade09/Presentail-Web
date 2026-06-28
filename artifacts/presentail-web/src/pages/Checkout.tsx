@@ -1091,8 +1091,15 @@ function CheckoutForm() {
         disableWallets: ["link", "browserCard"],
       });
     } catch {
-      // paymentRequest() itself failed (extremely rare) — leave rows visible
-      // so the shopper can still attempt to pay via other methods.
+      // paymentRequest() constructor failed — STRIPE_MERCHANT_COUNTRY
+      // doesn't match the Stripe account's registered country, or the browser
+      // doesn't support the PaymentRequest API at all. Hide wallet tiles
+      // immediately so shoppers aren't left tapping a broken option.
+      setWalletSupported(false);
+      setPaymentMethodState((current) => {
+        if (current !== "apple_pay" && current !== "google_pay") return current;
+        return currencyCode === "AED" ? "mamo" : "card";
+      });
       return;
     }
     pr.canMakePayment().then((result) => {

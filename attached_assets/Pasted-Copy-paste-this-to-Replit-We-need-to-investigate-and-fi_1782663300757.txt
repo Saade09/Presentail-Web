@@ -1,0 +1,162 @@
+Copy/paste this to Replit:
+
+---
+
+We need to investigate and fix a **Forced Reflow / Layout Thrashing** performance issue reported by Lighthouse/Chrome DevTools on presentail.com.
+
+The audit shows:
+
+* Issue: **Forced reflow**
+* Top function call: `/assets/vendor-re....js:9:103040`
+* Source: `/assets/use-mobil....js:1:255`
+* Total reflow time: around **51ms**
+* Explanation: JavaScript is querying layout/geometric properties after the DOM or styles have changed.
+
+Please investigate this carefully and fix it without changing the UI.
+
+### Goal
+
+Reduce or eliminate forced reflows caused by our frontend JavaScript, especially around the `use-mobile` hook/file and any vendor code triggered by it.
+
+### What to investigate
+
+1. Locate the source file that compiles into:
+
+   `/assets/use-mobil....js`
+
+   It is likely related to a hook such as:
+
+   * `useMobile`
+   * `useIsMobile`
+   * `useMediaQuery`
+   * window resize listener
+   * `innerWidth`
+   * `offsetWidth`
+   * `clientWidth`
+   * `getBoundingClientRect`
+   * `scrollWidth`
+   * `matchMedia`
+
+2. Search the codebase for layout reads such as:
+
+   ```js
+   offsetWidth
+   offsetHeight
+   clientWidth
+   clientHeight
+   scrollWidth
+   scrollHeight
+   getBoundingClientRect
+   getComputedStyle
+   window.innerWidth
+   window.innerHeight
+   ```
+
+3. Identify if any of these are being called immediately after DOM/style changes, especially inside:
+
+   * scroll listeners
+   * resize listeners
+   * `useEffect`
+   * `useLayoutEffect`
+   * animation handlers
+   * header/menu/cart/mobile navigation logic
+   * product grids
+   * carousel/banner components
+   * sticky header/cart components
+
+### Likely problem area
+
+The source points to a mobile-detection script/hook. If we currently calculate mobile state using `window.innerWidth` or manual resize listeners, replace this with a safer `matchMedia`-based implementation.
+
+Preferred approach:
+
+```ts
+import { useEffect, useState } from "react";
+
+const MOBILE_BREAKPOINT = 768;
+
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+    };
+
+    setIsMobile(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  return isMobile;
+}
+```
+
+Avoid resize listeners that constantly read `window.innerWidth` and cause rerenders.
+
+### Required fixes
+
+Please implement the following:
+
+1. Replace mobile detection based on continuous resize measurement with `matchMedia`.
+2. Debounce or throttle any remaining resize/scroll listeners.
+3. Avoid reading layout properties immediately after writing DOM styles/classes.
+4. Batch DOM reads before DOM writes.
+5. Move expensive layout reads into `requestAnimationFrame` where needed.
+6. Avoid unnecessary `useLayoutEffect` unless layout must be measured before paint.
+7. Memoize mobile/header/cart state where possible so resize changes do not rerender the entire page.
+8. Make sure event listeners are cleaned up properly.
+9. Check if any third-party library is triggered by our code unnecessarily on load or resize.
+
+### Important rules
+
+Do not change the visual design or behavior.
+
+Do not remove features.
+
+Do not introduce hydration issues.
+
+Do not break mobile responsiveness.
+
+Do not create flickering between desktop and mobile layouts.
+
+### Validation steps
+
+After the fix:
+
+1. Run the site locally.
+2. Open Chrome DevTools Performance tab.
+3. Record page load and basic interactions:
+
+   * homepage load
+   * resize desktop to mobile
+   * open/close mobile menu
+   * open cart
+   * scroll homepage
+4. Confirm forced reflow warnings are reduced or removed.
+5. Run Lighthouse again and compare before/after.
+6. Confirm there are no console errors.
+7. Confirm mobile and desktop layouts still look the same.
+
+### Deliverable
+
+Please provide:
+
+1. The root cause of the forced reflow.
+2. The exact file(s) changed.
+3. A summary of the code changes.
+4. Before/after Lighthouse or DevTools observation.
+5. Confirmation that desktop and mobile UI were not visually changed.
