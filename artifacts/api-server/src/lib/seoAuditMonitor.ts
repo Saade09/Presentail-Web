@@ -149,6 +149,20 @@ export function buildKeyPages(): Array<{ label: string; url: string; locale: str
     }
   }
 
+  // ── Blog posts ───────────────────────────────────────────────────────────────
+  // Blog pages are not locale-scoped (no /en-lb/beirut prefix) — they live at
+  // /blog/<slug>. We audit all live posts as representative samples so a broken
+  // OG image on the blog route is caught by the daily digest. Slugs mirror the
+  // filenames under presentail-web/public/blog/ and are stable across deploys.
+  const BLOG_SLUGS = [
+    "chocolatiers-behind-our-gift-boxes",
+    "inside-spring-sourcing-trip",
+    "what-to-send-when-there-are-no-words",
+  ];
+  for (const slug of BLOG_SLUGS) {
+    pages.push({ locale: "BLOG", label: `Blog: ${slug}`, url: `${BASE}/blog/${slug}` });
+  }
+
   return pages;
 }
 
@@ -545,11 +559,12 @@ export async function runAuditNow(): Promise<AuditSummary> {
     await appendAuditLog(summary, "on_demand");
 
     if (failing.length > 0 || warned.length > 0) {
-      const localeOrder = ["LB", "AE", "CY"];
+      const localeOrder = ["LB", "AE", "CY", "BLOG"];
       const localeLabels: Record<string, string> = {
         LB: "Lebanon",
         AE: "UAE",
         CY: "Cyprus",
+        BLOG: "Blog Posts",
       };
 
       const resultsByLocale = new Map<string, SeoPageResult[]>();
@@ -775,11 +790,12 @@ export async function runOnce(): Promise<void> {
 
     // Build a concise digest grouped by locale so the Slack message stays
     // readable even as the page list grows.
-    const localeOrder = ["LB", "AE", "CY"];
+    const localeOrder = ["LB", "AE", "CY", "BLOG"];
     const localeLabels: Record<string, string> = {
       LB: "Lebanon",
       AE: "UAE",
       CY: "Cyprus",
+      BLOG: "Blog Posts",
     };
 
     const resultsByLocale = new Map<string, SeoPageResult[]>();
