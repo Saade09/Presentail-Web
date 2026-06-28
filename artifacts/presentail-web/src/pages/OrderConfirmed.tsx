@@ -109,7 +109,7 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
   const payLabel = payKey ? t(payKey) : order.paymentMethod ?? "";
 
   return (
-    <div className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-4 space-y-5 text-start">
+    <div data-testid="order-summary" className="bg-secondary/50 rounded-2xl p-4 my-2 sm:p-6 sm:my-4 space-y-5 text-start">
       {items.length > 0 && (
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2">{t("order.summary.items")}</p>
