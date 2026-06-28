@@ -245,3 +245,48 @@ test.describe(`Product JSON-LD Merchant Listing schema — ${PRODUCT_PATH}`, () 
     ).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Out-of-stock test suite — exercises the inStock=false → OutOfStock branch
+// ---------------------------------------------------------------------------
+
+const OUT_OF_STOCK_PATH = "/en-lb/beirut/product/sold-out-roses";
+
+test.describe(`Product JSON-LD Merchant Listing schema — ${OUT_OF_STOCK_PATH} (out of stock)`, () => {
+  let productNode: Record<string, unknown> | null;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(OUT_OF_STOCK_PATH);
+    expect(
+      response.status(),
+      `serve.mjs returned ${response.status()} for ${OUT_OF_STOCK_PATH}`,
+    ).toBe(200);
+    const html = await response.text();
+    productNode = extractProductSchema(html);
+  });
+
+  test("a Product JSON-LD node is emitted for the out-of-stock product", () => {
+    expect(
+      productNode,
+      `${OUT_OF_STOCK_PATH} did not emit any Product JSON-LD node`,
+    ).not.toBeNull();
+  });
+
+  test("offers.availability is https://schema.org/OutOfStock for an out-of-stock product", () => {
+    expect(productNode).not.toBeNull();
+    const offer = (productNode as Record<string, unknown>)
+      .offers as Record<string, unknown> | undefined;
+    expect(
+      offer?.availability,
+      `${OUT_OF_STOCK_PATH} should emit OutOfStock availability but got ${JSON.stringify(offer?.availability)}`,
+    ).toBe("https://schema.org/OutOfStock");
+  });
+
+  test("Product Offer passes all required Merchant Listing field checks (out of stock)", () => {
+    const errors = validateProductOffer(productNode);
+    expect(
+      errors,
+      `${OUT_OF_STOCK_PATH} emitted invalid Product/Offer JSON-LD:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
+    ).toHaveLength(0);
+  });
+});

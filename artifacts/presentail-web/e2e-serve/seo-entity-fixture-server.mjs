@@ -115,6 +115,13 @@ const PRODUCTS = {
     inStock: true,
     image: { uri: HERO_IMAGE_URL },
   },
+  "sold-out-roses": {
+    name: "Sold Out Roses",
+    description: "A premium arrangement of red roses — currently out of stock.",
+    priceValue: 120,
+    inStock: false,
+    image: { uri: HERO_IMAGE_URL },
+  },
 };
 
 const BRANDS = {
