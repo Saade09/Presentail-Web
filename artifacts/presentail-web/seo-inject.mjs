@@ -1698,7 +1698,7 @@ function buildOfferDeliveryAndReturns({ countryCode, priceValue }) {
   };
 }
 
-function buildProductHead({
+export function buildProductHead({
   product,
   imageDimensions,
   lang,

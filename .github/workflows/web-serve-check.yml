@@ -42,6 +42,9 @@ jobs:
       - name: Check blog hero responsive variants are present (480w/768w)
         run: pnpm --filter @workspace/presentail-web run check-blog-hero-variants
 
+      - name: Check product rich-result (Merchant Listing) JSON-LD required fields
+        run: pnpm --filter @workspace/presentail-web run check-product-jsonld-schema
+
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 

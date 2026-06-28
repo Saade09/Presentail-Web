@@ -4577,3 +4577,86 @@ describe("JSON-LD — every emitted block is valid JSON", () => {
     for (const b of blocks) expect(typeof b["@type"]).toBe("string");
   });
 });
+
+describe("Product Offer JSON-LD — Google Merchant Listing required fields", () => {
+  it("every product fixture emits an Offer with all required fields (CI guard)", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    // runCheck() builds each fixture's real product head and validates the
+    // emitted Offer JSON-LD against Google's required Merchant Listing fields.
+    // It returns 0 (pass) / 1 (fail) — same logic the CI step runs.
+    expect(mod.runCheck()).toBe(0);
+  });
+
+  it("the validator fails loudly when a required shipping/return field is missing", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    const broken = {
+      "@type": "Product",
+      offers: {
+        "@type": "Offer",
+        price: "10.00",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        shippingDetails: {
+          "@type": "OfferShippingDetails",
+          // shippingRate.currency intentionally omitted.
+          shippingRate: { "@type": "MonetaryAmount", value: "0.00" },
+          shippingDestination: { "@type": "DefinedRegion", addressCountry: "LB" },
+        },
+        hasMerchantReturnPolicy: {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "LB",
+          returnPolicyCategory:
+            "https://schema.org/MerchantReturnFiniteReturnWindow",
+          merchantReturnDays: 7,
+          returnMethod: "https://schema.org/ReturnByMail",
+          // returnFees intentionally omitted.
+        },
+      },
+    };
+    const errors = mod.validateProductOffer(broken);
+    expect(errors).toContain(
+      "offers.shippingDetails.shippingRate.currency must be a non-empty string (got undefined)",
+    );
+    expect(errors).toContain(
+      "offers.hasMerchantReturnPolicy.returnFees must be a schema.org URL (got undefined)",
+    );
+  });
+
+  it("the validator rejects a product with no offers block at all", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    const errors = mod.validateProductOffer({ "@type": "Product" });
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("extractProductSchema pulls the Product node out of a @graph head snippet", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-product-jsonld-schema.mjs");
+    const headMod = await import("../../seo-inject.mjs");
+    const { headSnippet } = headMod.buildProductHead({
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+        wcId: 4242,
+        inStock: true,
+        categories: ["roses"],
+      },
+      imageDimensions: { width: 1200, height: 800 },
+      lang: "en",
+      basePath: "",
+      origin: "https://presentail.test",
+      pathname: "/en-ae/dubai/product/velvet-rose-bouquet",
+      cityLabel: "Dubai",
+      countryLabel: "United Arab Emirates",
+      countryCode: "AE",
+    });
+    const product = mod.extractProductSchema(headSnippet);
+    expect(product).toBeTruthy();
+    expect(product["@type"]).toBe("Product");
+    expect(mod.validateProductOffer(product)).toEqual([]);
+  });
+});
