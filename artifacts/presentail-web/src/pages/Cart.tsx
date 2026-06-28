@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Minus, Plus, X, ArrowRight, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -347,47 +347,49 @@ export default function Cart() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 key={item.product.id}
-                className="flex gap-4 px-6 py-5"
+                className="flex items-center gap-3 px-5 py-3"
               >
-                <div className="w-20 md:w-24 aspect-square bg-secondary/50 rounded-2xl overflow-hidden shrink-0">
+                {/* Thumbnail — 72 px square, slightly rounded */}
+                <div className="w-[72px] h-[72px] bg-secondary/50 rounded-xl overflow-hidden shrink-0">
                   {item.product.image?.uri && (
                     <img src={item.product.image.uri} alt={item.product.name} className="w-full h-full object-cover" />
                   )}
                 </div>
-                <div className="flex flex-col justify-between flex-1">
-                  <div className="flex justify-between gap-4">
-                    <div>
-                      <h3 className="font-serif text-base leading-tight mb-1">{item.product.name}</h3>
-                    </div>
+
+                {/* Name + compact stepper */}
+                <div className="flex flex-col flex-1 min-w-0 gap-2">
+                  <h3 className="font-serif text-sm leading-snug line-clamp-2">{item.product.name}</h3>
+                  <div className="flex items-center border rounded-full overflow-hidden bg-background w-fit">
                     <button
-                      onClick={() => removeItem(item.product.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors h-fit p-1"
-                      aria-label={t("cart.removeAria")}
+                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      className="px-2.5 py-1 hover:bg-secondary transition-colors"
+                      aria-label={t("cart.decreaseAria")}
                     >
-                      <X className="w-5 h-5" />
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      className="px-2.5 py-1 hover:bg-secondary transition-colors"
+                      aria-label={t("cart.increaseAria")}
+                    >
+                      <Plus className="w-3 h-3" />
                     </button>
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center border rounded-full overflow-hidden bg-background">
-                      <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="px-3 py-1.5 hover:bg-secondary transition-colors"
-                        aria-label={t("cart.decreaseAria")}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        className="px-3 py-1.5 hover:bg-secondary transition-colors"
-                        aria-label={t("cart.increaseAria")}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <p className="font-medium"><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
-                  </div>
+                {/* Price (top) + remove button (bottom) */}
+                <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
+                  <p className="font-medium text-sm tabular-nums">
+                    <FormattedPrice usdValue={item.product.priceValue * item.quantity} />
+                  </p>
+                  <button
+                    onClick={() => removeItem(item.product.id)}
+                    className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5"
+                    aria-label={t("cart.removeAria")}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </motion.div>
             ))}
