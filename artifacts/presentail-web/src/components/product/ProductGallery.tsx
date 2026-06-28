@@ -70,6 +70,7 @@ export function ProductGallery({ images, productName, onShare, onFavorite, isFav
               className="w-full h-full object-cover"
               loading="eager"
               fetchPriority="high"
+              data-testid="product-gallery-main-image"
               {...(mainImageResponsive ? { srcSet: mainImageResponsive.srcset, sizes: mainImageResponsive.sizes } : {})}
             />
           ) : (

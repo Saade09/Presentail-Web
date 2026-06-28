@@ -110,7 +110,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter @workspace/presentail-web exec playwright install chromium --with-deps
 
-      - name: Run serve-backed e2e tests (llms.txt discoverability + production SEO injection + blog image/LCP perf) against serve.mjs
+      - name: Run serve-backed e2e tests (llms.txt discoverability + production SEO injection + blog/product/brand image/LCP perf) against serve.mjs
         run: pnpm --filter @workspace/presentail-web run test:e2e:serve
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:19234
