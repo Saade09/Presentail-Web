@@ -425,38 +425,6 @@ export function MainNavbar() {
                     ))}
                   </div>
 
-                  {/* Image card tiles */}
-                  <div className="px-5 pt-5 pb-10 grid grid-cols-2 gap-3">
-                    {[
-                      {
-                        key: "express",
-                        label: t("nav.expressDelivery"),
-                        href: "/shop",
-                        img: "/catalog/menu/express-delivery-new.webp",
-                        emoji: "⚡",
-                      },
-                      {
-                        key: "weddings",
-                        label: t("nav.weddingEvents"),
-                        href: "/weddings",
-                        img: "/catalog/menu/wedding-events-new.webp",
-                        emoji: "💐",
-                      },
-                    ].map((card) => (
-                      <SheetClose asChild key={card.key}>
-                        <Link href={card.href} className="group block">
-                          <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
-                            <MegaItemThumbnail
-                              img={card.img}
-                              emoji={card.emoji}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          </div>
-                          <span className="text-[13px] font-medium text-gray-800">{card.label}</span>
-                        </Link>
-                      </SheetClose>
-                    ))}
-                  </div>
                 </div>
               </div>
 
