@@ -1,16 +1,35 @@
 import { Elements, useStripe, useElements } from "@stripe/react-stripe-js";
 import type { Stripe, StripeElements } from "@stripe/stripe-js";
 import { useEffect } from "react";
-import { StripeCardFields } from "@/components/StripeCardFields";
+import { StripeCardFields, type SavedPaymentMethod } from "@/components/StripeCardFields";
 
 type InnerProps = {
   onStripeReady: (stripe: Stripe | null, elements: StripeElements | null) => void;
   showCardFields: boolean;
   cardError: string | null;
   disabled: boolean;
+  isAuthenticated?: boolean;
+  saveCard?: boolean;
+  onSaveCardChange?: (v: boolean) => void;
+  savedPaymentMethods?: SavedPaymentMethod[];
+  selectedSavedCardId?: string | null;
+  onSelectSavedCard?: (id: string | null) => void;
+  onRemoveSavedCard?: (id: string) => void;
 };
 
-function StripeInner({ onStripeReady, showCardFields, cardError, disabled }: InnerProps) {
+function StripeInner({
+  onStripeReady,
+  showCardFields,
+  cardError,
+  disabled,
+  isAuthenticated,
+  saveCard,
+  onSaveCardChange,
+  savedPaymentMethods,
+  selectedSavedCardId,
+  onSelectSavedCard,
+  onRemoveSavedCard,
+}: InnerProps) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -19,14 +38,39 @@ function StripeInner({ onStripeReady, showCardFields, cardError, disabled }: Inn
   }, [stripe, elements, onStripeReady]);
 
   if (!showCardFields) return null;
-  return <StripeCardFields error={cardError} disabled={disabled} />;
+  return (
+    <StripeCardFields
+      error={cardError}
+      disabled={disabled}
+      isAuthenticated={isAuthenticated}
+      saveCard={saveCard}
+      onSaveCardChange={onSaveCardChange}
+      savedPaymentMethods={savedPaymentMethods}
+      selectedSavedCardId={selectedSavedCardId}
+      onSelectSavedCard={onSelectSavedCard}
+      onRemoveSavedCard={onRemoveSavedCard}
+    />
+  );
 }
 
 type Props = InnerProps & {
   stripePromise: Promise<Stripe | null> | null;
 };
 
-export function StripeCheckoutSection({ stripePromise, onStripeReady, showCardFields, cardError, disabled }: Props) {
+export function StripeCheckoutSection({
+  stripePromise,
+  onStripeReady,
+  showCardFields,
+  cardError,
+  disabled,
+  isAuthenticated,
+  saveCard,
+  onSaveCardChange,
+  savedPaymentMethods,
+  selectedSavedCardId,
+  onSelectSavedCard,
+  onRemoveSavedCard,
+}: Props) {
   return (
     <Elements stripe={stripePromise} options={{ locale: "auto" }}>
       <StripeInner
@@ -34,6 +78,13 @@ export function StripeCheckoutSection({ stripePromise, onStripeReady, showCardFi
         showCardFields={showCardFields}
         cardError={cardError}
         disabled={disabled}
+        isAuthenticated={isAuthenticated}
+        saveCard={saveCard}
+        onSaveCardChange={onSaveCardChange}
+        savedPaymentMethods={savedPaymentMethods}
+        selectedSavedCardId={selectedSavedCardId}
+        onSelectSavedCard={onSelectSavedCard}
+        onRemoveSavedCard={onRemoveSavedCard}
       />
     </Elements>
   );

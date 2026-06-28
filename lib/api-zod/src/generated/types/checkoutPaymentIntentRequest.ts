@@ -30,6 +30,8 @@ export interface CheckoutPaymentIntentRequest {
   noAddress?: boolean;
   /** Promo/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted. */
   couponCode?: string;
+  /** When true and the request is authenticated, the server creates/retrieves a Stripe Customer for this shopper and sets setup_future_usage=off_session so Stripe saves the card for future use. Ignored for unauthenticated requests. */
+  saveCard?: boolean;
   /** Extra key-value pairs forwarded to Stripe PaymentIntent metadata. */
   metadata?: CheckoutPaymentIntentRequestMetadata;
 }

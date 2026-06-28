@@ -119,21 +119,59 @@ export async function createPaymentIntent(payload: {
   email?: string;
   metadata?: Record<string, string>;
   storeContext?: StoreContext;
+  /** When true, asks the server to attach this payment to a Stripe Customer so
+   *  the card is saved for future checkouts. Only effective for authenticated
+   *  shoppers (the server reads the Authorization header to look up the
+   *  customer). Silently ignored for guests. */
+  saveCard?: boolean;
+  /** Bearer token for authenticated requests. Required when saveCard is true. */
+  authToken?: string | null;
 }): Promise<
   | { ok: true; clientSecret: string; orderId: string; amount: number; currency: string }
   | { ok: false; code?: string; message: string }
 > {
   try {
-    const { storeContext, ...body } = payload;
+    const { storeContext, authToken, ...body } = payload;
+    const headers = storeHeadersFromCtx(storeContext);
+    if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
     const res = await fetch(`${API_BASE}/api/checkout/payment-intent`, {
       method: "POST",
-      headers: storeHeadersFromCtx(storeContext),
+      headers,
       body: JSON.stringify(body),
     });
     const json = await res.json();
     return json;
   } catch (e: any) {
     return { ok: false, message: e?.message ?? "Network error" }; // i18n-ignore
+  }
+}
+
+/** Fetch saved Stripe payment methods for the authenticated customer. */
+export async function fetchSavedPaymentMethods(authToken: string): Promise<
+  { id: string; brand: string; last4: string; expMonth: number; expYear: number }[]
+> {
+  try {
+    const res = await fetch(`${API_BASE}/api/checkout/payment-methods`, {
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    return json.paymentMethods ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Detach a saved Stripe payment method from the authenticated customer. */
+export async function deleteSavedPaymentMethod(pmId: string, authToken: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/checkout/payment-methods/${pmId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    return json.ok === true;
+  } catch {
+    return false;
   }
 }
 

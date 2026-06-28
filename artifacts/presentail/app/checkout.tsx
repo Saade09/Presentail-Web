@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 import QRCode from "react-native-qrcode-svg";
 import {
   createMyAddress,
@@ -9,7 +10,7 @@ import {
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 // react-native-view-shot and expo-sharing are NATIVE modules. They were
 // added in the build that ships as iOS build 25, but build 22 (currently
 // on TestFlight) doesn't include them. A static `import` triggers the
@@ -97,7 +98,7 @@ import {
   type PayMethodId,
 } from "@workspace/pay-methods";
 import { CardField, CardFieldInput, useStripe, PlatformPay } from "@stripe/stripe-react-native";
-import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey } from "@/lib/stripe";
+import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePublishableKey, fetchSavedPaymentMethods, deleteSavedPaymentMethod } from "@/lib/stripe";
 import { createWooOrder } from "@/lib/woo";
 import { clearPendingOrder, savePendingOrder } from "@/lib/pendingOrder";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -689,6 +690,34 @@ function CheckoutScreen() {
 
   const [paying, setPaying] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+
+  // ── Saved card / save-card state ────────────────────────────────────────
+  const [saveCard, setSaveCard] = useState(false);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<
+    { id: string; brand: string; last4: string; expMonth: number; expYear: number }[]
+  >([]);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
+
+  // Fetch saved payment methods when the authenticated user is on step 2.
+  useEffect(() => {
+    if (!authToken || step !== 2) return;
+    let cancelled = false;
+    fetchSavedPaymentMethods(authToken).then((methods) => {
+      if (!cancelled) setSavedPaymentMethods(methods);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, step]);
+
+  const handleRemoveSavedCard = useCallback(async (pmId: string) => {
+    if (!authToken) return;
+    const ok = await deleteSavedPaymentMethod(pmId, authToken);
+    if (ok) {
+      setSavedPaymentMethods((prev) => prev.filter((pm) => pm.id !== pmId));
+      setSelectedSavedCardId((prev) => (prev === pmId ? null : prev));
+    }
+  }, [authToken]);
+  // ─────────────────────────────────────────────────────────────────────────
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const deliveryStepRef = useRef<{ scrollToFirstError: () => void } | null>(null);
@@ -1116,6 +1145,13 @@ function CheckoutScreen() {
           slot: slotLabel,
         },
         storeContext: { countryCode: selectedCountry?.code, cityId: selectedCity?.id },
+        // Always pass authToken for signed-in users so the server can attach
+        // the Stripe Customer to the PaymentIntent. This is required both when
+        // saving a new card (setup_future_usage) and when paying with a
+        // previously saved card (confirmPayment + paymentMethodId needs customer).
+        ...(authToken ? { authToken } : {}),
+        // Request card saving only when the shopper opted in and isn't using a saved card.
+        ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
       });
       if (!intentResult.ok) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider" });
@@ -1129,13 +1165,17 @@ function CheckoutScreen() {
         return;
       }
       // Step 1: confirm the PaymentIntent using the card details collected by
-      // CardField.  For cards that don't need 3DS this returns "Succeeded"
-      // immediately.  For 3DS / SCA cards the SDK may return "RequiresAction"
-      // indicating that the shopper must complete an authentication challenge.
-      const { paymentIntent: confirmedIntent, error: confirmError } =
-        await confirmPayment(intentResult.clientSecret, {
-          paymentMethodType: "Card",
-        });
+      // CardField (new card) or the saved payment method ID (saved card).
+      // For cards that don't need 3DS this returns "Succeeded" immediately.
+      // For 3DS / SCA cards the SDK may return "RequiresAction".
+      const { paymentIntent: confirmedIntent, error: confirmError } = selectedSavedCardId
+        ? await confirmPayment(intentResult.clientSecret, {
+            paymentMethodType: "Card",
+            paymentMethodData: { paymentMethodId: selectedSavedCardId },
+          })
+        : await confirmPayment(intentResult.clientSecret, {
+            paymentMethodType: "Card",
+          });
       if (confirmError) {
         trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: confirmError.code ?? undefined });
         setCardError(stripeDeclineMsg(confirmError) ?? confirmError.localizedMessage ?? confirmError.message ?? t.checkoutPaymentNetworkError);
@@ -1654,6 +1694,13 @@ function CheckoutScreen() {
               setCardError={setCardError}
               scrollViewRef={scrollViewRef}
               walletSupported={walletSupported}
+              isAuthenticated={!!authUser}
+              saveCard={saveCard}
+              setSaveCard={setSaveCard}
+              savedPaymentMethods={savedPaymentMethods}
+              selectedSavedCardId={selectedSavedCardId}
+              setSelectedSavedCardId={setSelectedSavedCardId}
+              onRemoveSavedCard={handleRemoveSavedCard}
             />
             <CardMessageReviewCard
               colors={colors}
@@ -3106,7 +3153,7 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
   const cardErrorViewRef = useRef<View>(null);
@@ -3233,24 +3280,126 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
               {payMethod === "card" ? (
                 <View style={{ gap: 12 }}>
-                  {/* Stripe CardField — collects card number, expiry, and CVC
-                      internally. confirmPayment reads the entered details
-                      directly; no local state needed. The field stays mounted
-                      after a decline so shoppers can correct details in place. */}
-                  <CardField
-                    ref={cardFieldRef}
-                    postalCodeEnabled={false}
-                    style={{ height: 50, width: "100%" }}
-                    cardStyle={{
-                      backgroundColor: "#ffffff",
-                      textColor: colors.primary,
-                      placeholderColor: colors.mutedForeground,
-                      borderColor: cardError ? "#ef4444" : colors.border,
-                      borderWidth: cardError ? 1.5 : 1,
-                      borderRadius: 10,
-                    }}
-                    onFocus={() => { if (cardError) setCardError(null); }}
-                  />
+                  {/* Saved card picker — only for authenticated shoppers with saved cards */}
+                  {isAuthenticated && (savedPaymentMethods?.length ?? 0) > 0 && (
+                    <View style={{ gap: 8 }}>
+                      <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>
+                        {t.checkoutSavedCards}
+                      </AppText>
+                      {(savedPaymentMethods as { id: string; brand: string; last4: string; expMonth: number; expYear: number }[]).map((pm) => {
+                        const isSelected = selectedSavedCardId === pm.id;
+                        const renderRightActions = () => (
+                          <Pressable
+                            onPress={() => onRemoveSavedCard?.(pm.id)}
+                            style={{
+                              backgroundColor: "#ef4444",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              width: 80,
+                              borderRadius: 10,
+                              marginLeft: 4,
+                            }}
+                          >
+                            <Feather name="trash-2" size={18} color="#fff" />
+                            <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#fff", marginTop: 2 }}>
+                              {t.checkoutRemoveSavedCard}
+                            </AppText>
+                          </Pressable>
+                        );
+                        return (
+                          <Swipeable
+                            key={pm.id}
+                            renderRightActions={renderRightActions}
+                            overshootRight={false}
+                            friction={2}
+                          >
+                            <Pressable
+                              onPress={() => setSelectedSavedCardId(isSelected ? null : pm.id)}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                borderRadius: 10,
+                                borderWidth: 1.5,
+                                borderColor: isSelected ? colors.primary : colors.border,
+                                backgroundColor: isSelected ? colors.secondary : "#fff",
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                              }}
+                            >
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                                <View style={{
+                                  width: 16, height: 16, borderRadius: 8, borderWidth: 2,
+                                  borderColor: isSelected ? colors.primary : colors.mutedForeground,
+                                  alignItems: "center", justifyContent: "center",
+                                }}>
+                                  {isSelected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} />}
+                                </View>
+                                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>
+                                  {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} {"\u00B7\u00B7\u00B7\u00B7"} {pm.last4}
+                                </AppText>
+                                <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                                  {pm.expMonth.toString().padStart(2, "0")}/{pm.expYear.toString().slice(-2)}
+                                </AppText>
+                              </View>
+                            </Pressable>
+                          </Swipeable>
+                        );
+                      })}
+                      {!selectedSavedCardId && (
+                        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                          {t.checkoutOrEnterNewCard}
+                        </AppText>
+                      )}
+                    </View>
+                  )}
+
+                  {/* New card fields — hidden when a saved card is selected */}
+                  {!selectedSavedCardId && (
+                    <>
+                      {/* Stripe CardField — collects card number, expiry, and CVC
+                          internally. confirmPayment reads the entered details
+                          directly; no local state needed. The field stays mounted
+                          after a decline so shoppers can correct details in place. */}
+                      <CardField
+                        ref={cardFieldRef}
+                        postalCodeEnabled={false}
+                        style={{ height: 50, width: "100%" }}
+                        cardStyle={{
+                          backgroundColor: "#ffffff",
+                          textColor: colors.primary,
+                          placeholderColor: colors.mutedForeground,
+                          borderColor: cardError ? "#ef4444" : colors.border,
+                          borderWidth: cardError ? 1.5 : 1,
+                          borderRadius: 10,
+                        }}
+                        onFocus={() => { if (cardError) setCardError(null); }}
+                      />
+                      {/* Save card checkbox — only for authenticated shoppers */}
+                      {isAuthenticated && (
+                        <Pressable
+                          onPress={() => setSaveCard(!saveCard)}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                        >
+                          <View style={{
+                            width: 18, height: 18, borderRadius: 4,
+                            borderWidth: 1.5,
+                            borderColor: saveCard ? colors.primary : colors.border,
+                            backgroundColor: saveCard ? colors.primary : "#fff",
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            {saveCard && (
+                              <AppText style={{ color: "#fff", fontSize: 12, fontFamily: "Inter_700Bold", lineHeight: 14 }}>✓</AppText>
+                            )}
+                          </View>
+                          <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.foreground, flex: 1 }}>
+                            {t.checkoutSaveCard}
+                          </AppText>
+                        </Pressable>
+                      )}
+                    </>
+                  )}
+
                   {cardError ? (
                     <View ref={cardErrorViewRef} style={{ gap: 4 }}>
                       <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: "#ef4444" }}>

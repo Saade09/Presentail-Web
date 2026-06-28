@@ -44,8 +44,32 @@ export interface CheckoutPaymentIntentRequest {
   noAddress?: boolean;
   /** Promo/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted. */
   couponCode?: string;
+  /** When true and the request is authenticated, the server creates/retrieves a Stripe Customer for this shopper and sets setup_future_usage=off_session so Stripe saves the card for future use. Ignored for unauthenticated requests. */
+  saveCard?: boolean;
   /** Extra key-value pairs forwarded to Stripe PaymentIntent metadata. */
   metadata?: CheckoutPaymentIntentRequestMetadata;
+}
+
+export interface SavedPaymentMethod {
+  /** Stripe payment method ID (pm_…) */
+  id: string;
+  /** Card brand (visa, mastercard, amex, etc.) */
+  brand: string;
+  /** Last 4 digits of the card number */
+  last4: string;
+  /** Card expiry month (1-12) */
+  expMonth: number;
+  /** Card expiry year (4 digits) */
+  expYear: number;
+}
+
+export interface ListPaymentMethodsResponse {
+  ok: boolean;
+  paymentMethods: SavedPaymentMethod[];
+}
+
+export interface DeletePaymentMethodResponse {
+  ok: boolean;
 }
 
 export interface CheckoutPaymentIntentResponse {

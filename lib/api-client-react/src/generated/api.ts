@@ -36,6 +36,7 @@ import type {
   CustomerAddressListResponse,
   CustomerAddressPatchInput,
   CustomerAddressResponse,
+  DeletePaymentMethodResponse,
   DeliveryConfigResponse,
   DeliveryLocationsResponse,
   ErrorResponse,
@@ -56,6 +57,7 @@ import type {
   HomepageBannersResponse,
   HomepageBestSellersResponse,
   HomepageCollectionResponse,
+  ListPaymentMethodsResponse,
   LoyaltyAdminResponse,
   LoyaltyMeResponse,
   NextOrderIdRequest,
@@ -4059,6 +4061,182 @@ export const useDeleteMyOccasion = <
   TContext
 > => {
   return useMutation(getDeleteMyOccasionMutationOptions(options));
+};
+
+/**
+ * Returns the saved Stripe payment methods (cards) for the authenticated
+customer. Returns an empty array if the customer has no saved cards or
+has never opted in to saving a card. Requires a Bearer token or Clerk
+session; guests receive a 401.
+
+ * @summary List saved payment methods for the signed-in customer
+ */
+export const getListCheckoutPaymentMethodsUrl = () => {
+  return `/api/checkout/payment-methods`;
+};
+
+export const listCheckoutPaymentMethods = async (
+  options?: RequestInit,
+): Promise<ListPaymentMethodsResponse> => {
+  return customFetch<ListPaymentMethodsResponse>(
+    getListCheckoutPaymentMethodsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCheckoutPaymentMethodsQueryKey = () => {
+  return [`/api/checkout/payment-methods`] as const;
+};
+
+export const getListCheckoutPaymentMethodsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCheckoutPaymentMethods>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCheckoutPaymentMethods>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCheckoutPaymentMethodsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCheckoutPaymentMethods>>
+  > = ({ signal }) => listCheckoutPaymentMethods({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCheckoutPaymentMethods>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCheckoutPaymentMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCheckoutPaymentMethods>>
+>;
+export type ListCheckoutPaymentMethodsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List saved payment methods for the signed-in customer
+ */
+
+export function useListCheckoutPaymentMethods<
+  TData = Awaited<ReturnType<typeof listCheckoutPaymentMethods>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCheckoutPaymentMethods>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCheckoutPaymentMethodsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Detaches the specified Stripe payment method from the authenticated
+customer. The server verifies the payment method belongs to the caller
+before detaching. Returns 404 if the customer has no saved cards or the
+method is not found. Requires a Bearer token or Clerk session.
+
+ * @summary Delete a saved payment method
+ */
+export const getDeleteCheckoutPaymentMethodUrl = (id: string) => {
+  return `/api/checkout/payment-methods/${id}`;
+};
+
+export const deleteCheckoutPaymentMethod = async (
+  id: string,
+  options?: RequestInit,
+): Promise<DeletePaymentMethodResponse> => {
+  return customFetch<DeletePaymentMethodResponse>(
+    getDeleteCheckoutPaymentMethodUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteCheckoutPaymentMethodMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteCheckoutPaymentMethod"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCheckoutPaymentMethod(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCheckoutPaymentMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>
+>;
+
+export type DeleteCheckoutPaymentMethodMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a saved payment method
+ */
+export const useDeleteCheckoutPaymentMethod = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCheckoutPaymentMethod>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteCheckoutPaymentMethodMutationOptions(options));
 };
 
 /**

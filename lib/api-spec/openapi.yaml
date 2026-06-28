@@ -1374,6 +1374,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /checkout/payment-methods:
+    get:
+      operationId: listCheckoutPaymentMethods
+      tags: [checkout]
+      summary: List saved payment methods for the signed-in customer
+      description: |
+        Returns the saved Stripe payment methods (cards) for the authenticated
+        customer. Returns an empty array if the customer has no saved cards or
+        has never opted in to saving a card. Requires a Bearer token or Clerk
+        session; guests receive a 401.
+      responses:
+        "200":
+          description: Saved payment methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPaymentMethodsResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /checkout/payment-methods/{id}:
+    delete:
+      operationId: deleteCheckoutPaymentMethod
+      tags: [checkout]
+      summary: Delete a saved payment method
+      description: |
+        Detaches the specified Stripe payment method from the authenticated
+        customer. The server verifies the payment method belongs to the caller
+        before detaching. Returns 404 if the customer has no saved cards or the
+        method is not found. Requires a Bearer token or Clerk session.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Stripe payment method ID (pm_…)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment method deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletePaymentMethodResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Payment method not found or does not belong to this customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /checkout/payment-intent:
     post:
       operationId: createCheckoutPaymentIntent
@@ -1521,6 +1580,9 @@ components:
         couponCode:
           type: string
           description: Promo/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted.
+        saveCard:
+          type: boolean
+          description: When true and the request is authenticated, the server creates/retrieves a Stripe Customer for this shopper and sets setup_future_usage=off_session so Stripe saves the card for future use. Ignored for unauthenticated requests.
         metadata:
           type: object
           additionalProperties:
@@ -1529,6 +1591,49 @@ components:
       required:
         - items
         - orderId
+    SavedPaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stripe payment method ID (pm_…)
+        brand:
+          type: string
+          description: Card brand (visa, mastercard, amex, etc.)
+        last4:
+          type: string
+          description: Last 4 digits of the card number
+        expMonth:
+          type: integer
+          description: Card expiry month (1-12)
+        expYear:
+          type: integer
+          description: Card expiry year (4 digits)
+      required:
+        - id
+        - brand
+        - last4
+        - expMonth
+        - expYear
+    ListPaymentMethodsResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        paymentMethods:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedPaymentMethod"
+      required:
+        - ok
+        - paymentMethods
+    DeletePaymentMethodResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
     CheckoutPaymentIntentResponse:
       type: object
       properties:

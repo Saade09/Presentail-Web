@@ -45,6 +45,11 @@ export const customersTable = pgTable(
     // registration. Valid values: "en" | "ar" | "fr" (CUSTOMER_LANGS).
     preferredLang: text("preferred_lang").notNull().default("en"),
     source: text("source").notNull().default("presentail.com"),
+    // Stripe Customer IDs — populated lazily on the first save-card opt-in.
+    // stripeCustomerId is for the main Stripe account (most currencies).
+    // stripeCustomerIdGulf is for the Gulf Stripe account (KWD, OMR).
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeCustomerIdGulf: text("stripe_customer_id_gulf"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

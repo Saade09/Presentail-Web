@@ -2101,6 +2101,43 @@ export const DeleteMyOccasionResponse = zod.object({
 });
 
 /**
+ * Returns the saved Stripe payment methods (cards) for the authenticated
+customer. Returns an empty array if the customer has no saved cards or
+has never opted in to saving a card. Requires a Bearer token or Clerk
+session; guests receive a 401.
+
+ * @summary List saved payment methods for the signed-in customer
+ */
+export const ListCheckoutPaymentMethodsResponse = zod.object({
+  ok: zod.boolean(),
+  paymentMethods: zod.array(
+    zod.object({
+      id: zod.string().describe("Stripe payment method ID (pm_…)"),
+      brand: zod.string().describe("Card brand (visa, mastercard, amex, etc.)"),
+      last4: zod.string().describe("Last 4 digits of the card number"),
+      expMonth: zod.number().describe("Card expiry month (1-12)"),
+      expYear: zod.number().describe("Card expiry year (4 digits)"),
+    }),
+  ),
+});
+
+/**
+ * Detaches the specified Stripe payment method from the authenticated
+customer. The server verifies the payment method belongs to the caller
+before detaching. Returns 404 if the customer has no saved cards or the
+method is not found. Requires a Bearer token or Clerk session.
+
+ * @summary Delete a saved payment method
+ */
+export const DeleteCheckoutPaymentMethodParams = zod.object({
+  id: zod.coerce.string().describe("Stripe payment method ID (pm_…)"),
+});
+
+export const DeleteCheckoutPaymentMethodResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Creates a Stripe PaymentIntent for the supplied cart. Cart prices are
 resolved server-side from the Presentail OS catalog (never from
 client-supplied values) so the client cannot manipulate the charge.
@@ -2180,6 +2217,12 @@ export const CreateCheckoutPaymentIntentBody = zod.object({
     .optional()
     .describe(
       "Promo\/coupon code to apply. The server re-validates the code and deducts the discount from the charged amount. Client-supplied discount amounts are never trusted.",
+    ),
+  saveCard: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true and the request is authenticated, the server creates\/retrieves a Stripe Customer for this shopper and sets setup_future_usage=off_session so Stripe saves the card for future use. Ignored for unauthenticated requests.",
     ),
   metadata: zod
     .record(zod.string(), zod.string())

@@ -408,6 +408,14 @@ function CheckoutForm() {
   const { expressSurchargeUsd: osExpressSurchargeUsd } = useDeliveryConfig();
   const [stripeCardError, setStripeCardError] = useState<string | null>(null);
 
+  // ── Saved card / save-card state (declarations) ─────────────────────────
+  const [saveCard, setSaveCard] = useState(false);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<
+    { id: string; brand: string; last4: string; expMonth: number; expYear: number }[]
+  >([]);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [step, setStep] = useState(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [orderNote, setOrderNote] = useState("");
@@ -474,6 +482,30 @@ function CheckoutForm() {
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Fetch saved payment methods (cards) when the authenticated user is on step 2.
+  useEffect(() => {
+    if (!user || step !== 2) return;
+    let cancelled = false;
+    apiFetch<{ ok: boolean; paymentMethods: { id: string; brand: string; last4: string; expMonth: number; expYear: number }[] }>("/checkout/payment-methods")
+      .then((r) => {
+        if (cancelled) return;
+        setSavedPaymentMethods(r.paymentMethods ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, step]);
+
+  const handleRemoveSavedCard = useCallback(async (pmId: string) => {
+    try {
+      await apiFetch(`/checkout/payment-methods/${pmId}`, { method: "DELETE" });
+      setSavedPaymentMethods((prev) => prev.filter((pm) => pm.id !== pmId));
+      setSelectedSavedCardId((prev) => (prev === pmId ? null : prev));
+    } catch {
+      // Silently ignore — the card will still show up but the shopper can retry
+    }
+  }, []);
 
   // Fetch saved addresses for signed-in shoppers so we can offer pre-fill.
   // Silently no-ops for guests — the addresses endpoint returns 401 which
@@ -1748,6 +1780,8 @@ function CheckoutForm() {
             expressDelivery: deliveryMode === "express",
             noAddress,
             ...(couponApplied && couponInput.trim() ? { couponCode: couponInput.trim() } : {}),
+            // Only request card saving when using a new card (not a saved one)
+            ...(saveCard && !selectedSavedCardId ? { saveCard: true } : {}),
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         });
 
@@ -1758,12 +1792,8 @@ function CheckoutForm() {
 
         // Step 2: Confirm the card payment on the client. Stripe validates
         // the card details from Elements and charges the PaymentIntent.
-        const cardElement = elements.getElement("cardNumber");
-        if (!cardElement) {
-          setStripeCardError("Card fields could not be found. Please refresh and try again.");
-          return;
-        }
-
+        // When the shopper chose a saved card, pass its ID directly; otherwise
+        // collect card details from the Stripe Elements fields.
         const senderName = `${sender.firstName} ${sender.lastName}`.trim();
 
         // Pass handleActions: false so that if the card issuer requires 3DS
@@ -1774,20 +1804,40 @@ function CheckoutForm() {
         setCardProcessing(true);
         let finalIntent: import("@stripe/stripe-js").PaymentIntent | undefined;
         try {
-          const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
-            intentRes.clientSecret,
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: {
-                  ...(sender.email ? { email: sender.email } : {}),
-                  ...(senderName ? { name: senderName } : {}),
+          let stripeError: import("@stripe/stripe-js").StripeError | undefined;
+          let confirmedIntent: import("@stripe/stripe-js").PaymentIntent | undefined;
+
+          if (selectedSavedCardId) {
+            // Saved card: pass the payment method ID directly.
+            const result = await stripe.confirmCardPayment(
+              intentRes.clientSecret,
+              { payment_method: selectedSavedCardId },
+              { handleActions: false },
+            );
+            stripeError = result.error;
+            confirmedIntent = result.paymentIntent ?? undefined;
+          } else {
+            const cardElement = elements.getElement("cardNumber");
+            if (!cardElement) {
+              setStripeCardError("Card fields could not be found. Please refresh and try again.");
+              return;
+            }
+            const result = await stripe.confirmCardPayment(
+              intentRes.clientSecret,
+              {
+                payment_method: {
+                  card: cardElement,
+                  billing_details: {
+                    ...(sender.email ? { email: sender.email } : {}),
+                    ...(senderName ? { name: senderName } : {}),
+                  },
                 },
               },
-            },
-            { handleActions: false },
-          );
-
+              { handleActions: false },
+            );
+            stripeError = result.error;
+            confirmedIntent = result.paymentIntent ?? undefined;
+          }
           if (stripeError) {
             trackEvent({ name: "payment_error", surface: "checkout", action: "provider", errorCode: stripeError.code ?? undefined });
             setStripeCardError(stripeDeclineMsg(stripeError, t) ?? stripeError.message ?? t("checkout.toast.cardPaymentFailed"));
@@ -2454,6 +2504,13 @@ function CheckoutForm() {
                         showCardFields={paymentMethod === "card"}
                         cardError={stripeCardError}
                         disabled={isProcessing}
+                        isAuthenticated={isSignedIn}
+                        saveCard={saveCard}
+                        onSaveCardChange={setSaveCard}
+                        savedPaymentMethods={savedPaymentMethods}
+                        selectedSavedCardId={selectedSavedCardId}
+                        onSelectSavedCard={setSelectedSavedCardId}
+                        onRemoveSavedCard={handleRemoveSavedCard}
                       />
                     </Suspense>
                   )}

@@ -531,6 +531,10 @@ const EN = {
   checkoutPayByCard: "Pay by card",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name, identical across all locales
+  checkoutSaveCard: "Save card for future orders",
+  checkoutSavedCards: "Saved cards",
+  checkoutRemoveSavedCard: "Remove",
+  checkoutOrEnterNewCard: "Or enter a new card",
   checkoutOrderFailedTitle: "We couldn't record your order",
   checkoutOrderFailedMsg: "Your payment may have gone through, but we couldn't save your order. Please contact us with the reference below so we can confirm and deliver it.",
   checkoutOrderFailedRetry: "Try placing the order again",
@@ -1380,6 +1384,10 @@ const AR: typeof EN = {
   checkoutPayByCard: "ادفع بالبطاقة",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
+  checkoutSaveCard: "حفظ البطاقة للطلبات القادمة",
+  checkoutSavedCards: "البطاقات المحفوظة",
+  checkoutRemoveSavedCard: "إزالة",
+  checkoutOrEnterNewCard: "أو أدخل بطاقة جديدة",
   checkoutOrderFailedTitle: "تعذّر تسجيل طلبك",
   checkoutOrderFailedMsg: "ربما تمّت عملية الدفع، لكننا لم نتمكن من حفظ طلبك. يرجى التواصل معنا مع الرقم المرجعي أدناه لتأكيد طلبك وتسليمه.",
   checkoutOrderFailedRetry: "حاول إجراء الطلب مجدداً",
@@ -2224,6 +2232,10 @@ const FR: typeof EN = {
   checkoutPayByCard: "Payer par carte",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
+  checkoutSaveCard: "Enregistrer la carte pour mes prochaines commandes",
+  checkoutSavedCards: "Cartes enregistrées",
+  checkoutRemoveSavedCard: "Supprimer",
+  checkoutOrEnterNewCard: "Ou saisir une nouvelle carte",
   checkoutOrderFailedTitle: "Nous n'avons pas pu enregistrer votre commande",
   checkoutOrderFailedMsg: "Votre paiement a peut-être été accepté, mais nous n'avons pas pu enregistrer votre commande. Veuillez nous contacter avec la référence ci-dessous afin que nous puissions confirmer et la livrer.",
   checkoutOrderFailedRetry: "Réessayer la commande",
