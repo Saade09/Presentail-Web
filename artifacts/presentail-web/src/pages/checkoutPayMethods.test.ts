@@ -18,12 +18,10 @@ describe("webVisiblePayMethods — visibility matrix", () => {
     ).toEqual(["apple_pay", "google_pay", "card", "paypal", "whish"]);
   });
 
-  it("AE × AED: Mamo only (apple_pay/google_pay excluded from AED; Stripe card hidden; PayPal excluded in UAE)", () => {
-    // Stripe doesn't settle in AED so apple_pay, google_pay, and card tiles are
-    // hidden. Mamo (relabelled below) is the card option in AED.
+  it("AE × AED: apple_pay, google_pay, card via Gulf Stripe account (Mamo disabled; PayPal UAE-excluded)", () => {
     expect(
       webVisiblePayMethods({ countryCode: "AE", activeCurrency: "AED" }),
-    ).toEqual(["mamo"]);
+    ).toEqual(["apple_pay", "google_pay", "card"]);
   });
 
   it("AE × USD: apple_pay, google_pay, then card (PayPal UAE-excluded, Whish LB-only, Mamo AED-only)", () => {
@@ -128,13 +126,13 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
     ).toBe("google_pay");
   });
 
-  it("LB→AE flip drops Whish to mamo (mamo is the only option in AED for AE)", () => {
+  it("LB→AE flip drops Whish to apple_pay (Whish is LB-only; apple_pay now works for AED)", () => {
     expect(
       webNextPaymentMethod("whish", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("apple_pay");
     expect(
       webNextPaymentMethod("whish", {
         countryCode: "AE",
@@ -143,13 +141,13 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
     ).toBe("apple_pay");
   });
 
-  it("USD→AED currency flip drops card to mamo (Stripe doesn't settle AED; Mamo is the card option)", () => {
+  it("AED: card is preserved (Gulf Stripe account settles AED; Mamo disabled)", () => {
     expect(
       webNextPaymentMethod("card", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("card");
   });
 
   it("PayPal hidden in UAE/USD: falls back to apple_pay", () => {
@@ -161,22 +159,22 @@ describe("webNextPaymentMethod — auto-fallback never picks a hidden tile", () 
     ).toBe("apple_pay");
   });
 
-  it("apple_pay falls back to mamo in AED (not supported in AED)", () => {
+  it("apple_pay is preserved in AED (Gulf Stripe account supports AED)", () => {
     expect(
       webNextPaymentMethod("apple_pay", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("apple_pay");
   });
 
-  it("google_pay falls back to mamo in AED (not supported in AED)", () => {
+  it("google_pay is preserved in AED (Gulf Stripe account supports AED)", () => {
     expect(
       webNextPaymentMethod("google_pay", {
         countryCode: "AE",
         activeCurrency: "AED",
       }),
-    ).toBe("mamo");
+    ).toBe("google_pay");
   });
 
   it("auto-fallback never selects a hidden method across the LB/AE/CY × USD/AED/EUR matrix", () => {

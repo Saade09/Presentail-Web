@@ -34,11 +34,11 @@ function storeKeyToCountry(storeKey: StoreKey): string {
 }
 
 // Currencies routed to the Gulf Stripe account.
-const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"] as const;
+const GULF_STRIPE_CURRENCIES = ["KWD", "OMR", "AED"] as const;
 
 /**
  * Return the Stripe secret key for the given currency.
- * KWD and OMR are charged through the Gulf account (STRIPE_SECRET_KEY_GULF);
+ * KWD, OMR, and AED are charged through the Gulf account (STRIPE_SECRET_KEY_GULF);
  * all other currencies use the main account (STRIPE_SECRET_KEY).
  * If the Gulf key is not set, logs a warning and falls back to the main key.
  */

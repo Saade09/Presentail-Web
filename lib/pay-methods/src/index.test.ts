@@ -54,12 +54,12 @@ describe("isPayMethodSupported – apple_pay / google_pay", () => {
     expect(isPayMethodSupported("google_pay", "EUR", { country: "LB" })).toBe(true);
   });
 
-  it("apple_pay is disabled for AED (Stripe does not settle AED)", () => {
-    expect(isPayMethodSupported("apple_pay", "AED", { country: "AE" })).toBe(false);
+  it("apple_pay is enabled for AED (Gulf Stripe account)", () => {
+    expect(isPayMethodSupported("apple_pay", "AED", { country: "AE" })).toBe(true);
   });
 
-  it("google_pay is disabled for AED (Stripe does not settle AED)", () => {
-    expect(isPayMethodSupported("google_pay", "AED", { country: "AE" })).toBe(false);
+  it("google_pay is enabled for AED (Gulf Stripe account)", () => {
+    expect(isPayMethodSupported("google_pay", "AED", { country: "AE" })).toBe(true);
   });
 });
 
@@ -110,16 +110,16 @@ describe("payMethodAvailability – apple_pay / google_pay fields", () => {
     expect(payMethodAvailability("USD", { country: "LB" }).google_pay.enabled).toBe(true);
   });
 
-  it("apple_pay is disabled in AED (AE)", () => {
-    expect(payMethodAvailability("AED", { country: "AE" }).apple_pay.enabled).toBe(false);
+  it("apple_pay is enabled in AED (AE) via Gulf Stripe account", () => {
+    expect(payMethodAvailability("AED", { country: "AE" }).apple_pay.enabled).toBe(true);
   });
 
-  it("google_pay is disabled in AED (AE)", () => {
-    expect(payMethodAvailability("AED", { country: "AE" }).google_pay.enabled).toBe(false);
+  it("google_pay is enabled in AED (AE) via Gulf Stripe account", () => {
+    expect(payMethodAvailability("AED", { country: "AE" }).google_pay.enabled).toBe(true);
   });
 
-  it("legacy wallet remains in the availability map for AED (AE) — Mamo path", () => {
-    expect(payMethodAvailability("AED", { country: "AE" }).wallet.enabled).toBe(true);
+  it("mamo is disabled in AED (AE) — Mamo is currently disabled", () => {
+    expect(payMethodAvailability("AED", { country: "AE" }).mamo.enabled).toBe(false);
   });
 });
 
@@ -129,9 +129,9 @@ describe("defaultPayMethodFor", () => {
     expect(method).toBe("apple_pay");
   });
 
-  it("defaults to mamo for AED in UAE (no Stripe wallet, no card in UAE)", () => {
+  it("defaults to apple_pay for AED in UAE (Gulf Stripe account; Mamo disabled)", () => {
     const method = defaultPayMethodFor("AED", { country: "AE" });
-    expect(method).toBe("mamo");
+    expect(method).toBe("apple_pay");
   });
 });
 
@@ -162,13 +162,13 @@ describe("nextPayMethodForCurrency", () => {
     expect(nextPayMethodForCurrency("google_pay", "EUR", { country: "LB" })).toBe("google_pay");
   });
 
-  it("switches away from apple_pay when moving to AED in UAE", () => {
+  it("preserves apple_pay when moving to AED in UAE (Gulf Stripe account supports AED)", () => {
     const result = nextPayMethodForCurrency("apple_pay", "AED", { country: "AE" });
-    expect(result).not.toBe("apple_pay");
+    expect(result).toBe("apple_pay");
   });
 
-  it("switches away from google_pay when moving to AED in UAE", () => {
+  it("preserves google_pay when moving to AED in UAE (Gulf Stripe account supports AED)", () => {
     const result = nextPayMethodForCurrency("google_pay", "AED", { country: "AE" });
-    expect(result).not.toBe("google_pay");
+    expect(result).toBe("google_pay");
   });
 });

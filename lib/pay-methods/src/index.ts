@@ -20,26 +20,24 @@ export const PAY_METHOD_CURRENCIES: Record<
   PayMethodId,
   readonly string[] | "all"
 > = {
-  // Stripe processes USD/EUR/GBP/etc. cards directly; card+apple_pay+google_pay
-  // are the safe default for any non-AED currency.
-  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  // apple_pay uses Stripe's native PlatformPay sheet (iOS). Same currency set
-  // as card — AED is excluded because UAE shoppers go through Mamo's hosted
-  // checkout instead (the "wallet" id below).
-  apple_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // Stripe processes USD/EUR/GBP/etc. cards directly. AED is routed through
+  // the Gulf Stripe account (STRIPE_SECRET_KEY_GULF) along with KWD and OMR.
+  card: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  // apple_pay uses Stripe's native PlatformPay sheet (iOS). AED is now
+  // included via the Gulf Stripe account.
+  apple_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
   // google_pay uses Stripe's native PlatformPay sheet (Android). Same currency
-  // set and exclusions as apple_pay.
-  google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
-  // Wallet (legacy combined Apple Pay / Google Pay row) is kept in the table so
-  // the AED→Mamo redirect path in checkout.tsx continues to compile.  AED is
-  // included here because Mamo's hosted checkout exposes both wallet buttons.
-  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  // set as apple_pay.
+  google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
+  // Wallet (legacy combined Apple Pay / Google Pay row) is kept in the table
+  // for type-compatibility. AED is no longer routed through Mamo.
+  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
   // PayPal settles in USD and the other major currencies the app supports;
   // Gulf currencies (AED, QAR, SAR, KWD, OMR) are excluded — PayPal does
   // not settle in them, and UAE is also blocked via PAY_METHOD_EXCLUDED_COUNTRIES.
   paypal: ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"],
-  // Mamo is the UAE-only wallet/card processor; only AED.
-  mamo: ["AED"],
+  // Mamo is disabled — secrets are retained but no currency routes to it.
+  mamo: [],
   // Manual cash flows operate in USD locally.
   whish: ["USD"],
   western: ["USD"],
