@@ -9,6 +9,7 @@ import { useState, useMemo } from "react";
 import { Filter, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
@@ -19,6 +20,18 @@ import {
   SheetTitle,
   SheetClose,
 } from "@/components/ui/sheet";
+
+const SEO_ATTR = "data-seo-managed";
+
+function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
+  let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
+  if (!el) {
+    el = document.createElement(selector.split("[")[0]);
+    el.setAttribute(SEO_ATTR, "true");
+    parent.appendChild(el);
+  }
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+}
 
 const CATEGORIES = [
   { slug: "hand-bouquets", labelKey: "shop.cat.handBouquets" },
@@ -53,7 +66,7 @@ function matchesPriceBucket(product: Product, bucket: PriceBucket): boolean {
 export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
-  const { t, language } = useLocale();
+  const { t, language, cityName, countryName } = useLocale();
   const [location, navigate] = useLocation();
   const params = useParams<{ slug?: string }>();
 
@@ -82,7 +95,7 @@ export default function Shop() {
   const category = isCategoryRoute ? (params.slug ?? "") : categoryFromSearch;
   const occasion = isOccasionRoute ? (params.slug ?? "") : occasionFromSearch;
 
-  const { countryCode, cityId, country, openPicker } = useLocationSelection();
+  const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
   const queryParams: { countryCode?: string; cityId?: string; lang?: string } = { lang: language };
   if (countryCode) queryParams.countryCode = countryCode;
   if (cityId) queryParams.cityId = cityId;
@@ -214,6 +227,34 @@ export default function Shop() {
 
   const categoryLabelKey = CATEGORIES.find((c) => c.slug === category)?.labelKey;
   const occasionLabelKey = OCCASIONS.find((o) => o.slug === occasion)?.labelKey;
+
+  const entityName = category
+    ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) || catalogCategory?.name || ""
+    : occasion
+      ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) || catalogOccasion?.name || ""
+      : "";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!isCategoryRoute && !isOccasionRoute) return;
+    if (!entityName) return;
+    const head = document.head;
+    const cityLabel = city ? cityName(city.id, city.name) : "";
+    const countryLabel = country ? countryName(country.code, country.name) : "";
+    const seo = isCategoryRoute
+      ? buildCategorySeo({ lang: language, categoryName: entityName, city: cityLabel, country: countryLabel })
+      : buildOccasionSeo({ lang: language, occasionName: entityName, city: cityLabel, country: countryLabel });
+    document.title = seo.title;
+    head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    setMeta('meta[name="description"]', { name: "description", content: seo.description }, head);
+    setMeta('meta[property="og:title"]', { property: "og:title", content: seo.ogTitle }, head);
+    setMeta('meta[property="og:description"]', { property: "og:description", content: seo.ogDescription }, head);
+    setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: seo.twitterTitle }, head);
+    setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: seo.twitterDescription }, head);
+    return () => {
+      head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    };
+  }, [entityName, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pageTitle = category
     ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined)

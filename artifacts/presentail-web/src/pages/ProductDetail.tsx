@@ -39,11 +39,24 @@ import {
 import { useNow } from "@/lib/useNow";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
+import { buildProductSeo } from "@/lib/seo";
+
+const SEO_ATTR = "data-seo-managed";
+
+function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
+  let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
+  if (!el) {
+    el = document.createElement(selector.split("[")[0]);
+    el.setAttribute(SEO_ATTR, "true");
+    parent.appendChild(el);
+  }
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+}
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
   const slug = params?.slug;
-  const { t, language } = useLocale();
+  const { t, language, cityName, countryName } = useLocale();
   const { toast } = useToast();
   const { addItem } = useCart();
   const { user } = useAuth();
@@ -56,7 +69,7 @@ export default function ProductDetail() {
   const deliverySelection = useDeliverySelection();
 
   const { currencyCode } = useDisplayCurrency();
-  const { countryCode, cityId, city } = useLocationSelection();
+  const { countryCode, cityId, city, country } = useLocationSelection();
   const locParams: { countryCode?: string; cityId?: string; lang?: string } = {
     lang: language,
   };
@@ -139,6 +152,30 @@ export default function ProductDetail() {
       currency: "USD",
     });
   }, [product?.id]); // i18n-ignore
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !product) return;
+    const head = document.head;
+    const cityLabel = city ? cityName(city.id, city.name) : "";
+    const countryLabel = country ? countryName(country.code, country.name) : "";
+    const seo = buildProductSeo({
+      lang: language,
+      productName: product.name,
+      city: cityLabel,
+      country: countryLabel,
+      shortDescription: product.description?.trim() || undefined,
+    });
+    document.title = seo.title;
+    head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    setMeta('meta[name="description"]', { name: "description", content: seo.description }, head);
+    setMeta('meta[property="og:title"]', { property: "og:title", content: seo.ogTitle }, head);
+    setMeta('meta[property="og:description"]', { property: "og:description", content: seo.ogDescription }, head);
+    setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: seo.twitterTitle }, head);
+    setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: seo.twitterDescription }, head);
+    return () => {
+      head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    };
+  }, [product?.name, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const productBreadcrumbs = useMemo((): Crumb[] => {
     const home: Crumb = { label: t("nav.home"), href: "/" };

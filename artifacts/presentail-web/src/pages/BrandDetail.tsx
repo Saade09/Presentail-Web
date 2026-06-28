@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { ProductCard } from "@/components/ProductCard";
 import { useBrands, useBrandProducts } from "@/lib/queries";
@@ -7,12 +8,25 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { buildBrandSeo } from "@/lib/seo";
+
+const SEO_ATTR = "data-seo-managed";
+
+function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLElement) {
+  let el = parent.querySelector<HTMLElement>(`${selector}[${SEO_ATTR}]`);
+  if (!el) {
+    el = document.createElement(selector.split("[")[0]);
+    el.setAttribute(SEO_ATTR, "true");
+    parent.appendChild(el);
+  }
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+}
 
 export default function BrandDetail() {
   const [, params] = useRoute("/brand/:slug");
   const slug = params?.slug;
-  const { t, dir, language } = useLocale();
-  const { countryCode, cityId, country, openPicker } = useLocationSelection();
+  const { t, dir, language, cityName, countryName } = useLocale();
+  const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
 
   const { data: brandsData, isLoading: isBrandsLoading } = useBrands({ lang: language, countryCode: countryCode ?? undefined, cityId: cityId ?? undefined });
   const brand = brandsData?.brands.find(b => b.slug === slug);
@@ -22,6 +36,24 @@ export default function BrandDetail() {
   const { data, isLoading } = useBrandProducts(slug ?? "", brandQueryParams);
 
   const brandName = brand?.name || slug || "";
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !brandName) return;
+    const head = document.head;
+    const cityLabel = city ? cityName(city.id, city.name) : "";
+    const countryLabel = country ? countryName(country.code, country.name) : "";
+    const seo = buildBrandSeo({ lang: language, brandName, city: cityLabel, country: countryLabel });
+    document.title = seo.title;
+    head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    setMeta('meta[name="description"]', { name: "description", content: seo.description }, head);
+    setMeta('meta[property="og:title"]', { property: "og:title", content: seo.ogTitle }, head);
+    setMeta('meta[property="og:description"]', { property: "og:description", content: seo.ogDescription }, head);
+    setMeta('meta[name="twitter:title"]', { name: "twitter:title", content: seo.twitterTitle }, head);
+    setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: seo.twitterDescription }, head);
+    return () => {
+      head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
+    };
+  }, [brandName, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const breadcrumbCrumbs = [
     { label: t("nav.home"), href: "/" },

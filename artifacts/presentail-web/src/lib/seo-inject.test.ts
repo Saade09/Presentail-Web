@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
 import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems } from "../../seo-inject.mjs";
+// @ts-expect-error - mjs import without types; plain JS module.
+import { buildProductSeo, buildCategorySeo, buildOccasionSeo, buildBrandSeo } from "../../src/lib/seo.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -4982,6 +4984,123 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(collectJsonLdProblems({ "@type": "SomethingElse" })).toEqual([]);
     expect(collectJsonLdProblems({ "@graph": [] })).toEqual([]);
     expect(collectJsonLdProblems(null)).toEqual([]);
+  });
+});
+
+describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitle)", () => {
+  it("buildProductSeo returns entity-specific title for EN with city and name", () => {
+    const seo = buildProductSeo({ lang: "en", productName: "15 Red Roses", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("15 Red Roses Delivery in Beirut | Presentail");
+    expect(seo.ogTitle).toBe("15 Red Roses Delivery in Beirut | Presentail");
+    expect(seo.twitterTitle).toBe("15 Red Roses Delivery in Beirut | Presentail");
+    expect(typeof seo.description).toBe("string");
+    expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildProductSeo returns entity-specific title for AR with city and name", () => {
+    const seo = buildProductSeo({ lang: "ar", productName: "باقة الورد", city: "بيروت", country: "لبنان" });
+    expect(seo.title).toContain("باقة الورد");
+    expect(seo.title).toContain("بيروت");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildProductSeo returns entity-specific title for FR with city and name", () => {
+    const seo = buildProductSeo({ lang: "fr", productName: "Bouquet de Roses", city: "Beyrouth", country: "Liban" });
+    expect(seo.title).toContain("Bouquet de Roses");
+    expect(seo.title).toContain("Beyrouth");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildProductSeo uses shortDescription as description when it fits within 160 chars", () => {
+    const short = "A beautiful bouquet of fresh roses.";
+    const seo = buildProductSeo({ lang: "en", productName: "Roses", city: "Dubai", country: "the UAE", shortDescription: short });
+    expect(seo.description).toBe(short);
+  });
+
+  it("buildProductSeo falls back to template description when shortDescription is too long", () => {
+    const long = "x".repeat(161);
+    const seo = buildProductSeo({ lang: "en", productName: "Roses", city: "Dubai", country: "the UAE", shortDescription: long });
+    expect(seo.description).not.toBe(long);
+    expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildCategorySeo returns entity-specific title for EN with city and name", () => {
+    const seo = buildCategorySeo({ lang: "en", categoryName: "Plants", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("Plants Delivery in Beirut | Presentail");
+    expect(seo.ogTitle).toBe("Plants Delivery in Beirut | Presentail");
+    expect(seo.twitterTitle).toBe("Plants Delivery in Beirut | Presentail");
+    expect(typeof seo.description).toBe("string");
+    expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildCategorySeo returns entity-specific title for AR", () => {
+    const seo = buildCategorySeo({ lang: "ar", categoryName: "نباتات", city: "بيروت", country: "لبنان" });
+    expect(seo.title).toContain("نباتات");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildCategorySeo returns entity-specific title for FR", () => {
+    const seo = buildCategorySeo({ lang: "fr", categoryName: "Plantes", city: "Beyrouth", country: "Liban" });
+    expect(seo.title).toContain("Plantes");
+    expect(seo.title).toContain("Beyrouth");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildOccasionSeo returns entity-specific title for EN with city and name", () => {
+    const seo = buildOccasionSeo({ lang: "en", occasionName: "Birthday", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("Birthday Flowers & Gifts in Beirut | Presentail");
+    expect(seo.ogTitle).toBe("Birthday Flowers & Gifts in Beirut | Presentail");
+    expect(seo.twitterTitle).toBe("Birthday Flowers & Gifts in Beirut | Presentail");
+    expect(typeof seo.description).toBe("string");
+    expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildOccasionSeo returns entity-specific title for AR", () => {
+    const seo = buildOccasionSeo({ lang: "ar", occasionName: "عيد الميلاد", city: "بيروت", country: "لبنان" });
+    expect(seo.title).toContain("عيد الميلاد");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildOccasionSeo returns entity-specific title for FR", () => {
+    const seo = buildOccasionSeo({ lang: "fr", occasionName: "Anniversaire", city: "Beyrouth", country: "Liban" });
+    expect(seo.title).toContain("Anniversaire");
+    expect(seo.title).toContain("Beyrouth");
+    expect(seo.title).toContain("Presentail");
+    expect(seo.ogTitle).toBe(seo.title);
+    expect(seo.twitterTitle).toBe(seo.title);
+  });
+
+  it("buildBrandSeo returns brand-specific title for EN (no city in template)", () => {
+    const seo = buildBrandSeo({ lang: "en", brandName: "Acme Florals", city: "Beirut", country: "Lebanon" });
+    expect(seo.title).toBe("Acme Florals | Presentail");
+    expect(seo.ogTitle).toBe("Acme Florals | Presentail");
+    expect(seo.twitterTitle).toBe("Acme Florals | Presentail");
+    expect(typeof seo.description).toBe("string");
+    expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildBrandSeo returns brand-specific title for AR", () => {
+    const seo = buildBrandSeo({ lang: "ar", brandName: "علامة رائعة", city: "بيروت", country: "لبنان" });
+    expect(seo.title).toBe("علامة رائعة | Presentail");
+    expect(seo.ogTitle).toBe("علامة رائعة | Presentail");
+    expect(seo.twitterTitle).toBe("علامة رائعة | Presentail");
+  });
+
+  it("buildBrandSeo returns brand-specific title for FR", () => {
+    const seo = buildBrandSeo({ lang: "fr", brandName: "Marque Luxe", city: "Beyrouth", country: "Liban" });
+    expect(seo.title).toBe("Marque Luxe | Presentail");
+    expect(seo.ogTitle).toBe("Marque Luxe | Presentail");
+    expect(seo.twitterTitle).toBe("Marque Luxe | Presentail");
   });
 });
 
