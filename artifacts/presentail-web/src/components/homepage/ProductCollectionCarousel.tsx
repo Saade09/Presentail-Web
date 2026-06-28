@@ -46,15 +46,13 @@ export function ProductCollectionCarousel({
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const card = entry.target as HTMLElement;
-        cardWidthRef.current = card.getBoundingClientRect().width;
+        cardWidthRef.current = entry.contentRect.width;
       }
       updateNav();
     });
 
     const firstCard = el.querySelector<HTMLElement>("[data-collection-card]");
     if (firstCard) {
-      cardWidthRef.current = firstCard.getBoundingClientRect().width;
       ro.observe(firstCard);
     }
 

@@ -75,14 +75,12 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const card = entry.target as HTMLElement;
-        cardWidthRef.current = card.getBoundingClientRect().width;
+        cardWidthRef.current = entry.contentRect.width;
       }
     });
 
     const firstCard = el.querySelector<HTMLElement>("[data-carousel-card]");
     if (firstCard) {
-      cardWidthRef.current = firstCard.getBoundingClientRect().width;
       ro.observe(firstCard);
     }
 

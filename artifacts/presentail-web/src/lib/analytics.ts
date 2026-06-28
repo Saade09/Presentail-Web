@@ -173,7 +173,7 @@ function detectWebPlatform(): "mobile_web" | "desktop_web" {
       if (uad?.mobile === true) return "mobile_web";
       if (uad?.mobile === false) return "desktop_web";
     }
-    if (typeof window !== "undefined" && window.innerWidth < 768) return "mobile_web";
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) return "mobile_web";
   } catch {
     // best-effort
   }
