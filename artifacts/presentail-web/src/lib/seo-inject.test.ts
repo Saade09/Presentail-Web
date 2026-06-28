@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems } from "../../seo-inject.mjs";
 
 const HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body></body></html>`;
 
@@ -4658,5 +4658,248 @@ describe("Product Offer JSON-LD — Google Merchant Listing required fields", ()
     expect(product).toBeTruthy();
     expect(product["@type"]).toBe("Product");
     expect(mod.validateProductOffer(product)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JSON-LD — required-field guardrail across a representative set of routes
+//
+// The dev/test-only validateJsonLd() in seo-inject.mjs only emits console.warn
+// for missing required fields — it never fails a build or test, so a regression
+// (a product losing its price, a breadcrumb shipping empty, a FAQPage with no
+// mainEntity) would silently warn and still ship invalid schema that Google
+// rejects. This suite turns that guardrail into a real safety net: it renders
+// the actual server HTML for a representative set of routes, extracts EVERY
+// emitted JSON-LD block (flattening @graph wrappers), and asserts that
+// collectJsonLdProblems() — the single source of truth shared with the warning
+// path — finds no missing required fields on any block.
+//
+// Covered @types: Organization/WebSite/WebPage/ContactPage (name+url),
+// Product offers (price/currency/availability), BreadcrumbList/ItemList
+// (itemListElement), Florist (name+url), and FAQPage (mainEntity).
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract every JSON-LD block from `html`, run collectJsonLdProblems() on each
+ * node, and fail with a readable message naming the route + @type + missing
+ * field if any block is invalid. Returns the blocks so callers can make extra
+ * per-route assertions (e.g. that an expected @type was actually present).
+ */
+function assertAllJsonLdValid(html: string, label: string): any[] {
+  const blocks = extractJsonLd(html);
+  for (const block of blocks) {
+    const problems = collectJsonLdProblems(block) as string[];
+    expect(
+      problems,
+      `${label}: ${block?.["@type"] ?? "(no @type)"} JSON-LD ${problems.join("; ")}`,
+    ).toEqual([]);
+  }
+  return blocks;
+}
+
+describe("JSON-LD — required-field guardrail over representative routes", () => {
+  it("homepage / emits Organization + WebSite with all required fields", () => {
+    const { headSnippet } = buildSeoHead("/", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "homepage /",
+    );
+    expect(byType(blocks, "Organization")).toBeTruthy();
+    expect(byType(blocks, "WebSite")).toBeTruthy();
+  });
+
+  it("city homepage /en-lb/beirut emits Organization + WebSite + Florist + BreadcrumbList with all required fields", () => {
+    const { headSnippet } = buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "city home /en-lb/beirut",
+    );
+    expect(byType(blocks, "Florist")).toBeTruthy();
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+  });
+
+  it("product page emits a Product (with priced Offer) + BreadcrumbList with all required fields", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Velvet Rose Bouquet",
+        description: "A dozen long-stem velvet roses, hand-tied.",
+        image: { uri: "https://cdn.test/velvet.jpg" },
+        priceValue: 89.5,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/product/velvet-rose-bouquet",
+      OPTS,
+    );
+    const blocks = assertAllJsonLdValid(out, "product page");
+    const product = byType(blocks, "Product");
+    expect(product).toBeTruthy();
+    expect(product.offers.price).toBe("89.50");
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+  });
+
+  it("category page emits BreadcrumbList + ItemList with all required fields", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            count: 2,
+            products: [{ name: "Red Roses" }, { name: "White Roses" }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            category: { name: "Roses", description: "Fresh roses." },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/category/roses-guardrail-fixture",
+      OPTS,
+    );
+    const blocks = assertAllJsonLdValid(out, "category page");
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+    expect(byType(blocks, "ItemList")).toBeTruthy();
+  });
+
+  it("occasion page emits BreadcrumbList (+ ItemList) with all required fields", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            occasion: { name: "Birthday", description: "Birthday gifts." },
+          }),
+        };
+      }
+      if (u.includes("/api/woo/products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, products: [{ name: "Balloon Set" }] }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/occasion/birthday-guardrail-fixture",
+      OPTS,
+    );
+    const blocks = assertAllJsonLdValid(out, "occasion page");
+    expect(byType(blocks, "BreadcrumbList")).toBeTruthy();
+  });
+
+  it.each(["terms", "privacy"])(
+    "%s page emits a WebPage with all required fields",
+    (route) => {
+      const { headSnippet } = buildSeoHead(`/en-ae/dubai/${route}`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const blocks = assertAllJsonLdValid(
+        `<head>${headSnippet}</head>`,
+        `${route} page`,
+      );
+      expect(byType(blocks, "WebPage")).toBeTruthy();
+    },
+  );
+
+  it("contact page emits a ContactPage with all required fields", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/contact", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "contact page",
+    );
+    expect(byType(blocks, "ContactPage")).toBeTruthy();
+  });
+
+  it("faqs page emits a FAQPage with all required fields", () => {
+    const { headSnippet } = buildSeoHead("/en-ae/dubai/faqs", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const blocks = assertAllJsonLdValid(
+      `<head>${headSnippet}</head>`,
+      "faqs page",
+    );
+    expect(byType(blocks, "FAQPage")).toBeTruthy();
+  });
+
+  // Negative tests: the guardrail must actually FAIL (not just warn) when a
+  // required field is missing — otherwise the assertions above prove nothing.
+  it("collectJsonLdProblems flags a Product whose offer lost its price/currency/availability", () => {
+    expect(
+      collectJsonLdProblems({
+        "@type": "Product",
+        name: "Broken Bouquet",
+        offers: { "@type": "Offer" },
+      }) as string[],
+    ).toEqual([
+      'offer missing "price"',
+      'offer missing "priceCurrency"',
+      'offer missing "availability"',
+    ]);
+  });
+
+  it("collectJsonLdProblems flags an empty BreadcrumbList / ItemList / FAQPage", () => {
+    expect(
+      collectJsonLdProblems({ "@type": "BreadcrumbList", itemListElement: [] }),
+    ).toEqual(['missing required field "itemListElement"']);
+    expect(
+      collectJsonLdProblems({ "@type": "ItemList", itemListElement: [] }),
+    ).toEqual(['missing required field "itemListElement"']);
+    expect(
+      collectJsonLdProblems({ "@type": "FAQPage", mainEntity: [] }),
+    ).toEqual(['missing required field "mainEntity"']);
+  });
+
+  it("collectJsonLdProblems flags Organization/WebSite/WebPage/ContactPage missing name or url", () => {
+    expect(
+      collectJsonLdProblems({ "@type": "Organization", url: "https://x.test" }),
+    ).toEqual(['missing required field "name"']);
+    expect(
+      collectJsonLdProblems({ "@type": "WebSite", name: "Presentail" }),
+    ).toEqual(['missing required field "url"']);
+    expect(
+      collectJsonLdProblems({ "@type": "WebPage", name: "", url: "" }),
+    ).toEqual([
+      'missing required field "name"',
+      'missing required field "url"',
+    ]);
+    expect(
+      collectJsonLdProblems({ "@type": "ContactPage", url: "https://x.test" }),
+    ).toEqual(['missing required field "name"']);
+  });
+
+  it("collectJsonLdProblems returns no problems for an unknown @type or a @graph wrapper", () => {
+    expect(collectJsonLdProblems({ "@type": "SomethingElse" })).toEqual([]);
+    expect(collectJsonLdProblems({ "@graph": [] })).toEqual([]);
+    expect(collectJsonLdProblems(null)).toEqual([]);
   });
 });

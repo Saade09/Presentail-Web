@@ -1411,34 +1411,57 @@ const JSON_LD_REQUIRED_FIELDS = {
 };
 
 /**
+ * Collect schema.org required-field problems for a single JSON-LD node, as an
+ * array of human-readable strings (empty array == valid). This is the single
+ * source of truth for "what makes a rich-result block broken": it is used both
+ * by the dev/test-only console-warning path (validateJsonLd, below) and by the
+ * test/CI guardrail in seo-inject.test.ts, which renders a representative set of
+ * routes and turns any returned problem into a hard failure — so a regression
+ * (a product losing its price, a breadcrumb shipping empty, a FAQPage with no
+ * mainEntity) is caught before the invalid schema reaches Google rather than
+ * silently warned about and shipped anyway.
+ *
+ * `@graph` wrappers are skipped (callers flatten those into individual nodes
+ * first); nodes whose @type is not in JSON_LD_REQUIRED_FIELDS have nothing to
+ * assert and return no problems.
+ */
+export function collectJsonLdProblems(obj) {
+  const problems = [];
+  if (!obj || typeof obj !== "object" || obj["@graph"]) return problems;
+  const type = obj["@type"];
+  const required = JSON_LD_REQUIRED_FIELDS[type];
+  if (required) {
+    for (const field of required) {
+      const v = obj[field];
+      if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) {
+        problems.push(`missing required field "${field}"`);
+      }
+    }
+  }
+  // Product offers, when present, must carry price + currency + availability.
+  if (type === "Product" && obj.offers) {
+    for (const field of ["price", "priceCurrency", "availability"]) {
+      if (obj.offers[field] == null || obj.offers[field] === "") {
+        problems.push(`offer missing "${field}"`);
+      }
+    }
+  }
+  return problems;
+}
+
+/**
  * Dev/test-only guardrail: warn (never throw) when a JSON-LD object is missing
  * a required field for its @type, so a missing price/url/name surfaces as a
  * console warning locally rather than silent bad schema in production. No-op
- * in production so it never adds request-path overhead.
+ * in production so it never adds request-path overhead. The hard-failing
+ * counterpart lives in seo-inject.test.ts via collectJsonLdProblems().
  */
 function validateJsonLd(obj) {
   if (process.env?.NODE_ENV === "production") return obj;
   try {
-    if (!obj || typeof obj !== "object" || obj["@graph"]) return obj;
-    const type = obj["@type"];
-    const warn = (msg) =>
+    const type = obj && typeof obj === "object" ? obj["@type"] : undefined;
+    for (const msg of collectJsonLdProblems(obj)) {
       console.warn(`WARN: JSON-LD ${type ?? "(no @type)"}: ${msg}`);
-    const required = JSON_LD_REQUIRED_FIELDS[type];
-    if (required) {
-      for (const field of required) {
-        const v = obj[field];
-        if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) {
-          warn(`missing required field "${field}"`);
-        }
-      }
-    }
-    // Product offers, when present, must carry price + currency + availability.
-    if (type === "Product" && obj.offers) {
-      for (const field of ["price", "priceCurrency", "availability"]) {
-        if (obj.offers[field] == null || obj.offers[field] === "") {
-          warn(`offer missing "${field}"`);
-        }
-      }
     }
   } catch {
     // Never let validation break HTML generation.
