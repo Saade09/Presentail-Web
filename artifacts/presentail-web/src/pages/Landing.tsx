@@ -113,7 +113,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Top bar */}
-      <div className="relative flex items-center justify-center px-8 py-5 shrink-0">
+      <div className="relative flex items-center justify-center px-8 py-3 shrink-0">
         <div data-testid="text-wordmark">
           <span className="font-serif text-primary text-5xl leading-none">
             {language === "ar" ? "بريزانتيل" : "Presentail"}
@@ -125,7 +125,7 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
       </div>
 
       {/* Main content — single centered column, shifted slightly above center */}
-      <div className="flex-1 flex items-start justify-center px-6 pt-12 overflow-hidden">
+      <div className="flex-1 flex items-start justify-center px-6 pt-6 overflow-hidden">
         <div className="w-full max-w-md flex flex-col gap-5">
           {/* Headline */}
           <div>
