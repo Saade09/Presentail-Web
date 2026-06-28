@@ -104,6 +104,7 @@ import { clearPendingOrder, savePendingOrder } from "@/lib/pendingOrder";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
+import { firePostOrderAnalytics } from "@/lib/postOrderAnalytics";
 import { useNow } from "@/lib/useNow";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
 import { getDeviceId } from "@/services/notifications";
@@ -1080,24 +1081,20 @@ function CheckoutScreen() {
             });
           });
         }
-        // Funnel terminal step: only emit once the WC order has actually
-        // been created, never just because a payment session resolved.
-        trackEvent({
-          name: "order_placed",
-          surface: "checkout",
-          action: payMethod,
-        });
-        trackFbMobileEvent("Purchase", {
-          countryCode: effectiveCountry,
-          value: fees.grand,
-          currency: currencyCode,
+        // Funnel terminal step + Facebook Purchase CAPI — fired once the WC
+        // order is confirmed. Both calls are co-located in firePostOrderAnalytics
+        // so the FB event cannot be dropped without breaking the unit tests.
+        firePostOrderAnalytics({
+          payMethod,
+          effectiveCountry,
+          feesGrand: fees.grand,
+          currencyCode,
           contentIds: detailed.map((d) => d.product.id),
-          email: senderEmail || undefined,
-          phone: hasProfilePhone
-            ? profilePhone || undefined
-            : senderWhatsapp.trim()
-              ? `${senderCountry.dial} ${senderWhatsapp}`.trim()
-              : undefined,
+          senderEmail,
+          hasProfilePhone,
+          profilePhone: profilePhone || undefined,
+          senderWhatsapp,
+          senderCountryDial: senderCountry.dial,
         });
         // Terminal success — drop any pending-order stash left over from an
         // earlier failed attempt so it can never be replayed on a later
