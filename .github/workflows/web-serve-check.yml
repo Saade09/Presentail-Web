@@ -45,6 +45,9 @@ jobs:
       - name: Check product rich-result (Merchant Listing) JSON-LD required fields
         run: pnpm --filter @workspace/presentail-web run check-product-jsonld-schema
 
+      - name: Check non-product rich-result (Breadcrumb/FAQ/Org/Article/...) JSON-LD required fields
+        run: pnpm --filter @workspace/presentail-web run check-nonproduct-jsonld-schema
+
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 

@@ -4903,3 +4903,85 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     expect(collectJsonLdProblems(null)).toEqual([]);
   });
 });
+
+describe("Non-product JSON-LD — Breadcrumb/FAQ/Org/Article rich-result required fields", () => {
+  it("every non-product fixture emits valid rich-result JSON-LD (CI guard)", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    // runCheck() builds each fixture's real head via the same builders serve.mjs
+    // uses, validates every emitted JSON-LD node against its required field set,
+    // and asserts every expected @type is present. Returns 0 (pass) / 1 (fail) —
+    // same logic the CI step runs.
+    expect(mod.runCheck()).toBe(0);
+  });
+
+  it("flags an Organization missing its url", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const errors = mod.validateNode({ "@type": "Organization", name: "Presentail" });
+    expect(errors).toContain("Organization.url must be an http(s) URL (got undefined)");
+  });
+
+  it("flags an Article missing datePublished", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const errors = mod.validateNode({ "@type": "Article", headline: "Hello" });
+    expect(errors).toContain("Article.datePublished must be a non-empty string (got undefined)");
+  });
+
+  it("flags a FAQPage whose answer has no text", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const errors = mod.validateNode({
+      "@type": "FAQPage",
+      mainEntity: [{ "@type": "Question", name: "Q?", acceptedAnswer: { "@type": "Answer" } }],
+    });
+    expect(errors).toContain("FAQPage.mainEntity[0].acceptedAnswer.text must be a non-empty string");
+  });
+
+  it("flags a BreadcrumbList ListItem missing its position", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const errors = mod.validateNode({
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", name: "Home", item: "https://presentail.test" },
+        { "@type": "ListItem", position: 2, name: "Leaf" },
+      ],
+    });
+    expect(errors).toContain(
+      "BreadcrumbList.itemListElement[0].position must be a positive integer (got undefined)",
+    );
+  });
+
+  it("requires the item URL on every breadcrumb crumb except the last", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const errors = mod.validateNode({
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home" }, // missing item — not last
+        { "@type": "ListItem", position: 2, name: "Leaf" }, // last — item optional
+      ],
+    });
+    expect(
+      errors.some((e: string) => e.includes("itemListElement[0].item must be an http(s) URL")),
+    ).toBe(true);
+  });
+
+  it("extractAllJsonLd flattens a @graph head snippet into individual nodes", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const mod = await import("../../scripts/check-nonproduct-jsonld-schema.mjs");
+    const headMod = await import("../../seo-inject.mjs");
+    const { headSnippet } = headMod.buildSeoHead("/en-lb/beirut", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    const nodes = mod.extractAllJsonLd(`<head>${headSnippet}</head>`);
+    const types = nodes.map((n: { "@type": string }) => n["@type"]);
+    expect(types).toContain("Organization");
+    expect(types).toContain("Florist");
+    expect(types).toContain("BreadcrumbList");
+    for (const node of nodes) expect(mod.validateNode(node)).toEqual([]);
+  });
+});

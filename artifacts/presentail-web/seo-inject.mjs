@@ -1893,7 +1893,7 @@ export function buildProductHead({
  * (@workspace/blog-content) — the same module the BlogPost page renders from —
  * so the server-side link preview and the live article can never disagree.
  */
-function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
+export function buildBlogPostHead({ article, lang, basePath, origin, pathname }) {
   const rawTitle = typeof article.title === "string" ? article.title.trim() : "";
   const title = rawTitle ? `${rawTitle} | Presentail` : "Presentail";
   const description =
@@ -2029,7 +2029,7 @@ function buildBrandsFilterHead({
   };
 }
 
-function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname }) {
+export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathname }) {
   const rawName = typeof brand.name === "string" ? brand.name.trim() : "";
   const title = rawName ? `${rawName} | Presentail` : "Presentail";
   const rawDesc = brand.description ? stripHtml(brand.description) : "";
@@ -2068,7 +2068,7 @@ function buildBrandHead({ brand, imageDimensions, lang, basePath, origin, pathna
   };
 }
 
-function buildCategoryHead({
+export function buildCategoryHead({
   category,
   imageDimensions,
   lang,
@@ -2098,7 +2098,7 @@ function buildCategoryHead({
   });
 }
 
-function buildOccasionHead({
+export function buildOccasionHead({
   occasion,
   imageDimensions,
   lang,
