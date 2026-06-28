@@ -89,7 +89,8 @@ function stripeDeclineMsg(
 }
 
 // Currencies routed to the Gulf Stripe account.
-const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
+// AED is included so Apple Pay / Google Pay for UAE use the Gulf Stripe account.
+const GULF_STRIPE_CURRENCIES = ["KWD", "OMR", "AED"];
 
 // The country code of the Stripe merchant account used for Apple Pay / Google
 // Pay PaymentRequest construction. This must match the account's registered
@@ -99,6 +100,11 @@ const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
 // Configurable via VITE_STRIPE_MERCHANT_COUNTRY (default "US").
 const STRIPE_MERCHANT_COUNTRY: string =
   (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY as string | undefined) || "US";
+
+// Gulf Stripe account merchant country (AED / KWD / OMR wallet payments).
+// Configurable via VITE_STRIPE_MERCHANT_COUNTRY_GULF (default "AE").
+const STRIPE_MERCHANT_COUNTRY_GULF: string =
+  (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY_GULF as string | undefined) || "AE";
 
 // Maps the active display-currency to its most likely Stripe merchant country.
 // Mirrors the mobile checkout's countryFromCurrency / resolveCountryCode pattern.
@@ -1079,7 +1085,9 @@ function CheckoutForm() {
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        country: STRIPE_MERCHANT_COUNTRY,
+        // Use the merchant country for the active Stripe account: Gulf (AE) for
+        // AED/KWD/OMR, main (CY) for everything else.
+        country: isGulfRef.current ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
@@ -1142,15 +1150,10 @@ function CheckoutForm() {
   // the inputs; handleSubmit consumes it synchronously on tap.
   useEffect(() => {
     const isWallet = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
-    const activeCur = activeCurrencyForCountry(countryCode ?? "LB");
-    // AED checkout routes wallets through Mamo's hosted page, not Stripe, so no
-    // Stripe PaymentIntent is created for it.
     if (
       !isWallet ||
       !stripe ||
       !walletSupported ||
-      activeCur === "AED" ||
-      currencyCode === "AED" ||
       !isHydrated ||
       itemCount === 0
     ) {
@@ -1358,10 +1361,9 @@ function CheckoutForm() {
   });
   const isWalletMethodSelected =
     paymentMethod === "apple_pay" || paymentMethod === "google_pay";
-  // Wallet methods routed through Mamo (AED) do not pre-create a Stripe intent,
-  // so they are never gated on readiness.
-  const walletNeedsStripeIntent =
-    isWalletMethodSelected && activeCurrencyForCountry(countryCode ?? "LB") !== "AED" && currencyCode !== "AED";
+  // All wallet methods (including AED via Gulf Stripe) pre-create a Stripe
+  // PaymentIntent, so they are gated on readiness.
+  const walletNeedsStripeIntent = isWalletMethodSelected;
   const walletIntentReady = walletReadySig === currentWalletSig;
   // Stop the preparing spinner when preparation has failed: the shopper should
   // see the error toast and be able to tap the tile again (which re-selects the
@@ -1592,7 +1594,7 @@ function CheckoutForm() {
       // simply return — the pre-creation effect re-runs and the button becomes
       // tappable again once the matching intent lands. No estimate is ever
       // shown, and wallet availability is unaffected (the tiles stay visible).
-      if (isWalletMethod && activeCurrency !== "AED" && !prefetchedIntent) {
+      if (isWalletMethod && !prefetchedIntent) {
         return;
       }
 
@@ -1611,13 +1613,11 @@ function CheckoutForm() {
       // canMakePayment() probe on this instance) works in production — the
       // upfront probe already confirmed the device has a wallet on desktop, and
       // on mobile the native sheet opens fine even when the probe raced to null.
-      if (isWalletMethod && activeCurrency !== "AED" && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
+      if (isWalletMethod && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
         try {
           paymentRequestRef.current = stripe.paymentRequest({
-            // Must be the Stripe merchant account's registered country, not the
-            // shopper's delivery country. "LB" is not a valid Stripe merchant
-            // country and causes the constructor to throw on every attempt.
-            country: STRIPE_MERCHANT_COUNTRY,
+            // Gulf account (AE) for AED/KWD/OMR, main account (CY) for everything else.
+            country: isGulfRef.current ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
             currency: prefetchedIntent.currency,
             total: {
               label: t("checkout.payment.orderTitle"),
@@ -1643,12 +1643,11 @@ function CheckoutForm() {
 
       const walletViaNativeSheet =
         isWalletMethod &&
-        activeCurrency !== "AED" &&
         paymentRequestRef.current !== null;
 
       // Resolve effective method used for the non-wallet submit branches below.
       const payMethod: PaymentMethodId =
-        isWalletMethod && activeCurrency !== "AED" && !walletViaNativeSheet
+        isWalletMethod && !walletViaNativeSheet
           ? "card"
           : paymentMethod;
 
@@ -1957,26 +1956,10 @@ function CheckoutForm() {
         return;
       }
 
-      // AED + wallet (Apple Pay / Google Pay) is served by Mamo's hosted
-      // checkout, which exposes the wallet buttons on its own page. Route it
-      // through the same Mamo flow as the "Pay by card" tile so we don't
-      // need a separate web wallet integration just for UAE — mirrors the
-      // mobile checkout behaviour.
-      // apple_pay / google_pay are excluded from AED by the currency table so
-      // this guard is a no-op in practice, but kept for defensive correctness.
-      const walletViaMamo =
-        (payMethod === "apple_pay" || payMethod === "google_pay") && activeCurrency === "AED";
-
-      if (payMethod === "mamo" || walletViaMamo) {
-        // Wallet-via-Mamo carries `paymentMethod: "wallet"` in client
-        // state, but the WC finalizer treats `wallet` as a Stripe-verified
-        // method. Normalise to `"mamo"` in the stashed payload so the
-        // post-redirect order creation routes through the Mamo
-        // verification branch and matches the paymentRef we just got back
-        // from Mamo's hosted page.
-        const finalizedPaymentMethod: PaymentMethodId = walletViaMamo
-          ? "mamo"
-          : payMethod;
+      // AED Apple Pay / Google Pay now goes through Gulf Stripe (native sheet),
+      // not Mamo. Only explicit "mamo" card tile selections go through Mamo.
+      if (payMethod === "mamo") {
+        const finalizedPaymentMethod: PaymentMethodId = payMethod;
         const res = await mamoPayment.mutateAsync({
           items: items.map((i) => ({ wcId: i.product.wcId, osSlug: i.product.id, quantity: i.quantity })),
           orderId,
