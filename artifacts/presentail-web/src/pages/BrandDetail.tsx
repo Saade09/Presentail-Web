@@ -9,6 +9,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { buildBrandSeo } from "@/lib/seo";
+import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
 
 const SEO_ATTR = "data-seo-managed";
 
@@ -59,6 +60,8 @@ export default function BrandDetail() {
       head.querySelectorAll(`[${SEO_ATTR}]`).forEach((el) => el.parentElement?.removeChild(el));
     };
   }, [brandName, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useLcpImagePreload(data?.products[0]?.image?.uri ?? null);
 
   const breadcrumbCrumbs = [
     { label: t("nav.home"), href: "/" },

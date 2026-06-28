@@ -2,6 +2,7 @@ import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
 import { useEffect } from "react";
+import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -352,6 +353,8 @@ export default function Shop() {
     onClear: handleClearFilters,
     hasActiveFilters,
   };
+
+  useLcpImagePreload(products[0]?.image?.uri ?? null);
 
   return (
     <div className="min-h-screen pt-2 md:pt-6 pb-24 bg-white">
