@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - "artifacts/presentail/**"
+      - "artifacts/presentail-web/scripts/check-nonproduct-jsonld-schema.mjs"
+      - "artifacts/presentail-web/src/pages/BlogPost.tsx"
       - "lib/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/mobile-check.yml"
   pull_request:
     paths:
       - "artifacts/presentail/**"
+      - "artifacts/presentail-web/scripts/check-nonproduct-jsonld-schema.mjs"
+      - "artifacts/presentail-web/src/pages/BlogPost.tsx"
       - "lib/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/mobile-check.yml"
@@ -42,3 +46,6 @@ jobs:
 
       - name: Type-check mobile app
         run: pnpm --filter @workspace/presentail run typecheck
+
+      - name: Check real blog post Article JSON-LD required fields
+        run: pnpm --filter @workspace/presentail run check-blog-jsonld-schema
