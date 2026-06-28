@@ -1,0 +1,47 @@
+Please fix the “Ways to Pay” payment methods section on the product page.
+
+In the product page right-hand sidebar, there is a payment methods card inside the red highlighted area in the attached screenshot. The payment logos currently wrap onto multiple rows, with PayPal dropping to a second line. This should never happen.
+
+Requirement:
+The payment method logos must always stay on one single horizontal row.
+
+Please update the relevant component and CSS so that:
+1. All payment method icons/logos stay in one row at all viewport sizes.
+2. The PayPal logo must not wrap onto a second line.
+3. The logos should be horizontally aligned and vertically centered inside the “Ways to Pay” card.
+4. The layout should preserve the current visual style: same card, border, rounded corners, spacing, and overall design.
+5. Do not increase the card height unnecessarily.
+6. Do not allow `flex-wrap: wrap` on the payment methods container.
+7. Use a non-wrapping flex layout, for example:
+   - `display: flex`
+   - `align-items: center`
+   - `flex-wrap: nowrap`
+   - `white-space: nowrap`
+   - payment logo items should use `flex: 0 0 auto`
+8. If space is tight, reduce the gap between logos or slightly reduce logo/card size responsively instead of wrapping.
+9. On very small screens, it is acceptable for the payment logo row to horizontally scroll inside the card, but it must still remain a single row.
+10. The “Ways to Pay” label should remain aligned nicely with the row of logos and should not cause the icons to wrap.
+
+Please search the codebase for the component that renders this section, likely named something like:
+- PaymentMethods
+- WaysToPay
+- ProductPaymentMethods
+- payment-icons
+- payment-methods
+- product sidebar benefits/payment section
+
+Then update the CSS/Tailwind/classes accordingly.
+
+Suggested implementation direction:
+- Make the outer card a flex row with `items-center`.
+- Give the logo container `flex-nowrap`, `overflow-x-auto` if needed, and `min-w-0`.
+- Make each logo wrapper `shrink-0`.
+- Use responsive spacing such as smaller gaps on narrower screens.
+- Ensure the PayPal icon is part of the same flex row as AMEX, Google Pay, Apple Pay, Visa, Mastercard, and Whish.
+
+Acceptance criteria:
+- On desktop, all payment methods appear on one row.
+- On laptop widths, all payment methods appear on one row.
+- On tablet/mobile widths, all payment methods still appear on one row, either by shrinking spacing/icon size or by allowing horizontal scrolling.
+- No payment method logo should ever appear on a second line.
+- The rest of the product page layout should remain unchanged.
