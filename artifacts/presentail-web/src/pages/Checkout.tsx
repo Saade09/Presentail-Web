@@ -2547,6 +2547,7 @@ function CheckoutForm() {
                   style={{ backgroundColor: "hsl(var(--primary) / 0.05)" }}
                   onClick={() => setSummaryOpen((prev) => !prev)}
                   aria-expanded={summaryOpen}
+                  data-testid="button-summary-toggle"
                 >
                   <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--primary))" }}>{t("checkout.summary")}</h3>
                   <div className="flex items-center gap-2">
@@ -2571,7 +2572,7 @@ function CheckoutForm() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 leading-snug">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t("checkout.qty")}: {item.quantity}</p>
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(var(--primary))" }}><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(var(--primary))" }} data-testid={`checkout-item-price-${item.product.id}`}><FormattedPrice usdValue={item.product.priceValue * item.quantity} /></p>
                         </div>
                       </div>
                     ))}
