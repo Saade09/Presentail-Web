@@ -261,14 +261,16 @@ export default function Shop() {
     };
   }, [entityName, isCategoryRoute, isOccasionRoute, city, country, language, cityName, countryName]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
   const pageTitle = category
-    ? (categoryLabelKey ? t(categoryLabelKey, {}) : undefined)
+    ? capitalizeFirst((categoryLabelKey ? t(categoryLabelKey, {}) : undefined)
       || catalogCategory?.name
-      || category
+      || category)
     : occasion
-      ? (occasionLabelKey ? t(occasionLabelKey, {}) : undefined)
+      ? capitalizeFirst((occasionLabelKey ? t(occasionLabelKey, {}) : undefined)
         || catalogOccasion?.name
-        || occasion
+        || occasion)
       : brand
         ? (brandProducts.data?.brandName ?? brand)
         : t("shop.allCollection");
@@ -284,17 +286,19 @@ export default function Shop() {
     if (!category && !occasion && !brand) return [];
     const home: Crumb = { label: t("nav.home"), href: "/" };
     if (category) {
-      const label =
+      const label = capitalizeFirst(
         (categoryLabelKey ? t(categoryLabelKey, {}) : undefined) ||
         catalogCategory?.name ||
-        category;
+        category
+      );
       return [home, { label }];
     }
     if (occasion) {
-      const label =
+      const label = capitalizeFirst(
         (occasionLabelKey ? t(occasionLabelKey, {}) : undefined) ||
         catalogOccasion?.name ||
-        occasion;
+        occasion
+      );
       return [home, { label }];
     }
     return [home, { label: brandDisplayName }];
