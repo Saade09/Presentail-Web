@@ -981,6 +981,7 @@ function CheckoutScreen() {
       const params = new URLSearchParams({
         orderId,
         total: String(fees.grand),
+        currency: currencyCode,
         date,
         slot: slotLabel,
         recipient: `${recipientFirst} ${recipientLast}`,

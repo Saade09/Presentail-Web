@@ -11,7 +11,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
-import { trackEvent, type AnalyticsEvent } from "@/lib/analytics";
+import { trackEvent, fireAdsPurchaseConversion, type AnalyticsEvent } from "@/lib/analytics";
 import { clearPendingOrder, loadPendingOrder, type PendingOrder } from "@/lib/pendingOrder";
 import { createWooOrder } from "@/lib/woo";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
@@ -24,10 +24,11 @@ function OrderConfirmed() {
   const insets = useSafeAreaInsets();
   const { formatNative } = useCurrency();
   const t = useT();
-  const { orderId, total, date, slot, recipient, status, paymentRef } =
+  const { orderId, total, currency, date, slot, recipient, status, paymentRef } =
     useLocalSearchParams<{
       orderId: string;
       total: string;
+      currency?: string;
       date: string;
       slot: string;
       recipient: string;
@@ -54,6 +55,10 @@ function OrderConfirmed() {
   const [retainedOrder, setRetainedOrder] = React.useState<PendingOrder | null>(null);
   const [retrying, setRetrying] = React.useState(false);
 
+  // Prevents the conversion from firing more than once per screen mount even
+  // if the component re-renders (strict mode, foreground/background cycles).
+  const purchaseFiredRef = React.useRef(false);
+
   React.useEffect(() => {
     if (status !== "failed") return;
     let cancelled = false;
@@ -64,6 +69,24 @@ function OrderConfirmed() {
       cancelled = true;
     };
   }, [status]);
+
+  // Fire Google Ads purchase conversion on the initial success path.
+  // The checkout screen routes here with status=success after a confirmed
+  // order — we fire exactly once using purchaseFiredRef as a guard.
+  // `currency` comes from the nav param set by checkout.tsx (buildResultPath).
+  React.useEffect(() => {
+    if (localStatus === "failed") return;
+    if (purchaseFiredRef.current) return;
+    purchaseFiredRef.current = true;
+    fireAdsPurchaseConversion({
+      transactionId: String(orderId),
+      value: Number(total) || 0,
+      currency: currency ?? "USD",
+    });
+  // orderId, total, currency, and localStatus are all stable after mount;
+  // purchaseFiredRef ensures this fires at most once even on re-renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canRetry = isFailed && retainedOrder !== null;
 
@@ -92,6 +115,14 @@ function OrderConfirmed() {
           name: "order_placed",
           surface: "checkout",
           action: retainedOrder.payload.paymentMethod as AnalyticsEvent["action"],
+        });
+        // Fire Google Ads conversion for the recovered order. The mount effect
+        // exited early (localStatus was "failed") and did not set purchaseFiredRef,
+        // so this is the first and only conversion call for this order.
+        fireAdsPurchaseConversion({
+          transactionId: String(orderId),
+          value: Number(total) || 0,
+          currency: currency ?? "USD",
         });
         setRetainedOrder(null);
         setLocalStatus("success");

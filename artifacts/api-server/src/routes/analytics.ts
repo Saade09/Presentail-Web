@@ -1,11 +1,64 @@
 import { Router, type IRouter } from "express";
 import { rateLimit } from "express-rate-limit";
+import { z } from "zod";
 import { getAuth } from "@clerk/express";
 import {
   RecordAnalyticsEventBody,
   RecordAnalyticsEventResponse,
 } from "@workspace/api-zod";
 import { db, analyticsEventsTable } from "@workspace/db";
+
+const ADS_CONVERSION_ID = "AW-18281774261"; // i18n-ignore
+const ADS_CONVERSION_LABEL = "XYi_CNabpMccELX5to1E"; // i18n-ignore
+
+/**
+ * Fire a Google Ads purchase conversion server-side using the standard
+ * Google conversion pixel endpoint. This mirrors what web gtag.js sends
+ * for client-side conversions, allowing mobile (React Native) purchases to
+ * be attributed in the same Google Ads campaign as web purchases.
+ *
+ * Google deduplicates conversions by `transaction_id`, so retries and
+ * network races are safe — only the first hit for a given transaction ID
+ * counts.
+ */
+async function sendAdsConversionPing(
+  transactionId: string,
+  value: number,
+  currency: string,
+  log: { warn: (obj: Record<string, unknown>, msg: string) => void },
+): Promise<void> {
+  const params = new URLSearchParams({
+    cv: "9",
+    fst: String(Date.now()),
+    num: "1",
+    label: ADS_CONVERSION_LABEL,
+    guid: "ON",
+    script: "0",
+    value: String(value),
+    currency_code: currency.toUpperCase(),
+    transaction_id: transactionId,
+    is_iframe: "0",
+    fmt: "3",
+  });
+  const url = `https://www.google.com/pagead/conversion/${ADS_CONVERSION_ID}/?${params.toString()}`; // i18n-ignore
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      log.warn(
+        { status: res.status, transactionId },
+        "ads-conversion: non-OK response from Google",
+      );
+    }
+  } catch (err) {
+    log.warn(
+      { err: err instanceof Error ? err.message : String(err), transactionId },
+      "ads-conversion: ping failed",
+    );
+  }
+}
 
 const router: IRouter = Router();
 
@@ -28,6 +81,61 @@ const analyticsLimiter = rateLimit({
     res.status(200).json(body);
   },
 });
+
+const adsConversionBody = z.object({
+  transactionId: z.string().min(1).max(128),
+  value: z.number().nonnegative().finite(),
+  currency: z.string().min(1).max(8),
+});
+
+const adsConversionLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(200).json({ ok: true });
+  },
+});
+
+/**
+ * POST /api/analytics/ads-conversion
+ *
+ * Fires a Google Ads purchase conversion server-side on behalf of the mobile
+ * app (React Native has no browser gtag). The web storefront fires conversions
+ * client-side via window.gtag; this endpoint provides parity for iOS/Android.
+ *
+ * Google deduplicates by `transaction_id`, so retrying a failed request is safe.
+ */
+router.post(
+  "/analytics/ads-conversion",
+  adsConversionLimiter,
+  (req, res, next) => {
+    const cl = Number(req.header("content-length") ?? 0);
+    if (Number.isFinite(cl) && cl > 2 * 1024) {
+      res.status(400).json({ ok: false, message: "Payload too large" }); // i18n-ignore
+      return;
+    }
+    next();
+  },
+  (req, res): void => {
+    const parsed = adsConversionBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        message: parsed.error.issues[0]?.message ?? "Invalid body", // i18n-ignore
+      });
+      return;
+    }
+    const { transactionId, value, currency } = parsed.data;
+    req.log.info(
+      { transactionId, value, currency },
+      "ads-conversion: firing server-side ping",
+    );
+    void sendAdsConversionPing(transactionId, value, currency, req.log);
+    res.status(200).json({ ok: true });
+  },
+);
 
 router.post(
   "/analytics/events",

@@ -186,3 +186,35 @@ export function trackEvent(event: AnalyticsEvent): void {
     }
   })();
 }
+
+export type AdsPurchaseConversionParams = {
+  transactionId: string;
+  value: number;
+  currency: string;
+};
+
+/**
+ * Fire a Google Ads purchase conversion for a mobile order.
+ *
+ * React Native has no browser `window.gtag`, so this delegates to the API
+ * server which fires the conversion server-side using the Google Ads
+ * conversion pixel endpoint. The conversion label matches the web storefront
+ * (AW-18281774261/XYi_CNabpMccELX5to1E), so mobile and web purchases are
+ * attributed together in Google Ads ROI reporting.
+ *
+ * Google deduplicates by `transaction_id`, so calling this more than once
+ * with the same order ID is safe — only the first hit counts.
+ *
+ * Best-effort: errors are swallowed so a network failure never blocks the UI.
+ */
+export function fireAdsPurchaseConversion({
+  transactionId,
+  value,
+  currency,
+}: AdsPurchaseConversionParams): void {
+  void fetch(`${API_BASE}/api/analytics/ads-conversion`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transactionId, value, currency }),
+  }).catch(() => {});
+}
