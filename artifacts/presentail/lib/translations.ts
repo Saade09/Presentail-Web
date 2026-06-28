@@ -903,8 +903,8 @@ const EN = {
   onboardingContinueTo: "Continue to [[flag]] [[city]]",
 
   // ── Side menu ──
-  menuShop: "Shop",
-  menuOccasions: "Occasions", // no-translate — French loan word, identical in EN and FR
+  menuShopByCategory: "Shop by Category",
+  menuShopByOccasion: "Shop by Occasion",
   menuBrands: "Brands",
   menuAccount: "Account",
   menuHelp: "Help",
@@ -1752,8 +1752,8 @@ const AR: typeof EN = {
   onboardingContinueTo: "متابعة إلى [[flag]] [[city]]",
 
   // ── Side menu ──
-  menuShop: "تسوّق",
-  menuOccasions: "المناسبات",
+  menuShopByCategory: "تسوّق حسب الفئة",
+  menuShopByOccasion: "تسوّق حسب المناسبة",
   menuBrands: "العلامات التجارية",
   menuAccount: "الحساب",
   menuHelp: "المساعدة",
@@ -2604,8 +2604,8 @@ const FR: typeof EN = {
   onboardingContinueTo: "Continuer vers [[flag]] [[city]]",
 
   // ── Side menu ──
-  menuShop: "Boutique",
-  menuOccasions: "Occasions",
+  menuShopByCategory: "Acheter par catégorie",
+  menuShopByOccasion: "Acheter par occasion",
   menuBrands: "Marques",
   menuAccount: "Compte",
   menuHelp: "Aide",
