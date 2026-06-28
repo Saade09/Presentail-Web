@@ -83,15 +83,15 @@ export function PaymentMethods({
         </p>
       ) : null}
 
-      <div className="flex flex-1 flex-wrap items-center justify-center gap-1.5 sm:gap-[5px]">
+      <div className="flex flex-1 flex-nowrap items-center justify-center gap-1 sm:gap-[5px] min-w-0 overflow-x-auto">
         {logos.map((logo) => (
           <span
             key={logo.name}
             title={logo.name}
             className={
               logo.fill
-                ? "inline-flex overflow-hidden rounded-[4px] shadow-sm w-8 h-[21px] sm:w-[42px] sm:h-7"
-                : "inline-flex items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] w-8 h-[21px] sm:w-[42px] sm:h-7"
+                ? "inline-flex shrink-0 overflow-hidden rounded-[4px] shadow-sm w-8 h-[21px] sm:w-[42px] sm:h-7"
+                : "inline-flex shrink-0 items-center justify-center bg-white rounded-[4px] shadow-sm overflow-hidden p-[3px] w-8 h-[21px] sm:w-[42px] sm:h-7"
             }
           >
             <img
