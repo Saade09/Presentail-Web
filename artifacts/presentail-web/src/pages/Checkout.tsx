@@ -807,13 +807,19 @@ function CheckoutForm() {
 
   // Use OS city time slots when available; fall back to hardcoded per-country defaults.
   // `selectedCityData?.timeSlots` is populated from /api/delivery-locations once loaded.
-  const timeSlots = useMemo(
-    () =>
-      selectedCityData?.timeSlots?.length
-        ? selectedCityData.timeSlots
-        : timeSlotsForCountry(countryCode),
-    [selectedCityData, countryCode],
-  );
+  // Safety net: if the flat list is empty but slotsByDay is present (e.g. Akkar),
+  // derive the effective flat list as the deduplicated union of all per-day arrays
+  // before reaching the country-wide fallback.
+  const timeSlots = useMemo(() => {
+    if (selectedCityData?.timeSlots?.length) return selectedCityData.timeSlots;
+    if (selectedCityData?.slotsByDay) {
+      const derived = Object.values(selectedCityData.slotsByDay)
+        .flat()
+        .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
+      if (derived.length > 0) return derived;
+    }
+    return timeSlotsForCountry(countryCode);
+  }, [selectedCityData, countryCode]);
 
   useEffect(() => {
     // Only fall back once city data has loaded; firing before that would

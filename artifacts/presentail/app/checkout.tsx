@@ -558,9 +558,17 @@ function CheckoutScreen() {
   // Use OS-provided slots for the selected city when available; fall back to
   // the hardcoded per-country slot table so existing behaviour is preserved
   // when the city has no OS config yet.
+  // Safety net: if the flat list is empty but slotsByDay is present (e.g. Akkar
+  // configured per-day-only), derive the effective flat list as the deduplicated
+  // union of all per-day arrays before reaching the country-wide fallback.
+  // This guards against stale cached API responses that predate the API server fix.
   const timeSlots = (selectedCity?.timeSlots?.length
     ? selectedCity.timeSlots
-    : timeSlotsForCountry(effectiveCountry)) as TimeSlot[];
+    : selectedCity?.slotsByDay && Object.keys(selectedCity.slotsByDay).length > 0
+      ? Object.values(selectedCity.slotsByDay as Record<string, TimeSlot[]>)
+          .flat()
+          .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i)
+      : timeSlotsForCountry(effectiveCountry)) as TimeSlot[];
   // Express availability: when OS explicitly configures the city, honour the
   // OS flag and cutoff hour. Otherwise fall back to the hardcoded 8 AM–10 PM
   // window so the feature keeps working for cities without OS config yet.

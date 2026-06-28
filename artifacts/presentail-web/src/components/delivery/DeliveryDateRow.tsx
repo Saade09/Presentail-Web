@@ -25,10 +25,16 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
     [t],
   );
 
-  const cityTimeSlots = useMemo(
-    () => (city?.timeSlots?.length ? city.timeSlots : timeSlotsForCountry(null)),
-    [city],
-  );
+  const cityTimeSlots = useMemo(() => {
+    if (city?.timeSlots?.length) return city.timeSlots;
+    if (city?.slotsByDay) {
+      const derived = Object.values(city.slotsByDay)
+        .flat()
+        .filter((s, i, arr) => arr.findIndex((t) => t.cutoffHour === s.cutoffHour) === i);
+      if (derived.length > 0) return derived;
+    }
+    return timeSlotsForCountry(null);
+  }, [city]);
 
   const contextRowText =
     mode != null
@@ -82,7 +88,7 @@ export function DeliveryDateRow({ className = "", rowText: rowTextProp, onChange
         <DeliveryPickerModal
           open={pickerOpen}
           onOpenChange={setPickerOpen}
-          timeSlots={city?.timeSlots}
+          timeSlots={cityTimeSlots}
           cityExpressAvailable={city?.expressAvailable === true}
         />
       )}

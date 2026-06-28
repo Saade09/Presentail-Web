@@ -409,6 +409,32 @@ function transformOsResponse(
           recordExpressOmission(canonicalId, code);
         }
 
+        // Filter flat slots and per-day slots independently, then derive the
+        // effective flat list. Some cities (e.g. Akkar) are configured with
+        // slotsByDay only — the OS API may omit the flat timeSlots array
+        // entirely, causing every consumer to fall through to the country-wide
+        // fallback and show the wrong (larger) slot set. When the flat list is
+        // empty but slotsByDay entries exist, build the effective flat list as
+        // the deduplicated union of all per-day arrays (keyed by cutoffHour).
+        const filteredTimeSlots = filterValidOsSlots(c.timeSlots ?? []);
+        const filteredSlotsByDay = c.slotsByDay
+          ? Object.fromEntries(
+              Object.entries(c.slotsByDay).map(([day, slots]) => [
+                day,
+                filterValidOsSlots(slots),
+              ]),
+            )
+          : undefined;
+        const effectiveTimeSlots =
+          filteredTimeSlots.length > 0 || !filteredSlotsByDay
+            ? filteredTimeSlots
+            : Object.values(filteredSlotsByDay)
+                .flat()
+                .filter(
+                  (slot, idx, arr) =>
+                    arr.findIndex((s) => s.cutoffHour === slot.cutoffHour) === idx,
+                );
+
         return {
           id: canonicalId,
           name: displayName,
@@ -439,20 +465,13 @@ function transformOsResponse(
             true,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
-          // Normalise to an array even when OS omits the field.
-          // Filter out slots where cutoffHour is null — these are
-          // draft/incomplete entries in the OS admin panel that should
-          // never be shown to shoppers.
-          timeSlots: filterValidOsSlots(c.timeSlots ?? []),
-          // Per-day slots — filter each day's slot list the same way.
-          slotsByDay: c.slotsByDay
-            ? Object.fromEntries(
-                Object.entries(c.slotsByDay).map(([day, slots]) => [
-                  day,
-                  filterValidOsSlots(slots),
-                ]),
-              )
-            : undefined,
+          // Effective flat slot list: if OS only configured slotsByDay (e.g.
+          // Akkar), effectiveTimeSlots is the deduplicated per-day union so
+          // todayHasSlots, firstAvailableDay, and label-matching all use the
+          // correct city-specific set rather than falling back to LB defaults.
+          timeSlots: effectiveTimeSlots,
+          // Per-day slots — pre-filtered, used by the slot grid for day-specific rendering.
+          slotsByDay: filteredSlotsByDay,
           localizedNames: localizedNamesForCity(canonicalId),
           // Per-city free-delivery settings: OS value takes precedence; fall
           // back to the hardcoded deliveryConfig entry so callers always get
