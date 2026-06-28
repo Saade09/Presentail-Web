@@ -282,7 +282,6 @@ const EN = {
   processingOrder: "Processing…",
   payLabel: "Pay",
   secureRedirectNote: "Your card details are encrypted and processed securely.",
-  opensAt8AM: "Opens 8 AM",
   emailForReceipt: "Email for receipt",
 
   // ── Account / Profile screen ──
@@ -1127,7 +1126,6 @@ const AR: typeof EN = {
   processingOrder: "جارٍ المعالجة…",
   payLabel: "ادفع",
   secureRedirectNote: "تفاصيل بطاقتك مشفرة ومعالجة بشكل آمن.",
-  opensAt8AM: "يبدأ الساعة 8 ص",
   emailForReceipt: "البريد الإلكتروني للإيصال",
 
   // ── Account / Profile screen ──
@@ -1966,7 +1964,6 @@ const FR: typeof EN = {
   processingOrder: "Traitement…",
   payLabel: "Payer",
   secureRedirectNote: "Vos coordonnées bancaires sont chiffrées et traitées en toute sécurité.",
-  opensAt8AM: "Ouvre à 8 h",
   emailForReceipt: "E-mail pour le reçu",
 
   // ── Account / Profile screen ──

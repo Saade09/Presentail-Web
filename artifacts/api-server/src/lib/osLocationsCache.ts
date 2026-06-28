@@ -159,11 +159,11 @@ function recordExpressOmission(cityId: string, countryCode: string): void {
   if (!expressOmissionAlertSent && expressOmissionCount >= EXPRESS_OMISSION_ALERT_THRESHOLD) {
     expressOmissionAlertSent = true;
     sendAlert({
-      title: "Delivery webhook omitting express_available for express-enabled cities",
+      title: "Delivery webhook omitting express_available for express-enabled cities", // i18n-ignore
       body:
-        `${expressOmissionCount} webhook payloads today omitted \`express_available\` for cities whose prior cache had \`expressAvailable=true\`. ` +
-        `The prior value is being preserved automatically, but this may indicate OS is sending partial/incomplete delivery_config.updated payloads. ` +
-        `Latest city: ${cityId} (${countryCode}). Check the OS webhook payload for completeness.`,
+        `${expressOmissionCount} webhook payloads today omitted \`express_available\` for cities whose prior cache had \`expressAvailable=true\`. ` + // i18n-ignore
+        `The prior value is being preserved automatically, but this may indicate OS is sending partial/incomplete delivery_config.updated payloads. ` + // i18n-ignore
+        `Latest city: ${cityId} (${countryCode}). Check the OS webhook payload for completeness.`, // i18n-ignore
       severity: "warn",
       source: "osLocationsCache",
     }).catch(() => {

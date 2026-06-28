@@ -52,11 +52,6 @@ export const authStrings: Dict = {
   "auth.phoneRequired": { en: "Phone number is required.", ar: "رقم الهاتف مطلوب." },
   "auth.createAccount": { en: "Create Account", ar: "إنشاء الحساب" },
 
-  "auth.otpStep.title": { en: "Enter verification code", ar: "أدخل رمز التحقق" },
-  "auth.otpStep.desc": { en: "We sent a code to your phone. Enter it below to complete registration.", ar: "أرسلنا رمزًا إلى هاتفك. أدخله أدناه لإتمام التسجيل." },
-  "auth.otpStep.codeLabel": { en: "Verification code", ar: "رمز التحقق" },
-  "auth.otpStep.verify": { en: "Verify & Create Account", ar: "تحقق وإنشاء الحساب" },
-  "auth.otpStep.resend": { en: "Resend code", ar: "إعادة إرسال الرمز" },
   "auth.signIn": { en: "Sign in", ar: "تسجيل الدخول" },
   "auth.enterPassword": { en: "Enter your password for {email}", ar: "أدخل كلمة المرور لحساب {email}" },
   "auth.forgotPassword": { en: "Forgot password?", ar: "نسيت كلمة المرور؟" },
@@ -122,12 +117,6 @@ export const authStringsFr: Record<string, string> = {
   "auth.phoneLabel": "Numéro de téléphone",
   "auth.phoneRequired": "Le numéro de téléphone est obligatoire.",
   "auth.createAccount": "Créer un compte",
-
-  "auth.otpStep.title": "Saisissez le code de vérification",
-  "auth.otpStep.desc": "Nous avons envoyé un code à votre téléphone. Saisissez-le ci-dessous pour finaliser l'inscription.",
-  "auth.otpStep.codeLabel": "Code de vérification",
-  "auth.otpStep.verify": "Vérifier et créer le compte",
-  "auth.otpStep.resend": "Renvoyer le code",
 
   "auth.signIn": "Se connecter",
   "auth.enterPassword": "Saisissez votre mot de passe pour {email}",

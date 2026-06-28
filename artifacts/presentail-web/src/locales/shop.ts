@@ -1,11 +1,6 @@
 import type { Dict } from "./types";
 
 export const shopStrings: Dict = {
-  "locationPicker.deliverHappiness": { en: "DELIVER HAPPINESS", ar: "أوصل السعادة" },
-  "locationPicker.heroSubtitle": { en: "Flowers, cakes, and gifts delivered across Lebanon, UAE, and Cyprus.", ar: "زهور وكيك وهدايا توصل في لبنان والإمارات وقبرص." },
-  "locationPicker.trustSameDay": { en: "Same-day options", ar: "خيارات في اليوم ذاته" },
-  "locationPicker.trustSecureCheckout": { en: "Secure checkout", ar: "دفع آمن" },
-  "locationPicker.trustLocalPartners": { en: "Local delivery partners", ar: "شركاء توصيل محليون" },
   "locationPicker.sendGiftTo": { en: "Send your gift to:", ar: "أرسل هديتك إلى:" },
   "locationPicker.change": { en: "Change", ar: "تغيير" },
   "locationPicker.selectCountryLabel": { en: "Select Country", ar: "اختر البلد" },
@@ -99,11 +94,6 @@ export const shopStrings: Dict = {
 };
 
 export const shopStringsFr: Record<string, string> = {
-  "locationPicker.deliverHappiness": "LIVREZ LE BONHEUR",
-  "locationPicker.heroSubtitle": "Fleurs, gâteaux et cadeaux livrés au Liban, aux Émirats arabes unis et à Chypre.",
-  "locationPicker.trustSameDay": "Options le jour même",
-  "locationPicker.trustSecureCheckout": "Paiement sécurisé",
-  "locationPicker.trustLocalPartners": "Partenaires de livraison locaux",
   "locationPicker.sendGiftTo": "Envoyez votre cadeau à :",
   "locationPicker.change": "Changer",
   "locationPicker.selectCountryLabel": "Choisir le pays",

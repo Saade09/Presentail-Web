@@ -14,11 +14,9 @@ export const orderStrings: Dict = {
   "order.backHome": { en: "Back to home", ar: "العودة إلى الرئيسية" },
   "order.fail.cantFind": { en: "We couldn't find your pending order to finalize. If you were charged, contact us with your payment reference.", ar: "لم نتمكن من العثور على طلبك المعلّق لإتمامه. إذا تم خصم المبلغ، يرجى التواصل معنا مع رقم مرجع الدفع." },
   "order.fail.missing": { en: "Pending order missing.", ar: "الطلب المعلّق مفقود." },
-  "order.fail.couldntRead": { en: "Could not read pending order.", ar: "تعذّرت قراءة الطلب المعلّق." },
   "order.fail.couldntCreate": { en: "Order could not be created.", ar: "تعذّر إنشاء الطلب." },
   "order.fail.failed": { en: "Order finalization failed.", ar: "فشل إتمام الطلب." },
   "order.fail.exhausted": { en: "We've tried several times but couldn't finalize your order. Please contact us with your payment reference below so we can help.", ar: "حاولنا عدة مرات لكن لم نتمكن من إتمام طلبك. يرجى التواصل معنا مع رقم مرجع الدفع أدناه لمساعدتك." },
-  "order.trackOrder": { en: "Track order", ar: "تتبّع الطلب" },
 
   "order.summary.items": { en: "Items Ordered", ar: "المنتجات المطلوبة" },
   "order.summary.cardMessage": { en: "Card Message", ar: "رسالة البطاقة" },
@@ -57,11 +55,9 @@ export const orderStringsFr: Record<string, string> = {
   "order.backHome": "Retour à l'accueil",
   "order.fail.cantFind": "Nous n'avons pas trouvé votre commande en attente. Si vous avez été débité, contactez-nous avec votre référence de paiement.",
   "order.fail.missing": "Commande en attente introuvable.",
-  "order.fail.couldntRead": "Impossible de lire la commande en attente.",
   "order.fail.couldntCreate": "La commande n'a pas pu être créée.",
   "order.fail.failed": "Échec de la finalisation de la commande.",
   "order.fail.exhausted": "Nous avons essayé plusieurs fois sans parvenir à finaliser votre commande. Veuillez nous contacter avec votre référence de paiement ci-dessous afin que nous puissions vous aider.",
-  "order.trackOrder": "Suivre la commande",
 
   "order.summary.items": "Articles commandés",
   "order.summary.cardMessage": "Message de la carte",
