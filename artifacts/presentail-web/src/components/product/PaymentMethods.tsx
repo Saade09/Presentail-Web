@@ -69,7 +69,7 @@ export function PaymentMethods({
 
   return (
     <div
-      className={className ?? "flex flex-row items-start gap-3"}
+      className={className ?? "flex flex-row items-center gap-3"}
       data-testid="payment-methods"
     >
       {resolvedLabel ? (
