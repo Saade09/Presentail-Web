@@ -56,9 +56,6 @@ export function LocationPicker({
   };
 
   const showCities = !!selectedCountry;
-  const sectionLabel = showCities
-    ? t("locationPicker.selectCityLabel")
-    : t("locationPicker.selectCountryLabel");
 
   return (
     <div className="relative flex flex-col w-full min-h-0 flex-1">
@@ -80,9 +77,10 @@ export function LocationPicker({
           onClick={handleBackToCountries}
           aria-label={t("locationPicker.back")}
           data-testid="button-picker-back"
-          className="self-start inline-flex items-center justify-center w-8 h-8 rounded-full text-primary hover:bg-secondary/60 transition-colors mb-3"
+          className="self-start inline-flex items-center gap-1.5 text-xs font-medium text-foreground/50 hover:text-foreground/80 hover:underline underline-offset-2 transition-colors cursor-pointer mb-3"
         >
-          <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
+          <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180 shrink-0" />
+          {t("locationPicker.changeCountry")}
         </button>
       )}
 
@@ -97,29 +95,19 @@ export function LocationPicker({
       )}
 
       {showCities && selectedCountry ? (
-        <div className="mt-3 mb-4 flex items-center justify-between gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <>
+          <div className="mt-3 flex items-center gap-3 bg-secondary/60 rounded-[14px] px-4 py-3">
             <CountryFlag code={selectedCountry.code} className="w-[22px] aspect-[3/2] shrink-0" />
             <span className="text-sm font-semibold text-primary truncate">
               {countryName(selectedCountry.code, selectedCountry.name)}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleBackToCountries}
-            data-testid="button-country-header-change"
-            className="text-xs font-semibold text-primary hover:opacity-80 transition-opacity shrink-0 cursor-pointer"
-          >
-            {t("locationPicker.change")}
-          </button>
-        </div>
+          <p className="text-sm font-bold text-foreground text-start mt-3 mb-0">
+            {t("locationPicker.selectCityLabel")}
+          </p>
+          <div className="border-t border-border mt-3" />
+        </>
       ) : null}
-
-      {showCities && (
-        <p className="text-sm font-bold text-foreground text-start mb-4 mt-3">
-          {sectionLabel}
-        </p>
-      )}
 
       <div className="flex flex-col overflow-y-auto min-h-0 flex-1">
         {isLoadingCountries && countries.length === 0 ? (

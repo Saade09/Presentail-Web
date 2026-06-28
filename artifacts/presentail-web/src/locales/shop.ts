@@ -2,12 +2,12 @@ import type { Dict } from "./types";
 
 export const shopStrings: Dict = {
   "locationPicker.sendGiftTo": { en: "Send your gift to:", ar: "أرسل هديتك إلى:" },
-  "locationPicker.change": { en: "Change", ar: "تغيير" },
   "locationPicker.selectCountryLabel": { en: "Select Country", ar: "اختر البلد" },
   "locationPicker.selectRecipientCountry": { en: "Select the recipient's country:", ar: "اختر بلد المستلم:" },
   "locationPicker.selectCityLabel": { en: "Select City", ar: "اختر المدينة" },
   "locationPicker.close": { en: "Close", ar: "إغلاق" },
   "locationPicker.back": { en: "Back", ar: "رجوع" },
+  "locationPicker.changeCountry": { en: "Change country", ar: "تغيير الدولة" },
   "locationPickerGate.dialogTitle": { en: "Choose delivery location", ar: "اختر موقع التوصيل" },
   "locationPickerGate.dialogDesc": { en: "Select the country and city you want your gift delivered to.", ar: "اختر البلد والمدينة التي تريد توصيل هديتك إليها." },
 
@@ -95,12 +95,12 @@ export const shopStrings: Dict = {
 
 export const shopStringsFr: Record<string, string> = {
   "locationPicker.sendGiftTo": "Envoyez votre cadeau à :",
-  "locationPicker.change": "Changer",
   "locationPicker.selectCountryLabel": "Choisir le pays",
   "locationPicker.selectRecipientCountry": "Sélectionnez le pays du destinataire :",
   "locationPicker.selectCityLabel": "Choisir la ville",
   "locationPicker.close": "Fermer",
   "locationPicker.back": "Retour",
+  "locationPicker.changeCountry": "Changer de pays",
   "locationPickerGate.dialogTitle": "Choisir le lieu de livraison",
   "locationPickerGate.dialogDesc": "Sélectionnez le pays et la ville où vous souhaitez livrer votre cadeau.",
 
