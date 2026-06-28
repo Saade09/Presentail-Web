@@ -307,6 +307,11 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     TITLES[lang]?.[routeKey] ?? TITLES.en[routeKey] ?? TITLES.en.landing,
     params,
   );
+  if (process.env.NODE_ENV !== "production" && title.length > 65) {
+    console.warn(
+      `SEO title exceeds 65 chars (${title.length}) [${routeKey}/${lang}]: "${title}"`,
+    );
+  }
   const description = format(
     DESCRIPTIONS[lang]?.[routeKey] ??
       DESCRIPTIONS.en[routeKey] ??

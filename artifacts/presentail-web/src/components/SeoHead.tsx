@@ -155,6 +155,11 @@ export function SeoHead() {
     }
 
     document.title = title;
+    if (import.meta.env.DEV && title.length > 65) {
+      console.warn(
+        `SEO title exceeds 65 chars (${title.length}) [${routeKey}]: "${title}"`,
+      );
+    }
 
     // Clean up previously managed tags before re-adding.
     head
