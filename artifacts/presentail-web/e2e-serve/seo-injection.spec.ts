@@ -595,3 +595,179 @@ describeEntityImageDimensions("bare product", "/product/rose-bouquet");
 // ---------------------------------------------------------------------------
 
 describeEntityImageDimensions("bare blog post", "/blog/inside-spring-sourcing-trip");
+
+// ---------------------------------------------------------------------------
+// 10. Unknown-slug fallback — brand, category, and occasion pages degrade
+//     cleanly to a generic OG head with no malformed structured-data nodes.
+//
+// When seo-inject.mjs calls /api/woo/brand (or /category / /occasion) and the
+// fixture server returns 404, `injectSeoTagsAsync` falls through to
+// `assembleHtml(html, generic)` — the same generic locale-aware head that
+// non-entity routes receive. A regression in this path — e.g. accidentally
+// emitting a partial Product or BreadcrumbList node whose required fields are
+// empty or missing — would let malformed structured data ship to Google for
+// every broken/retired slug, yet the fixture server's unknown-slug 404 was
+// previously untested.
+//
+// Each sub-case asserts:
+//   (a) The server returns 200 (always serves the SPA shell).
+//   (b) og:title is present and non-empty (the generic head always sets this).
+//   (c) og:image is present and is an absolute URL (generic fallback).
+//   (d) No JSON-LD <script type="application/ld+json"> block contains a node
+//       with missing required schema.org fields — the same contract enforced by
+//       `collectJsonLdProblems` in seo-inject.mjs but evaluated end-to-end on
+//       the served HTML so serve.mjs's branching logic is covered too.
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract and parse every <script type="application/ld+json"> block from a
+ * raw HTML string, flatten any @graph wrappers into individual nodes, and
+ * return the full list of schema.org node objects.
+ *
+ * Mirrors the validation path in seo-inject.mjs's `collectJsonLdProblems` /
+ * `validateJsonLd` so the same structural guarantees are enforced end-to-end
+ * on the actual served HTML rather than just at render time.
+ */
+function findAllJsonLdNodes(html: string): unknown[] {
+  const nodes: unknown[] = [];
+  const scriptRe =
+    /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = scriptRe.exec(html)) !== null) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(m[1]);
+    } catch {
+      // Malformed JSON is itself a problem — surface it as a sentinel.
+      nodes.push({ __parseError: true, raw: m[1].slice(0, 200) });
+      continue;
+    }
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      if (Array.isArray(obj["@graph"])) {
+        for (const node of obj["@graph"]) {
+          if (node && typeof node === "object") nodes.push(node);
+        }
+      } else {
+        nodes.push(parsed);
+      }
+    }
+  }
+  return nodes;
+}
+
+/**
+ * Return a list of human-readable problems for a single JSON-LD node.
+ * Mirrors the `JSON_LD_REQUIRED_FIELDS` map in seo-inject.mjs so any
+ * regression in required-field coverage is caught here before it ships.
+ */
+function collectJsonLdProblemsLocal(node: unknown): string[] {
+  const problems: string[] = [];
+  if (!node || typeof node !== "object") return problems;
+  const obj = node as Record<string, unknown>;
+
+  // Parse errors surfaced by findAllJsonLdNodes.
+  if (obj["__parseError"]) {
+    return [`JSON-LD block is not valid JSON: ${String(obj["raw"])}`];
+  }
+
+  // @graph wrappers are skipped — callers flatten those into individual nodes.
+  if (obj["@graph"]) return problems;
+
+  const type = obj["@type"] as string | undefined;
+  const requiredByType: Record<string, string[]> = {
+    Organization: ["name", "url"],
+    WebSite: ["name", "url"],
+    Florist: ["name", "url"],
+    WebPage: ["name", "url"],
+    ContactPage: ["name", "url"],
+    Product: ["name"],
+    Article: ["headline", "image", "datePublished", "url"],
+    BreadcrumbList: ["itemListElement"],
+    ItemList: ["itemListElement"],
+    FAQPage: ["mainEntity"],
+  };
+  if (type && requiredByType[type]) {
+    for (const field of requiredByType[type]) {
+      const v = obj[field];
+      if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) {
+        problems.push(`@type ${type}: missing required field "${field}"`);
+      }
+    }
+  }
+  // Product offers, when present, must carry price + currency + availability.
+  if (type === "Product" && obj["offers"] && typeof obj["offers"] === "object") {
+    const offers = obj["offers"] as Record<string, unknown>;
+    for (const field of ["price", "priceCurrency", "availability"]) {
+      if (offers[field] == null || offers[field] === "") {
+        problems.push(`Product offers: missing "${field}"`);
+      }
+    }
+  }
+  return problems;
+}
+
+interface UnknownSlugCase {
+  label: string;
+  path: string;
+}
+
+const UNKNOWN_SLUG_CASES: UnknownSlugCase[] = [
+  { label: "brand", path: "/en-lb/beirut/brand/unknown-brand-slug-xyz" },
+  { label: "category", path: "/en-lb/beirut/category/unknown-category-slug-xyz" },
+  { label: "occasion", path: "/en-lb/beirut/occasion/unknown-occasion-slug-xyz" },
+];
+
+for (const { label, path } of UNKNOWN_SLUG_CASES) {
+  test.describe(
+    `Production SEO — unknown ${label} slug degrades to generic OG head (${path})`,
+    () => {
+      let html: string;
+
+      test.beforeAll(async ({ request }) => {
+        const response = await request.get(path);
+        // serve.mjs always responds 200 (SPA shell) even for unknown slugs —
+        // the client-side router handles the redirect / 404 UI.
+        expect(
+          response.status(),
+          `expected 200 for unknown ${label} slug, got ${response.status()}`,
+        ).toBe(200);
+        html = await response.text();
+      });
+
+      test("og:title is present and non-empty", () => {
+        const content = findMetaContent(html, "property", "og:title");
+        expect(
+          content,
+          `meta[property="og:title"] not found on unknown ${label} page`,
+        ).toBeTruthy();
+        expect(content!.trim().length).toBeGreaterThan(0);
+      });
+
+      test("og:image is present and is an absolute URL", () => {
+        const content = findMetaContent(html, "property", "og:image");
+        expect(
+          content,
+          `meta[property="og:image"] not found on unknown ${label} page`,
+        ).toBeTruthy();
+        expect(content!.trim().length).toBeGreaterThan(0);
+        expect(
+          content,
+          `og:image must be absolute on unknown ${label} page, got "${content}"`,
+        ).toMatch(/^https?:\/\//);
+      });
+
+      test("no JSON-LD node has missing required schema.org fields", () => {
+        const nodes = findAllJsonLdNodes(html);
+        const problems: string[] = [];
+        for (const node of nodes) {
+          problems.push(...collectJsonLdProblemsLocal(node));
+        }
+        expect(
+          problems,
+          `Unknown ${label} slug page emitted JSON-LD with missing required fields:\n${problems.join("\n")}`,
+        ).toHaveLength(0);
+      });
+    },
+  );
+}
