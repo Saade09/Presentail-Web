@@ -624,14 +624,20 @@ const STRIPE_APPLE_PAY_FILE_CONTENT = resolveStripeApplePayFileContent();
 {
   const envVal = process.env.STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION ?? "";
   if (!envVal) {
-    console.log(
-      "INFO: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — using built-in fallback value " +
-        "(note: the built-in cert expired May 2024; Apple Pay in browsers may be disabled until the secret is set correctly)",
+    console.error(
+      "WARN: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — serving the built-in fallback value. " +
+        "The built-in cert EXPIRED May 2024. Apple Pay in the browser is DISABLED for all shoppers " +
+        "until this secret is set correctly.",
+    );
+    console.error(
+      "      Fix: Stripe Dashboard → Settings → Payment methods → Apple Pay → Domains → " +
+        "presentail.com → Download verification file, then set the full file contents " +
+        "(~1700 chars) as the STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION Replit secret and republish.",
     );
     if (process.env.NODE_ENV === "production") {
       sendSlackAlert(
-        ":warning: *presentail-web: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set*\n" +
-          "The built-in fallback cert expired May 2024 — Apple Pay in the browser is likely disabled for all shoppers.\n" +
+        ":rotating_light: *presentail-web: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set*\n" +
+          "The built-in fallback cert *expired May 2024* — Apple Pay in the browser is *disabled* for all shoppers.\n" +
           "Fix: Stripe Dashboard → Settings → Payment methods → Apple Pay → Domains → presentail.com → Download verification file, " +
           "then set the full file contents (~1700 chars) as the `STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION` Replit secret and republish.",
       ).catch(() => {});
