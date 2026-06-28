@@ -1953,7 +1953,9 @@ function CheckoutForm() {
       {/* ── Checkout header ── */}
       <header className="z-40" style={{ backgroundColor: "hsl(var(--primary))" }}>
         <div className="max-w-content mx-auto px-page py-3 flex items-center text-primary-foreground">
-          <Logo height={56} inverse={true} />
+          <Link href="/" aria-label={t("nav.logoAria")}>
+            <Logo height={56} inverse={true} />
+          </Link>
           <div className="flex-1 flex items-center justify-center">
             {stepLabels.map((label, i) => {
               const n = i + 1;
