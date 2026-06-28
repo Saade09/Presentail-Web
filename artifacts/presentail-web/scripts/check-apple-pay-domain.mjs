@@ -50,6 +50,23 @@ if (!trimmed) {
   process.exit(1);
 }
 
+// Common misconfiguration: the Stripe Payment Method Domain *ID* (e.g.
+// `pmd_1Nba2XFiPsqrSFp8VOR2kZIp`) was pasted into
+// STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION instead of the CONTENTS of the
+// downloaded `apple-developer-merchantid-domain-association` file. The ID is a
+// short `pmd_`-prefixed token; the real file is a long opaque blob. Catch this
+// explicitly so the failure points at the actual mistake instead of a generic
+// "too short" message.
+if (/^pmd_[A-Za-z0-9]+$/.test(trimmed)) {
+  console.error(
+    `FAIL  Response body is a Stripe Payment Method Domain ID ('${trimmed}'), ` +
+      `not the Apple Pay domain association file contents. ` +
+      `Set STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION to the full contents of the file ` +
+      `downloaded from Stripe Dashboard → Apple Pay → Domains → Download verification file.`,
+  );
+  process.exit(1);
+}
+
 if (trimmed.length < 100) {
   console.error(
     `FAIL  Response body is suspiciously short (${trimmed.length} chars) — ` +
