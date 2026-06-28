@@ -1106,7 +1106,7 @@ function CheckoutForm() {
       setWalletSupported(false);
       setPaymentMethodState((current) => {
         if (current !== "apple_pay" && current !== "google_pay") return current;
-        return currencyCode === "AED" ? "mamo" : "card";
+        return "card";
       });
       return;
     }
@@ -1115,25 +1115,27 @@ function CheckoutForm() {
         // Browser has a wallet configured (Apple Pay / Google Pay). We do NOT
         // store this probe PR for reuse: it was constructed with currency
         // "usd" and a PaymentRequest's currency is immutable, so reusing it
-        // would force the wallet sheet to display USD. handleSubmit creates a
-        // fresh PR in the shopper's display currency right before pr.show().
+        // would force the wallet sheet to display USD. The wallet intent
+        // pre-creation effect creates a fresh PR with the correct currency and
+        // pre-validates it via canMakePayment() so handleSubmit can call
+        // show() synchronously inside the click gesture.
         // Leaving the tiles visible (walletSupported stays true) is all the
         // probe needs to do on success.
       } else if (!isMobileRef.current) {
         // Desktop only: browser reported no wallet available — hide the rows
         // and advance the selection so the shopper is never left on a tile
-        // that would fail.
-        //   • AED  → mamo  (Stripe doesn't settle AED; Mamo is the card option)
-        //   • else → card  (Stripe settles all other supported currencies)
+        // that would fail. AED and all other currencies fall back to card
+        // (Stripe Gulf account handles AED; Mamo is disabled).
         //
         // On mobile we intentionally skip this: the canMakePayment() probe can
         // return null due to timing races or sheet pre-warm issues even when
         // the native Apple Pay / Google Pay sheet works. We keep tiles visible
-        // and let handleSubmit try a fresh paymentRequest on tap.
+        // and let the pre-creation effect's canMakePayment() call on the
+        // submit PR determine real availability.
         setWalletSupported(false);
         setPaymentMethodState((current) => {
           if (current !== "apple_pay" && current !== "google_pay") return current;
-          return currencyCode === "AED" ? "mamo" : "card";
+          return "card";
         });
       }
     }).catch(() => {
@@ -1210,6 +1212,9 @@ function CheckoutForm() {
     // lands. This is what prevents the sheet from ever opening with a stale or
     // estimated total.
     if (walletReadySig !== null) setWalletReadySig(null);
+    // Invalidate the previously pre-validated PaymentRequest so the stale
+    // instance is never shown for a different amount/currency.
+    paymentRequestRef.current = null;
     // Clear any prior failure so the spinner re-arms and the shopper can see
     // preparation is retrying rather than still stuck in a failed state.
     setWalletPrepareFailed(false);
@@ -1240,6 +1245,38 @@ function CheckoutForm() {
             currency: res.currency.toLowerCase(),
             orderId,
           };
+          // Pre-create and canMakePayment()-validate the submit-time
+          // PaymentRequest now, while we are NOT in a user-gesture context.
+          // Stripe requires canMakePayment() to be called on a PR instance
+          // before pr.show() can be called on it — calling show() on a fresh
+          // PR without prior canMakePayment() throws synchronously. We create
+          // the PR here (where the exact server-computed currency and amount
+          // are known) and store it in paymentRequestRef so handleSubmit can
+          // call show() synchronously inside the click gesture with no await.
+          try {
+            const submitPr = stripe.paymentRequest({
+              country: isGulfRef.current
+                ? STRIPE_MERCHANT_COUNTRY_GULF
+                : STRIPE_MERCHANT_COUNTRY,
+              currency: res.currency.toLowerCase(),
+              total: {
+                label: t("checkout.payment.orderTitle"),
+                amount: res.amount,
+              },
+              requestPayerName: false,
+              requestPayerEmail: false,
+              disableWallets: ["link", "browserCard"],
+            });
+            submitPr.canMakePayment().then((result) => {
+              if (!cancelled) {
+                paymentRequestRef.current = result ? submitPr : null;
+              }
+            }).catch(() => {
+              if (!cancelled) paymentRequestRef.current = null;
+            });
+          } catch {
+            paymentRequestRef.current = null;
+          }
           setWalletReadySig(sig);
         }
       } catch {
@@ -1598,48 +1635,13 @@ function CheckoutForm() {
         return;
       }
 
-      // Always create a FRESH PaymentRequest for the actual wallet checkout.
-      // The probe PR created in the canMakePayment() effect is constructed with
-      // currency "usd" purely to detect wallet availability — and a
-      // PaymentRequest's currency is immutable after construction, so calling
-      // pr.update() can never change the currency shown in the Apple Pay /
-      // Google Pay sheet. Reusing the probe PR would therefore always display
-      // USD even when the shopper selected EUR / GBP / etc. We build a new PR
-      // here with the server-computed amount and currency from the pre-created
-      // PaymentIntent, so the sheet matches the charge byte-for-byte.
-      //
-      // This mirrors the previous mobile-only on-demand path: creating a fresh
-      // PR and calling pr.show() synchronously (without re-running the async
-      // canMakePayment() probe on this instance) works in production — the
-      // upfront probe already confirmed the device has a wallet on desktop, and
-      // on mobile the native sheet opens fine even when the probe raced to null.
-      if (isWalletMethod && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
-        try {
-          paymentRequestRef.current = stripe.paymentRequest({
-            // Gulf account (AE) for AED/KWD/OMR, main account (CY) for everything else.
-            country: isGulfRef.current ? STRIPE_MERCHANT_COUNTRY_GULF : STRIPE_MERCHANT_COUNTRY,
-            currency: prefetchedIntent.currency,
-            total: {
-              label: t("checkout.payment.orderTitle"),
-              amount: prefetchedIntent.amount,
-            },
-            requestPayerName: false,
-            requestPayerEmail: false,
-            disableWallets: ["link", "browserCard"],
-          });
-        } catch {
-          // paymentRequest() constructor failed — env var misconfigured or
-          // browser doesn't support the PaymentRequest API at all. Show a toast
-          // so the shopper knows to pick another payment method.
-          paymentRequestRef.current = null;
-          trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "constructor_failed" });
-          toast({
-            title: t("checkout.toast.walletPrepareFailTitle"),
-            description: t("checkout.toast.walletPrepareFailDesc"),
-            variant: "destructive",
-          });
-        }
-      }
+      // paymentRequestRef.current is the submit-time PaymentRequest that was
+      // pre-created and canMakePayment()-validated in the wallet intent
+      // pre-creation effect (above). Stripe requires canMakePayment() to have
+      // been called on a PR instance before pr.show() can be called on it —
+      // creating a fresh PR here and calling show() immediately always throws.
+      // If the ref is null the wallet sheet is unavailable; walletViaNativeSheet
+      // will be false and execution falls through to the card path below.
 
       const walletViaNativeSheet =
         isWalletMethod &&
