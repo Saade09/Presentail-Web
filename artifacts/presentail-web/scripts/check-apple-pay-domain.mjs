@@ -12,6 +12,32 @@
 // Exits 0 on PASS, 1 on FAIL.
 
 const WELL_KNOWN_PATH = "/.well-known/apple-developer-merchantid-domain-association";
+const WARN_DAYS = 30;
+
+/**
+ * Send a Slack message via the incoming webhook URL in ALERTS_SLACK_WEBHOOK_URL.
+ * No-ops silently when the env var is unset.
+ * @param {string} text Slack message text (markdown supported)
+ */
+async function sendSlackAlert(text) {
+  const webhookUrl = process.env.ALERTS_SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn(
+        `WARN  Slack alert returned HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`,
+      );
+    }
+  } catch (err) {
+    console.warn(`WARN  Could not send Slack alert: ${err.message}`);
+  }
+}
 
 const arg = process.argv[2];
 if (!arg) {
@@ -207,11 +233,24 @@ try {
       const daysLeft = Math.floor(
         (earliestExpiry - now) / (1000 * 60 * 60 * 24),
       );
-      if (daysLeft <= 30) {
-        console.warn(
+      if (daysLeft <= WARN_DAYS) {
+        const warnMsg =
           `WARN  The Apple Pay domain association cert expires in ${daysLeft} day(s) ` +
-            `(${earliestExpiry.toISOString()}). Renew it soon via Stripe Dashboard.`,
-        );
+          `(${earliestExpiry.toISOString()}). Renew it soon via Stripe Dashboard.`;
+        console.warn(warnMsg);
+        const slackText =
+          `:warning: *Apple Pay cert expiring in ${daysLeft} day(s)* — action required before it expires on ${earliestExpiry.toUTCString()}.\n` +
+          `\n` +
+          `*Rotation steps:*\n` +
+          `1. Open Stripe Dashboard → Settings → Payment methods → Apple Pay → Domains.\n` +
+          `2. Find \`presentail.com\`, click the menu, and choose *Download verification file*.\n` +
+          `3. Copy the full contents of the downloaded file.\n` +
+          `4. In Replit → Secrets, update \`STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION\` to the new file contents.\n` +
+          `5. Redeploy the web app so the updated file is served at \`/.well-known/apple-developer-merchantid-domain-association\`.\n` +
+          `6. Back in Stripe Dashboard, click *Verify* next to \`presentail.com\` to confirm the domain is valid.\n` +
+          `\n` +
+          `_Cert notAfter: ${earliestExpiry.toISOString()} · days remaining: ${daysLeft}_`;
+        await sendSlackAlert(slackText);
       } else {
         console.log(
           `      Cert expiry: ${earliestExpiry.toISOString()} (${daysLeft} days from now)`,
