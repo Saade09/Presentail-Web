@@ -326,9 +326,9 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] pt-12 pb-32 lg:pb-24">
+    <div className="min-h-screen bg-[#fafaf9] pt-6 pb-32 lg:pb-24">
       <div className="container mx-auto px-page max-w-content">
-        <h1 className="text-4xl font-serif mb-12">{t("cart.title")} ({itemCount})</h1>
+        <h1 className="text-4xl font-serif mb-4">{t("cart.title")} ({itemCount})</h1>
 
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Cart Items */}
