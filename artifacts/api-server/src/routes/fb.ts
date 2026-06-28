@@ -21,6 +21,7 @@ const FB_EVENT_NAMES: [CAPIEventName, ...CAPIEventName[]] = [
 const FbMobileEventBodySchema = z.object({
   event: z.enum(["ViewContent", "AddToCart", "InitiateCheckout", "Purchase"]),
   countryCode: z.string().max(8),
+  eventId: z.string().max(128).optional(),
   value: z.number().optional(),
   currency: z.string().max(8).optional(),
   contentIds: z.array(z.string().max(128)).max(50).optional(),
@@ -81,11 +82,12 @@ router.post(
       return;
     }
 
-    const { event, countryCode, value, currency, contentIds, contentName, email, phone } = parsed.data;
+    const { event, countryCode, eventId, value, currency, contentIds, contentName, email, phone } = parsed.data;
 
     void sendCapiEvent({
       eventName: event,
       countryCode,
+      eventId,
       value,
       currency,
       contentIds,

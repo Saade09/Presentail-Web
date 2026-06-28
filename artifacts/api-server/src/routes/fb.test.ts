@@ -267,6 +267,134 @@ describe("sendCapiEvent", () => {
   });
 });
 
+describe("Deduplication: concurrent mobile + web Purchase events with shared eventId", () => {
+  const mockFetch = vi.fn();
+  const PIXEL_ID = "1234567890";
+  const TOKEN = "test-token-lb";
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    process.env.VITE_FB_PIXEL_ID_LB = PIXEL_ID;
+    process.env.FB_CONVERSIONS_TOKEN_LB = TOKEN;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    delete process.env.VITE_FB_PIXEL_ID_LB;
+    delete process.env.FB_CONVERSIONS_TOKEN_LB;
+  });
+
+  it("sends the same event_id to Meta when both routes fire concurrently with the same eventId", async () => {
+    const sharedEventId = "dedup-purchase-abc123";
+
+    // Fire both routes concurrently, as they would be in a real dual-signal purchase.
+    // Mobile route uses sendCapiEvent (countryCode-keyed, action_source=app).
+    // Web route uses sendCapiEventByPixelId (pixelId-keyed, action_source=website).
+    await Promise.all([
+      sendCapiEvent({
+        eventName: "Purchase",
+        countryCode: "LB",
+        value: 50,
+        currency: "USD",
+        eventId: sharedEventId,
+        actionSource: "app",
+      }),
+      sendCapiEventByPixelId({
+        eventName: "Purchase",
+        pixelId: PIXEL_ID,
+        value: 50,
+        currency: "USD",
+        eventId: sharedEventId,
+      }),
+    ]);
+
+    // Both routes must reach Meta (two separate fetch calls, one per route).
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Extract the event_id from each CAPI payload and confirm they are identical.
+    const payloads = mockFetch.mock.calls.map(([, options]: [string, RequestInit]) => {
+      const body = JSON.parse(options.body as string) as {
+        data: Array<{ event_id: string; action_source: string }>;
+      };
+      return body.data[0];
+    });
+
+    expect(payloads[0].event_id).toBe(sharedEventId);
+    expect(payloads[1].event_id).toBe(sharedEventId);
+    expect(payloads[0].event_id).toBe(payloads[1].event_id);
+  });
+
+  it("each route independently reaches Meta (two calls) — no event is silently dropped", async () => {
+    const sharedEventId = "dedup-view-xyz";
+
+    await Promise.all([
+      sendCapiEvent({
+        eventName: "InitiateCheckout",
+        countryCode: "LB",
+        eventId: sharedEventId,
+        actionSource: "app",
+      }),
+      sendCapiEventByPixelId({
+        eventName: "InitiateCheckout",
+        pixelId: PIXEL_ID,
+        eventId: sharedEventId,
+      }),
+    ]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const eventIds = mockFetch.mock.calls.map(([, options]: [string, RequestInit]) => {
+      const body = JSON.parse(options.body as string) as {
+        data: Array<{ event_id: string }>;
+      };
+      return body.data[0].event_id;
+    });
+    expect(new Set(eventIds).size).toBe(1);
+    expect(eventIds[0]).toBe(sharedEventId);
+  });
+
+  it("action_source distinguishes app vs website events while event_id stays the same", async () => {
+    const sharedEventId = "dedup-source-check";
+
+    await Promise.all([
+      sendCapiEvent({
+        eventName: "Purchase",
+        countryCode: "LB",
+        value: 75,
+        currency: "USD",
+        eventId: sharedEventId,
+        actionSource: "app",
+      }),
+      sendCapiEventByPixelId({
+        eventName: "Purchase",
+        pixelId: PIXEL_ID,
+        value: 75,
+        currency: "USD",
+        eventId: sharedEventId,
+      }),
+    ]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    const payloads = mockFetch.mock.calls.map(([, options]: [string, RequestInit]) => {
+      const body = JSON.parse(options.body as string) as {
+        data: Array<{ event_id: string; action_source: string }>;
+      };
+      return body.data[0];
+    });
+
+    // Both events carry the same event_id so Meta can deduplicate them.
+    expect(payloads[0].event_id).toBe(sharedEventId);
+    expect(payloads[1].event_id).toBe(sharedEventId);
+
+    // The two events differ only in action_source, allowing Meta to identify the origin.
+    const sources = new Set(payloads.map((p) => p.action_source));
+    expect(sources).toContain("app");
+    expect(sources).toContain("website");
+  });
+});
+
 describe("sendCapiEventByPixelId (POST /api/pixel/event path)", () => {
   const mockFetch = vi.fn();
 
