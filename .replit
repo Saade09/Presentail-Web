@@ -40,6 +40,10 @@ args = "API Server"
 task = "workflow.run"
 args = "Web Serve"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-serve-blog"
+
 [[workflows.workflow]]
 name = "check-hardcoded-web-strings"
 author = "agent"
@@ -106,6 +110,17 @@ args = "PORT=5173 BASE_PATH=/ node artifacts/presentail-web/serve.mjs"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "e2e-serve-blog"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "SERVE_E2E_SPEC=blog-image-perf.spec.ts bash artifacts/presentail-web/scripts/run-serve-e2e.sh"
 
 [agent]
 stack = "PNPM_WORKSPACE"
