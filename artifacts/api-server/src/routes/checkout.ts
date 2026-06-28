@@ -8,12 +8,30 @@ import {
 } from "../lib/fx";
 import { resolveCartItems } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
-import { resolveStoreFromRequest } from "../lib/wooStore";
+import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
 import { validateCoupon } from "../lib/couponValidation";
 import { authenticate } from "../lib/auth";
 import { db, customersTable } from "@workspace/db";
 
 const router: IRouter = Router();
+
+/**
+ * Maps a resolved StoreKey to a human-readable market name for the Stripe
+ * payment description (e.g. "Order PR-123 from Presentail Lebanon").
+ * Both UAE store keys (dubai + abudhabi) map to "UAE".
+ */
+function storeKeyToCountry(storeKey: StoreKey): string {
+  switch (storeKey) {
+    case "dubai":
+    case "abudhabi":
+      return "UAE";
+    case "cyprus":
+      return "Cyprus";
+    case "lebanon":
+    default:
+      return "Lebanon";
+  }
+}
 
 // Currencies routed to the Gulf Stripe account.
 const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"] as const;
@@ -149,6 +167,11 @@ router.post("/checkout/session", async (req, res) => {
       })),
       // orderId is embedded in metadata so verifyStripePayment can confirm
       // this session was not created for a different order and replayed.
+      // description must be set on the underlying PaymentIntent via
+      // payment_intent_data — SessionCreateParams has no top-level description.
+      payment_intent_data: {
+        description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`,
+      },
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -391,6 +414,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
       // card without enumerating them explicitly, and automatically surfaces any
       // future wallet methods Stripe adds to the account.
       automatic_payment_methods: { enabled: true },
+      description: `Order ${orderId} from Presentail ${storeKeyToCountry(store.storeKey)}`,
       metadata: { ...(metadata ?? {}), orderId, presented_currency: currency },
       ...(email ? { receipt_email: email } : {}),
       // Attach Stripe Customer when the shopper is authenticated.
