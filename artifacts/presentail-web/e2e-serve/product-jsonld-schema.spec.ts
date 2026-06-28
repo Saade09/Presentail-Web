@@ -20,9 +20,10 @@
  * validators as check-product-jsonld-schema.mjs.  It fails the workflow when
  * the real served page emits invalid or missing product schema.
  *
- * Route exercised:
- *   /en-lb/beirut/product/rose-bouquet   — resolves the "rose-bouquet"
- *                                           fixture product (price 89, inStock)
+ * Routes exercised (one describe block per market):
+ *   /en-lb/beirut/product/rose-bouquet        — Lebanon  (LB, USD)
+ *   /en-ae/dubai/product/velvet-rose-bouquet  — UAE      (AE, USD)
+ *   /en-cy/nicosia/product/orchid-arrangement — Cyprus   (CY, USD)
  *
  * The validators below mirror the logic in check-product-jsonld-schema.mjs
  * (extractProductSchema, validateProductOffer) inlined here to avoid .mjs
@@ -212,39 +213,153 @@ function validateProductOffer(
 }
 
 // ---------------------------------------------------------------------------
-// Test suite — fetches the product route once and runs two assertions
+// Per-market locale assertions
 // ---------------------------------------------------------------------------
 
-const PRODUCT_PATH = "/en-lb/beirut/product/rose-bouquet";
+/**
+ * Validate that the locale-specific fields in the Product Offer match the
+ * expected values for the given market.  All three served markets use USD as
+ * the JSON-LD price currency (display-currency conversion is client-only);
+ * the addressCountry field must match the ISO-3166-1 alpha-2 country code.
+ *
+ * Returns an array of human-readable error strings; empty means the node
+ * passes the locale checks.
+ */
+function validateLocaleFields(
+  product: Record<string, unknown> | null,
+  expectedCountry: string,
+  expectedCurrency: string,
+): string[] {
+  if (!product || typeof product !== "object") {
+    return ["Product JSON-LD node is missing — cannot check locale fields"];
+  }
+  const offer = product.offers as Record<string, unknown> | undefined;
+  if (!offer || typeof offer !== "object" || Array.isArray(offer)) {
+    return [
+      'Product is missing a single "offers" object — cannot check locale fields',
+    ];
+  }
 
-test.describe(`Product JSON-LD Merchant Listing schema — ${PRODUCT_PATH}`, () => {
-  let productNode: Record<string, unknown> | null;
+  const errors: string[] = [];
 
-  test.beforeAll(async ({ request }) => {
-    const response = await request.get(PRODUCT_PATH);
-    expect(
-      response.status(),
-      `serve.mjs returned ${response.status()} for ${PRODUCT_PATH}`,
-    ).toBe(200);
-    const html = await response.text();
-    productNode = extractProductSchema(html);
-  });
+  if (offer.priceCurrency !== expectedCurrency) {
+    errors.push(
+      `offers.priceCurrency: expected "${expectedCurrency}", got ${JSON.stringify(offer.priceCurrency)}`,
+    );
+  }
 
-  test("a Product JSON-LD node is emitted", () => {
-    expect(
-      productNode,
-      `${PRODUCT_PATH} did not emit any Product JSON-LD node`,
-    ).not.toBeNull();
-  });
+  const shipping = offer.shippingDetails as Record<string, unknown> | undefined;
+  if (shipping && typeof shipping === "object") {
+    const rate = shipping.shippingRate as Record<string, unknown> | undefined;
+    if (rate && typeof rate === "object") {
+      if (rate.currency !== expectedCurrency) {
+        errors.push(
+          `offers.shippingDetails.shippingRate.currency: expected "${expectedCurrency}", got ${JSON.stringify(rate.currency)}`,
+        );
+      }
+    }
+    const dest = shipping.shippingDestination as
+      | Record<string, unknown>
+      | undefined;
+    if (dest && typeof dest === "object") {
+      if (dest.addressCountry !== expectedCountry) {
+        errors.push(
+          `offers.shippingDetails.shippingDestination.addressCountry: expected "${expectedCountry}", got ${JSON.stringify(dest.addressCountry)}`,
+        );
+      }
+    }
+  }
 
-  test("Product Offer passes all required Merchant Listing field checks", () => {
-    const errors = validateProductOffer(productNode);
-    expect(
-      errors,
-      `${PRODUCT_PATH} emitted invalid Product/Offer JSON-LD:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
-    ).toHaveLength(0);
-  });
-});
+  const policy = offer.hasMerchantReturnPolicy as
+    | Record<string, unknown>
+    | undefined;
+  if (policy && typeof policy === "object") {
+    if (policy.applicableCountry !== expectedCountry) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.applicableCountry: expected "${expectedCountry}", got ${JSON.stringify(policy.applicableCountry)}`,
+      );
+    }
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
+// Parameterised test matrix — one describe block per market
+// ---------------------------------------------------------------------------
+
+/**
+ * All prices in JSON-LD are denominated in USD regardless of market (display-
+ * currency conversion is a client-side-only concern applied after hydration).
+ * The country code in addressCountry / applicableCountry must match the locale
+ * encoded in the URL path.
+ */
+const MARKET_CASES = [
+  {
+    label: "Lebanon",
+    path: "/en-lb/beirut/product/rose-bouquet",
+    expectedCountry: "LB",
+    expectedCurrency: "USD",
+  },
+  {
+    label: "UAE",
+    path: "/en-ae/dubai/product/velvet-rose-bouquet",
+    expectedCountry: "AE",
+    expectedCurrency: "USD",
+  },
+  {
+    label: "Cyprus",
+    path: "/en-cy/nicosia/product/orchid-arrangement",
+    expectedCountry: "CY",
+    expectedCurrency: "USD",
+  },
+] as const;
+
+for (const market of MARKET_CASES) {
+  test.describe(
+    `Product JSON-LD Merchant Listing schema — ${market.label} (${market.path})`,
+    () => {
+      let productNode: Record<string, unknown> | null;
+
+      test.beforeAll(async ({ request }) => {
+        const response = await request.get(market.path);
+        expect(
+          response.status(),
+          `serve.mjs returned ${response.status()} for ${market.path}`,
+        ).toBe(200);
+        const html = await response.text();
+        productNode = extractProductSchema(html);
+      });
+
+      test("a Product JSON-LD node is emitted", () => {
+        expect(
+          productNode,
+          `${market.path} did not emit any Product JSON-LD node`,
+        ).not.toBeNull();
+      });
+
+      test("Product Offer passes all required Merchant Listing field checks", () => {
+        const errors = validateProductOffer(productNode);
+        expect(
+          errors,
+          `${market.path} emitted invalid Product/Offer JSON-LD:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
+        ).toHaveLength(0);
+      });
+
+      test(`locale fields match ${market.label} (country=${market.expectedCountry}, currency=${market.expectedCurrency})`, () => {
+        const errors = validateLocaleFields(
+          productNode,
+          market.expectedCountry,
+          market.expectedCurrency,
+        );
+        expect(
+          errors,
+          `${market.path} has mismatched locale fields:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
+        ).toHaveLength(0);
+      });
+    },
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Out-of-stock test suite — exercises the inStock=false → OutOfStock branch

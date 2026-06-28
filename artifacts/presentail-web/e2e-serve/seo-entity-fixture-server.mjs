@@ -122,6 +122,20 @@ const PRODUCTS = {
     inStock: false,
     image: { uri: HERO_IMAGE_URL },
   },
+  "velvet-rose-bouquet": {
+    name: "Velvet Rose Bouquet",
+    description: "A dozen long-stem velvet roses, hand-tied.",
+    priceValue: 89.5,
+    inStock: true,
+    image: { uri: HERO_IMAGE_URL },
+  },
+  "orchid-arrangement": {
+    name: "Orchid Arrangement",
+    description: "A serene orchid arrangement in a ceramic pot.",
+    priceValue: 65,
+    inStock: true,
+    image: { uri: HERO_IMAGE_URL },
+  },
 };
 
 const BRANDS = {
