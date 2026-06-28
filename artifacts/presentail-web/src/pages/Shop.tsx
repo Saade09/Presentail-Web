@@ -341,7 +341,7 @@ export default function Shop() {
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="w-[210px] bg-background" data-testid="select-sort">
+              <SelectTrigger className="w-[210px] bg-background" data-testid="select-sort" aria-label={t("shop.sortPlaceholder")}>
                 <SlidersHorizontal className="w-4 h-4 mr-2" />
                 <SelectValue placeholder={t("shop.sortPlaceholder")} />
               </SelectTrigger>
