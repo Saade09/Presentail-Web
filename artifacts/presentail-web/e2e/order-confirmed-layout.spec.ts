@@ -794,3 +794,221 @@ test.describe("OrderConfirmed — inner content area is scrollable at 480px view
     ).toBeGreaterThan(result.clientHeight);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Failed-order page — page-level scrollbar guard
+//
+// ?status=failed with no sessionStorage stash routes directly to the failure
+// state (XCircle icon + error message + return-to-checkout CTA + back-home
+// link) WITHOUT triggering the createOrder API — the initial FinalizeState is
+// { kind: "failed" } so the finalize useEffect never fires.
+//
+// The same h-screen overflow-hidden + max-h-screen overflow-y-auto layout is
+// used for the failed branch, so these tests mirror the success-path guards
+// above for the failure rendering path.
+//
+// Tests verify:
+//   1. At 768 px and 1024 px: no page-level scroll (scrollHeight ≤ innerHeight).
+//   2. At 480 px: the inner overflow-y-auto div IS scrollable (the failure-
+//      state content — icon, heading, message, button, back-home link — is
+//      tall enough to require internal scrolling at a very short viewport).
+//      A long payment reference (passed via ?pid=…) adds height to the
+//      payment-ref block when retries are exhausted, making 480px even more
+//      likely to overflow; the basic failed state without it is already enough
+//      to verify the inner-scroll escape valve works.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 768 px viewport height — failed state: no page-level scrollbar
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — failed state: no page-level scrollbar at 768px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 768 } });
+
+  test.beforeEach(async ({ page }) => {
+    // No sessionStorage seeding — the failure state is driven entirely by
+    // ?status=failed on the URL and requires no stashed payload.
+    await installStubs(page);
+  });
+
+  test("failed state: documentElement and body do not overflow the viewport at 768px", async ({ page }) => {
+    // Navigate with ?status=failed and no stash → initial state is { kind: "failed" },
+    // no createOrder call is made.
+    await page.goto("/en-lb/beirut/order-confirmed?status=failed");
+
+    // Wait for the failure icon to confirm the page has fully rendered.
+    await expect(page.getByTestId("icon-failed")).toBeVisible({ timeout: 15_000 });
+
+    const { docScrollHeight, bodyScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+
+    expect(
+      docScrollHeight,
+      `failed/768px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    expect(
+      bodyScrollHeight,
+      `failed/768px: body.scrollHeight (${bodyScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1024 px viewport height — failed state: no page-level scrollbar
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — failed state: no page-level scrollbar at 1024px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 1024 } });
+
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+  });
+
+  test("failed state: documentElement and body do not overflow the viewport at 1024px", async ({ page }) => {
+    await page.goto("/en-lb/beirut/order-confirmed?status=failed");
+    await expect(page.getByTestId("icon-failed")).toBeVisible({ timeout: 15_000 });
+
+    const { docScrollHeight, bodyScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+
+    expect(
+      docScrollHeight,
+      `failed/1024px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    expect(
+      bodyScrollHeight,
+      `failed/1024px: body.scrollHeight (${bodyScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 480 px viewport height — failed state: inner content area must be scrollable
+//
+// At 480 px the failure-state content (icon + heading + message + button +
+// back-home link) overflows the screen height.  The outer h-screen
+// overflow-hidden wrapper must suppress the page-level scroll while the inner
+// max-h-screen overflow-y-auto div absorbs the overflow so shoppers can reach
+// every UI element by scrolling inside the container.
+//
+// A second test adds a long ?pid= parameter to also exercise the case where
+// the payment-reference block is rendered (requires retriesExhausted, which
+// cannot be pre-seeded without React state injection; the test therefore
+// verifies that the layout constraints hold even when a long pid is present
+// in the URL, and the inner scroll container is correctly identified).
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — failed state: inner content area is scrollable at 480px viewport height", () => {
+  test.use({ viewport: { width: 1280, height: 480 } });
+
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+  });
+
+  test("failed state: inner overflow-y-auto div scrollHeight exceeds clientHeight at 480px", async ({ page }) => {
+    await page.goto("/en-lb/beirut/order-confirmed?status=failed");
+    await expect(page.getByTestId("icon-failed")).toBeVisible({ timeout: 15_000 });
+
+    // Verify the outer wrapper is still overflow-hidden (no page-level scroll).
+    const { docScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+    expect(
+      docScrollHeight,
+      `failed/480px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight}) — outer h-screen overflow-hidden must still be in effect`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    // The inner scroll container must be scrollable: its content (icon, heading,
+    // message, button, back-home) is taller than 480 px so scrollHeight > clientHeight.
+    const result = await page.evaluate(() => {
+      const scrollDiv = document.querySelector(
+        '[data-testid="order-confirmed-scroll-container"]',
+      ) as HTMLElement | null;
+
+      if (!scrollDiv) {
+        return {
+          found: false,
+          reason: 'No element with data-testid="order-confirmed-scroll-container" found',
+          scrollHeight: 0,
+          clientHeight: 0,
+          overflowY: "",
+        };
+      }
+
+      return {
+        found: true,
+        reason: "",
+        scrollHeight: scrollDiv.scrollHeight,
+        clientHeight: scrollDiv.clientHeight,
+        overflowY: window.getComputedStyle(scrollDiv).overflowY,
+      };
+    });
+
+    expect(result.found, result.reason).toBe(true);
+
+    // The scroll container must have overflow-y: auto so it can scroll.
+    expect(
+      result.overflowY,
+      `failed/480px: inner container overflow-y should be "auto", got "${result.overflowY}"`,
+    ).toBe("auto");
+
+    // At 480 px the failure content should overflow — scroll container must be active.
+    expect(
+      result.scrollHeight,
+      `failed/480px: inner scrollHeight (${result.scrollHeight}) should exceed clientHeight (${result.clientHeight}) — failure content must be reachable by scrolling`,
+    ).toBeGreaterThan(result.clientHeight);
+  });
+
+  test("failed state with long payment ref: inner container is still present and scrollable at 480px", async ({ page }) => {
+    // A very long payment reference exercises the break-all layout in the
+    // payment-ref block (when rendered) and adds extra URL length that could
+    // theoretically affect layout via long query strings injected into the DOM.
+    // The payment-ref block itself only renders when retriesExhausted=true (≥3
+    // consecutive failed createOrder calls), which cannot be pre-seeded from
+    // the URL alone; this test verifies the layout container is healthy even
+    // with a long ?pid= parameter present.
+    const LONG_PID = "pi_3ReallyLongStripePaymentIntentId1234567890ABCDEFGHIJ_secret_suffix1234567890";
+    await page.goto(`/en-lb/beirut/order-confirmed?status=failed&pid=${LONG_PID}`);
+    await expect(page.getByTestId("icon-failed")).toBeVisible({ timeout: 15_000 });
+
+    // Outer wrapper must still suppress page-level scroll.
+    const { docScrollHeight, viewportHeight } = await page.evaluate(() => ({
+      docScrollHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+    }));
+    expect(
+      docScrollHeight,
+      `failed+longpid/480px: documentElement.scrollHeight (${docScrollHeight}) must not exceed viewport height (${viewportHeight})`,
+    ).toBeLessThanOrEqual(viewportHeight);
+
+    // Inner scroll container must still be present.
+    const scrollContainerFound = await page.evaluate(() =>
+      document.querySelector('[data-testid="order-confirmed-scroll-container"]') !== null,
+    );
+    expect(
+      scrollContainerFound,
+      'failed+longpid/480px: inner scroll container (data-testid="order-confirmed-scroll-container") must be present',
+    ).toBe(true);
+
+    // Inner container must be scrollable (overflow-y: auto).
+    const overflowY = await page.evaluate(() => {
+      const el = document.querySelector(
+        '[data-testid="order-confirmed-scroll-container"]',
+      ) as HTMLElement | null;
+      return el ? window.getComputedStyle(el).overflowY : "not-found";
+    });
+    expect(
+      overflowY,
+      `failed+longpid/480px: inner container overflow-y should be "auto", got "${overflowY}"`,
+    ).toBe("auto");
+  });
+});
