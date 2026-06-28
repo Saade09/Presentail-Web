@@ -187,10 +187,65 @@ export function trackEvent(event: AnalyticsEvent): void {
   })();
 }
 
+// ---------------------------------------------------------------------------
+// Google Click ID (gclid) persistence
+// ---------------------------------------------------------------------------
+
+const GCLID_STORAGE_KEY = "@presentail/gclid_v1";
+/** Keep gclid for 90 days — matches Google Ads default attribution window. */
+const GCLID_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+type StoredGclid = { value: string; capturedAt: number };
+
+/**
+ * Persist a gclid captured from a deep link or Universal Link so it can be
+ * forwarded with the next purchase conversion ping.  Best-effort — storage
+ * failures are silently ignored.
+ */
+export async function storeGclid(gclid: string): Promise<void> {
+  if (!gclid) return;
+  try {
+    await AsyncStorage.setItem(
+      GCLID_STORAGE_KEY,
+      JSON.stringify({ value: gclid, capturedAt: Date.now() } satisfies StoredGclid),
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Return the most recently stored gclid if it is still within the 90-day
+ * attribution window, or `undefined` otherwise.
+ */
+export async function loadStoredGclid(): Promise<string | undefined> {
+  try {
+    const raw = await AsyncStorage.getItem(GCLID_STORAGE_KEY);
+    if (!raw) return undefined;
+    const stored = JSON.parse(raw) as StoredGclid;
+    if (
+      typeof stored.value === "string" &&
+      typeof stored.capturedAt === "number" &&
+      Date.now() - stored.capturedAt < GCLID_TTL_MS
+    ) {
+      return stored.value;
+    }
+  } catch {
+    // storage unavailable or malformed — ignore
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Ads conversion
+// ---------------------------------------------------------------------------
+
 export type AdsPurchaseConversionParams = {
   transactionId: string;
   value: number;
   currency: string;
+  /** Google Click ID captured from the deep link that brought the shopper in. */
+  gclid?: string;
 };
 
 /**
@@ -202,6 +257,10 @@ export type AdsPurchaseConversionParams = {
  * (AW-18281774261/XYi_CNabpMccELX5to1E), so mobile and web purchases are
  * attributed together in Google Ads ROI reporting.
  *
+ * When a `gclid` is supplied it is forwarded to the API server and included
+ * in the pixel ping so Google can attribute the conversion to the specific
+ * ad campaign/keyword that drove the session.
+ *
  * Google deduplicates by `transaction_id`, so calling this more than once
  * with the same order ID is safe — only the first hit counts.
  *
@@ -211,10 +270,16 @@ export function fireAdsPurchaseConversion({
   transactionId,
   value,
   currency,
+  gclid,
 }: AdsPurchaseConversionParams): void {
   void fetch(`${API_BASE}/api/analytics/ads-conversion`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transactionId, value, currency }),
+    body: JSON.stringify({
+      transactionId,
+      value,
+      currency,
+      ...(gclid ? { gclid } : {}),
+    }),
   }).catch(() => {});
 }

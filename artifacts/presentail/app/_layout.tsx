@@ -47,7 +47,7 @@ import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { API_BASE, getStripePublishableKey } from "@/lib/stripe";
 import { isPlatformPaySupported, StripeProvider } from "@stripe/stripe-react-native";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, storeGclid } from "@/lib/analytics";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
@@ -147,6 +147,37 @@ function DataRefreshPushListener() {
       sub.remove();
     };
   }, [qc]);
+  return null;
+}
+
+/**
+ * Listens for incoming deep links / Universal Links and persists any `gclid`
+ * query parameter found in the URL. This lets the order-confirmed screen
+ * forward the click ID with the Google Ads conversion ping so purchases are
+ * attributed to the specific campaign/keyword that drove the session.
+ *
+ * Handles both the cold-start URL (via Linking.getInitialURL) and URLs
+ * received while the app is already open (via Linking.addEventListener).
+ */
+function GclidCaptureListener() {
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    function extractAndStore(url: string | null) {
+      if (!url) return;
+      try {
+        const parsed = new URL(url);
+        const gclid = parsed.searchParams.get("gclid");
+        if (gclid) void storeGclid(gclid);
+      } catch {
+        // malformed URL — ignore
+      }
+    }
+
+    Linking.getInitialURL().then(extractAndStore).catch(() => {});
+    const sub = Linking.addEventListener("url", ({ url }) => extractAndStore(url));
+    return () => sub.remove();
+  }, []);
   return null;
 }
 
@@ -396,6 +427,7 @@ function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
       <PushTokenRotationListener />
       <DataRefreshPushListener />
       <OrderEventPushHandler />
+      <GclidCaptureListener />
       {/* Hard gate: until AsyncStorage has told us whether onboarding is
           required, render nothing under the splash. This prevents the home
           tab (and its product / homepage queries) from mounting on a fresh

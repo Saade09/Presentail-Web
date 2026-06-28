@@ -11,7 +11,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useColors } from "@/hooks/useColors";
 import { useHeadingFont } from "@/hooks/useHeadingFont";
 import { useT } from "@/hooks/useT";
-import { trackEvent, fireAdsPurchaseConversion, type AnalyticsEvent } from "@/lib/analytics";
+import { trackEvent, fireAdsPurchaseConversion, loadStoredGclid, type AnalyticsEvent } from "@/lib/analytics";
 import { clearPendingOrder, loadPendingOrder, type PendingOrder } from "@/lib/pendingOrder";
 import { createWooOrder } from "@/lib/woo";
 import { submitWooOrderWithRetry } from "@/lib/wooSubmit";
@@ -78,10 +78,13 @@ function OrderConfirmed() {
     if (localStatus === "failed") return;
     if (purchaseFiredRef.current) return;
     purchaseFiredRef.current = true;
-    fireAdsPurchaseConversion({
-      transactionId: String(orderId),
-      value: Number(total) || 0,
-      currency: currency ?? "USD",
+    void loadStoredGclid().then((gclid) => {
+      fireAdsPurchaseConversion({
+        transactionId: String(orderId),
+        value: Number(total) || 0,
+        currency: currency ?? "USD",
+        ...(gclid ? { gclid } : {}),
+      });
     });
   // orderId, total, currency, and localStatus are all stable after mount;
   // purchaseFiredRef ensures this fires at most once even on re-renders.
@@ -119,10 +122,13 @@ function OrderConfirmed() {
         // Fire Google Ads conversion for the recovered order. The mount effect
         // exited early (localStatus was "failed") and did not set purchaseFiredRef,
         // so this is the first and only conversion call for this order.
-        fireAdsPurchaseConversion({
-          transactionId: String(orderId),
-          value: Number(total) || 0,
-          currency: currency ?? "USD",
+        void loadStoredGclid().then((gclid) => {
+          fireAdsPurchaseConversion({
+            transactionId: String(orderId),
+            value: Number(total) || 0,
+            currency: currency ?? "USD",
+            ...(gclid ? { gclid } : {}),
+          });
         });
         setRetainedOrder(null);
         setLocalStatus("success");

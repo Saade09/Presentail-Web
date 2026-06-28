@@ -26,8 +26,9 @@ async function sendAdsConversionPing(
   value: number,
   currency: string,
   log: { warn: (obj: Record<string, unknown>, msg: string) => void },
+  gclid?: string,
 ): Promise<void> {
-  const params = new URLSearchParams({
+  const paramEntries: Record<string, string> = {
     cv: "9",
     fst: String(Date.now()),
     num: "1",
@@ -39,7 +40,11 @@ async function sendAdsConversionPing(
     transaction_id: transactionId,
     is_iframe: "0",
     fmt: "3",
-  });
+  };
+  if (gclid) {
+    paramEntries.gclaw = gclid;
+  }
+  const params = new URLSearchParams(paramEntries);
   const url = `https://www.google.com/pagead/conversion/${ADS_CONVERSION_ID}/?${params.toString()}`; // i18n-ignore
   try {
     const res = await fetch(url, {
@@ -86,6 +91,8 @@ const adsConversionBody = z.object({
   transactionId: z.string().min(1).max(128),
   value: z.number().nonnegative().finite(),
   currency: z.string().min(1).max(8),
+  /** Google Click ID from the deep link that drove the session. */
+  gclid: z.string().min(1).max(512).optional(),
 });
 
 const adsConversionLimiter = rateLimit({
@@ -127,12 +134,12 @@ router.post(
       });
       return;
     }
-    const { transactionId, value, currency } = parsed.data;
+    const { transactionId, value, currency, gclid } = parsed.data;
     req.log.info(
-      { transactionId, value, currency },
+      { transactionId, value, currency, hasGclid: Boolean(gclid) },
       "ads-conversion: firing server-side ping",
     );
-    void sendAdsConversionPing(transactionId, value, currency, req.log);
+    void sendAdsConversionPing(transactionId, value, currency, req.log, gclid);
     res.status(200).json({ ok: true });
   },
 );
