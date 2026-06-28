@@ -14,6 +14,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { FilterSortBar } from "@/components/FilterSortBar";
+import { FilterSortSheet, type SortKey } from "@/components/FilterSortSheet";
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -31,8 +33,6 @@ import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const CARD_W = Math.min(160, (SCREEN_W - 48) / 2.3);
-
-type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
 
 function OccasionScreen() {
   const { slug, brand: brandParam, brandName: brandNameParam } = useLocalSearchParams<{
@@ -53,6 +53,8 @@ function OccasionScreen() {
   const activeBrandName = Array.isArray(brandNameParam) ? brandNameParam[0] : (brandNameParam ?? "");
 
   const [sort, setSort] = useState<SortKey>("featured");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [gridView, setGridView] = useState(true);
   const SORTS: { key: SortKey; label: string }[] = [
     { key: "featured", label: t.sortFeatured },
     { key: "bestSeller", label: t.sortBestSeller },
@@ -141,35 +143,17 @@ function OccasionScreen() {
     return list;
   }, [groups, sort]);
 
-  const sortChips = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingTop: 14, paddingBottom: 4 }}
-    >
-      {SORTS.map((s) => (
-        <Pressable
-          key={s.key}
-          onPress={() => setSort(s.key)}
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: sort === s.key ? colors.gold : colors.border,
-            backgroundColor: sort === s.key ? colors.gold : "transparent",
-          }}
-        >
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
-            {s.label}
-          </AppText>
-        </Pressable>
-      ))}
-    </ScrollView>
-  );
+  const hasProducts = activeBrandSlug ? brandProducts.length > 0 : groups.length > 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <FilterSortSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        sortOptions={SORTS}
+        activeSort={sort}
+        onSortChange={setSort}
+      />
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 60 }}
         showsVerticalScrollIndicator={false}
@@ -253,8 +237,15 @@ function OccasionScreen() {
           </ScrollView>
         )}
 
-        {/* Sort chips — shown once loading is done and there are products */}
-        {!loading && (activeBrandSlug ? brandProducts.length > 0 : groups.length > 0) && sortChips}
+        {/* Filter & Sort bar — shown once loading is done and there are products */}
+        {!loading && hasProducts && (
+          <FilterSortBar
+            onPress={() => setSheetOpen(true)}
+            activeCount={sort !== "featured" ? 1 : 0}
+            gridView={gridView}
+            onToggleGrid={() => setGridView((v) => !v)}
+          />
+        )}
 
         {/* Brand-scoped product grid */}
         {activeBrandSlug ? (
@@ -281,7 +272,7 @@ function OccasionScreen() {
                 <ProductCard
                   key={p.id}
                   product={p as any}
-                  width={CARD_W}
+                  width={gridView ? CARD_W : SCREEN_W - 48}
                   onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
                 />
               ))}
@@ -347,7 +338,7 @@ function OccasionScreen() {
               <ProductCard
                 key={p.id}
                 product={p as any}
-                width={CARD_W}
+                width={gridView ? CARD_W : SCREEN_W - 48}
                 onPress={() => router.push({ pathname: "/product/[slug]", params: { slug: p.id } })}
               />
             ))}

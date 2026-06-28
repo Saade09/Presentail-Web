@@ -16,6 +16,8 @@ import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SectionTitle } from "@/components/Brand";
+import { FilterSortBar } from "@/components/FilterSortBar";
+import { FilterSortSheet, type SortKey, type FilterPill } from "@/components/FilterSortSheet";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -29,11 +31,10 @@ import { useT } from "@/hooks/useT";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
+const GRID_CARD_W = (SCREEN_W - 24 * 2 - 10) / 2;
+const LIST_CARD_W = SCREEN_W - 48;
 
 const ALL = "all";
-
-type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
 
 const OCC_NAME_KEY: Record<string, string> = {
   birthday: "occ_birthday",
@@ -79,6 +80,8 @@ function CatalogScreen() {
   const [activeCat, setActiveCat] = useState<string>(params.category ?? ALL);
   const [query, setQuery] = useState<string>(params.q ?? "");
   const [sort, setSort] = useState<SortKey>("featured");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [gridView, setGridView] = useState(true);
 
   const searchEnabled = query.trim().length >= 2;
   const searchParams = {
@@ -236,54 +239,12 @@ function CatalogScreen() {
         )}
       </ScrollView>
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <AppText
-          style={{
-            fontFamily: "Inter_500Medium",
-            fontSize: 10,
-            color: colors.gold,
-            letterSpacing: 2,
-            textTransform: "uppercase",
-          }}
-        >
-          {t.catalogSortLabel}
-        </AppText>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingRight: 8 }}
-          style={{ flex: 1 }}
-        >
-          {sortOptions.map((opt) => {
-            const active = opt.id === sort;
-            return (
-              <Pressable
-                key={opt.id}
-                onPress={() => setSort(opt.id)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: active ? colors.gold : colors.border,
-                  backgroundColor: active ? colors.gold : "#fff",
-                }}
-              >
-                <AppText
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 11,
-                    color: active ? "#fff" : colors.primary,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {opt.label}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      <FilterSortBar
+        onPress={() => setSheetOpen(true)}
+        activeCount={(sort !== "featured" ? 1 : 0) + (activeCat !== ALL ? 1 : 0)}
+        gridView={gridView}
+        onToggleGrid={() => setGridView((v) => !v)}
+      />
 
       {matchingOccasions.length > 0 && (
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
@@ -413,25 +374,48 @@ function CatalogScreen() {
     </View>
   );
 
+  const activeCardW = gridView ? GRID_CARD_W : LIST_CARD_W;
+
+  const categoryFilterPills: FilterPill[] = [
+    { id: ALL, label: t.catalogAll },
+    ...categories.map((c) => ({ id: c.id, label: c.name })),
+  ];
+
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: colors.background }}
-      data={filtered}
-      keyExtractor={(p) => p.id}
-      numColumns={2}
-      ListHeaderComponent={header}
-      ListEmptyComponent={empty}
-      columnWrapperStyle={{ paddingHorizontal: 24, gap: 10 }}
-      contentContainerStyle={{ paddingBottom: 120, rowGap: 18 }}
-      showsVerticalScrollIndicator={false}
-      removeClippedSubviews
-      initialNumToRender={6}
-      maxToRenderPerBatch={6}
-      windowSize={5}
-      renderItem={({ item }) => (
-        <ProductCard product={item} width={CARD_W} />
-      )}
-    />
+    <>
+      <FilterSortSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        sortOptions={sortOptions.map((o) => ({ key: o.id, label: o.label }))}
+        activeSort={sort}
+        onSortChange={setSort}
+        filterPills={categoryFilterPills}
+        activeFilter={activeCat}
+        onFilterChange={(id) => setActiveCat(id || ALL)}
+        filterSectionLabel={t.categoriesTitle}
+      />
+      <FlatList
+        key={gridView ? "grid" : "list"}
+        style={{ flex: 1, backgroundColor: colors.background }}
+        data={filtered}
+        keyExtractor={(p) => p.id}
+        numColumns={gridView ? 2 : 1}
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
+        columnWrapperStyle={gridView ? { paddingHorizontal: 24, gap: 10 } : undefined}
+        contentContainerStyle={{ paddingBottom: 120, rowGap: 18 }}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        renderItem={({ item }) => (
+          <View style={gridView ? undefined : { paddingHorizontal: 24 }}>
+            <ProductCard product={item} width={activeCardW} />
+          </View>
+        )}
+      />
+    </>
   );
 }
 

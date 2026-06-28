@@ -17,6 +17,8 @@ import {
 import { AppText } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FilterSortBar } from "@/components/FilterSortBar";
+import { FilterSortSheet, type SortKey } from "@/components/FilterSortSheet";
 import { ProductCard } from "@/components/ProductCard";
 import { ShimmerPlaceholder } from "@/components/ShimmerPlaceholder";
 import { useCart } from "@/contexts/CartContext";
@@ -35,9 +37,8 @@ import { trackScreenTTID } from "@/lib/analytics";
 import { withRouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 24 * 2 - 14) / 2;
-
-type SortKey = "featured" | "bestSeller" | "priceUp" | "priceDown" | "name";
+const GRID_CARD_W = (SCREEN_W - 24 * 2 - 10) / 2;
+const LIST_CARD_W = SCREEN_W - 48;
 
 function CategoryScreen() {
   const headingFontMedium = useHeadingFont("500Medium");
@@ -54,6 +55,8 @@ function CategoryScreen() {
   const t = useT();
   const { count } = useCart();
   const [sort, setSort] = useState<SortKey>("featured");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [gridView, setGridView] = useState(true);
   const SORTS: { key: SortKey; label: string }[] = [
     { key: "featured", label: t.sortFeatured },
     { key: "bestSeller", label: t.sortBestSeller },
@@ -237,43 +240,16 @@ function CategoryScreen() {
           })}
         </ScrollView>
 
-        <View
-          style={{
-            paddingHorizontal: 24,
-            paddingTop: 18,
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-            {products.length} {t.categoryPiecesLabel}
-          </AppText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {SORTS.map((s) => (
-              <Pressable
-                key={s.key}
-                onPress={() => setSort(s.key)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: sort === s.key ? colors.gold : colors.border,
-                  backgroundColor: sort === s.key ? colors.gold : "transparent",
-                }}
-              >
-                <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: sort === s.key ? "#fff" : colors.primary }}>
-                  {s.label}
-                </AppText>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-
-      {products.length > 0 ? <View style={{ height: 18 }} /> : null}
+        <FilterSortBar
+          onPress={() => setSheetOpen(true)}
+          activeCount={sort !== "featured" ? 1 : 0}
+          gridView={gridView}
+          onToggleGrid={() => setGridView((v) => !v)}
+        />
     </>
   );
+
+  const activeCardW = gridView ? GRID_CARD_W : LIST_CARD_W;
 
   const empty = wcLoading ? (
     <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
@@ -319,7 +295,7 @@ function CategoryScreen() {
             }}
           >
             {popularPicks.map((p) => (
-              <ProductCard key={p.id} product={p} width={CARD_W} />
+              <ProductCard key={p.id} product={p} width={GRID_CARD_W} />
             ))}
           </View>
         </View>
@@ -366,14 +342,22 @@ function CategoryScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <FilterSortSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        sortOptions={SORTS}
+        activeSort={sort}
+        onSortChange={setSort}
+      />
       <FlatList
+        key={gridView ? "grid" : "list"}
         data={products}
         keyExtractor={(p) => p.id}
-        numColumns={2}
+        numColumns={gridView ? 2 : 1}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={footer}
-        columnWrapperStyle={{ paddingHorizontal: 24, gap: 10 }}
+        columnWrapperStyle={gridView ? { paddingHorizontal: 24, gap: 10 } : undefined}
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,
           rowGap: 18,
@@ -384,7 +368,9 @@ function CategoryScreen() {
         maxToRenderPerBatch={6}
         windowSize={5}
         renderItem={({ item }) => (
-          <ProductCard product={item} width={CARD_W} />
+          <View style={gridView ? undefined : { paddingHorizontal: 24 }}>
+            <ProductCard product={item} width={activeCardW} />
+          </View>
         )}
       />
     </View>
