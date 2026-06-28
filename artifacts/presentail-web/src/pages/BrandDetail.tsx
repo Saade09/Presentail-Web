@@ -39,6 +39,11 @@ export default function BrandDetail() {
 
   useEffect(() => {
     if (typeof document === "undefined" || !brandName) return;
+    // Guard: if a city/country ID is selected but the resolved object isn't
+    // available yet (delivery-locations query re-fetching after a city switch),
+    // skip this render to avoid writing a title with a blank city label.
+    if (cityId && !city) return;
+    if (countryCode && !country) return;
     const head = document.head;
     const cityLabel = city ? cityName(city.id, city.name) : "";
     const countryLabel = country ? countryName(country.code, country.name) : "";

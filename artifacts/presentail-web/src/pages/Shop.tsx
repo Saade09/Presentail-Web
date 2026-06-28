@@ -238,6 +238,11 @@ export default function Shop() {
     if (typeof document === "undefined") return;
     if (!isCategoryRoute && !isOccasionRoute) return;
     if (!entityName) return;
+    // Guard: if a city/country ID is selected but the resolved object isn't
+    // available yet (delivery-locations query re-fetching after a city switch),
+    // skip this render to avoid writing a title with a blank city label.
+    if (cityId && !city) return;
+    if (countryCode && !country) return;
     const head = document.head;
     const cityLabel = city ? cityName(city.id, city.name) : "";
     const countryLabel = country ? countryName(country.code, country.name) : "";
