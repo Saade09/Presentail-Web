@@ -414,3 +414,210 @@ test.describe("OrderConfirmed summary box — French layout (fr-lb)", () => {
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Visual / geometric RTL layout assertions — Arabic at Mobile Chrome viewport
+//
+// These tests verify the *rendered position* of key elements inside the
+// order-summary box when the document is in RTL mode (ar-lb locale at 390×844).
+// Pure overflow checks cannot catch flex-direction or padding regressions that
+// silently swap the price column back to the right in RTL.
+//
+// Assertions (all run at the 390×844 Mobile Chrome viewport configured in
+// playwright.config.ts):
+//   1. Price column ends up on the LEFT side of each item row in RTL.
+//   2. Label text ends up on the RIGHT side in the subtotal/total rows in RTL.
+//   3. Card message block has non-zero dimensions and is not clipped by the viewport.
+//   4. Screenshot snapshot of the order-summary box (creates a baseline on
+//      first --update-snapshots run; subsequent CI runs compare pixel-for-pixel
+//      and catch any silently regressed RTL flex direction or padding).
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed — Arabic RTL visual layout at Mobile Chrome (390×844)", () => {
+  // This describe block is intentionally scoped to the Mobile Chrome project
+  // (390×844) by the Playwright projects config. The assertions use absolute
+  // bounding-rect x positions which are only meaningful at a fixed viewport
+  // width, so we skip under desktop dimensions to keep the assertions stable.
+  test.beforeEach(async ({ page, isMobile }) => {
+    // Skip this describe block entirely when Playwright runs it under the
+    // desktop (1280×720) project — the price-on-left RTL assertion uses
+    // bounding rects whose absolute x values differ between viewports and
+    // would be misleading at 1280 px wide.
+    test.skip(!isMobile, "RTL visual geometry tests only run under the Mobile Chrome project");
+
+    await installStubs(page);
+    await seedSessionData(page, SAMPLE_ORDER_AR);
+  });
+
+  test("Arabic RTL: price column is on the LEFT side of each item row", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    // In RTL the flex row reverses: the shrink-0 price span appears on the LEFT
+    // and the flex-1 item-name span appears on the RIGHT.
+    // We measure each <li> and assert: price.left < name.left.
+    const result = await page.evaluate(() => {
+      const summary = document.querySelector('[data-testid="order-summary"]');
+      if (!summary) return { ok: false, reason: "order-summary not found", rows: [] };
+
+      const rows = Array.from(summary.querySelectorAll("li"));
+      if (rows.length === 0) return { ok: false, reason: "no item rows", rows: [] };
+
+      const details: { idx: number; priceLeft: number; nameLeft: number; ok: boolean }[] = [];
+
+      for (let idx = 0; idx < rows.length; idx++) {
+        const li = rows[idx];
+        // The name span is the flex-1 element; the price span is shrink-0.
+        const nameSpan = li.querySelector("span.flex-1") as HTMLElement | null;
+        const priceSpan = li.querySelector("span.shrink-0") as HTMLElement | null;
+        if (!nameSpan || !priceSpan) {
+          details.push({ idx, priceLeft: -1, nameLeft: -1, ok: false });
+          continue;
+        }
+        const nameRect = nameSpan.getBoundingClientRect();
+        const priceRect = priceSpan.getBoundingClientRect();
+        // In RTL the price (shrink-0) should have a smaller x (further left).
+        details.push({
+          idx,
+          priceLeft: priceRect.left,
+          nameLeft: nameRect.left,
+          ok: priceRect.left < nameRect.left,
+        });
+      }
+
+      const allOk = details.length > 0 && details.every((d) => d.ok);
+      return { ok: allOk, reason: allOk ? "" : "one or more rows had price NOT to the left of the name", rows: details };
+    });
+
+    expect(
+      result.rows.length,
+      "Expected item rows to be present in the order summary",
+    ).toBeGreaterThan(0);
+    expect(
+      result.ok,
+      `Arabic RTL: price column not on the left of the item name. Row detail: ${JSON.stringify(result.rows)}`,
+    ).toBe(true);
+  });
+
+  test("Arabic RTL: subtotal and total labels are on the RIGHT, prices on the LEFT", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    // The border-t section contains `flex justify-between` rows. In RTL the
+    // label span is on the RIGHT and the FormattedPrice is on the LEFT.
+    const result = await page.evaluate(() => {
+      const summary = document.querySelector('[data-testid="order-summary"]');
+      if (!summary) return { ok: false, reason: "order-summary not found" };
+
+      // Select the totals section (the div with border-t).
+      const totalsSection = summary.querySelector(".border-t") as HTMLElement | null;
+      if (!totalsSection) return { ok: false, reason: "totals section not found" };
+
+      const rows = Array.from(totalsSection.querySelectorAll("div.flex")) as HTMLElement[];
+      if (rows.length === 0) return { ok: false, reason: "no flex rows in totals section" };
+
+      const detail: { rowIdx: number; firstChildLeft: number; lastChildLeft: number; ok: boolean }[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const children = Array.from(rows[i].children) as HTMLElement[];
+        if (children.length < 2) continue;
+        const firstRect = children[0].getBoundingClientRect();
+        const lastRect = children[children.length - 1].getBoundingClientRect();
+        // In RTL with justify-between the DOM-first child (label) should be on
+        // the RIGHT (larger x), and the DOM-last child (price) should be on
+        // the LEFT (smaller x).
+        const ok = lastRect.left < firstRect.left;
+        detail.push({ rowIdx: i, firstChildLeft: firstRect.left, lastChildLeft: lastRect.left, ok });
+      }
+
+      if (detail.length === 0) return { ok: false, reason: "no measurable rows in totals section" };
+      const allOk = detail.every((d) => d.ok);
+      return {
+        ok: allOk,
+        reason: allOk ? "" : "one or more totals rows had price NOT to the left of the label",
+        detail,
+      };
+    });
+
+    expect(
+      result.ok,
+      `Arabic RTL: totals row alignment wrong. Detail: ${JSON.stringify(result)}`,
+    ).toBe(true);
+  });
+
+  test("Arabic RTL: card message block is fully visible and not clipped", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    // The card message lives inside order-summary. We verify:
+    //   a) The container div (rounded-xl shadow) has non-zero width and height.
+    //   b) The container is not clipped — its right edge does not exceed the
+    //      order-summary box's right edge (which would cause invisible overflow).
+    //   c) The <p> text element has non-zero rendered height (text didn't collapse).
+    const result = await page.evaluate(() => {
+      const summary = document.querySelector('[data-testid="order-summary"]') as HTMLElement | null;
+      if (!summary) return { ok: false, reason: "order-summary not found" };
+
+      // The card-message container has class "rounded-xl overflow-hidden shadow-sm border".
+      const cardContainer = summary.querySelector(".rounded-xl.overflow-hidden") as HTMLElement | null;
+      if (!cardContainer) return { ok: false, reason: "card message container not found" };
+
+      const containerRect = cardContainer.getBoundingClientRect();
+      const summaryRect = summary.getBoundingClientRect();
+
+      if (containerRect.width === 0 || containerRect.height === 0) {
+        return { ok: false, reason: `card message has zero size: ${containerRect.width}×${containerRect.height}` };
+      }
+
+      // Allow 1 px rounding tolerance for sub-pixel rendering.
+      if (containerRect.right > summaryRect.right + 1) {
+        return {
+          ok: false,
+          reason: `card message overflows summary box: containerRight=${containerRect.right} summaryRight=${summaryRect.right}`,
+        };
+      }
+
+      const textEl = cardContainer.querySelector("p") as HTMLElement | null;
+      if (!textEl) return { ok: false, reason: "card message <p> not found" };
+      const textRect = textEl.getBoundingClientRect();
+      if (textRect.height === 0) {
+        return { ok: false, reason: "card message <p> has zero rendered height" };
+      }
+
+      return {
+        ok: true,
+        reason: "",
+        containerSize: `${containerRect.width}×${containerRect.height}`,
+        textHeight: textRect.height,
+      };
+    });
+
+    expect(
+      result.ok,
+      `Arabic RTL card message visibility: ${result.reason}`,
+    ).toBe(true);
+  });
+
+  test("Arabic RTL: screenshot snapshot of the order-summary box at 390×844", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+
+    const summary = page.getByTestId("order-summary");
+    await expect(summary).toBeVisible({ timeout: 10_000 });
+
+    // Wait for fonts and layout to stabilise before capturing.
+    await page.waitForTimeout(300);
+
+    // Capture a screenshot of the summary box.  On the first run (or when
+    // --update-snapshots is passed) Playwright writes the baseline PNG into
+    // e2e/order-confirmed-layout.spec.ts-snapshots/.  Subsequent CI runs
+    // compare pixel-for-pixel (maxDiffPixelRatio: 0.02 allows for minor
+    // sub-pixel anti-aliasing differences across machines).
+    await expect(summary).toHaveScreenshot("ar-lb-order-summary-mobile.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+});
