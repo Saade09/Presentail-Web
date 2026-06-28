@@ -1,0 +1,140 @@
+Please fix only the “title tag too long” SEO audit issue for now.
+
+We are not changing URL slugs, multilingual routing, sitemap structure, canonicals, or hreflang in this task. Keep this task focused and simple.
+
+Audit file:
+title_tag_too_long(1).csv
+
+Issue:
+The audit found 54 pages with title tags that are too long.
+
+Pattern found:
+
+* 41 contact pages have titles that are too long
+* 13 weddings pages have titles that are too long
+
+Examples of current long titles:
+
+* Contact Presentail in Ras Al Khaimah | Flower & Gift Delivery Support
+* Contact Presentail in Umm Al Quwain | Flower & Gift Delivery Support
+* Contacter Presentail à Oumm al Qaïwaïn | Assistance livraison fleurs et cadeaux
+* Fleurs de mariage et décoration événements à Minnieh Dennaya | Presentail
+
+Goal:
+Shorten the SEO title templates for contact pages and wedding pages while keeping the titles clear, unique, and city-specific.
+
+Please update the SEO title templates as follows:
+
+1. English contact page title
+
+Current format:
+Contact Presentail in {City} | Flower & Gift Delivery Support
+
+New format:
+Contact Presentail in {City}
+
+Example:
+Contact Presentail in Ras Al Khaimah
+
+2. French contact page title
+
+Current format:
+Contacter Presentail à {City} | Assistance livraison fleurs et cadeaux
+
+New format:
+Contacter Presentail à {City}
+
+Example:
+Contacter Presentail à Oumm al Qaïwaïn
+
+3. Arabic contact page title
+
+Current format may be:
+تواصل مع Presentail في {City} | دعم توصيل الزهور والهدايا
+
+New format:
+تواصل مع Presentail في {City}
+
+4. English weddings page title
+
+Current format may be too long.
+
+New format:
+Wedding Flowers in {City} | Presentail
+
+Example:
+Wedding Flowers in Beirut | Presentail
+
+5. French weddings page title
+
+Current format:
+Fleurs de mariage et décoration événements à {City} | Presentail
+
+New format:
+Fleurs de mariage à {City} | Presentail
+
+Example:
+Fleurs de mariage à Minnieh Dennaya | Presentail
+
+6. Arabic weddings page title
+
+Use:
+زهور الزفاف في {City} | Presentail
+
+Important rules:
+
+* Keep page titles ideally under 60 characters.
+* Hard limit: no title should exceed 65 characters.
+* Do not remove the city from these pages because it helps keep titles unique.
+* Move longer explanatory phrases into the meta description, not the title.
+* Do not change the page H1 unless it is also too long.
+* Do not change URLs in this task.
+* Do not change canonicals in this task.
+* Do not change sitemap in this task unless title logic requires no sitemap change.
+* Do not change product, category, occasion, or homepage SEO titles.
+
+Please also add a simple guardrail in the SEO helper:
+
+* If a generated title is over 65 characters, log a warning in development.
+* For contact and weddings pages, use the shorter fallback templates above.
+
+Please test these URLs after the fix:
+
+English contact:
+
+* /en-ae/ras-al-khaimah/contact
+* /en-ae/umm-al-quwain/contact
+* /en-lb/minnieh-dennaya/contact
+
+French contact:
+
+* /fr-ae/umm-al-quwain/contact
+* /fr-ae/ras-al-khaimah/contact
+* /fr-lb/minnieh-dennaya/contact
+
+French weddings:
+
+* /fr-lb/minnieh-dennaya/weddings
+* /fr-lb/west-bekaa/weddings
+
+Arabic contact:
+
+* /ar-lb/minnieh-dennaya/contact
+
+Acceptance criteria:
+
+* All 54 title tags from title_tag_too_long(1).csv are now under 65 characters.
+* Ideally, most are under 60 characters.
+* Contact pages still include the city name.
+* Wedding pages still include the city name.
+* Titles are still unique.
+* No URL or routing changes were made.
+* No product/category/occasion SEO titles were affected.
+
+Please return:
+
+1. Files/components changed
+2. Old title template
+3. New title template
+4. Example before/after titles
+5. Confirmation that all 54 long titles now pass
