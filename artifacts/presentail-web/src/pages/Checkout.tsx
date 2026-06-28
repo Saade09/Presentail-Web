@@ -91,6 +91,19 @@ function stripeDeclineMsg(
 // Currencies routed to the Gulf Stripe account.
 const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
 
+// Maps the active display-currency to its most likely Stripe merchant country.
+// Mirrors the mobile checkout's countryFromCurrency / resolveCountryCode pattern.
+function countryFromCurrency(currencyCode?: string): string | undefined {
+  if (currencyCode === "AED") return "AE";
+  if (currencyCode === "EUR") return "CY";
+  if (currencyCode === "USD") return "LB";
+  return undefined;
+}
+
+function resolveCheckoutCountry(selectedCountryCode?: string | null, currencyCode?: string): string {
+  return selectedCountryCode || countryFromCurrency(currencyCode) || "LB";
+}
+
 // Module-level Stripe promise cache — keyed by account (standard vs gulf).
 // Lazily initialised via dynamic import so @stripe/stripe-js is NOT bundled
 // into the eagerly-evaluated checkout chunk, and js.stripe.com is NOT fetched
@@ -905,13 +918,24 @@ function CheckoutForm() {
     () => dayLabels(t("checkout.day.today"), t("checkout.day.tomorrow")),
     [t],
   );
+  // Google Pay only works in Chrome/Android — it never opens a native sheet in
+  // Safari (which uses Apple Pay instead). Hide the Google Pay tile in Safari
+  // so it isn't presented as a tappable option that always falls back to card.
+  const isSafari = typeof navigator !== "undefined" && navigator.vendor === "Apple";
+
   const payCtxCountry = countryCode ?? undefined;
   const paymentOptions = useMemo(() => {
     const ids = webVisiblePayMethods({
       activeCurrency: currencyCode,
       countryCode: payCtxCountry,
     }).filter((id) => {
-      if (id === "apple_pay" || id === "google_pay") return walletSupported;
+      if (id === "apple_pay" || id === "google_pay") {
+        // Google Pay never shows a native sheet in Safari — hide it so shoppers
+        // in Safari on iPhone/Mac aren't presented with a tile that always falls
+        // back to card fields with no explanation.
+        if (id === "google_pay" && isSafari) return false;
+        return walletSupported;
+      }
       return true;
     });
     return ids.map((id) => ({
@@ -1001,14 +1025,15 @@ function CheckoutForm() {
   useEffect(() => {
     if (!stripe || walletCheckedRef.current) return;
     walletCheckedRef.current = true;
-    // Use "US" for the probe — it is always a valid Stripe PaymentRequest country.
-    // The probe only checks whether this browser/device has a wallet configured
-    // (Apple Pay in Safari, Google Pay in Chrome, etc.). The country parameter
-    // here does not need to match the shopper's delivery country.
+    // Use the merchant country derived from the shopper's active delivery country
+    // / currency. This matches what the submit-time PR will use and avoids
+    // Safari throwing when the probe country doesn't match the Stripe account's
+    // registered country.
+    const probeCountry = resolveCheckoutCountry(countryCode, currencyCode);
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        country: "US",
+        country: probeCountry,
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
@@ -1536,7 +1561,7 @@ function CheckoutForm() {
       if (isWalletMethod && activeCurrency !== "AED" && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
         try {
           paymentRequestRef.current = stripe.paymentRequest({
-            country: "US",
+            country: resolveCheckoutCountry(countryCode, activeCurrency),
             currency: prefetchedIntent.currency,
             total: {
               label: t("checkout.payment.orderTitle"),
@@ -1596,6 +1621,11 @@ function CheckoutForm() {
           paymentRequestRef.current = null;
           setPaymentMethodState("card");
           trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "show_failed" });
+          toast({
+            title: t("checkout.toast.walletUnavailable"),
+            description: t("checkout.toast.walletUnavailableDesc"),
+            variant: "destructive",
+          });
           return;
         }
 
