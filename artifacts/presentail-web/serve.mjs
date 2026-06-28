@@ -625,8 +625,17 @@ const STRIPE_APPLE_PAY_FILE_CONTENT = resolveStripeApplePayFileContent();
   const envVal = process.env.STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION ?? "";
   if (!envVal) {
     console.log(
-      "INFO: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — using built-in fallback value",
+      "INFO: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set — using built-in fallback value " +
+        "(note: the built-in cert expired May 2024; Apple Pay in browsers may be disabled until the secret is set correctly)",
     );
+    if (process.env.NODE_ENV === "production") {
+      sendSlackAlert(
+        ":warning: *presentail-web: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is not set*\n" +
+          "The built-in fallback cert expired May 2024 — Apple Pay in the browser is likely disabled for all shoppers.\n" +
+          "Fix: Stripe Dashboard → Settings → Payment methods → Apple Pay → Domains → presentail.com → Download verification file, " +
+          "then set the full file contents (~1700 chars) as the `STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION` Replit secret and republish.",
+      ).catch(() => {});
+    }
   } else if (envVal.startsWith("pmd_") || envVal.length < 100) {
     console.warn(
       "WARN: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION looks like a Stripe Payment Method Domain ID " +
@@ -635,6 +644,15 @@ const STRIPE_APPLE_PAY_FILE_CONTENT = resolveStripeApplePayFileContent();
         "To fix: update the secret to the full file content from Stripe Dashboard → " +
         "Settings → Payment methods → Apple Pay → Domains → Download file.",
     );
+    if (process.env.NODE_ENV === "production") {
+      sendSlackAlert(
+        ":rotating_light: *presentail-web: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION has wrong value*\n" +
+          `The secret contains \`${envVal.slice(0, 30)}…\` — that is the Stripe Payment Method Domain ID, not the downloaded verification file.\n` +
+          "The built-in fallback cert expired May 2024, so Apple Pay in the browser is *disabled* for all shoppers.\n" +
+          "Fix: Stripe Dashboard → Settings → Payment methods → Apple Pay → Domains → presentail.com → Download verification file, " +
+          "then set the full file contents (~1700 chars) as the `STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION` Replit secret and republish.",
+      ).catch(() => {});
+    }
   } else {
     console.log(
       "INFO: STRIPE_APPLE_PAY_DOMAIN_ASSOCIATION is set and looks valid — using env var value",
