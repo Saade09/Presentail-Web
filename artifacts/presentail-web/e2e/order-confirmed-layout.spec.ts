@@ -10,6 +10,13 @@
  * Tests run at both the default desktop viewport (1280×720) and the
  * Mobile Chrome viewport (390×844) configured in playwright.config.ts.
  * API calls are stubbed so the suite is hermetic.
+ *
+ * Locale coverage:
+ *   - English (en-lb/beirut) — default LTR layout.
+ *   - Arabic  (ar-lb/beirut) — RTL layout; Arabic item names exercise
+ *     bidirectional text wrapping and RTL flex row direction.
+ *   - French  (fr-lb/beirut) — LTR layout with longer translated strings
+ *     that stress overflow/truncation in the item name column.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -37,6 +44,35 @@ const SAMPLE_ORDER = {
   slotFee: 0,
   totalUsd: 150,
   paymentMethod: "card",
+};
+
+// Arabic variant — uses Arabic item names to exercise RTL bidi text
+// rendering and the flex row reversal that the `dir="rtl"` document
+// direction triggers on the item rows.
+const SAMPLE_ITEMS_AR = [
+  { name: "باقة الورود الكلاسيكية", quantity: 2, price: 45, image: "" },
+  { name: "صندوق الشوكولاتة الفاخر", quantity: 1, price: 30, image: "" },
+  { name: "طقم الشموع المعطّرة",    quantity: 1, price: 25, image: "" },
+];
+
+const SAMPLE_ORDER_AR = {
+  ...SAMPLE_ORDER,
+  items: SAMPLE_ITEMS_AR,
+  cardMessage: "عيد ميلاد سعيد! أتمنى لك كل التوفيق.",
+};
+
+// French variant — uses longer translated item names to stress the
+// truncate/overflow handling inside the narrow item-name column.
+const SAMPLE_ITEMS_FR = [
+  { name: "Bouquet de roses classiques élégantes", quantity: 2, price: 45, image: "" },
+  { name: "Coffret de chocolats de luxe assortis",  quantity: 1, price: 30, image: "" },
+  { name: "Ensemble de bougies parfumées d'ambiance", quantity: 1, price: 25, image: "" },
+];
+
+const SAMPLE_ORDER_FR = {
+  ...SAMPLE_ORDER,
+  items: SAMPLE_ITEMS_FR,
+  cardMessage: "Joyeux anniversaire ! Je vous souhaite tout le meilleur.",
 };
 
 const ORDER_REF = "ORD-TEST-9999";
@@ -235,6 +271,146 @@ test.describe("OrderConfirmed summary box — no scroll, all items visible", () 
     expect(
       hasScrollableBox,
       "The order-summary box must not have overflow auto/scroll",
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arabic (RTL) locale tests
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed summary box — Arabic RTL layout (ar-lb)", () => {
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+    // Use Arabic item names so the RTL bidi text engine and the flex row
+    // reversal imposed by dir="rtl" on <html> are exercised.
+    await seedSessionData(page, SAMPLE_ORDER_AR);
+  });
+
+  test("Arabic: summary box has no scroll cap and all item rows have non-zero height", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+
+    const summary = page.getByTestId("order-summary");
+    await expect(summary).toBeVisible({ timeout: 10_000 });
+
+    // --- assertion 1: document is in RTL mode ---
+    const dir = await page.evaluate(() => document.documentElement.dir);
+    expect(dir, "Expected <html> to have dir=rtl in Arabic locale").toBe("rtl");
+
+    // --- assertion 2: no scroll cap on the summary box ---
+    const overflowY = await getOverflowY(page, "order-summary");
+    expect(
+      ["auto", "scroll"].includes(overflowY),
+      `Arabic layout: Expected overflow-y to NOT be auto/scroll, got: ${overflowY}`,
+    ).toBe(false);
+
+    // --- assertion 3: all item rows have non-zero rendered height in RTL ---
+    const { itemCount, hiddenCount, scrollHeightOk } =
+      await summaryBoxHasNoHiddenContent(page);
+    expect(itemCount, "Arabic: Expected at least one item row in the summary").toBeGreaterThan(0);
+    expect(
+      hiddenCount,
+      `Arabic RTL: ${hiddenCount} of ${itemCount} item rows have zero rendered height`,
+    ).toBe(0);
+    expect(
+      scrollHeightOk,
+      "Arabic: Summary box scrollHeight exceeds clientHeight — content hidden by an internal scroll track",
+    ).toBe(true);
+  });
+
+  test("Arabic: summary box overflow style does not create an internal scroll container", async ({ page }) => {
+    await page.goto(`/ar-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    const hasScrollableBox = await page.evaluate(() => {
+      const summary = document.querySelector('[data-testid="order-summary"]');
+      if (!summary) return false;
+      const style = window.getComputedStyle(summary);
+      return (
+        style.overflowY === "auto" ||
+        style.overflowY === "scroll" ||
+        style.overflow === "auto" ||
+        style.overflow === "scroll"
+      );
+    });
+
+    expect(
+      hasScrollableBox,
+      "Arabic: The order-summary box must not have overflow auto/scroll",
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// French (LTR, long strings) locale tests
+// ---------------------------------------------------------------------------
+
+test.describe("OrderConfirmed summary box — French layout (fr-lb)", () => {
+  test.beforeEach(async ({ page }) => {
+    await installStubs(page);
+    // Use long French item names to stress overflow/truncation handling in
+    // the item-name column at narrow viewports.
+    await seedSessionData(page, SAMPLE_ORDER_FR);
+  });
+
+  test("French: summary box has no scroll cap and all item rows have non-zero height", async ({ page }) => {
+    await page.goto(`/fr-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+
+    const summary = page.getByTestId("order-summary");
+    await expect(summary).toBeVisible({ timeout: 10_000 });
+
+    // --- assertion 1: document remains LTR in French locale ---
+    const dir = await page.evaluate(() => document.documentElement.dir);
+    expect(dir, "Expected <html> to have dir=ltr in French locale").toBe("ltr");
+
+    // --- assertion 2: no scroll cap on the summary box ---
+    const overflowY = await getOverflowY(page, "order-summary");
+    expect(
+      ["auto", "scroll"].includes(overflowY),
+      `French layout: Expected overflow-y to NOT be auto/scroll, got: ${overflowY}`,
+    ).toBe(false);
+
+    // --- assertion 3: all item rows have non-zero rendered height ---
+    const { itemCount, hiddenCount, scrollHeightOk } =
+      await summaryBoxHasNoHiddenContent(page);
+    expect(itemCount, "French: Expected at least one item row in the summary").toBeGreaterThan(0);
+    expect(
+      hiddenCount,
+      `French: ${hiddenCount} of ${itemCount} item rows have zero rendered height`,
+    ).toBe(0);
+    expect(
+      scrollHeightOk,
+      "French: Summary box scrollHeight exceeds clientHeight — content hidden by an internal scroll track",
+    ).toBe(true);
+  });
+
+  test("French: summary box overflow style does not create an internal scroll container", async ({ page }) => {
+    await page.goto(`/fr-lb/beirut/order-confirmed?status=success&ref=${ORDER_REF}`);
+
+    await expect(page.getByTestId("icon-success")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("order-summary")).toBeVisible({ timeout: 10_000 });
+
+    const hasScrollableBox = await page.evaluate(() => {
+      const summary = document.querySelector('[data-testid="order-summary"]');
+      if (!summary) return false;
+      const style = window.getComputedStyle(summary);
+      return (
+        style.overflowY === "auto" ||
+        style.overflowY === "scroll" ||
+        style.overflow === "auto" ||
+        style.overflow === "scroll"
+      );
+    });
+
+    expect(
+      hasScrollableBox,
+      "French: The order-summary box must not have overflow auto/scroll",
     ).toBe(false);
   });
 });
