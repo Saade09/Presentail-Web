@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
+import { fireAdsPurchaseConversion } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
@@ -262,6 +263,7 @@ export default function OrderConfirmed() {
       event_id: `fbpurchase-${state.ref}`,
       ...(user?.email ? { userData: { em: user.email } } : {}),
     });
+    fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
   // full-page reloads (redirect-based payment returns). purchaseFiredRef prevents
@@ -316,12 +318,15 @@ export default function OrderConfirmed() {
           const orderRef = String(payload.orderId ?? res.osOrderId ?? res.wcOrderId);
           if (!purchaseFiredRef.current) {
             purchaseFiredRef.current = true;
+            const purchaseValue = typeof payload.totalUsd === "number" ? payload.totalUsd : 0;
+            const purchaseCurrency = (payload.currencyCode as string | undefined) ?? "USD";
             trackFbEvent("Purchase", {
-              value: typeof payload.totalUsd === "number" ? payload.totalUsd : 0,
-              currency: (payload.currencyCode as string | undefined) ?? "USD",
+              value: purchaseValue,
+              currency: purchaseCurrency,
               event_id: `fbpurchase-${orderRef}`,
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
+            fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency });
           }
           // Order created — clear the consecutive-failure counter.
           setFailedAttempts(0);

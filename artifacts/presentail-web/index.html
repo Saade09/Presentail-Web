@@ -18,6 +18,14 @@
     <link rel="dns-prefetch" href="https://images.unsplash.com">
     <link rel="preconnect" href="https://os.presentail.com" crossorigin>
     <link rel="dns-prefetch" href="https://os.presentail.com">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GTAG_ADS_ID%"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '%VITE_GTAG_GA4_ID%');
+      gtag('config', '%VITE_GTAG_ADS_ID%');
+    </script>
   </head>
   <body>
     <div id="root"></div>
