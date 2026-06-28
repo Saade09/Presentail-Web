@@ -125,7 +125,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Lux Arrangements",   href: "/category/lux-arrangements",    img: "/catalog/categories/lux-arrangements.avif" },
       { label: "Artificial Flowers", href: "/category/artificial-flowers",  emoji: "🌺" },
     ],
-    footer: { label: "View All Flowers", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
+    footer: { label: "All Flowers & Plants", labelKey: "nav.viewAllFlowers", href: "/category/flowers" },
   },
 ];
 
