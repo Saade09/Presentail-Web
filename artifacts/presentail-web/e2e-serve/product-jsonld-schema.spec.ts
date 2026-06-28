@@ -1,0 +1,247 @@
+/**
+ * Serve-backed Product JSON-LD Merchant Listing schema regression tests.
+ *
+ * check-product-jsonld-schema.mjs validates the product Offer JSON-LD by
+ * calling buildProductHead() with *synthetic* fixture objects.  That exercises
+ * the individual builder functions (buildOfferDeliveryAndReturns, etc.) in
+ * isolation, but it bypasses injectSeoTagsAsync entirely — the glue that
+ * fetches a real entity from the OS API (or the fixture API in CI), resolves
+ * its slug/locale, and assembles the @graph before injecting it into the HTML.
+ *
+ * A regression in the fetch → resolve → assemble glue — a missing field
+ * propagation, a changed entity shape, a broken branch in injectSeoTagsAsync
+ * — could ship malformed Product/Offer Merchant Listing schema that the
+ * fixture-based guard never catches, because the fixture guard bypasses
+ * injectSeoTagsAsync entirely.
+ *
+ * This spec requests the product route through serve.mjs (backed by the SEO
+ * entity fixture API started in the "Web serve checks" workflow), extracts
+ * every JSON-LD block from the served HTML, and runs the same per-field
+ * validators as check-product-jsonld-schema.mjs.  It fails the workflow when
+ * the real served page emits invalid or missing product schema.
+ *
+ * Route exercised:
+ *   /en-lb/beirut/product/rose-bouquet   — resolves the "rose-bouquet"
+ *                                           fixture product (price 89, inStock)
+ *
+ * The validators below mirror the logic in check-product-jsonld-schema.mjs
+ * (extractProductSchema, validateProductOffer) inlined here to avoid .mjs
+ * import resolution issues in the Playwright TypeScript runner.
+ *
+ * Uses Playwright's APIRequestContext so the test exercises the real HTTP
+ * layer (serve.mjs) without a browser — exactly the initial HTML crawlers
+ * receive.
+ */
+
+import { test, expect } from "@playwright/test";
+
+// ---------------------------------------------------------------------------
+// Helpers — identical logic to check-product-jsonld-schema.mjs
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull every JSON-LD node out of a raw HTML string, flattening @graph
+ * wrappers, and return the first node whose @type === "Product".
+ * Returns null when no Product node is found.
+ */
+function extractProductSchema(
+  html: string,
+): Record<string, unknown> | null {
+  const re = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(m[1]);
+    } catch {
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object") continue;
+    const nodes: unknown[] = Array.isArray(
+      (parsed as Record<string, unknown>)["@graph"],
+    )
+      ? ((parsed as Record<string, unknown[]>)["@graph"] as unknown[])
+      : [parsed];
+    for (const node of nodes) {
+      if (
+        node &&
+        typeof node === "object" &&
+        (node as Record<string, unknown>)["@type"] === "Product"
+      ) {
+        return node as Record<string, unknown>;
+      }
+    }
+  }
+  return null;
+}
+
+function isNonEmptyString(v: unknown): boolean {
+  return typeof v === "string" && (v as string).trim() !== "";
+}
+
+function isSchemaOrgUrl(v: unknown): boolean {
+  return isNonEmptyString(v) && /^https?:\/\/schema\.org\//.test(v as string);
+}
+
+function isPositiveNumericString(v: unknown): boolean {
+  return (
+    isNonEmptyString(v) &&
+    Number.isFinite(Number(v as string)) &&
+    Number(v as string) > 0
+  );
+}
+
+function isNonNegativeNumericString(v: unknown): boolean {
+  return (
+    isNonEmptyString(v) &&
+    Number.isFinite(Number(v as string)) &&
+    Number(v as string) >= 0
+  );
+}
+
+/**
+ * Validate a Product JSON-LD node against Google's required Merchant Listing
+ * field set (same logic as validateProductOffer in
+ * check-product-jsonld-schema.mjs).  Returns an array of human-readable error
+ * strings; empty means the node is valid.
+ */
+function validateProductOffer(
+  product: Record<string, unknown> | null,
+): string[] {
+  if (!product || typeof product !== "object") {
+    return ["Product JSON-LD node is missing"];
+  }
+
+  const offer = product.offers as Record<string, unknown> | undefined;
+  if (!offer || typeof offer !== "object" || Array.isArray(offer)) {
+    return ['Product is missing a single "offers" object'];
+  }
+
+  const errors: string[] = [];
+
+  // Core offer fields.
+  if (!isPositiveNumericString(offer.price)) {
+    errors.push(
+      `offers.price must be a positive numeric string (got ${JSON.stringify(offer.price)})`,
+    );
+  }
+  if (!isNonEmptyString(offer.priceCurrency)) {
+    errors.push(
+      `offers.priceCurrency must be a non-empty string (got ${JSON.stringify(offer.priceCurrency)})`,
+    );
+  }
+  if (!isSchemaOrgUrl(offer.availability)) {
+    errors.push(
+      `offers.availability must be a schema.org URL (got ${JSON.stringify(offer.availability)})`,
+    );
+  }
+
+  // shippingDetails.
+  const shipping = offer.shippingDetails as
+    | Record<string, unknown>
+    | undefined;
+  if (!shipping || typeof shipping !== "object") {
+    errors.push("offers.shippingDetails is missing");
+  } else {
+    const rate = shipping.shippingRate as Record<string, unknown> | undefined;
+    if (!rate || typeof rate !== "object") {
+      errors.push("offers.shippingDetails.shippingRate is missing");
+    } else {
+      if (!isNonNegativeNumericString(rate.value)) {
+        errors.push(
+          `offers.shippingDetails.shippingRate.value must be a non-negative numeric string (got ${JSON.stringify(rate.value)})`,
+        );
+      }
+      if (!isNonEmptyString(rate.currency)) {
+        errors.push(
+          `offers.shippingDetails.shippingRate.currency must be a non-empty string (got ${JSON.stringify(rate.currency)})`,
+        );
+      }
+    }
+    const dest = shipping.shippingDestination as
+      | Record<string, unknown>
+      | undefined;
+    if (!dest || typeof dest !== "object") {
+      errors.push("offers.shippingDetails.shippingDestination is missing");
+    } else if (!isNonEmptyString(dest.addressCountry)) {
+      errors.push(
+        `offers.shippingDetails.shippingDestination.addressCountry must be a non-empty string (got ${JSON.stringify(dest.addressCountry)})`,
+      );
+    }
+  }
+
+  // hasMerchantReturnPolicy.
+  const policy = offer.hasMerchantReturnPolicy as
+    | Record<string, unknown>
+    | undefined;
+  if (!policy || typeof policy !== "object") {
+    errors.push("offers.hasMerchantReturnPolicy is missing");
+  } else {
+    if (!isNonEmptyString(policy.applicableCountry)) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.applicableCountry must be a non-empty string (got ${JSON.stringify(policy.applicableCountry)})`,
+      );
+    }
+    if (!isSchemaOrgUrl(policy.returnPolicyCategory)) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.returnPolicyCategory must be a schema.org URL (got ${JSON.stringify(policy.returnPolicyCategory)})`,
+      );
+    }
+    if (
+      typeof policy.merchantReturnDays !== "number" ||
+      !Number.isInteger(policy.merchantReturnDays) ||
+      (policy.merchantReturnDays as number) < 0
+    ) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.merchantReturnDays must be a non-negative integer (got ${JSON.stringify(policy.merchantReturnDays)})`,
+      );
+    }
+    if (!isSchemaOrgUrl(policy.returnMethod)) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.returnMethod must be a schema.org URL (got ${JSON.stringify(policy.returnMethod)})`,
+      );
+    }
+    if (!isSchemaOrgUrl(policy.returnFees)) {
+      errors.push(
+        `offers.hasMerchantReturnPolicy.returnFees must be a schema.org URL (got ${JSON.stringify(policy.returnFees)})`,
+      );
+    }
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
+// Test suite — fetches the product route once and runs two assertions
+// ---------------------------------------------------------------------------
+
+const PRODUCT_PATH = "/en-lb/beirut/product/rose-bouquet";
+
+test.describe(`Product JSON-LD Merchant Listing schema — ${PRODUCT_PATH}`, () => {
+  let productNode: Record<string, unknown> | null;
+
+  test.beforeAll(async ({ request }) => {
+    const response = await request.get(PRODUCT_PATH);
+    expect(
+      response.status(),
+      `serve.mjs returned ${response.status()} for ${PRODUCT_PATH}`,
+    ).toBe(200);
+    const html = await response.text();
+    productNode = extractProductSchema(html);
+  });
+
+  test("a Product JSON-LD node is emitted", () => {
+    expect(
+      productNode,
+      `${PRODUCT_PATH} did not emit any Product JSON-LD node`,
+    ).not.toBeNull();
+  });
+
+  test("Product Offer passes all required Merchant Listing field checks", () => {
+    const errors = validateProductOffer(productNode);
+    expect(
+      errors,
+      `${PRODUCT_PATH} emitted invalid Product/Offer JSON-LD:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
+    ).toHaveLength(0);
+  });
+});
