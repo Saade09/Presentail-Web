@@ -5,8 +5,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  startTransition,
   ReactNode,
 } from "react";
+import { getStartupItem } from "@/lib/startupState";
 import { useLocation } from "wouter";
 import {
   parseLocalePath,
@@ -60,25 +62,19 @@ function format(template: string, params?: Record<string, string | number>): str
 }
 
 function readStoredLang(): Language {
-  if (typeof window === "undefined") return "en";
-  try {
-    let saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved || !isSupportedLang(saved)) {
-      const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (legacy && isSupportedLang(legacy)) {
-        saved = legacy;
-        try {
-          window.localStorage.setItem(STORAGE_KEY, legacy);
-          window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-        } catch {
-          // ignore
-        }
-      }
+  const saved = getStartupItem(STORAGE_KEY);
+  if (saved && isSupportedLang(saved)) return saved;
+  const legacy = getStartupItem(LEGACY_STORAGE_KEY);
+  if (legacy && isSupportedLang(legacy)) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, legacy);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // ignore
     }
-    return saved && isSupportedLang(saved) ? saved : "en";
-  } catch {
-    return "en";
+    return legacy;
   }
+  return "en";
 }
 
 const BASE_PREFIX = (import.meta as any).env?.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -113,7 +109,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   // Persist URL-derived language to localStorage so reloads from `/` keep it.
   useEffect(() => {
     if (parsed.lang && parsed.lang !== stored) {
-      setStored(parsed.lang);
+      startTransition(() => setStored(parsed.lang!));
       try {
         window.localStorage.setItem(STORAGE_KEY, parsed.lang);
       } catch {

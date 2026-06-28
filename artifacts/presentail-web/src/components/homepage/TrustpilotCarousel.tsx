@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { injectTrustpilotScript } from "@/lib/trustpilot";
 
 declare global {
   interface Window {
@@ -6,21 +7,6 @@ declare global {
       loadFromElement: (element: Element, force?: boolean) => void;
     };
   }
-}
-
-const TRUSTPILOT_SCRIPT_SRC =
-  "https://widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js";
-
-function injectTrustpilotScript(onLoad: () => void) {
-  if (document.querySelector(`script[src="${TRUSTPILOT_SCRIPT_SRC}"]`)) {
-    onLoad();
-    return;
-  }
-  const script = document.createElement("script");
-  script.src = TRUSTPILOT_SCRIPT_SRC;
-  script.async = true;
-  script.onload = onLoad;
-  document.head.appendChild(script);
 }
 
 export function TrustpilotCarousel() {

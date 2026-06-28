@@ -247,7 +247,7 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
       }
 
       const linkTags = newFiles
-        .map((f) => `  <link rel="modulepreload" href="/${f}" crossorigin>`)
+        .map((f) => `  <link rel="modulepreload" href="/${f}" crossorigin fetchpriority="low">`)
         .join("\n");
 
       // Inject before the closing </head> tag so these hints ship in the

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
+import { getStartupItem } from "@/lib/startupState";
 
 export type CartItem = {
   product: Product;
@@ -28,7 +29,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("presentail_cart_v1");
+    const saved = getStartupItem("presentail_cart_v1");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);

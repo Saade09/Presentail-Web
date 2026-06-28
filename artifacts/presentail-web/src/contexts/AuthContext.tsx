@@ -3,8 +3,10 @@ import {
   useContext,
   useEffect,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
+import { getStartupItem } from "@/lib/startupState";
 
 export type ShimUser = {
   id: string;
@@ -27,8 +29,8 @@ export type AuthContextValue = {
   updateUser: (fields: Partial<Pick<ShimUser, "firstName" | "lastName" | "phone">>) => void;
 };
 
-const TOKEN_KEY = "presentail_web_token";
-const PROVIDER_KEY = "presentail_web_provider";
+const TOKEN_KEY = "presentail_web_token" as const;
+const PROVIDER_KEY = "presentail_web_provider" as const;
 
 const GUEST_AUTH_VALUE: AuthContextValue = {
   user: null,
@@ -48,19 +50,16 @@ export const AuthOverrideContext =
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ShimUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => getStartupItem(TOKEN_KEY));
   const [isLoading, setIsLoading] = useState(true);
-  const [provider, setProvider] = useState<string | null>(null);
+  const [provider, setProvider] = useState<string | null>(() => getStartupItem(PROVIDER_KEY));
 
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    const storedProvider = localStorage.getItem(PROVIDER_KEY);
+    const stored = getStartupItem(TOKEN_KEY);
     if (!stored) {
       setIsLoading(false);
       return;
     }
-    setToken(stored);
-    setProvider(storedProvider);
     void (async () => {
       try {
         const res = await fetch("/api/auth/me", {
@@ -81,25 +80,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               phone?: string;
             } | null;
           };
-          if (data.ok && data.user) {
-            setUser({
-              id: String(data.user.id),
-              email: data.user.email ?? "",
-              firstName: data.user.firstName ?? "",
-              lastName: data.user.lastName ?? "",
-              phone: data.user.phone || undefined,
-            });
-          } else {
+          startTransition(() => {
+            if (data.ok && data.user) {
+              setUser({
+                id: String(data.user.id),
+                email: data.user.email ?? "",
+                firstName: data.user.firstName ?? "",
+                lastName: data.user.lastName ?? "",
+                phone: data.user.phone || undefined,
+              });
+            } else {
+              localStorage.removeItem(TOKEN_KEY);
+              localStorage.removeItem(PROVIDER_KEY);
+              setToken(null);
+              setProvider(null);
+            }
+          });
+        } else if (res.status === 401 || res.status === 403) {
+          startTransition(() => {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(PROVIDER_KEY);
             setToken(null);
             setProvider(null);
-          }
-        } else if (res.status === 401 || res.status === 403) {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(PROVIDER_KEY);
-          setToken(null);
-          setProvider(null);
+          });
         }
         // On network error we leave the token intact and just render as guest.
       } finally {

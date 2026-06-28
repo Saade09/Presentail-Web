@@ -5,10 +5,11 @@ import {
   Redirect,
   useLocation,
 } from "wouter";
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 import { prefetchOnIdle } from "@/lib/prefetch";
 import { initPixel, trackFbPageView } from "@/lib/fbPixel";
 import {
@@ -158,8 +159,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const persister = createSyncStoragePersister({
-  storage: typeof window !== "undefined" ? window.localStorage : undefined,
+const idbStorage = {
+  getItem: (key: string) => idbGet<string>(key).then((v) => v ?? null),
+  setItem: (key: string, value: string) => idbSet(key, value),
+  removeItem: (key: string) => idbDel(key),
+};
+
+const persister = createAsyncStoragePersister({
+  storage: idbStorage,
   key: OS_PRODUCTS_CACHE_KEY,
   throttleTime: 1000,
 });
@@ -425,7 +432,9 @@ function CurrencyDataLoader() {
   const { data } = useCurrenciesData();
   useEffect(() => {
     if (!data) return;
-    setCurrencySnapshot(data);
+    startTransition(() => {
+      setCurrencySnapshot(data);
+    });
   }, [data]);
   return null;
 }
@@ -451,7 +460,7 @@ const IDLE_PREFETCH = [
 
 function App() {
   useEffect(() => {
-    prefetchOnIdle(IDLE_PREFETCH);
+    return prefetchOnIdle(IDLE_PREFETCH);
   }, []);
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { injectTrustpilotScript } from "@/lib/trustpilot";
 
 declare global {
   interface Window {
@@ -32,7 +33,7 @@ export function TrustpilotMicroWidget() {
       window.Trustpilot.loadFromElement(el, true);
     };
 
-    tryLoad();
+    injectTrustpilotScript(tryLoad);
 
     return () => {
       if (pollTimer !== null) clearTimeout(pollTimer);

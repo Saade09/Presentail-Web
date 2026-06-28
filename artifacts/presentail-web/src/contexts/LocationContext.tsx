@@ -5,8 +5,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  startTransition,
   ReactNode,
 } from "react";
+import { getStartupItem } from "@/lib/startupState";
 import { useLocation } from "wouter";
 import { useDeliveryLocations, type DeliveryLocationsResponse } from "@/lib/queries";
 import { useServerEvents } from "@/hooks/useServerEvents";
@@ -62,9 +64,8 @@ type LocationContextType = {
 export const LocationContext = createContext<LocationContextType | null>(null);
 
 function readStored(): StoredLocation | null {
-  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getStartupItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredLocation;
     if (!parsed?.countryCode || !parsed?.cityId) return null;
@@ -75,13 +76,8 @@ function readStored(): StoredLocation | null {
 }
 
 function readStoredLang(): Lang {
-  if (typeof window === "undefined") return "en";
-  try {
-    const v = window.localStorage.getItem(LANG_STORAGE_KEY);
-    return v && isSupportedLang(v) ? v : "en";
-  } catch {
-    return "en";
-  }
+  const v = getStartupItem(LANG_STORAGE_KEY);
+  return v && isSupportedLang(v) ? v : "en";
 }
 
 export function LocationProvider({ children }: { children: ReactNode }) {
@@ -132,7 +128,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       return;
     }
     const next = { countryCode: fromUrlCountryCode, cityId: fromUrlCityId };
-    setStored(next);
+    startTransition(() => setStored(next));
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
@@ -202,7 +198,17 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   // Sync across tabs.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setStored(readStored());
+      if (e.key !== STORAGE_KEY) return;
+      try {
+        const parsed = e.newValue
+          ? (JSON.parse(e.newValue) as StoredLocation)
+          : null;
+        setStored(
+          parsed?.countryCode && parsed?.cityId ? parsed : null,
+        );
+      } catch {
+        setStored(null);
+      }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
