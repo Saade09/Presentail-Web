@@ -259,9 +259,23 @@ export default function SignInPage() {
         handleAuthSuccess(data.token, mappedUser, "apple");
       }
     } catch (err: any) {
+      // Apple's JS SDK throws a structured { error: string } object (not an
+      // Error instance) for user-facing cancellations and configuration errors.
+      const appleErrorCode: string | undefined =
+        err && typeof err === "object" && typeof err.error === "string"
+          ? err.error
+          : undefined;
+      const silentCancels = ["popup_closed_by_user", "user_cancelled_authorize"];
+      if (appleErrorCode && silentCancels.includes(appleErrorCode)) {
+        return;
+      }
       toast({
         title: t("auth.toast.oauthFailed", { provider: "Apple" }),
-        description: err instanceof Error ? err.message : t("auth.toast.error"),
+        description: appleErrorCode
+          ? appleErrorCode
+          : err instanceof Error
+          ? err.message
+          : t("auth.toast.error"),
         variant: "destructive",
       });
     } finally {

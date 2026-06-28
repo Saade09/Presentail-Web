@@ -173,6 +173,7 @@ PRESENTAIL_OS_API_URL = "https://os.presentail.com"
 OS_PRODUCTS_DISABLED = "1"
 VITE_FB_PIXEL_ID_LB = "516675752539139"
 VITE_FB_PIXEL_ID_AE = "604339571940277"
+APPLE_CLIENT_IDS = "presentail"
 
 [userenv.production]
 

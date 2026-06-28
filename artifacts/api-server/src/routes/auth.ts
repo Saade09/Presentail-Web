@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, createHash, randomInt } from "node:crypto";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { authenticate, decodeJwtPayload, signServerToken, isWcAuthEnabled } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { requireUserType } from "../lib/requireUserType";
 import { and, eq, isNull, gt } from "drizzle-orm";
 import { db, customersTable, CUSTOMER_GENDERS, phoneOtpsTable } from "@workspace/db";
@@ -1775,6 +1776,16 @@ function appleAudiences(): string[] {
 function appleWebAudiences(): string[] {
   const web = envList("APPLE_SERVICE_IDS");
   return web.length ? web : appleAudiences();
+}
+
+// Startup guard: warn when APPLE_CLIENT_IDS is absent so ops know the mobile
+// Apple sign-in audience check is using hardcoded defaults rather than an
+// explicit configuration. Mirror of the 503 guard on /auth/oauth/apple for
+// the web flow.
+if (!envList("APPLE_CLIENT_IDS").length) {
+  logger.warn(
+    "APPLE_CLIENT_IDS is not set — /auth/social/apple will accept the hardcoded default audiences [\"presentail\", \"com.presentail.lb\"]. Set APPLE_CLIENT_IDS=presentail to make this explicit.", // i18n-ignore
+  );
 }
 
 function googleAudiences(): string[] {
