@@ -180,11 +180,26 @@ function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
  * entry JS is executing, not in a second waterfall after it runs. This plugin
  * bridges the gap: it adds explicit preloads for the most critical lazy chunks
  * so browsers can fetch them from the HTML without waiting for JS discovery.
+ *
+ * Matching strategy:
+ *  - Named vendor chunks are matched by `chunk.name` (manualChunks key).
+ *  - Page-level route chunks have Rollup-generated names that vary by build.
+ *    They are matched by the manifest entry key (= the Vite source path, e.g.
+ *    "src/pages/Home.tsx"), which is stable across builds.
  */
 function lazyChunkPreloadPlugin(outDir: string): Plugin {
-  const ALWAYS_NEEDED_CHUNKS = new Set([
+  const ALWAYS_NEEDED_CHUNK_NAMES = new Set([
     "vendor-framer",
     "vendor-embla",
+  ]);
+
+  // Page source paths (relative to the artifact root) for chunks that are
+  // always needed on the first user-facing page view. Matched against the
+  // manifest entry key so they are correctly identified regardless of the
+  // Rollup-generated chunk name.
+  const ALWAYS_NEEDED_SRCS = new Set([
+    "src/pages/Home.tsx",
+    "src/pages/Shop.tsx",
   ]);
 
   return {
@@ -195,14 +210,24 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
       const manifestPath = path.join(outDir, ".vite", "manifest.json");
       if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
 
-      type ManifestChunk = { file: string; name?: string; isEntry?: boolean };
+      type ManifestChunk = { file: string; name?: string; src?: string; isEntry?: boolean };
       const manifest: Record<string, ManifestChunk> = JSON.parse(
         fs.readFileSync(manifestPath, "utf8"),
       );
 
       const preloadFiles: string[] = [];
-      for (const chunk of Object.values(manifest)) {
-        if (chunk.name && ALWAYS_NEEDED_CHUNKS.has(chunk.name) && chunk.file) {
+      for (const [key, chunk] of Object.entries(manifest)) {
+        if (!chunk.file) continue;
+        // Match vendor chunks by their manualChunks name.
+        if (chunk.name && ALWAYS_NEEDED_CHUNK_NAMES.has(chunk.name)) {
+          preloadFiles.push(chunk.file);
+          continue;
+        }
+        // Match page-level route chunks by their source path (manifest key).
+        // The key is the Vite source path relative to the project root, e.g.
+        // "src/pages/Home.tsx". Normalise to forward slashes for cross-platform.
+        const normKey = key.replace(/\\/g, "/");
+        if (ALWAYS_NEEDED_SRCS.has(normKey)) {
           preloadFiles.push(chunk.file);
         }
       }
@@ -231,7 +256,61 @@ function lazyChunkPreloadPlugin(outDir: string): Plugin {
       const updated = html.replace("</head>", `${linkTags}\n</head>`);
       fs.writeFileSync(htmlPath, updated, "utf8");
       console.log(
-        `[lazy-chunk-preload] Injected ${preloadFiles.length} modulepreload hint(s) for: ${preloadFiles.join(", ")}`,
+        `[lazy-chunk-preload] Injected ${newFiles.length} modulepreload hint(s) for: ${newFiles.join(", ")}`,
+      );
+    },
+  };
+}
+
+/**
+ * Inject `<link rel="preconnect">` and `<link rel="dns-prefetch">` hints for
+ * origins that are fetched unconditionally on the first page view, so the
+ * browser can open the TCP/TLS connection while the entry JS is still executing.
+ *
+ * The most important origin is os.presentail.com — every page immediately
+ * fetches product catalog data from it. Without a preconnect hint the browser
+ * only discovers this origin after the JS bundle executes, adding a full
+ * TCP+TLS round-trip (~100-300 ms on typical connections) to the critical path.
+ */
+function preconnectPlugin(outDir: string): Plugin {
+  const PRECONNECT_ORIGINS = [
+    // Product catalog API — fetched on every page view.
+    "https://os.presentail.com",
+  ];
+
+  return {
+    name: "presentail-preconnect",
+    apply: "build",
+    async closeBundle() {
+      const htmlPath = path.join(outDir, "index.html");
+      if (!fs.existsSync(htmlPath)) return;
+
+      const html = fs.readFileSync(htmlPath, "utf8");
+
+      // Build hint tags for each origin, skipping any already present.
+      const tags: string[] = [];
+      for (const origin of PRECONNECT_ORIGINS) {
+        if (html.includes(origin)) continue; // already injected by another pass
+        tags.push(`  <link rel="preconnect" href="${origin}" crossorigin>`);
+        tags.push(`  <link rel="dns-prefetch" href="${origin}">`);
+      }
+
+      if (tags.length === 0) {
+        console.log("[preconnect] All preconnect hints already present — skipping.");
+        return;
+      }
+
+      // Inject as the very first children of <head> so the browser sees them
+      // before any other resource hints or scripts.
+      const patched = html.replace("<head>", `<head>\n${tags.join("\n")}`);
+      if (patched === html) {
+        console.warn("[preconnect] Could not find <head> tag — skipping preconnect injection.");
+        return;
+      }
+
+      fs.writeFileSync(htmlPath, patched, "utf8");
+      console.log(
+        `[preconnect] Injected ${tags.length / 2} preconnect+dns-prefetch hint(s) for: ${PRECONNECT_ORIGINS.join(", ")}`,
       );
     },
   };
@@ -309,6 +388,7 @@ export default defineConfig(async ({ command }) => {
       runtimeErrorOverlay(),
       seoInjectPlugin(basePath),
       logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
+      preconnectPlugin(path.resolve(import.meta.dirname, "dist/public")),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       ...(process.env.NODE_ENV !== "production" &&

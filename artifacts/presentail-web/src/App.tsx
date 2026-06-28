@@ -27,6 +27,9 @@ import {
   loadHomepageHeader,
   loadFooter,
 } from "@/lib/pageLoaders";
+// NOTE: loadCheckout is kept imported here because it is used by the lazy()
+// call for the Checkout route. It is intentionally NOT in IDLE_PREFETCH — see
+// the comment there for the rationale.
 import { isUserType, canShop } from "@workspace/clerk-types";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -427,6 +430,10 @@ function CurrencyDataLoader() {
   return null;
 }
 
+// Checkout is intentionally excluded from idle prefetch — it must not appear
+// in the home-page critical waterfall. It is prefetched on hover of the cart
+// icon (see MainNavbar) so it only loads when the user signals intent to check
+// out, not unconditionally on every page load.
 const IDLE_PREFETCH = [
   loadHomepageHeader,
   loadFooter,
@@ -435,7 +442,6 @@ const IDLE_PREFETCH = [
   loadProductDetail,
   loadCart,
   loadSignIn,
-  loadCheckout,
   loadAccount,
   loadFavorites,
   loadBrands,

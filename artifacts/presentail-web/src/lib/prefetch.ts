@@ -25,17 +25,23 @@ export function prefetchOnIdle(loaders: Loader[]): void {
 /**
  * Returns `onMouseEnter` / `onFocus` props that trigger a prefetch the
  * first time the user hovers or tabs to the element.
- * Pass the same function reference on every render (e.g. a module-level
- * constant) so the `prefetched` set de-duplication works correctly.
+ * Pass the same function reference(s) on every render (e.g. module-level
+ * constants) so the `prefetched` set de-duplication works correctly.
+ *
+ * Accepts one or more loaders: all are triggered on the same hover/focus event.
+ * This is useful when hovering a link should warm up both the current target
+ * chunk (e.g. Cart) and the next likely destination (e.g. Checkout).
  */
-export function prefetchProps(loader: Loader): {
+export function prefetchProps(...loaders: Loader[]): {
   onMouseEnter: () => void;
   onFocus: () => void;
 } {
   const trigger = () => {
-    if (prefetched.has(loader)) return;
-    prefetched.add(loader);
-    loader().catch(() => {});
+    for (const loader of loaders) {
+      if (prefetched.has(loader)) continue;
+      prefetched.add(loader);
+      loader().catch(() => {});
+    }
   };
   return { onMouseEnter: trigger, onFocus: trigger };
 }

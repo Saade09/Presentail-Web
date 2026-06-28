@@ -20,6 +20,7 @@ import { OCCASION_OPTIONS } from "@/data/occasions";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
+  loadCheckout,
   loadSignIn,
   loadShop,
 } from "@/lib/pageLoaders";
@@ -574,7 +575,7 @@ export function MainNavbar() {
             </Link>
           )}
 
-          <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart)}>
+          <Link href="/cart" aria-label={t("nav.bagAria")} {...prefetchProps(loadCart, loadCheckout)}>
             <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")} data-testid="button-cart">
               <ShoppingCart className="!w-[22px] !h-[22px]" />
               <AnimatePresence>
