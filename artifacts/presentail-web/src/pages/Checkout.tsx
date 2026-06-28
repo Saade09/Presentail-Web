@@ -91,6 +91,15 @@ function stripeDeclineMsg(
 // Currencies routed to the Gulf Stripe account.
 const GULF_STRIPE_CURRENCIES = ["KWD", "OMR"];
 
+// The country code of the Stripe merchant account used for Apple Pay / Google
+// Pay PaymentRequest construction. This must match the account's registered
+// country (e.g. "US"), NOT the shopper's delivery country. Lebanon ("LB") is
+// not a supported Stripe merchant country and causes the PaymentRequest
+// constructor to throw on every attempt.
+// Configurable via VITE_STRIPE_MERCHANT_COUNTRY (default "US").
+const STRIPE_MERCHANT_COUNTRY: string =
+  (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY as string | undefined) || "US";
+
 // Maps the active display-currency to its most likely Stripe merchant country.
 // Mirrors the mobile checkout's countryFromCurrency / resolveCountryCode pattern.
 function countryFromCurrency(currencyCode?: string): string | undefined {
@@ -1063,15 +1072,14 @@ function CheckoutForm() {
   useEffect(() => {
     if (!stripe || walletCheckedRef.current) return;
     walletCheckedRef.current = true;
-    // Use the merchant country derived from the shopper's active delivery country
-    // / currency. This matches what the submit-time PR will use and avoids
-    // Safari throwing when the probe country doesn't match the Stripe account's
-    // registered country.
-    const probeCountry = resolveCheckoutCountry(countryCode, currencyCode);
+    // Use the Stripe merchant account's registered country (STRIPE_MERCHANT_COUNTRY,
+    // default "US") — NOT the shopper's delivery country. Passing the shopper's
+    // country (e.g. "LB") to stripe.paymentRequest() causes a constructor error
+    // because Lebanon is not a supported Stripe merchant account country.
     let pr: import("@stripe/stripe-js").PaymentRequest;
     try {
       pr = stripe.paymentRequest({
-        country: probeCountry,
+        country: STRIPE_MERCHANT_COUNTRY,
         currency: "usd",
         total: { label: "Presentail", amount: 100 }, // i18n-ignore — probe amount, updated at submit
         requestPayerName: false,
@@ -1599,7 +1607,10 @@ function CheckoutForm() {
       if (isWalletMethod && activeCurrency !== "AED" && stripe && prefetchedIntent && !walletSheetOpenRef.current) {
         try {
           paymentRequestRef.current = stripe.paymentRequest({
-            country: resolveCheckoutCountry(countryCode, activeCurrency),
+            // Must be the Stripe merchant account's registered country, not the
+            // shopper's delivery country. "LB" is not a valid Stripe merchant
+            // country and causes the constructor to throw on every attempt.
+            country: STRIPE_MERCHANT_COUNTRY,
             currency: prefetchedIntent.currency,
             total: {
               label: t("checkout.payment.orderTitle"),
@@ -1610,12 +1621,16 @@ function CheckoutForm() {
             disableWallets: ["link", "browserCard"],
           });
         } catch {
-          // paymentRequest() constructor failed — wallet not available.
-          // Leave paymentRequestRef null so walletViaNativeSheet is false and
-          // payMethod resolves to "card" below; the card path then runs
-          // automatically without any error toast.
+          // paymentRequest() constructor failed — env var misconfigured or
+          // browser doesn't support the PaymentRequest API at all. Show a toast
+          // so the shopper knows to pick another payment method.
           paymentRequestRef.current = null;
           trackEvent({ name: "payment_wallet_fallback", surface: "checkout", action: "wallet", errorCode: "constructor_failed" });
+          toast({
+            title: t("checkout.toast.walletPrepareFailTitle"),
+            description: t("checkout.toast.walletPrepareFailDesc"),
+            variant: "destructive",
+          });
         }
       }
 
