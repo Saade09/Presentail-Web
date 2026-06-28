@@ -397,10 +397,14 @@ export default defineConfig(async ({ command }) => {
             // Phone input libraries are loaded lazily via LazyWebPhoneField
             // (React.lazy + dynamic import). Give them a dedicated chunk so they
             // never get folded into the statically-evaluated vendor catch-all.
+            // NOTE: country-flag-icons is intentionally excluded here — it is
+            // used by CountryFlag.tsx which is imported by always-loaded
+            // components (TopUtilityBar, LocationPicker, Landing), so it must
+            // be allowed in the instant bundle.  Only the heavy phone-parsing
+            // libraries belong in the lazy-only vendor-phone chunk.
             if (
               id.includes("node_modules/react-phone-number-input/") ||
-              id.includes("node_modules/libphonenumber-js/") ||
-              id.includes("node_modules/country-flag-icons/")
+              id.includes("node_modules/libphonenumber-js/")
             )
               return "vendor-phone";
             // Stripe libraries are loaded lazily (StripeCheckoutSection is a

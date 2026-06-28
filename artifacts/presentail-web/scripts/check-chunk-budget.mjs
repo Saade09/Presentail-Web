@@ -35,9 +35,11 @@ const BUDGET_KB = 200;
  * (statically-reachable) set.  Any chunk here is expected to be loaded only
  * via a dynamic import; a static-import path is a performance regression.
  *
- * vendor-phone: react-phone-number-input / libphonenumber-js / country-flag-icons
+ * vendor-phone: react-phone-number-input / libphonenumber-js
  *   lazily loaded via LazyWebPhoneField (React.lazy).  Ending up in the instant
  *   set would add ~42 kB Brotli to every first page load.
+ *   (country-flag-icons is intentionally excluded from this chunk — CountryFlag.tsx
+ *   is used by always-loaded components and belongs in the instant bundle.)
  */
 const MUST_BE_LAZY = new Set(["vendor-phone"]);
 
