@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
+import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
 
 type OgImage = {
   url: string;
@@ -124,7 +125,7 @@ export default function Blog() {
                   <div className="overflow-hidden aspect-[16/9]">
                     <img
                       src={s.ogImage.url}
-                      srcSet={buildSrcSet(s.ogImage.url, [480, 768], s.ogImage.width)}
+                      srcSet={buildSrcSet(s.ogImage.url, BLOG_HERO_VARIANT_WIDTHS, s.ogImage.width)}
                       sizes="(min-width: 768px) 384px, 100vw"
                       width={s.ogImage.width}
                       height={s.ogImage.height}

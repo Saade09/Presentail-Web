@@ -1,9 +1,13 @@
 /**
- * Single source of truth for the responsive blog-hero WebP variant widths used
- * by:
+ * Filesystem helpers for the responsive blog-hero WebP variants, used by:
  *   - scripts/generate-blog-hero-variants.mjs  (prebuild generator)
  *   - scripts/check-blog-hero-variants.mjs     (CI guard)
- *   - src/lib/imageUtils.ts buildSrcSet() callers (Blog.tsx / BlogPost.tsx)
+ *
+ * The variant widths themselves (`BLOG_HERO_VARIANT_WIDTHS`) are the single
+ * source of truth and live in the dependency-free `blog-hero-variants.config.mjs`
+ * — re-exported below so existing script/test imports of this module keep
+ * working, and imported directly by the browser bundle (Blog.tsx / BlogPost.tsx)
+ * so the `srcset` widths can never drift from the generated/checked variants.
  *
  * Blog hero images live in public/blog/ as `<slug>.webp` (the full-resolution
  * original). For each original we ship downscaled `<slug>-480.webp` and
@@ -12,20 +16,19 @@
  * produces these from the original; the CI check fails the build if any are
  * missing so a hero added without its variants can never silently fall back to
  * the full-resolution file (quietly undoing the page-speed win).
- *
- * Update the widths ONLY here. They must stay in sync with the variant widths
- * passed to buildSrcSet() in Blog.tsx / BlogPost.tsx.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Downscaled WebP variant widths generated for every blog hero original. */
-export const BLOG_HERO_VARIANT_WIDTHS = [480, 768];
+// The variant widths/quality live in a dependency-free module so the browser
+// bundle (Blog.tsx / BlogPost.tsx) can import them without pulling in the
+// `node:` builtins used by the helpers below. Re-exported here so existing
+// script/test imports of this module keep working unchanged.
+export { BLOG_HERO_VARIANT_WIDTHS, BLOG_HERO_VARIANT_QUALITY } from "./blog-hero-variants.config.mjs";
 
-/** WebP encode quality used for generated variants (matches the cwebp -q 80 convention). */
-export const BLOG_HERO_VARIANT_QUALITY = 80;
+import { BLOG_HERO_VARIANT_WIDTHS } from "./blog-hero-variants.config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

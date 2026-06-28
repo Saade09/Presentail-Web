@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { BLOG_POSTS } from "@workspace/blog-content";
 import { buildSrcSet } from "@/lib/imageUtils";
+import { BLOG_HERO_VARIANT_WIDTHS } from "../../blog-hero-variants.config.mjs";
 
 type Section = {
   heading?: string;
@@ -144,7 +145,11 @@ export default function BlogPost() {
           <div className="mb-10 overflow-hidden rounded-lg">
             <img
               src={article.ogImage.url}
-              srcSet={buildSrcSet(article.ogImage.url, [768], article.ogImage.width)}
+              srcSet={buildSrcSet(
+                article.ogImage.url,
+                [Math.max(...BLOG_HERO_VARIANT_WIDTHS)],
+                article.ogImage.width,
+              )}
               sizes="(min-width: 768px) 768px, 100vw"
               width={article.ogImage.width}
               height={article.ogImage.height}
