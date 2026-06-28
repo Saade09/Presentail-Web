@@ -774,7 +774,7 @@ function BestSellers() {
   );
 }
 
-const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "lux-arrangements", "flower-vases", "dried-flowers", "preserved-flowers"]);
+const FLOWER_CATS = new Set(["hand-bouquets", "flower-boxes", "flower-baskets", "lux-arrangements", "flower-vases", "dried-flowers", "preserved-flowers"]);
 
 function FlowersSection() {
   const colors = useColors();

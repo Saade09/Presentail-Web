@@ -37,6 +37,7 @@ function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLEl
 const CATEGORIES = [
   { slug: "hand-bouquets", labelKey: "shop.cat.handBouquets" },
   { slug: "flower-boxes", labelKey: "shop.cat.flowerBoxes" },
+  { slug: "flower-baskets", labelKey: "shop.cat.flowerBaskets" },
   { slug: "plants", labelKey: "shop.cat.plants" },
   { slug: "cakes", labelKey: "shop.cat.cakes" },
   { slug: "chocolate", labelKey: "shop.cat.chocolate" },
