@@ -975,6 +975,13 @@ function CheckoutForm() {
   // reactively know whether the prepared intent matches the current inputs
   // (refs don't trigger re-renders). Drives the wallet button's preparing state.
   const [walletReadySig, setWalletReadySig] = useState<string | null>(null);
+  // Set to true when PaymentIntent pre-creation fails; cleared automatically
+  // when the shopper changes any amount-affecting input, which re-triggers the
+  // preparation effect and effectively retries.
+  const [walletPrepareFailed, setWalletPrepareFailed] = useState(false);
+  // Bumped when the shopper taps the same wallet tile while preparation has
+  // failed, so the effect re-runs even though paymentMethod didn't change.
+  const [walletRetryNonce, setWalletRetryNonce] = useState(0);
 
   // Tracks whether the current viewport is mobile (≤ 767 px). Used to decide
   // whether a null canMakePayment() probe result should hide the wallet tiles
@@ -1072,6 +1079,7 @@ function CheckoutForm() {
       // Not a Stripe-wallet context: drop any prepared intent so the button
       // never shows "ready" for stale inputs.
       if (walletReadySig !== null) setWalletReadySig(null);
+      setWalletPrepareFailed(false);
       return;
     }
 
@@ -1121,6 +1129,9 @@ function CheckoutForm() {
     // lands. This is what prevents the sheet from ever opening with a stale or
     // estimated total.
     if (walletReadySig !== null) setWalletReadySig(null);
+    // Clear any prior failure so the spinner re-arms and the shopper can see
+    // preparation is retrying rather than still stuck in a failed state.
+    setWalletPrepareFailed(false);
 
     let cancelled = false;
     const handle = setTimeout(async () => {
@@ -1151,8 +1162,17 @@ function CheckoutForm() {
           setWalletReadySig(sig);
         }
       } catch {
-        // Best-effort: leave the button in its "preparing" state. The shopper
-        // can retry; a later input change or re-render re-runs this effect.
+        if (cancelled) return;
+        // Mark the failure so the spinner stops and the shopper can see an
+        // error rather than a button disabled with no explanation. A later
+        // input change (email, slot, coupon, etc.) clears this flag and
+        // re-arms the preparation effect automatically.
+        setWalletPrepareFailed(true);
+        toast({
+          title: t("checkout.toast.walletPrepareFailTitle"),
+          description: t("checkout.toast.walletPrepareFailDesc"),
+          variant: "destructive",
+        });
       }
     }, 400);
 
@@ -1181,6 +1201,7 @@ function CheckoutForm() {
     sender.email,
     recipient.district,
     items,
+    walletRetryNonce,
   ]);
 
   if (showLoginGate) {
@@ -1264,7 +1285,10 @@ function CheckoutForm() {
   const walletNeedsStripeIntent =
     isWalletMethodSelected && activeCurrencyForCountry(countryCode ?? "LB") !== "AED" && currencyCode !== "AED";
   const walletIntentReady = walletReadySig === currentWalletSig;
-  const walletPreparing = walletNeedsStripeIntent && !walletIntentReady;
+  // Stop the preparing spinner when preparation has failed: the shopper should
+  // see the error toast and be able to tap the tile again (which re-selects the
+  // method and triggers a fresh input-change cycle) or switch to another method.
+  const walletPreparing = walletNeedsStripeIntent && !walletIntentReady && !walletPrepareFailed;
 
   // Build a "Today · 2:00 PM – 6:00 PM" / "Wed 13 · …" / "Express Delivery"
   // line for the order summary so the shopper can confirm their pick at a
@@ -2340,7 +2364,16 @@ function CheckoutForm() {
                           key={m.id}
                           className={`p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? "ring-1" : "hover:border-primary/25 hover:bg-secondary/30"}`}
                           style={paymentMethod === m.id ? { borderColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.04)", outlineColor: "hsl(var(--primary) / 0.15)" } : {}}
-                          onClick={() => { setPaymentMethod(m.id); setStripeCardError(null); }}
+                          onClick={() => {
+                            setPaymentMethod(m.id);
+                            setStripeCardError(null);
+                            // If the shopper taps the same wallet tile while preparation
+                            // has failed, bump the nonce so the effect re-runs and retries
+                            // even though paymentMethod didn't change.
+                            if (walletPrepareFailed && (m.id === "apple_pay" || m.id === "google_pay")) {
+                              setWalletRetryNonce((n) => n + 1);
+                            }
+                          }}
                           data-testid={`option-payment-${m.id}`}
                         >
                           <div className="flex items-center gap-3">
