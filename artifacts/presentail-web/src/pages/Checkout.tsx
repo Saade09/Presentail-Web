@@ -1007,12 +1007,13 @@ function CheckoutForm() {
     });
     if (fallback !== paymentMethod) {
       setPaymentMethodState(fallback);
-      // Ensure Stripe is initialised when the auto-fallback selects a
-      // Stripe-backed method (e.g. apple_pay → card when wallet is
-      // unavailable for the active currency).  triggerStripeLoad is idempotent.
-      if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
-        triggerStripeLoad();
-      }
+    }
+    // Ensure Stripe is initialised whenever the resolved method is Stripe-backed,
+    // including on first render when apple_pay is already the default selection
+    // and the method didn't change (so the block above doesn't fire).
+    // triggerStripeLoad() is idempotent — safe to call on every run.
+    if (fallback === "card" || fallback === "apple_pay" || fallback === "google_pay") {
+      triggerStripeLoad();
     }
   }, [currencyCode, countryCode, paymentMethod, triggerStripeLoad]);
 
