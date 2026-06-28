@@ -343,7 +343,7 @@ function transformOsResponse(
               name: city.name,
               isActive: city.isActive,
               fee: feeForDistrict(code, city.name),
-              expressAvailable: priorCity?.expressAvailable ?? false,
+              expressAvailable: priorCity?.expressAvailable ?? true,
               expressDeliveryLabel: "",
               sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
               timeSlots: [] as OSTimeSlot[],
@@ -426,14 +426,17 @@ function transformOsResponse(
               ? getUsdAmount(c.deliveryFee, currency)
               : feeForDistrict(code, displayName),
           // When OS omits expressAvailable, check the prior cache for this
-          // city before defaulting to false. This prevents a partial webhook
+          // city before defaulting. This prevents a partial webhook
           // (e.g. slot-only or free-delivery-threshold update that omits
           // express_available) from silently turning off express delivery.
-          // Fall back to false only when there is genuinely no prior record.
+          // Fall back to true (opt-out model): express is on by default and
+          // only disabled for cities that explicitly send expressAvailable: false
+          // (e.g. Akkar). This ensures express shows immediately after a server
+          // restart without waiting for a delivery_config.updated webhook.
           expressAvailable:
             c.expressAvailable ??
             priorCity?.expressAvailable ??
-            false,
+            true,
           expressDeliveryLabel: c.expressDeliveryLabel ?? "",
           sameDayCutoffHour: c.sameDayCutoffHour ?? EXPRESS_CLOSE_HOUR,
           // Normalise to an array even when OS omits the field.
@@ -491,7 +494,7 @@ function transformOsResponse(
             name: hc.name,
             isActive: false,
             fee: feeForDistrict(code, hc.name),
-            expressAvailable: false,
+            expressAvailable: true,
             expressDeliveryLabel: "",
             sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
             timeSlots: [] as OSTimeSlot[],
@@ -546,8 +549,9 @@ function transformOsResponse(
       isActive: city.isActive,
       fee: feeForDistrict(c.code, city.name),
       // Country not yet in OS — use hardcoded defaults.
-      // Default false: never falsely promise express when OS hasn't confirmed it.
-      expressAvailable: false,
+      // Default true (opt-out model): express is on by default and only
+      // disabled for cities that explicitly send expressAvailable: false.
+      expressAvailable: true,
       expressDeliveryLabel: "",
       sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
       timeSlots: [] as OSTimeSlot[],
@@ -576,8 +580,9 @@ function hardcodedFallback(): CachedCountry[] {
         isActive: city.isActive,
         fee: feeForDistrict(c.code, city.name),
         // OS unreachable — use hardcoded defaults.
-        // Default false: never falsely promise express when OS hasn't confirmed it.
-        expressAvailable: false,
+        // Default true (opt-out model): express is on by default and only
+        // disabled for cities that explicitly send expressAvailable: false.
+        expressAvailable: true,
         expressDeliveryLabel: "",
         sameDayCutoffHour: EXPRESS_CLOSE_HOUR,
         timeSlots: [] as OSTimeSlot[],
