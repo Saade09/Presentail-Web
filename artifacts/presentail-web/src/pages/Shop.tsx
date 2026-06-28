@@ -1,4 +1,4 @@
-import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, type Product } from "@/lib/queries";
+import { useProducts, useCategoryProducts, useOccasionProducts, useBrandProducts, useCatalogMetadata, useFxRates, type Product } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
 import { useEffect } from "react";
@@ -12,6 +12,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { buildCategorySeo, buildOccasionSeo } from "@/lib/seo";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { extractColor, useProductColorHints } from "@/lib/colorExtractor";
 import {
   Sheet,
@@ -51,22 +52,55 @@ const OCCASIONS = [
   { slug: "condolences", labelKey: "shop.occ.condolences" },
 ];
 
-const PRICE_BUCKET_DEFS: { key: PriceBucket; labelKey: string; test: (v: number) => boolean }[] = [
-  { key: "under50", labelKey: "shop.filter.priceUnder50", test: (v) => v < 50 },
-  { key: "50to100", labelKey: "shop.filter.price50to100", test: (v) => v >= 50 && v < 100 },
-  { key: "100to200", labelKey: "shop.filter.price100to200", test: (v) => v >= 100 && v < 200 },
-  { key: "over200", labelKey: "shop.filter.priceOver200", test: (v) => v >= 200 },
-];
-
-function matchesPriceBucket(product: Product, bucket: PriceBucket): boolean {
-  const def = PRICE_BUCKET_DEFS.find((d) => d.key === bucket);
-  return def ? def.test(product.priceValue) : true;
-}
+const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 
 export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   const { t, language, cityName, countryName } = useLocale();
+  const { currencyCode, formatPrice } = useDisplayCurrency();
+  const { data: fxData } = useFxRates();
+
+  // Exchange rate for the active display currency (1 for USD or when unavailable).
+  const currencyRate = useMemo(() => {
+    if (currencyCode === "USD") return 1;
+    const r = Number(((fxData?.rates ?? {}) as Record<string, number>)[currencyCode] ?? 0);
+    return r > 0 ? r : 1;
+  }, [currencyCode, fxData]);
+
+  // Rounded converted thresholds — match what formatPrice() displays for these USD values.
+  // Using Math.round because formatPriceInCurrency uses toFixed(0) which also rounds.
+  const [cT50, cT100, cT200] = useMemo(
+    () => USD_BUCKET_THRESHOLDS.map((usd) => Math.round(usd * currencyRate)),
+    [currencyRate],
+  );
+
+  // Bucket definitions: stable key + rate-aware test + human-readable label.
+  const convertedBucketDefs = useMemo(
+    () => [
+      {
+        key: "under50" as PriceBucket,
+        test: (p: Product) => Math.round(p.priceValue * currencyRate) < cT50,
+        label: t("shop.filter.priceUnderAmount", { amount: formatPrice(50) }),
+      },
+      {
+        key: "50to100" as PriceBucket,
+        test: (p: Product) => { const cv = Math.round(p.priceValue * currencyRate); return cv >= cT50 && cv < cT100; },
+        label: t("shop.filter.priceRange", { from: formatPrice(50), to: formatPrice(100) }),
+      },
+      {
+        key: "100to200" as PriceBucket,
+        test: (p: Product) => { const cv = Math.round(p.priceValue * currencyRate); return cv >= cT100 && cv < cT200; },
+        label: t("shop.filter.priceRange", { from: formatPrice(100), to: formatPrice(200) }),
+      },
+      {
+        key: "over200" as PriceBucket,
+        test: (p: Product) => Math.round(p.priceValue * currencyRate) >= cT200,
+        label: t("shop.filter.priceOverAmount", { amount: formatPrice(200) }),
+      },
+    ],
+    [currencyRate, cT50, cT100, cT200, formatPrice, t],
+  );
   const [location, navigate] = useLocation();
   const params = useParams<{ slug?: string }>();
 
@@ -151,12 +185,12 @@ export default function Shop() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const priceBuckets: PriceBucketDef[] = useMemo(() => {
-    return PRICE_BUCKET_DEFS.map((def) => ({
+    return convertedBucketDefs.map((def) => ({
       key: def.key,
-      labelKey: def.labelKey,
-      count: sourceProducts.filter((p) => def.test(p.priceValue)).length,
+      label: def.label,
+      count: sourceProducts.filter((p) => def.test(p)).length,
     })).filter((b) => b.count > 0);
-  }, [sourceProducts]);
+  }, [sourceProducts, convertedBucketDefs]);
 
   // Identify products that did not match any keyword so we can ask the AI
   const unmatchedProducts = useMemo(() => {
@@ -185,8 +219,11 @@ export default function Shop() {
   }, [sourceProducts, aiColorHints]);
 
   const filteredProducts: Product[] = useMemo(() => {
+    const bucketTest = selectedPriceBucket
+      ? convertedBucketDefs.find((d) => d.key === selectedPriceBucket)?.test ?? null
+      : null;
     return sourceProducts.filter((p) => {
-      if (selectedPriceBucket && !matchesPriceBucket(p, selectedPriceBucket)) return false;
+      if (bucketTest && !bucketTest(p)) return false;
       if (selectedColors.length > 0) {
         const c = resolveColor(p);
         if (!c || !selectedColors.includes(c)) return false;
@@ -194,7 +231,7 @@ export default function Shop() {
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceProducts, selectedPriceBucket, selectedColors, aiColorHints]);
+  }, [sourceProducts, selectedPriceBucket, selectedColors, aiColorHints, convertedBucketDefs]);
 
   const products = useMemo(() => {
     const p = [...filteredProducts];
@@ -437,7 +474,7 @@ export default function Shop() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
                     data-testid="chip-price-filter"
                   >
-                    {t(PRICE_BUCKET_DEFS.find((d) => d.key === selectedPriceBucket)?.labelKey ?? "")}
+                    {selectedPriceBucket ? (convertedBucketDefs.find((d) => d.key === selectedPriceBucket)?.label ?? "") : ""}
                     <X className="w-3 h-3" />
                   </button>
                 )}

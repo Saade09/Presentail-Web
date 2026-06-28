@@ -67,14 +67,9 @@ export const shopStrings: Dict = {
   "shop.filter.showMore": { en: "Show more", ar: "عرض المزيد" },
   "shop.filter.showLess": { en: "Show less", ar: "عرض أقل" },
   "shop.filter.showResults": { en: "Show {count} results", ar: "عرض {count} نتيجة" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.filter.priceUnder50": { en: "Under $50", ar: "أقل من $50" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.filter.price50to100": { en: "$50–$100", ar: "$50–$100" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.filter.price100to200": { en: "$100–$200", ar: "$100–$200" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.filter.priceOver200": { en: "Over $200", ar: "أكثر من $200" },
+  "shop.filter.priceUnderAmount": { en: "Under {amount}", ar: "أقل من {amount}" },
+  "shop.filter.priceOverAmount": { en: "Over {amount}", ar: "أكثر من {amount}" },
+  "shop.filter.priceRange": { en: "{from}–{to}", ar: "{from}–{to}" },
 
   "shop.color.red": { en: "Red", ar: "أحمر" },
   "shop.color.white": { en: "White", ar: "أبيض" },
@@ -148,10 +143,9 @@ export const shopStringsFr: Record<string, string> = {
   "shop.filter.showMore": "Voir plus",
   "shop.filter.showLess": "Voir moins",
   "shop.filter.showResults": "Voir {count} résultats",
-  "shop.filter.priceUnder50": "Moins de 50 $",
-  "shop.filter.price50to100": "50 $–100 $",
-  "shop.filter.price100to200": "100 $–200 $",
-  "shop.filter.priceOver200": "Plus de 200 $",
+  "shop.filter.priceUnderAmount": "Moins de {amount}",
+  "shop.filter.priceOverAmount": "Plus de {amount}",
+  "shop.filter.priceRange": "{from}–{to}",
 
   "shop.color.red": "Rouge",
   "shop.color.white": "Blanc",

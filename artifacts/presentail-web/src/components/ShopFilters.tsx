@@ -8,7 +8,7 @@ export type PriceBucket = "under50" | "50to100" | "100to200" | "over200";
 
 export type PriceBucketDef = {
   key: PriceBucket;
-  labelKey: string;
+  label: string;
   count: number;
 };
 
@@ -66,7 +66,7 @@ export function ShopFilters({
                     )}
                     data-testid={`filter-price-${bucket.key}`}
                   >
-                    <span>{t(bucket.labelKey)}</span>
+                    <span>{bucket.label}</span>
                     <span className="text-xs opacity-60 ml-2">({bucket.count})</span>
                   </button>
                 </li>
