@@ -182,7 +182,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  clearSessionStorage();
+  // Clear ALL sessionStorage keys — the Ads conversion deduplication guard
+  // writes a `presentail_ads_conversion_fired_<ref>` key that must not persist
+  // across test cases (it would suppress subsequent test mounts).
+  sessionStorage.clear();
 });
 
 // ---------------------------------------------------------------------------

@@ -145,7 +145,10 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (window as unknown as Record<string, unknown>).gtag;
-  clearSessionStorage();
+  // Clear ALL sessionStorage keys — the conversion deduplication guard writes
+  // a `presentail_ads_conversion_fired_<ref>` key that must not persist across
+  // test cases (it would cause the guard to suppress subsequent test mounts).
+  sessionStorage.clear();
 });
 
 // ---------------------------------------------------------------------------
@@ -376,6 +379,124 @@ describe("OrderConfirmed — redirect/finalizing path (createOrder.mutate)", () 
 
     await new Promise<void>((resolve) => setTimeout(resolve, 60));
     expect(conversionCalls(mockGtag).length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sessionStorage deduplication — page reload guard
+//
+// `purchaseFiredRef` is a React ref that resets to false on every full page
+// reload. A sessionStorage key keyed by the order ref (`presentail_ads_
+// conversion_fired_<ref>`) persists across reloads within the same session and
+// prevents the conversion from firing a second time when the shopper reloads
+// /order-confirmed?ref=<ref> (e.g. after a slow connection).
+// ---------------------------------------------------------------------------
+
+describe("OrderConfirmed — sessionStorage deduplication (page-reload guard)", () => {
+  describe("inline-payment path (?ref= on URL)", () => {
+    const ORDER_REF = "order-reload-guard";
+    const CONVERSION_KEY = `presentail_ads_conversion_fired_${ORDER_REF}`;
+
+    beforeEach(() => {
+      // Clear ALL sessionStorage keys (including any conversion keys left by
+      // prior tests) so each test starts from a known-clean state.
+      sessionStorage.clear();
+      mockUseSearch.mockReturnValue(`?ref=${ORDER_REF}`);
+      seedSessionStorage();
+    });
+
+    it("fires the conversion on the first mount and writes the deduplication key", async () => {
+      renderWithProviders(<OrderConfirmed />, {
+        auth: { user: null, token: null, isLoading: false },
+      });
+
+      await waitFor(() => {
+        expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
+      });
+
+      expect(sessionStorage.getItem(CONVERSION_KEY)).toBe("1");
+    });
+
+    it("does NOT re-fire when the deduplication key is already present (simulates a page reload)", async () => {
+      // Simulate the state left by a prior page load.
+      sessionStorage.setItem(CONVERSION_KEY, "1");
+
+      renderWithProviders(<OrderConfirmed />, {
+        auth: { user: null, token: null, isLoading: false },
+      });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 60));
+      expect(conversionCalls(mockGtag).length).toBe(0);
+    });
+
+    it("fires normally for a different order ref whose key is absent", async () => {
+      // Only an unrelated ref's key is in storage; ORDER_REF has not fired yet.
+      sessionStorage.setItem("presentail_ads_conversion_fired_order-other-999", "1");
+
+      renderWithProviders(<OrderConfirmed />, {
+        auth: { user: null, token: null, isLoading: false },
+      });
+
+      await waitFor(() => {
+        expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
+      });
+
+      const [, , params] = conversionCalls(mockGtag)[0] as [
+        unknown,
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(params.transaction_id).toBe(ORDER_REF);
+    });
+  });
+
+  describe("redirect/finalizing path (createOrder.mutate)", () => {
+    const WC_ORDER_ID = 77777;
+    const CONVERSION_KEY = `presentail_ads_conversion_fired_${WC_ORDER_ID}`;
+
+    beforeEach(() => {
+      sessionStorage.clear();
+      mockUseSearch.mockReturnValue("?status=success");
+      seedSessionStorage();
+    });
+
+    it("fires the conversion after mutate succeeds and writes the deduplication key", async () => {
+      mockMutate.mockImplementation(
+        (_payload: unknown, { onSuccess }: { onSuccess: (res: unknown) => void }) => {
+          onSuccess({ ok: true, wcOrderId: WC_ORDER_ID });
+        },
+      );
+
+      renderWithProviders(<OrderConfirmed />, {
+        auth: { user: null, token: null, isLoading: false },
+        cart: { clearCart: vi.fn(), items: [], subtotal: 0, itemCount: 0, isHydrated: true },
+      });
+
+      await waitFor(() => {
+        expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
+      });
+
+      expect(sessionStorage.getItem(CONVERSION_KEY)).toBe("1");
+    });
+
+    it("does NOT re-fire when the deduplication key is already present for the finalized order ref", async () => {
+      // Simulate a prior page load having already fired for this order ref.
+      sessionStorage.setItem(CONVERSION_KEY, "1");
+
+      mockMutate.mockImplementation(
+        (_payload: unknown, { onSuccess }: { onSuccess: (res: unknown) => void }) => {
+          onSuccess({ ok: true, wcOrderId: WC_ORDER_ID });
+        },
+      );
+
+      renderWithProviders(<OrderConfirmed />, {
+        auth: { user: null, token: null, isLoading: false },
+        cart: { clearCart: vi.fn(), items: [], subtotal: 0, itemCount: 0, isHydrated: true },
+      });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 60));
+      expect(conversionCalls(mockGtag).length).toBe(0);
+    });
   });
 });
 

@@ -12,6 +12,7 @@ import { fireAdsPurchaseConversion } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
 
 const PENDING_ORDER_KEY = "presentail_pending_order_v1";
+const ADS_CONVERSION_KEY_PREFIX = "presentail_ads_conversion_fired_";
 
 // A stashed pending-order payload older than this is treated as missing. This
 // stops a stale tab (or a bookmarked /order-confirmed URL) left open for hours
@@ -246,6 +247,13 @@ export default function OrderConfirmed() {
     if (state.kind !== "success") return;
     if (authLoading) return;
     if (purchaseFiredRef.current) return;
+    // sessionStorage guard: skip if this conversion was already sent in a prior
+    // page load for the same order ref (e.g. shopper reloads /order-confirmed).
+    const conversionKey = `${ADS_CONVERSION_KEY_PREFIX}${state.ref}`;
+    if (sessionStorage.getItem(conversionKey) !== null) {
+      purchaseFiredRef.current = true;
+      return;
+    }
     purchaseFiredRef.current = true;
     let value = 0;
     let currency = "USD";
@@ -264,6 +272,7 @@ export default function OrderConfirmed() {
       ...(user?.email ? { userData: { em: user.email } } : {}),
     });
     fireAdsPurchaseConversion({ transactionId: state.ref, value, currency });
+    try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
   // full-page reloads (redirect-based payment returns). purchaseFiredRef prevents
@@ -316,7 +325,8 @@ export default function OrderConfirmed() {
             ...(chosenMethod ? { action: chosenMethod } : {}),
           });
           const orderRef = String(payload.orderId ?? res.osOrderId ?? res.wcOrderId);
-          if (!purchaseFiredRef.current) {
+          const conversionKey = `${ADS_CONVERSION_KEY_PREFIX}${orderRef}`;
+          if (!purchaseFiredRef.current && sessionStorage.getItem(conversionKey) === null) {
             purchaseFiredRef.current = true;
             const purchaseValue = typeof payload.totalUsd === "number" ? payload.totalUsd : 0;
             const purchaseCurrency = (payload.currencyCode as string | undefined) ?? "USD";
@@ -327,6 +337,9 @@ export default function OrderConfirmed() {
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
             fireAdsPurchaseConversion({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency });
+            try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
+          } else {
+            purchaseFiredRef.current = true;
           }
           // Order created — clear the consecutive-failure counter.
           setFailedAttempts(0);
