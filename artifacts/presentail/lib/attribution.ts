@@ -33,6 +33,20 @@ type StoredAttribution = {
   last_touch: AttributionTouch;
 };
 
+/**
+ * In-memory write-through cache.
+ *
+ * `captureAttributionFromUrl` requires two sequential AsyncStorage calls (read
+ * then write) before the new attribution is visible to `readAttribution`. If
+ * the checkout's `submitWooOrder` reads attribution during that async window
+ * it would see `null` even though a fresh ad click just arrived.
+ *
+ * This cache is updated synchronously — before any I/O — the moment a URL
+ * with marketing params is parsed, so `readAttribution` always sees the latest
+ * captured attribution even if AsyncStorage hasn't committed yet.
+ */
+let _memCache: StoredAttribution | null = null;
+
 function parseUrlParams(url: string): { params: URLSearchParams; href: string; path: string } {
   try {
     const parsed = new URL(url);
@@ -79,6 +93,13 @@ export async function captureAttributionFromUrl(url: string | null): Promise<voi
     const { params, href, path } = parseUrlParams(url);
     if (!hasMarketingParam(params)) return;
     const touch = buildTouch(href, path, params);
+
+    // Write to the in-memory cache immediately — before any async I/O — so
+    // readAttribution() returns the correct attribution even if AsyncStorage
+    // hasn't committed yet. We use `touch` as an optimistic first_touch; it
+    // is corrected once the existing stored value is read below.
+    _memCache = { first_touch: touch, last_touch: touch };
+
     let existing: StoredAttribution | null = null;
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -93,6 +114,10 @@ export async function captureAttributionFromUrl(url: string | null): Promise<voi
           : touch,
       last_touch: touch,
     };
+
+    // Update the cache with the definitive first_touch now that we have it.
+    _memCache = next;
+
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // storage unavailable — silent fallback
@@ -100,6 +125,13 @@ export async function captureAttributionFromUrl(url: string | null): Promise<voi
 }
 
 export async function readAttribution(): Promise<Attribution | null> {
+  // Fast path: return from the in-memory cache if present and not expired.
+  // This covers the window between captureAttributionFromUrl parsing a URL
+  // (synchronous) and the AsyncStorage write completing (async).
+  if (_memCache && !isExpired(_memCache.first_touch)) {
+    return { first_touch: _memCache.first_touch, last_touch: _memCache.last_touch };
+  }
+
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -108,6 +140,8 @@ export async function readAttribution(): Promise<Attribution | null> {
       AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
       return null;
     }
+    // Warm the cache from storage so subsequent reads are instant.
+    _memCache = stored;
     return { first_touch: stored.first_touch, last_touch: stored.last_touch };
   } catch {
     return null;
