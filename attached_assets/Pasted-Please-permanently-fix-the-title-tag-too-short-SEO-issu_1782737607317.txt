@@ -1,0 +1,190 @@
+Please permanently fix the “title tag too short” SEO issue.
+
+Audit file:
+title_tag_too_short(1).csv
+
+Issue:
+The audit found 56 pages with title tags that are too short.
+
+Important pattern:
+All 56 issues are contact pages.
+
+Examples of current short titles:
+
+* Contact Presentail in Aley
+* Contact Presentail in Metn
+* Contact Presentail in Dubai
+* Contacter Presentail à Tyr
+* تواصل مع Presentail في دبي
+
+Current root cause:
+We previously shortened the contact page title template too much to fix the “title tag too long” issue. Now the title is under the SEO audit’s minimum length threshold.
+
+Goal:
+Create a balanced contact page title template that is:
+
+* not too short
+* not too long
+* city-specific
+* language-specific
+* useful for SEO
+* safe for long city names
+
+Do not change URLs, canonicals, sitemap, hreflang, or page routing in this task. Only fix the contact page title template and title-length guardrail.
+
+1. Update contact page title templates
+
+English contact page title:
+
+Current:
+Contact Presentail in {City}
+
+New preferred:
+Contact Presentail in {City} | Gift Delivery Help
+
+Examples:
+Contact Presentail in Dubai | Gift Delivery Help
+Contact Presentail in Beirut | Gift Delivery Help
+Contact Presentail in Aley | Gift Delivery Help
+
+French contact page title:
+
+Current:
+Contacter Presentail à {City}
+
+New preferred:
+Contacter Presentail à {City} | Aide livraison
+
+Examples:
+Contacter Presentail à Beyrouth | Aide livraison
+Contacter Presentail à Tyr | Aide livraison
+Contacter Presentail à Paphos | Aide livraison
+
+Arabic contact page title:
+
+Current:
+تواصل مع Presentail في {City}
+
+New preferred:
+تواصل مع Presentail في {City} | دعم التوصيل
+
+Examples:
+تواصل مع Presentail في دبي | دعم التوصيل
+تواصل مع Presentail في بيروت | دعم التوصيل
+تواصل مع Presentail في صيدا | دعم التوصيل
+
+2. Add smart title length guardrails
+
+Please add logic in the SEO helper to prevent contact titles from becoming too short or too long again.
+
+Recommended title length rules:
+
+* Target length: 35–60 characters
+* Too short warning: under 30 characters
+* Too long warning: over 60 characters
+* Hard maximum: 65 characters
+
+For normal city names, use the preferred templates above.
+
+If the title becomes over 65 characters because the city name is very long, use a shorter fallback:
+
+English fallback:
+Contact Presentail in {City}
+
+French fallback:
+Contacter Presentail à {City}
+
+Arabic fallback:
+تواصل مع Presentail في {City}
+
+If the fallback becomes too short, use the medium template:
+English:
+Presentail Contact in {City} | Delivery Help
+
+French:
+Contact Presentail {City} | Aide livraison
+
+Arabic:
+تواصل مع Presentail {City} | دعم التوصيل
+
+3. Avoid going back to the previous long-title issue
+
+Do not use the old long title templates again:
+
+Do not use:
+Contact Presentail in {City} | Flower & Gift Delivery Support
+
+Do not use:
+Contacter Presentail à {City} | Assistance livraison fleurs et cadeaux
+
+Those caused the previous “title tag too long” audit issue.
+
+4. Apply only to contact pages
+
+This fix should affect only contact pages.
+
+Do not change title templates for:
+
+* homepage
+* city pages
+* category pages
+* occasion pages
+* product pages
+* weddings pages
+* corporate pages
+* FAQ pages
+* cart/checkout/account pages
+
+5. Test URLs from the audit
+
+Please test contact pages across English, French, and Arabic.
+
+Examples:
+
+English:
+
+* /en-lb/aley/contact
+* /en-lb/metn/contact
+* /en-lb/beirut/contact
+* /en-ae/dubai/contact
+* /en-ae/ajman/contact
+* /en-cy/nicosia/contact
+
+French:
+
+* /fr-lb/tyre/contact
+* /fr-lb/saida/contact
+* /fr-lb/zahle/contact
+* /fr-cy/paphos/contact
+
+Arabic:
+
+* /ar-ae/dubai/contact
+* /ar-ae/ajman/contact
+* /ar-lb/beirut/contact
+* /ar-lb/saida/contact
+* /ar-cy/larnaca/contact
+
+6. Acceptance criteria
+
+This task is complete when:
+
+* All 56 contact page titles from title_tag_too_short(1).csv are no longer too short.
+* Contact page titles are generally between 35 and 60 characters.
+* No contact page title exceeds 65 characters.
+* Contact page titles remain unique by city.
+* English, French, and Arabic templates are language-specific.
+* The previous “title tag too long” issue is not reintroduced.
+* Only contact page SEO titles are changed.
+* URLs, canonicals, sitemap, hreflang, and routing are unchanged.
+
+Please return:
+
+1. Root cause confirmed
+2. Files/components changed
+3. Old contact title templates
+4. New contact title templates
+5. Before/after examples
+6. Confirmation that the 56 titles now pass
+7. Confirmation that no title exceeds 65 characters
+8. Confirmation that no non-contact page title was changed
