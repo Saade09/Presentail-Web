@@ -216,6 +216,7 @@ export const accountStrings: Dict = {
   "occasion.congratulations":  { en: "Congratulations",   ar: "تهانينا" },
   "occasion.graduation":       { en: "Graduation",        ar: "تخرج" },
   "occasion.condolences":      { en: "Funeral",           ar: "عزاء" },
+  "occasion.summer":           { en: "Summer Collection", ar: "مجموعة الصيف" },
   "occasion.summer-collection":{ en: "Summer Collection", ar: "مجموعة الصيف" },
 
   "account.occasions": { en: "Occasions & Reminders", ar: "المناسبات والتذكيرات" },
@@ -431,6 +432,7 @@ export const accountStringsFr: Record<string, string> = {
   "occasion.congratulations": "Félicitations",
   "occasion.graduation": "Remise des diplômes",
   "occasion.condolences": "Funérailles",
+  "occasion.summer": "Collection estivale",
   "occasion.summer-collection": "Collection estivale",
 
   "account.occasions": "Occasions & rappels",

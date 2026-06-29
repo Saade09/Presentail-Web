@@ -10,7 +10,7 @@ export const OCCASION_OPTIONS = [
   { value: "congratulations",   label: "Congratulations",   emoji: "🎊" },
   { value: "graduation",        label: "Graduation",        emoji: "🎓" },
   { value: "condolences",       label: "Funeral",           img: "/catalog/occasions/condolences.webp" },
-  { value: "summer-collection", label: "Summer Collection", img: "/catalog/categories/lux-arrangements.avif" },
+  { value: "summer", label: "Summer Collection", img: "/catalog/categories/lux-arrangements.avif" },
 ] as const;
 
 export type OccasionOption = (typeof OCCASION_OPTIONS)[number];

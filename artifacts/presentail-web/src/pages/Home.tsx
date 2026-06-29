@@ -47,7 +47,7 @@ export default function Home() {
 
       {/* First themed product rail — mirrors the live site's "Summer Collection". */}
       <BestSellersPreview
-        categorySlug="summer-collection"
+        categorySlug="summer"
         titleKey="collections.summer.title"
         railKey="rail-summer"
         testId="section-collection-summer"

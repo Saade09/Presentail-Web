@@ -10,6 +10,7 @@ export type CategoryGroup = "flowers" | "gifts";
  */
 export const CATEGORY_SLUG_REMAP: Record<string, string> = {
   baskets: "gift-baskets",
+  "summer-collection": "summer",
 };
 
 /**
@@ -43,7 +44,7 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "gift-baskets": "gifts",
   "spirits": "gifts",
   "gaming": "gifts",
-  "summer-collection": "gifts",
+  "summer": "gifts",
 };
 
 /**

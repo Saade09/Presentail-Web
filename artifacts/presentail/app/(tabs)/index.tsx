@@ -409,7 +409,7 @@ function Hero() {
       title: t.heroSlide2Title,
       subtitle: t.heroSlide2Subtitle,
       cta: t.heroSlide2Cta,
-      route: "/category/summer-collection" as Href,
+      route: "/category/summer" as Href,
     },
     {
       key: "3",
@@ -847,11 +847,11 @@ function SummerCollectionSection() {
     // On re-syncs triggered by location changes the stale products remain
     // visible while the background fetch runs.
     if (!hasEverLoaded.current) setLoading(true);
-    fetchCategoryProducts("summer-collection", { countryCode, cityId })
+    fetchCategoryProducts("summer", { countryCode, cityId })
       .then(({ products }) => {
         if (cancelled) return;
         const pool = products.filter((p) => p.image);
-        const shuffled = seededShuffle(pool, homepageShuffleSeed("summer-collection", countryCode, cityId));
+        const shuffled = seededShuffle(pool, homepageShuffleSeed("summer", countryCode, cityId));
         setProducts(shuffled.slice(0, 10));
       })
       .finally(() => {
@@ -884,7 +884,7 @@ function SummerCollectionSection() {
             title={t.summerTitleHome}
           />
         </View>
-        <Pressable onPress={() => router.push("/category/summer-collection")}>
+        <Pressable onPress={() => router.push("/category/summer")}>
           <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.gold, letterSpacing: 1 }}>
             {t.viewAll}
           </AppText>

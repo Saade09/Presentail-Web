@@ -197,7 +197,7 @@ const PRODUCT_TYPE_SLUGS = new Set([
   "lux-arrangements", "orchids", "roses", "roses-lebanon",
   "arabic-sweets", "personal-gifts", "beauty",
   "gift-bundles", "baskets", "spirits", "gaming",
-  "summer-collection",
+  "summer",
 ]);
 
 // ── Presentail OS-backed collection builders ─────────────────────────────
