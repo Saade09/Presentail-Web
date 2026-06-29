@@ -17,7 +17,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //   3. Phone forwarding: when hasProfilePhone is true, profilePhone is sent;
 //      when false, senderWhatsapp is combined with the dial prefix.
 //   4. trackEvent("order_placed") fires on both paths.
-//   5. No client-side event_id is included — deduplication is server-side only.
+//   5. eventId forwarding: when paymentRef is provided, a deterministic
+//      "fbpurchase-{ref}" eventId is passed — matching the web pixel format
+//      used by OrderConfirmed.tsx for Facebook CAPI deduplication.
+//      When paymentRef is absent (offline orders), eventId is omitted.
 // ---------------------------------------------------------------------------
 
 const { mockTrackEvent, mockTrackFbMobileEvent } = vi.hoisted(() => ({
@@ -217,11 +220,25 @@ describe("firePostOrderAnalytics — UAE order", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Design decision: no client-side event_id on mobile
+// eventId forwarding for Facebook CAPI deduplication
 // ---------------------------------------------------------------------------
 
-describe("firePostOrderAnalytics — event_id design decision", () => {
-  it("does not pass event_id to trackFbMobileEvent — deduplication is server-side only", () => {
+describe("firePostOrderAnalytics — eventId forwarding", () => {
+  it("passes 'fbpurchase-{ref}' as eventId when paymentRef is provided — matching the web pixel format", () => {
+    firePostOrderAnalytics({
+      ...BASE_PARAMS,
+      senderEmail: "jane@example.com",
+      paymentRef: "pi_3Abc123",
+    });
+
+    const eventParams = mockTrackFbMobileEvent.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined;
+    expect(eventParams).toBeDefined();
+    expect(eventParams?.eventId).toBe("fbpurchase-pi_3Abc123");
+  });
+
+  it("omits eventId when paymentRef is not provided (offline payment methods)", () => {
     firePostOrderAnalytics({
       ...BASE_PARAMS,
       senderEmail: "jane@example.com",
@@ -231,11 +248,22 @@ describe("firePostOrderAnalytics — event_id design decision", () => {
       | Record<string, unknown>
       | undefined;
     expect(eventParams).toBeDefined();
-    // Mobile CAPI does not send a client event_id. sendCapiEvent() on the
-    // server generates its own random ID for Facebook deduplication.
-    // This assertion documents the design and guards against accidentally
-    // adding an event_id field without a matching schema change in /api/fb/events.
+    // Offline orders (Whish, Western Union) have no paymentRef and no
+    // corresponding web pixel event, so deduplication is not needed.
+    expect(eventParams?.eventId).toBeUndefined();
+  });
+
+  it("does not include event_id (snake_case) — only eventId (camelCase) is forwarded", () => {
+    firePostOrderAnalytics({
+      ...BASE_PARAMS,
+      senderEmail: "jane@example.com",
+      paymentRef: "mamo_ref_xyz",
+    });
+
+    const eventParams = mockTrackFbMobileEvent.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined;
+    expect(eventParams).toBeDefined();
     expect(eventParams).not.toHaveProperty("event_id");
-    expect(eventParams).not.toHaveProperty("eventId");
   });
 });

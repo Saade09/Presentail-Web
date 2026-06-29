@@ -35,6 +35,15 @@ export function firePostOrderAnalytics(params: {
   senderWhatsapp: string;
   /** Dial prefix of the sender's selected country (e.g. "+961"). */
   senderCountryDial: string;
+  /**
+   * Payment reference for the completed order (e.g. Stripe PI, Mamo/PayPal
+   * reference). When provided, a deterministic eventId of `fbpurchase-{ref}`
+   * is forwarded to the FB CAPI endpoint — matching the format used by the web
+   * storefront's browser pixel — so Facebook can deduplicate cross-device events
+   * for the same purchase. When absent (offline payment methods), eventId is
+   * omitted and the server generates its own random ID.
+   */
+  paymentRef?: string;
 }): void {
   const {
     payMethod,
@@ -47,6 +56,7 @@ export function firePostOrderAnalytics(params: {
     profilePhone,
     senderWhatsapp,
     senderCountryDial,
+    paymentRef,
   } = params;
 
   // Funnel terminal step — emitted once the WC order has actually been created.
@@ -57,11 +67,16 @@ export function firePostOrderAnalytics(params: {
   });
 
   // Facebook Conversions API — Purchase event via the mobile CAPI endpoint.
-  // Deduplication is handled server-side by sendCapiEvent() in fbConversions.ts.
-  // Note: mobile does not send a client-side event_id (web does); this is by
-  // design — the server generates one for CAPI deduplication.
+  // The eventId format `fbpurchase-${ref}` matches the web storefront's browser
+  // pixel event (OrderConfirmed.tsx), so Facebook can deduplicate cross-device
+  // events for the same order. When paymentRef is absent (offline payment
+  // methods such as Whish or Western Union), eventId is omitted and the server
+  // generates its own random ID — no web pixel event fires for those orders
+  // anyway so deduplication is not needed.
+  const eventId = paymentRef ? `fbpurchase-${paymentRef}` : undefined;
   trackFbMobileEvent("Purchase", {
     countryCode: effectiveCountry,
+    eventId,
     value: feesGrand,
     currency: currencyCode,
     contentIds,

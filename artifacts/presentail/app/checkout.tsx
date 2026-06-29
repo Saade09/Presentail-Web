@@ -1095,6 +1095,7 @@ function CheckoutScreen() {
           profilePhone: profilePhone || undefined,
           senderWhatsapp,
           senderCountryDial: senderCountry.dial,
+          paymentRef: paymentRef ?? undefined,
         });
         // Terminal success — drop any pending-order stash left over from an
         // earlier failed attempt so it can never be replayed on a later

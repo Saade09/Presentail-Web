@@ -8,6 +8,10 @@ export type FbMobileEventName =
 
 export type FbMobileEventParams = {
   countryCode: string | null | undefined;
+  /** Client-generated event ID for Facebook CAPI deduplication. When provided,
+   * the server forwards it to sendCapiEvent so Facebook can match this mobile
+   * app event against any web pixel event for the same purchase. */
+  eventId?: string;
   value?: number;
   currency?: string;
   contentIds?: string[];
@@ -37,6 +41,7 @@ export function trackFbMobileEvent(
   if (!countryCode) return;
 
   const body: Record<string, unknown> = { event, countryCode };
+  if (rest.eventId) body.eventId = rest.eventId;
   if (rest.value != null) body.value = rest.value;
   if (rest.currency) body.currency = rest.currency;
   if (rest.contentIds && rest.contentIds.length > 0) body.contentIds = rest.contentIds;
