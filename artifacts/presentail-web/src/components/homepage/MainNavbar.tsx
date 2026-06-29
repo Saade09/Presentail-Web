@@ -203,6 +203,7 @@ export function MainNavbar() {
   const { t, language } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isSignInRoute] = useRoute("/sign-in");
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
   const { data: brandsData } = useBrands({
@@ -570,7 +571,14 @@ export function MainNavbar() {
           {user ? (
             <AccountDropdown />
           ) : (
-            <Link href="/sign-in" aria-label={t("nav.accountAria")} {...prefetchProps(loadSignIn)}>
+            <Link
+              href="/sign-in"
+              aria-label={t("nav.accountAria")}
+              className={isSignInRoute ? "pointer-events-none opacity-30" : undefined}
+              aria-hidden={isSignInRoute ? "true" : undefined}
+              tabIndex={isSignInRoute ? -1 : undefined}
+              {...prefetchProps(loadSignIn)}
+            >
               <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
               </Button>

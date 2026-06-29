@@ -443,11 +443,11 @@ export default function SignInPage() {
       />
     ) : null}
     <div
-      className="py-10 flex justify-center px-4 bg-[#F7F7F7]"
+      className="h-[calc(100vh-130px)] flex flex-col items-center justify-center px-4 py-4 bg-[#F7F7F7] overflow-hidden"
       dir={dir}
     >
       <div
-        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm"
+        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm overflow-y-auto max-h-full"
         data-testid="signin-card"
       >
         <div className="text-center mb-6">
@@ -533,47 +533,12 @@ export default function SignInPage() {
           </div>
         ) : step === "email" ? (
           <div className="space-y-4">
-            <div className="flex flex-col gap-[5px] pt-3">
-              <label className="text-sm font-medium block" htmlFor="signin-email">
-                {t("auth.emailLabel")}
-              </label>
-              <Input
-                id="signin-email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (emailError) setEmailError(null);
-                }}
-                placeholder={t("auth.emailPlaceholder")}
-                data-testid="input-signin-email"
-                disabled={busy}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void onContinueEmail();
-                }}
-                className="h-12 rounded-sm"
-              />
-              {emailError ? (
-                <p
-                  className="text-xs text-destructive"
-                  data-testid="text-signin-email-error"
-                >
-                  {emailError}
-                </p>
-              ) : null}
-            </div>
-            <Button
-              size="lg"
-              className="w-full h-12 rounded-xl"
-              onClick={() => void onContinueEmail()}
-              disabled={busy || !email.trim()}
-              data-testid="button-signin-continue"
-            >
-              {busy ? t("checkout.processing") : t("auth.continue")}
-            </Button>
+            {/* Account benefits line */}
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              {t("auth.accountBenefits")}
+            </p>
 
+            {/* Social buttons — Apple first */}
             <div className="space-y-2">
               <Button
                 variant="outline"
@@ -602,6 +567,78 @@ export default function SignInPage() {
                   : t("auth.continueGoogle")}
               </Button>
             </div>
+
+            {/* Divider */}
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground shrink-0">
+                {t("auth.orContinueWithEmail")}
+              </span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Email field */}
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-sm font-medium block" htmlFor="signin-email">
+                {t("auth.emailLabel")}
+              </label>
+              <Input
+                id="signin-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                }}
+                placeholder={t("auth.emailPlaceholder")}
+                data-testid="input-signin-email"
+                disabled={busy}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void onContinueEmail();
+                }}
+                className="h-12 rounded-sm"
+              />
+              {emailError ? (
+                <p
+                  className="text-xs text-destructive"
+                  data-testid="text-signin-email-error"
+                >
+                  {emailError}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t("auth.emailHelper")}
+                </p>
+              )}
+            </div>
+
+            {/* Continue with Email button — strong teal once email is valid */}
+            <Button
+              size="lg"
+              className="w-full h-12 rounded-xl"
+              onClick={() => void onContinueEmail()}
+              disabled={busy || !isValidEmail(email)}
+              data-testid="button-signin-continue"
+            >
+              {busy ? t("checkout.processing") : t("auth.continueWithEmail")}
+            </Button>
+
+            {/* Help link */}
+            <p className="text-center text-xs text-muted-foreground">
+              <a
+                href="mailto:support@presentail.com"
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                {t("auth.helpLink")}
+              </a>
+            </p>
+
+            {/* Privacy note */}
+            <p className="text-center text-[11px] text-muted-foreground/70 leading-relaxed">
+              {t("auth.privacyNote")}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
