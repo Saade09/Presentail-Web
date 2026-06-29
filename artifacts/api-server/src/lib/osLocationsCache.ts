@@ -228,8 +228,8 @@ function buildCityIndex(countries: CachedCountry[]): Map<string, CachedCity> {
 const OS_SLUG_TO_CANONICAL_ID: Record<string, string> = {
   "minnieh-dennaye": "lb-minnieh-dennaya",
   // OS uses a different spelling for these Lebanese cities than our canonical IDs.
-  "jbeil": "lb-jbail",
-  "kesserwan": "lb-kasserwan",
+  "jbeil": "lb-jbeil",
+  "kesserwan": "lb-kesserwan",
   "rachaya": "lb-rechaya",
 };
 

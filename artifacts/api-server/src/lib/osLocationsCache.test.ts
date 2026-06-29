@@ -82,8 +82,8 @@ describe("osLocationsCache — inactive city supplementation", () => {
     // OS returns only the well-known active cities; all 8 historically inactive
     // ones are absent, which is how Presentail OS signals they are disabled.
     const activeSlugs = [
-      "beirut", "metn", "aley", "baabda", "chouf", "jbail",
-      "kasserwan", "koura", "akkar", "batroun", "bcharee",
+      "beirut", "metn", "aley", "baabda", "chouf", "jbeil",
+      "kesserwan", "koura", "akkar", "batroun", "bcharee",
       "minnieh-dennaya", "rechaya", "saida", "tripoli", "west-bekaa",
       "zahle", "zghorta",
     ];
@@ -209,16 +209,16 @@ describe("osLocationsCache — slug resolution", () => {
     expect(cities.some((c) => c.id === "beirut")).toBe(false);
   });
 
-  it("strategy 0 (override map): OS slug 'jbeil' resolves to canonical id 'lb-jbail'", () => {
+  it("strategy 0 (override map): OS slug 'jbeil' resolves to canonical id 'lb-jbeil'", () => {
     const cities = loadLbCities([makeCity({ id: 1, slug: "jbeil", name: "Jbeil" })]);
-    expect(cities.some((c) => c.id === "lb-jbail")).toBe(true);
+    expect(cities.some((c) => c.id === "lb-jbeil")).toBe(true);
     expect(cities.some((c) => c.id === "jbeil")).toBe(false);
-    expect(cities.some((c) => c.id === "lb-jbeil")).toBe(false);
+    expect(cities.some((c) => c.id === "lb-jbail")).toBe(false);
   });
 
-  it("strategy 0 (override map): OS slug 'kesserwan' resolves to 'lb-kasserwan'", () => {
+  it("strategy 0 (override map): OS slug 'kesserwan' resolves to 'lb-kesserwan'", () => {
     const cities = loadLbCities([makeCity({ id: 1, slug: "kesserwan", name: "Kesserwan" })]);
-    expect(cities.some((c) => c.id === "lb-kasserwan")).toBe(true);
+    expect(cities.some((c) => c.id === "lb-kesserwan")).toBe(true);
   });
 
   it("strategy 0 (override map): OS slug 'minnieh-dennaye' resolves to 'lb-minnieh-dennaya'", () => {
@@ -234,9 +234,9 @@ describe("osLocationsCache — slug resolution", () => {
   });
 
   it("resolved OS city is not double-counted with its hardcoded supplement entry", () => {
-    // jbeil resolves to lb-jbail; ensure lb-jbail appears exactly once
+    // jbeil resolves to lb-jbeil; ensure lb-jbeil appears exactly once
     const cities = loadLbCities([makeCity({ id: 1, slug: "jbeil", name: "Jbeil" })]);
-    const count = cities.filter((c) => c.id === "lb-jbail").length;
+    const count = cities.filter((c) => c.id === "lb-jbeil").length;
     expect(count).toBe(1);
   });
 });

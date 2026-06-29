@@ -47,8 +47,8 @@ export function pickLangFromAcceptLanguage(header) {
 const CITY_SLUGS_BY_COUNTRY = {
   lb: [
     "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
-    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbail", "jezzine",
-    "kasserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
+    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbeil", "jezzine",
+    "kesserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
     "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta",
   ],
   ae: [

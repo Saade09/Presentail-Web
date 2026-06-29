@@ -10,8 +10,8 @@
 export const SITEMAP_CITIES = {
   lb: [
     "akkar", "aley", "baabda", "baalbeck", "batroun", "bcharee", "beirut",
-    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbail", "jezzine",
-    "kasserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
+    "bent-jbeil", "chouf", "hasbaya", "hermel", "jbeil", "jezzine",
+    "kesserwan", "koura", "marjayoun", "metn", "minnieh-dennaya", "nabatieh",
     "rechaya", "saida", "tripoli", "tyre", "west-bekaa", "zahle", "zghorta",
   ],
   ae: ["abu-dhabi", "ajman", "dubai", "fujairah", "ras-al-khaimah", "sharjah", "umm-al-quwain"],
