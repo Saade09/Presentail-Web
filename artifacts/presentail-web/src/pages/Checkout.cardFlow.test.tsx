@@ -66,10 +66,9 @@ const mockStripe = {
   paymentRequest: mockPaymentRequest,
 };
 
-// useIsMobile controls whether wallet tiles are hidden on a null probe result.
-// Default: false (desktop) — ensures existing card-flow tests keep working
-// because the null probe auto-advances the selection to "card".
-// Override per describe block to test mobile behaviour.
+// useIsMobile is used by the pre-creation wallet effect and related logic.
+// Default: false (desktop). The card-flow tests explicitly click the Card
+// tile via navigateToStep2() so they work regardless of wallet visibility.
 const mockUseIsMobile = vi.fn().mockReturnValue(false);
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => mockUseIsMobile(),
@@ -435,16 +434,17 @@ function renderCheckout() {
 }
 
 /**
- * Fill the minimum required Step 1 fields and click Continue to reach Step 2.
+ * Fill the minimum required Step 1 fields and click Continue to reach Step 2,
+ * then explicitly click the Card tile.
  *
  * Uses noAddress mode to avoid the delivery-address input.
  * The signed-in user already has a phone, so the sender section is hidden.
  *
- * After reaching Step 2, clicks the "Card" payment tile so that Stripe is
- * lazily loaded (triggerStripeLoad → LazyStripeSection mounts → onStripeReady
- * fires with the mock Stripe instance).  Without this click the Stripe
- * instance is null at submit time and handleSubmit returns early after
- * showing a "Stripe loading" toast instead of running the payment logic.
+ * Clicking Card ensures Stripe is lazily loaded (triggerStripeLoad →
+ * LazyStripeSection mounts → onStripeReady fires with the mock Stripe
+ * instance) so the stripe instance is non-null before handleSubmit runs.
+ * Card flow tests use this helper; wallet flow tests have their own helper
+ * that clicks the wallet tile instead.
  */
 async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
   // Enable "Ask recipient for address" so the street-address field is not required.
@@ -520,9 +520,8 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     renderCheckout();
     await navigateToStep2(user);
 
-    // Card tile is selected: wallet is the optimistic default but the
-    // canMakePayment mock returns null (no wallet in jsdom) so the checkout
-    // effect silently falls back to card before the shopper interacts.
+    // navigateToStep2() explicitly clicked the Card tile, so the card path
+    // is active regardless of what canMakePayment returns.
     const submitBtn = screen.getByTestId("button-submit-payment");
     await user.click(submitBtn);
 
@@ -699,37 +698,37 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Mobile wallet tile visibility tests
+// Wallet tile visibility tests
 //
-// On mobile viewports (≤ 767 px), Apple Pay and Google Pay tiles must remain
-// visible even when Stripe's canMakePayment() probe returns null.  On desktop
-// the null result correctly hides the tiles (tested implicitly by the card-
-// flow suite above, which relies on the auto-advance to "card").
+// Apple Pay and Google Pay tiles must remain visible even when Stripe's
+// canMakePayment() probe returns null, on BOTH mobile and desktop. The initial
+// probe can return null transiently (e.g. Mac Safari hasn't finished querying
+// the Keychain yet) so hiding tiles based on it would incorrectly remove them
+// for the entire page load. The definitive gate is the submit-time
+// canMakePayment() call in the wallet intent pre-creation effect.
 // ---------------------------------------------------------------------------
 
-describe("Checkout — mobile viewport wallet tile visibility", () => {
+describe("Checkout — wallet tile visibility", () => {
   let user: ReturnType<typeof userEvent.setup>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSetLocation.mockClear();
-    // Simulate a mobile viewport so the null probe does NOT hide wallet tiles.
-    mockUseIsMobile.mockReturnValue(true);
     user = userEvent.setup();
   });
 
   afterEach(() => {
-    // Restore desktop default so other describe blocks are unaffected.
     mockUseIsMobile.mockReturnValue(false);
   });
 
   it("keeps the platform-appropriate wallet tile visible on mobile when canMakePayment returns null", async () => {
     // canMakePayment returns null (no pre-configured wallet in the test
-    // environment), but isMobile=true so the checkout must NOT hide the tiles.
+    // environment) but the checkout must NOT hide the tiles on mobile.
     // In the jsdom test environment navigator.platform is empty/non-Apple, so
     // isApplePlatform() returns false: apple_pay is platform-hidden and
     // google_pay is the visible wallet tile. On real Apple devices the inverse
     // applies (apple_pay visible, google_pay hidden).
+    mockUseIsMobile.mockReturnValue(true);
     renderCheckout();
     await navigateToStep2(user);
 
@@ -739,16 +738,19 @@ describe("Checkout — mobile viewport wallet tile visibility", () => {
     expect(screen.queryByTestId("option-payment-apple_pay")).toBeNull();
   });
 
-  it("hides Apple Pay and Google Pay tiles on desktop when canMakePayment returns null", async () => {
-    // Verify the inverse: on desktop the null probe hides the wallet tiles.
+  it("keeps the platform-appropriate wallet tile visible on desktop when canMakePayment returns null", async () => {
+    // The initial canMakePayment() probe can return null transiently on Mac
+    // (e.g. Safari Keychain not yet resolved). Tiles must stay visible so the
+    // shopper can still tap Apple Pay / Google Pay. The submit-time probe in
+    // the wallet intent pre-creation effect is the definitive gate.
     mockUseIsMobile.mockReturnValue(false);
-
     renderCheckout();
     await navigateToStep2(user);
 
-    // Tiles must be absent — the auto-advance effect removed them.
+    // Google Pay tile must be present in the non-Apple jsdom environment.
+    // (apple_pay is platform-hidden because isApplePlatform() returns false.)
+    expect(screen.getByTestId("option-payment-google_pay")).toBeTruthy();
     expect(screen.queryByTestId("option-payment-apple_pay")).toBeNull();
-    expect(screen.queryByTestId("option-payment-google_pay")).toBeNull();
   });
 });
 

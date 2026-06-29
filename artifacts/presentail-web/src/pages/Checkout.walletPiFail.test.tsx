@@ -394,7 +394,9 @@ async function driveToWalletPaymentStep(user: ReturnType<typeof userEvent.setup>
 
   expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
 
-  await user.click(await screen.findByTestId("option-payment-apple_pay"));
+  // In jsdom (non-Apple platform) isApplePlatform() returns false, so
+  // apple_pay is platform-hidden and google_pay is the visible wallet tile.
+  await user.click(await screen.findByTestId("option-payment-google_pay"));
   await waitFor(() => expect(mockCanMakePayment).toHaveBeenCalled());
 
   // Wait for the debounced PI pre-creation to run.
@@ -482,10 +484,11 @@ describe("Checkout wallet PaymentIntent pre-creation failure", () => {
     // Confirm the first failure settled.
     await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
 
-    // Tapping the same apple_pay tile while walletPrepareFailed=true bumps
+    // Tapping the same google_pay tile while walletPrepareFailed=true bumps
     // walletRetryNonce, which is a dep of the PI effect, causing it to re-run.
     // The effect clears walletPrepareFailed and fires mutateAsync again.
-    await user.click(screen.getByTestId("option-payment-apple_pay"));
+    // (In jsdom, isApplePlatform() is false so google_pay is the visible tile.)
+    await user.click(screen.getByTestId("option-payment-google_pay"));
 
     await waitFor(
       () => expect(mockCreatePaymentIntentMutate).toHaveBeenCalledTimes(2),

@@ -1111,34 +1111,22 @@ function CheckoutForm() {
       });
       return;
     }
-    pr.canMakePayment().then((result) => {
-      if (result) {
-        // Browser has a wallet configured (Apple Pay / Google Pay). We do NOT
-        // store this probe PR for reuse: it was constructed with currency
-        // "usd" and a PaymentRequest's currency is immutable, so reusing it
-        // would force the wallet sheet to display USD. The wallet intent
-        // pre-creation effect creates a fresh PR with the correct currency and
-        // pre-validates it via canMakePayment() so handleSubmit can call
-        // show() synchronously inside the click gesture.
-        // Leaving the tiles visible (walletSupported stays true) is all the
-        // probe needs to do on success.
-      } else if (!isMobileRef.current) {
-        // Desktop only: browser reported no wallet available — hide the rows
-        // and advance the selection so the shopper is never left on a tile
-        // that would fail. AED and all other currencies fall back to card
-        // (Stripe Gulf account handles AED; Mamo is disabled).
-        //
-        // On mobile we intentionally skip this: the canMakePayment() probe can
-        // return null due to timing races or sheet pre-warm issues even when
-        // the native Apple Pay / Google Pay sheet works. We keep tiles visible
-        // and let the pre-creation effect's canMakePayment() call on the
-        // submit PR determine real availability.
-        setWalletSupported(false);
-        setPaymentMethodState((current) => {
-          if (current !== "apple_pay" && current !== "google_pay") return current;
-          return "card";
-        });
-      }
+    pr.canMakePayment().then((_result) => {
+      // Whether the probe returns a truthy result or null, we leave the wallet
+      // tiles visible. The initial probe can return null transiently — e.g. on
+      // Mac, Safari Keychain or Chrome's Google Pay service may not have
+      // resolved yet — so hiding tiles here would incorrectly remove them for
+      // the entire page load. The definitive gate is the submit-time
+      // canMakePayment() call in the wallet intent pre-creation effect: if
+      // that also returns null, handleSubmit shows an error toast and switches
+      // the shopper to card instead of silently proceeding.
+      //
+      // We do NOT store this probe PR for reuse: it was constructed with
+      // currency "usd" and a PaymentRequest's currency is immutable, so
+      // reusing it would force the wallet sheet to display USD. The wallet
+      // intent pre-creation effect creates a fresh PR with the correct
+      // currency and pre-validates it via canMakePayment() so handleSubmit
+      // can call show() synchronously inside the click gesture.
     }).catch(() => {
       // Ignore errors (e.g. Stripe not fully initialised yet).
     });
@@ -1641,18 +1629,30 @@ function CheckoutForm() {
       // pre-creation effect (above). Stripe requires canMakePayment() to have
       // been called on a PR instance before pr.show() can be called on it —
       // creating a fresh PR here and calling show() immediately always throws.
-      // If the ref is null the wallet sheet is unavailable; walletViaNativeSheet
-      // will be false and execution falls through to the card path below.
+      // If the ref is null the wallet sheet is unavailable.
 
       const walletViaNativeSheet =
         isWalletMethod &&
         paymentRequestRef.current !== null;
 
+      // When a wallet method is selected but the submit-time
+      // canMakePayment() probe returned null, the device has no wallet
+      // configured (or the PaymentRequest API is not supported). Show a
+      // clear error toast, switch the selection to card so the inline card
+      // fields appear, and return — do NOT silently fall through to a card
+      // attempt with no explanation.
+      if (isWalletMethod && !walletViaNativeSheet) {
+        setPaymentMethodState("card");
+        toast({
+          title: t("checkout.toast.walletUnavailable"),
+          description: t("checkout.toast.walletUnavailableDesc"),
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Resolve effective method used for the non-wallet submit branches below.
-      const payMethod: PaymentMethodId =
-        isWalletMethod && !walletViaNativeSheet
-          ? "card"
-          : paymentMethod;
+      const payMethod: PaymentMethodId = paymentMethod;
 
       if (walletViaNativeSheet && stripe) {
         // Guard against double-invocation while the sheet is already open.
