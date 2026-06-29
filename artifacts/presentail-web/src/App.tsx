@@ -442,7 +442,6 @@ const IDLE_PREFETCH = [
   loadFooter,
   loadHome,
   loadShop,
-  loadProductDetail,
   loadCart,
   loadSignIn,
   loadAccount,

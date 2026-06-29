@@ -3,6 +3,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ShimmerImage } from "./ShimmerImage";
 import { FormattedPrice } from "./FormattedPrice";
+import { prefetchProps } from "@/lib/prefetch";
+import { loadProductDetail } from "@/lib/pageLoaders";
 
 export function ProductCard({
   product,
@@ -26,7 +28,7 @@ export function ProductCard({
       className="group relative"
       data-testid={`card-product-${product.id}`}
     >
-      <Link href={`/product/${product.id}`}>
+      <Link href={`/product/${product.id}`} {...prefetchProps(loadProductDetail)}>
         <div className={`aspect-square bg-secondary/50 overflow-hidden relative mb-4 ${imageClassName ?? "rounded-xl"}`}>
           {imageUrl ? (
             <ShimmerImage
