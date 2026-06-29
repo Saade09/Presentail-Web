@@ -125,7 +125,7 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
 
         <div
           ref={trackRef}
-          className="flex gap-5 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:hidden"
+          className="grid grid-cols-4 gap-3 md:flex md:gap-6 md:overflow-x-auto md:snap-x md:snap-mandatory pb-2 md:-mx-4 md:px-4 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {isLoading
@@ -134,23 +134,23 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                 .map((_, i) => (
                   <div
                     key={i}
-                    className="flex-shrink-0 snap-start flex flex-col items-center gap-3"
+                    className="md:flex-shrink-0 md:snap-start flex flex-col items-center gap-2"
                     data-carousel-card
                   >
-                    <div className="w-28 h-28 md:w-36 md:h-36 rounded-full animate-shimmer" />
-                    <div className="h-4 w-20 rounded animate-shimmer" />
+                    <div className="w-full aspect-square md:w-36 md:h-36 md:aspect-auto rounded-full animate-shimmer" />
+                    <div className="h-3 w-full rounded animate-shimmer" />
                   </div>
                 ))
             : items.map((item) => (
                 <Link
                   key={item.id}
                   href={item.href}
-                  className="flex-shrink-0 snap-start flex flex-col items-center gap-3 group"
+                  className="md:flex-shrink-0 md:snap-start flex flex-col items-center gap-2 group"
                   data-carousel-card
                   data-testid={`carousel-item-${item.id}`}
                 >
                   <div
-                    className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden flex items-center justify-center"
+                    className="w-full aspect-square md:w-36 md:h-36 md:aspect-auto rounded-full overflow-hidden flex items-center justify-center"
                     style={{ backgroundColor: "#F3F3F3" }}
                   >
                     {item.imageUrl ? (
@@ -163,11 +163,11 @@ export function CircularCollectionCarousel({ title, items, isLoading, testId }: 
                     ) : (
                       (() => {
                         const Icon = ICON_FOR_NAME[getHomepageIconName(item.slug, item.label)];
-                        return <Icon className="w-7 h-7 md:w-8 md:h-8 text-primary/40" strokeWidth={1.5} />;
+                        return <Icon className="w-6 h-6 md:w-8 md:h-8 text-primary/40" strokeWidth={1.5} />;
                       })()
                     )}
                   </div>
-                  <span className="font-serif text-sm md:text-base text-primary text-center max-w-[8rem] line-clamp-1">
+                  <span className="font-serif text-xs md:text-base text-primary text-center line-clamp-2 leading-tight">
                     {item.label}
                   </span>
                 </Link>
