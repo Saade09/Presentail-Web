@@ -32,6 +32,8 @@ export const navStrings: Dict = {
   "search.searching": { en: "Searching…", ar: "جارٍ البحث..." },
   "search.productsHeading": { en: "Products", ar: "المنتجات" },
   "nav.viewAllFlowers": { en: "All Flowers & Plants", ar: "كل الزهور والنباتات" },
+  "nav.viewAllOccasions": { en: "View all Occasions", ar: "عرض جميع المناسبات" },
+  "nav.viewAllGifts": { en: "View all Gifts", ar: "عرض جميع الهدايا" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -66,4 +68,6 @@ export const navStringsFr: Record<string, string> = {
   "search.searching": "Recherche en cours…",
   "search.productsHeading": "Produits",
   "nav.viewAllFlowers": "Toutes les fleurs et plantes",
+  "nav.viewAllOccasions": "Voir toutes les occasions",
+  "nav.viewAllGifts": "Voir tous les cadeaux",
 };

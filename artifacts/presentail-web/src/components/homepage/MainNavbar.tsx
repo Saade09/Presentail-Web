@@ -111,6 +111,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Arabic Sweets",   href: "/category/arabic-sweets",   img: "/catalog/categories/arabic-sweets.webp" },
       { label: "Balloon Deco",    href: "/category/balloon-deco",    img: "/catalog/categories/balloons.webp" },
     ],
+    footer: { label: "View all Gifts", labelKey: "nav.viewAllGifts", href: "/shop" },
   },
   {
     key: "flowers",
@@ -236,7 +237,7 @@ export function MainNavbar() {
     key: "occasions",
     labelKey: "nav.occasions",
     items: occasionItems,
-    footer: { label: "View All Occasions", href: "/occasions" },
+    footer: { label: "View All Occasions", labelKey: "nav.viewAllOccasions", href: "/occasions" },
     loading: occasionsLoading,
   };
   // Filter mega-menu category items to only those present in the OS categories
@@ -485,9 +486,10 @@ export function MainNavbar() {
                           <SheetClose asChild>
                             <Link
                               href={subDef.footer.href}
-                              className="flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2"
+                              className="flex items-center justify-center gap-2 mt-5 w-full py-3.5 rounded-2xl bg-[#f7f5f0] border border-[#d9e8d4] text-primary text-sm font-semibold active:bg-[#eef5ec] transition-colors"
                             >
-                              {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label} →
+                              {subDef.footer.labelKey ? t(subDef.footer.labelKey) : subDef.footer.label}
+                              <span aria-hidden>→</span>
                             </Link>
                           </SheetClose>
                         )}
