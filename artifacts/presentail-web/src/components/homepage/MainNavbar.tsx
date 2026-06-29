@@ -365,7 +365,7 @@ export function MainNavbar() {
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="max-w-[340px] w-[88vw] border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
+            <SheetContent side="left" className="w-full max-w-full sm:!max-w-full border-r-0 p-0 overflow-hidden [&>button:first-child]:hidden">
 
               {/* ── Main menu view ───────────────────────────── */}
               <div
@@ -457,8 +457,8 @@ export function MainNavbar() {
                       {/* Sub-panel grid */}
                       <div className="flex-1 overflow-y-auto px-4 py-5">
                         {subDef?.loading ? (
-                          <div className="grid grid-cols-3 gap-3">
-                            {Array.from({ length: 9 }).map((_, i) => (
+                          <div className="grid grid-cols-4 gap-2">
+                            {Array.from({ length: 12 }).map((_, i) => (
                               <div key={i} className="flex flex-col items-center gap-2">
                                 <div className="w-full aspect-square rounded-2xl bg-gray-100 animate-pulse" />
                                 <div className="h-3 w-14 rounded bg-gray-100 animate-pulse" />
@@ -466,14 +466,14 @@ export function MainNavbar() {
                             ))}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-4 gap-2">
                             {(subDef?.items ?? []).map((item) => (
                               <SheetClose asChild key={item.label + item.href}>
                                 <Link href={item.href} className="flex flex-col items-center gap-1.5 group">
                                   <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
                                     <MobileSubPanelTile img={item.img} emoji={item.emoji} />
                                   </div>
-                                  <span className="text-[11px] font-medium text-center text-gray-700 leading-tight px-0.5">
+                                  <span className="text-[10px] font-medium text-center text-gray-700 leading-tight px-0.5">
                                     {item.label}
                                   </span>
                                 </Link>
