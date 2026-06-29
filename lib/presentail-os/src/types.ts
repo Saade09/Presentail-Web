@@ -196,6 +196,8 @@ export type OSCatalogAttributeBrand = {
   image_url?: string | null;
   image_public_url?: string | null;
   sort_order?: number;
+  /** Whether this brand is active in the OS admin. Absent = treat as active. */
+  is_active?: boolean;
 };
 
 export type OSCatalogAttributeBrandsResponse = {

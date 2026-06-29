@@ -10,7 +10,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsOccasionProductCounts, getOsOccasions, getOsRawCatalogBrands } from "../lib/osProductsCache";
 
 const router: IRouter = Router();
 
@@ -222,7 +222,29 @@ router.get("/catalog/metadata", (_req, res) => {
     return { ...occ, count };
   });
 
-  const brands = osBrands
+  // Prefer raw catalog-attribute brands so that active brands with zero products
+  // are still surfaced (the product-count filter in getOsBrands() removes them).
+  // Filter by is_active !== false: absent means the OS didn't send the field,
+  // which we treat as active. Fall back to the product-filtered list when the
+  // raw cache hasn't been populated yet (first cold-start request).
+  const rawCatalogBrands = getOsRawCatalogBrands();
+  const OS_BASE = "https://os.presentail.com";
+  const brands = rawCatalogBrands
+    ? rawCatalogBrands
+        .filter((b) => b.is_active !== false)
+        .map((b) => {
+          const rawImg = b.image_public_url || b.image_url || null;
+          const fullImg = rawImg
+            ? rawImg.startsWith("http") ? rawImg : `${OS_BASE}${rawImg}`
+            : null;
+          return {
+            name: b.name,
+            slug: b.slug,
+            image: toBrandImageProxyUrl(fullImg),
+            count: brandCountMap.get(b.slug) ?? 0,
+          };
+        })
+    : osBrands
     ? osBrands.map((b) => ({
         name: b.name,
         slug: b.slug,

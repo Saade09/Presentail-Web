@@ -206,7 +206,7 @@ export function MainNavbar() {
   const [isSignInRoute] = useRoute("/sign-in");
   const [isBrandRoute, brandRouteParams] = useRoute("/brand/:slug");
   const activeBrandSlug = isBrandRoute ? (brandRouteParams?.slug ?? null) : null;
-  const { data: brandsData } = useBrands({
+  const { data: brandsData, isPending: brandsLoading } = useBrands({
     lang: language,
     countryCode: countryCode ?? undefined,
     cityId: cityId ?? undefined,
@@ -303,7 +303,20 @@ export function MainNavbar() {
     return { ...menu, items: [...filteredItems, ...newItems], footer: resolvedFooter };
   });
 
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus];
+  const brandsMegaMenuDef: MegaMenuDef = {
+    key: "brands",
+    labelKey: "nav.brands",
+    items: (catalogMetadata?.brands ?? []).map((b) => ({
+      label: b.name,
+      href: `/brand/${b.slug}`,
+      img: b.image ?? undefined,
+      emoji: "🏷️",
+    })),
+    footer: { label: t("nav.viewAllBrands"), href: "/brands" },
+    loading: !catalogMetadata,
+  };
+
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus, brandsMegaMenuDef];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
@@ -412,6 +425,12 @@ export function MainNavbar() {
                         img: "/catalog/categories/bundles.webp",
                         emoji: "🎁",
                       },
+                      {
+                        key: "brands",
+                        label: t("nav.brands"),
+                        img: catalogMetadata?.brands[0]?.image ?? undefined,
+                        emoji: "🏷️",
+                      },
                     ].map((cat) => (
                       <button
                         key={cat.key}
@@ -515,9 +534,9 @@ export function MainNavbar() {
             <Search className="!w-[22px] !h-[22px]" />
           </Button>
 
-          {/* Desktop nav triggers */}
+          {/* Desktop nav triggers (left of logo — excludes Brands) */}
           <nav className="hidden md:flex items-center gap-6" aria-label={t("nav.mainNavAria")}>
-            {megaMenus.map((menu) => (
+            {megaMenus.filter((m) => m.key !== "brands").map((menu) => (
               <button
                 key={menu.key}
                 type="button"
@@ -549,8 +568,30 @@ export function MainNavbar() {
           </Link>
         </div>
 
-        {/* ── Right: icons ─────────────────────────────────── */}
+        {/* ── Right: Brands trigger (desktop) + icons ──────── */}
         <div className="flex items-center justify-end gap-1 md:gap-1">
+          {/* Brands nav — right of logo, desktop only */}
+          <nav className="hidden md:flex items-center mr-3">
+            <button
+              type="button"
+              onMouseEnter={() => { openMenu("brands"); loadShop().catch(() => {}); }}
+              onMouseLeave={scheduleClose}
+              onClick={() => setActiveMenu(activeMenu === "brands" ? null : "brands")}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === "brands"}
+              data-testid="nav-trigger-brands"
+              className={`text-sm font-semibold flex items-center gap-0.5 transition-colors py-1 ${
+                activeMenu === "brands" ? "text-primary" : "text-foreground hover:text-primary/80"
+              }`}
+            >
+              {t("nav.brands")}
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-60 transition-transform duration-200 ${
+                  activeMenu === "brands" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </nav>
           <Button
             variant="ghost"
             size="icon"

@@ -102,6 +102,12 @@ const PRICE_ALERT_DEDUPE_MS = 24 * 60 * 60 * 1000; // 24 h
 let cachedCategories: OSProductCategory[] | null = null;
 let cachedBrands: OSProductBrand[] | null = null;
 let cachedOccasions: OSProductOccasion[] | null = null;
+/**
+ * Raw catalog-attribute brands as returned by the OS API, before the
+ * zero-product-count filter is applied. Used by the catalog metadata endpoint
+ * to surface active brands even when they have no products assigned yet.
+ */
+let cachedRawCatalogBrands: import("@workspace/presentail-os").OSCatalogAttributeBrand[] | null = null;
 
 /**
  * Pre-computed per-brand in-stock product counts across all stores,
@@ -872,6 +878,9 @@ async function fetchAndStore(): Promise<void> {
 
       if (brandsResp.status === "fulfilled") {
         const raw = brandsResp.value.brands ?? [];
+        // Store the full raw list (including zero-product brands) so the
+        // catalog metadata endpoint can filter by is_active independently.
+        cachedRawCatalogBrands = raw.filter((b) => b.slug);
         const osBase = config.baseUrl ?? "https://os.presentail.com";
         for (const b of raw) {
           if (!b.slug) continue;
@@ -1080,9 +1089,22 @@ export function getOsCategories(): OSProductCategory[] | null {
 
 /**
  * Returns cached OS brands (global, not per-store).
+ * Only includes brands that have at least one in-stock product.
  */
 export function getOsBrands(): OSProductBrand[] | null {
   return cachedBrands;
+}
+
+/**
+ * Returns raw OS catalog-attribute brands as fetched from the OS API,
+ * before the zero-product-count filter is applied. Brands without a slug
+ * are already excluded. Returns null when the cache has not been populated.
+ *
+ * Use this when you want to show brands marked as active in the OS admin
+ * regardless of whether any products are currently linked to them.
+ */
+export function getOsRawCatalogBrands(): import("@workspace/presentail-os").OSCatalogAttributeBrand[] | null {
+  return cachedRawCatalogBrands;
 }
 
 /**

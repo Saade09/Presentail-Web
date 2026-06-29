@@ -34,6 +34,7 @@ export const navStrings: Dict = {
   "nav.viewAllFlowers": { en: "All Flowers & Plants", ar: "كل الزهور والنباتات" },
   "nav.viewAllOccasions": { en: "View all Occasions", ar: "عرض جميع المناسبات" },
   "nav.viewAllGifts": { en: "View all Gifts", ar: "عرض جميع الهدايا" },
+  "nav.viewAllBrands": { en: "View all brands", ar: "عرض جميع العلامات التجارية" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -70,4 +71,5 @@ export const navStringsFr: Record<string, string> = {
   "nav.viewAllFlowers": "Toutes les fleurs et plantes",
   "nav.viewAllOccasions": "Voir toutes les occasions",
   "nav.viewAllGifts": "Voir tous les cadeaux",
+  "nav.viewAllBrands": "Voir toutes les marques",
 };
