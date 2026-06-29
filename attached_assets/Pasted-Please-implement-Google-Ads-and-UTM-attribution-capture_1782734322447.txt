@@ -1,0 +1,128 @@
+Please implement Google Ads and UTM attribution capture in the customer-facing Presentail App.
+
+Important context:
+This is the customer-facing app where customers browse products, add to cart, checkout, and place orders. This is where Google Ads traffic lands, so attribution must be captured here before the order is created.
+
+Goal:
+Capture marketing attribution data from the customer’s visit and attach it to the order creation payload.
+
+Please capture these URL parameters when available:
+
+* gclid
+* gbraid
+* wbraid
+* utm_source
+* utm_medium
+* utm_campaign
+* utm_id
+* utm_term
+* utm_content
+
+Also capture:
+
+* referrer
+* first landing page URL
+* first landing page path
+* last landing page URL
+* last landing page path
+* captured timestamp
+* selected city/country if available
+* conversion timestamp when order is placed
+
+Please store both:
+
+1. first_touch attribution
+2. last_touch attribution
+
+Rules:
+
+* first_touch should be saved once and not overwritten.
+* last_touch should update whenever a new marketing parameter is detected.
+* Attribution should persist across browsing, cart, and checkout using first-party cookie or localStorage.
+* Use a reasonable expiration, such as 90 days.
+* If localStorage/cookies are blocked, checkout should still work.
+* Attribution capture must never block order placement.
+
+When an order is created, include an attribution object in the order creation request.
+
+Suggested payload shape:
+
+{
+"marketing_attribution": {
+"source": "website",
+"first_touch": {
+"gclid": "",
+"gbraid": "",
+"wbraid": "",
+"utm_source": "",
+"utm_medium": "",
+"utm_campaign": "",
+"utm_id": "",
+"utm_term": "",
+"utm_content": "",
+"referrer": "",
+"landing_page_url": "",
+"landing_page_path": "",
+"captured_at": ""
+},
+"last_touch": {
+"gclid": "",
+"gbraid": "",
+"wbraid": "",
+"utm_source": "",
+"utm_medium": "",
+"utm_campaign": "",
+"utm_id": "",
+"utm_term": "",
+"utm_content": "",
+"referrer": "",
+"landing_page_url": "",
+"landing_page_path": "",
+"captured_at": ""
+},
+"conversion": {
+"order_total": "",
+"currency": "",
+"converted_at": ""
+}
+}
+}
+
+Please use the existing order creation API style and existing data conventions.
+
+Test this flow:
+
+1. Visit:
+   https://presentail.com/en-lb/beirut?gclid=test-gclid-123&utm_source=google&utm_medium=cpc&utm_campaign=test-campaign&utm_term=roses&utm_content=test-ad
+
+2. Add a product to cart.
+
+3. Place a test order.
+
+Expected:
+The order creation request includes:
+
+* gclid: test-gclid-123
+* utm_source: google
+* utm_medium: cpc
+* utm_campaign: test-campaign
+* utm_term: roses
+* utm_content: test-ad
+* first landing page
+* last touch data
+* conversion timestamp
+
+Also test:
+
+* UTM-only traffic from Instagram
+* Direct traffic with no UTM
+* First-touch vs last-touch attribution
+
+Please return:
+
+1. Files changed
+2. Attribution fields captured
+3. Where attribution is stored before checkout
+4. Example order creation payload
+5. Test order number
+6. Any backend/API fields required for saving this data
