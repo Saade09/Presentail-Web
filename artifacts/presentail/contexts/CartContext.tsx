@@ -35,7 +35,12 @@ export type CartContextValue = {
    * Returns an unsubscribe function.
    */
   onClear: (cb: () => void) => () => void;
-  detailed: { product: Product; qty: number; lineTotal: number }[];
+  /**
+   * lineTotal uses the effective (discounted) unit price.
+   * regularLineTotal is the non-discounted line total; null when there
+   * is no active discount so consumers can skip the strikethrough safely.
+   */
+  detailed: { product: Product; qty: number; lineTotal: number; regularLineTotal: number | null }[];
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
@@ -295,9 +300,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const wooProduct = wooProducts.find((p) => p.id === i.productId) as Product | undefined;
           const product: Product | undefined = wooProduct;
           if (!product) return null;
-          return { product, qty: i.qty, lineTotal: effectiveUsdPrice(product) * i.qty };
+          const effectivePrice = effectiveUsdPrice(product);
+          return {
+            product,
+            qty: i.qty,
+            lineTotal: effectivePrice * i.qty,
+            regularLineTotal: effectivePrice < product.priceValue ? product.priceValue * i.qty : null,
+          };
         })
-        .filter(Boolean) as { product: Product; qty: number; lineTotal: number }[],
+        .filter(Boolean) as { product: Product; qty: number; lineTotal: number; regularLineTotal: number | null }[],
     [items, wooProducts],
   );
 

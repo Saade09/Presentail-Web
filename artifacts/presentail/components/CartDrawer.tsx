@@ -354,7 +354,7 @@ export function CartDrawer() {
               </View>
               )}
 
-              {detailed.map(({ product, qty, lineTotal }) => (
+              {detailed.map(({ product, qty, lineTotal, regularLineTotal }) => (
                 <View
                   key={product.id}
                   style={{
@@ -406,9 +406,16 @@ export function CartDrawer() {
                         </Text>
                       </View>
                     )}
-                    <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
-                      {formatPrice(lineTotal)}
-                    </AppText>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <AppText style={{ fontFamily: headingFontMedium, fontSize: 15, color: colors.primary }}>
+                        {formatPrice(lineTotal)}
+                      </AppText>
+                      {regularLineTotal !== null && (
+                        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
+                          {formatPrice(regularLineTotal)}
+                        </AppText>
+                      )}
+                    </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Pressable
                         onPress={() => setQty(product.id, qty - 1)}

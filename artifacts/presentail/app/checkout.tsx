@@ -3587,7 +3587,7 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
 
       <Animated.View style={{ maxHeight: bodyMaxHeight, opacity: bodyOpacity, overflow: "hidden" }}>
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, gap: 12 }}>
-          {detailed.map(({ product, qty, lineTotal }: any) => (
+          {detailed.map(({ product, qty, lineTotal, regularLineTotal }: any) => (
             <View key={product.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <Image source={product.image} style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colors.muted }} contentFit="cover" />
               <View style={{ flex: 1 }}>
@@ -3608,6 +3608,11 @@ function CollapsibleOrderSummary({ colors, detailed, fees, setQty, remove, coupo
                 <AppText style={{ fontFamily: headingFontMedium, fontSize: 14, color: colors.primary }}>
                   {formatPrice(lineTotal)}
                 </AppText>
+                {regularLineTotal !== null && regularLineTotal !== undefined && (
+                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, textDecorationLine: "line-through" }}>
+                    {formatPrice(regularLineTotal)}
+                  </AppText>
+                )}
                 <Pressable onPress={() => remove(product.id)} hitSlop={6}>
                   <Feather name="x-circle" size={14} color={colors.mutedForeground} />
                 </Pressable>

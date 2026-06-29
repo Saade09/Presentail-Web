@@ -50,6 +50,7 @@ type CartItemRowProps = {
   product: { id: string; name: string; image: any; hasInputField?: boolean };
   qty: number;
   lineTotal: number;
+  regularLineTotal: number | null;
   customNote?: string;
   setCustomNote: (id: string, note: string) => void;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
@@ -58,7 +59,7 @@ type CartItemRowProps = {
   remove: (id: string) => void;
 };
 
-function CartItemRow({ product, qty, lineTotal, customNote, setCustomNote, colors, router, setQty, remove }: CartItemRowProps) {
+function CartItemRow({ product, qty, lineTotal, regularLineTotal, customNote, setCustomNote, colors, router, setQty, remove }: CartItemRowProps) {
   const headingFontMedium = useHeadingFont("500Medium");
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const t = useT();
@@ -119,10 +120,18 @@ function CartItemRow({ product, qty, lineTotal, customNote, setCustomNote, color
             </Text>
           </View>
         )}
-        <Price
-          value={lineTotal}
-          style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Price
+            value={lineTotal}
+            style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
+          />
+          {regularLineTotal !== null && (
+            <Price
+              value={regularLineTotal}
+              style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, textDecorationLine: "line-through" }}
+            />
+          )}
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
           <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 999 }}>
             <Pressable onPress={() => setQty(product.id, qty - 1)} style={cartItemStyles.qtyBtn}>
@@ -512,12 +521,13 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
             </View>
             )}
 
-            {detailed.map(({ product, qty, lineTotal }) => (
+            {detailed.map(({ product, qty, lineTotal, regularLineTotal }) => (
               <CartItemRow
                 key={product.id}
                 product={product}
                 qty={qty}
                 lineTotal={lineTotal}
+                regularLineTotal={regularLineTotal}
                 customNote={items.find((i) => i.productId === product.id)?.customNote}
                 setCustomNote={setCustomNote}
                 colors={colors}
