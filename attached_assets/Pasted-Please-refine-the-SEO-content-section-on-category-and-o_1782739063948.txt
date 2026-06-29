@@ -1,0 +1,245 @@
+Please refine the SEO content section on category and occasion pages.
+
+The module was implemented, but the current design feels too narrow and disconnected from the page. Please update it so the SEO content section uses a full-width background band while keeping the actual content centered and readable.
+
+Important:
+Keep the section below the product grid and above the footer. Do not move it above the products.
+
+Current issue:
+The SEO content appears as a centered card with a narrow width. On category and occasion pages, this creates too much empty white space on the sides and makes the section feel detached from the page.
+
+Goal:
+Make the SEO content section feel like a natural full-width section of the page, similar to a premium ecommerce content block.
+
+New design direction:
+
+1. Full-width section background
+
+The SEO content section should span the full viewport width.
+
+Use a very subtle background color, for example:
+
+* warm off-white
+* very light beige
+* very light grey
+* #FAF8F5 or similar
+
+It should visually separate the SEO section from the product grid and footer without feeling heavy.
+
+2. Centered inner container
+
+Inside the full-width background, keep a centered content container.
+
+Recommended:
+
+* max-width: same as the main product page container
+* around 1100px–1200px
+* horizontal padding on desktop and mobile
+* no excessive narrow card feeling
+
+The content should align visually with the product grid area.
+
+3. Remove or soften the boxed card feeling
+
+Avoid the current large floating card look.
+
+Instead:
+
+* use the full-width band as the main background
+* optionally keep very subtle cards only for benefit items and FAQ rows
+* do not wrap the entire SEO content in a heavy bordered card
+
+The section should feel integrated, not like a popup or separate module.
+
+4. Suggested desktop layout
+
+Use this structure:
+
+Full-width SEO band:
+
+* H2
+* intro paragraph
+* benefit cards in a 4-column row
+* related links as small chips
+* FAQ accordion
+
+Example:
+
+[full-width light background]
+
+Hand Bouquet Delivery in Beirut
+
+Shop hand bouquets online in Beirut with Presentail. Choose from fresh flower
+arrangements for birthdays, anniversaries, thank-you gifts, romantic occasions
+and more, with reliable delivery options across Beirut.
+
+[Fresh & Beautiful Flowers] [Same-day & Scheduled Delivery] [Recipient Address Collection] [Elegant Presentation]
+
+Popular occasions in Beirut:
+Birthday Flowers  Anniversary Flowers  Love & Romance  Thank You Flowers  Congratulations
+
+Frequently Asked Questions
+
+* Can I send hand bouquets in Beirut?
+* Does Presentail offer same-day bouquet delivery?
+* Can Presentail ask the recipient for the address?
+
+[/full-width light background]
+
+Footer
+
+5. Spacing
+
+Please adjust vertical spacing so it feels intentional.
+
+Recommended:
+
+* Add enough top margin after the final product row, around 64px–96px desktop
+* SEO band padding top/bottom around 64px desktop
+* Mobile padding around 32px–40px
+* Footer should start immediately after the SEO section with clean spacing
+
+Avoid huge blank gaps between the last product and the SEO section.
+
+6. Benefit cards
+
+Keep benefit cards, but make them lighter.
+
+Desktop:
+
+* 4 columns
+
+Tablet:
+
+* 2 columns
+
+Mobile:
+
+* 1 column or 2 columns if it still looks good
+
+Style:
+
+* subtle border
+* small icon
+* short title
+* short description
+* white or transparent card depending on background
+
+Do not make them too tall.
+
+7. Related link chips
+
+Keep the related link chips.
+
+For category pages:
+Title:
+Popular occasions in {City}
+
+For occasion pages:
+Title:
+Popular gifts for {Occasion Name}
+
+Style:
+
+* small rounded chips
+* subtle border
+* hover state
+* should wrap nicely on mobile
+
+8. FAQ section
+
+Keep FAQ accordion inside the full-width section.
+
+Style:
+
+* FAQ rows can be white cards or simple bordered rows
+* Keep them clean and lightweight
+* Full width within the inner content container
+* Do not make the FAQ area too visually heavy
+
+FAQ schema should remain only if FAQs are visible.
+
+9. Mobile behavior
+
+On mobile:
+
+* SEO section should be full-width
+* Inner content should have comfortable left/right padding
+* H2 should not be too large
+* Paragraph should be readable
+* Benefit cards should stack cleanly
+* Related chips should wrap
+* FAQ rows should be easy to tap
+* No horizontal scrolling
+
+10. Keep existing dynamic logic
+
+Do not remove the existing dynamic functionality.
+
+Keep:
+
+* category-specific H2
+* occasion-specific H2
+* city-specific text
+* dynamic benefits
+* dynamic related links
+* dynamic FAQs
+* FAQ schema when FAQs are visible
+
+11. Do not change SEO logic in this task
+
+This task is visual/layout refinement only.
+
+Do not change:
+
+* page titles
+* meta descriptions
+* canonicals
+* sitemap
+* hreflang
+* route slugs
+* product grid
+* filters
+* footer links
+
+12. Test these pages
+
+Please test:
+
+Category pages:
+
+* /en-lb/beirut/category/hand-bouquets
+* /en-lb/beirut/category/preserved-flowers
+* /en-lb/beirut/category/plants
+
+Occasion pages:
+
+* /en-lb/beirut/occasion/birthday
+* /en-lb/beirut/occasion/condolences
+
+Test both:
+
+* desktop
+* mobile
+
+13. Acceptance criteria
+
+This task is complete when:
+
+* SEO section spans full browser width.
+* Inner content remains centered and aligned with the main page content.
+* The large narrow floating card feeling is removed.
+* Section appears below product grid and above footer.
+* Benefit cards, related links, and FAQs still work.
+* FAQ schema still matches visible FAQs.
+* Mobile layout is clean.
+* No SEO metadata/routing changes were made.
+
+Please return:
+
+1. Files/components changed
+2. Before/after summary
+3. Screenshot or notes for desktop category page
+4. Screenshot or notes for desktop occasion page
+5. Screenshot or notes for mobile
+6. Confirmation no SEO metadata or routing logic was changed
