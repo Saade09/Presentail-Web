@@ -38,15 +38,15 @@ export function PageBreadcrumb({ crumbs }: PageBreadcrumbProps) {
             return (
               <BreadcrumbItem key={i}>
                 {isLast ? (
-                  <BreadcrumbPage className="text-xs font-normal text-muted-foreground">
+                  <BreadcrumbPage className="text-xs font-normal text-neutral-600">
                     {crumb.label}
                   </BreadcrumbPage>
                 ) : (
                   <>
-                    <BreadcrumbLink asChild className="text-xs text-muted-foreground/70 hover:text-muted-foreground">
+                    <BreadcrumbLink asChild className="text-xs text-neutral-600 hover:text-neutral-800">
                       <Link href={crumb.href ?? "/"}>{crumb.label}</Link>
                     </BreadcrumbLink>
-                    <BreadcrumbSeparator className="text-xs opacity-40">{separator}</BreadcrumbSeparator>
+                    <BreadcrumbSeparator className="text-xs text-neutral-500">{separator}</BreadcrumbSeparator>
                   </>
                 )}
               </BreadcrumbItem>
