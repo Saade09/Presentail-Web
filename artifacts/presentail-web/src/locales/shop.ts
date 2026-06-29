@@ -35,6 +35,7 @@ export const shopStrings: Dict = {
   "shop.browseAll": { en: "Browse all collections", ar: "تصفح كل المجموعات" },
   "shop.removeBrandFilter": { en: "Remove brand filter", ar: "إزالة فلتر العلامة التجارية" },
   "shop.productCount": { en: "{count} Products", ar: "{count} منتج" },
+  "shop.productsHeading": { en: "Products", ar: "المنتجات" },
 
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
@@ -255,6 +256,7 @@ export const shopStringsFr: Record<string, string> = {
   "shop.browseAll": "Parcourir toutes les collections",
   "shop.removeBrandFilter": "Supprimer le filtre de marque",
   "shop.productCount": "{count} Produits",
+  "shop.productsHeading": "Produits",
 
   "shop.cat.handBouquets": "Bouquets à la main",
   "shop.cat.flowerBoxes": "Boîtes de fleurs",

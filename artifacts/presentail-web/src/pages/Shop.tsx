@@ -459,6 +459,7 @@ export default function Shop() {
           </div>
 
           <div className="flex-1">
+            <h2 className="sr-only">{t("shop.productsHeading")}</h2>
             {(brand || hasActiveFilters) && (
               <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="active-filter-chips">
                 {brand && (

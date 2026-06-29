@@ -95,6 +95,7 @@ export default function BrandDetail() {
           </div>
         </div>
 
+        <h2 className="sr-only">{t("shop.productsHeading")}</h2>
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {Array(8).fill(0).map((_, i) => (
