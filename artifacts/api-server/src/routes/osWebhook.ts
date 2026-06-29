@@ -48,6 +48,7 @@ import { setFxRates } from "../lib/fxRateCache";
 import { sendOrderEventPush } from "../lib/orderEvents";
 import { sendOrderEventSms } from "../lib/smsNotify";
 import { sendOrderEventEmail } from "../lib/emailNotify";
+import { uploadGoogleAdsConversion, type MarketingAttribution } from "../lib/googleAdsConversions";
 import { upsertCustomer } from "../lib/customers";
 import type { OrderState } from "../lib/orderEvents";
 import type { OSLocationsResponse, OSTimeSlot } from "@workspace/presentail-os";
@@ -473,6 +474,7 @@ async function handleOrderStatusUpdated(
       deliverySlot: appOrdersTable.deliverySlot,
       totalUsdCents: appOrdersTable.totalUsdCents,
       lineItemsJson: appOrdersTable.lineItemsJson,
+      marketingAttributionJson: appOrdersTable.marketingAttributionJson,
     })
     .from(appOrdersTable)
     .where(where)
@@ -521,6 +523,33 @@ async function handleOrderStatusUpdated(
         "osWebhook: customer email lookup failed (non-fatal)",
       );
     }
+  }
+
+  // Upload Google Ads click conversion on order confirmation or delivery
+  // (best-effort, fire-and-forget — failures log + Slack alert but never
+  // block the response). Both states are covered so attribution is reported
+  // even if the confirmed webhook was missed; Google Ads deduplicates by
+  // orderId so a double upload within the deduplication window is safe.
+  if (state === "confirmed" || state === "delivered") {
+    let attribution: MarketingAttribution = {};
+    if (row.marketingAttributionJson) {
+      try {
+        attribution = JSON.parse(row.marketingAttributionJson) as MarketingAttribution;
+      } catch {
+        // Malformed JSON — proceed with empty attribution; upload will no-op.
+      }
+    }
+    uploadGoogleAdsConversion({
+      appOrderId: resolvedAppOrderId,
+      attribution,
+      conversionTimeMs: Date.now(),
+      totalUsdCents: row.totalUsdCents,
+    }).catch((err: unknown) => {
+      req.log.warn?.(
+        { err: (err as Error)?.message, appOrderId: resolvedAppOrderId },
+        "osWebhook: Google Ads conversion upload failed unexpectedly (non-fatal)",
+      );
+    });
   }
 
   // Fire push notification (best-effort).
