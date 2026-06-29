@@ -1620,6 +1620,87 @@ export const GetAdminLoyaltyResponse = zod.object({
 });
 
 /**
+ * Submits a new order to WooCommerce and the Presentail OS. Prices and
+delivery fees are resolved server-side from the product cache; client-
+supplied amounts are ignored. The optional `marketing_attribution` field
+carries first-touch / last-touch UTM and Google Ads click IDs so ad
+spend can be correlated with purchases.
+
+ * @summary Place an order
+ */
+export const CreateWooOrderBody = zod
+  .object({
+    orderId: zod
+      .string()
+      .describe("Client-generated idempotency key for the order."),
+    paymentRef: zod
+      .string()
+      .optional()
+      .describe("Payment reference returned by the payment provider."),
+    paymentMethod: zod.enum([
+      "card",
+      "wallet",
+      "whish",
+      "western",
+      "mamo",
+      "paypal",
+    ]),
+    couponCode: zod.string().optional(),
+    currencyCode: zod.string().optional(),
+    marketing_attribution: zod
+      .object({
+        source: zod
+          .string()
+          .optional()
+          .describe(
+            'Platform that submitted the order (e.g. \"website\" or \"mobile\").',
+          ),
+        first_touch: zod
+          .record(zod.string(), zod.string())
+          .optional()
+          .describe(
+            "Attribution data from the shopper's first marketing-attributed session.",
+          ),
+        last_touch: zod
+          .record(zod.string(), zod.string())
+          .optional()
+          .describe(
+            "Attribution data from the shopper's most recent marketing-attributed session.",
+          ),
+        conversion: zod
+          .object({
+            order_total: zod
+              .string()
+              .optional()
+              .describe("Order total in the shopper's display currency."),
+            currency: zod
+              .string()
+              .optional()
+              .describe("ISO 4217 currency code of the order total."),
+            converted_at: zod.coerce
+              .date()
+              .optional()
+              .describe("ISO 8601 timestamp when the order was placed."),
+          })
+          .optional()
+          .describe("Conversion metadata recorded at order placement."),
+      })
+      .optional()
+      .describe(
+        "First-touch \/ last-touch marketing attribution captured from UTM parameters\nand Google Ads click IDs (gclid, gbraid, wbraid). Attached to orders so\nad spend can be correlated with purchases. All fields are optional strings\nso partial or missing attribution data never fails validation.\n",
+      ),
+  })
+  .describe(
+    "Request body for placing an order via the WooCommerce\/OS backend.",
+  );
+
+export const CreateWooOrderResponse = zod.object({
+  ok: zod.boolean(),
+  wcOrderId: zod.number().optional(),
+  osOrderId: zod.string().optional(),
+});
+
+/**
  * Searches the in-memory product cache and the static category list for
 entries whose name contains `q` (case-insensitive substring match).
 `q` must be 2–100 characters. Returns up to 10 products and all

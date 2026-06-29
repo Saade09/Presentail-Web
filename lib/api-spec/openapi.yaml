@@ -891,6 +891,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /woo/order:
+    post:
+      operationId: createWooOrder
+      tags: [woo]
+      summary: Place an order
+      description: |
+        Submits a new order to WooCommerce and the Presentail OS. Prices and
+        delivery fees are resolved server-side from the product cache; client-
+        supplied amounts are ignored. The optional `marketing_attribution` field
+        carries first-touch / last-touch UTM and Google Ads click IDs so ad
+        spend can be correlated with purchases.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WooOrderRequest"
+      responses:
+        "200":
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  wcOrderId:
+                    type: integer
+                  osOrderId:
+                    type: string
+                required:
+                  - ok
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Order submission failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /woo/search:
     get:
       operationId: wooSearch
@@ -3460,6 +3505,63 @@ components:
             - too_many_attempts
       required:
         - ok
+    WooOrderRequest:
+      type: object
+      description: Request body for placing an order via the WooCommerce/OS backend.
+      properties:
+        orderId:
+          type: string
+          description: Client-generated idempotency key for the order.
+        paymentRef:
+          type: string
+          description: Payment reference returned by the payment provider.
+        paymentMethod:
+          type: string
+          enum: [card, wallet, whish, western, mamo, paypal]
+        couponCode:
+          type: string
+        currencyCode:
+          type: string
+        marketing_attribution:
+          $ref: "#/components/schemas/MarketingAttribution"
+      required:
+        - orderId
+        - paymentMethod
+    MarketingAttribution:
+      type: object
+      description: |
+        First-touch / last-touch marketing attribution captured from UTM parameters
+        and Google Ads click IDs (gclid, gbraid, wbraid). Attached to orders so
+        ad spend can be correlated with purchases. All fields are optional strings
+        so partial or missing attribution data never fails validation.
+      properties:
+        source:
+          type: string
+          description: Platform that submitted the order (e.g. "website" or "mobile").
+        first_touch:
+          type: object
+          description: Attribution data from the shopper's first marketing-attributed session.
+          additionalProperties:
+            type: string
+        last_touch:
+          type: object
+          description: Attribution data from the shopper's most recent marketing-attributed session.
+          additionalProperties:
+            type: string
+        conversion:
+          type: object
+          description: Conversion metadata recorded at order placement.
+          properties:
+            order_total:
+              type: string
+              description: Order total in the shopper's display currency.
+            currency:
+              type: string
+              description: ISO 4217 currency code of the order total.
+            converted_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when the order was placed.
     ProductColorHintsRequest:
       type: object
       properties:

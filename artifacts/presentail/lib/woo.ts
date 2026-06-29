@@ -142,6 +142,33 @@ export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProd
   }
 }
 
+export type MarketingAttributionTouch = {
+  captured_at?: string;
+  referrer?: string;
+  landing_page_url?: string;
+  landing_page_path?: string;
+  gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_id?: string;
+  utm_term?: string;
+  utm_content?: string;
+};
+
+export type MarketingAttribution = {
+  source?: string;
+  first_touch?: MarketingAttributionTouch;
+  last_touch?: MarketingAttributionTouch;
+  conversion?: {
+    order_total?: string;
+    currency?: string;
+    converted_at?: string;
+  };
+};
+
 export type WooOrderPayload = {
   orderId: string;
   items: { name: string; quantity: number; price: number; wcId?: number; customInput?: string }[];
@@ -180,6 +207,9 @@ export type WooOrderPayload = {
   // notifications. The owning user (when signed in) is derived server-side
   // from the JWT in the Authorization header — never sent in the body.
   appDeviceId?: string;
+  // Optional marketing attribution data captured from UTM params / gclid.
+  // Passed through to the OS order payload for ad spend attribution.
+  marketing_attribution?: MarketingAttribution;
 };
 
 export type WcBrand = {

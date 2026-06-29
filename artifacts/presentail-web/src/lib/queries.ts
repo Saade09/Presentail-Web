@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 import { fetchOsProducts } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
+import { readAttribution } from "./attribution";
 
 // Brand slugs allowed to appear on the storefront.
 // Fetched from /api/catalog/brand-allowlist on startup so it stays in sync
@@ -473,15 +474,37 @@ export type CreateWcOrderResponse =
 // Order Hooks
 export const useCreateOrder = () => {
   return useMutation({
-    mutationFn: (data: CreateWcOrderRequest) =>
-      apiFetch<CreateWcOrderResponse>("/woo/order", {
+    mutationFn: (data: CreateWcOrderRequest) => {
+      let attribution = null;
+      try {
+        attribution = readAttribution();
+      } catch {
+        // storage unavailable — never block checkout
+      }
+      const marketingAttribution = attribution
+        ? {
+            source: "website",
+            first_touch: attribution.first_touch,
+            last_touch: attribution.last_touch,
+            conversion: {
+              order_total: String((data as Record<string, unknown>).totalUsd ?? ""),
+              currency: String((data as Record<string, unknown>).currencyCode ?? "USD"),
+              converted_at: new Date().toISOString(),
+            },
+          }
+        : undefined;
+      return apiFetch<CreateWcOrderResponse>("/woo/order", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...(marketingAttribution ? { marketing_attribution: marketingAttribution } : {}),
+        }),
         // Tag the request with the source platform so the admin funnel
         // dashboard can attribute revenue to "web" the same way analytics
         // events attribute counts.
         headers: { "x-app-platform": "web" },
-      }),
+      });
+    },
   });
 };
 

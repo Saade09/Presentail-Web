@@ -74,6 +74,11 @@ export const appOrdersTable = pgTable(
     couponCode: text("coupon_code"),
     // Card / gift message text. Null when the shopper left it blank.
     cardMessage: text("card_message"),
+    // JSON-serialised marketing attribution snapshot at order placement time.
+    // Stored as a local fallback so attribution is never lost even if the OS
+    // rejects or ignores the metadata field. Shape mirrors MarketingAttribution
+    // from openapi.yaml: { source, first_touch, last_touch, conversion }.
+    marketingAttributionJson: text("marketing_attribution_json"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

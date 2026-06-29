@@ -113,6 +113,23 @@ export const WooOrderSchema = z.object({
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
   couponCode: z.string().trim().optional(),
+  // Optional marketing attribution captured from UTM params / Google Ads click IDs.
+  // Passed through to the OS order payload for ad-spend attribution reporting.
+  // All sub-fields are optional strings so a partial payload never fails validation.
+  marketing_attribution: z
+    .object({
+      source: z.string().optional(),
+      first_touch: z.record(z.string()).optional(),
+      last_touch: z.record(z.string()).optional(),
+      conversion: z
+        .object({
+          order_total: z.string().optional(),
+          currency: z.string().optional(),
+          converted_at: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type WooOrderPayload = z.infer<typeof WooOrderSchema>;
@@ -561,6 +578,9 @@ export async function recordSuccessfulWcOrder(input: {
   const paymentMethod = body.paymentMethod || null;
   const couponCode = body.couponCode?.trim() || null;
   const cardMessage = body.cardMessage?.trim() || null;
+  const marketingAttributionJson = body.marketing_attribution
+    ? JSON.stringify(body.marketing_attribution)
+    : null;
   const lineItemsJson =
     lineItems && lineItems.length > 0 ? JSON.stringify(lineItems) : null;
   const rawDeviceId =
@@ -610,6 +630,7 @@ export async function recordSuccessfulWcOrder(input: {
         paymentMethod,
         couponCode,
         cardMessage,
+        marketingAttributionJson,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -636,6 +657,7 @@ export async function recordSuccessfulWcOrder(input: {
           paymentMethod,
           couponCode,
           cardMessage,
+          marketingAttributionJson,
           updatedAt: new Date(),
         },
       });
@@ -1036,6 +1058,9 @@ export async function attemptCreateOsOrder(
     },
     platform: opts.platform ?? undefined,
     couponCode: body.couponCode || undefined,
+    ...(body.marketing_attribution
+      ? { metadata: { marketing_attribution: body.marketing_attribution } }
+      : {}),
   };
 
   // Log the FULL payload sent to OS so we can diagnose rejection errors.

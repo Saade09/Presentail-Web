@@ -1311,6 +1311,72 @@ export interface PhoneOtpVerifyResponse {
   code?: PhoneOtpVerifyResponseCode;
 }
 
+export type WooOrderRequestPaymentMethod =
+  (typeof WooOrderRequestPaymentMethod)[keyof typeof WooOrderRequestPaymentMethod];
+
+export const WooOrderRequestPaymentMethod = {
+  card: "card",
+  wallet: "wallet",
+  whish: "whish",
+  western: "western",
+  mamo: "mamo",
+  paypal: "paypal",
+} as const;
+
+/**
+ * Attribution data from the shopper's first marketing-attributed session.
+ */
+export type MarketingAttributionFirstTouch = { [key: string]: string };
+
+/**
+ * Attribution data from the shopper's most recent marketing-attributed session.
+ */
+export type MarketingAttributionLastTouch = { [key: string]: string };
+
+/**
+ * Conversion metadata recorded at order placement.
+ */
+export type MarketingAttributionConversion = {
+  /** Order total in the shopper's display currency. */
+  order_total?: string;
+  /** ISO 4217 currency code of the order total. */
+  currency?: string;
+  /** ISO 8601 timestamp when the order was placed. */
+  converted_at?: string;
+};
+
+/**
+ * First-touch / last-touch marketing attribution captured from UTM parameters
+and Google Ads click IDs (gclid, gbraid, wbraid). Attached to orders so
+ad spend can be correlated with purchases. All fields are optional strings
+so partial or missing attribution data never fails validation.
+
+ */
+export interface MarketingAttribution {
+  /** Platform that submitted the order (e.g. "website" or "mobile"). */
+  source?: string;
+  /** Attribution data from the shopper's first marketing-attributed session. */
+  first_touch?: MarketingAttributionFirstTouch;
+  /** Attribution data from the shopper's most recent marketing-attributed session. */
+  last_touch?: MarketingAttributionLastTouch;
+  /** Conversion metadata recorded at order placement. */
+  conversion?: MarketingAttributionConversion;
+}
+
+/**
+ * Request body for placing an order via the WooCommerce/OS backend.
+ */
+export interface WooOrderRequest {
+  /** Client-generated idempotency key for the order. */
+  orderId: string;
+  /** Payment reference returned by the payment provider. */
+  paymentRef?: string;
+  paymentMethod: WooOrderRequestPaymentMethod;
+  couponCode?: string;
+  currencyCode?: string;
+  marketing_attribution?: MarketingAttribution;
+}
+
 export type ProductColorHintsRequestProductsItem = {
   /** Product slug (unique identifier). */
   slug: string;
@@ -1496,6 +1562,12 @@ export type GetGeoCurrencyByCoordsParams = {
    * WGS84 longitude in decimal degrees, range -180..180.
    */
   lng: number;
+};
+
+export type CreateWooOrder200 = {
+  ok: boolean;
+  wcOrderId?: number;
+  osOrderId?: string;
 };
 
 export type WooSearchParams = {

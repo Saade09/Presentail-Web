@@ -48,6 +48,7 @@ import { API_BASE, getStripePublishableKey } from "@/lib/stripe";
 import { isPlatformPaySupported, StripeProvider } from "@stripe/stripe-react-native";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { trackEvent, storeGclid } from "@/lib/analytics";
+import { captureAttributionFromUrl } from "@/lib/attribution";
 import { useT } from "@/hooks/useT";
 import { reportClientError } from "@/lib/clientErrorReporter";
 import { registerPushToken } from "@/services/notifications";
@@ -165,6 +166,9 @@ function GclidCaptureListener() {
 
     function extractAndStore(url: string | null) {
       if (!url) return;
+      // Capture full attribution (gclid + UTM params) for marketing attribution on order submission.
+      void captureAttributionFromUrl(url);
+      // Also keep the legacy per-gclid store for the FB CAPI / order-confirmed flow.
       try {
         const parsed = new URL(url);
         const gclid = parsed.searchParams.get("gclid");

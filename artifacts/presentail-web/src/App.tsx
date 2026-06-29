@@ -6,6 +6,7 @@ import {
   useLocation,
 } from "wouter";
 import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
+import { captureAttribution } from "@/lib/attribution";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -433,6 +434,14 @@ function CurrencyDataLoader() {
   return null;
 }
 
+function AttributionTracker() {
+  const [path] = useLocation();
+  useEffect(() => {
+    captureAttribution(window.location.href, document.referrer);
+  }, [path]);
+  return null;
+}
+
 // Checkout is intentionally excluded from idle prefetch — it must not appear
 // in the home-page critical waterfall. It is prefetched on hover of the cart
 // icon (see MainNavbar) so it only loads when the user signals intent to check
@@ -481,6 +490,7 @@ function App() {
                     <DeliverySelectionProvider>
                       <CurrencyDataLoader />
                       <DocumentMeta />
+                      <AttributionTracker />
                       <FbPixelTracker />
                       <SeoHead />
                       <RootRouter />

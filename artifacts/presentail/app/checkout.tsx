@@ -102,6 +102,7 @@ import { API_BASE, createPaymentIntent, createStripeCheckoutSession, getStripePu
 import { createWooOrder } from "@/lib/woo";
 import { clearPendingOrder, savePendingOrder } from "@/lib/pendingOrder";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { readAttribution } from "@/lib/attribution";
 import { trackEvent } from "@/lib/analytics";
 import { trackFbMobileEvent } from "@/lib/fbPixel";
 import { firePostOrderAnalytics } from "@/lib/postOrderAnalytics";
@@ -960,10 +961,32 @@ function CheckoutScreen() {
     orderId: string,
     paymentRef?: string,
   ): Promise<boolean> => {
+    let attribution: import("@/lib/attribution").Attribution | null = null;
+    try {
+      attribution = await readAttribution();
+    } catch {
+      // storage unavailable — never block checkout
+    }
+    const marketingAttribution = attribution
+      ? {
+          source: "mobile",
+          first_touch: attribution.first_touch,
+          last_touch: attribution.last_touch,
+          conversion: {
+            order_total: String(total),
+            currency: currencyCode,
+            converted_at: new Date().toISOString(),
+          },
+        }
+      : undefined;
     const result = await submitWooOrderWithRetry({
       createWooOrder: () =>
         createWooOrder(
-          { ...buildWooPayload(orderId), paymentRef },
+          {
+            ...buildWooPayload(orderId),
+            paymentRef,
+            ...(marketingAttribution ? { marketing_attribution: marketingAttribution } : {}),
+          },
           { authToken, filter: { countryCode: selectedCountry?.code, cityId: selectedCity?.id } },
         ),
       warn: (msg, meta) =>

@@ -30,6 +30,7 @@ import type {
   CheckoutPaymentIntentResponse,
   ClientErrorReportRequest,
   ClientErrorReportResponse,
+  CreateWooOrder200,
   CurrenciesResponse,
   CustomerAddressDeleteResponse,
   CustomerAddressInput,
@@ -83,6 +84,7 @@ import type {
   PushUnregisterResponse,
   ReferralCodeResponse,
   SharedFavoritesResponse,
+  WooOrderRequest,
   WooSearchParams,
   WooSearchResult,
 } from "./api.schemas";
@@ -2647,6 +2649,98 @@ export function useGetAdminLoyalty<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Submits a new order to WooCommerce and the Presentail OS. Prices and
+delivery fees are resolved server-side from the product cache; client-
+supplied amounts are ignored. The optional `marketing_attribution` field
+carries first-touch / last-touch UTM and Google Ads click IDs so ad
+spend can be correlated with purchases.
+
+ * @summary Place an order
+ */
+export const getCreateWooOrderUrl = () => {
+  return `/api/woo/order`;
+};
+
+export const createWooOrder = async (
+  wooOrderRequest: WooOrderRequest,
+  options?: RequestInit,
+): Promise<CreateWooOrder200> => {
+  return customFetch<CreateWooOrder200>(getCreateWooOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(wooOrderRequest),
+  });
+};
+
+export const getCreateWooOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWooOrder>>,
+    TError,
+    { data: BodyType<WooOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWooOrder>>,
+  TError,
+  { data: BodyType<WooOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["createWooOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWooOrder>>,
+    { data: BodyType<WooOrderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createWooOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateWooOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWooOrder>>
+>;
+export type CreateWooOrderMutationBody = BodyType<WooOrderRequest>;
+export type CreateWooOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Place an order
+ */
+export const useCreateWooOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWooOrder>>,
+    TError,
+    { data: BodyType<WooOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWooOrder>>,
+  TError,
+  { data: BodyType<WooOrderRequest> },
+  TContext
+> => {
+  return useMutation(getCreateWooOrderMutationOptions(options));
+};
 
 /**
  * Searches the in-memory product cache and the static category list for
