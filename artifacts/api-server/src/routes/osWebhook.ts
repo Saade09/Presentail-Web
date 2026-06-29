@@ -431,6 +431,7 @@ router.post("/os/webhook", async (req, res) => {
 // order.status_updated handler (async, fire-and-forget from the route)
 // ---------------------------------------------------------------------------
 
+/** Exported for unit / integration testing only. Not part of the public API. */
 export async function handleOrderStatusUpdated(
   req: { log: { info?: (...a: any[]) => void; warn?: (...a: any[]) => void } },
   data: Record<string, unknown> | undefined,
@@ -526,11 +527,12 @@ export async function handleOrderStatusUpdated(
     }
   }
 
-  // Upload Google Ads click conversion exactly once per order.
+  // Upload Google Ads click conversion exactly once, on the first "confirmed"
+  // webhook for this order.  We restrict the trigger to "confirmed" so that
+  // later status changes (out_for_delivery, delivered, cancelled) never cause
+  // a duplicate upload, even if the dedup guard is bypassed somehow.
   //
-  // To prevent duplicate uploads when OS delivers the confirmed/delivered
-  // webhook more than once (retry, re-confirmation, or order edit) we use
-  // an atomic conditional UPDATE:
+  // The atomic conditional UPDATE:
   //
   //   UPDATE app_orders
   //      SET gads_conversion_uploaded_at = NOW()
@@ -539,10 +541,10 @@ export async function handleOrderStatusUpdated(
   //
   // If the UPDATE affects 1 row we are the first handler to claim this order
   // and can proceed with the upload.  If it affects 0 rows another handler
-  // (concurrent or earlier) already claimed it — skip silently.  This
-  // eliminates the read-then-write race that two concurrent webhook
-  // deliveries could otherwise both win.
-  if (state === "confirmed" || state === "delivered") {
+  // (concurrent or a retry of the same confirmed webhook) already claimed it
+  // — skip silently.  This eliminates the read-then-write race that two
+  // concurrent webhook deliveries could otherwise both win.
+  if (state === "confirmed") {
     const claimed = await db
       .update(appOrdersTable)
       .set({ gadsConversionUploadedAt: new Date() })
