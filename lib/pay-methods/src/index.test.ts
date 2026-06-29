@@ -101,6 +101,20 @@ describe("payMethodAvailability – PayPal field", () => {
   });
 });
 
+describe("isPayMethodSupported – wallet", () => {
+  it("wallet is enabled for USD (LB)", () => {
+    expect(isPayMethodSupported("wallet", "USD", { country: "LB" })).toBe(true);
+  });
+
+  it("wallet is enabled for AED (AE) — Gulf Stripe account", () => {
+    expect(isPayMethodSupported("wallet", "AED", { country: "AE" })).toBe(true);
+  });
+
+  it("wallet is disabled for a currency not in the list", () => {
+    expect(isPayMethodSupported("wallet", "LBP", { country: "LB" })).toBe(false);
+  });
+});
+
 describe("payMethodAvailability – apple_pay / google_pay fields", () => {
   it("apple_pay is enabled in USD (LB)", () => {
     expect(payMethodAvailability("USD", { country: "LB" }).apple_pay.enabled).toBe(true);

@@ -30,8 +30,8 @@ export const PAY_METHOD_CURRENCIES: Record<
   // set as apple_pay.
   google_pay: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
   // Wallet (legacy combined Apple Pay / Google Pay row) is kept in the table
-  // for type-compatibility. AED is no longer routed through Mamo.
-  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF"],
+  // for type-compatibility. AED is included via the Gulf Stripe account.
+  wallet: ["USD", "EUR", "GBP", "CAD", "AUD", "QAR", "SAR", "KWD", "OMR", "CHF", "AED"],
   // PayPal settles in USD and the other major currencies the app supports;
   // Gulf currencies (AED, QAR, SAR, KWD, OMR) are excluded — PayPal does
   // not settle in them, and UAE is also blocked via PAY_METHOD_EXCLUDED_COUNTRIES.

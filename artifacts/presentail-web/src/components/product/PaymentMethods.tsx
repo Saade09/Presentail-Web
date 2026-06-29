@@ -40,7 +40,9 @@ export function PaymentMethods({
   const showCards =
     isPayMethodSupported("card", currency, ctx) ||
     isPayMethodSupported("mamo", currency, ctx);
-  const showWallet = isPayMethodSupported("wallet", currency, ctx);
+  const showWallet =
+    isPayMethodSupported("apple_pay", currency, ctx) ||
+    isPayMethodSupported("google_pay", currency, ctx);
   const showWhish = isPayMethodSupported("whish", currency, ctx);
   const showPayPal = isPayMethodSupported("paypal", currency, ctx);
 
