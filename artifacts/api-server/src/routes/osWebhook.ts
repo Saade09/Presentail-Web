@@ -431,7 +431,7 @@ router.post("/os/webhook", async (req, res) => {
 // order.status_updated handler (async, fire-and-forget from the route)
 // ---------------------------------------------------------------------------
 
-async function handleOrderStatusUpdated(
+export async function handleOrderStatusUpdated(
   req: { log: { info?: (...a: any[]) => void; warn?: (...a: any[]) => void } },
   data: Record<string, unknown> | undefined,
 ): Promise<void> {
