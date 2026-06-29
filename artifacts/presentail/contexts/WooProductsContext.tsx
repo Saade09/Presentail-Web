@@ -170,6 +170,8 @@ function mergeProducts(
         popularity: wp.popularity ?? 0,
         inStock: wp.inStock,
         hasInputField: wp.hasInputField ?? (sp as any).hasInputField ?? false,
+        discountPriceValue: wp.discountPriceValue ?? null,
+        discountPriceAed: wp.discountPriceAed ?? null,
       });
     } else {
       result.push(sp);
@@ -195,6 +197,8 @@ function mergeProducts(
       popularity: wp.popularity ?? 0,
       inStock: wp.inStock,
       hasInputField: wp.hasInputField ?? false,
+      discountPriceValue: wp.discountPriceValue ?? null,
+      discountPriceAed: wp.discountPriceAed ?? null,
     });
   }
 

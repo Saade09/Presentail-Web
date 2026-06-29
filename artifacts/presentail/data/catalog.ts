@@ -29,6 +29,8 @@ export type Product = {
   wcId?: number;
   popularity?: number;
   hasInputField?: boolean;
+  discountPriceValue?: number | null;
+  discountPriceAed?: number | null;
 };
 
 export type Category = { id: string; name: string; icon: string; image: any; description?: string | null };

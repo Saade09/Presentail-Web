@@ -290,6 +290,19 @@ function ProductDetail() {
     ? Number(product.priceValue)
     : 0;
 
+  // Determine if a sale badge should be shown on the product image.
+  function parseSaleNum(raw: any): number | null {
+    if (raw == null) return null;
+    const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  const saleDiscountUsd = parseSaleNum(product.discountPriceValue);
+  const saleDiscountAed = parseSaleNum(product.discountPriceAed);
+  const productIsOnSale =
+    currencyCode === "AED"
+      ? saleDiscountAed != null || saleDiscountUsd != null
+      : saleDiscountUsd != null;
+
   // Build the images array for the carousel. Prefer the full list from the
   // API; fall back to a single-item array from product.image so existing
   // products without a gallery still show their hero image.
@@ -322,6 +335,23 @@ function ProductDetail() {
       >
         <View style={{ height: SCREEN_W }}>
           <ProductImageCarousel images={carouselImages} height={SCREEN_W} />
+          {productIsOnSale ? (
+            <View
+              style={{
+                position: "absolute",
+                bottom: 14,
+                left: 18,
+                backgroundColor: "#e11d48",
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                borderRadius: 999,
+              }}
+            >
+              <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1, textTransform: "uppercase" }}>
+                {t.saleBadge}
+              </Text>
+            </View>
+          ) : null}
           <View
             style={{
               position: "absolute",
@@ -578,6 +608,20 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
   const headingFontRegular = useHeadingFont("400Regular");
   const priceValue = Number.isFinite(safePriceValue) ? safePriceValue : 0;
   const { freeDeliveryEnabled, freeDeliveryThresholdNative } = useDeliveryConfig();
+
+  // Sale / discount price helpers
+  function parseDiscountNum(raw: any): number | null {
+    if (raw == null) return null;
+    const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  const discountValueUsd = parseDiscountNum(product.discountPriceValue);
+  const discountValueAed = parseDiscountNum(product.discountPriceAed);
+  const isAed = currencyCode === "AED";
+  const onSale =
+    isAed
+      ? (discountValueAed != null || discountValueUsd != null)
+      : discountValueUsd != null;
   const points = calcRewardPoints(priceValue);
 
   // Seed defaults used when the shopper switches to scheduled delivery
@@ -619,11 +663,32 @@ function ProductBody({ product, safePriceValue, cat: _cat, colors, router: _rout
       </AppText>
 
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
-          <Price
-            value={priceValue}
-            style={{ fontFamily: headingFontMedium, fontSize: 26, color: colors.text }}
-          />
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, flexShrink: 1 }}>
+          {onSale ? (
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+              {isAed && discountValueAed != null ? (
+                <Price
+                  value={discountValueAed}
+                  native
+                  style={{ fontFamily: headingFontMedium, fontSize: 26, color: "#e11d48" }}
+                />
+              ) : (
+                <Price
+                  value={discountValueUsd!}
+                  style={{ fontFamily: headingFontMedium, fontSize: 26, color: "#e11d48" }}
+                />
+              )}
+              <Price
+                value={priceValue}
+                style={{ fontFamily: headingFontMedium, fontSize: 18, color: colors.mutedForeground, textDecorationLine: "line-through", marginBottom: 2 }}
+              />
+            </View>
+          ) : (
+            <Price
+              value={priceValue}
+              style={{ fontFamily: headingFontMedium, fontSize: 26, color: colors.text }}
+            />
+          )}
           <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 4 }}>
             {t.taxInclusive}
           </AppText>

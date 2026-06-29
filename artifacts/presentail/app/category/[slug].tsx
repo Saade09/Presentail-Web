@@ -390,6 +390,8 @@ function mergeWithStatic(wp: WooProduct): Product {
     tag: wp.tag,
     occasions: wp.occasions,
     popularity: wp.popularity,
+    discountPriceValue: wp.discountPriceValue ?? null,
+    discountPriceAed: wp.discountPriceAed ?? null,
   };
 }
 

@@ -70,6 +70,8 @@ type WcProduct = {
   meta_data?: WcMeta[];
   brandNames?: string[];
   hasInputField?: boolean;
+  discountPriceValue?: number | null;
+  discountPriceAed?: number | null;
 };
 
 const SUPPORTED_LANGS = ["en", "ar", "fr"] as const;
@@ -127,6 +129,12 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
     ...p.occasions.map((o: { name: string; slug: string }, i: number) => ({ id: 10000 + i, name: decodeHtmlEntities(o.name), slug: o.slug })),
   ];
 
+  function parseDiscountField(raw: string | null | undefined): number | null {
+    if (raw == null || raw === "" || raw === "0") return null;
+    const n = parseFloat(raw);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+
   return {
     id: p.wcId ?? 0,
     // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
@@ -144,6 +152,8 @@ function mapOsProductToWcShape(p: OSProduct): WcProduct {
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
     hasInputField: p.hasInputField ?? false,
+    discountPriceValue: parseDiscountField(p.discount_price_usd),
+    discountPriceAed: parseDiscountField(p.discount_price_aed),
   };
 }
 
@@ -324,6 +334,8 @@ function transformProduct(p: WcProduct, currencySymbol = "$") {
     brandNames: p.brandNames ?? [],
     popularity: typeof p.total_sales === "number" ? p.total_sales : 0,
     hasInputField: p.hasInputField ?? false,
+    discountPriceValue: p.discountPriceValue ?? null,
+    discountPriceAed: p.discountPriceAed ?? null,
   };
 }
 

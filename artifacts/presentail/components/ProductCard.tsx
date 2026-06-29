@@ -27,6 +27,17 @@ function getImageUri(image: Product["image"]): string | null {
   return null;
 }
 
+function isDiscountActive(
+  currencyCode: string,
+  discountPriceValue?: number | null,
+  discountPriceAed?: number | null,
+): boolean {
+  const hasUsdDiscount = discountPriceValue != null && discountPriceValue > 0;
+  const hasAedDiscount = discountPriceAed != null && discountPriceAed > 0;
+  if (currencyCode === "AED") return hasAedDiscount || hasUsdDiscount;
+  return hasUsdDiscount;
+}
+
 type Props = {
   product: Product;
   width: number;
@@ -54,6 +65,11 @@ export function ProductCard({ product, width, onPress }: Props) {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
+  const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
+  const isAed = currencyCode === "AED";
+  const discountValueUsd = product.discountPriceValue ?? null;
+  const discountValueAed = product.discountPriceAed ?? null;
 
   const handlePress = () => {
     if (onPress) return onPress();
@@ -92,7 +108,11 @@ export function ProductCard({ product, width, onPress }: Props) {
             setImageLoaded(true);
           }}
         />
-        {product.tag ? (
+        {onSale ? (
+          <View style={[styles.tag, { backgroundColor: "#e11d48" }]}>
+            <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{t.saleBadge}</AppText>
+          </View>
+        ) : product.tag ? (
           <View style={[styles.tag, { backgroundColor: colors.primary }]}>
             <AppText style={[styles.tagText, { fontFamily: typo.medium }]}>{product.tag}</AppText>
           </View>
@@ -106,11 +126,35 @@ export function ProductCard({ product, width, onPress }: Props) {
           {product.name}
         </AppText>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Price
-            value={product.priceValue}
-            style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
-            containerStyle={{ flexShrink: 0 }}
-          />
+          {onSale ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 }}>
+              {isAed && discountValueAed != null && discountValueAed > 0 ? (
+                <Price
+                  value={discountValueAed}
+                  native
+                  style={{ fontFamily: headingFontMedium, fontSize: 16, color: "#e11d48" }}
+                  containerStyle={{ flexShrink: 0 }}
+                />
+              ) : (
+                <Price
+                  value={discountValueUsd!}
+                  style={{ fontFamily: headingFontMedium, fontSize: 16, color: "#e11d48" }}
+                  containerStyle={{ flexShrink: 0 }}
+                />
+              )}
+              <Price
+                value={product.priceValue}
+                style={{ fontFamily: headingFontMedium, fontSize: 13, color: colors.mutedForeground, textDecorationLine: "line-through" }}
+                containerStyle={{ flexShrink: 0 }}
+              />
+            </View>
+          ) : (
+            <Price
+              value={product.priceValue}
+              style={{ fontFamily: headingFontMedium, fontSize: 16, color: colors.primary }}
+              containerStyle={{ flexShrink: 0 }}
+            />
+          )}
           {freeDeliveryEnabled && convertedPrice >= threshold ? (
             <AppText style={{ fontFamily: typo.regular, fontSize: 11, color: colors.gold, letterSpacing: 1 }}>
               {t.freeDelivery}

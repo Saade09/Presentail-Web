@@ -195,6 +195,7 @@ const EN = {
   currencyAutomaticHint: "Detects from your location",
 
   // ── Product page ──
+  saleBadge: "Sale", // no-translate — same in EN/FR
   productNotFound: "Product not found",
   goBack: "Go back",
   shareProductAria: "Share product link",
@@ -1053,6 +1054,7 @@ const AR: typeof EN = {
   currencyAutomaticHint: "يتم تحديدها من موقعك",
 
   // ── Product page ──
+  saleBadge: "تخفيض",
   productNotFound: "المنتج غير موجود",
   goBack: "رجوع",
   shareProductAria: "مشاركة رابط المنتج",
@@ -1905,6 +1907,7 @@ const FR: typeof EN = {
   currencyAutomaticHint: "Détectée selon votre emplacement",
 
   // ── Product page ──
+  saleBadge: "Sale", // no-translate — same in EN/FR
   productNotFound: "Produit introuvable",
   goBack: "Retour",
   shareProductAria: "Partager le lien du produit",
