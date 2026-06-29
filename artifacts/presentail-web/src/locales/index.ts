@@ -75,6 +75,9 @@
  *
  *   1. UNUSED KEYS       — keys defined in STRINGS / STRINGS_FR but never
  *                          referenced by a t("…") call in any web source file.
+ *                          This is the check that catches orphan keys like
+ *                          `nav.expressDelivery` after they are removed from
+ *                          source but left behind in the locale files.
  *   2. FR COVERAGE       — keys in STRINGS that have no matching FR entry, and
  *                          FR-only orphan keys absent from STRINGS.
  *   3. UNDEFINED REFS    — static t("key") call sites whose key is not in
@@ -87,6 +90,25 @@
  *
  * Exit 0 = all checks pass.  Exit 1 = details printed to stderr.
  * Add --verbose to list every scanned source file.
+ *
+ * ─── CI gates ─────────────────────────────────────────────────────────────────
+ *
+ * All six checks above run automatically in the `check-translations` GitHub
+ * Actions workflow on every PR that touches `artifacts/presentail-web/**` or
+ * `lib/**`.  A PR with an unused key — including one left behind after its
+ * t("…") call-site was deleted — will be blocked from merging.
+ *
+ * The same script also runs in the `.husky/pre-commit` hook (alongside the
+ * hardcoded-strings check) so violations are caught locally before the push:
+ *
+ *   cp .husky/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Rule of thumb when removing a t("…") call-site:
+ *   Always delete the matching key from the locale domain file in the same
+ *   commit.  The unused-key checker will catch it if you forget, but fixing
+ *   it after the fact means an extra round-trip through CI.
  *
  * See the header comment in `artifacts/presentail/lib/translations.ts` for the
  * mobile catalogue workflow and the `// no-translate` annotation convention

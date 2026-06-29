@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
-# Pre-commit hook: fail fast on hardcoded user-visible strings in mobile, web, and API code.
+# Pre-commit hook: fail fast on hardcoded user-visible strings in mobile, web, and API code,
+# and catch unused / missing / copy-pasted translation keys before they reach CI.
 # To install: cp .husky/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 pnpm run check-hardcoded-strings
+pnpm --filter @workspace/scripts run check-translations
