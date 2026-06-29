@@ -1,12 +1,12 @@
 import { useMemo } from "react";
-import { useCategoryProducts, useProducts } from "@/lib/queries";
+import { useCategoryProducts } from "@/lib/queries";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { ProductCollectionCarousel } from "./ProductCollectionCarousel";
 
 type Props = {
-  /** Catalog category slug to feature; falls back to all products if empty. */
+  /** Catalog category slug to feature; hidden when the category has no products. */
   categorySlug?: string;
   /** Optional override for the section title locale key. */
   titleKey?: string;
@@ -21,10 +21,10 @@ type Props = {
 
 /**
  * Themed product collection rail (e.g. "Summer Collection" on the live site).
- * Pulls from `/woo/category-products?slug=…` and falls back to `/woo/products`
- * when the category is empty so a curated row never disappears entirely. The
- * candidate pool is reshuffled once per UTC day per (rail, store) so the
- * featured items rotate over time without server changes.
+ * Pulls from `/woo/category-products?slug=…`. If the category has no products
+ * and loading is complete, the section is hidden entirely rather than falling
+ * back to all products. The candidate pool is reshuffled once per UTC day per
+ * (rail, store) so the featured items rotate over time without server changes.
  */
 export function BestSellersPreview({
   categorySlug = "hand-bouquets",
@@ -41,17 +41,16 @@ export function BestSellersPreview({
   if (cityId) locParams.cityId = cityId;
 
   const catQuery = useCategoryProducts(categorySlug, locParams);
-  const allQuery = useProducts(
-    locParams,
-    catQuery.isSuccess && (catQuery.data?.products?.length ?? 0) === 0,
-  );
-  const isLoading = catQuery.isLoading || allQuery.isLoading;
+  const isLoading = catQuery.isLoading;
   const catProducts = catQuery.data?.products ?? [];
 
   const products = useMemo(() => {
-    const pool = catProducts.length > 0 ? catProducts : allQuery.data?.products ?? [];
-    return seededShuffle(pool, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
-  }, [catProducts, allQuery.data?.products, countryCode, cityId, railKey, limit]);
+    return seededShuffle(catProducts, homepageShuffleSeed(railKey, countryCode, cityId)).slice(0, limit);
+  }, [catProducts, countryCode, cityId, railKey, limit]);
+
+  if (!isLoading && catProducts.length === 0) {
+    return null;
+  }
 
   const href = viewAllHref ?? `/category/${encodeURIComponent(categorySlug)}`;
 
