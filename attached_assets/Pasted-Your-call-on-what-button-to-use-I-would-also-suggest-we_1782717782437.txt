@@ -1,0 +1,47 @@
+Your call on what button to use. I would also suggest we do it for other occasions and gifts.
+
+Update the mobile category drawer/menu so the “All Flowers & Plants” link looks and behaves like a clear call-to-action button instead of plain text.
+Currently, the link appears as simple text near the bottom of the drawer. It is easy to miss and does not feel important enough, even though it is the main action for users who want to browse the full collection.
+The goal is to make this action more visible, easier to tap, and more premium-looking.
+Requested change:
+Replace the current text link:
+All Flowers & Plants →
+With a full-width mobile button:
+View all Flowers & Plants →
+Design direction:
+The button should feel elegant and aligned with Presentail’s premium flower brand.
+Recommended style:
+Full-width button within the drawer content area
+Rounded corners, similar to other soft UI elements on the website
+Dark green text and arrow
+Very light cream/off-white background or subtle gradient
+Thin border in soft beige/green
+Comfortable vertical padding
+Center-aligned label
+Arrow icon on the right side or immediately after the text
+Place it below the category grid with enough spacing, but not too far down
+Interaction requirements:
+Entire button should be tappable, not only the text
+Button should navigate to the full Flowers & Plants collection page
+Add a subtle pressed/tap state on mobile
+Ensure it works correctly in all languages if translations exist
+Ensure it does not overlap with the browser bottom bar or mobile safe area
+Mobile layout notes:
+Keep the category grid unchanged for now
+Do not redesign the whole drawer in this task
+Only improve the “All Flowers & Plants” CTA
+Make sure spacing looks good on small mobile screens
+Button should remain visually balanced even if the drawer has fewer/more categories
+Suggested copy:
+Primary English copy:
+View all Flowers & Plants
+Alternative acceptable copy:
+Shop all Flowers & Plants
+Acceptance criteria:
+“All Flowers & Plants” is no longer displayed as plain text
+It appears as a full-width CTA button
+Button is visually clear but still premium/subtle
+Button is easy to tap on mobile
+CTA links to the correct full collection page
+Design works on iPhone-sized screens
+No layout issues with bottom safe area or drawer spacing
