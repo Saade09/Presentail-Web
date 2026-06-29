@@ -1138,6 +1138,8 @@ function CategoryRail() {
   );
 }
 
+const occasionImageLoadedCache = new Set<string>();
+
 type OccasionTileItem = {
   id: number | string;
   slug: string;
@@ -1145,9 +1147,19 @@ type OccasionTileItem = {
   imageUrl?: string | null;
 };
 
-function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () => void }) {
+function OccasionTile({
+  item,
+  index,
+  onPress,
+}: {
+  item: OccasionTileItem;
+  index: number;
+  onPress: () => void;
+}) {
   const colors = useColors();
-  const [imageLoaded, setImageLoaded] = React.useState(false);
+  const [imageLoaded, setImageLoaded] = React.useState(
+    () => item.imageUrl != null && occasionImageLoadedCache.has(item.imageUrl),
+  );
 
   return (
     <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 108 }}>
@@ -1168,8 +1180,15 @@ function OccasionTile({ item, onPress }: { item: OccasionTileItem; onPress: () =
               source={{ uri: item.imageUrl }}
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageLoaded(true)}
+              priority={index < 4 ? "high" : "normal"}
+              onLoad={() => {
+                if (item.imageUrl) occasionImageLoadedCache.add(item.imageUrl);
+                setImageLoaded(true);
+              }}
+              onError={() => {
+                if (item.imageUrl) occasionImageLoadedCache.add(item.imageUrl);
+                setImageLoaded(true);
+              }}
             />
             {!imageLoaded && <ShimmerPlaceholder />}
           </>
@@ -1207,6 +1226,15 @@ function OccasionsCarousel() {
 
   const items = (data?.items ?? []).filter((i) => i.isActive);
 
+  useEffect(() => {
+    if (!data) return;
+    for (const item of data.items) {
+      if (item.isActive && item.imageUrl) {
+        void Image.prefetch(item.imageUrl);
+      }
+    }
+  }, [data]);
+
   if (!isLoading && items.length === 0) return null;
 
   return (
@@ -1238,10 +1266,11 @@ function OccasionsCarousel() {
                 </View>
               </View>
             ))
-          : items.map((item) => (
+          : items.map((item, idx) => (
               <OccasionTile
                 key={item.id}
                 item={item}
+                index={idx}
                 onPress={() =>
                   router.push({ pathname: "/occasion/[slug]", params: { slug: item.slug } })
                 }
