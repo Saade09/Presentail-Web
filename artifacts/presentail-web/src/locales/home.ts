@@ -7,7 +7,7 @@ export const homeStrings: Dict = {
   "bestSellers.viewAll": { en: "View All", ar: "عرض الكل" },
 
   "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
-  "collections.boxes.title": { en: "Gift Boxes", ar: "صناديق الهدايا" },
+  "collections.boxes.title": { en: "Flower Boxes", ar: "صناديق الزهور" },
   "collections.balloons.title": { en: "Balloons", ar: "البالونات" },
 
   "categories.eyebrow": { en: "Curated Collections", ar: "تشكيلات مختارة" },
@@ -74,7 +74,7 @@ export const homeStringsFr: Record<string, string> = {
   "bestSellers.viewAll": "Tout voir",
 
   "collections.summer.title": "Sélections estivales",
-  "collections.boxes.title": "Coffrets cadeaux",
+  "collections.boxes.title": "Coffrets de fleurs",
   "collections.balloons.title": "Ballons",
 
   "categories.eyebrow": "Collections sélectionnées",

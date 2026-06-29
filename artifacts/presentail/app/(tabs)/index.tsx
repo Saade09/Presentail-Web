@@ -1057,13 +1057,13 @@ function CategoryRail() {
 
   if (!isLoading && items.length === 0) return null;
 
-  const TILE_WIDTH = 88;
-  const TILE_IMAGE_SIZE = 80;
+  const TILE_WIDTH = 72;
+  const TILE_IMAGE_SIZE = 64;
   const TILE_IMAGE_TO_LABEL_GAP = 10;
   const TILE_LABEL_HEIGHT = 14 * 2; // lineHeight 14 * 2 lines
   const TILE_TOTAL_HEIGHT = TILE_IMAGE_SIZE + TILE_IMAGE_TO_LABEL_GAP + TILE_LABEL_HEIGHT;
   const ROW_GAP = 18;
-  const COL_GAP = 14;
+  const COL_GAP = 8;
 
   const renderTile = (item: (typeof items)[number]) => (
     <CategoryTile
@@ -1162,11 +1162,11 @@ function OccasionTile({
   );
 
   return (
-    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 108 }}>
+    <Pressable onPress={onPress} style={{ alignItems: "center", gap: 10, width: 80 }}>
       <View
         style={{
-          width: 100,
-          height: 100,
+          width: 72,
+          height: 72,
           borderRadius: 999,
           overflow: "hidden",
           backgroundColor: "#F3F3F3",
@@ -1249,11 +1249,11 @@ function OccasionsCarousel() {
       >
         {isLoading
           ? Array.from({ length: 6 }).map((_, idx) => (
-              <View key={idx} style={{ alignItems: "center", gap: 10, width: 108 }}>
+              <View key={idx} style={{ alignItems: "center", gap: 10, width: 80 }}>
                 <View
                   style={{
-                    width: 100,
-                    height: 100,
+                    width: 72,
+                    height: 72,
                     borderRadius: 999,
                     backgroundColor: colors.muted,
                     overflow: "hidden",
