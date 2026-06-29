@@ -399,16 +399,16 @@ export function MainNavbar() {
                         emoji: "🎉",
                       },
                       {
-                        key: "gifts",
-                        label: t("nav.gifts"),
-                        img: "/catalog/categories/bundles.webp",
-                        emoji: "🎁",
-                      },
-                      {
                         key: "flowers",
                         label: t("nav.flowersPlants"),
                         img: "/catalog/categories/flower-boxes.avif",
                         emoji: "🌸",
+                      },
+                      {
+                        key: "gifts",
+                        label: t("nav.gifts"),
+                        img: "/catalog/categories/bundles.webp",
+                        emoji: "🎁",
                       },
                     ].map((cat) => (
                       <button
