@@ -1,0 +1,72 @@
+Discuss with me
+Before you do it
+
+Got it — then I’d treat this as a general account login page, not a checkout step.
+In that case, I’d revise the recommendations like this:
+What I’d improve
+1. Change the title to be more welcoming
+Instead of:
+Login or Create Account
+Use:
+Welcome to Presentail
+Subtitle:
+Sign in or create an account to manage your orders, addresses, and reminders.
+This makes the page feel less transactional.
+2. Clarify that account creation is automatic
+“Login or Create Account” can make users wonder which path they are on. A better approach:
+Enter your email to continue
+“We’ll sign you in or help you create an account.”
+This feels smoother and less intimidating.
+3. Make the primary CTA stronger
+The current Continue button looks muted, almost disabled.
+Use:
+Continue with Email
+If disabled until email is entered, that is fine, but once valid input is entered it should become strong dark teal.
+4. Reorder social login options
+For a general login page, Apple and Google can be shown first because they are faster:
+Continue with Apple
+Continue with Google
+Then a divider:
+or continue with email
+Email field
+Continue with Email
+This reduces friction for returning users.
+5. Add useful account benefits
+Since this is not checkout, explain why logging in is worth it:
+“Access past orders, saved addresses, upcoming reminders, and faster checkout.”
+This gives the page a purpose beyond authentication.
+6. Reduce header complexity
+The current header has menu, search, logo, account, cart, city, language. For login, I’d simplify slightly:
+Keep logo centered
+Keep language/location if important
+Remove or de-emphasize account icon, since the user is already on login
+Keep cart icon only if users commonly log in from shopping
+7. Improve the top gray strip
+The top strip with city/language feels detached and a little faded. I’d either:
+Make it cleaner and more intentional, or
+Move Beirut / EN into the main header row
+Right now it looks like a partially hidden banner.
+8. Push the footer lower
+The footer appears too soon and is partially covered by Safari. On login pages, it should not compete with the form. Either remove it from the initial mobile viewport or make the login page vertically centered with footer below the fold.
+9. Add “Need help?” or support link
+Useful for account issues:
+Having trouble signing in? Contact us
+This is especially helpful if login uses OTP, email code, or social auth.
+10. Add privacy reassurance
+Small text under the form:
+“We’ll never share your email. We’ll use it for your account and order updates.”
+This reduces hesitation.
+Better structure
+Header
+Presentail logo
+Location / language compactly placed
+Welcome to Presentail
+Sign in or create an account to manage your orders, addresses, and reminders.
+Continue with Apple
+Continue with Google
+or continue with email
+Email Address
+Continue with Email
+Small text:
+“We’ll sign you in or help you create an account.”
+Footer below the fold.
