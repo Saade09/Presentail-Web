@@ -54,6 +54,9 @@ function OrderConfirmed() {
   // shopper self-recover from a transient API failure without paying again.
   const [retainedOrder, setRetainedOrder] = React.useState<PendingOrder | null>(null);
   const [retrying, setRetrying] = React.useState(false);
+  const [confirmedItems, setConfirmedItems] = React.useState<
+    { name: string; quantity: number; customInput?: string }[]
+  >([]);
 
   // In-process guard: prevents concurrent async checks during the same mount
   // (strict mode double-invoke, rapid re-renders, foreground/background within
@@ -67,6 +70,25 @@ function OrderConfirmed() {
     loadPendingOrder().then((entry) => {
       if (!cancelled) setRetainedOrder(entry);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  React.useEffect(() => {
+    if (status === "failed") return;
+    let cancelled = false;
+    AsyncStorage.getItem("@presentail/confirmed_items_v1")
+      .then((raw) => {
+        if (!raw || cancelled) return;
+        try {
+          const parsed = JSON.parse(raw) as { name: string; quantity: number; customInput?: string }[];
+          if (Array.isArray(parsed)) setConfirmedItems(parsed);
+        } catch {
+          // Malformed stash — ignore.
+        }
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -241,6 +263,45 @@ function OrderConfirmed() {
           <Row colors={colors} icon="calendar" label={t.ocDelivery} value={`${date} · ${slot}`} />
           <Row colors={colors} icon="dollar-sign" label={t.ocTotal} value={formatNative(Number(total || 0))} highlight />
         </View>
+
+        {!isFailed && confirmedItems.some((i) => i.customInput) ? (
+          <View
+            style={{
+              width: "100%",
+              backgroundColor: "#fff",
+              borderRadius: 22,
+              padding: 22,
+              borderWidth: 1,
+              borderColor: colors.border,
+              gap: 10,
+            }}
+          >
+            <AppText
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 10,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+                color: colors.mutedForeground,
+                marginBottom: 2,
+              }}
+            >
+              {t.ocPersonalisationNote}
+            </AppText>
+            {confirmedItems.map((item, idx) =>
+              item.customInput ? (
+                <View key={idx} style={{ gap: 2 }}>
+                  <AppText style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.primary }}>
+                    {item.name}
+                  </AppText>
+                  <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, fontStyle: "italic" }}>
+                    {item.customInput}
+                  </AppText>
+                </View>
+              ) : null,
+            )}
+          </View>
+        ) : null}
 
         {!isFailed ? (
           <Pressable

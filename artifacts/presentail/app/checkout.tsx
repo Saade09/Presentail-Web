@@ -1102,6 +1102,22 @@ function CheckoutScreen() {
         // earlier failed attempt so it can never be replayed on a later
         // failure screen.
         await clearPendingOrder();
+        // Stash a lightweight item list (name + customInput) so the
+        // order-confirmed screen can show each item's personalisation note.
+        // Best-effort: a storage failure must never block order completion.
+        try {
+          const confirmedItems = detailed.map(({ product, qty }) => ({
+            name: product.name,
+            quantity: qty,
+            customInput: items.find((i) => i.productId === product.id)?.customNote?.trim() || undefined,
+          }));
+          await AsyncStorage.setItem(
+            "@presentail/confirmed_items_v1",
+            JSON.stringify(confirmedItems),
+          );
+        } catch {
+          // Storage errors are non-fatal.
+        }
         router.replace(buildResultPath("success", paymentRef));
       } else {
         // Keep cart intact so the customer can retry without rebuilding it.

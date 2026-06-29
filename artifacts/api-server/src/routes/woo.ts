@@ -1228,6 +1228,13 @@ router.post("/woo/order", async (req, res) => {
     osOrderId: result.osOrderId,
     // Coupon discount not yet supported by OS — always zero.
     couponDiscount: 0,
+    // Echo validated items (including personalisation notes) back to the
+    // client so confirmation screens can display them without a separate fetch.
+    items: body.items.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      ...(i.customInput ? { customInput: i.customInput } : {}),
+    })),
   });
 });
 

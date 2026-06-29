@@ -19,6 +19,7 @@ export const orderStrings: Dict = {
   "order.fail.exhausted": { en: "We've tried several times but couldn't finalize your order. Please contact us with your payment reference below so we can help.", ar: "حاولنا عدة مرات لكن لم نتمكن من إتمام طلبك. يرجى التواصل معنا مع رقم مرجع الدفع أدناه لمساعدتك." },
 
   "order.summary.items": { en: "Items Ordered", ar: "المنتجات المطلوبة" },
+  "order.summary.personalisation": { en: "Personalisation", ar: "التخصيص" },
   "order.summary.cardMessage": { en: "Card Message", ar: "رسالة البطاقة" },
   "order.summary.delivery": { en: "Delivery", ar: "التوصيل" },
   "order.summary.subtotal": { en: "Subtotal", ar: "المجموع الفرعي" },
@@ -60,6 +61,7 @@ export const orderStringsFr: Record<string, string> = {
   "order.fail.exhausted": "Nous avons essayé plusieurs fois sans parvenir à finaliser votre commande. Veuillez nous contacter avec votre référence de paiement ci-dessous afin que nous puissions vous aider.",
 
   "order.summary.items": "Articles commandés",
+  "order.summary.personalisation": "Personnalisation",
   "order.summary.cardMessage": "Message de la carte",
   "order.summary.delivery": "Livraison",
   "order.summary.subtotal": "Sous-total",

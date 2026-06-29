@@ -31,7 +31,7 @@ type FinalizeState =
   | { kind: "success"; ref: string }
   | { kind: "failed"; message?: string };
 
-type OrderItem = { name: string; quantity: number; price: number; image?: string };
+type OrderItem = { name: string; quantity: number; price: number; image?: string; customInput?: string };
 
 type ConfirmedOrder = {
   items?: OrderItem[];
@@ -125,9 +125,16 @@ function OrderSummary({ order, t, language }: OrderSummaryProps) {
                     className="w-12 h-12 rounded-lg object-cover shrink-0"
                   />
                 )}
-                <span className="flex-1 min-w-0 truncate">
-                  {item.name}
-                  <span className="text-muted-foreground"> × {item.quantity}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="truncate block">
+                    {item.name}
+                    <span className="text-muted-foreground"> × {item.quantity}</span>
+                  </span>
+                  {item.customInput && (
+                    <span className="block text-xs text-muted-foreground italic mt-0.5">
+                      {t("order.summary.personalisation")}: {item.customInput}
+                    </span>
+                  )}
                 </span>
                 <span className="shrink-0 font-medium">
                   <FormattedPrice usdValue={(Number(item.price) || 0) * (Number(item.quantity) || 1)} />
