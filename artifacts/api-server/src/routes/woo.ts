@@ -106,7 +106,7 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&nbsp;/g, "\u00A0");
 }
 
-function mapOsProductToWcShape(p: OSProduct): WcProduct {
+export function mapOsProductToWcShape(p: OSProduct): WcProduct {
   const meta: WcMeta[] = [];
   if (p.deliverableCountries && p.deliverableCountries.length > 0) {
     meta.push({
@@ -301,7 +301,7 @@ function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
   return true;
 }
 
-function transformProduct(p: WcProduct, currencySymbol = "$") {
+export function transformProduct(p: WcProduct, currencySymbol = "$") {
   const price = parseFloat(p.price ?? "") || 0;
   const imageList = (p.images ?? [])
     .map((img) => img?.src)
