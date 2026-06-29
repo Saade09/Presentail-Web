@@ -100,7 +100,7 @@ function SEOContentSectionInner({
   availableCategoryIds = [],
   availableOccasionIds = [],
 }: SEOContentSectionProps) {
-  const { t, language } = useLocale();
+  const { t, language, dir } = useLocale();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const tSeo = useCallback(
@@ -217,6 +217,7 @@ function SEOContentSectionInner({
 
   return (
     <section
+      dir={dir}
       className="mt-16 rounded-2xl bg-stone-50 border border-stone-100 shadow-sm overflow-hidden"
       data-testid="seo-content-section"
     >
@@ -293,7 +294,7 @@ function SEOContentSectionInner({
                       aria-expanded={isOpen}
                       aria-controls={panelId}
                       onClick={() => setOpenFaqIndex(isOpen ? null : i)}
-                      className="flex w-full items-center justify-between text-left gap-4 py-1 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                      className="flex w-full items-center justify-between text-start gap-4 py-1 text-sm font-medium text-foreground hover:text-primary transition-colors"
                     >
                       <span>{faq.question}</span>
                       <span className="shrink-0 text-muted-foreground text-base leading-none select-none">

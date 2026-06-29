@@ -1,7 +1,7 @@
 import React, { type ReactNode } from "react";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { LocaleContext } from "@/contexts/LocaleContext";
+import { LocaleContext, type Language } from "@/contexts/LocaleContext";
 import { CartContext, type CartContextType } from "@/contexts/CartContext";
 import { AuthOverrideContext, type AuthContextValue } from "@/contexts/AuthContext";
 import {
@@ -9,10 +9,17 @@ import {
   type DisplayCurrencyOverrideValue,
 } from "@/lib/displayCurrencyOverride";
 
-export const DEFAULT_LOCALE = {
-  language: "en" as const,
+export const DEFAULT_LOCALE: {
+  language: Language;
+  setLanguage: (l: Language) => void;
+  dir: "ltr" | "rtl";
+  t: (key: string) => string;
+  countryName: (_code: string, fallback: string) => string;
+  cityName: (_id: string, fallback: string) => string;
+} = {
+  language: "en",
   setLanguage: () => {},
-  dir: "ltr" as const,
+  dir: "ltr",
   t: (key: string) => key,
   countryName: (_code: string, fallback: string) => fallback,
   cityName: (_id: string, fallback: string) => fallback,
