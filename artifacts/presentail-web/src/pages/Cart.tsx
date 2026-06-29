@@ -14,6 +14,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { FreeDeliveryBanner } from "@/components/cart/FreeDeliveryBanner";
 import { FormattedPrice } from "@/components/FormattedPrice";
+import { SalePrice } from "@/components/SalePrice";
 import { CartUpsells } from "@/components/cart/CartUpsells";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -401,7 +402,11 @@ export default function Cart() {
                 {/* Price (top) + remove button (bottom) */}
                 <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
                   <p className="font-medium text-sm tabular-nums">
-                    <FormattedPrice usdValue={item.product.priceValue * item.quantity} />
+                    <SalePrice
+                      priceValue={item.product.priceValue * item.quantity}
+                      discountPriceValue={item.product.discountPriceValue != null ? item.product.discountPriceValue * item.quantity : null}
+                      discountPriceAed={item.product.discountPriceAed != null ? item.product.discountPriceAed * item.quantity : null}
+                    />
                   </p>
                   <button
                     onClick={() => removeItem(item.product.id)}
