@@ -626,6 +626,63 @@ export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   });
 }
 
+// FAQs page title guardrail constants (not exported from TITLES to avoid
+// collision with the static-seo fallback path).
+const FAQS_TITLE_HARD_MAX = 65;
+const FAQS_TITLE_MIN = 30;
+
+const FAQS_TITLE_PREFERRED = {
+  en: "Flower Delivery FAQs in {city} | Presentail",
+  ar: "أسئلة توصيل الزهور في {city} | Presentail",
+  fr: "FAQ livraison de fleurs à {city} | Presentail",
+};
+
+const FAQS_TITLE_FALLBACK = {
+  en: "Flower Delivery FAQs in {city}",
+  ar: "أسئلة توصيل الزهور في {city}",
+  fr: "FAQ livraison de fleurs à {city}",
+};
+
+const FAQS_TITLE_MEDIUM = {
+  en: "Presentail FAQs in {city} | Gift Delivery Help",
+  ar: "Presentail في {city} | أسئلة التوصيل الشائعة",
+  fr: "Presentail FAQ livraison à {city} | Aide cadeaux",
+};
+
+/**
+ * Build SEO meta for the /faqs page with a smart title-length guardrail.
+ *
+ * Tiers (evaluated in order):
+ *   1. Preferred  — used when its rendered length ≤ FAQS_TITLE_HARD_MAX (65).
+ *   2. Fallback   — used when preferred is too long.
+ *   3. Medium     — used when fallback is shorter than FAQS_TITLE_MIN (30),
+ *                   i.e. an extremely short city name combined with short AR copy.
+ *
+ * Returns the same meta(...) shape as all other build*Seo functions.
+ */
+export function buildFaqsSeo({ lang, city, country } = {}) {
+  const l = pickLang(lang);
+  const params = { city: city ?? "", country: country ?? "" };
+
+  const preferred = formatTemplate(FAQS_TITLE_PREFERRED[l], params);
+  const fallback = formatTemplate(FAQS_TITLE_FALLBACK[l], params);
+  const medium = formatTemplate(FAQS_TITLE_MEDIUM[l], params);
+
+  let title;
+  if (preferred.length <= FAQS_TITLE_HARD_MAX) {
+    title = preferred;
+  } else if (fallback.length >= FAQS_TITLE_MIN) {
+    title = fallback;
+  } else {
+    title = medium;
+  }
+
+  return meta({
+    title,
+    description: formatTemplate(DESCRIPTIONS[l].faqs, params),
+  });
+}
+
 // Contact page title guardrail constants (not exported from TITLES to avoid
 // collision with the static-seo fallback path).
 const CONTACT_TITLE_HARD_MAX = 65;

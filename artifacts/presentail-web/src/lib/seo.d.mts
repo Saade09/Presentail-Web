@@ -75,6 +75,11 @@ export function buildBrandSeo(args?: {
   city?: string;
   country?: string;
 }): SeoMeta;
+export function buildFaqsSeo(args?: {
+  lang?: string;
+  city?: string;
+  country?: string;
+}): SeoMeta;
 export function buildContactSeo(args?: {
   lang?: string;
   city?: string;

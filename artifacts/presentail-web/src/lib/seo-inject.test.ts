@@ -5427,3 +5427,112 @@ describe("buildContactSeo — title-length guardrail", () => {
     expect(titleLen).toBeGreaterThanOrEqual(30);
   });
 });
+
+describe("buildFaqsSeo — title-length guardrail", () => {
+  // All real city × lang combinations that appear in the web storefront.
+  const CITY_KEYS = [
+    "ae-dubai", "ae-abu-dhabi", "ae-sharjah", "ae-ajman",
+    "ae-ras-al-khaimah", "ae-fujairah", "ae-umm-al-quwain",
+    "lb-beirut", "lb-jounieh", "lb-tripoli", "lb-saida", "lb-tyre",
+    "lb-zahle", "lb-byblos", "lb-baalbek",
+    "cy-nicosia", "cy-limassol", "cy-larnaca", "cy-paphos",
+  ];
+
+  it("all 19 real city × 3 lang combinations produce titles between 30 and 65 chars", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildFaqsSeo, CITY_NAMES } = await import("../../src/lib/seo.mjs");
+    const langs = ["en", "ar", "fr"];
+    for (const lang of langs) {
+      for (const cityKey of CITY_KEYS) {
+        const country = cityKey.split("-")[0];
+        const cityLabel = CITY_NAMES[lang]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
+        const result = buildFaqsSeo({ lang, city: cityLabel, country });
+        expect(
+          result.title.length,
+          `[${lang}] city="${cityKey}" → "${result.title}" (${result.title.length} chars)`,
+        ).toBeGreaterThanOrEqual(30);
+        expect(
+          result.title.length,
+          `[${lang}] city="${cityKey}" → "${result.title}" (${result.title.length} chars)`,
+        ).toBeLessThanOrEqual(65);
+      }
+    }
+  });
+
+  it("the longest French city name (Oumm al Qaïwaïn) fits the preferred template", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildFaqsSeo({ lang: "fr", city: "Oumm al Qaïwaïn", country: "ae" });
+    // "FAQ livraison de fleurs à Oumm al Qaïwaïn | Presentail" = 54 chars ≤ 65
+    expect(result.title).toBe("FAQ livraison de fleurs à Oumm al Qaïwaïn | Presentail");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("a normal EN city (Dubai) uses the preferred template", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildFaqsSeo({ lang: "en", city: "Dubai", country: "ae" });
+    expect(result.title).toBe("Flower Delivery FAQs in Dubai | Presentail");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("a normal AR city (بيروت) uses the preferred template and stays within bounds", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildFaqsSeo({ lang: "ar", city: "بيروت", country: "lb" });
+    expect(result.title).toBe("أسئلة توصيل الزهور في بيروت | Presentail");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("a very short city name uses the medium tier (preferred fits ≤65 so preferred wins)", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildFaqsSeo } = await import("../../src/lib/seo.mjs");
+    // Even a tiny city fits in the preferred template (44 base chars << 65)
+    const result = buildFaqsSeo({ lang: "en", city: "Al", country: "ae" });
+    expect(result.title).toBe("Flower Delivery FAQs in Al | Presentail");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("non-faqs buildStaticSeo calls are not affected", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildStaticSeo } = await import("../../src/lib/seo.mjs");
+    const home = buildStaticSeo({ lang: "en", routeKey: "home", city: "Dubai", country: "ae" });
+    expect(home.title).toBe("Flower & Gift Delivery in Dubai | Presentail");
+    const contact = buildStaticSeo({ lang: "en", routeKey: "contact", city: "Beirut", country: "lb" });
+    expect(contact.title).toBe("Contact Presentail in Beirut | Gift Delivery Help");
+  });
+
+  it("injectSeoTagsAsync uses the faqs guardrail title for the /faqs route", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/faqs",
+      OPTS,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>Flower Delivery FAQs in Dubai | Presentail</title>",
+    );
+  });
+
+  it("injectSeoTagsAsync faqs route for French long city stays ≤65 chars", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/fr-ae/umm-al-quwain/faqs",
+      OPTS,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const match = out.match(/<title>(.*?)<\/title>/);
+    expect(match).not.toBeNull();
+    const titleLen = match![1].length;
+    expect(titleLen).toBeLessThanOrEqual(65);
+    expect(titleLen).toBeGreaterThanOrEqual(30);
+  });
+});

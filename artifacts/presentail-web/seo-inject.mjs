@@ -81,6 +81,7 @@ import {
   buildProductSeo,
   buildCategorySeo,
   buildOccasionSeo,
+  buildFaqsSeo,
   buildContactSeo,
 } from "./src/lib/seo.mjs";
 
@@ -304,10 +305,12 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     : "";
 
   const params = { city: cityLabel, country: countryLabel };
-  // Contact page uses a tiered title-length guardrail instead of the plain
-  // TITLES template so all city names land in the 30–65 char audit window.
+  // Contact and FAQs pages use a tiered title-length guardrail instead of the
+  // plain TITLES template so all city names land in the 30–65 char audit window.
   const title = routeKey === "contact"
     ? buildContactSeo({ lang, city: cityLabel, country: countryLabel }).title
+    : routeKey === "faqs"
+    ? buildFaqsSeo({ lang, city: cityLabel, country: countryLabel }).title
     : format(
         TITLES[lang]?.[routeKey] ?? TITLES.en[routeKey] ?? TITLES.en.landing,
         params,

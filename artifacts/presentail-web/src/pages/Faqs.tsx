@@ -1,6 +1,6 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
+import { CITY_NAMES, buildFaqsSeo } from "@/lib/seo";
 import {
   Accordion,
   AccordionContent,
@@ -26,10 +26,7 @@ export default function Faqs() {
   const cityDisplay = cityId
     ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
     : "";
-  const h1 = formatTemplate(
-    (TITLES[language] ?? TITLES.en).faqs,
-    { city: cityDisplay },
-  ).split(" | ")[0];
+  const h1 = buildFaqsSeo({ lang: language, city: cityDisplay }).title.split(" | ")[0];
 
   return (
     <div className="bg-background" data-testid="faqs-page" lang={language}>
