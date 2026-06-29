@@ -51,6 +51,9 @@ jobs:
       - name: Check contact page SEO title lengths (30–65 chars)
         run: pnpm --filter @workspace/presentail-web run check-contact-title-length
 
+      - name: Check brand/occasion/category page SEO title lengths (30–65 chars)
+        run: pnpm --filter @workspace/presentail-web run check-static-entity-title-lengths
+
       - name: Run web unit tests
         run: pnpm --filter @workspace/presentail-web run test
 
