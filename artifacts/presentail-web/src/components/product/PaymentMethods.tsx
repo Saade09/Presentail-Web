@@ -85,7 +85,7 @@ export function PaymentMethods({
         </p>
       ) : null}
 
-      <div className="flex flex-1 flex-nowrap items-center justify-center gap-1 sm:gap-[5px] min-w-0 overflow-x-auto">
+      <div className="flex flex-1 flex-wrap items-center justify-center gap-1 sm:gap-[5px] min-w-0">
         {logos.map((logo) => (
           <span
             key={logo.name}
