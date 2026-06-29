@@ -106,12 +106,23 @@ export function mapOsProduct(p: OSProduct): Product {
   const price = p.price;
   const formattedPrice = `$${price.toLocaleString()}`;
 
+  function parseDiscountField(raw: string | null | undefined): number | null {
+    if (raw == null || raw === "" || raw === "0") return null;
+    const n = parseFloat(raw);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+
+  const discountPriceValue = parseDiscountField(p.discount_price_usd);
+  const discountPriceAed = parseDiscountField(p.discount_price_aed);
+
   return {
     id: String(p.id),
     wcId: p.wcId ?? 0,
     name: decodeHtmlEntities(p.name),
     price: formattedPrice,
     priceValue: price,
+    discountPriceValue,
+    discountPriceAed,
     image: imageList[0] ?? null,
     images: imageList,
     category: mapCategory(p.categories),

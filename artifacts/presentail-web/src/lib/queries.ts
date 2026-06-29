@@ -39,6 +39,10 @@ export type Product = {
   name: string;
   price: string;
   priceValue: number;
+  /** Parsed discount price in USD. Null/undefined means no active discount. */
+  discountPriceValue?: number | null;
+  /** Parsed discount price in AED. Use directly for AED shoppers when available. */
+  discountPriceAed?: number | null;
   image: { uri: string } | null;
   images?: { uri: string }[];
   category: string;

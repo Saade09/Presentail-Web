@@ -2,7 +2,8 @@ import { Product } from "@/lib/queries";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ShimmerImage } from "./ShimmerImage";
-import { FormattedPrice } from "./FormattedPrice";
+import { SalePrice, isDiscountActive } from "./SalePrice";
+import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { prefetchProps } from "@/lib/prefetch";
 import { loadProductDetail } from "@/lib/pageLoaders";
 
@@ -17,8 +18,10 @@ export function ProductCard({
 }) {
   const imageUrl = product.image?.uri;
   const tag = product.tag;
+  const { currencyCode } = useDisplayCurrency();
 
   const isPriority = index < 4;
+  const onSale = isDiscountActive(currencyCode, product.discountPriceValue, product.discountPriceAed);
 
   return (
     <motion.div
@@ -47,15 +50,28 @@ export function ProductCard({
               P
             </div>
           )}
-          {tag && (
-            <div className="absolute top-4 left-4 bg-background/90 backdrop-blur text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">
-              {tag}
-            </div>
-          )}
+          <div className="absolute top-4 left-4 flex flex-col gap-1">
+            {tag && (
+              <div className="bg-background/90 backdrop-blur text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">
+                {tag}
+              </div>
+            )}
+            {onSale && (
+              <div className="bg-rose-500 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                Sale
+              </div>
+            )}
+          </div>
         </div>
         <div className="space-y-1">
           <h3 className="font-serif text-lg line-clamp-1">{product.name}</h3>
-          <p className="text-muted-foreground text-sm font-medium"><FormattedPrice usdValue={product.priceValue} /></p>
+          <p className="text-muted-foreground text-sm font-medium">
+            <SalePrice
+              priceValue={product.priceValue}
+              discountPriceValue={product.discountPriceValue}
+              discountPriceAed={product.discountPriceAed}
+            />
+          </p>
         </div>
       </Link>
     </motion.div>

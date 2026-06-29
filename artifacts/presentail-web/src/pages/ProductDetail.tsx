@@ -27,6 +27,7 @@ import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { FormattedPrice } from "@/components/FormattedPrice";
+import { SalePrice } from "@/components/SalePrice";
 import {
   dayLabels,
   expressSurchargeForCountry,
@@ -368,7 +369,13 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-6 sm:gap-7 h-full">
             <ProductInfo
               name={product.name}
-              price={<FormattedPrice usdValue={product.priceValue} />}
+              price={
+                <SalePrice
+                  priceValue={product.priceValue}
+                  discountPriceValue={product.discountPriceValue}
+                  discountPriceAed={product.discountPriceAed}
+                />
+              }
               taxLabel="TAX Inclusive"
               rewardPoints={vm.rewardPoints}
             />

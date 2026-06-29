@@ -173,6 +173,10 @@ export type OSProduct = {
    * (e.g. ["lb-beirut","ae-dubai"]). Absent means all cities in the country.
    */
   deliverableCities?: string[];
+  /** Discounted price in USD. Null/absent means no active discount. */
+  discount_price_usd?: string | null;
+  /** Discounted price in AED. Use directly for AED shoppers when available. */
+  discount_price_aed?: string | null;
 };
 
 export type OSProductsResponse = {
