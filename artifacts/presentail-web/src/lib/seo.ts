@@ -38,6 +38,7 @@ export {
   buildOccasionSeo,
   buildProductSeo,
   buildBrandSeo,
+  buildContactSeo,
   buildStaticSeo,
   buildNonIndexableSeo,
   isNonIndexableRouteKey,

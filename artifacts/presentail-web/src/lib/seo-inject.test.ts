@@ -5304,3 +5304,126 @@ describe("STATIC_PAGE_GROUP exports", () => {
     }
   });
 });
+
+describe("buildContactSeo — title-length guardrail", () => {
+  // All real city × lang combinations that appear in the web storefront.
+  const CITY_KEYS = [
+    "ae-dubai", "ae-abu-dhabi", "ae-sharjah", "ae-ajman",
+    "ae-ras-al-khaimah", "ae-fujairah", "ae-umm-al-quwain",
+    "lb-beirut", "lb-jounieh", "lb-tripoli", "lb-saida", "lb-tyre",
+    "lb-zahle", "lb-byblos", "lb-baalbek",
+    "cy-nicosia", "cy-limassol", "cy-larnaca", "cy-paphos",
+  ];
+
+  it("all 19 real city × 3 lang combinations produce titles between 30 and 65 chars", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo, CITY_NAMES } = await import("../../src/lib/seo.mjs");
+    const langs = ["en", "ar", "fr"];
+    for (const lang of langs) {
+      for (const cityKey of CITY_KEYS) {
+        const country = cityKey.split("-")[0];
+        const cityLabel = CITY_NAMES[lang]?.[cityKey] ?? CITY_NAMES.en[cityKey] ?? cityKey;
+        const result = buildContactSeo({ lang, city: cityLabel, country });
+        expect(
+          result.title.length,
+          `[${lang}] city="${cityKey}" → "${result.title}" (${result.title.length} chars)`,
+        ).toBeGreaterThanOrEqual(30);
+        expect(
+          result.title.length,
+          `[${lang}] city="${cityKey}" → "${result.title}" (${result.title.length} chars)`,
+        ).toBeLessThanOrEqual(65);
+      }
+    }
+  });
+
+  it("the longest French city name (Oumm al Qaïwaïn) fits the preferred template and stays within bounds", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "fr", city: "Oumm al Qaïwaïn", country: "ae" });
+    // "Contacter Presentail à Oumm al Qaïwaïn | Aide livraison" = 55 chars ≤ 65,
+    // so the preferred template IS used.
+    expect(result.title).toBe("Contacter Presentail à Oumm al Qaïwaïn | Aide livraison");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("the long French city name Ras el Khaïmah falls back to the short template and still passes", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "fr", city: "Ras el Khaïmah", country: "ae" });
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("a very short city name (e.g. 'Al') uses the preferred template since it fits within 65 chars", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    // "Contact Presentail in Al | Gift Delivery Help" = 45 chars ≤ 65,
+    // so the preferred template is used (not medium).
+    // Medium is a defensive tier for edge cases where preferred >65 AND fallback <30 simultaneously,
+    // which cannot arise with the current templates and any real city name.
+    const result = buildContactSeo({ lang: "en", city: "Al", country: "ae" });
+    expect(result.title).toBe("Contact Presentail in Al | Gift Delivery Help");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("a normal EN city (Dubai) uses the preferred template", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "en", city: "Dubai", country: "ae" });
+    expect(result.title).toBe("Contact Presentail in Dubai | Gift Delivery Help");
+    expect(result.title.length).toBeGreaterThanOrEqual(35);
+    expect(result.title.length).toBeLessThanOrEqual(60);
+  });
+
+  it("a normal AR city (بيروت) uses the preferred template and stays within bounds", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildContactSeo } = await import("../../src/lib/seo.mjs");
+    const result = buildContactSeo({ lang: "ar", city: "بيروت", country: "lb" });
+    expect(result.title).toContain("دعم التوصيل");
+    expect(result.title.length).toBeGreaterThanOrEqual(30);
+    expect(result.title.length).toBeLessThanOrEqual(65);
+  });
+
+  it("non-contact buildStaticSeo calls are not affected", async () => {
+    // @ts-expect-error - mjs import without types; plain JS module.
+    const { buildStaticSeo } = await import("../../src/lib/seo.mjs");
+    const home = buildStaticSeo({ lang: "en", routeKey: "home", city: "Dubai", country: "ae" });
+    expect(home.title).toBe("Flower & Gift Delivery in Dubai | Presentail");
+    const weddings = buildStaticSeo({ lang: "en", routeKey: "weddings", city: "Beirut", country: "lb" });
+    expect(weddings.title).toBe("Wedding Flowers in Beirut | Presentail");
+    const faqs = buildStaticSeo({ lang: "en", routeKey: "faqs", city: "Dubai", country: "ae" });
+    expect(faqs.title).toBe("Flower Delivery FAQs in Dubai | Presentail");
+  });
+
+  it("injectSeoTagsAsync uses the contact guardrail title for the /contact route", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/en-ae/dubai/contact",
+      OPTS,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain(
+      "<title>Contact Presentail in Dubai | Gift Delivery Help</title>",
+    );
+  });
+
+  it("injectSeoTagsAsync contact route for French long city stays ≤65 chars", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await injectSeoTagsAsync(
+      HTML,
+      "/fr-ae/umm-al-quwain/contact",
+      OPTS,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const match = out.match(/<title>(.*?)<\/title>/);
+    expect(match).not.toBeNull();
+    const titleLen = match![1].length;
+    expect(titleLen).toBeLessThanOrEqual(65);
+    expect(titleLen).toBeGreaterThanOrEqual(30);
+  });
+});

@@ -81,6 +81,7 @@ import {
   buildProductSeo,
   buildCategorySeo,
   buildOccasionSeo,
+  buildContactSeo,
 } from "./src/lib/seo.mjs";
 
 
@@ -303,10 +304,14 @@ function computeSeoHead(pathname, { origin = "", basePath = "" } = {}) {
     : "";
 
   const params = { city: cityLabel, country: countryLabel };
-  const title = format(
-    TITLES[lang]?.[routeKey] ?? TITLES.en[routeKey] ?? TITLES.en.landing,
-    params,
-  );
+  // Contact page uses a tiered title-length guardrail instead of the plain
+  // TITLES template so all city names land in the 30–65 char audit window.
+  const title = routeKey === "contact"
+    ? buildContactSeo({ lang, city: cityLabel, country: countryLabel }).title
+    : format(
+        TITLES[lang]?.[routeKey] ?? TITLES.en[routeKey] ?? TITLES.en.landing,
+        params,
+      );
   if (process.env.NODE_ENV !== "production" && title.length > 65) {
     console.warn(
       `SEO title exceeds 65 chars (${title.length}) [${routeKey}/${lang}]: "${title}"`,

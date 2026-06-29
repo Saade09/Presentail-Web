@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, type Language } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
+import { CITY_NAMES, buildContactSeo } from "@/lib/seo";
 import { Mail, MessageCircle, Phone, MapPin, ArrowRight, ExternalLink } from "lucide-react";
 
 type Copy = {
@@ -156,10 +156,7 @@ export default function Contact() {
   const cityDisplay = cityId
     ? ((CITY_NAMES[language] ?? CITY_NAMES.en)[cityId] ?? "")
     : "";
-  const h1 = formatTemplate(
-    (TITLES[language] ?? TITLES.en).contact,
-    { city: cityDisplay },
-  ).split(" | ")[0];
+  const h1 = buildContactSeo({ lang: language, city: cityDisplay }).title.split(" | ")[0];
 
   return (
     <div className="bg-background" data-testid="contact-page" lang={language}>

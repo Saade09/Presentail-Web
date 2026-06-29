@@ -134,7 +134,7 @@ export const TITLES = {
     partner: "Partner with Presentail | Brand & Supplier Partnerships",
     weddings: "Wedding Flowers in {city} | Presentail",
     corporate: "Corporate Gifting in {city} | Presentail",
-    contact: "Contact Presentail in {city}",
+    contact: "Contact Presentail in {city} | Gift Delivery Help",
     faqs: "Flower Delivery FAQs in {city} | Presentail",
     terms: "Terms of Use | Presentail",
     privacy: "Privacy Policy | Presentail",
@@ -163,7 +163,7 @@ export const TITLES = {
     partner: "كن شريكاً مع Presentail | شراكات العلامات والموردين",
     weddings: "زهور الزفاف في {city} | Presentail",
     corporate: "الإهداء للشركات في {city} | Presentail",
-    contact: "تواصل مع Presentail في {city}",
+    contact: "تواصل مع Presentail في {city} | دعم التوصيل",
     faqs: "أسئلة توصيل الزهور في {city} | Presentail",
     terms: "شروط الاستخدام | Presentail",
     privacy: "سياسة الخصوصية | Presentail",
@@ -192,7 +192,7 @@ export const TITLES = {
     partner: "Partenaire de Presentail | Partenariats marques et fournisseurs",
     weddings: "Fleurs de mariage à {city} | Presentail",
     corporate: "Cadeaux d'entreprise à {city} | Presentail",
-    contact: "Contacter Presentail à {city}",
+    contact: "Contacter Presentail à {city} | Aide livraison",
     faqs: "FAQ livraison de fleurs à {city} | Presentail",
     terms: "Conditions d'utilisation | Presentail",
     privacy: "Politique de confidentialité | Presentail",
@@ -623,6 +623,63 @@ export function buildBrandSeo({ lang, brandName, city, country } = {}) {
   return meta({
     title,
     description: formatTemplate(DESCRIPTIONS[l].brand, params),
+  });
+}
+
+// Contact page title guardrail constants (not exported from TITLES to avoid
+// collision with the static-seo fallback path).
+const CONTACT_TITLE_HARD_MAX = 65;
+const CONTACT_TITLE_MIN = 30;
+
+const CONTACT_TITLE_PREFERRED = {
+  en: "Contact Presentail in {city} | Gift Delivery Help",
+  ar: "تواصل مع Presentail في {city} | دعم التوصيل",
+  fr: "Contacter Presentail à {city} | Aide livraison",
+};
+
+const CONTACT_TITLE_FALLBACK = {
+  en: "Contact Presentail in {city}",
+  ar: "تواصل مع Presentail في {city}",
+  fr: "Contacter Presentail à {city}",
+};
+
+const CONTACT_TITLE_MEDIUM = {
+  en: "Presentail Contact in {city} | Delivery Help",
+  ar: "تواصل مع Presentail {city} | دعم التوصيل",
+  fr: "Contact Presentail {city} | Aide livraison",
+};
+
+/**
+ * Build SEO meta for the /contact page with a smart title-length guardrail.
+ *
+ * Tiers (evaluated in order):
+ *   1. Preferred  — used when its rendered length ≤ CONTACT_TITLE_HARD_MAX (65).
+ *   2. Fallback   — used when preferred is too long.
+ *   3. Medium     — used when fallback is shorter than CONTACT_TITLE_MIN (30),
+ *                   i.e. an extremely short city name.
+ *
+ * Returns the same meta(...) shape as all other build*Seo functions.
+ */
+export function buildContactSeo({ lang, city, country } = {}) {
+  const l = pickLang(lang);
+  const params = { city: city ?? "", country: country ?? "" };
+
+  const preferred = formatTemplate(CONTACT_TITLE_PREFERRED[l], params);
+  const fallback = formatTemplate(CONTACT_TITLE_FALLBACK[l], params);
+  const medium = formatTemplate(CONTACT_TITLE_MEDIUM[l], params);
+
+  let title;
+  if (preferred.length <= CONTACT_TITLE_HARD_MAX) {
+    title = preferred;
+  } else if (fallback.length >= CONTACT_TITLE_MIN) {
+    title = fallback;
+  } else {
+    title = medium;
+  }
+
+  return meta({
+    title,
+    description: formatTemplate(DESCRIPTIONS[l].contact, params),
   });
 }
 
