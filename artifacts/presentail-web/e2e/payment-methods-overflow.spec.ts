@@ -126,8 +126,45 @@ async function elementOverflowsViewport(
 }
 
 // ---------------------------------------------------------------------------
+// Logo clipping helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when any logo image inside `[data-testid="payment-methods"]`
+ * is clipped or has zero visible area. Checks are relative to both the
+ * viewport and the container bounds so logos hidden by `overflow: hidden` on
+ * an ancestor are also caught.
+ */
+async function anyLogoIsClipped(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const TOLERANCE = 2; // px — avoids false positives from sub-pixel rounding
+    const containers = document.querySelectorAll(
+      '[data-testid="payment-methods"]',
+    );
+    for (const container of containers) {
+      const containerRect = container.getBoundingClientRect();
+      const imgs = container.querySelectorAll("img");
+      for (const img of imgs) {
+        const rect = img.getBoundingClientRect();
+        // Clipped if rendered with no visible size
+        if (rect.width === 0 || rect.height === 0) return true;
+        // Clipped if the right edge overflows the viewport
+        if (rect.right > window.innerWidth + TOLERANCE) return true;
+        // Clipped if the right edge overflows the container (overflow:hidden)
+        if (rect.right > containerRect.right + TOLERANCE) return true;
+        // Clipped if the bottom edge overflows the container
+        if (rect.bottom > containerRect.bottom + TOLERANCE) return true;
+      }
+    }
+    return false;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+const NARROW = { width: 320, height: 568 };
 
 test.describe("PaymentMethods — no horizontal overflow at 375 px (phone)", () => {
   test.use({ viewport: PHONE });
@@ -218,3 +255,104 @@ test.describe("PaymentMethods — no horizontal overflow at 375 px (phone)", () 
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 320 px — very small / legacy phone (e.g. iPhone SE 1st gen)
+// ---------------------------------------------------------------------------
+
+test.describe(
+  "PaymentMethods — logos not clipped at 320 px (very small screen)",
+  () => {
+    test.use({ viewport: NARROW });
+
+    test.beforeEach(async ({ page }) => {
+      await installStubs(page);
+      await page.addInitScript(
+        ({ location }) => {
+          window.localStorage.setItem(
+            "presentail_location_v1",
+            JSON.stringify(location),
+          );
+          window.localStorage.setItem(
+            "presentail_delivery_location_v1",
+            JSON.stringify(location),
+          );
+        },
+        { location: LOCATION },
+      );
+    });
+
+    test("Footer: no logo is clipped or overflowing at 320 px", async ({
+      page,
+    }) => {
+      await page.goto("/en-lb/beirut/");
+
+      // Scroll to the bottom so the footer renders in the normal flow.
+      await page.evaluate(() =>
+        window.scrollTo(0, document.body.scrollHeight),
+      );
+
+      const footerPayment = page
+        .locator("footer [data-testid='payment-methods']")
+        .first();
+      await expect(footerPayment).toBeVisible({ timeout: 10_000 });
+
+      // No page-level horizontal scrollbar.
+      const pageOverflows = await hasHorizontalOverflow(page);
+      expect(
+        pageOverflows,
+        "page should have no horizontal scrollbar at 320 px",
+      ).toBe(false);
+
+      // The component itself must not bleed past the viewport right edge.
+      const componentOverflows = await elementOverflowsViewport(
+        page,
+        "payment-methods",
+      );
+      expect(
+        componentOverflows,
+        "payment-methods should not bleed past the right viewport edge at 320 px",
+      ).toBe(false);
+
+      // No individual logo image should be clipped.
+      const logosClipped = await anyLogoIsClipped(page);
+      expect(
+        logosClipped,
+        "no payment logo should be clipped or have zero size at 320 px",
+      ).toBe(false);
+    });
+
+    test("ProductDetail: no logo is clipped or overflowing at 320 px", async ({
+      page,
+    }) => {
+      await page.goto("/en-lb/beirut/product/rose-bouquet");
+
+      const pdpPayment = page.getByTestId("payment-methods").first();
+      await expect(pdpPayment).toBeVisible({ timeout: 15_000 });
+
+      // No page-level horizontal scrollbar.
+      const pageOverflows = await hasHorizontalOverflow(page);
+      expect(
+        pageOverflows,
+        "page should have no horizontal scrollbar at 320 px",
+      ).toBe(false);
+
+      // The component itself must not bleed past the viewport right edge.
+      const componentOverflows = await elementOverflowsViewport(
+        page,
+        "payment-methods",
+      );
+      expect(
+        componentOverflows,
+        "payment-methods should not bleed past the right viewport edge at 320 px",
+      ).toBe(false);
+
+      // No individual logo image should be clipped.
+      const logosClipped = await anyLogoIsClipped(page);
+      expect(
+        logosClipped,
+        "no payment logo should be clipped or have zero size at 320 px",
+      ).toBe(false);
+    });
+  },
+);
