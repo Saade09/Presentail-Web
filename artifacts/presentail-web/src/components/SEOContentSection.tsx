@@ -218,10 +218,10 @@ function SEOContentSectionInner({
   return (
     <section
       dir={dir}
-      className="mt-16 rounded-2xl bg-stone-50 border border-stone-100 shadow-sm overflow-hidden"
+      className="w-full bg-[#FAF8F5] mt-12 md:mt-16 py-10 md:py-16"
       data-testid="seo-content-section"
     >
-      <div className="px-6 md:px-10 py-10 md:py-12">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 md:px-10">
         <h2 className="font-serif text-2xl md:text-3xl text-foreground mb-4 leading-snug">
           {heading}
         </h2>
@@ -230,7 +230,7 @@ function SEOContentSectionInner({
           {intro}
         </p>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 md:mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10 md:mb-12">
           {benefits.map((benefit, i) => {
             const IconEl = (benefit as { icon?: React.ElementType }).icon;
             return (
