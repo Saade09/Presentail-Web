@@ -25,7 +25,8 @@
     "check-logo-preload": "node scripts/check-logo-preload.mjs dist/public",
     "check-stripe-isolation": "node scripts/check-stripe-isolation.mjs dist/public",
     "check-public-image-budget": "node scripts/check-public-image-budget.mjs public",
-    "check-contact-title-length": "node scripts/check-contact-title-length.mjs"
+    "check-contact-title-length": "node scripts/check-contact-title-length.mjs",
+    "check-seo-title-length": "node scripts/check-seo-title-length.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
